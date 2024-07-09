@@ -1,12 +1,12 @@
 {
-  "name": "@metamask/playground",
+  "name": "@metamask/ocap-playground",
   "version": "0.0.0",
   "description": "An Ocap Kernel playground",
   "keywords": [
     "MetaMask",
     "Ethereum"
   ],
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/playground#readme",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/ocap-playground#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -18,21 +18,27 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/types/index.d.ts"
+      "import": {
+        "default": "./dist/index.mjs",
+        "types": "./dist/index.d.mts"
+      },
+      "require": {
+        "default": "./dist/index.cjs",
+        "types": "./dist/index.d.cts"
+      }
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/types/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "tsup --config ../../tsup.config.ts --tsconfig ./tsconfig.build.json --clean",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/playground",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-playground",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "jest --reporters=jest-silent-reporter",
     "posttest": "jest-it-up",
@@ -41,13 +47,15 @@
     "test:watch": "jest --watch"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
+    "@ts-bridge/cli": "^0.1.4",
+    "@ts-bridge/shims": "^0.1.1",
     "@types/jest": "^28.1.6",
     "deepmerge": "^4.3.1",
     "jest": "^28.1.3",
     "jest-it-up": "^2.0.2",
     "ts-jest": "^28.0.7",
-    "tsup": "^8.0.2",
     "typedoc": "^0.24.8",
     "typedoc-plugin-missing-exports": "^2.0.0",
     "typescript": "~4.9.5"

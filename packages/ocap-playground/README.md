@@ -1,14 +1,14 @@
-# `@metamask/playground`
+# `@metamask/ocap-playground`
 
 An Ocap Kernel playground.
 
 ## Installation
 
-`yarn add @metamask/playground`
+`yarn add @metamask/ocap-playground`
 
 or
 
-`npm install @metamask/playground`
+`npm install @metamask/ocap-playground`
 
 ## Contributing
 

@@ -1,10 +1,14 @@
 ---
 ignores:
+  - '@arethetypeswrong/cli'
   - '@lavamoat/allow-scripts'
   - '@lavamoat/preinstall-always-fail'
   - '@metamask/auto-changelog'
-  - '@yarnpkg/*'
+  - '@ts-bridge/cli'
+  - '@ts-bridge/shims'
   - '@types/jest'
+  - '@types/node'
+  - '@yarnpkg/*'
   - 'jest-silent-reporter'
   - 'prettier-plugin-*'
   - 'ts-jest'

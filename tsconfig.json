@@ -5,6 +5,6 @@
     "resolveJsonModule": true
   },
   "files": [],
-  "include": ["tsup.config.ts"],
-  "references": [{ "path": "./packages/playground" }]
+  "include": [],
+  "references": [{ "path": "./packages/ocap-playground" }]
 }

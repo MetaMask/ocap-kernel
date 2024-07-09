@@ -201,26 +201,35 @@ gen_enforced_field(WorkspaceCwd, 'license', null) :-
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The entrypoint for all published packages must be the same.
-gen_enforced_field(WorkspaceCwd, 'main', './dist/index.js') :-
+gen_enforced_field(WorkspaceCwd, 'main', './dist/index.cjs') :-
+  \+ workspace_field(WorkspaceCwd, 'private', true).
+gen_enforced_field(WorkspaceCwd, 'module', './dist/index.mjs') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify an entrypoint.
 gen_enforced_field(WorkspaceCwd, 'main', null) :-
   workspace_field(WorkspaceCwd, 'private', true).
+gen_enforced_field(WorkspaceCwd, 'module', null) :-
+  workspace_field(WorkspaceCwd, 'private', true).
 
 % The type definitions entrypoint for all publishable packages must be the same.
-gen_enforced_field(WorkspaceCwd, 'types', './dist/types/index.d.ts') :-
+gen_enforced_field(WorkspaceCwd, 'types', './dist/index.d.cts') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify a type definitions entrypoint.
 gen_enforced_field(WorkspaceCwd, 'types', null) :-
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The exports for all published packages must be the same.
-gen_enforced_field(WorkspaceCwd, 'exports["."].import', './dist/index.mjs') :-
+% CommonJS
+gen_enforced_field(WorkspaceCwd, 'exports["."].require.default', './dist/index.cjs') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
-gen_enforced_field(WorkspaceCwd, 'exports["."].require', './dist/index.js') :-
+gen_enforced_field(WorkspaceCwd, 'exports["."].require.types', './dist/index.d.cts') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
-gen_enforced_field(WorkspaceCwd, 'exports["."].types', './dist/types/index.d.ts') :-
+% ESM
+gen_enforced_field(WorkspaceCwd, 'exports["."].import.default', './dist/index.mjs') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
+gen_enforced_field(WorkspaceCwd, 'exports["."].import.types', './dist/index.d.mts') :-
+  \+ workspace_field(WorkspaceCwd, 'private', true).
+% package.json
 gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify exports.
@@ -245,7 +254,7 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
   WorkspaceCwd = '.'.
 
 % All non-root packages must have the same "build" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.build', 'tsup --config ../../tsup.config.ts --tsconfig ./tsconfig.build.json --clean') :-
+gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "build:docs" script.
