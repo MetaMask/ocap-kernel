@@ -1,0 +1,11 @@
+---
+ignores:
+  - '@lavamoat/allow-scripts'
+  - '@lavamoat/preinstall-always-fail'
+  - '@metamask/auto-changelog'
+  - '@yarnpkg/*'
+  - '@types/jest'
+  - 'jest-silent-reporter'
+  - 'prettier-plugin-*'
+  - 'ts-jest'
+  - 'typedoc'

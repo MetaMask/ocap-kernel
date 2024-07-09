@@ -22,21 +22,29 @@ module.exports = {
   collectCoverage: true,
 
   // An array of glob patterns indicating a set of files for which coverage information should be collected
-  collectCoverageFrom: ['./src/**/*.ts'],
+  collectCoverageFrom: [
+    './src/**/*.ts',
+    '!./src/**/*.test.ts',
+    '!./src/**/*.test.browser.ts',
+    '!./src/test-utils/**/*.ts',
+    '!./src/**/*.d.ts',
+    '!./src/**/__test__/**',
+    '!./src/**/__mocks__/**',
+    '!./src/**/__snapshots__/**',
+    '!./src/**/__fixtures__/**',
+  ],
 
   // The directory where Jest should output its coverage files
   coverageDirectory: 'coverage',
 
   // An array of regexp pattern strings used to skip coverage collection
-  // coveragePathIgnorePatterns: [
-  //   "/node_modules/"
-  // ],
+  coveragePathIgnorePatterns: ['./src/index.ts'],
 
   // Indicates which provider should be used to instrument code for coverage
   coverageProvider: 'babel',
 
   // A list of reporter names that Jest uses when writing coverage reports
-  coverageReporters: ['html', 'json-summary', 'text'],
+  coverageReporters: ['html', 'json-summary', 'text', 'json'],
 
   // An object that configures minimum threshold enforcement for coverage results
   coverageThreshold: {
@@ -85,7 +93,16 @@ module.exports = {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  // Here we ensure that Jest resolves `@metamask/*` imports to the uncompiled source code for packages that live in this repo.
+  // NOTE: This must be synchronized with the `paths` option in `tsconfig.packages.json`.
+  moduleNameMapper: {
+    '^@metamask/(.+)$': [
+      '<rootDir>/../$1/src',
+      // Some @metamask/* packages we are referencing aren't in this monorepo,
+      // so in that case use their published versions
+      '<rootDir>/../../node_modules/@metamask/$1',
+    ],
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -100,7 +117,7 @@ module.exports = {
   preset: 'ts-jest',
 
   // Run tests from one or more projects
-  // projects: undefined,
+  // projects: undefined
 
   // Use this configuration option to add custom reporters to Jest
   // reporters: undefined,
@@ -132,10 +149,10 @@ module.exports = {
   // runner: "jest-runner",
 
   // The paths to modules that run some code to configure or set up the testing environment before each test
-  // setupFiles: [],
+  // setupFiles: ['../../tests/setup.ts'],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: [],
+  // setupFilesAfterEnv: ['../../tests/setupAfterEnv/index.ts'],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,
@@ -144,10 +161,12 @@ module.exports = {
   // snapshotSerializers: [],
 
   // The test environment that will be used for testing
-  // testEnvironment: "jest-environment-node",
+  testEnvironment: 'node',
 
   // Options that will be passed to the testEnvironment
-  // testEnvironmentOptions: {},
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
 
   // Adds a location field to test results
   // testLocationInResults: false,
@@ -172,8 +191,8 @@ module.exports = {
   // This option allows use of a custom test runner
   // testRunner: "jest-circus/runner",
 
-  // Reduce the default test timeout from 5s to 2.5s
-  testTimeout: 2500,
+  // Default timeout of a test in milliseconds.
+  testTimeout: 5000,
 
   // This option sets the URL for the jsdom environment. It is reflected in properties such as location.href
   // testURL: "http://localhost",
@@ -185,10 +204,7 @@ module.exports = {
   // transform: undefined,
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  // transformIgnorePatterns: [
-  //   "/node_modules/",
-  //   "\\.pnp\\.[^\\/]+$"
-  // ],
+  // transformIgnorePatterns: undefined
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
   // unmockedModulePathPatterns: undefined,
