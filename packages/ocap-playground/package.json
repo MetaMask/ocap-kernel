@@ -13,7 +13,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "lint:changelog": "../../scripts/validate-changelog.sh @metamask/ocap-playground",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-playground",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "jest --reporters=jest-silent-reporter",
     "posttest": "jest-it-up",
