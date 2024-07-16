@@ -6,5 +6,5 @@
   },
   "files": [],
   "include": [],
-  "references": [{ "path": "./packages/ocap-playground" }]
+  "references": [{ "path": "./packages/ocap-skunkworks" }]
 }

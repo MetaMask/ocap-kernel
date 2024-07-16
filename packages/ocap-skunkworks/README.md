@@ -1,14 +1,14 @@
-# `@metamask/ocap-playground`
+# `@metamask/ocap-skunkworks`
 
-An Ocap Kernel playground.
+A home for Ocap Kernel experiments.
 
 ## Installation
 
-`yarn add @metamask/ocap-playground`
+`yarn add @metamask/ocap-skunkworks`
 
 or
 
-`npm install @metamask/ocap-playground`
+`npm install @metamask/ocap-skunkworks`
 
 ## Contributing
 

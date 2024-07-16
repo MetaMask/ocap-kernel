@@ -1,5 +1,5 @@
 {
-  "name": "Ocap Kernel Playground Extension",
+  "name": "Ocap Kernel Skunkworks Extension",
   "version": "0.0",
   "description": "For running Ocap Kernel experiments in an extension environment.",
   "manifest_version": 3,
