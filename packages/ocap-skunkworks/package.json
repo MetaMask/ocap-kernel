@@ -11,15 +11,18 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean",
-    "build:docs": "typedoc",
+    "build:extension": "vite build -c vite.config.extension.mjs",
+    "build:library": "ts-bridge --project tsconfig.build.json --clean",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-skunkworks",
     "publish:preview": "yarn npm publish --tag preview",
+    "start": "vite -c vite.config.extension.mjs",
     "test": "jest --reporters=jest-silent-reporter",
     "posttest": "jest-it-up",
     "test:clean": "jest --clearCache",
     "test:verbose": "jest --verbose",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:docs": "typedoc"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
@@ -33,7 +36,9 @@
     "ts-jest": "^28.0.7",
     "typedoc": "^0.24.8",
     "typedoc-plugin-missing-exports": "^2.0.0",
-    "typescript": "~4.9.5"
+    "typescript": "~4.9.5",
+    "vite": "^5.3.4",
+    "vite-plugin-static-copy": "^1.0.6"
   },
   "engines": {
     "node": "^18.18 || >=20"

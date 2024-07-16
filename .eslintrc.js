@@ -41,6 +41,14 @@ module.exports = {
     },
 
     {
+      files: ['*.mjs'],
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: '2020',
+      },
+    },
+
+    {
       files: ['*.ts'],
       extends: ['@metamask/eslint-config-typescript'],
       parserOptions: {
@@ -50,20 +58,6 @@ module.exports = {
       rules: {
         // Enable rules that are disabled in `@metamask/eslint-config-typescript`
         '@typescript-eslint/no-explicit-any': 'error',
-
-        // TODO: auto-fix breaks stuff
-        '@typescript-eslint/promise-function-async': 'off',
-
-        // Without the `allowAny` option, this rule causes a lot of false
-        // positives.
-        '@typescript-eslint/restrict-template-expressions': [
-          'error',
-          {
-            allowAny: true,
-            allowBoolean: true,
-            allowNumber: true,
-          },
-        ],
       },
     },
 

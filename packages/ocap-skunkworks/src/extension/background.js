@@ -2,10 +2,7 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
 // Send
 chrome.action.onClicked.addListener(async () => {
-  sendMessage(
-    'greetings',
-    { name: 'Kernel' },
-  );
+  sendMessage('greetings', { name: 'Kernel' });
 });
 
 async function sendMessage(type, data) {
@@ -14,12 +11,12 @@ async function sendMessage(type, data) {
   chrome.runtime.sendMessage({
     type,
     target: 'offscreen',
-    data
+    data,
   });
 }
 
 async function provideOffScreenDocument() {
-  if (!(await hasDocument())) {
+  if (!(await chrome.offscreen.hasDocument())) {
     await chrome.offscreen.createDocument({
       url: OFFSCREEN_DOCUMENT_PATH,
       reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
@@ -47,18 +44,8 @@ async function handleMessage(message) {
 }
 
 async function closeOffscreenDocument() {
-  if (!(await hasDocument())) {
+  if (!(await chrome.offscreen.hasDocument())) {
     return;
   }
   await chrome.offscreen.closeDocument();
-}
-
-async function hasDocument() {
-  const allClients = await clients.matchAll();
-  for (const client of allClients) {
-    if (client.url.endsWith(OFFSCREEN_DOCUMENT_PATH)) {
-      return true;
-    }
-  }
-  return false;
 }

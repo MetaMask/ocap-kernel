@@ -7,11 +7,10 @@ async function handleMessage(message) {
 
   switch (message.type) {
     case 'greetings':
-      reply('salutations', `Good day to you, ${message.data.name}!`)
+      reply('salutations', `Good day to you, ${message.data.name}!`);
       break;
     default:
       console.error(`Received unexpected message type: "${message.type}"`);
-      return;
   }
 }
 
@@ -20,5 +19,5 @@ function reply(type, data) {
     data,
     target: 'background',
     type,
-  })
+  });
 }
