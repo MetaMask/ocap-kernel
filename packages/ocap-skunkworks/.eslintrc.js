@@ -9,5 +9,13 @@ module.exports = {
         'jsdoc/require-jsdoc': 'off',
       },
     },
+
+    {
+      files: ['vite.*.mts'],
+      parserOptions: {
+        sourceType: 'module',
+        tsconfigRootDir: __dirname,
+      },
+    },
   ],
 };

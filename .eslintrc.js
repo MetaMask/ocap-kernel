@@ -41,15 +41,7 @@ module.exports = {
     },
 
     {
-      files: ['*.mjs'],
-      parserOptions: {
-        sourceType: 'module',
-        ecmaVersion: '2020',
-      },
-    },
-
-    {
-      files: ['*.ts'],
+      files: ['*.ts', '*.cts', '*.mts'],
       extends: ['@metamask/eslint-config-typescript'],
       parserOptions: {
         tsconfigRootDir: __dirname,

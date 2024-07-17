@@ -7,5 +7,10 @@
     "inlineSources": true,
     "sourceMap": true
   },
-  "exclude": ["./jest.config.packages.ts", "**/*.test.ts", "**/jest.config.ts"]
+  "exclude": [
+    "./jest.config.packages.ts",
+    "**/vite.*.mts",
+    "**/*.test.ts",
+    "**/jest.config.ts"
+  ]
 }
