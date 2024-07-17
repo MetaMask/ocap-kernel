@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "isolatedModules": true,
+    "lib": ["DOM", "ES2020"],
+    "noEmit": true,
+    "types": ["chrome"]
+  },
+  "include": ["./**/*.ts"]
+}

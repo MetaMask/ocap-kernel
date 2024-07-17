@@ -13,7 +13,7 @@ export default defineConfig({
     outDir: path.resolve(root, '../../dist'),
     rollupOptions: {
       input: {
-        background: path.resolve(root, 'background.js'),
+        background: path.resolve(root, 'background.ts'),
         offscreen: path.resolve(root, 'offscreen.html'),
       },
       output: {
