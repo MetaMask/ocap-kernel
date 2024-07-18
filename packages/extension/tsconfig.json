@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "allowJs": true,
     "isolatedModules": true,
@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["chrome"]
   },
-  "include": ["./**/*.ts", "./apply-lockdown.mjs"]
+  "include": ["./src/**/*.ts", "./src/apply-lockdown.mjs"]
 }

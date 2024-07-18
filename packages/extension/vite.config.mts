@@ -2,7 +2,7 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-const projectRoot = './src/extension';
+const projectRoot = './src';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,7 +10,7 @@ export default defineConfig({
 
   build: {
     emptyOutDir: true,
-    outDir: path.resolve(projectRoot, '../../dist'),
+    outDir: path.resolve(projectRoot, './dist'),
     rollupOptions: {
       // Ignore the following module specifiers if imported
       external: [
@@ -34,8 +34,8 @@ export default defineConfig({
       targets: [
         { src: 'manifest.json', dest: './' },
         { src: 'apply-lockdown.mjs', dest: './' },
-        { src: '../../../../node_modules/ses/dist/ses.mjs', dest: './' },
-        { src: '../../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
+        { src: '../../../node_modules/ses/dist/ses.mjs', dest: './' },
+        { src: '../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
       ],
     }),
   ],

@@ -1,14 +1,14 @@
-# `@metamask/ocap-skunkworks`
+# `extension`
 
-A home for Ocap Kernel experiments.
+For running Ocap Kernel experiments in an extension environment.
 
 ## Installation
 
-`yarn add @metamask/ocap-skunkworks`
+`yarn add extension`
 
 or
 
-`npm install @metamask/ocap-skunkworks`
+`npm install extension`
 
 ## Contributing
 

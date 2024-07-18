@@ -99,6 +99,7 @@ workspace_basename(WorkspaceCwd, WorkspaceBasename) :-
 % and is not private.
 workspace_package_name(WorkspaceCwd, WorkspacePackageName) :-
   workspace_basename(WorkspaceCwd, WorkspaceBasename),
+  workspace_field(WorkspaceCwd, 'private', false),
   atom_concat('@metamask/', WorkspaceBasename, WorkspacePackageName).
 
 % True if RepoName can be unified with the repository name part of RepoUrl, a
@@ -255,11 +256,12 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 
 % All non-root packages must have the same "build" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
-  WorkspaceCwd \= 'packages/ocap-skunkworks',
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All published packages must have the same "publish:preview" script.

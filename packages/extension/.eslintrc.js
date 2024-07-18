@@ -3,7 +3,7 @@ module.exports = {
 
   overrides: [
     {
-      files: ['src/extension/**/*.js'],
+      files: ['src/**/*.js'],
       globals: { chrome: 'readonly', clients: 'readonly' },
     },
 
@@ -16,7 +16,7 @@ module.exports = {
     },
 
     {
-      files: ['vite.*.mts'],
+      files: ['vite.config.mts'],
       parserOptions: {
         sourceType: 'module',
         tsconfigRootDir: __dirname,

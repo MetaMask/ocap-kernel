@@ -1,8 +1,8 @@
 {
-  "name": "@metamask/ocap-skunkworks",
+  "name": "extension",
   "version": "0.0.0",
   "private": true,
-  "description": "A home for Ocap Kernel experiments",
+  "description": "For running Ocap Kernel experiments in an extension environment",
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
@@ -11,14 +11,11 @@
     "dist/"
   ],
   "scripts": {
-    "build": "yarn build:extension",
-    "build:docs": "typedoc",
-    "build:extension": "yarn check:types:extension && vite build -c vite.config.extension.mts",
-    "build:library": "ts-bridge --project tsconfig.build.json --clean",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-skunkworks",
-    "check:types:extension": "tsc --project src/extension/tsconfig.json",
+    "build": "yarn check:types && vite build -c vite.config.mts",
+    "changelog:validate": "../../scripts/validate-changelog.sh extension",
+    "check:types": "tsc",
     "publish:preview": "yarn npm publish --tag preview",
-    "start": "vite -c vite.config.extension.mts",
+    "start": "vite -c vite.config.mts",
     "test": "jest --reporters=jest-silent-reporter",
     "posttest": "jest-it-up",
     "test:clean": "jest --clearCache",

@@ -6,5 +6,5 @@
   },
   "files": [],
   "include": [],
-  "references": [{ "path": "./packages/ocap-skunkworks" }]
+  "references": [{ "path": "./packages/extension" }]
 }

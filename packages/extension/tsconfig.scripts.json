@@ -4,5 +4,5 @@
     "baseUrl": "./"
   },
   "references": [],
-  "include": []
+  "include": ["./vite.config.mts"]
 }
