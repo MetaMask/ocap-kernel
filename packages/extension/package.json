@@ -11,9 +11,10 @@
     "dist/"
   ],
   "scripts": {
-    "build": "yarn check:types && vite build -c vite.config.mts",
+    "build": "yarn build:types && yarn build:vite",
+    "build:types": "tsc",
+    "build:vite": "vite build -c vite.config.mts",
     "changelog:validate": "../../scripts/validate-changelog.sh extension",
-    "check:types": "tsc",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "vite -c vite.config.mts",
     "test": "jest --reporters=jest-silent-reporter",
@@ -29,8 +30,6 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
-    "@ts-bridge/cli": "^0.1.4",
-    "@ts-bridge/shims": "^0.1.1",
     "@types/chrome": "^0.0.268",
     "@types/jest": "^28.1.6",
     "deepmerge": "^4.3.1",

@@ -208,8 +208,10 @@ gen_enforced_field(WorkspaceCwd, 'module', './dist/index.mjs') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify an entrypoint.
 gen_enforced_field(WorkspaceCwd, 'main', null) :-
+  WorkspaceCwd \= 'packages/germs',
   workspace_field(WorkspaceCwd, 'private', true).
 gen_enforced_field(WorkspaceCwd, 'module', null) :-
+  WorkspaceCwd \= 'packages/germs',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The type definitions entrypoint for all publishable packages must be the same.
@@ -217,6 +219,7 @@ gen_enforced_field(WorkspaceCwd, 'types', './dist/index.d.cts') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify a type definitions entrypoint.
 gen_enforced_field(WorkspaceCwd, 'types', null) :-
+  WorkspaceCwd \= 'packages/germs',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The exports for all published packages must be the same.
@@ -235,6 +238,7 @@ gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') 
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify exports.
 gen_enforced_field(WorkspaceCwd, 'exports', null) :-
+  WorkspaceCwd \= 'packages/germs',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % Published packages must not have side effects.
@@ -242,6 +246,7 @@ gen_enforced_field(WorkspaceCwd, 'sideEffects', false) :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify side effects.
 gen_enforced_field(WorkspaceCwd, 'sideEffects', null) :-
+  WorkspaceCwd \= 'packages/germs',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The list of files included in published packages must only include files
@@ -254,12 +259,12 @@ gen_enforced_field(WorkspaceCwd, 'files', ['dist/']) :-
 gen_enforced_field(WorkspaceCwd, 'files', []) :-
   WorkspaceCwd = '.'.
 
-% All non-root packages must have the same "build" script.
+% All packages except the root and extension must have the same "build" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
   WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
-% All non-root packages must have the same "build:docs" script.
+% All packages except the root and extension must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
   WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.

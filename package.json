@@ -11,7 +11,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn run build:source",
+    "build": "yarn run build:source && yarn build:types",
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude ocap-kernel-monorepo --exclude extension --parallel --interlaced --verbose run build:docs",
     "build:source": "yarn workspaces foreach --all --parallel --exclude ocap-kernel-monorepo --interlaced --verbose run build",

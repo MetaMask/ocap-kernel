@@ -1,6 +1,6 @@
-# `extension`
+# `germs`
 
-For running Ocap Kernel experiments in an extension environment.
+From these germs, a Kernel will form.
 
 ## Contributing
 
