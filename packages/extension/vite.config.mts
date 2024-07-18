@@ -10,7 +10,7 @@ export default defineConfig({
 
   build: {
     emptyOutDir: true,
-    outDir: path.resolve(projectRoot, './dist'),
+    outDir: path.resolve(projectRoot, '../dist'),
     rollupOptions: {
       // Ignore the following module specifiers if imported
       external: [
@@ -33,7 +33,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         { src: 'manifest.json', dest: './' },
-        { src: 'apply-lockdown.mjs', dest: './' },
+        { src: '../../germs/src/shims/apply-lockdown.mjs', dest: './' },
         { src: '../../../node_modules/ses/dist/ses.mjs', dest: './' },
         { src: '../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
       ],

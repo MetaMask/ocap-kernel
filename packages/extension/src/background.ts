@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/no-unassigned-import
+// eslint-disable-next-line import/extensions,import/no-unassigned-import
 import './apply-lockdown.mjs';
 
 import type { ExtensionMessage } from './shared';

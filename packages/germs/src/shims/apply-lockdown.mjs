@@ -1,5 +1,5 @@
-import './ses.mjs.js';
-import './lockdown.mjs.js';
+import './ses.mjs';
+import './lockdown.mjs';
 
 lockdown({
   consoleTaming: 'unsafe',

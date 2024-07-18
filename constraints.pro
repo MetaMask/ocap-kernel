@@ -262,6 +262,7 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 % All packages except the root and extension must have the same "build" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
   WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= 'packages/germs',
   WorkspaceCwd \= '.'.
 
 % All packages except the root and extension must have the same "build:docs" script.

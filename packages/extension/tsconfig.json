@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["chrome"]
   },
-  "include": ["./src/**/*.ts", "./src/apply-lockdown.mjs"]
+  "include": ["./src/**/*.ts"]
 }

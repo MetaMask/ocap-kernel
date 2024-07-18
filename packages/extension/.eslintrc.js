@@ -8,14 +8,6 @@ module.exports = {
     },
 
     {
-      files: ['apply-lockdown.mjs'],
-      globals: { lockdown: 'readonly' },
-      rules: {
-        'import/unambiguous': 'off',
-      },
-    },
-
-    {
       files: ['vite.config.mts'],
       parserOptions: {
         sourceType: 'module',
