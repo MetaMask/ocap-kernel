@@ -31,7 +31,7 @@
   "scripts": {
     "build": "yarn clean && yarn build:typescript && yarn build:javascript",
     "build:docs": "typedoc",
-    "build:javascript": "yarn mkdirp dist && cp -r src/shims dist/",
+    "build:javascript": "yarn mkdirp dist/shims && cp src/shims/*js dist/shims",
     "build:typescript": "ts-bridge --project tsconfig.build.json --clean",
     "changelog:validate": "../../scripts/validate-changelog.sh germs",
     "clean": "rimraf ./dist",
