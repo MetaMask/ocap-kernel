@@ -7,14 +7,17 @@ const root = './src/extension';
 // https://vitejs.dev/config/
 export default defineConfig({
   root,
-  assetsInclude: ['**/*.json'],
   build: {
+    // Clean the outDir on build
     emptyOutDir: true,
     outDir: path.resolve(root, '../../dist'),
     rollupOptions: {
+      // Ignore the following module specifiers if imported
       external: [
+        // This file and its imports must not be modified
         './apply-lockdown.mjs',
       ],
+      // Our entry points
       input: {
         background: path.resolve(root, 'background.ts'),
         offscreen: path.resolve(root, 'offscreen.html'),
