@@ -1,40 +1,42 @@
 import path from 'path';
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-const root = './src/extension';
+const projectRoot = './src/extension';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  root,
+  root: projectRoot,
+
   build: {
-    // Clean the outDir on build
     emptyOutDir: true,
-    outDir: path.resolve(root, '../../dist'),
+    outDir: path.resolve(projectRoot, '../../dist'),
     rollupOptions: {
       // Ignore the following module specifiers if imported
       external: [
         // This file and its imports must not be modified
         './apply-lockdown.mjs',
       ],
-      // Our entry points
       input: {
-        background: path.resolve(root, 'background.ts'),
-        offscreen: path.resolve(root, 'offscreen.html'),
+        background: path.resolve(projectRoot, 'background.ts'),
+        offscreen: path.resolve(projectRoot, 'offscreen.html'),
       },
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]'
-      }
-    }
+        assetFileNames: '[name].[ext]',
+      },
+    },
   },
+
   plugins: [
-    viteStaticCopy({ targets: [
-      { src: 'manifest.json', dest: './' },
-      { src: 'apply-lockdown.mjs', dest: './' },
-      { src: '../../../../node_modules/ses/dist/ses.mjs', dest: './' },
-      { src: '../../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
-    ]})
-  ]
+    viteStaticCopy({
+      targets: [
+        { src: 'manifest.json', dest: './' },
+        { src: 'apply-lockdown.mjs', dest: './' },
+        { src: '../../../../node_modules/ses/dist/ses.mjs', dest: './' },
+        { src: '../../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
+      ],
+    }),
+  ],
 });
