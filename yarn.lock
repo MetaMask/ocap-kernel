@@ -458,6 +458,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@endo/env-options@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "@endo/env-options@npm:1.1.4"
+  checksum: 10/718c15ae91b5e3d00c8b90f64d07930cc6bc58297cbda55097c339121a8c63045cd909f4bd7a4c39635354d228fa68f6182eb43ac0b0eaa62b05618484ec8209
+  languageName: node
+  linkType: hard
+
+"@endo/lockdown@npm:^1.0.7":
+  version: 1.0.7
+  resolution: "@endo/lockdown@npm:1.0.7"
+  dependencies:
+    ses: "npm:^1.5.0"
+  checksum: 10/1d4d0df4460e5acfbccaf1e41492d2b4b4f60679e55b3e349a032d3eafd2b629c5b61052e51e77bbf7a7ff1bbfe63ccca1c684dc1914bfb45064915aa86bda0e
+  languageName: node
+  linkType: hard
+
 "@es-joy/jsdoccomment@npm:~0.36.1":
   version: 0.36.1
   resolution: "@es-joy/jsdoccomment@npm:0.36.1"
@@ -1165,6 +1181,7 @@ __metadata:
   resolution: "@metamask/ocap-skunkworks@workspace:packages/ocap-skunkworks"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.15.3"
+    "@endo/lockdown": "npm:^1.0.7"
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@ts-bridge/cli": "npm:^0.1.4"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -1173,6 +1190,7 @@ __metadata:
     deepmerge: "npm:^4.3.1"
     jest: "npm:^28.1.3"
     jest-it-up: "npm:^2.0.2"
+    ses: "npm:^1.5.0"
     ts-jest: "npm:^28.0.7"
     typedoc: "npm:^0.24.8"
     typedoc-plugin-missing-exports: "npm:^2.0.0"
@@ -6596,6 +6614,15 @@ __metadata:
   bin:
     semver: bin/semver.js
   checksum: 10/1ef3a85bd02a760c6ef76a45b8c1ce18226de40831e02a00bad78485390b98b6ccaa31046245fc63bba4a47a6a592b6c7eedc65cc47126e60489f9cc1ce3ed7e
+  languageName: node
+  linkType: hard
+
+"ses@npm:^1.5.0":
+  version: 1.5.0
+  resolution: "ses@npm:1.5.0"
+  dependencies:
+    "@endo/env-options": "npm:^1.1.4"
+  checksum: 10/6f2cd8f3607f98838d6458cc4b77e6c1cffe8fc30b923212c1dde73c89e9a0e1eaa8f44ac38811d73a6961560e5be4155a0e58879f6dfe69d3319433251891da
   languageName: node
   linkType: hard
 

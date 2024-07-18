@@ -12,6 +12,9 @@ export default defineConfig({
     emptyOutDir: true,
     outDir: path.resolve(root, '../../dist'),
     rollupOptions: {
+      external: [
+        './apply-lockdown.mjs',
+      ],
       input: {
         background: path.resolve(root, 'background.ts'),
         offscreen: path.resolve(root, 'offscreen.html'),
@@ -24,6 +27,11 @@ export default defineConfig({
     }
   },
   plugins: [
-    viteStaticCopy({ targets: [{ src: 'manifest.json', dest: './' }]})
+    viteStaticCopy({ targets: [
+      { src: 'manifest.json', dest: './' },
+      { src: 'apply-lockdown.mjs', dest: './' },
+      { src: '../../../../node_modules/ses/dist/ses.mjs', dest: './' },
+      { src: '../../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
+    ]})
   ]
 });

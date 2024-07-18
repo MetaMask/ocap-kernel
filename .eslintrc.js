@@ -33,9 +33,17 @@ module.exports = {
 
   overrides: [
     {
-      files: ['*.js'],
+      files: ['*.js', '*.cjs'],
       parserOptions: {
         sourceType: 'script',
+        ecmaVersion: '2020',
+      },
+    },
+
+    {
+      files: ['*.mjs'],
+      parserOptions: {
+        sourceType: 'module',
         ecmaVersion: '2020',
       },
     },
