@@ -255,6 +255,7 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 
 % All non-root packages must have the same "build" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
+  WorkspaceCwd \= 'packages/ocap-skunkworks',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "build:docs" script.
