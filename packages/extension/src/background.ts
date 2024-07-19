@@ -1,14 +1,23 @@
-// eslint-disable-next-line import/extensions,import/no-unassigned-import
-import './apply-lockdown.mjs';
+/* eslint-disable import/extensions,import/no-unassigned-import */
+import './dev-console.mjs';
+import './endoify.mjs';
+/* eslint-enable import/extensions,import/no-unassigned-import */
 
 import type { ExtensionMessage } from './shared';
-import { makeHandledCallback } from './shared';
+import { Command, Reply, makeHandledCallback } from './shared';
+
+// globalThis.kernel will exist due to dev-console.mjs
+Object.defineProperties(globalThis.kernel, {
+  sendMessage: {
+    value: sendMessage,
+  },
+});
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
-// Send
+// With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage('greetings', { name: 'Kernel' }).catch(console.error);
+  sendMessage(Command.Ping, { name: 'Kernel' }).catch(console.error);
 });
 
 /**
@@ -40,24 +49,25 @@ async function provideOffScreenDocument() {
   }
 }
 
-// Receive
+// Here we handle replies from the offscreen document
 chrome.runtime.onMessage.addListener(makeHandledCallback(handleMessage));
 
 /**
  * Receive a message from the offscreen document.
  * @param message - The message to handle.
  */
-async function handleMessage(message: ExtensionMessage<string>) {
+async function handleMessage(message: ExtensionMessage<Reply, null>) {
   if (message.target !== 'background') {
     return;
   }
 
   switch (message.type) {
-    case 'salutations':
-      console.log(message.data);
+    case Reply.Pong:
+      console.log(Reply.Pong);
       await closeOffscreenDocument();
       break;
     default:
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       console.error(`Received unexpected message type: "${message.type}"`);
   }
 }

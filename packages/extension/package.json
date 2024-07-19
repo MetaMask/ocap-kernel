@@ -16,7 +16,7 @@
     "build:vite": "vite build -c vite.config.mts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "publish:preview": "yarn npm publish --tag preview",
-    "start": "vite -c vite.config.mts",
+    "start": "vite -c vite.config.mts & vite build --watch -c vite.config.mts",
     "test": "jest --reporters=jest-silent-reporter",
     "posttest": "jest-it-up",
     "test:clean": "jest --clearCache",

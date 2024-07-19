@@ -1,13 +1,22 @@
+export enum Command {
+  Ping = 'ping',
+}
+
+export enum Reply {
+  Pong = 'pong',
+}
+
 export type ExtensionMessage<
-  Data extends string | unknown[] | Record<string, unknown>,
+  Type extends string,
+  Data extends null | string | unknown[] | Record<string, unknown>,
 > = {
-  type: string;
+  type: Type;
   target: 'background' | 'offscreen';
   data: Data;
 };
 
 /**
- * Wrap an async callback to ensure any errors are re-thrown synchronously.
+ * Wrap an async callback to ensure any errors are re-thrown.
  * @param callback - The async callback to wrap.
  * @returns The wrapped callback.
  */
