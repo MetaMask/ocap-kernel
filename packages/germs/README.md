@@ -1,4 +1,4 @@
-# `germs`
+# `@ocap/germs`
 
 From these germs, a Kernel will form.
 

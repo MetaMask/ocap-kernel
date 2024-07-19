@@ -1,5 +1,5 @@
 {
-  "name": "extension",
+  "name": "@ocap/extension",
   "version": "0.0.0",
   "private": true,
   "description": "For running Ocap Kernel experiments in an extension environment",
@@ -14,7 +14,7 @@
     "build": "yarn build:types && yarn build:vite",
     "build:types": "tsc",
     "build:vite": "vite build -c vite.config.mts",
-    "changelog:validate": "../../scripts/validate-changelog.sh extension",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "vite -c vite.config.mts",
     "test": "jest --reporters=jest-silent-reporter",
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@endo/lockdown": "^1.0.7",
+    "@ocap/germs": "^0.0.0",
     "ses": "^1.5.0"
   },
   "devDependencies": {

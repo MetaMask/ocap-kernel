@@ -1,5 +1,5 @@
 {
-  "name": "germs",
+  "name": "@ocap/germs",
   "version": "0.0.0",
   "private": true,
   "description": "From these germs, a Kernel will form",
@@ -29,11 +29,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "yarn clean && yarn build:typescript && yarn build:javascript",
+    "build": "yarn clean && yarn build:typescript && yarn build:shims",
     "build:docs": "typedoc",
-    "build:javascript": "yarn mkdirp dist/shims && cp src/shims/*js dist/shims",
+    "build:shims": "node scripts/bundle-shims.mjs",
     "build:typescript": "ts-bridge --project tsconfig.build.json --clean",
-    "changelog:validate": "../../scripts/validate-changelog.sh germs",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/germs",
     "clean": "rimraf ./dist",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "jest --reporters=jest-silent-reporter",
@@ -42,6 +42,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@endo/eventual-send": "^1.2.2",
     "@endo/lockdown": "^1.0.7",
     "ses": "^1.5.0"
   },

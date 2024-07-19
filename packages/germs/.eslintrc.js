@@ -1,16 +1,21 @@
 module.exports = {
   extends: ['../../.eslintrc.js'],
 
-  overrides: [
-    {
-      files: ['apply-lockdown.mjs'],
-      globals: { lockdown: 'readonly' },
-      rules: {
-        'import/extensions': 'off',
-        'import/no-unassigned-import': 'off',
-        'import/no-unresolved': 'off',
-        'import/unambiguous': 'off',
-      },
-    },
-  ],
+  ignorePatterns: ['**/shims/*.mjs'],
+
+  // overrides: [
+  //   {
+  //     files: ['src/**/*.js'],
+  //     globals: { chrome: 'readonly', clients: 'readonly' },
+  //   },
+
+  //   {
+  //     files: ['vite.config.mts'],
+  //     parserOptions: {
+  //       sourceType: 'module',
+  //       tsconfigRootDir: __dirname,
+  //       project: ['./tsconfig.scripts.json'],
+  //     },
+  //   },
+  // ],
 };

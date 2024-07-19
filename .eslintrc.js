@@ -49,6 +49,17 @@ module.exports = {
     },
 
     {
+      files: ['**/scripts/*.mjs'],
+      parserOptions: {
+        ecmaVersion: '2022',
+      },
+      rules: {
+        'import/extensions': 'off',
+        'import/no-unassigned-import': 'off',
+      },
+    },
+
+    {
       files: ['*.ts', '*.cts', '*.mts'],
       extends: ['@metamask/eslint-config-typescript'],
       parserOptions: {
