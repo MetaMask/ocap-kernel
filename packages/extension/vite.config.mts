@@ -32,8 +32,8 @@ export default defineConfig({
       targets: [
         { src: 'manifest.json', dest: './' },
         { src: 'dev-console.mjs', dest: './' },
-        { src: '../../germs/dist/shims/endoify.mjs', dest: './' },
-        { src: '../../germs/dist/shims/eventual-send.mjs', dest: './' },
+        { src: '../../shims/dist/endoify.mjs', dest: './' },
+        { src: '../../shims/dist/eventual-send.mjs', dest: './' },
         { src: '../../../node_modules/ses/dist/ses.mjs', dest: './' },
         { src: '../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
       ],

@@ -3,6 +3,6 @@
   "include": [],
   "references": [
     { "path": "./packages/extension/tsconfig.build.json" },
-    { "path": "./packages/germs/tsconfig.build.json" }
+    { "path": "./packages/shims/tsconfig.build.json" }
   ]
 }

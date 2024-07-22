@@ -8,6 +8,6 @@
   "include": [],
   "references": [
     { "path": "./packages/extension" },
-    { "path": "./packages/germs" }
+    { "path": "./packages/shims" }
   ]
 }

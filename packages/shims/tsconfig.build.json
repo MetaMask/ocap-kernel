@@ -6,6 +6,5 @@
     "rootDir": "./src"
   },
   "references": [],
-  "include": ["./src"],
-  "exclude": ["./src/shims"]
+  "include": ["./src"]
 }

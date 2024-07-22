@@ -1,6 +1,6 @@
-# `@ocap/germs`
+# `@ocap/shims`
 
-From these germs, a Kernel will form.
+Shims for ocap programming that we want to import statically, such as `lockdown` and `eventual-send`.
 
 ## Contributing
 

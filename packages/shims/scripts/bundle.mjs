@@ -10,8 +10,8 @@ import { rimraf } from 'rimraf';
 console.log('Bundling shims...');
 
 const rootDir = path.resolve(import.meta.dirname, '..');
-const shimsSrc = path.resolve(rootDir, 'src/shims');
-const shimsDist = path.resolve(rootDir, 'dist/shims');
+const src = path.resolve(rootDir, 'src');
+const dist = path.resolve(rootDir, 'dist');
 
 // const eventualSendSrc = path.resolve(rootDir, '../../node_modules/@endo/eventual-send/shim.js');
 
@@ -21,14 +21,11 @@ const fileNames = {
   lockdown: 'apply-lockdown.mjs',
 };
 
-await mkdirp(shimsDist);
-await rimraf(`${shimsDist}/*`);
+await mkdirp(dist);
+await rimraf(`${dist}/*`);
 
 for (const fileName of Object.values(fileNames)) {
-  await copyFile(
-    path.resolve(shimsSrc, fileName),
-    path.resolve(shimsDist, fileName),
-  );
+  await copyFile(path.resolve(src, fileName), path.resolve(dist, fileName));
 }
 
 // const { source } = await bundleSource(eventualSendSrc, { format: 'endoScript' });
