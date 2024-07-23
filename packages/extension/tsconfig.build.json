@@ -1,4 +1,14 @@
 {
-  "extends": "./tsconfig.json",
-  "references": [{ "path": "../shims/tsconfig.build.json" }]
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": "./",
+    "emitDeclarationOnly": false,
+    "lib": ["DOM", "ES2020"],
+    "noEmit": true,
+    "rootDir": "./src",
+    "types": ["chrome", "ses"]
+  },
+  "references": [{ "path": "../shims/tsconfig.build.json" }],
+  "include": ["./src/**/*.ts", "./src/dev-console.mjs"]
 }

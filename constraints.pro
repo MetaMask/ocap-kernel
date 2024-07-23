@@ -310,6 +310,10 @@ gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'jest --clearCache') :-
 gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'jest --verbose') :-
   WorkspaceCwd \= '.'.
 
+% All non-root packages must have the same "test:verbose" script.
+gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'jest --verbose --coverage false') :-
+  WorkspaceCwd \= '.'.
+
 % All non-root packages must have the same "test:watch" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'jest --watch') :-
   WorkspaceCwd \= '.'.
