@@ -5,7 +5,31 @@ import { IframeManager } from './iframe-manager.js';
 import type { ExtensionMessage } from './shared';
 import { Command, makeHandledCallback } from './shared';
 
-chrome.runtime.onMessage.addListener(makeHandledCallback(handleMessage));
+// Handle messages from the background service worker
+chrome.runtime.onMessage.addListener(
+  makeHandledCallback(async (message: ExtensionMessage<Command, string>) => {
+    if (message.target !== 'offscreen') {
+      console.warn(
+        `Offscreen received message with unexpected target: "${message.target}"`,
+      );
+      return;
+    }
+
+    switch (message.type) {
+      case Command.Evaluate:
+        await reply(Command.Evaluate, await evaluate(message.data));
+        break;
+      case Command.Ping:
+        await reply(Command.Ping, 'pong');
+        break;
+      default:
+        console.error(
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Offscreen received unexpected message type: "${message.type}"`,
+        );
+    }
+  }),
+);
 
 // Hard-code a single iframe for now.
 const IFRAME_ID = 'default';
@@ -13,33 +37,6 @@ const iframeManager = new IframeManager();
 iframeManager.create(IFRAME_ID).catch((error) => {
   throw error;
 });
-
-/**
- * Handle a message from the background script.
- * @param message - The message to handle.
- */
-async function handleMessage(message: ExtensionMessage<Command, string>) {
-  if (message.target !== 'offscreen') {
-    console.warn(
-      `Offscreen received message with unexpected target: "${message.target}"`,
-    );
-    return;
-  }
-
-  switch (message.type) {
-    case Command.Evaluate:
-      await reply(Command.Evaluate, await evaluate(message.data));
-      break;
-    case Command.Ping:
-      await reply(Command.Ping, 'pong');
-      break;
-    default:
-      console.error(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `Offscreen received unexpected message type: "${message.type}"`,
-      );
-  }
-}
 
 /**
  * Reply to the background script.

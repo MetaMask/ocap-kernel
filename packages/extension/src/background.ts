@@ -55,34 +55,30 @@ async function provideOffScreenDocument() {
   }
 }
 
-// Here we handle replies from the offscreen document
-chrome.runtime.onMessage.addListener(makeHandledCallback(handleMessage));
-
-/**
- * Receive a message from the offscreen document.
- * @param message - The message to handle.
- */
-async function handleMessage(message: ExtensionMessage<Command, string>) {
-  if (message.target !== 'background') {
-    console.warn(
-      `Background received message with unexpected target: "${message.target}"`,
-    );
-    return;
-  }
-
-  switch (message.type) {
-    case Command.Evaluate:
-    case Command.Ping:
-      console.log(message.data);
-      await closeOffscreenDocument();
-      break;
-    default:
-      console.error(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `Background received unexpected message type: "${message.type}"`,
+// Handle replies from the offscreen document
+chrome.runtime.onMessage.addListener(
+  makeHandledCallback(async (message: ExtensionMessage<Command, string>) => {
+    if (message.target !== 'background') {
+      console.warn(
+        `Background received message with unexpected target: "${message.target}"`,
       );
-  }
-}
+      return;
+    }
+
+    switch (message.type) {
+      case Command.Evaluate:
+      case Command.Ping:
+        console.log(message.data);
+        await closeOffscreenDocument();
+        break;
+      default:
+        console.error(
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Background received unexpected message type: "${message.type}"`,
+        );
+    }
+  }),
+);
 
 /**
  * Close the offscreen document if it exists.

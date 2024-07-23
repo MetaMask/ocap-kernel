@@ -9,6 +9,6 @@ To get started:
 - `yarn install`
 - `yarn build`
   - This will build the entire monorepo in the correct order.
-    You may need to re-run it when other packages change.
+    You may need to re-run it if multiple packages have changed.
 
-Linting is done via `yarn lint` or `yarn lint:fix` from the root.
+Lint using `yarn lint` or `yarn lint:fix` from the root.

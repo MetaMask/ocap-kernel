@@ -4,6 +4,7 @@ import '@endo/lockdown/commit.js';
 import { copyFile } from 'fs/promises';
 import { mkdirp } from 'mkdirp';
 import path from 'path';
+// TODO: Bundle the eventual send shim using bundle-source after the next endo release.
 // import bundleSource from '@endo/bundle-source';
 import { rimraf } from 'rimraf';
 

@@ -259,11 +259,11 @@ gen_enforced_field(WorkspaceCwd, 'files', ['dist/']) :-
 gen_enforced_field(WorkspaceCwd, 'files', []) :-
   WorkspaceCwd = '.'.
 
-% All packages except the root and extension must have the same "build" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.build', 'ts-bridge --project tsconfig.build.json --clean') :-
-  WorkspaceCwd \= 'packages/extension',
-  WorkspaceCwd \= 'packages/shims',
-  WorkspaceCwd \= '.'.
+% TODO: Add constraint enforcing the existence of _any_ build script in all packages,
+% including the root.
+% % All packages must have some "build" script.
+% gen_enforced_field(WorkspaceCwd, 'scripts.build', '') :-
+%   WorkspaceCwd \= '.'.
 
 % All packages except the root and extension must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
