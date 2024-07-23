@@ -12,7 +12,12 @@ const getHtmlId = (id: string) => `ocap-iframe-${id}`;
 
 type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 
+/**
+ * A singleton class to manage and message iframes.
+ */
 export class IframeManager {
+  static #instance: IframeManager;
+
   #currentId: number;
 
   #unresolvedMessages: Map<string, PromiseCallbacks>;
@@ -22,7 +27,13 @@ export class IframeManager {
   /**
    * Create a new IframeManager.
    */
-  constructor() {
+  // Our lint config wants #-private, but we can't do that to the constructor.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor() {
+    if (IframeManager.#instance !== undefined) {
+      throw new Error('IframeManager is a singleton');
+    }
+
     this.#currentId = 0;
     this.#iframes = new Map();
     this.#unresolvedMessages = new Map();
@@ -30,6 +41,19 @@ export class IframeManager {
     window.addEventListener('message', (event: MessageEvent) =>
       this.#handleMessage(event),
     );
+
+    IframeManager.#instance = this;
+  }
+
+  /**
+   * Get the singleton instance of IframeManager.
+   * @returns The singleton instance of IframeManager.
+   */
+  public static getInstance(): IframeManager {
+    if (!IframeManager.#instance) {
+      IframeManager.#instance = new IframeManager();
+    }
+    return IframeManager.#instance;
   }
 
   /**

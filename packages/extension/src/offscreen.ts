@@ -33,7 +33,7 @@ chrome.runtime.onMessage.addListener(
 
 // Hard-code a single iframe for now.
 const IFRAME_ID = 'default';
-const iframeManager = new IframeManager();
+const iframeManager = IframeManager.getInstance();
 iframeManager.create(IFRAME_ID).catch((error) => {
   throw error;
 });
