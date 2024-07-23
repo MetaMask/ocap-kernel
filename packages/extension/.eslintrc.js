@@ -3,7 +3,7 @@ module.exports = {
 
   overrides: [
     {
-      files: ['src/**/*.js'],
+      files: ['src/**/*.ts'],
       globals: {
         chrome: 'readonly',
         clients: 'readonly',
@@ -17,6 +17,15 @@ module.exports = {
         sourceType: 'module',
         tsconfigRootDir: __dirname,
         project: ['./tsconfig.scripts.json'],
+      },
+    },
+
+    {
+      files: ['test/setup.mjs'],
+      rules: {
+        'import/extensions': 'off',
+        'import/no-unassigned-import': 'off',
+        'import/no-unresolved': 'off',
       },
     },
   ],

@@ -144,8 +144,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
-      # TODO: Remove passWithNoTests flag
-      - run: yarn workspace ${{ matrix.package-name }} run test --passWithNoTests
+      - run: yarn workspace ${{ matrix.package-name }} run test
       - name: Require clean working directory
         shell: bash
         run: |

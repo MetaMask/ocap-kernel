@@ -30,6 +30,7 @@ export class IframeManager {
   // Our lint config wants #-private, but we can't do that to the constructor.
   // eslint-disable-next-line no-restricted-syntax
   private constructor() {
+    /* v8 ignore next 3: We're just not going to do this to ourselves. */
     if (IframeManager.#instance !== undefined) {
       throw new Error('IframeManager is a singleton');
     }
@@ -75,9 +76,21 @@ export class IframeManager {
    * @param id - The id of the iframe to delete.
    */
   delete(id: string) {
-    // TODO: Handle orphaned messages
-    document.getElementById(getHtmlId(id))?.remove();
-    this.#iframes.delete(id);
+    if (this.#iframes.has(id)) {
+      // TODO: Handle orphaned messages
+      this.#iframes.delete(id);
+
+      const iframe = document.getElementById(getHtmlId(id));
+      /* v8 ignore next 6: Currently impossible. */
+      if (iframe === null) {
+        console.error(
+          `Registered iframe with id "${id}" already removed from DOM`,
+        );
+        return;
+      }
+
+      iframe.remove();
+    }
   }
 
   /**
@@ -91,7 +104,7 @@ export class IframeManager {
   ) {
     const iframeWindow = this.#get(id);
     if (iframeWindow === undefined) {
-      throw new Error(`No iframe with id ${id}`);
+      throw new Error(`No iframe with id "${id}"`);
     }
 
     const { promise, reject, resolve } = makePromiseKit();

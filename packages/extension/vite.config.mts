@@ -1,3 +1,6 @@
+// eslint-disable-next-line spaced-comment
+/// <reference types="vitest" />
+
 import path from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -40,4 +43,17 @@ export default defineConfig({
       ],
     }),
   ],
+
+  test: {
+    environment: 'jsdom',
+    restoreMocks: true,
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      // include: [`${projectRoot}/*.ts`],
+      reportsDirectory: path.resolve(projectRoot, '../coverage'),
+    },
+    silent: true,
+  },
 });

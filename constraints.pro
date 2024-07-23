@@ -300,22 +300,27 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
 
 % All non-root packages must have the same "test" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test', 'jest --reporters=jest-silent-reporter') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:clean" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'jest --clearCache') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:verbose" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'jest --verbose') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:verbose" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'jest --verbose --coverage false') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:watch" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'jest --watch') :-
+  WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= '.'.
 
 % All dependency ranges must be recognizable (this makes it possible to apply

@@ -27,6 +27,7 @@
     "publish:preview": "yarn npm publish --tag preview",
     "test": "jest --reporters=jest-silent-reporter",
     "test:clean": "jest --clearCache",
+    "test:dev": "jest --verbose --coverage false",
     "test:verbose": "jest --verbose",
     "test:watch": "jest --watch"
   },
@@ -37,7 +38,6 @@
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",
-    "@types/jest": "^28.1.6",
     "deepmerge": "^4.3.1",
     "jest": "^28.1.3",
     "mkdirp": "^3.0.1",

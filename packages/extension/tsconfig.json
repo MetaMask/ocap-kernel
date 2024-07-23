@@ -7,7 +7,7 @@
     "lib": ["DOM", "ES2020"],
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome", "ses", "jest"]
+    "types": ["chrome", "ses", "vitest"]
   },
   "include": ["./src/**/*.ts", "./src/dev-console.mjs"]
 }

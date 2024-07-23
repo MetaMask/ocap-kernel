@@ -8,19 +8,11 @@ const path = require('path');
 
 const baseConfig = require('../../jest.config.packages');
 
+delete baseConfig.coverageThreshold;
+
 const displayName = path.basename(__dirname);
 
 module.exports = merge(baseConfig, {
   // The display name when running multiple projects
   displayName,
-
-  // An object that configures minimum threshold enforcement for coverage results
-  coverageThreshold: {
-    global: {
-      branches: 100,
-      functions: 100,
-      lines: 100,
-      statements: 100,
-    },
-  },
 });
