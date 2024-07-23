@@ -10,6 +10,7 @@ ignores:
   - '@types/node'
   - '@yarnpkg/*'
   - 'jest-silent-reporter'
+  - 'jsdom'
   - 'prettier-plugin-*'
   - 'ts-jest'
   - 'typedoc'

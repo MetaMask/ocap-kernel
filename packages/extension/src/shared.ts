@@ -37,7 +37,7 @@ export const isWrappedIframeMessage = (
   (typeof value.message.data === 'string' || value.message.data === null);
 
 /**
- * Wrap an async callback to ensure any errors are re-thrown.
+ * Wrap an async callback to ensure any errors are at least logged.
  * @param callback - The async callback to wrap.
  * @returns The wrapped callback.
  */
@@ -46,8 +46,6 @@ export const makeHandledCallback = <Args extends unknown[]>(
 ) => {
   return (...args: Args): void => {
     // eslint-disable-next-line n/no-callback-literal, n/callback-return
-    callback(...args).catch((error: Error) => {
-      throw error;
-    });
+    callback(...args).catch(console.error);
   };
 };

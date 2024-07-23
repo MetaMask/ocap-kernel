@@ -25,7 +25,7 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf ./dist",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "jest --reporters=jest-silent-reporter",
+    "test": "jest --reporters=jest-silent-reporter --passWithNoTests",
     "test:clean": "jest --clearCache",
     "test:dev": "jest --verbose --coverage false",
     "test:verbose": "jest --verbose",

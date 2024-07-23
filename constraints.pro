@@ -301,6 +301,7 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
 % All non-root packages must have the same "test" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test', 'jest --reporters=jest-silent-reporter') :-
   WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= 'packages/shims',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:clean" script.
