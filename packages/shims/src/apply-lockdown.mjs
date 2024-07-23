@@ -2,9 +2,10 @@ import './lockdown.mjs';
 
 lockdown({
   consoleTaming: 'unsafe',
-  errorTaming: 'unsafe',
-  mathTaming: 'unsafe',
   dateTaming: 'unsafe',
   domainTaming: 'unsafe',
+  errorTaming: 'unsafe',
+  mathTaming: 'unsafe',
   overrideTaming: 'severe',
+  stackFiltering: 'verbose',
 });

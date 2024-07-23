@@ -18,6 +18,7 @@ export default defineConfig({
       input: {
         background: path.resolve(projectRoot, 'background.ts'),
         offscreen: path.resolve(projectRoot, 'offscreen.html'),
+        iframe: path.resolve(projectRoot, 'iframe.html'),
       },
       output: {
         entryFileNames: '[name].js',

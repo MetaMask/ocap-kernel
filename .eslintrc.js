@@ -68,6 +68,17 @@ module.exports = {
       },
       rules: {
         '@typescript-eslint/no-explicit-any': 'error',
+
+        // This rule is broken, and without the `allowAny` option, it causes
+        // a lot of false positives.
+        '@typescript-eslint/restrict-template-expressions': [
+          'error',
+          {
+            allowAny: true,
+            allowBoolean: true,
+            allowNumber: true,
+          },
+        ],
       },
     },
 

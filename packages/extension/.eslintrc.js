@@ -4,7 +4,11 @@ module.exports = {
   overrides: [
     {
       files: ['src/**/*.js'],
-      globals: { chrome: 'readonly', clients: 'readonly' },
+      globals: {
+        chrome: 'readonly',
+        clients: 'readonly',
+        Compartment: 'readonly',
+      },
     },
 
     {

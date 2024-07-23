@@ -1,19 +1,40 @@
+import { isObject } from '@metamask/utils';
+
 export enum Command {
+  Evaluate = 'evaluate',
   Ping = 'ping',
 }
 
-export enum Reply {
-  Pong = 'pong',
-}
-
 export type ExtensionMessage<
-  Type extends string,
+  Type extends Command,
   Data extends null | string | unknown[] | Record<string, unknown>,
 > = {
   type: Type;
   target: 'background' | 'offscreen';
   data: Data;
 };
+
+export type IframeMessage<
+  Type extends Command,
+  Data extends null | string | unknown[] | Record<string, unknown>,
+> = {
+  type: Type;
+  data: Data;
+};
+
+export type WrappedIframeMessage = {
+  id: string;
+  message: IframeMessage<Command, string>;
+};
+
+export const isWrappedIframeMessage = (
+  value: unknown,
+): value is WrappedIframeMessage =>
+  isObject(value) &&
+  typeof value.id === 'string' &&
+  isObject(value.message) &&
+  typeof value.message.type === 'string' &&
+  (typeof value.message.data === 'string' || value.message.data === null);
 
 /**
  * Wrap an async callback to ensure any errors are re-thrown.

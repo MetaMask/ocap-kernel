@@ -4,12 +4,18 @@ import './endoify.mjs';
 /* eslint-enable import/extensions,import/no-unassigned-import */
 
 import type { ExtensionMessage } from './shared';
-import { Command, Reply, makeHandledCallback } from './shared';
+import { Command, makeHandledCallback } from './shared';
 
 // globalThis.kernel will exist due to dev-console.mjs
 Object.defineProperties(globalThis.kernel, {
   sendMessage: {
     value: sendMessage,
+  },
+  evaluate: {
+    value: async (source: string) => sendMessage(Command.Evaluate, source),
+  },
+  ping: {
+    value: async () => sendMessage(Command.Ping),
   },
 });
 
@@ -17,7 +23,7 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage(Command.Ping, { name: 'Kernel' }).catch(console.error);
+  sendMessage(Command.Ping).catch(console.error);
 });
 
 /**
@@ -26,13 +32,13 @@ chrome.action.onClicked.addListener(() => {
  * @param data - The message data.
  * @param data.name - The name to include in the message.
  */
-async function sendMessage(type: string, data: { name: string }) {
+async function sendMessage(type: string, data?: string) {
   await provideOffScreenDocument();
 
   await chrome.runtime.sendMessage({
     type,
     target: 'offscreen',
-    data,
+    data: data ?? null,
   });
 }
 
@@ -56,19 +62,25 @@ chrome.runtime.onMessage.addListener(makeHandledCallback(handleMessage));
  * Receive a message from the offscreen document.
  * @param message - The message to handle.
  */
-async function handleMessage(message: ExtensionMessage<Reply, null>) {
+async function handleMessage(message: ExtensionMessage<Command, string>) {
   if (message.target !== 'background') {
+    console.warn(
+      `Background received message with unexpected target: "${message.target}"`,
+    );
     return;
   }
 
   switch (message.type) {
-    case Reply.Pong:
-      console.log(Reply.Pong);
+    case Command.Evaluate:
+    case Command.Ping:
+      console.log(message.data);
       await closeOffscreenDocument();
       break;
     default:
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      console.error(`Received unexpected message type: "${message.type}"`);
+      console.error(
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        `Background received unexpected message type: "${message.type}"`,
+      );
   }
 }
 

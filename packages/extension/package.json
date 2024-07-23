@@ -25,6 +25,9 @@
   },
   "dependencies": {
     "@endo/lockdown": "^1.0.7",
+    "@endo/promise-kit": "^1.1.2",
+    "@metamask/snaps-utils": "^7.8.0",
+    "@metamask/utils": "^9.1.0",
     "@ocap/shims": "^0.0.0",
     "ses": "^1.5.0"
   },
