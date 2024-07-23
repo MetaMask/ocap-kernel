@@ -1,6 +1,6 @@
 # `@ocap/shims`
 
-Shims for ocap programming that we want to import statically, such as `lockdown` and `eventual-send`.
+Shims for ocap programming that we want to import without transforming, such as `lockdown` and `eventual-send`.
 
 ## Contributing
 
