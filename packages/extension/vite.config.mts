@@ -41,6 +41,7 @@ export default defineConfig({
         { src: '../../../node_modules/ses/dist/ses.mjs', dest: './' },
         { src: '../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
       ],
+      watch: { reloadPageOnChange: true },
     }),
   ],
 
