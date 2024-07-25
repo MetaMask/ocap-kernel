@@ -7,6 +7,31 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const projectRoot = './src';
 
+/**
+ * Module specifiers that will be ignored by Rollup if imported, and therefore
+ * not transformed.
+ */
+const externalModules: Readonly<string[]> = [
+  './dev-console.mjs',
+  './endoify.mjs',
+];
+
+/**
+ * Files that need to be statically copied to the destination directory.
+ * Paths are relative from the project root directory.
+ */
+const staticCopyTargets: Readonly<string[]> = [
+  // The extension manifest
+  'manifest.json',
+  // External modules
+  'dev-console.mjs',
+  '../../shims/dist/endoify.mjs',
+  // Dependencies of external modules
+  '../../shims/dist/eventual-send.mjs',
+  '../../../node_modules/ses/dist/ses.mjs',
+  '../../../node_modules/ses/dist/lockdown.mjs',
+];
+
 // https://vitejs.dev/config/
 export default defineConfig({
   root: projectRoot,
@@ -15,9 +40,7 @@ export default defineConfig({
     emptyOutDir: true,
     outDir: path.resolve(projectRoot, '../dist'),
     rollupOptions: {
-      // This tells Rollup to ignore the following module specifiers if imported.
-      // Their contents must not be modified.
-      external: ['./dev-console.mjs', './endoify.mjs'],
+      external: [...externalModules],
       input: {
         background: path.resolve(projectRoot, 'background.ts'),
         offscreen: path.resolve(projectRoot, 'offscreen.html'),
@@ -33,14 +56,7 @@ export default defineConfig({
 
   plugins: [
     viteStaticCopy({
-      targets: [
-        { src: 'manifest.json', dest: './' },
-        { src: 'dev-console.mjs', dest: './' },
-        { src: '../../shims/dist/endoify.mjs', dest: './' },
-        { src: '../../shims/dist/eventual-send.mjs', dest: './' },
-        { src: '../../../node_modules/ses/dist/ses.mjs', dest: './' },
-        { src: '../../../node_modules/ses/dist/lockdown.mjs', dest: './' },
-      ],
+      targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
   ],
