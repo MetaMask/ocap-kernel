@@ -5,7 +5,7 @@ import { createWindow } from '@metamask/snaps-utils';
 import type { IframeMessage } from './shared';
 import { Command, isWrappedIframeMessage } from './shared';
 
-const URI = 'iframe.html';
+const IFRAME_URI = 'iframe.html';
 
 // The actual <iframe> id, for greater collision resistance.
 const getHtmlId = (id: string) => `ocap-iframe-${id}`;
@@ -64,7 +64,7 @@ export class IframeManager {
    */
   async create(id?: string): Promise<readonly [Window, string]> {
     const actualId = id === undefined ? this.#nextId() : id;
-    const newWindow = await createWindow(URI, getHtmlId(actualId));
+    const newWindow = await createWindow(IFRAME_URI, getHtmlId(actualId));
     this.#iframes.set(actualId, newWindow);
     await this.sendMessage(actualId, { type: Command.Ping, data: null });
     console.debug(`Created iframe with id "${actualId}"`);
