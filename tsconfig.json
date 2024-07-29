@@ -9,6 +9,7 @@
   "references": [
     { "path": "./packages/extension" },
     { "path": "./packages/shims" },
-    { "path": "./packages/streams" }
+    { "path": "./packages/streams" },
+    { "path": "./packages/test-utils" }
   ]
 }

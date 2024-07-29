@@ -13,7 +13,8 @@
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
-      "@ocap/*": ["../*/src"]
+      "@ocap/*": ["../*/src"],
+      "@ocap/test-utils/*": ["../test-utils/src/*"]
     },
     "resolveJsonModule": true,
     "strict": true,

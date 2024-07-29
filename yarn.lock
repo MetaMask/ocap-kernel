@@ -312,10 +312,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/env-options@npm:^1.1.4":
-  version: 1.1.4
-  resolution: "@endo/env-options@npm:1.1.4"
-  checksum: 10/718c15ae91b5e3d00c8b90f64d07930cc6bc58297cbda55097c339121a8c63045cd909f4bd7a4c39635354d228fa68f6182eb43ac0b0eaa62b05618484ec8209
+"@endo/env-options@npm:^1.1.4, @endo/env-options@npm:^1.1.5":
+  version: 1.1.5
+  resolution: "@endo/env-options@npm:1.1.5"
+  checksum: 10/ce4cb29ecf387f52f7d1c9e7e43b0a1064326587ebac62e7c239bf2df71aa4c3296d2a05cf169d1efcd8c1ddf73aeede8afd86e7b5c9387b80e8e0939d1af0f6
   languageName: node
   linkType: hard
 
@@ -1246,16 +1246,16 @@ __metadata:
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/shims": "npm:^0.0.0"
     "@types/chrome": "npm:^0.0.268"
-    "@vitest/coverage-v8": "npm:^2.0.4"
+    "@vitest/coverage-v8": "npm:^2.0.5"
     deepmerge: "npm:^4.3.1"
     jsdom: "npm:^24.1.1"
-    ses: "npm:^1.5.0"
+    ses: "npm:^1.7.0"
     typedoc: "npm:^0.24.8"
     typedoc-plugin-missing-exports: "npm:^2.0.0"
     typescript: "npm:~4.9.5"
     vite: "npm:^5.3.5"
     vite-plugin-static-copy: "npm:^1.0.6"
-    vitest: "npm:^2.0.4"
+    vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
 
@@ -1291,7 +1291,7 @@ __metadata:
     typedoc: "npm:^0.24.8"
     typescript: "npm:~4.9.5"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.0.4"
+    vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
 
@@ -1305,8 +1305,8 @@ __metadata:
     deepmerge: "npm:^4.3.1"
     mkdirp: "npm:^3.0.1"
     rimraf: "npm:^6.0.1"
-    ses: "npm:^1.5.0"
-    vitest: "npm:^2.0.4"
+    ses: "npm:^1.7.0"
+    vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
 
@@ -1322,13 +1322,24 @@ __metadata:
     "@ts-bridge/cli": "npm:^0.1.4"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/jsdom": "npm:^21.1.7"
-    "@vitest/coverage-v8": "npm:^2.0.4"
+    "@vitest/coverage-v8": "npm:^2.0.5"
     deepmerge: "npm:^4.3.1"
     jest: "npm:^28.1.3"
     ts-jest: "npm:^28.0.7"
     typedoc: "npm:^0.24.8"
     typedoc-plugin-missing-exports: "npm:^2.0.0"
     typescript: "npm:~4.9.5"
+    vitest: "npm:^2.0.5"
+  languageName: unknown
+  linkType: soft
+
+"@ocap/test-utils@workspace:packages/test-utils":
+  version: 0.0.0-use.local
+  resolution: "@ocap/test-utils@workspace:packages/test-utils"
+  dependencies:
+    ses: "npm:^1.7.0"
+    typescript: "npm:~4.9.5"
+    vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
 
@@ -1870,9 +1881,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitest/coverage-v8@npm:^2.0.4":
-  version: 2.0.4
-  resolution: "@vitest/coverage-v8@npm:2.0.4"
+"@vitest/coverage-v8@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@vitest/coverage-v8@npm:2.0.5"
   dependencies:
     "@ampproject/remapping": "npm:^2.3.0"
     "@bcoe/v8-coverage": "npm:^0.2.3"
@@ -1887,8 +1898,8 @@ __metadata:
     test-exclude: "npm:^7.0.1"
     tinyrainbow: "npm:^1.2.0"
   peerDependencies:
-    vitest: 2.0.4
-  checksum: 10/de23ca9c8e7cd704d889475af9a8282a1d29e4ca05909edc28df3f55b65a10cba344ab350ab255d0ad1b8a3dc6d98ebb12d5c2614bc8d92b03b645f15912ae61
+    vitest: 2.0.5
+  checksum: 10/bb774d1a52b85adf94dcf62dc9684c59bd6aba6f8d43ce4d4afa06e3ca85651ec217f74842c0c4a81ea0158f029e484055207869e5d741cfbc3119257399fb83
   languageName: node
   linkType: hard
 
@@ -6334,12 +6345,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ses@npm:^1.1.0, ses@npm:^1.5.0":
-  version: 1.5.0
-  resolution: "ses@npm:1.5.0"
+"ses@npm:^1.1.0, ses@npm:^1.5.0, ses@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "ses@npm:1.7.0"
   dependencies:
-    "@endo/env-options": "npm:^1.1.4"
-  checksum: 10/6f2cd8f3607f98838d6458cc4b77e6c1cffe8fc30b923212c1dde73c89e9a0e1eaa8f44ac38811d73a6961560e5be4155a0e58879f6dfe69d3319433251891da
+    "@endo/env-options": "npm:^1.1.5"
+  checksum: 10/8d1227fadcd06653d1b49083c067ae07e55164af984c9e8b393238fbbd315f47216472e3ac65a78638955f3f1a2537e9c9865f0ab142639a6862b902cb1cf6f2
   languageName: node
   linkType: hard
 
@@ -7278,7 +7289,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:^2.0.4":
+"vitest@npm:^2.0.5":
   version: 2.0.5
   resolution: "vitest@npm:2.0.5"
   dependencies:

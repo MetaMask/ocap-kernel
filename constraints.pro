@@ -243,6 +243,7 @@ gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') 
 gen_enforced_field(WorkspaceCwd, 'exports', null) :-
   WorkspaceCwd \= 'packages/shims',
   WorkspaceCwd \= 'packages/streams',
+  WorkspaceCwd \= 'packages/test-utils',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % Published packages must not have side effects.
@@ -273,6 +274,7 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 % All packages except the root and extension must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
   WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All published packages must have the same "publish:preview" script.
@@ -306,22 +308,27 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
 % All non-root packages must have the same "test" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.mts') :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:clean" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'yarn test --no-cache --coverage.clean') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:dev" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'yarn test --coverage false') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:verbose" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'yarn test --reporter verbose') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:watch" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.config.mts') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All dependency ranges must be recognizable (this makes it possible to apply

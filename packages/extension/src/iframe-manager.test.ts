@@ -1,19 +1,10 @@
 import * as snapsUtils from '@metamask/snaps-utils';
+import { makePromiseKitMock } from '@ocap/test-utils/mocks';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 
 import { Command } from './shared';
 
-vi.mock('@endo/promise-kit', () => ({
-  makePromiseKit: () => {
-    let resolve: (value: unknown) => void, reject: (reason?: unknown) => void;
-    const promise = new Promise((_resolve, _reject) => {
-      resolve = _resolve;
-      reject = _reject;
-    });
-    // @ts-expect-error We have in fact assigned resolve and reject.
-    return { promise, resolve, reject };
-  },
-}));
+vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 vi.mock('@metamask/snaps-utils', () => ({
   createWindow: vi.fn(),

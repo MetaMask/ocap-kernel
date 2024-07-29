@@ -3,8 +3,8 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["DOM", "ES2020"],
-    "types": ["vitest", "vitest/jsdom"]
+    "types": ["ses", "vitest", "vitest/jsdom"]
   },
-  "references": [],
+  "references": [{ "path": "../test-utils" }],
   "include": ["./src"]
 }

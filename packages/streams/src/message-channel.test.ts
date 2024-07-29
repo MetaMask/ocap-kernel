@@ -1,3 +1,4 @@
+import { makePromiseKitMock } from '@ocap/test-utils/mocks';
 import { JSDOM } from 'jsdom';
 import { vi, describe, it, beforeEach, afterEach, beforeAll } from 'vitest';
 
@@ -7,17 +8,7 @@ import {
   receiveMessagePort,
 } from './message-channel';
 
-vi.mock('@endo/promise-kit', () => ({
-  makePromiseKit: () => {
-    let resolve: (value: unknown) => void, reject: (reason?: unknown) => void;
-    const promise = new Promise((_resolve, _reject) => {
-      resolve = _resolve;
-      reject = _reject;
-    });
-    // @ts-expect-error We have in fact assigned resolve and reject.
-    return { promise, resolve, reject };
-  },
-}));
+vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 describe.concurrent('initializeMessageChannel', () => {
   it('calls targetWindow.postMessage', async ({ expect }) => {

@@ -2,10 +2,8 @@
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "lib": ["DOM", "ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
-    "types": ["ses"]
+    "rootDir": "./src"
   },
   "references": [],
   "include": ["./src"]
