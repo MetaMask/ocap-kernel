@@ -1,54 +1,22 @@
 import type { makePromiseKit } from '@endo/promise-kit';
 import * as snapsUtils from '@metamask/snaps-utils';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { vi, describe, it, expect } from 'vitest';
 
+import { IframeManager } from './iframe-manager.js';
 import { Command } from './shared.js';
 
-vi.mock('@endo/promise-kit', () => ({
-  makePromiseKit: (): ReturnType<typeof makePromiseKit> => {
-    let resolve: (value: unknown) => void, reject: (reason?: unknown) => void;
-    const promise = new Promise((_resolve, _reject) => {
-      resolve = _resolve;
-      reject = _reject;
-    });
-    // @ts-expect-error We have in fact assigned resolve and reject.
-    return { promise, resolve, reject };
-  },
-}));
+vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 vi.mock('@metamask/snaps-utils', () => ({
   createWindow: vi.fn(),
 }));
 
 describe('IframeManager', () => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  let IframeManager: typeof import('./iframe-manager.js').IframeManager;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    IframeManager = (await import('./iframe-manager.js')).IframeManager;
-  });
-
-  describe('getInstance', () => {
-    it('is a singleton', () => {
-      expect(IframeManager.getInstance()).toBe(IframeManager.getInstance());
-    });
-
-    it('sets up event listener on construction', () => {
-      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
-      let manager = IframeManager.getInstance();
-
-      expect(manager).toBeInstanceOf(IframeManager);
-      expect(addEventListenerSpy).toHaveBeenCalledOnce();
-      expect(addEventListenerSpy).toHaveBeenCalledWith(
-        'message',
-        expect.any(Function),
-      );
-
-      manager = IframeManager.getInstance();
-      expect(addEventListenerSpy).toHaveBeenCalledOnce();
-    });
-  });
+  const makeGetPort =
+    (port: MessagePort = new MessageChannel().port1) =>
+    async (_window: Window) =>
+      Promise.resolve(port);
 
   describe('create', () => {
     it('creates a new iframe', async () => {
@@ -56,12 +24,11 @@ describe('IframeManager', () => {
       vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(
         mockWindow as Window,
       );
-
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       const sendMessageSpy = vi
         .spyOn(manager, 'sendMessage')
         .mockImplementation(vi.fn());
-      const [newWindow, id] = await manager.create();
+      const [newWindow, id] = await manager.create({ getPort: makeGetPort() });
 
       expect(newWindow).toBe(mockWindow);
       expect(id).toBeTypeOf('string');
@@ -78,15 +45,47 @@ describe('IframeManager', () => {
         mockWindow as Window,
       );
 
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       const sendMessageSpy = vi
         .spyOn(manager, 'sendMessage')
         .mockImplementation(vi.fn());
       const id = 'foo';
-      const [newWindow, returnedId] = await manager.create(id);
+      const [newWindow, returnedId] = await manager.create({
+        id,
+        getPort: makeGetPort(),
+      });
 
       expect(newWindow).toBe(mockWindow);
       expect(returnedId).toBe(id);
+      expect(sendMessageSpy).toHaveBeenCalledOnce();
+      expect(sendMessageSpy).toHaveBeenCalledWith(id, {
+        type: 'ping',
+        data: null,
+      });
+    });
+
+    it('creates a new iframe with the default getPort function', async () => {
+      vi.resetModules();
+      vi.doMock('@ocap/streams', () => ({
+        initializeMessageChannel: vi.fn(),
+        MessagePortReader: class Mock1 {},
+        MessagePortWriter: class Mock2 {},
+      }));
+      const IframeManager2 = (await import('./iframe-manager.js'))
+        .IframeManager;
+
+      const mockWindow = {};
+      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(
+        mockWindow as Window,
+      );
+      const manager = new IframeManager2();
+      const sendMessageSpy = vi
+        .spyOn(manager, 'sendMessage')
+        .mockImplementation(vi.fn());
+      const [newWindow, id] = await manager.create();
+
+      expect(newWindow).toBe(mockWindow);
+      expect(id).toBeTypeOf('string');
       expect(sendMessageSpy).toHaveBeenCalledOnce();
       expect(sendMessageSpy).toHaveBeenCalledWith(id, {
         type: 'ping',
@@ -107,22 +106,22 @@ describe('IframeManager', () => {
         return iframe.contentWindow as Window;
       });
 
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       vi.spyOn(manager, 'sendMessage').mockImplementation(vi.fn());
 
-      await manager.create(id);
-      manager.delete(id);
+      await manager.create({ id, getPort: makeGetPort() });
+      await manager.delete(id);
 
       expect(removeSpy).toHaveBeenCalledOnce();
     });
 
     it('ignores attempt to delete unrecognized iframe', async () => {
       const id = 'foo';
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       const iframe = document.createElement('iframe');
 
       const removeSpy = vi.spyOn(iframe, 'remove');
-      manager.delete(id);
+      await manager.delete(id);
 
       expect(removeSpy).not.toHaveBeenCalled();
     });
@@ -130,71 +129,97 @@ describe('IframeManager', () => {
 
   describe('sendMessage', () => {
     it('sends a message to an iframe', async () => {
-      const iframeWindow = { postMessage: vi.fn() };
-      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(
-        iframeWindow as unknown as Window,
-      );
+      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce({} as Window);
 
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       const sendMessageSpy = vi.spyOn(manager, 'sendMessage');
+      // Intercept the ping message in create()
       sendMessageSpy.mockImplementationOnce(async () => Promise.resolve());
 
+      const { port1, port2 } = new MessageChannel();
+      const portPostMessageSpy = vi.spyOn(port1, 'postMessage');
       const id = 'foo';
-      await manager.create(id);
+      await manager.create({ id, getPort: makeGetPort(port1) });
 
       const message = { type: Command.Evaluate, data: '2+2' };
 
       const messagePromise = manager.sendMessage(id, message);
       const messageId: string | undefined =
-        iframeWindow.postMessage.mock.lastCall?.[0]?.id;
+        portPostMessageSpy.mock.lastCall?.[0]?.id;
       expect(messageId).toBeTypeOf('string');
 
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: {
-            id: messageId,
-            message: {
-              type: Command.Evaluate,
-              data: '4',
-            },
-          },
-        }),
-      );
+      port2.postMessage({
+        id: messageId,
+        message: {
+          type: Command.Evaluate,
+          data: '4',
+        },
+      });
 
-      expect(iframeWindow.postMessage).toHaveBeenCalledOnce();
-      expect(iframeWindow.postMessage).toHaveBeenCalledWith(
-        { id: messageId, message },
-        '*',
-      );
+      expect(portPostMessageSpy).toHaveBeenCalledOnce();
+      expect(portPostMessageSpy).toHaveBeenCalledWith({
+        id: messageId,
+        message,
+      });
       expect(await messagePromise).toBe('4');
     });
 
     it('throws if iframe not found', async () => {
-      const manager = IframeManager.getInstance();
+      const manager = new IframeManager();
       const id = 'foo';
       const message = { type: Command.Ping, data: null };
 
       await expect(manager.sendMessage(id, message)).rejects.toThrow(
-        `No iframe with id "${id}"`,
+        `No vat with id "${id}"`,
       );
     });
   });
 
-  describe('warnings', () => {
-    it('calls console.warn when receiving unexpected message', () => {
-      // Initialize manager
-      IframeManager.getInstance();
-      const warnSpy = vi.spyOn(console, 'warn');
+  describe('miscellaneous', () => {
+    it('calls console.warn when receiving unexpected message', async () => {
+      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce({} as Window);
 
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: 'foo',
-        }),
-      );
+      const manager = new IframeManager();
+      const warnSpy = vi.spyOn(console, 'warn');
+      const sendMessageSpy = vi.spyOn(manager, 'sendMessage');
+      // Intercept the ping message in create()
+      sendMessageSpy.mockImplementationOnce(async () => Promise.resolve());
+
+      const { port1, port2 } = new MessageChannel();
+      await manager.create({ getPort: makeGetPort(port1) });
+
+      port2.postMessage('foo');
+      await delay(10);
 
       expect(warnSpy).toHaveBeenCalledWith(
         'Offscreen received message with unexpected format',
         'foo',
+      );
+    });
+
+    it('calls console.error when receiving message with unknown id', async () => {
+      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce({} as Window);
+
+      const manager = new IframeManager();
+      const errorSpy = vi.spyOn(console, 'error');
+      const sendMessageSpy = vi.spyOn(manager, 'sendMessage');
+      // Intercept the ping message in create()
+      sendMessageSpy.mockImplementationOnce(async () => Promise.resolve());
+
+      const { port1, port2 } = new MessageChannel();
+      await manager.create({ getPort: makeGetPort(port1) });
+
+      port2.postMessage({
+        id: 'foo',
+        message: {
+          type: Command.Evaluate,
+          data: '"bar"',
+        },
+      });
+      await delay(10);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'No unresolved message with id "foo".',
       );
     });
   });

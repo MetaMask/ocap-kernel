@@ -334,7 +334,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/eventual-send@npm:^1.2.3, @endo/eventual-send@npm:^1.2.4":
+"@endo/eventual-send@npm:^1.2.2, @endo/eventual-send@npm:^1.2.3, @endo/eventual-send@npm:^1.2.4":
   version: 1.2.4
   resolution: "@endo/eventual-send@npm:1.2.4"
   dependencies:
@@ -377,12 +377,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/promise-kit@npm:^1.1.3, @endo/promise-kit@npm:^1.1.4":
+"@endo/promise-kit@npm:^1.1.2, @endo/promise-kit@npm:^1.1.3, @endo/promise-kit@npm:^1.1.4":
   version: 1.1.4
   resolution: "@endo/promise-kit@npm:1.1.4"
   dependencies:
     ses: "npm:^1.7.0"
   checksum: 10/794c38d2105597dfec999fb55e0865edd5ce24c86e42eb58561514b5ee68dedae423a7e79e9d75fa66447a88d7c4755d28f848ee841cc531c0ced9253b121fc6
+  languageName: node
+  linkType: hard
+
+"@endo/stream@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "@endo/stream@npm:1.2.2"
+  dependencies:
+    "@endo/eventual-send": "npm:^1.2.2"
+    "@endo/promise-kit": "npm:^1.1.2"
+    ses: "npm:^1.5.0"
+  checksum: 10/2c0ebea133c7a184672679dd1597903fd14df1d6ddd3103f44ef476d9b86a58a8c04ecf42f960a79c8ba85f138e2020bf86ae1cd9a483633326bfc2d874473a4
   languageName: node
   linkType: hard
 
@@ -1246,6 +1257,7 @@ __metadata:
     "@metamask/snaps-utils": "npm:^7.8.0"
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/shims": "workspace:^"
+    "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@types/chrome": "npm:^0.0.268"
     "@vitest/coverage-v8": "npm:^2.0.5"
@@ -1312,6 +1324,31 @@ __metadata:
     deepmerge: "npm:^4.3.1"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
+    vitest: "npm:^2.0.5"
+  languageName: unknown
+  linkType: soft
+
+"@ocap/streams@workspace:^, @ocap/streams@workspace:packages/streams":
+  version: 0.0.0-use.local
+  resolution: "@ocap/streams@workspace:packages/streams"
+  dependencies:
+    "@arethetypeswrong/cli": "npm:^0.15.3"
+    "@endo/promise-kit": "npm:^1.1.2"
+    "@endo/stream": "npm:^1.2.2"
+    "@metamask/auto-changelog": "npm:^3.4.4"
+    "@metamask/utils": "npm:^9.1.0"
+    "@ocap/test-utils": "workspace:^"
+    "@ts-bridge/cli": "npm:^0.3.0"
+    "@ts-bridge/shims": "npm:^0.1.1"
+    "@types/jsdom": "npm:^21.1.7"
+    "@vitest/coverage-v8": "npm:^2.0.5"
+    deepmerge: "npm:^4.3.1"
+    jsdom: "npm:^24.1.1"
+    rimraf: "npm:^6.0.1"
+    typedoc: "npm:^0.24.8"
+    typedoc-plugin-missing-exports: "npm:^2.0.0"
+    typescript: "npm:~4.9.5"
+    vite: "npm:^5.3.5"
     vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
@@ -1682,6 +1719,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jsdom@npm:^21.1.7":
+  version: 21.1.7
+  resolution: "@types/jsdom@npm:21.1.7"
+  dependencies:
+    "@types/node": "npm:*"
+    "@types/tough-cookie": "npm:*"
+    parse5: "npm:^7.0.0"
+  checksum: 10/a5ee54aec813ac928ef783f69828213af4d81325f584e1fe7573a9ae139924c40768d1d5249237e62d51b9a34ed06bde059c86c6b0248d627457ec5e5d532dfa
+  languageName: node
+  linkType: hard
+
 "@types/minimatch@npm:^3.0.3":
   version: 3.0.5
   resolution: "@types/minimatch@npm:3.0.5"
@@ -1727,6 +1775,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10/dc6a6df507656004e242dcb02c784479deca516d5f4b58a1707e708022b269ae147e1da0521f3e8ad0d63638869d87e0adc023f0bd5454aa6f72ac66c7525cf5
+  languageName: node
+  linkType: hard
+
+"@types/tough-cookie@npm:*":
+  version: 4.0.5
+  resolution: "@types/tough-cookie@npm:4.0.5"
+  checksum: 10/01fd82efc8202670865928629697b62fe9bf0c0dcbc5b1c115831caeb073a2c0abb871ff393d7df1ae94ea41e256cb87d2a5a91fd03cdb1b0b4384e08d4ee482
   languageName: node
   linkType: hard
 
@@ -5853,7 +5908,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ses@npm:^1.1.0, ses@npm:^1.7.0":
+"ses@npm:^1.1.0, ses@npm:^1.5.0, ses@npm:^1.7.0":
   version: 1.7.0
   resolution: "ses@npm:1.7.0"
   dependencies:
@@ -6437,6 +6492,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typescript@npm:~4.9.5":
+  version: 4.9.5
+  resolution: "typescript@npm:4.9.5"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/458f7220ab11e0fc191514cc41be1707645ec9a8c2d609448a448e18c522cef9646f58728f6811185a4c35613dacdf6c98cf8965c88b3541d0288c47291e4300
+  languageName: node
+  linkType: hard
+
 "typescript@npm:~5.5.4":
   version: 5.5.4
   resolution: "typescript@npm:5.5.4"
@@ -6454,6 +6519,16 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10/c93786fcc9a70718ba1e3819bab56064ead5817004d1b8186f8ca66165f3a2d0100fee91fa64c840dcd45f994ca5d615d8e1f566d39a7470fc1e014dbb4cf15d
+  languageName: node
+  linkType: hard
+
+"typescript@patch:typescript@npm%3A~4.9.5#optional!builtin<compat/typescript>":
+  version: 4.9.5
+  resolution: "typescript@patch:typescript@npm%3A4.9.5#optional!builtin<compat/typescript>::version=4.9.5&hash=289587"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/5659316360b5cc2d6f5931b346401fa534107b68b60179cf14970e27978f0936c1d5c46f4b5b8175f8cba0430f522b3ce355b4b724c0ea36ce6c0347fab25afd
   languageName: node
   linkType: hard
 
