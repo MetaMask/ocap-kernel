@@ -2,8 +2,8 @@ import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import { createWindow } from '@metamask/snaps-utils';
 
-import type { IframeMessage } from './shared';
-import { Command, isWrappedIframeMessage } from './shared';
+import type { IframeMessage } from './shared.js';
+import { Command, isWrappedIframeMessage } from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
 

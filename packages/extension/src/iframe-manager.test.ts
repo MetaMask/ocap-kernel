@@ -1,7 +1,7 @@
 import * as snapsUtils from '@metamask/snaps-utils';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 
-import { Command } from './shared';
+import { Command } from './shared.js';
 
 vi.mock('@endo/promise-kit', () => ({
   makePromiseKit: () => {
@@ -21,11 +21,11 @@ vi.mock('@metamask/snaps-utils', () => ({
 
 describe('IframeManager', () => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  let IframeManager: typeof import('./iframe-manager').IframeManager;
+  let IframeManager: typeof import('./iframe-manager.js').IframeManager;
 
   beforeEach(async () => {
     vi.resetModules();
-    IframeManager = (await import('./iframe-manager')).IframeManager;
+    IframeManager = (await import('./iframe-manager.js')).IframeManager;
   });
 
   describe('getInstance', () => {

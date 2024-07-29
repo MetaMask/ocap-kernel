@@ -12,7 +12,7 @@ module.exports = {
   },
 
   ignorePatterns: [
-    '!.eslintrc.js',
+    '!.eslintrc.cjs',
     '!vite.config.mts',
     '!vitest.config.mts',
     'node_modules',
@@ -27,6 +27,14 @@ module.exports = {
     // in `@metamask/eslint-config-nodejs` in the future.
     'import/no-nodejs-modules': 'off',
 
+    'import/no-useless-path-segments': [
+      'error',
+      {
+        // Enabling this causes false errors in ESM files.
+        noUselessIndex: false,
+      },
+    ],
+
     // This prevents using Node.js and/or browser specific globals. We
     // currently use both in our codebase, so this rule is disabled.
     'no-restricted-globals': 'off',
@@ -34,7 +42,7 @@ module.exports = {
 
   overrides: [
     {
-      files: ['*.js', '*.cjs'],
+      files: ['*.cjs'],
       parserOptions: {
         sourceType: 'script',
         ecmaVersion: '2020',
@@ -42,7 +50,7 @@ module.exports = {
     },
 
     {
-      files: ['*.mjs'],
+      files: ['*.js', '*.mjs'],
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: '2020',
@@ -70,8 +78,8 @@ module.exports = {
       rules: {
         '@typescript-eslint/no-explicit-any': 'error',
 
-        // This rule is broken, and without the `allowAny` option, it causes
-        // a lot of false positives.
+        // This rule is broken, and without the `allowAny` option, it reports a lot
+        // of false errors.
         '@typescript-eslint/restrict-template-expressions': [
           'error',
           {
@@ -95,6 +103,15 @@ module.exports = {
       rules: {
         // All scripts will have shebangs.
         'n/shebang': 'off',
+      },
+    },
+
+    {
+      // Overrides of overrides.
+      files: ['*'],
+      rules: {
+        // This prevents pretty formatting of comments with multi-line lists entries.
+        'jsdoc/check-indentation': 'off',
       },
     },
 

@@ -7,6 +7,7 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "type": "module",
   "files": [
     "dist/"
   ],
@@ -15,6 +16,7 @@
     "build:types": "tsc --project tsconfig.build.json",
     "build:vite": "vite build --config vite.config.mts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "clean": "rimraf ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "vite --config vite.config.mts & vite build --watch --config vite.config.mts",
     "test": "vitest run --config vitest.config.mts",
@@ -28,22 +30,25 @@
     "@endo/promise-kit": "^1.1.2",
     "@metamask/snaps-utils": "^7.8.0",
     "@metamask/utils": "^9.1.0",
-    "@ocap/shims": "^0.0.0",
-    "ses": "^1.5.0"
+    "@ocap/shims": "workspace:^",
+    "ses": "^1.7.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
+    "@ocap/test-utils": "workspace:^",
     "@types/chrome": "^0.0.268",
-    "@vitest/coverage-v8": "^2.0.4",
+    "@vitest/coverage-v8": "^2.0.5",
+    "cheerio": "^1.0.0-rc.12",
     "deepmerge": "^4.3.1",
     "jsdom": "^24.1.1",
+    "prettier": "^2.7.1",
     "typedoc": "^0.24.8",
     "typedoc-plugin-missing-exports": "^2.0.0",
     "typescript": "~4.9.5",
     "vite": "^5.3.5",
     "vite-plugin-static-copy": "^1.0.6",
-    "vitest": "^2.0.4"
+    "vitest": "^2.0.5"
   },
   "engines": {
     "node": "^18.18 || >=20"

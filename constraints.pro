@@ -208,10 +208,10 @@ gen_enforced_field(WorkspaceCwd, 'module', './dist/index.mjs') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify an entrypoint.
 gen_enforced_field(WorkspaceCwd, 'main', null) :-
-  WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/shims'.
   workspace_field(WorkspaceCwd, 'private', true).
 gen_enforced_field(WorkspaceCwd, 'module', null) :-
-  WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/shims'.
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The type definitions entrypoint for all publishable packages must be the same.
@@ -219,7 +219,7 @@ gen_enforced_field(WorkspaceCwd, 'types', './dist/index.d.cts') :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify a type definitions entrypoint.
 gen_enforced_field(WorkspaceCwd, 'types', null) :-
-  WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/shims'.
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The exports for all published packages must be the same.
@@ -235,18 +235,18 @@ gen_enforced_field(WorkspaceCwd, 'exports["."].import.types', './dist/index.d.mt
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % package.json
 gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') :-
-  \+ workspace_field(WorkspaceCwd, 'private', true).
-% Non-published packages must not specify exports.
+  WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= '.'.
+% The root package must not specify exports.
 gen_enforced_field(WorkspaceCwd, 'exports', null) :-
-  WorkspaceCwd \= 'packages/shims',
-  workspace_field(WorkspaceCwd, 'private', true).
+  WorkspaceCwd = '.'.
 
 % Published packages must not have side effects.
 gen_enforced_field(WorkspaceCwd, 'sideEffects', false) :-
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % Non-published packages must not specify side effects.
 gen_enforced_field(WorkspaceCwd, 'sideEffects', null) :-
-  WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/shims'.
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The list of files included in published packages must only include files
@@ -265,9 +265,14 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 % gen_enforced_field(WorkspaceCwd, 'scripts.build', '') :-
 %   WorkspaceCwd \= '.'.
 
-% All packages except the root and extension must have the same "build:docs" script.
+% All packages except the root and other exceptions must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
   WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= 'packages/test-utils',
+  WorkspaceCwd \= '.'.
+
+% All packages except the root must have the same "clean" script.
+gen_enforced_field(WorkspaceCwd, 'scripts.clean', 'rimraf ./dist \'./*.tsbuildinfo\'') :-
   WorkspaceCwd \= '.'.
 
 % All published packages must have the same "publish:preview" script.
@@ -301,53 +306,56 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
 % All non-root packages must have the same "test" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.mts') :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:clean" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'yarn test --no-cache --coverage.clean') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:dev" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'yarn test --coverage false') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:verbose" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'yarn test --reporter verbose') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:watch" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.config.mts') :-
+  WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 
 % All dependency ranges must be recognizable (this makes it possible to apply
 % the next two rules effectively).
 gen_enforced_dependency(WorkspaceCwd, DependencyIdent, 'a range optionally starting with ^ or ~', DependencyType) :-
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
-  \+ is_valid_version_range(DependencyRange).
+  \+ (
+      DependencyRange = '^1.0.0-rc.12'; % is_valid_version_range does not handle rc suffixes
+      is_valid_version_range(DependencyRange)
+    ).
 
-% All version ranges used to reference one workspace package in another
-% workspace package's `dependencies` or `devDependencies` must be the same.
-% Among all references to the same dependency across the monorepo, the one with
-% the smallest version range will win. (We handle `peerDependencies` in another
-% constraint, as it has slightly different logic.)
+% All dependency ranges for a package must be synchronized across the monorepo
+% (the least version range wins), regardless of which "*dependencies" field
+% where the package appears.
 gen_enforced_dependency(WorkspaceCwd, DependencyIdent, OtherDependencyRange, DependencyType) :-
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
   workspace_has_dependency(OtherWorkspaceCwd, DependencyIdent, OtherDependencyRange, OtherDependencyType),
   WorkspaceCwd \= OtherWorkspaceCwd,
   DependencyRange \= OtherDependencyRange,
-  npm_version_range_out_of_sync(DependencyRange, OtherDependencyRange),
-  DependencyType \= 'peerDependencies',
-  OtherDependencyType \= 'peerDependencies'.
+  npm_version_range_out_of_sync(DependencyRange, OtherDependencyRange).
 
-% All version ranges used to reference one workspace package in another
-% workspace package's `dependencies` or `devDependencies` must match the current
-% version of that package. (We handle `peerDependencies` in another rule.)
-gen_enforced_dependency(WorkspaceCwd, DependencyIdent, CorrectDependencyRange, DependencyType) :-
-  DependencyType \= 'peerDependencies',
+% If a dependency is listed under "dependencies", it should not be listed under
+% "devDependencies". We match on the same dependency range so that if a
+% dependency is listed under both lists, their versions are synchronized and
+% then this constraint will apply and remove the "right" duplicate.
+gen_enforced_dependency(WorkspaceCwd, DependencyIdent, null, DependencyType) :-
+  workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, 'dependencies'),
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
-  workspace_ident(OtherWorkspaceCwd, DependencyIdent),
-  workspace_version(OtherWorkspaceCwd, OtherWorkspaceVersion),
-  atomic_list_concat(['^', OtherWorkspaceVersion], CorrectDependencyRange).
+  DependencyType == 'devDependencies'.
 
 % If a workspace package is listed under another workspace package's
 % `dependencies`, it should not also be listed under its `devDependencies`.

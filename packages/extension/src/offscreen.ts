@@ -1,9 +1,6 @@
-// eslint-disable-next-line import/extensions,import/no-unassigned-import
-import './endoify.mjs';
-
 import { IframeManager } from './iframe-manager.js';
-import type { ExtensionMessage } from './shared';
-import { Command, makeHandledCallback } from './shared';
+import type { ExtensionMessage } from './shared.js';
+import { Command, makeHandledCallback } from './shared.js';
 
 // Handle messages from the background service worker
 chrome.runtime.onMessage.addListener(

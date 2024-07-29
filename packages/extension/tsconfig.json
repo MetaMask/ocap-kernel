@@ -7,7 +7,8 @@
     "lib": ["DOM", "ES2020"],
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome", "ses", "vitest"]
+    "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
   },
+  "references": [{ "path": "../test-utils" }],
   "include": ["./src/**/*.ts", "./src/dev-console.mjs"]
 }

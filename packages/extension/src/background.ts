@@ -3,8 +3,8 @@ import './dev-console.mjs';
 import './endoify.mjs';
 /* eslint-enable import/extensions,import/no-unassigned-import */
 
-import type { ExtensionMessage } from './shared';
-import { Command, makeHandledCallback } from './shared';
+import type { ExtensionMessage } from './shared.js';
+import { Command, makeHandledCallback } from './shared.js';
 
 // globalThis.kernel will exist due to dev-console.mjs
 Object.defineProperties(globalThis.kernel, {
