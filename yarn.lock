@@ -346,6 +346,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@endo/stream@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "@endo/stream@npm:1.2.2"
+  dependencies:
+    "@endo/eventual-send": "npm:^1.2.2"
+    "@endo/promise-kit": "npm:^1.1.2"
+    ses: "npm:^1.5.0"
+  checksum: 10/2c0ebea133c7a184672679dd1597903fd14df1d6ddd3103f44ef476d9b86a58a8c04ecf42f960a79c8ba85f138e2020bf86ae1cd9a483633326bfc2d874473a4
+  languageName: node
+  linkType: hard
+
 "@es-joy/jsdoccomment@npm:~0.36.1":
   version: 0.36.1
   resolution: "@es-joy/jsdoccomment@npm:0.36.1"
@@ -1234,6 +1245,7 @@ __metadata:
     "@metamask/snaps-utils": "npm:^7.8.0"
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/shims": "workspace:^"
+    "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@types/chrome": "npm:^0.0.268"
     "@vitest/coverage-v8": "npm:^2.0.5"
@@ -1300,6 +1312,31 @@ __metadata:
     mkdirp: "npm:^3.0.1"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
+    vitest: "npm:^2.0.5"
+  languageName: unknown
+  linkType: soft
+
+"@ocap/streams@workspace:^, @ocap/streams@workspace:packages/streams":
+  version: 0.0.0-use.local
+  resolution: "@ocap/streams@workspace:packages/streams"
+  dependencies:
+    "@arethetypeswrong/cli": "npm:^0.15.3"
+    "@endo/promise-kit": "npm:^1.1.2"
+    "@endo/stream": "npm:^1.2.2"
+    "@metamask/auto-changelog": "npm:^3.4.4"
+    "@metamask/utils": "npm:^9.1.0"
+    "@ocap/test-utils": "workspace:^"
+    "@ts-bridge/cli": "npm:^0.3.0"
+    "@ts-bridge/shims": "npm:^0.1.1"
+    "@types/jsdom": "npm:^21.1.7"
+    "@vitest/coverage-v8": "npm:^2.0.5"
+    deepmerge: "npm:^4.3.1"
+    jsdom: "npm:^24.1.1"
+    rimraf: "npm:^6.0.1"
+    typedoc: "npm:^0.24.8"
+    typedoc-plugin-missing-exports: "npm:^2.0.0"
+    typescript: "npm:~4.9.5"
+    vite: "npm:^5.3.5"
     vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
@@ -1604,6 +1641,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jsdom@npm:^21.1.7":
+  version: 21.1.7
+  resolution: "@types/jsdom@npm:21.1.7"
+  dependencies:
+    "@types/node": "npm:*"
+    "@types/tough-cookie": "npm:*"
+    parse5: "npm:^7.0.0"
+  checksum: 10/a5ee54aec813ac928ef783f69828213af4d81325f584e1fe7573a9ae139924c40768d1d5249237e62d51b9a34ed06bde059c86c6b0248d627457ec5e5d532dfa
+  languageName: node
+  linkType: hard
+
 "@types/json-schema@npm:^7.0.9":
   version: 7.0.11
   resolution: "@types/json-schema@npm:7.0.11"
@@ -1652,6 +1700,13 @@ __metadata:
   version: 7.3.13
   resolution: "@types/semver@npm:7.3.13"
   checksum: 10/0064efd7a0515a539062b71630c72ca2b058501b957326c285cdff82f42c1716d9f9f831332ccf719d5ee8cc3ef24f9ff62122d7a7140c73959a240b49b0f62d
+  languageName: node
+  linkType: hard
+
+"@types/tough-cookie@npm:*":
+  version: 4.0.5
+  resolution: "@types/tough-cookie@npm:4.0.5"
+  checksum: 10/01fd82efc8202670865928629697b62fe9bf0c0dcbc5b1c115831caeb073a2c0abb871ff393d7df1ae94ea41e256cb87d2a5a91fd03cdb1b0b4384e08d4ee482
   languageName: node
   linkType: hard
 

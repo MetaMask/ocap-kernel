@@ -9,6 +9,9 @@
     "rootDir": "./src",
     "types": ["chrome", "ses"]
   },
-  "references": [{ "path": "../shims/tsconfig.build.json" }],
+  "references": [
+    { "path": "../shims/tsconfig.build.json" },
+    { "path": "../streams/tsconfig.build.json" }
+  ],
   "include": ["./src/**/*.ts", "./src/dev-console.js"]
 }
