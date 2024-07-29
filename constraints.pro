@@ -209,9 +209,11 @@ gen_enforced_field(WorkspaceCwd, 'module', './dist/index.mjs') :-
 % Non-published packages must not specify an entrypoint.
 gen_enforced_field(WorkspaceCwd, 'main', null) :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/streams',
   workspace_field(WorkspaceCwd, 'private', true).
 gen_enforced_field(WorkspaceCwd, 'module', null) :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/streams',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The type definitions entrypoint for all publishable packages must be the same.
@@ -220,6 +222,7 @@ gen_enforced_field(WorkspaceCwd, 'types', './dist/index.d.cts') :-
 % Non-published packages must not specify a type definitions entrypoint.
 gen_enforced_field(WorkspaceCwd, 'types', null) :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/streams',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The exports for all published packages must be the same.
@@ -239,6 +242,7 @@ gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') 
 % Non-published packages must not specify exports.
 gen_enforced_field(WorkspaceCwd, 'exports', null) :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/streams',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % Published packages must not have side effects.
@@ -247,6 +251,7 @@ gen_enforced_field(WorkspaceCwd, 'sideEffects', false) :-
 % Non-published packages must not specify side effects.
 gen_enforced_field(WorkspaceCwd, 'sideEffects', null) :-
   WorkspaceCwd \= 'packages/shims',
+  WorkspaceCwd \= 'packages/streams',
   workspace_field(WorkspaceCwd, 'private', true).
 
 % The list of files included in published packages must only include files

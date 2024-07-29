@@ -8,6 +8,7 @@
   "include": [],
   "references": [
     { "path": "./packages/extension" },
-    { "path": "./packages/shims" }
+    { "path": "./packages/shims" },
+    { "path": "./packages/streams" }
   ]
 }
