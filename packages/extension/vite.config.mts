@@ -60,17 +60,4 @@ export default defineConfig({
       watch: { reloadPageOnChange: true },
     }),
   ],
-
-  test: {
-    environment: 'jsdom',
-    restoreMocks: true,
-    coverage: {
-      enabled: true,
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      // include: [`${projectRoot}/*.ts`],
-      reportsDirectory: path.resolve(projectRoot, '../coverage'),
-    },
-    silent: true,
-  },
 });

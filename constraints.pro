@@ -299,29 +299,24 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
   \+ atom_concat(ExpectedPrefix, _, ChangelogUpdateCommand).
 
 % All non-root packages must have the same "test" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test', 'jest --reporters=jest-silent-reporter') :-
-  WorkspaceCwd \= 'packages/extension',
+gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.mts') :-
   WorkspaceCwd \= 'packages/shims',
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:clean" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'jest --clearCache') :-
-  WorkspaceCwd \= 'packages/extension',
+gen_enforced_field(WorkspaceCwd, 'scripts.test:clean', 'yarn test --no-cache --coverage.clean') :-
+  WorkspaceCwd \= '.'.
+
+% All non-root packages must have the same "test:dev" script.
+gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'yarn test --coverage false') :-
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:verbose" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'jest --verbose') :-
-  WorkspaceCwd \= 'packages/extension',
-  WorkspaceCwd \= '.'.
-
-% All non-root packages must have the same "test:verbose" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test:dev', 'jest --verbose --coverage false') :-
-  WorkspaceCwd \= 'packages/extension',
+gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'yarn test --reporter verbose') :-
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:watch" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'jest --watch') :-
-  WorkspaceCwd \= 'packages/extension',
+gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.config.mts') :-
   WorkspaceCwd \= '.'.
 
 % All dependency ranges must be recognizable (this makes it possible to apply

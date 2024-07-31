@@ -8,10 +8,5 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "exclude": [
-    "./jest.config.packages.ts",
-    "**/vite.*.mts",
-    "**/*.test.ts",
-    "**/jest.config.ts"
-  ]
+  "exclude": ["**/vite.*.mts", "**/vitest.*.mts", "**/*.test.ts"]
 }

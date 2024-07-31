@@ -25,11 +25,11 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf ./dist",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "jest --reporters=jest-silent-reporter --passWithNoTests",
-    "test:clean": "jest --clearCache",
-    "test:dev": "jest --verbose --coverage false",
-    "test:verbose": "jest --verbose",
-    "test:watch": "jest --watch"
+    "test": "vitest run --config vitest.config.mts --passWithNoTests",
+    "test:clean": "yarn test --no-cache --coverage.clean",
+    "test:dev": "yarn test --coverage false",
+    "test:verbose": "yarn test --reporter verbose",
+    "test:watch": "vitest --config vitest.config.mts"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.2",
@@ -39,9 +39,9 @@
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",
     "deepmerge": "^4.3.1",
-    "jest": "^28.1.3",
     "mkdirp": "^3.0.1",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "vitest": "^2.0.4"
   },
   "engines": {
     "node": "^18.18 || >=20"

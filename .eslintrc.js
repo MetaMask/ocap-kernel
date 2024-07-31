@@ -13,7 +13,8 @@ module.exports = {
 
   ignorePatterns: [
     '!.eslintrc.js',
-    '!jest.config.js',
+    '!vite.config.mts',
+    '!vitest.config.mts',
     'node_modules',
     '**/dist',
     '**/docs',
@@ -49,7 +50,7 @@ module.exports = {
     },
 
     {
-      files: ['**/scripts/*.mjs'],
+      files: ['**/scripts/*.mjs', '*.mts'],
       parserOptions: {
         ecmaVersion: '2022',
       },
@@ -98,34 +99,9 @@ module.exports = {
     },
 
     {
-      files: ['**/jest.environment.js'],
-      rules: {
-        // These files run under Node, and thus `require(...)` is expected.
-        'n/global-require': 'off',
-      },
-    },
-
-    {
-      files: ['*.test.{ts,js}', '**/tests/**/*.{ts,js}'],
-      extends: ['@metamask/eslint-config-jest'],
-      rules: {
-        '@typescript-eslint/no-shadow': [
-          'error',
-          { allow: ['describe', 'expect', 'it'] },
-        ],
-      },
-    },
-
-    {
-      // These files are test helpers, not tests. We still use the Jest ESLint
-      // config here to ensure that ESLint expects a test-like environment, but
-      // various rules meant just to apply to tests have been disabled.
-      files: ['**/tests/**/*.{ts,js}', '!*.test.{ts,js}'],
-      rules: {
-        'jest/no-export': 'off',
-        'jest/require-top-level-describe': 'off',
-        'jest/no-if': 'off',
-      },
+      files: ['**/*.test.{ts,js}'],
+      plugins: ['vitest'],
+      extends: ['plugin:vitest/recommended'],
     },
   ],
 };
