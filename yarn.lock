@@ -346,6 +346,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@endo/stream@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "@endo/stream@npm:1.2.2"
+  dependencies:
+    "@endo/eventual-send": "npm:^1.2.2"
+    "@endo/promise-kit": "npm:^1.1.2"
+    ses: "npm:^1.5.0"
+  checksum: 10/2c0ebea133c7a184672679dd1597903fd14df1d6ddd3103f44ef476d9b86a58a8c04ecf42f960a79c8ba85f138e2020bf86ae1cd9a483633326bfc2d874473a4
+  languageName: node
+  linkType: hard
+
 "@es-joy/jsdoccomment@npm:~0.36.1":
   version: 0.36.1
   resolution: "@es-joy/jsdoccomment@npm:0.36.1"
@@ -1304,7 +1315,10 @@ __metadata:
   resolution: "@ocap/streams@workspace:packages/streams"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.15.3"
+    "@endo/promise-kit": "npm:^1.1.2"
+    "@endo/stream": "npm:^1.2.2"
     "@metamask/auto-changelog": "npm:^3.4.4"
+    "@metamask/utils": "npm:^9.1.0"
     "@ts-bridge/cli": "npm:^0.1.4"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/jest": "npm:^28.1.6"

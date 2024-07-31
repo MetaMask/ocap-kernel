@@ -38,6 +38,11 @@
     "test:verbose": "jest --verbose",
     "test:watch": "jest --watch"
   },
+  "dependencies": {
+    "@endo/promise-kit": "^1.1.2",
+    "@endo/stream": "^1.2.2",
+    "@metamask/utils": "^9.1.0"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
