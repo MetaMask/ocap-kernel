@@ -11,7 +11,7 @@ import { isObject } from '@metamask/utils';
 //    the iframe. When the returned promise resolves, the parent window and the iframe have
 //    established a message channel.
 
-enum MessageType {
+export enum MessageType {
   Initialize = 'INIT_MESSAGE_CHANNEL',
   Acknowledge = 'ACK_MESSAGE_CHANNEL',
 }
