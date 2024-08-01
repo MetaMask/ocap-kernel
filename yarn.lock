@@ -1300,6 +1300,7 @@ __metadata:
     prettier: "npm:^2.7.1"
     prettier-plugin-packagejson: "npm:^2.3.0"
     rimraf: "npm:^6.0.1"
+    streamcat: "npm:^2.6.5"
     typedoc: "npm:^0.24.8"
     typescript: "npm:~4.9.5"
     vite: "npm:^5.3.5"
@@ -1320,6 +1321,7 @@ __metadata:
     mkdirp: "npm:^3.0.1"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
+    streamcat: "npm:^2.6.5"
     vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
@@ -6654,6 +6656,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"promisebuffer@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "promisebuffer@npm:1.0.0"
+  checksum: 10/c37ba6870333b197c2397334a13349bacb22c45227f01a0ab15fef43618eb385475a1c7aafcfa6237d399794a5957c22c7d3be2e4129c789fe169c88609c0120
+  languageName: node
+  linkType: hard
+
 "psl@npm:^1.1.33":
   version: 1.9.0
   resolution: "psl@npm:1.9.0"
@@ -7370,6 +7379,15 @@ __metadata:
   version: 3.7.0
   resolution: "std-env@npm:3.7.0"
   checksum: 10/6ee0cca1add3fd84656b0002cfbc5bfa20340389d9ba4720569840f1caa34bce74322aef4c93f046391583e50649d0cf81a5f8fe1d411e50b659571690a45f12
+  languageName: node
+  linkType: hard
+
+"streamcat@npm:^2.6.5":
+  version: 2.6.5
+  resolution: "streamcat@npm:2.6.5"
+  dependencies:
+    promisebuffer: "npm:^1.0.0"
+  checksum: 10/989345c463c22ab28a7cb8f7881bc45239e86b2b4094e6a59b541388115a75cc9d3b58defc0625edd26bf85e9366b57ef5d3c978cf48d8c4dacc910463a50e5a
   languageName: node
   linkType: hard
 

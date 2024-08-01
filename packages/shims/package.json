@@ -27,7 +27,7 @@
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "yarn test:bundles && vitest run --config vitest.config.ts --passWithNoTests",
-    "test:bundles": "ava",
+    "test:bundles": "ava ./test",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
@@ -44,6 +44,7 @@
     "deepmerge": "^4.3.1",
     "mkdirp": "^3.0.1",
     "rimraf": "^6.0.1",
+    "streamcat": "^2.6.5",
     "vitest": "^2.0.5"
   },
   "engines": {
