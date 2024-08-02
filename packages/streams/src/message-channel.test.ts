@@ -1,4 +1,4 @@
-import { makePromiseKitMock } from '@ocap/test-utils/mocks';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { JSDOM } from 'jsdom';
 import { vi, describe, it, beforeEach, afterEach, beforeAll } from 'vitest';
 
@@ -177,8 +177,7 @@ describe('receiveMessagePort', () => {
         }),
       );
 
-      // eslint-disable-next-line @typescript-eslint/await-thenable
-      await null;
+      await delay();
 
       expect(fulfillmentDetector).not.toHaveBeenCalled();
       expect(portPostMessageSpy).not.toHaveBeenCalled();

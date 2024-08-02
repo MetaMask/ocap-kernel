@@ -1245,6 +1245,7 @@ __metadata:
     "@metamask/snaps-utils": "npm:^7.8.0"
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/shims": "npm:^0.0.0"
+    "@ocap/test-utils": "npm:^0.0.0"
     "@types/chrome": "npm:^0.0.268"
     "@vitest/coverage-v8": "npm:^2.0.5"
     deepmerge: "npm:^4.3.1"
@@ -1319,6 +1320,7 @@ __metadata:
     "@endo/stream": "npm:^1.2.2"
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/utils": "npm:^9.1.0"
+    "@ocap/test-utils": "npm:^0.0.0"
     "@ts-bridge/cli": "npm:^0.1.4"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/jsdom": "npm:^21.1.7"
@@ -1329,11 +1331,12 @@ __metadata:
     typedoc: "npm:^0.24.8"
     typedoc-plugin-missing-exports: "npm:^2.0.0"
     typescript: "npm:~4.9.5"
+    vite: "npm:^5.3.5"
     vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
 
-"@ocap/test-utils@workspace:packages/test-utils":
+"@ocap/test-utils@npm:^0.0.0, @ocap/test-utils@workspace:packages/test-utils":
   version: 0.0.0-use.local
   resolution: "@ocap/test-utils@workspace:packages/test-utils"
   dependencies:

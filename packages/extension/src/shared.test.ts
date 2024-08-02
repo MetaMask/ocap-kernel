@@ -1,3 +1,4 @@
+import { delay } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
 import { isWrappedIframeMessage, makeHandledCallback } from './shared';
@@ -52,8 +53,7 @@ describe('shared', () => {
 
       // eslint-disable-next-line n/callback-return
       callback();
-      // eslint-disable-next-line @typescript-eslint/await-thenable
-      await null;
+      await delay();
 
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(

@@ -1,5 +1,5 @@
 import * as snapsUtils from '@metamask/snaps-utils';
-import { makePromiseKitMock } from '@ocap/test-utils/mocks';
+import { makePromiseKitMock } from '@ocap/test-utils';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 
 import { Command } from './shared';
