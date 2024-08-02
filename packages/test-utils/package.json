@@ -10,6 +10,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "echo 'No tests.' && exit 0"
+  },
   "devDependencies": {
     "ses": "^1.7.0",
     "typescript": "~4.9.5",
