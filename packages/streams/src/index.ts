@@ -1,2 +1,5 @@
-export * from './message-channel';
-export * from './streams';
+export {
+  initializeMessageChannel,
+  receiveMessagePort,
+} from './message-channel';
+export { MessagePortReader, MessagePortWriter } from './streams';

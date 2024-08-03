@@ -23,7 +23,7 @@ describe.concurrent('MessagePortReader', () => {
     port2.postMessage(message);
     await delay(100);
 
-    await expect(reader.next()).resolves.toEqual({
+    await expect(reader.next()).resolves.toStrictEqual({
       done: false,
       value: message,
     });
@@ -37,7 +37,7 @@ describe.concurrent('MessagePortReader', () => {
     const message = { foo: 'bar' };
     port2.postMessage(message);
 
-    await expect(nextP).resolves.toEqual({ done: false, value: message });
+    await expect(nextP).resolves.toStrictEqual({ done: false, value: message });
   });
 
   it('iterates over multiple port messages', async () => {
@@ -48,7 +48,7 @@ describe.concurrent('MessagePortReader', () => {
     messages.forEach((message) => port2.postMessage(message));
 
     for (const message of messages) {
-      await expect(reader.next()).resolves.toEqual({
+      await expect(reader.next()).resolves.toStrictEqual({
         done: false,
         value: message,
       });
@@ -60,7 +60,10 @@ describe.concurrent('MessagePortReader', () => {
     const reader = new MessagePortReader(port1);
 
     const result = reader.return();
-    await expect(result).resolves.toEqual({ done: true, value: undefined });
+    await expect(result).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
     expect(port1.onmessage).toBe(null);
   });
 
@@ -71,8 +74,14 @@ describe.concurrent('MessagePortReader', () => {
     const nextP = reader.next();
     const returnP = reader.return();
 
-    await expect(nextP).resolves.toEqual({ done: true, value: undefined });
-    await expect(returnP).resolves.toEqual({ done: true, value: undefined });
+    await expect(nextP).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
+    await expect(returnP).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
   });
 
   it('ends after throwing', async () => {
@@ -80,7 +89,10 @@ describe.concurrent('MessagePortReader', () => {
     const reader = new MessagePortReader(port1);
 
     const result = reader.throw();
-    await expect(result).resolves.toEqual({ done: true, value: undefined });
+    await expect(result).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
     expect(port1.onmessage).toBe(null);
   });
 
@@ -91,8 +103,14 @@ describe.concurrent('MessagePortReader', () => {
     const nextP = reader.next();
     const returnP = reader.throw();
 
-    await expect(nextP).resolves.toEqual({ done: true, value: undefined });
-    await expect(returnP).resolves.toEqual({ done: true, value: undefined });
+    await expect(nextP).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
+    await expect(returnP).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
   });
 });
 
@@ -115,8 +133,11 @@ describe.concurrent('MessagePortWriter', () => {
     });
     const nextP = writer.next(message);
 
-    await expect(nextP).resolves.toEqual({ done: false, value: undefined });
-    await expect(messageP).resolves.toEqual(message);
+    await expect(nextP).resolves.toStrictEqual({
+      done: false,
+      value: undefined,
+    });
+    await expect(messageP).resolves.toStrictEqual(message);
   });
 
   it('ends after returning', async () => {
@@ -124,7 +145,10 @@ describe.concurrent('MessagePortWriter', () => {
     const writer = new MessagePortWriter(port1);
 
     const result = writer.return();
-    await expect(result).resolves.toEqual({ done: true, value: undefined });
+    await expect(result).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
     expect(port1.onmessage).toBe(null);
   });
 
@@ -133,7 +157,10 @@ describe.concurrent('MessagePortWriter', () => {
     const writer = new MessagePortWriter(port1);
 
     const result = writer.throw();
-    await expect(result).resolves.toEqual({ done: true, value: undefined });
+    await expect(result).resolves.toStrictEqual({
+      done: true,
+      value: undefined,
+    });
     expect(port1.onmessage).toBe(null);
   });
 });

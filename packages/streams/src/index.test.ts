@@ -1,9 +1,16 @@
-import greeter from '.';
+import { describe, it, expect } from 'vitest';
 
-describe('Test', () => {
-  it('greets', () => {
-    const name = 'Huey';
-    const result = greeter(name);
-    expect(result).toBe('Hello, Huey!');
+import * as indexModule from '.';
+
+describe('index', () => {
+  it('has the expected exports', () => {
+    expect(Object.keys(indexModule)).toStrictEqual(
+      expect.arrayContaining([
+        'MessagePortReader',
+        'MessagePortWriter',
+        'initializeMessageChannel',
+        'receiveMessagePort',
+      ]),
+    );
   });
 });
