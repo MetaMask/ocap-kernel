@@ -1,15 +1,18 @@
+/**
+ * This module establishes a simple protocol for establishing a MessageChannel between
+ * a parent window and its iframe, as follows:
+ * 1. The parent window creates an iframe and appends it to the DOM. The iframe must be
+ *    loaded and the `contentWindow` property must be accessible.
+ * 2. The iframe calls `receiveMessagePort()` on startup in one of its scripts. The script
+ *    element in question should not have the `async` attribute.
+ * 3. The parent window calls `initializeMessageChannel()` which sends a message port to
+ *    the iframe. When the returned promise resolves, the parent window and the iframe have
+ *    established a message channel.
+ * @module MessageChannel utilities
+ */
+
 import { makePromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
-
-// This module establishes a simple protocol for establishing a MessageChannel between
-// a parent window and its iframe, as follows:
-// 1. The parent window creates an iframe and appends it to the DOM. The iframe must be
-//    loaded and the `contentWindow` property must be accessible.
-// 2. The iframe calls `receiveMessagePort()` on startup in one of its scripts. The script
-//    element in question should not have the `async` attribute.
-// 3. The parent window calls `initializeMessageChannel()` which sends a message port to
-//    the iframe. When the returned promise resolves, the parent window and the iframe have
-//    established a message channel.
 
 export enum MessageType {
   Initialize = 'INIT_MESSAGE_CHANNEL',

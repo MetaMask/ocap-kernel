@@ -84,6 +84,14 @@ module.exports = {
     },
 
     {
+      files: ['*'],
+      rules: {
+        // This prevents pretty formatting of comments with multi-line lists entries.
+        'jsdoc/check-indentation': 'off',
+      },
+    },
+
+    {
       files: ['*.d.ts'],
       rules: {
         'import/unambiguous': 'off',
