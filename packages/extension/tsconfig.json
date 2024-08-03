@@ -9,6 +9,6 @@
     "skipLibCheck": true,
     "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
   },
-  "references": [{ "path": "../test-utils" }],
+  "references": [{ "path": "../streams" }, { "path": "../test-utils" }],
   "include": ["./src/**/*.ts", "./src/dev-console.mjs"]
 }

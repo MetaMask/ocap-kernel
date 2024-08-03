@@ -337,29 +337,24 @@ gen_enforced_dependency(WorkspaceCwd, DependencyIdent, 'a range optionally start
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
   \+ is_valid_version_range(DependencyRange).
 
-% All version ranges used to reference one workspace package in another
-% workspace package's `dependencies` or `devDependencies` must be the same.
-% Among all references to the same dependency across the monorepo, the one with
-% the smallest version range will win. (We handle `peerDependencies` in another
-% constraint, as it has slightly different logic.)
+% All dependency ranges for a package must be synchronized across the monorepo
+% (the least version range wins), regardless of which "*dependencies" field
+% where the package appears.
 gen_enforced_dependency(WorkspaceCwd, DependencyIdent, OtherDependencyRange, DependencyType) :-
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
   workspace_has_dependency(OtherWorkspaceCwd, DependencyIdent, OtherDependencyRange, OtherDependencyType),
   WorkspaceCwd \= OtherWorkspaceCwd,
   DependencyRange \= OtherDependencyRange,
-  npm_version_range_out_of_sync(DependencyRange, OtherDependencyRange),
-  DependencyType \= 'peerDependencies',
-  OtherDependencyType \= 'peerDependencies'.
+  npm_version_range_out_of_sync(DependencyRange, OtherDependencyRange).
 
-% All version ranges used to reference one workspace package in another
-% workspace package's `dependencies` or `devDependencies` must match the current
-% version of that package. (We handle `peerDependencies` in another rule.)
-gen_enforced_dependency(WorkspaceCwd, DependencyIdent, CorrectDependencyRange, DependencyType) :-
-  DependencyType \= 'peerDependencies',
+% If a dependency is listed under "dependencies", it should not be listed under
+% "devDependencies". We match on the same dependency range so that if a
+% dependency is listed under both lists, their versions are synchronized and
+% then this constraint will apply and remove the "right" duplicate.
+gen_enforced_dependency(WorkspaceCwd, DependencyIdent, null, DependencyType) :-
+  workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, 'dependencies'),
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
-  workspace_ident(OtherWorkspaceCwd, DependencyIdent),
-  workspace_version(OtherWorkspaceCwd, OtherWorkspaceVersion),
-  atomic_list_concat(['^', OtherWorkspaceVersion], CorrectDependencyRange).
+  DependencyType == 'devDependencies'.
 
 % If a workspace package is listed under another workspace package's
 % `dependencies`, it should not also be listed under its `devDependencies`.
