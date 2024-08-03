@@ -10,7 +10,21 @@ const makeDoneResult = () =>
   ({ done: true, value: undefined } as { done: true; value: undefined });
 
 /**
- * A readable stream over a {@link MessagePort}.
+ * A readable stream over a {@link MessagePort}. See also {@link MessagePortWriter}.
+ *
+ * This class is an extremely naive passthrough mechanism for data over a pair of
+ * linked message ports. Because there is no ergonomic way to detect the closure of a
+ * message port at the time of writing, closure must be handled at a higher level of
+ * abstraction. The lifetime of the underlying message port is expected to be coextensive
+ * with "the other side".
+ *
+ * In addition, the message port mechanism is assumed to be 100% reliable, and this class
+ * therefore has no concept of errors or error handling. This is instead also delegated
+ * to a higher level of abstraction.
+ *
+ * Regarding limitations around detecting MessagePort closure, see:
+ * - https://github.com/fergald/explainer-messageport-close
+ * - https://github.com/whatwg/html/issues/10201
  */
 export class MessagePortReader<Yield> implements Reader<Yield> {
   #port: MessagePort;
@@ -76,17 +90,14 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
   }
 
   /**
-   * Rejects all pending reads from this stream with the specified error, closes
-   * the underlying port, and returns.
-   * @param error - The error to throw.
+   * Alias for {@link return}.
+   * @deprecated This method only exists for interface conformance. Due to limitations
+   * of the underlying communication mechanism, this class has no concept of errors.
+   * Use {@link return} instead.
    * @returns The final result for this stream.
    */
-  async throw(error: Error): Promise<IteratorResult<Yield, undefined>> {
-    while (this.#readQueue.length > 0) {
-      const { reject } = this.#readQueue.shift() as PromiseCallbacks;
-      reject(error);
-    }
-    return this.#end();
+  async throw(): Promise<IteratorResult<Yield, undefined>> {
+    return this.return();
   }
 
   #end(): IteratorResult<Yield, undefined> {
@@ -98,7 +109,21 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
 harden(MessagePortReader);
 
 /**
- * A writable stream over a {@link MessagePort}.
+ * A writable stream over a {@link MessagePort}. See also {@link MessagePortReader}.
+ *
+ * This class is an extremely naive passthrough mechanism for data over a pair of
+ * linked message ports. Because there is no ergonomic way to detect the closure of a
+ * message port at the time of writing, closure must be handled at a higher level of
+ * abstraction. The lifetime of the underlying message port is expected to be coextensive
+ * with "the other side".
+ *
+ * In addition, the message port mechanism is assumed to be 100% reliable, and this class
+ * therefore has no concept of errors or error handling. This is instead also delegated
+ * to a higher level of abstraction.
+ *
+ * Regarding limitations around detecting MessagePort closure, see:
+ * - https://github.com/fergald/explainer-messageport-close
+ * - https://github.com/whatwg/html/issues/10201
  */
 export class MessagePortWriter<Yield> implements Writer<Yield> {
   #port: MessagePort;
@@ -131,8 +156,10 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
   }
 
   /**
-   * Essentially an alias for `return()`. Errors intended for the other side are
-   * delegated to a higher level of abstraction.
+   * Alias for {@link return}.
+   * @deprecated This method only exists for interface conformance. Due to limitations
+   * of the underlying communication mechanism, this class has no concept of errors.
+   * Use {@link return} instead.
    * @returns The final result for this stream.
    */
   async throw(): Promise<IteratorResult<undefined, undefined>> {

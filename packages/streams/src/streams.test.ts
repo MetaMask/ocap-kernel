@@ -79,19 +79,19 @@ describe.concurrent('MessagePortReader', () => {
     const { port1 } = new MessageChannel();
     const reader = new MessagePortReader(port1);
 
-    const result = reader.throw(new Error());
+    const result = reader.throw();
     await expect(result).resolves.toEqual({ done: true, value: undefined });
     expect(port1.onmessage).toBe(null);
   });
 
-  it('rejects pending promises after throwing', async () => {
+  it('resolves pending promises after throwing', async () => {
     const { port1 } = new MessageChannel();
     const reader = new MessagePortReader(port1);
 
     const nextP = reader.next();
-    const returnP = reader.throw(new Error('end'));
+    const returnP = reader.throw();
 
-    await expect(nextP).rejects.toThrow('end');
+    await expect(nextP).resolves.toEqual({ done: true, value: undefined });
     await expect(returnP).resolves.toEqual({ done: true, value: undefined });
   });
 });
