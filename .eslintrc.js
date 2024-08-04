@@ -99,9 +99,44 @@ module.exports = {
     },
 
     {
+      // @metamask/eslint-plugin-vitest does not exist, so this is copied from the
+      // jest-equivalent. All of the rules we specify are the same. Ref:
+      // https://github.com/MetaMask/eslint-config/blob/95275db568999bf48670894a3dc6b6c1a2f517f9/packages/jest/src/index.js
       files: ['**/*.test.{ts,js}'],
       plugins: ['vitest'],
       extends: ['plugin:vitest/recommended'],
+      rules: {
+        // From the jest/style ruleset (no corresponding ruleset for vitest). Ref:
+        // https://github.com/jest-community/eslint-plugin-jest/blob/39719a323466aada48531fe28ec953e17dee6e65/src/index.ts#L74-L77
+        'vitest/no-alias-methods': 'error', // We upgrade this to an error
+        'vitest/prefer-to-be': 'error',
+        'vitest/prefer-to-contain': 'error',
+        'vitest/prefer-to-have-length': 'error',
+        // From MetaMask's custom ruleset
+        'vitest/consistent-test-it': ['error', { fn: 'it' }],
+        'vitest/no-conditional-in-test': 'error', // Previously "jest/no-if"
+        'vitest/no-duplicate-hooks': 'error',
+        'vitest/no-test-return-statement': 'error',
+        'vitest/prefer-hooks-on-top': 'error',
+        'vitest/prefer-lowercase-title': ['error', { ignore: ['describe'] }],
+        'vitest/prefer-spy-on': 'error',
+        'vitest/prefer-strict-equal': 'error',
+        'vitest/prefer-todo': 'error',
+        'vitest/require-top-level-describe': 'error',
+        'vitest/require-to-throw-message': 'error',
+        'vitest/valid-expect': ['error', { alwaysAwait: true }],
+        'vitest/no-restricted-matchers': [
+          'error',
+          {
+            resolves: 'Use `expect(await promise)` instead.',
+            toBeFalsy: 'Avoid `toBeFalsy`',
+            toBeTruthy: 'Avoid `toBeTruthy`',
+            toMatchSnapshot: 'Use `toMatchInlineSnapshot()` instead',
+            toThrowErrorMatchingSnapshot:
+              'Use `toThrowErrorMatchingInlineSnapshot()` instead',
+          },
+        ],
+      },
     },
   ],
 };
