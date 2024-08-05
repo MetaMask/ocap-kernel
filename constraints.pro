@@ -335,7 +335,10 @@ gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.c
 % the next two rules effectively).
 gen_enforced_dependency(WorkspaceCwd, DependencyIdent, 'a range optionally starting with ^ or ~', DependencyType) :-
   workspace_has_dependency(WorkspaceCwd, DependencyIdent, DependencyRange, DependencyType),
-  \+ is_valid_version_range(DependencyRange).
+  \+ (
+      DependencyRange = '^1.0.0-rc.12'; % is_valid_version_range does not handle rc suffixes
+      is_valid_version_range(DependencyRange)
+    ).
 
 % All dependency ranges for a package must be synchronized across the monorepo
 % (the least version range wins), regardless of which "*dependencies" field
