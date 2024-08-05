@@ -6,7 +6,7 @@ import {
   initializeMessageChannel,
   MessageType,
   receiveMessagePort,
-} from './message-channel';
+} from './message-channel.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 

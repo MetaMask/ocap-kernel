@@ -2,8 +2,8 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { IframeManager } from './iframe-manager';
-import { Command } from './shared';
+import { IframeManager } from './iframe-manager.js';
+import { Command } from './shared.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -70,7 +70,8 @@ describe('IframeManager', () => {
         MessagePortReader: class Mock1 {},
         MessagePortWriter: class Mock2 {},
       }));
-      const IframeManager2 = (await import('./iframe-manager')).IframeManager;
+      const IframeManager2 = (await import('./iframe-manager.js'))
+        .IframeManager;
 
       const mockWindow = {};
       vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(

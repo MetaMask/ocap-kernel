@@ -11,8 +11,8 @@ import type {
   IframeMessage,
   PortStreams,
   WrappedIframeMessage,
-} from './shared';
-import { Command, isWrappedIframeMessage } from './shared';
+} from './shared.js';
+import { Command, isWrappedIframeMessage } from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
 

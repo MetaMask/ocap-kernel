@@ -2,8 +2,8 @@
 import './endoify.mjs';
 
 import { IframeManager } from './iframe-manager.js';
-import type { ExtensionMessage } from './shared';
-import { Command, makeHandledCallback } from './shared';
+import type { ExtensionMessage } from './shared.js';
+import { Command, makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
 

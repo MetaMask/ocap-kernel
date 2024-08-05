@@ -1,7 +1,7 @@
 import { delay } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { isWrappedIframeMessage, makeHandledCallback } from './shared';
+import { isWrappedIframeMessage, makeHandledCallback } from './shared.js';
 
 describe('shared', () => {
   describe('isWrappedIframeMessage', () => {

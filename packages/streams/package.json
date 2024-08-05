@@ -8,6 +8,7 @@
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "sideEffects": false,
+  "type": "module",
   "exports": {
     ".": {
       "import": {
@@ -47,7 +48,7 @@
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
     "@ocap/test-utils": "workspace:^",
-    "@ts-bridge/cli": "^0.1.4",
+    "@ts-bridge/cli": "^0.3.0",
     "@ts-bridge/shims": "^0.1.1",
     "@types/jsdom": "^21.1.7",
     "@vitest/coverage-v8": "^2.0.5",

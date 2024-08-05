@@ -8,6 +8,7 @@
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "sideEffects": false,
+  "type": "module",
   "exports": {
     "./apply-lockdown": "./dist/apply-lockdown.mjs",
     "./endoify": "./dist/endoify.mjs",

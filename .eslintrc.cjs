@@ -12,7 +12,7 @@ module.exports = {
   },
 
   ignorePatterns: [
-    '!.eslintrc.js',
+    '!.eslintrc.cjs',
     '!vite.config.mts',
     '!vitest.config.mts',
     'node_modules',
@@ -27,6 +27,13 @@ module.exports = {
     // in `@metamask/eslint-config-nodejs` in the future.
     'import/no-nodejs-modules': 'off',
 
+    'import/no-useless-path-segments': [
+      'error',
+      {
+        noUselessIndex: false,
+      },
+    ],
+
     // This prevents using Node.js and/or browser specific globals. We
     // currently use both in our codebase, so this rule is disabled.
     'no-restricted-globals': 'off',
@@ -34,7 +41,7 @@ module.exports = {
 
   overrides: [
     {
-      files: ['*.js', '*.cjs'],
+      files: ['*.cjs'],
       parserOptions: {
         sourceType: 'script',
         ecmaVersion: '2020',
@@ -42,7 +49,7 @@ module.exports = {
     },
 
     {
-      files: ['*.mjs'],
+      files: ['*.js', '*.mjs'],
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: '2020',

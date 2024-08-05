@@ -1274,7 +1274,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^12.2.0"
     "@metamask/eslint-config-nodejs": "npm:^12.1.0"
     "@metamask/eslint-config-typescript": "npm:^12.1.0"
-    "@ts-bridge/cli": "npm:^0.1.4"
+    "@ts-bridge/cli": "npm:^0.3.0"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^18.18.14"
     "@typescript-eslint/eslint-plugin": "npm:^5.43.0"
@@ -1324,7 +1324,7 @@ __metadata:
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/test-utils": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.1.4"
+    "@ts-bridge/cli": "npm:^0.3.0"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/jsdom": "npm:^21.1.7"
     "@vitest/coverage-v8": "npm:^2.0.5"
@@ -1521,12 +1521,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ts-bridge/cli@npm:^0.1.4":
-  version: 0.1.4
-  resolution: "@ts-bridge/cli@npm:0.1.4"
+"@ts-bridge/cli@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "@ts-bridge/cli@npm:0.3.0"
   dependencies:
+    "@ts-bridge/resolver": "npm:^0.1.0"
     chalk: "npm:^5.3.0"
-    resolve.exports: "npm:^2.0.2"
     yargs: "npm:^17.7.2"
   peerDependencies:
     "@ts-bridge/shims": ^0.1.1
@@ -1537,7 +1537,14 @@ __metadata:
   bin:
     ts-bridge: ./dist/index.js
     tsbridge: ./dist/index.js
-  checksum: 10/db83db5d283d7341f53f042f115884f514acd1ce6c7e14975b821b39cc4852f3cd6e41790a8cbb2b8615f0e5de77e5bdcec0745935b41267b2af4db031400c84
+  checksum: 10/0940e808b5cc4b8d67a7e7e976505a5fdef7f032f5962a82e0e90c66c660c2cbaae4a597c5e68c0fff05c03493c7caf344572da1d2077503fb498f928c254f83
+  languageName: node
+  linkType: hard
+
+"@ts-bridge/resolver@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@ts-bridge/resolver@npm:0.1.0"
+  checksum: 10/564a00cba7ccc327fc88e5c9ac3066198ae7995899fbe3b197d42c0721a8e5195045919cca955e6cab3ce9ff0f3915701bf68f4d5ce39d602a5daa99b435c929
   languageName: node
   linkType: hard
 
@@ -6215,13 +6222,6 @@ __metadata:
   version: 4.0.0
   resolution: "resolve-from@npm:4.0.0"
   checksum: 10/91eb76ce83621eea7bbdd9b55121a5c1c4a39e54a9ce04a9ad4517f102f8b5131c2cf07622c738a6683991bf54f2ce178f5a42803ecbd527ddc5105f362cc9e3
-  languageName: node
-  linkType: hard
-
-"resolve.exports@npm:^2.0.2":
-  version: 2.0.2
-  resolution: "resolve.exports@npm:2.0.2"
-  checksum: 10/f1cc0b6680f9a7e0345d783e0547f2a5110d8336b3c2a4227231dd007271ffd331fd722df934f017af90bae0373920ca0d4005da6f76cb3176c8ae426370f893
   languageName: node
   linkType: hard
 
