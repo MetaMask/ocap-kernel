@@ -22,9 +22,9 @@ describe.concurrent('initializeMessageChannel', () => {
     expect(postMessageSpy).toHaveBeenCalledWith(
       {
         type: MessageType.Initialize,
-        port: expect.any(MessagePort),
       },
       '*',
+      [expect.any(MessagePort)],
     );
   });
 
@@ -37,7 +37,8 @@ describe.concurrent('initializeMessageChannel', () => {
       targetWindow as unknown as Window,
     );
 
-    const remotePort: MessagePort = postMessageSpy.mock.lastCall?.[0].port;
+    // @ts-expect-error Wrong types for window.postMessage()
+    const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
     remotePort.postMessage({ type: MessageType.Acknowledge });
 
     const resolvedValue = await messageChannelP;
@@ -64,7 +65,8 @@ describe.concurrent('initializeMessageChannel', () => {
         targetWindow as unknown as Window,
       );
 
-      const remotePort: MessagePort = postMessageSpy.mock.lastCall?.[0].port;
+      // @ts-expect-error Wrong types for window.postMessage()
+      const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
       remotePort.postMessage(unexpectedMessage);
 
       await expect(messageChannelP).rejects.toThrow(
@@ -110,7 +112,8 @@ describe('receiveMessagePort', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: MessageType.Initialize, port: port2 },
+        data: { type: MessageType.Initialize },
+        ports: [port2],
       }),
     );
 
@@ -132,7 +135,8 @@ describe('receiveMessagePort', () => {
     const { port2 } = new MessageChannel();
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: MessageType.Initialize, port: port2 },
+        data: { type: MessageType.Initialize },
+        ports: [port2],
       }),
     );
 
@@ -161,7 +165,7 @@ describe('receiveMessagePort', () => {
     null,
     undefined,
   ])(
-    'ignores unexpected message events dispatched on window: %#',
+    'ignores message events with unexpected data dispatched on window: %#',
     async (unexpectedMessage, { expect }) => {
       const messagePortP = receiveMessagePort();
 
@@ -174,6 +178,32 @@ describe('receiveMessagePort', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: unexpectedMessage,
+        }),
+      );
+
+      await delay();
+
+      expect(fulfillmentDetector).not.toHaveBeenCalled();
+      expect(portPostMessageSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it.for([{}, { ports: [] }, { ports: [{}, {}] }])(
+    'ignores message events with unexpected ports dispatched on window: %#',
+    async (unexpectedPorts, { expect }) => {
+      const messagePortP = receiveMessagePort();
+
+      const { port2 } = new MessageChannel();
+      const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
+
+      const fulfillmentDetector = vi.fn();
+      messagePortP.finally(fulfillmentDetector);
+
+      window.dispatchEvent(
+        // @ts-expect-error Intentionally destructive testing.
+        new MessageEvent('message', {
+          data: { type: MessageType.Initialize },
+          ...unexpectedPorts,
         }),
       );
 

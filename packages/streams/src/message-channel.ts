@@ -19,13 +19,17 @@ export enum MessageType {
   Acknowledge = 'ACK_MESSAGE_CHANNEL',
 }
 
-type InitializeMessage = { type: MessageType.Initialize; port: MessagePort };
+type InitializeMessage = { type: MessageType.Initialize };
 type AcknowledgeMessage = { type: MessageType.Acknowledge };
 
-const isInitMessage = (value: unknown): value is InitializeMessage =>
-  isObject(value) &&
-  value.type === MessageType.Initialize &&
-  value.port instanceof MessagePort;
+const isInitMessage = (
+  event: MessageEvent,
+): event is MessageEvent<InitializeMessage> =>
+  isObject(event.data) &&
+  event.data.type === MessageType.Initialize &&
+  Array.isArray(event.ports) &&
+  event.ports.length === 1 &&
+  event.ports[0] instanceof MessagePort;
 
 const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
   isObject(value) && value.type === MessageType.Acknowledge;
@@ -66,9 +70,8 @@ export async function initializeMessageChannel(
 
   const initMessage: InitializeMessage = {
     type: MessageType.Initialize,
-    port: port2,
   };
-  targetWindow.postMessage(initMessage, '*');
+  targetWindow.postMessage(initMessage, '*', [port2]);
   return promise;
 }
 
@@ -85,11 +88,11 @@ export async function receiveMessagePort(): Promise<MessagePort> {
   const { promise, resolve } = makePromiseKit<MessagePort>();
 
   const listener = (message: MessageEvent) => {
-    if (!isInitMessage(message.data)) {
+    if (!isInitMessage(message)) {
       return;
     }
 
-    const { port } = message.data;
+    const port = message.ports[0] as MessagePort;
     const ackMessage: AcknowledgeMessage = { type: MessageType.Acknowledge };
     port.postMessage(ackMessage);
     resolve(port);
