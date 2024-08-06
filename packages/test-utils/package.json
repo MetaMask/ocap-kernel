@@ -12,6 +12,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "clean": "rimraf ./dist './*.tsbuildinfo'",
     "test": "echo 'No tests.' && exit 0"
   },
   "devDependencies": {

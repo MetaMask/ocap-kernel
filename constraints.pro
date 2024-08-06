@@ -271,10 +271,14 @@ gen_enforced_field(WorkspaceCwd, 'files', []) :-
 % gen_enforced_field(WorkspaceCwd, 'scripts.build', '') :-
 %   WorkspaceCwd \= '.'.
 
-% All packages except the root and extension must have the same "build:docs" script.
+% All packages except the root and other exceptions must have the same "build:docs" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
   WorkspaceCwd \= 'packages/extension',
   WorkspaceCwd \= 'packages/test-utils',
+  WorkspaceCwd \= '.'.
+
+% All packages except the root must have the same "clean" script.
+gen_enforced_field(WorkspaceCwd, 'scripts.clean', 'rimraf ./dist \'./*.tsbuildinfo\'') :-
   WorkspaceCwd \= '.'.
 
 % All published packages must have the same "publish:preview" script.

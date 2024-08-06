@@ -32,6 +32,7 @@
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh streams",
+    "clean": "rimraf ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.mts",
     "test:clean": "yarn test --no-cache --coverage.clean",

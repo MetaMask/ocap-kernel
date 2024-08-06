@@ -16,6 +16,7 @@
     "build:types": "tsc --project tsconfig.build.json",
     "build:vite": "vite build --config vite.config.mts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "clean": "rimraf ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "vite --config vite.config.mts & vite build --watch --config vite.config.mts",
     "test": "vitest run --config vitest.config.mts",
