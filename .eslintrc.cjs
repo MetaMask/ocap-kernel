@@ -30,6 +30,7 @@ module.exports = {
     'import/no-useless-path-segments': [
       'error',
       {
+        // Enabling this causes false errors in ESM files.
         noUselessIndex: false,
       },
     ],
@@ -77,8 +78,8 @@ module.exports = {
       rules: {
         '@typescript-eslint/no-explicit-any': 'error',
 
-        // This rule is broken, and without the `allowAny` option, it causes
-        // a lot of false positives.
+        // This rule is broken, and without the `allowAny` option, it reports a lot
+        // of false errors.
         '@typescript-eslint/restrict-template-expressions': [
           'error',
           {
@@ -87,14 +88,6 @@ module.exports = {
             allowNumber: true,
           },
         ],
-      },
-    },
-
-    {
-      files: ['*'],
-      rules: {
-        // This prevents pretty formatting of comments with multi-line lists entries.
-        'jsdoc/check-indentation': 'off',
       },
     },
 
@@ -110,6 +103,15 @@ module.exports = {
       rules: {
         // All scripts will have shebangs.
         'n/shebang': 'off',
+      },
+    },
+
+    {
+      // Overrides of overrides.
+      files: ['*'],
+      rules: {
+        // This prevents pretty formatting of comments with multi-line lists entries.
+        'jsdoc/check-indentation': 'off',
       },
     },
 

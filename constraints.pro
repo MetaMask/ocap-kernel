@@ -238,13 +238,11 @@ gen_enforced_field(WorkspaceCwd, 'exports["."].import.types', './dist/index.d.mt
   \+ workspace_field(WorkspaceCwd, 'private', true).
 % package.json
 gen_enforced_field(WorkspaceCwd, 'exports["./package.json"]', './package.json') :-
-  \+ workspace_field(WorkspaceCwd, 'private', true).
-% Non-published packages must not specify exports.
+  WorkspaceCwd \= 'packages/extension',
+  WorkspaceCwd \= '.'.
+% The root package must not specify exports.
 gen_enforced_field(WorkspaceCwd, 'exports', null) :-
-  WorkspaceCwd \= 'packages/shims',
-  WorkspaceCwd \= 'packages/streams',
-  WorkspaceCwd \= 'packages/test-utils',
-  workspace_field(WorkspaceCwd, 'private', true).
+  WorkspaceCwd = '.'.
 
 % Published packages must not have side effects.
 gen_enforced_field(WorkspaceCwd, 'sideEffects', false) :-

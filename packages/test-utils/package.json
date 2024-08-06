@@ -9,7 +9,8 @@
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "clean": "rimraf ./dist './*.tsbuildinfo'",

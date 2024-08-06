@@ -1,6 +1,6 @@
 # `streams`
 
-Ocap Kernel streams, compatible with `@endo/stream`.
+Ocap Kernel streams, compatible with `@endo/stream`, and therefore assumed to run under SES.
 
 ## Contributing
 
