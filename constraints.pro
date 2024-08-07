@@ -272,7 +272,7 @@ gen_enforced_field(WorkspaceCwd, 'scripts.build:docs', 'typedoc') :-
   WorkspaceCwd \= '.'.
 
 % All packages except the root must have the same "clean" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.clean', 'rimraf ./dist \'./*.tsbuildinfo\'') :-
+gen_enforced_field(WorkspaceCwd, 'scripts.clean', 'rimraf --glob ./dist \'./*.tsbuildinfo\'') :-
   WorkspaceCwd \= '.'.
 
 % All published packages must have the same "publish:preview" script.

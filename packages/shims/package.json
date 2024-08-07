@@ -24,7 +24,7 @@
     "build": "node scripts/bundle.js",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
-    "clean": "rimraf ./dist './*.tsbuildinfo'",
+    "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "test:clean": "yarn test --no-cache --coverage.clean",

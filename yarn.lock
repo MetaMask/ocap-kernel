@@ -1241,6 +1241,7 @@ __metadata:
     deepmerge: "npm:^4.3.1"
     jsdom: "npm:^24.1.1"
     prettier: "npm:^2.7.1"
+    rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
     typedoc: "npm:^0.24.8"
     typedoc-plugin-missing-exports: "npm:^2.0.0"
@@ -1307,6 +1308,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/test-utils@workspace:packages/test-utils"
   dependencies:
+    rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
     typescript: "npm:~4.9.5"
     vitest: "npm:^2.0.5"
