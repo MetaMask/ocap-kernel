@@ -3,8 +3,8 @@
 
 import { defineConfig, mergeConfig } from 'vitest/config';
 
-import { getDefaultConfig } from '../../vitest.config.packages.mjs';
-import viteConfig from './vite.config.mjs';
+import { getDefaultConfig } from '../../vitest.config.packages.js';
+import viteConfig from './vite.config.js';
 
 const defaultConfig = getDefaultConfig();
 // @ts-expect-error We can and will delete this.

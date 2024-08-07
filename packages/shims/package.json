@@ -21,16 +21,16 @@
     "dist"
   ],
   "scripts": {
-    "build": "node scripts/bundle.mjs",
+    "build": "node scripts/bundle.js",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "vitest run --config vitest.config.mts --passWithNoTests",
+    "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.mts"
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.2",

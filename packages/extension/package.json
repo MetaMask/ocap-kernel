@@ -14,16 +14,16 @@
   "scripts": {
     "build": "yarn build:types && yarn build:vite",
     "build:types": "tsc --project tsconfig.build.json",
-    "build:vite": "vite build --config vite.config.mts",
+    "build:vite": "vite build --config vite.config.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "clean": "rimraf ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "start": "vite --config vite.config.mts & vite build --watch --config vite.config.mts",
-    "test": "vitest run --config vitest.config.mts",
+    "start": "vite --config vite.config.ts & vite build --watch --config vite.config.ts",
+    "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.mts"
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@endo/lockdown": "^1.0.7",

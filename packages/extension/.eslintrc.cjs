@@ -12,20 +12,11 @@ module.exports = {
     },
 
     {
-      files: ['vite.config.mts'],
+      files: ['vite.config.ts'],
       parserOptions: {
         sourceType: 'module',
         tsconfigRootDir: __dirname,
         project: ['./tsconfig.scripts.json'],
-      },
-    },
-
-    {
-      files: ['test/setup.mjs'],
-      rules: {
-        'import/extensions': 'off',
-        'import/no-unassigned-import': 'off',
-        'import/no-unresolved': 'off',
       },
     },
   ],

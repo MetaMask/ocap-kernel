@@ -10,5 +10,5 @@
     "types": ["chrome", "ses"]
   },
   "references": [{ "path": "../shims/tsconfig.build.json" }],
-  "include": ["./src/**/*.ts", "./src/dev-console.mjs"]
+  "include": ["./src/**/*.ts", "./src/dev-console.js"]
 }

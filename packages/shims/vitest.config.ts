@@ -1,7 +1,7 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
-import { getDefaultConfig } from '../../vitest.config.packages.mjs';
+import { getDefaultConfig } from '../../vitest.config.packages.js';
 
 const config = getDefaultConfig();
 // @ts-expect-error We can and will delete this.

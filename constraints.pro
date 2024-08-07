@@ -304,7 +304,7 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
   \+ atom_concat(ExpectedPrefix, _, ChangelogUpdateCommand).
 
 % All non-root packages must have the same "test" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.mts') :-
+gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.ts') :-
   WorkspaceCwd \= 'packages/shims',
   WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
@@ -325,7 +325,7 @@ gen_enforced_field(WorkspaceCwd, 'scripts.test:verbose', 'yarn test --reporter v
   WorkspaceCwd \= '.'.
 
 % All non-root packages must have the same "test:watch" script.
-gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.config.mts') :-
+gen_enforced_field(WorkspaceCwd, 'scripts.test:watch', 'vitest --config vitest.config.ts') :-
   WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 

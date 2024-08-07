@@ -13,8 +13,8 @@ module.exports = {
 
   ignorePatterns: [
     '!.eslintrc.cjs',
-    '!vite.config.mts',
-    '!vitest.config.mts',
+    '!vite.config.ts',
+    '!vitest.config.ts',
     'node_modules',
     '**/dist',
     '**/docs',
@@ -58,7 +58,7 @@ module.exports = {
     },
 
     {
-      files: ['**/scripts/*.mjs', '*.mts'],
+      files: ['**/scripts/*.+(js|mjs)', '*.ts'],
       parserOptions: {
         ecmaVersion: '2022',
       },

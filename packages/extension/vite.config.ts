@@ -15,7 +15,7 @@ const projectRoot = './src';
  * not transformed. **Only applies to JavaScript and TypeScript files.**
  */
 const externalModules: Readonly<string[]> = [
-  './dev-console.mjs',
+  './dev-console.js',
   './endoify.mjs',
 ];
 
@@ -27,7 +27,7 @@ const staticCopyTargets: Readonly<string[]> = [
   // The extension manifest
   'manifest.json',
   // External modules
-  'dev-console.mjs',
+  'dev-console.js',
   '../../shims/dist/endoify.mjs',
   // Dependencies of external modules
   '../../shims/dist/eventual-send.mjs',

@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "exclude": ["**/vite.*.mts", "**/vitest.*.mts", "**/*.test.ts"]
+  "exclude": ["**/vite.config.ts", "**/vitest.config.ts", "**/*.test.ts"]
 }
