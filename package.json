@@ -31,6 +31,14 @@
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
     "test:verbose": "yarn workspaces foreach --all --parallel --verbose run test:verbose"
   },
+  "resolutions": {
+    "@endo/bundle-source": "^3.3.0",
+    "@endo/eventual-send": "^1.2.4",
+    "@endo/lockdown": "^1.0.9",
+    "@endo/promise-kit": "^1.1.4",
+    "@rollup/plugin-commonjs": "^26.0.0",
+    "ses": "^1.7.0"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@lavamoat/allow-scripts": "^3.0.4",
@@ -62,21 +70,6 @@
     "vite": "^5.3.5",
     "vitest": "^2.0.4"
   },
-  "resolutions": {
-    "ses": "^1.7.0",
-    "@endo/lockdown": "^1.0.9",
-    "@endo/promise-kit": "^1.1.4",
-    "@endo/eventual-send": "^1.2.4",
-    "@endo/bundle-source": "^3.3.0",
-    "@rollup/plugin-commonjs": "^26.0.0"
-  },
-  "overrides": {
-    "@endo/bundle-source@^3.3.0": {
-      "dependencies": {
-        "@rollup/plugin-commonjs": "^26.0.0"
-      }
-    }
-  },
   "packageManager": "yarn@4.2.2",
   "engines": {
     "node": "^18.18 || >=20"
@@ -85,6 +78,13 @@
     "allowScripts": {
       "@lavamoat/preinstall-always-fail": false,
       "vite>esbuild": false
+    }
+  },
+  "overrides": {
+    "@endo/bundle-source@^3.3.0": {
+      "dependencies": {
+        "@rollup/plugin-commonjs": "^26.0.0"
+      }
     }
   }
 }
