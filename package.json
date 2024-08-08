@@ -66,6 +66,9 @@
   "engines": {
     "node": "^18.18 || >=20"
   },
+  "resolutions": {
+    "glob": ">=9"
+  },
   "lavamoat": {
     "allowScripts": {
       "@lavamoat/preinstall-always-fail": false,
