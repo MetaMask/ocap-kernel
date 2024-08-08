@@ -29,7 +29,6 @@ const staticCopyTargets: Readonly<string[]> = [
   // Dependencies of external modules
   '../../shims/dist/eventual-send.mjs',
   '../../../node_modules/ses/dist/ses.mjs',
-  '../../../node_modules/ses/dist/lockdown.mjs',
 ];
 
 // https://vitejs.dev/config/
