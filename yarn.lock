@@ -1401,7 +1401,7 @@ __metadata:
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/snaps-utils": "npm:^7.8.0"
     "@metamask/utils": "npm:^9.1.0"
-    "@ocap/shims": "workspace:^"
+    "@ocap/shims": "npm:^0.0.0"
     "@types/chrome": "npm:^0.0.268"
     "@vitest/coverage-v8": "npm:^2.0.4"
     deepmerge: "npm:^4.3.1"
@@ -1452,7 +1452,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/shims@workspace:^, @ocap/shims@workspace:packages/shims":
+"@ocap/shims@npm:^0.0.0, @ocap/shims@workspace:packages/shims":
   version: 0.0.0-use.local
   resolution: "@ocap/shims@workspace:packages/shims"
   dependencies:
