@@ -1403,7 +1403,6 @@ __metadata:
     "@metamask/utils": "npm:^9.1.0"
     "@ocap/shims": "workspace:^"
     "@types/chrome": "npm:^0.0.268"
-    "@types/node": "npm:^18.18.14"
     "@vitest/coverage-v8": "npm:^2.0.4"
     deepmerge: "npm:^4.3.1"
     jsdom: "npm:^24.1.1"
