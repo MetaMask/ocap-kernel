@@ -33,7 +33,6 @@
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",
     "@types/chrome": "^0.0.268",
-    "@types/node": "^18.18.14",
     "@vitest/coverage-v8": "^2.0.4",
     "deepmerge": "^4.3.1",
     "jsdom": "^24.1.1",

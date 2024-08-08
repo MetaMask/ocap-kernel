@@ -1,9 +1,11 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
+
+// eslint-disable-next-line spaced-comment
 /// <reference types="node" />
 
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
@@ -40,6 +42,7 @@ const externalModules: Readonly<string[]> = [
   './dev-console.mjs',
   resolvedModulePaths['@ocap/shims/endoify'],
   resolvedModulePaths['@ocap/shims/eventual-send'],
+  // eslint-disable-next-line dot-notation
   resolvedModulePaths['ses'],
   // './endoify.mjs',
   // '@ocap/shims/endoify',
@@ -65,6 +68,7 @@ const staticCopyTargets: Readonly<string[]> = [
   // Dependencies of external modules
 
   resolvedModulePaths['@ocap/shims/eventual-send'],
+  // eslint-disable-next-line dot-notation
   resolvedModulePaths['ses'],
   // '../../../node_modules/ses/dist/lockdown.mjs',
 ];

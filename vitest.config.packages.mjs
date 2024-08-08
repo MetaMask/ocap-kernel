@@ -1,9 +1,10 @@
 // @ts-check
+/* eslint-disable jsdoc/valid-types, import/namespace */
+
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest"/>
 
-/* eslint-disable jsdoc/valid-types, import/namespace */
-import path from 'path';
+import path from 'node:path';
 import { defineConfig } from 'vite';
 
 /**
