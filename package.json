@@ -67,7 +67,15 @@
     "@endo/lockdown": "^1.0.9",
     "@endo/promise-kit": "^1.1.4",
     "@endo/eventual-send": "^1.2.4",
-    "glob": ">=9"
+    "@endo/bundle-source": "^3.3.0",
+    "@rollup/plugin-commonjs": "^26.0.0"
+  },
+  "overrides": {
+    "@endo/bundle-source@^3.3.0": {
+      "dependencies": {
+        "@rollup/plugin-commonjs": "^26.0.0"
+      }
+    }
   },
   "packageManager": "yarn@4.2.2",
   "engines": {
