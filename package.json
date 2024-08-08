@@ -31,6 +31,9 @@
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
     "test:verbose": "yarn workspaces foreach --all --parallel --verbose run test:verbose"
   },
+  "resolutions": {
+    "glob": ">=9"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@lavamoat/allow-scripts": "^3.0.4",
@@ -65,9 +68,6 @@
   "packageManager": "yarn@4.2.2",
   "engines": {
     "node": "^18.18 || >=20"
-  },
-  "resolutions": {
-    "glob": ">=9"
   },
   "lavamoat": {
     "allowScripts": {
