@@ -1,6 +1,6 @@
 /* eslint-disable import/extensions,import/no-unassigned-import */
 import './dev-console.mjs';
-import './endoify.mjs';
+import '@ocap/shims/endoify';
 /* eslint-enable import/extensions,import/no-unassigned-import */
 
 import type { ExtensionMessage } from './shared';

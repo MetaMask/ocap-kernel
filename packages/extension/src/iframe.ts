@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/extensions,import/no-unassigned-import
-import './endoify.mjs';
+import '@ocap/shims/endoify';
 
 import { Command, isWrappedIframeMessage } from './shared.js';
 

@@ -1,6 +1,5 @@
-import './ses.mjs';
+import 'ses';
 import './eventual-send.mjs';
-import './lockdown.mjs';
 
 lockdown({
   consoleTaming: 'unsafe',

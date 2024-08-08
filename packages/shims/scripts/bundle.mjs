@@ -1,11 +1,12 @@
 import 'ses';
 import '@endo/lockdown/commit.js';
 
-import { copyFile } from 'fs/promises';
+import { copyFile, writeFile } from 'fs/promises';
 import { mkdirp } from 'mkdirp';
 import path from 'path';
+import { fileURLToPath } from 'url';
 // TODO: Bundle the eventual send shim using bundle-source after the next endo release.
-// import bundleSource from '@endo/bundle-source';
+import bundleSource from '@endo/bundle-source';
 import { rimraf } from 'rimraf';
 
 console.log('Bundling shims...');
@@ -22,13 +23,21 @@ const fileNames = {
   lockdown: 'apply-lockdown.mjs',
 };
 
+const resolvedSourceModulePaths = {
+  ses: fileURLToPath(await import.meta.resolve('ses')),
+  eventualSend: fileURLToPath(await import.meta.resolve('@endo/eventual-send/shim.js')),
+};
+
+// console.log('Resolved source module paths:', resolvedSourceModulePaths);
+
 await mkdirp(dist);
 await rimraf(`${dist}/*`);
 
-for (const fileName of Object.values(fileNames)) {
+for (const fileName of Object.values(fileNames))
   await copyFile(path.resolve(src, fileName), path.resolve(dist, fileName));
-}
 
-// const { source } = await bundleSource(eventualSendSrc, { format: 'endoScript' });
+const eventualSendSourcePath = resolvedSourceModulePaths.eventualSend;
+const { source: eventualSendBundleSource } = await bundleSource(eventualSendSourcePath, { format: 'endoScript' });
+await writeFile(path.resolve(dist, fileNames.eventualSend), eventualSendBundleSource);
 
 console.log('Success!');

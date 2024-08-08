@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/extensions,import/no-unassigned-import
-import './endoify.mjs';
+import '@ocap/shims/endoify';
 
 import { IframeManager } from './iframe-manager.js';
 import type { ExtensionMessage } from './shared';
