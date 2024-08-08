@@ -37,6 +37,7 @@
     "@endo/lockdown": "^1.0.9",
     "@endo/promise-kit": "^1.1.4",
     "@rollup/plugin-commonjs": "^26.0.0",
+    "glob": ">=9",
     "ses": "^1.7.0"
   },
   "devDependencies": {
@@ -78,13 +79,6 @@
     "allowScripts": {
       "@lavamoat/preinstall-always-fail": false,
       "vite>esbuild": false
-    }
-  },
-  "overrides": {
-    "@endo/bundle-source@^3.3.0": {
-      "dependencies": {
-        "@rollup/plugin-commonjs": "^26.0.0"
-      }
     }
   }
 }
