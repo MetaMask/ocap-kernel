@@ -46,5 +46,12 @@
   },
   "engines": {
     "node": "^18.18 || >=20"
+  },
+  "overrides": {
+    "@endo/bundle-source@^3.3.0": {
+      "dependencies": {
+        "@rollup/plugin-commonjs": "^26.0.0"
+      }
+    }
   }
 }
