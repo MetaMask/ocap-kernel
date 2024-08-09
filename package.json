@@ -37,7 +37,6 @@
     "@endo/lockdown": "^1.0.9",
     "@endo/promise-kit": "^1.1.4",
     "@rollup/plugin-commonjs": "^26.0.0",
-    "glob": ">=9",
     "ses": "^1.7.0"
   },
   "devDependencies": {
