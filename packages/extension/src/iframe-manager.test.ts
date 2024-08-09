@@ -68,6 +68,7 @@ describe('IframeManager', () => {
       vi.resetModules();
       vi.doMock('@ocap/streams', () => ({
         initializeMessageChannel: vi.fn(),
+        makeMessagePortStreams: vi.fn(() => ({ reader: {}, writer: {} })),
         MessagePortReader: class Mock1 {},
         MessagePortWriter: class Mock2 {},
       }));

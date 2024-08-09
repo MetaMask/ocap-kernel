@@ -1,5 +1,4 @@
 import { isObject } from '@metamask/utils';
-import type { MessagePortReader, MessagePortWriter } from '@ocap/streams';
 
 export enum Command {
   Evaluate = 'evaluate',
@@ -27,11 +26,6 @@ export type WrappedIframeMessage = {
   id: string;
   message: IframeMessage<Command, string | null>;
 };
-
-export type PortStreams = Readonly<{
-  reader: MessagePortReader<WrappedIframeMessage>;
-  writer: MessagePortWriter<WrappedIframeMessage>;
-}>;
 
 export const isWrappedIframeMessage = (
   value: unknown,

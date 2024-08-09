@@ -1,9 +1,23 @@
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MessagePortReader, MessagePortWriter } from './streams.js';
+import {
+  makeMessagePortStreams,
+  MessagePortReader,
+  MessagePortWriter,
+} from './streams.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+
+describe('makeMessagePorts', () => {
+  it('returns a pair of message ports', () => {
+    const { port1 } = new MessageChannel();
+    const { reader, writer } = makeMessagePortStreams(port1);
+
+    expect(reader).toBeInstanceOf(MessagePortReader);
+    expect(writer).toBeInstanceOf(MessagePortWriter);
+  });
+});
 
 describe.concurrent('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {

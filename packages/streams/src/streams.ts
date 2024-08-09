@@ -43,12 +43,13 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
   #port: MessagePort;
 
   /**
-   * For buffering messages to manage backpressure.
+   * For buffering messages to manage backpressure, i.e. the input rate exceeding the
+   * read rate.
    */
   #messageQueue: MessageEvent[];
 
   /**
-   * For buffering reads to manage drain.
+   * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
    */
   #readQueue: PromiseCallbacks[];
 
@@ -58,6 +59,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
     this.#readQueue = [];
 
     // Assigning to the `onmessage` property initializes the port's message queue.
+    // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
     this.#port.onmessage = this.#handleMessage.bind(this);
     harden(this);
   }
@@ -180,3 +182,16 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
   }
 }
 harden(MessagePortWriter);
+
+export type MessagePortStreams<Value> = Readonly<{
+  reader: MessagePortReader<Value>;
+  writer: MessagePortWriter<Value>;
+}>;
+
+export const makeMessagePortStreams = <Value>(
+  port: MessagePort,
+): MessagePortStreams<Value> =>
+  harden({
+    reader: new MessagePortReader(port),
+    writer: new MessagePortWriter(port),
+  });
