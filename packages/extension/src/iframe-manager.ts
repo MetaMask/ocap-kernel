@@ -1,17 +1,13 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import { createWindow } from '@metamask/snaps-utils';
+import type { MessagePortReader, MessagePortStreams } from '@ocap/streams';
 import {
   initializeMessageChannel,
-  MessagePortReader,
-  MessagePortWriter,
+  makeMessagePortStreams,
 } from '@ocap/streams';
 
-import type {
-  IframeMessage,
-  PortStreams,
-  WrappedIframeMessage,
-} from './shared.js';
+import type { IframeMessage, WrappedIframeMessage } from './shared.js';
 import { Command, isWrappedIframeMessage } from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
@@ -35,7 +31,7 @@ export class IframeManager {
 
   #unresolvedMessages: Map<string, PromiseCallbacks>;
 
-  #vats: Map<string, PortStreams>;
+  #vats: Map<string, MessagePortStreams<WrappedIframeMessage>>;
 
   /**
    * Create a new IframeManager.
@@ -61,10 +57,7 @@ export class IframeManager {
 
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
     const port = await getPort(newWindow);
-    const streams: PortStreams = harden({
-      reader: new MessagePortReader(port),
-      writer: new MessagePortWriter(port),
-    });
+    const streams = makeMessagePortStreams<WrappedIframeMessage>(port);
     this.#vats.set(id, streams);
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(streams.reader).catch((error) => {
@@ -83,25 +76,27 @@ export class IframeManager {
    * @returns A promise that resolves when the iframe is deleted.
    */
   async delete(id: string): Promise<void> {
-    if (this.#vats.has(id)) {
-      const { reader, writer } = this.#vats.get(id) as PortStreams;
-      const closeP = Promise.all([reader.return(), writer.return()]).then(
-        () => undefined,
-      );
-      // TODO: Handle orphaned messages
-      this.#vats.delete(id);
-
-      const iframe = document.getElementById(getHtmlId(id));
-      /* v8 ignore next 6: Not known to be possible. */
-      if (iframe === null) {
-        console.error(`iframe of vat with id "${id}" already removed from DOM`);
-        return undefined;
-      }
-      iframe.remove();
-
-      return closeP;
+    const streams = this.#vats.get(id);
+    if (streams === undefined) {
+      return undefined;
     }
-    return undefined;
+
+    const { reader, writer } = streams;
+    const closeP = Promise.all([reader.return(), writer.return()]).then(
+      () => undefined,
+    );
+    // TODO: Handle orphaned messages
+    this.#vats.delete(id);
+
+    const iframe = document.getElementById(getHtmlId(id));
+    /* v8 ignore next 6: Not known to be possible. */
+    if (iframe === null) {
+      console.error(`iframe of vat with id "${id}" already removed from DOM`);
+      return undefined;
+    }
+    iframe.remove();
+
+    return closeP;
   }
 
   /**

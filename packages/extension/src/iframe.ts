@@ -1,10 +1,6 @@
-import {
-  receiveMessagePort,
-  MessagePortReader,
-  MessagePortWriter,
-} from '@ocap/streams';
+import { receiveMessagePort, makeMessagePortStreams } from '@ocap/streams';
 
-import type { PortStreams } from './shared.js';
+import type { WrappedIframeMessage } from './shared.js';
 import { Command, isWrappedIframeMessage } from './shared.js';
 
 const defaultCompartment = new Compartment({ URL });
@@ -16,10 +12,7 @@ main().catch(console.error);
  */
 async function main() {
   const port = await receiveMessagePort();
-  const streams: PortStreams = harden({
-    reader: new MessagePortReader(port),
-    writer: new MessagePortWriter(port),
-  });
+  const streams = makeMessagePortStreams<WrappedIframeMessage>(port);
 
   for await (const wrappedMessage of streams.reader) {
     console.debug('iframe received message', wrappedMessage);

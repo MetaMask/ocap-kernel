@@ -1,6 +1,6 @@
 /**
- * This module establishes a simple protocol for establishing a MessageChannel between
- * a parent window and its iframe, as follows:
+ * This module establishes a simple protocol for creating a MessageChannel between a
+ * window and one of its iframes, as follows:
  * 1. The parent window creates an iframe and appends it to the DOM. The iframe must be
  *    loaded and the `contentWindow` property must be accessible.
  * 2. The iframe calls `receiveMessagePort()` on startup in one of its scripts. The script
