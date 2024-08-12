@@ -11,5 +11,6 @@ ignores:
   - 'jsdom'
   - 'prettier-plugin-*'
   - 'typedoc'
+  - 'vite-tsconfig-paths'
   - 'vite'
   - 'vitest'
