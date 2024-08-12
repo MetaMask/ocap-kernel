@@ -1,6 +1,3 @@
-// eslint-disable-next-line import/extensions,import/no-unassigned-import
-import '@ocap/shims/endoify';
-
 import { Command, isWrappedIframeMessage } from './shared.js';
 
 const defaultCompartment = new Compartment({ URL });
