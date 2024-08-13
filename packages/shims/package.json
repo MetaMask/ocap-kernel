@@ -8,6 +8,7 @@
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "sideEffects": false,
+  "type": "module",
   "exports": {
     "./apply-lockdown": "./dist/apply-lockdown.mjs",
     "./endoify": "./dist/endoify.mjs",
@@ -20,28 +21,28 @@
     "dist"
   ],
   "scripts": {
-    "build": "node scripts/bundle.mjs",
+    "build": "node scripts/bundle.js",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
-    "clean": "rimraf ./dist",
+    "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "vitest run --config vitest.config.mts --passWithNoTests",
+    "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.mts"
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.2",
     "@endo/lockdown": "^1.0.7",
-    "ses": "^1.5.0"
+    "ses": "^1.7.0"
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",
     "deepmerge": "^4.3.1",
     "mkdirp": "^3.0.1",
     "rimraf": "^6.0.1",
-    "vitest": "^2.0.4"
+    "vitest": "^2.0.5"
   },
   "engines": {
     "node": "^18.18 || >=20"

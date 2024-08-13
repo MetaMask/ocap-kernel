@@ -4,5 +4,6 @@
     "baseUrl": "./"
   },
   "references": [],
-  "include": ["./vite.config.ts"]
+  "include": ["./src"],
+  "types": ["ses", "vitest", "vitest/jsdom"]
 }

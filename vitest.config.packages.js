@@ -5,6 +5,7 @@
 /* eslint-disable jsdoc/valid-types, import/namespace */
 import path from 'path';
 import { defineConfig } from 'vite';
+import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 
 /**
  * Get the default vitest config. See https://vitest.dev/config/ for details.
@@ -14,6 +15,12 @@ import { defineConfig } from 'vite';
 export const getDefaultConfig = (projectRoot = './src') =>
   defineConfig({
     root: projectRoot,
+
+    plugins: [
+      // Resolve imports using the "paths" property of the relevant tsconfig.json,
+      // if possible.
+      tsconfigPathsPlugin(),
+    ],
 
     test: {
       environment: 'jsdom',
@@ -29,5 +36,6 @@ export const getDefaultConfig = (projectRoot = './src') =>
       },
       reporters: ['basic'],
       silent: true,
+      testTimeout: 2000,
     },
   });

@@ -1,12 +1,12 @@
-/* eslint-disable import/extensions,import/no-unassigned-import */
-import './dev-console.mjs';
+/* eslint-disable import/no-unassigned-import */
+import './dev-console.js';
 import './endoify.mjs';
-/* eslint-enable import/extensions,import/no-unassigned-import */
+/* eslint-enable import/no-unassigned-import */
 
-import type { ExtensionMessage } from './shared';
-import { Command, makeHandledCallback } from './shared';
+import type { ExtensionMessage } from './shared.js';
+import { Command, makeHandledCallback } from './shared.js';
 
-// globalThis.kernel will exist due to dev-console.mjs
+// globalThis.kernel will exist due to dev-console.js
 Object.defineProperties(globalThis.kernel, {
   sendMessage: {
     value: sendMessage,

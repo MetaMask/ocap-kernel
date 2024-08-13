@@ -1,0 +1,28 @@
+{
+  "name": "@ocap/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Internal testing utilities",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetaMask/ocap-kernel.git"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
+    "test": "echo 'No tests.' && exit 0"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "ses": "^1.7.0",
+    "typescript": "~4.9.5",
+    "vitest": "^2.0.5"
+  },
+  "engines": {
+    "node": "^18.18 || >=20"
+  }
+}
