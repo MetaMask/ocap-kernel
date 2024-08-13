@@ -9,81 +9,61 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-const projectRoot = './src';
+const relativeProjectRootPath = './src';
+const absoluteProjectRootPath = path.resolve(relativeProjectRootPath);
 
-const modulePaths = {
-  '@ocap/shims/endoify': '../../shims/dist/endoify.mjs',
-  '@ocap/shims/eventual-send': '../../shims/dist/eventual-send.mjs',
-  ses: '../../../node_modules/ses/dist/ses.mjs',
-};
-
-const moduleOverrides = {
-  ses: '../dist/ses.mjs',
-};
-
-const resolvedModulePaths = { ...modulePaths };
-
-for (const [specifier] of Object.entries(modulePaths)) {
-  const resolvedPath = fileURLToPath(import.meta.resolve(specifier));
-
-  resolvedModulePaths[specifier] =
-    specifier in moduleOverrides
-      ? path.resolve(resolvedPath, moduleOverrides[specifier])
-      : resolvedPath;
-}
-
-console.log('Resolved module paths:', resolvedModulePaths);
-
-const resolvedModuleDependencies: Readonly<Record<string, string[]>> = {
-  '@ocap/shims/endoify': [
-    // eslint-disable-next-line dot-notation
-    resolvedModulePaths['ses'],
-    resolvedModulePaths['@ocap/shims/eventual-send'],
-  ],
+/**
+ * Bare specifier keyed module definitions for
+ * externalized and/or bundled modules.
+ */
+const moduleDefinitions = {
+  '@ocap/shims/endoify': { dependencies: ['ses', '@ocap/shims/eventual-send'] },
+  // '@ocap/shims/apply-lockdown': { dependencies: ['ses'] },
+  '@ocap/shims/eventual-send': { dependencies: ['ses'] },
+  ses: { override: '../dist/ses.mjs' },
 };
 
 /**
- * Module specifiers that will be ignored by Rollup if imported, and therefore
- * not transformed.
+ * Bare specifier keyed relative module paths for
+ * externalized and/or bundled modules.
  */
-const externalModules: Readonly<string[]> = [
-  './dev-console.js',
-  resolvedModulePaths['@ocap/shims/endoify'],
-  ...resolvedModuleDependencies['@ocap/shims/endoify'],
-];
+const modulePaths = resolveModulePathsFromDefinitions(moduleDefinitions);
 
 /**
- * Files that need to be statically copied to the destination directory.
- * Paths are relative from the project root directory.
+ * Bare specifier keyed module and dependencies paths for
+ * externalized and/or bundled modules.
  */
-const staticCopyTargets: Readonly<string[]> = [
-  // The extension manifest
+const moduleDependencyPaths = resolveModuleDependencyPathsFromDefinitions(
+  moduleDefinitions,
+  modulePaths,
+);
 
-  'manifest.json',
-
-  // External modules
-
-  'dev-console.js',
-
-  // Shims and Dependencies
-
-  resolvedModulePaths['@ocap/shims/endoify'],
-  ...resolvedModuleDependencies['@ocap/shims/endoify'],
-];
+// console.log('Resolved module paths:', modulePaths);
+// console.log('Resolved module dependencies:', moduleDependencyPaths);
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  root: projectRoot,
+  root: relativeProjectRootPath,
 
   build: {
     emptyOutDir: true,
-    outDir: path.resolve(projectRoot, '../dist'),
+    outDir: path.resolve(relativeProjectRootPath, '../dist'),
     rollupOptions: {
-      external: [...externalModules],
+      /**
+       * Module specifiers that will be ignored by Rollup if imported, and therefore
+       * not transformed.
+       */
+      external: [
+        ...new Set([
+          './dev-console.js',
+          ...moduleDependencyPaths['@ocap/shims/endoify'],
+          // ...resolvedModulesAndDependenciesPaths['@ocap/shims/apply-lockdown'],
+        ]),
+      ],
       input: {
-        background: path.resolve(projectRoot, 'background.ts'),
-        offscreen: path.resolve(projectRoot, 'offscreen.html'),
-        iframe: path.resolve(projectRoot, 'iframe.html'),
+        background: path.resolve(relativeProjectRootPath, 'background.ts'),
+        offscreen: path.resolve(relativeProjectRootPath, 'offscreen.html'),
+        iframe: path.resolve(relativeProjectRootPath, 'iframe.html'),
       },
       output: {
         entryFileNames: '[name].js',
@@ -94,7 +74,7 @@ export default defineConfig({
   },
 
   resolve: {
-    alias: Object.entries(resolvedModulePaths).map(([find, replacement]) => ({
+    alias: Object.entries(modulePaths).map(([find, replacement]) => ({
       find,
       replacement,
     })),
@@ -103,7 +83,18 @@ export default defineConfig({
   plugins: [
     endoifyHtmlFilesPlugin(),
     viteStaticCopy({
-      targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
+      /**
+       * Files that need to be statically copied to the destination directory.
+       * Paths are relative from the project root directory.
+       */
+      targets: [
+        ...new Set([
+          'manifest.json',
+          'dev-console.js',
+          ...moduleDependencyPaths['@ocap/shims/endoify'],
+          // ...resolvedModulesAndDependenciesPaths['@ocap/shims/apply-lockdown'],
+        ]),
+      ].map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
   ],
@@ -141,4 +132,78 @@ function endoifyHtmlFilesPlugin(): Plugin {
       });
     },
   };
+}
+
+/**
+ * Resolve a specifier's dependency graph from module definitions.
+ *
+ * @template Specifier - The module specifier type.
+ * @param specifier - The specifier of the dependent module.
+ * @param definitions - The module definitions.
+ * @yields The resolved dependencies.
+ */
+function* resolveDependenciesFormDefinitionsFor<Specifier extends string>(
+  specifier: Specifier,
+  definitions: Record<Specifier, { dependencies?: Specifier[] } | object>,
+): Generator<string> {
+  if (
+    definitions[specifier] &&
+    'dependencies' in definitions[specifier] &&
+    Array.isArray(definitions[specifier].dependencies)
+  ) {
+    for (const dependency of definitions[specifier].dependencies) {
+      yield dependency;
+      yield* resolveDependenciesFormDefinitionsFor(dependency, definitions);
+    }
+  }
+}
+
+/**
+ * Returns a map of module specifiers to their resolved paths.
+ *
+ * @template Specifier - The module specifier type.
+ * @param definitions - The module definitions.
+ * @returns The resolved module paths map.
+ */
+function resolveModulePathsFromDefinitions<Specifier extends string>(
+  definitions: Record<Specifier, { override?: string } | object>,
+): Record<Specifier, string> {
+  const entries: Partial<Record<Specifier, string>> = {};
+  for (const specifier of Object.keys(definitions)) {
+    entries[specifier] = path.relative(
+      absoluteProjectRootPath,
+      'override' in definitions[specifier] &&
+        typeof definitions[specifier].override === 'string'
+        ? path.resolve(
+            fileURLToPath(import.meta.resolve(specifier)),
+            definitions[specifier].override,
+          )
+        : fileURLToPath(import.meta.resolve(specifier)),
+    );
+  }
+  return entries as Record<Specifier, string>;
+}
+
+/**
+ * Returns a map of module specifiers to their resolved module and dependencies paths.
+ *
+ * @template Specifier - The module specifier type.
+ * @param definitions - The module definitions.
+ * @param paths - The module paths map.
+ * @returns The resolved module and dependencies paths map.
+ */
+function resolveModuleDependencyPathsFromDefinitions<Specifier extends string>(
+  definitions: Record<Specifier, { dependencies?: Specifier[] } | object>,
+  paths: Record<Specifier, string>,
+): Record<Specifier, string[]> {
+  const entries: Partial<Record<Specifier, string[]>> = {};
+  for (const specifier of Object.keys(definitions)) {
+    entries[specifier] = [
+      ...new Set([
+        specifier,
+        ...resolveDependenciesFormDefinitionsFor(specifier, moduleDefinitions),
+      ]),
+    ].map((dependency) => paths[dependency]);
+  }
+  return entries as Record<Specifier, string[]>;
 }
