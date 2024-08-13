@@ -1,6 +1,3 @@
-// eslint-disable-next-line spaced-comment
-/// <reference types="node" />
-
 import 'ses';
 import '@endo/lockdown/commit.js';
 
@@ -26,14 +23,14 @@ const fileNames = {
   lockdown: 'apply-lockdown.mjs',
 };
 
-const resolvedSourceModulePaths = {
+const resolvedModulePaths = {
   ses: fileURLToPath(await import.meta.resolve('ses')),
   eventualSend: fileURLToPath(
     await import.meta.resolve('@endo/eventual-send/shim.js'),
   ),
 };
 
-// console.log('Resolved source module paths:', resolvedSourceModulePaths);
+// console.log('Resolved module paths:', resolvedModulePaths);
 
 await mkdirp(dist);
 await rimraf(`${dist}/*`);
@@ -42,7 +39,7 @@ for (const fileName of Object.values(fileNames)) {
   await copyFile(path.resolve(src, fileName), path.resolve(dist, fileName));
 }
 
-const eventualSendSourcePath = resolvedSourceModulePaths.eventualSend;
+const eventualSendSourcePath = resolvedModulePaths.eventualSend;
 const { source: eventualSendBundleSource } = await bundleSource(
   eventualSendSourcePath,
   { format: 'endoScript' },

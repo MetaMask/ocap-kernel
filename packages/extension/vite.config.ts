@@ -1,9 +1,6 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
-// eslint-disable-next-line spaced-comment
-/// <reference types="node" />
-
 import { load as loadHtml } from 'cheerio';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
