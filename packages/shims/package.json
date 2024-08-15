@@ -26,7 +26,8 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "vitest run --config vitest.config.ts --passWithNoTests",
+    "test": "yarn test:bundles && vitest run --config vitest.config.ts --passWithNoTests",
+    "test:bundles": "ava",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",
+    "ava": "^6.1.3",
     "deepmerge": "^4.3.1",
     "mkdirp": "^3.0.1",
     "rimraf": "^6.0.1",
