@@ -26,8 +26,8 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/lockdown": "^1.0.7",
-    "@endo/promise-kit": "^1.1.2",
+    "@endo/lockdown": "^1.0.9",
+    "@endo/promise-kit": "^1.1.4",
     "@metamask/snaps-utils": "^7.8.0",
     "@metamask/utils": "^9.1.0",
     "@ocap/shims": "workspace:^",
