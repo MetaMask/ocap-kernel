@@ -26,7 +26,7 @@ for (const fileName of [fileNames.endoify, fileNames.applyLockdown]) {
 }
 
 const eventualSendSourcePath = fileURLToPath(
-  await import.meta.resolve('@endo/eventual-send/shim.js'),
+  import.meta.resolve('@endo/eventual-send/shim.js'),
 );
 
 const { source: eventualSendBundleSource } = await bundleSource(
