@@ -11,7 +11,9 @@ async function main(): Promise<void> {
   // Hard-code a single iframe for now.
   const IFRAME_ID = 'default';
   const iframeManager = new IframeManager();
-  const iframeReadyP = iframeManager.create({ id: IFRAME_ID });
+  const iframeReadyP = iframeManager
+    .create({ id: IFRAME_ID })
+    .then(async () => iframeManager.makeCapTp(IFRAME_ID));
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
@@ -28,6 +30,21 @@ async function main(): Promise<void> {
       switch (message.type) {
         case Command.Evaluate:
           await reply(Command.Evaluate, await evaluate(message.data));
+          break;
+        case Command.CapTpCall: {
+          const result = await iframeManager.callCapTp(
+            IFRAME_ID,
+            // @ts-expect-error TODO: Type assertions
+            message.data.method,
+            // @ts-expect-error TODO: Type assertions
+            ...message.data.params,
+          );
+          await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
+          break;
+        }
+        case Command.CapTpInit:
+          await iframeManager.makeCapTp(IFRAME_ID);
+          await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
           break;
         case Command.Ping:
           await reply(Command.Ping, 'pong');
