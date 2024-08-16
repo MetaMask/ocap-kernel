@@ -27,7 +27,7 @@
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "yarn test:bundles && vitest run --config vitest.config.ts --passWithNoTests",
-    "test:bundles": "ava ./test",
+    "test:bundles": "yarn build && ava ./test",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
