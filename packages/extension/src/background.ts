@@ -4,14 +4,21 @@ import { Command, makeHandledCallback } from './shared.js';
 
 // globalThis.kernel will exist due to dev-console.js
 Object.defineProperties(globalThis.kernel, {
-  sendMessage: {
-    value: sendMessage,
+  capTpCall: {
+    value: async (method: string, params: Json[]) =>
+      sendMessage(Command.CapTpCall, { method, params }),
+  },
+  capTpInit: {
+    value: async () => sendMessage(Command.CapTpInit),
   },
   evaluate: {
     value: async (source: string) => sendMessage(Command.Evaluate, source),
   },
   ping: {
     value: async () => sendMessage(Command.Ping),
+  },
+  sendMessage: {
+    value: sendMessage,
   },
 });
 
@@ -29,7 +36,7 @@ chrome.action.onClicked.addListener(() => {
  * @param data - The message data.
  * @param data.name - The name to include in the message.
  */
-async function sendMessage(type: string, data?: string): Promise<void> {
+async function sendMessage(type: string, data?: Json): Promise<void> {
   await provideOffScreenDocument();
 
   await chrome.runtime.sendMessage({
@@ -64,9 +71,10 @@ chrome.runtime.onMessage.addListener(
 
     switch (message.type) {
       case Command.Evaluate:
+      case Command.CapTpCall:
+      case Command.CapTpInit:
       case Command.Ping:
         console.log(message.data);
-        await closeOffscreenDocument();
         break;
       default:
         console.error(
@@ -77,12 +85,13 @@ chrome.runtime.onMessage.addListener(
   }),
 );
 
-/**
- * Close the offscreen document if it exists.
- */
-async function closeOffscreenDocument(): Promise<void> {
-  if (!(await chrome.offscreen.hasDocument())) {
-    return;
-  }
-  await chrome.offscreen.closeDocument();
-}
+// TODO: Add method to close offscreen document?
+// /**
+//  * Close the offscreen document if it exists.
+//  */
+// async function closeOffscreenDocument(): Promise<void> {
+//   if (!(await chrome.offscreen.hasDocument())) {
+//     return;
+//   }
+//   await chrome.offscreen.closeDocument();
+// }
