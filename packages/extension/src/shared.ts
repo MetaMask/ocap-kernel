@@ -1,6 +1,8 @@
 import { isObject } from '@metamask/utils';
 
 export enum Command {
+  CapTpCall = 'callCapTp',
+  CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
   Ping = 'ping',
 }
@@ -35,6 +37,49 @@ export const isWrappedIframeMessage = (
   isObject(value.message) &&
   typeof value.message.type === 'string' &&
   (typeof value.message.data === 'string' || value.message.data === null);
+
+export type StreamPayloadEnvelope =
+  | {
+      label: 'message';
+      payload: WrappedIframeMessage;
+    }
+  | { label: 'capTp'; payload: unknown };
+
+type MessageHandler = (message: WrappedIframeMessage) => void | Promise<void>;
+type CapTpHandler = (capTpMessage: unknown) => void | Promise<void>;
+export const makeEnvelopeUnwrapper =
+  (handleMessage: MessageHandler, handleCapTp: CapTpHandler) =>
+  (envelope: StreamPayloadEnvelope) => {
+    switch (envelope.label) {
+      case 'capTp':
+        return handleCapTp(envelope.payload);
+      case 'message':
+        return handleMessage(envelope.payload);
+      default:
+        throw new Error(
+          `Unexpected message label in message:\n${JSON.stringify(
+            envelope,
+            null,
+            2,
+          )}`,
+        );
+    }
+  };
+
+export const isStreamPayloadEnvelope = (
+  value: unknown,
+): value is StreamPayloadEnvelope => {
+  if (!isObject(value)) {
+    return false;
+  }
+  if (
+    value.label !== 'capTp' &&
+    (value.label !== 'message' || !isWrappedIframeMessage(value.payload))
+  ) {
+    return false;
+  }
+  return true;
+};
 
 /**
  * Wrap an async callback to ensure any errors are at least logged.

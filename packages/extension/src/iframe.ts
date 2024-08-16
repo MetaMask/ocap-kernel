@@ -1,7 +1,10 @@
+import { makeCapTP } from '@endo/captp';
+import { makeExo } from '@endo/exo';
+import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
-import type { WrappedIframeMessage } from './shared.js';
-import { Command, isWrappedIframeMessage } from './shared.js';
+import type { StreamPayloadEnvelope, WrappedIframeMessage } from './shared.js';
+import { isStreamPayloadEnvelope, Command } from './shared.js';
 
 const defaultCompartment = new Compartment({ URL });
 
@@ -12,21 +15,46 @@ main().catch(console.error);
  */
 async function main() {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreamPair<WrappedIframeMessage>(port);
+  const streams = makeMessagePortStreamPair<StreamPayloadEnvelope>(port);
+  let capTp: ReturnType<typeof makeCapTP> | undefined;
 
-  for await (const wrappedMessage of streams.reader) {
-    console.debug('iframe received message', wrappedMessage);
+  for await (const rawMessage of streams.reader) {
+    console.debug('iframe received message', rawMessage);
 
-    if (!isWrappedIframeMessage(wrappedMessage)) {
+    if (!isStreamPayloadEnvelope(rawMessage)) {
       console.error(
         'iframe received message with unexpected format',
-        wrappedMessage,
+        rawMessage,
       );
       return;
     }
 
-    const { id, message } = wrappedMessage;
+    switch (rawMessage.label) {
+      case 'capTp':
+        if (capTp !== undefined) {
+          capTp.dispatch(rawMessage.payload);
+        }
+        break;
+      case 'message':
+        await handleMessage(rawMessage.payload);
+        break;
+      /* v8 ignore next 3: Exhaustiveness check */
+      default:
+        // @ts-expect-error Exhaustiveness check
+        throw new Error(`Unexpected message label "${rawMessage.label}".`);
+    }
+  }
 
+  await streams.return();
+  throw new Error('MessagePortReader ended unexpectedly.');
+
+  /**
+   * Handle a message from the parent window.
+   * @param wrappedMessage - The wrapped message to handle.
+   * @param wrappedMessage.id - The id of the message.
+   * @param wrappedMessage.message - The message to handle.
+   */
+  async function handleMessage({ id, message }: WrappedIframeMessage) {
     switch (message.type) {
       case Command.Evaluate: {
         if (typeof message.data !== 'string') {
@@ -37,11 +65,29 @@ async function main() {
           return;
         }
         const result = safelyEvaluate(message.data);
-        await reply(id, Command.Evaluate, stringifyResult(result));
+        await replyToMessage(id, Command.Evaluate, stringifyResult(result));
+        break;
+      }
+      case Command.CapTpInit: {
+        const bootstrap = makeExo(
+          'TheGreatFrangooly',
+          M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
+          { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
+        );
+
+        capTp = makeCapTP(
+          'iframe', // TODO
+          // https://github.com/endojs/endo/issues/2412
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          async (payload: unknown) =>
+            streams.writer.next({ label: 'capTp', payload }),
+          bootstrap,
+        );
+        await replyToMessage(id, Command.CapTpInit);
         break;
       }
       case Command.Ping:
-        await reply(id, Command.Ping, 'pong');
+        await replyToMessage(id, Command.Ping, 'pong');
         break;
       default:
         console.error(
@@ -51,17 +97,21 @@ async function main() {
     }
   }
 
-  await streams.return();
-  throw new Error('MessagePortReader ended unexpectedly.');
-
   /**
-   * Reply to the parent window.
+   * Reply to a message from the parent window.
    * @param id - The id of the message to reply to.
    * @param messageType - The message type.
    * @param data - The message data.
    */
-  async function reply(id: string, messageType: Command, data: string) {
-    await streams.writer.next({ id, message: { type: messageType, data } });
+  async function replyToMessage(
+    id: string,
+    messageType: Command,
+    data: string | null = null,
+  ) {
+    await streams.writer.next({
+      label: 'message',
+      payload: { id, message: { type: messageType, data } },
+    });
   }
 
   /**
