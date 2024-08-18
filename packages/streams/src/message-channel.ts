@@ -66,13 +66,18 @@ export async function initializeMessageChannel(
 
     resolve(port1);
   };
-  promise.catch(() => port1.close()).finally(() => (port1.onmessage = null));
 
   const initMessage: InitializeMessage = {
     type: MessageType.Initialize,
   };
   targetWindow.postMessage(initMessage, '*', [port2]);
-  return promise;
+
+  return promise
+    .catch((error) => {
+      port1.close();
+      throw error;
+    })
+    .finally(() => (port1.onmessage = null));
 }
 
 /**
@@ -91,6 +96,7 @@ export async function receiveMessagePort(): Promise<MessagePort> {
     if (!isInitMessage(message)) {
       return;
     }
+    window.removeEventListener('message', listener);
 
     const port = message.ports[0] as MessagePort;
     const ackMessage: AcknowledgeMessage = { type: MessageType.Acknowledge };
@@ -99,6 +105,5 @@ export async function receiveMessagePort(): Promise<MessagePort> {
   };
 
   window.addEventListener('message', listener);
-  promise.finally(() => window.removeEventListener('message', listener));
   return promise;
 }
