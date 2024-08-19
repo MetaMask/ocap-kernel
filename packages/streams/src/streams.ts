@@ -286,16 +286,12 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
       if (hasFailed) {
         // Break out of repeated failure to send an error. It is unclear how this would occur
         // in practice, but it's the kind of failure mode where it's better to be sure.
-        try {
-          const repeatedFailureError = new Error(
-            'MessagePortWriter experienced repeated send failures. Giving up on notifying other side.',
-          );
-          console.error(repeatedFailureError);
-          this.#port.postMessage(repeatedFailureError);
-        } catch {
-          // At this point, we are in a profoundly unrecoverable hellhole, and just swallow
-          // the error.
-        }
+        const repeatedFailureError = new Error(
+          'MessagePortWriter experienced repeated send failures.',
+          { cause: error },
+        );
+        this.#port.postMessage(repeatedFailureError);
+        throw repeatedFailureError;
       } else {
         // postMessage throws only DOMExceptions, which inherit from Error
         this.#throw(error as Error, true);

@@ -222,12 +222,17 @@ describe.concurrent('MessagePortWriter', () => {
       const { port1 } = new MessageChannel();
       const postMessageSpy = vi
         .spyOn(port1, 'postMessage')
-        .mockImplementation(() => {
+        .mockImplementationOnce(() => {
+          throw new Error('foo');
+        })
+        .mockImplementationOnce(() => {
           throw new Error('foo');
         });
       const writer = new MessagePortWriter(port1);
 
-      expect(await writer.next(null)).toStrictEqual(makeDoneResult());
+      await expect(writer.next(null)).rejects.toThrow(
+        'MessagePortWriter experienced repeated send failures.',
+      );
       expect(postMessageSpy).toHaveBeenCalledTimes(3);
       expect(postMessageSpy).toHaveBeenNthCalledWith(1, {
         done: false,
@@ -236,9 +241,7 @@ describe.concurrent('MessagePortWriter', () => {
       expect(postMessageSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
       expect(postMessageSpy).toHaveBeenNthCalledWith(
         3,
-        new Error(
-          'MessagePortWriter experienced repeated send failures. Giving up on notifying other side.',
-        ),
+        new Error('MessagePortWriter experienced repeated send failures.'),
       );
     });
   });
