@@ -68,7 +68,7 @@ describe('IframeManager', () => {
       vi.resetModules();
       vi.doMock('@ocap/streams', () => ({
         initializeMessageChannel: vi.fn(),
-        makeMessagePortStreams: vi.fn(() => ({ reader: {}, writer: {} })),
+        makeMessagePortStreamPair: vi.fn(() => ({ reader: {}, writer: {} })),
         MessagePortReader: class Mock1 {},
         MessagePortWriter: class Mock2 {},
       }));
@@ -146,21 +146,27 @@ describe('IframeManager', () => {
 
       const messagePromise = manager.sendMessage(id, message);
       const messageId: string | undefined =
-        portPostMessageSpy.mock.lastCall?.[0]?.id;
+        portPostMessageSpy.mock.lastCall?.[0]?.value?.id;
       expect(messageId).toBeTypeOf('string');
 
       port2.postMessage({
-        id: messageId,
-        message: {
-          type: Command.Evaluate,
-          data: '4',
+        done: false,
+        value: {
+          id: messageId,
+          message: {
+            type: Command.Evaluate,
+            data: '4',
+          },
         },
       });
 
       expect(portPostMessageSpy).toHaveBeenCalledOnce();
       expect(portPostMessageSpy).toHaveBeenCalledWith({
-        id: messageId,
-        message,
+        done: false,
+        value: {
+          id: messageId,
+          message,
+        },
       });
       expect(await messagePromise).toBe('4');
     });
@@ -189,7 +195,7 @@ describe('IframeManager', () => {
       const { port1, port2 } = new MessageChannel();
       await manager.create({ getPort: makeGetPort(port1) });
 
-      port2.postMessage('foo');
+      port2.postMessage({ done: false, value: 'foo' });
       await delay(10);
 
       expect(warnSpy).toHaveBeenCalledWith(
@@ -211,10 +217,13 @@ describe('IframeManager', () => {
       await manager.create({ getPort: makeGetPort(port1) });
 
       port2.postMessage({
-        id: 'foo',
-        message: {
-          type: Command.Evaluate,
-          data: '"bar"',
+        done: false,
+        value: {
+          id: 'foo',
+          message: {
+            type: Command.Evaluate,
+            data: '"bar"',
+          },
         },
       });
       await delay(10);

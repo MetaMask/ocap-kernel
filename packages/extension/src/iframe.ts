@@ -1,4 +1,4 @@
-import { receiveMessagePort, makeMessagePortStreams } from '@ocap/streams';
+import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
 import type { WrappedIframeMessage } from './shared.js';
 import { Command, isWrappedIframeMessage } from './shared.js';
@@ -12,7 +12,7 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreams<WrappedIframeMessage>(port);
+  const streams = makeMessagePortStreamPair<WrappedIframeMessage>(port);
 
   for await (const wrappedMessage of streams.reader) {
     console.debug('iframe received message', wrappedMessage);
@@ -51,9 +51,7 @@ async function main(): Promise<void> {
     }
   }
 
-  await Promise.all([streams.reader.return(), streams.writer.return()]).catch(
-    () => undefined,
-  );
+  await streams.return();
   throw new Error('MessagePortReader ended unexpectedly.');
 
   /**
