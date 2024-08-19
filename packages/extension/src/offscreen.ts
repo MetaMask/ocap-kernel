@@ -11,11 +11,7 @@ async function main(): Promise<void> {
   // Hard-code a single iframe for now.
   const IFRAME_ID = 'default';
   const iframeManager = new IframeManager();
-  const iframeReadyP = iframeManager
-    .create({ id: IFRAME_ID })
-    .catch((error) => {
-      throw error;
-    });
+  const iframeReadyP = iframeManager.create({ id: IFRAME_ID });
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
