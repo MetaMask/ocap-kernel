@@ -23,7 +23,7 @@ const srcPaths = [
 // const { eventualSendSrcBundled } = await bundleSource(eventualSendSrc, { format: 'endoScript' });
 
 await mkdirp(pkgDist);
-await rimraf(`${pkgDist}/*`);
+await rimraf(`${pkgDist}/*`, { glob: true });
 
 const srcStreams = srcPaths.map((filePath) => createReadStream(filePath));
 const distStream = createWriteStream(path.resolve(pkgDist, 'endoify.mjs'));
