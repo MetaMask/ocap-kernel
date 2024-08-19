@@ -4,7 +4,7 @@
     "allowJs": true,
     "baseUrl": "./",
     "isolatedModules": true,
-    "lib": ["DOM", "ES2020"],
+    "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "skipLibCheck": true,
     "types": ["chrome", "ses", "vitest", "vitest/jsdom"]

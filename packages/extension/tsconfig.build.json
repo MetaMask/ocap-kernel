@@ -4,7 +4,7 @@
     "allowJs": true,
     "baseUrl": "./",
     "emitDeclarationOnly": false,
-    "lib": ["DOM", "ES2020"],
+    "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "rootDir": "./src",
     "types": ["chrome", "ses"]

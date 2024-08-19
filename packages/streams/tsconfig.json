@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "lib": ["DOM", "ES2020"],
+    "lib": ["DOM", "ES2022"],
     "types": ["ses", "vitest", "vitest/jsdom"]
   },
   "references": [{ "path": "../test-utils" }],

@@ -3,7 +3,7 @@
     "composite": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2020"],
+    "lib": ["ES2022"],
     "module": "Node16",
     "moduleResolution": "Node16",
     "noErrorTruncation": true,
