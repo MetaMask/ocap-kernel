@@ -1,10 +1,11 @@
+import type { makePromiseKit } from '@endo/promise-kit';
 import * as snapsUtils from '@metamask/snaps-utils';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 
 import { Command } from './shared.js';
 
 vi.mock('@endo/promise-kit', () => ({
-  makePromiseKit: () => {
+  makePromiseKit: (): ReturnType<typeof makePromiseKit> => {
     let resolve: (value: unknown) => void, reject: (reason?: unknown) => void;
     const promise = new Promise((_resolve, _reject) => {
       resolve = _resolve;

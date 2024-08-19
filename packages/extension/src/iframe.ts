@@ -47,7 +47,7 @@ window.addEventListener('message', (event: MessageEvent) => {
  * @param source - The source string to evaluate.
  * @returns The result of the evaluation, or an error message.
  */
-function safelyEvaluate(source: string) {
+function safelyEvaluate(source: string): string {
   try {
     return defaultCompartment.evaluate(source);
   } catch (error) {
@@ -64,7 +64,7 @@ function safelyEvaluate(source: string) {
  * @param result - The result to stringify.
  * @returns The stringified result.
  */
-function stringifyResult(result: unknown) {
+function stringifyResult(result: unknown): string {
   try {
     return JSON.stringify(result, null, 2);
   } catch {
@@ -85,7 +85,7 @@ function reply(
   id: string,
   messageType: Command,
   data: string,
-) {
+): void {
   event.source.postMessage(
     { id, message: { type: messageType, data } },
     // @ts-expect-error Incorrect DOM types

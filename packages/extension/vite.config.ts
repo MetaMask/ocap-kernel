@@ -77,7 +77,7 @@ function endoifyHtmlFilesPlugin(): Plugin {
 
   return {
     name: 'externalize-plugin',
-    async transformIndexHtml(htmlString) {
+    async transformIndexHtml(htmlString): Promise<string> {
       if (htmlString.includes('endoify.mjs')) {
         throw new Error(
           `HTML document already references endoify script:\n${htmlString}`,

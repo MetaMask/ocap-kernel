@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+
 /**
  * Create a module mock for `@endo/promise-kit`.
  *
