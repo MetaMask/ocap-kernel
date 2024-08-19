@@ -1333,7 +1333,7 @@ __metadata:
   resolution: "@ocap/streams@workspace:packages/streams"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.15.3"
-    "@endo/promise-kit": "npm:^1.1.2"
+    "@endo/promise-kit": "npm:^1.1.4"
     "@endo/stream": "npm:^1.2.2"
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/utils": "npm:^9.1.0"

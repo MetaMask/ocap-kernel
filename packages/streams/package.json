@@ -41,7 +41,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/promise-kit": "^1.1.2",
+    "@endo/promise-kit": "^1.1.4",
     "@endo/stream": "^1.2.2",
     "@metamask/utils": "^9.1.0"
   },
