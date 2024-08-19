@@ -14,6 +14,7 @@
  * Regarding limitations around detecting `MessagePort` closure, see:
  * - https://github.com/fergald/explainer-messageport-close
  * - https://github.com/whatwg/html/issues/10201
+ *
  * @module MessagePort streams
  */
 
@@ -33,8 +34,10 @@ const isIteratorResult = (
   (!hasProperty(value, 'done') || typeof value.done === 'boolean') &&
   hasProperty(value, 'value');
 
-export const makeDoneResult = () =>
-  ({ done: true, value: undefined } as { done: true; value: undefined });
+export const makeDoneResult = (): { done: true; value: undefined } => ({
+  done: true,
+  value: undefined,
+});
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -49,7 +52,7 @@ export const makeDoneResult = () =>
 export class MessagePortReader<Yield> implements Reader<Yield> {
   #isDone: boolean;
 
-  #port: MessagePort;
+  readonly #port: MessagePort;
 
   /**
    * For buffering messages to manage backpressure, i.e. the input rate exceeding the
@@ -60,7 +63,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
   /**
    * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
    */
-  #readQueue: PromiseCallbacks[];
+  readonly #readQueue: PromiseCallbacks[];
 
   constructor(port: MessagePort) {
     this.#isDone = false;
@@ -74,7 +77,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
     harden(this);
   }
 
-  [Symbol.asyncIterator]() {
+  [Symbol.asyncIterator](): MessagePortReader<Yield> {
     return this;
   }
 
@@ -112,6 +115,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
 
   /**
    * Reads the next message from the port.
+   *
    * @returns The next message from the port.
    */
   async next(): Promise<IteratorResult<Yield, undefined>> {
@@ -133,6 +137,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
 
   /**
    * Closes the underlying port and returns. Any unread messages will be lost.
+   *
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Yield, undefined>> {
@@ -153,6 +158,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
   /**
    * Rejects all pending reads with the specified error, closes the underlying port,
    * and returns.
+   *
    * @param error - The error to reject pending reads with.
    * @returns The final result for this stream.
    */
@@ -195,7 +201,7 @@ harden(MessagePortReader);
 export class MessagePortWriter<Yield> implements Writer<Yield> {
   #isDone: boolean;
 
-  #port: MessagePort;
+  readonly #port: MessagePort;
 
   constructor(port: MessagePort) {
     this.#isDone = false;
@@ -203,12 +209,13 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
     harden(this);
   }
 
-  [Symbol.asyncIterator]() {
+  [Symbol.asyncIterator](): MessagePortWriter<Yield> {
     return this;
   }
 
   /**
    * Writes the next message to the port.
+   *
    * @param value - The next message to write to the port.
    * @returns The result of writing the message.
    */
@@ -221,6 +228,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
 
   /**
    * Closes the underlying port and returns. Idempotent.
+   *
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<undefined, undefined>> {
@@ -233,6 +241,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
 
   /**
    * Forwards the error to the port and closes this stream. Idempotent.
+   *
    * @param error - The error to forward to the port.
    * @returns The final result for this stream.
    */
@@ -247,6 +256,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * Forwards the error the port and calls `#finish()`. Mutually recursive with `#send()`.
    * For this reason, includes a flag indicating past failure, so that `#send()` can avoid
    * infinite recursion. See `#send()` for more details.
+   *
    * @param error - The error to forward.
    * @param hasFailed - Whether sending has failed previously.
    * @returns The final result for this stream.
@@ -267,6 +277,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * If sending the value succeeds, returns a finished result (`{ done: true }`) if the
    * value was an {@link Error} or itself a finished result, otherwise returns an
    * unfinished result (`{ done: false }`).
+   *
    * @param value - The value to send over the port.
    * @param hasFailed - Whether sending has failed previously.
    * @returns The result of sending the value.
@@ -317,6 +328,7 @@ export type MessagePortStreamPair<Value> = Readonly<{
   /**
    * Calls `.throw()` on the writer, forwarding the error to the other side. Returns
    * the reader.
+   *
    * @param error - The error to forward.
    */
   throw: (error: Error) => Promise<void>;
@@ -325,6 +337,7 @@ export type MessagePortStreamPair<Value> = Readonly<{
 /**
  * Makes a reader / writer pair over the same port, and provides convenience methods
  * for cleaning them up.
+ *
  * @param port - The message port to make the streams over.
  * @returns The reader and writer streams, and cleanup methods.
  */

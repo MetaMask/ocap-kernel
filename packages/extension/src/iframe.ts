@@ -56,16 +56,22 @@ async function main(): Promise<void> {
 
   /**
    * Reply to the parent window.
+   *
    * @param id - The id of the message to reply to.
    * @param messageType - The message type.
    * @param data - The message data.
    */
-  async function reply(id: string, messageType: Command, data: string): Promise<void> {
+  async function reply(
+    id: string,
+    messageType: Command,
+    data: string,
+  ): Promise<void> {
     await streams.writer.next({ id, message: { type: messageType, data } });
   }
 
   /**
    * Evaluate a string in the default compartment.
+   *
    * @param source - The source string to evaluate.
    * @returns The result of the evaluation, or an error message.
    */
@@ -82,6 +88,7 @@ async function main(): Promise<void> {
 
   /**
    * Stringify an evaluation result.
+   *
    * @param result - The result to stringify.
    * @returns The stringified result.
    */

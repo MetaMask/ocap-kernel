@@ -173,7 +173,7 @@ describe.concurrent('MessagePortWriter', () => {
 
       const message = { foo: 'bar' };
       const messageP = new Promise((resolve) => {
-        port2.onmessage = (messageEvent) => resolve(messageEvent.data);
+        port2.onmessage = (messageEvent): void => resolve(messageEvent.data);
       });
       const nextP = writer.next(message);
 

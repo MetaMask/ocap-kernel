@@ -1,4 +1,3 @@
-import type { makePromiseKit } from '@endo/promise-kit';
 import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
@@ -15,7 +14,7 @@ vi.mock('@metamask/snaps-utils', () => ({
 describe('IframeManager', () => {
   const makeGetPort =
     (port: MessagePort = new MessageChannel().port1) =>
-    async (_window: Window) =>
+    async (_window: Window): Promise<MessagePort> =>
       Promise.resolve(port);
 
   describe('create', () => {

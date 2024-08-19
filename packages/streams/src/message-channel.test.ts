@@ -90,7 +90,7 @@ describe('receiveMessagePort', () => {
     // so we have to do it manually.
     window.addEventListener = (
       ...args: Parameters<typeof window.addEventListener>
-    ) => {
+    ): void => {
       messageEventListeners.push([args[0], args[1]]);
       originalAddEventListener.call(window, ...args);
     };
@@ -173,7 +173,7 @@ describe('receiveMessagePort', () => {
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
 
       const fulfillmentDetector = vi.fn();
-      messagePortP.finally(fulfillmentDetector);
+      messagePortP.then(fulfillmentDetector, fulfillmentDetector);
 
       window.dispatchEvent(
         new MessageEvent('message', {
@@ -197,7 +197,7 @@ describe('receiveMessagePort', () => {
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
 
       const fulfillmentDetector = vi.fn();
-      messagePortP.finally(fulfillmentDetector);
+      messagePortP.then(fulfillmentDetector, fulfillmentDetector);
 
       window.dispatchEvent(
         // @ts-expect-error Intentionally destructive testing.

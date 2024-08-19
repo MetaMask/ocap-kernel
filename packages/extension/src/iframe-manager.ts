@@ -14,6 +14,7 @@ const IFRAME_URI = 'iframe.html';
 
 /**
  * Get a DOM id for our iframes, for greater collision resistance.
+ *
  * @param id - The id to base the DOM id on.
  * @returns The DOM id.
  */
@@ -31,7 +32,7 @@ export class IframeManager {
 
   readonly #unresolvedMessages: Map<string, PromiseCallbacks>;
 
-  #vats: Map<string, MessagePortStreamPair<WrappedIframeMessage>>;
+  readonly #vats: Map<string, MessagePortStreamPair<WrappedIframeMessage>>;
 
   /**
    * Create a new IframeManager.
@@ -44,6 +45,7 @@ export class IframeManager {
 
   /**
    * Create a new vat, in the form of an iframe.
+   *
    * @param args - Options bag.
    * @param args.id - The id of the vat to create.
    * @param args.getPort - A function to get the message port for the iframe.
@@ -120,7 +122,9 @@ export class IframeManager {
     return promise;
   }
 
-  async #receiveMessages(reader: MessagePortReader<WrappedIframeMessage>): Promise<void> {
+  async #receiveMessages(
+    reader: MessagePortReader<WrappedIframeMessage>,
+  ): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
 

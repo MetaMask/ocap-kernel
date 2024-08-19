@@ -2,12 +2,13 @@
  * This module establishes a simple protocol for creating a MessageChannel between a
  * window and one of its iframes, as follows:
  * 1. The parent window creates an iframe and appends it to the DOM. The iframe must be
- *    loaded and the `contentWindow` property must be accessible.
+ * loaded and the `contentWindow` property must be accessible.
  * 2. The iframe calls `receiveMessagePort()` on startup in one of its scripts. The script
- *    element in question should not have the `async` attribute.
+ * element in question should not have the `async` attribute.
  * 3. The parent window calls `initializeMessageChannel()` which sends a message port to
- *    the iframe. When the returned promise resolves, the parent window and the iframe have
- *    established a message channel.
+ * the iframe. When the returned promise resolves, the parent window and the iframe have
+ * established a message channel.
+ *
  * @module MessageChannel utilities
  */
 
@@ -34,13 +35,14 @@ const isInitMessage = (
 const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
   isObject(value) && value.type === MessageType.Acknowledge;
 
-const stringify = (value: unknown) => JSON.stringify(value, null, 2);
+const stringify = (value: unknown): string => JSON.stringify(value, null, 2);
 
 /**
  * Creates a message channel and sends one of the ports to the target window. The iframe
  * associated with the target window must be loaded, and it must have called
  * {@link receiveMessagePort} to receive the remote message port. Rejects if the first
  * message received over the channel is not an {@link AcknowledgeMessage}.
+ *
  * @param targetWindow - The iframe window to send the message port to.
  * @returns A promise that resolves with the local message port, once the target window
  * has acknowledged its receipt of the remote port.
@@ -52,7 +54,7 @@ export async function initializeMessageChannel(
 
   const { promise, resolve, reject } = makePromiseKit<MessagePort>();
   // Assigning to the `onmessage` property initializes the port's message queue.
-  port1.onmessage = (message: MessageEvent) => {
+  port1.onmessage = (message: MessageEvent): void => {
     if (!isAckMessage(message.data)) {
       reject(
         new Error(
@@ -86,13 +88,14 @@ export async function initializeMessageChannel(
  * The parent window must call {@link initializeMessageChannel} to send the message port
  * after this iframe has loaded. Ignores any message events dispatched on the local
  * `window` that are not an {@link InitializeMessage}.
+ *
  * @returns A promise that resolves with a message port that can be used to communicate
  * with the parent window.
  */
 export async function receiveMessagePort(): Promise<MessagePort> {
   const { promise, resolve } = makePromiseKit<MessagePort>();
 
-  const listener = (message: MessageEvent) => {
+  const listener = (message: MessageEvent): void => {
     if (!isInitMessage(message)) {
       return;
     }
