@@ -6,7 +6,6 @@ import { createReadStream, createWriteStream } from 'fs';
 import { mkdirp } from 'mkdirp';
 import path from 'path';
 import { rimraf } from 'rimraf';
-import streamCat from 'streamcat';
 
 console.log('Bundling shims...');
 
@@ -26,8 +25,13 @@ const srcPaths = [
 await mkdirp(pkgDist);
 await rimraf(`${pkgDist}/*`);
 
-await streamCat(srcPaths.map((filePath) => createReadStream(filePath))).pipe(
-  createWriteStream(path.resolve(pkgDist, 'endoify.mjs')),
-);
+const srcStreams = srcPaths.map((filePath) => createReadStream(filePath));
+const distStream = createWriteStream(path.resolve(pkgDist, 'endoify.mjs'));
 
-console.log('Success!');
+// tell the src streams to begin piping their next when they end
+srcStreams[0].on('end', () => srcStreams[1].pipe(distStream, { end: false }));
+srcStreams[1].on('end', () => srcStreams[2].pipe(distStream, { end: true }));
+srcStreams[2].on('end', () => console.log('Success!'));
+
+// start by piping the first src stream
+srcStreams[0].pipe(distStream, { end: false });
