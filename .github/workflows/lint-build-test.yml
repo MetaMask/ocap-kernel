@@ -6,7 +6,7 @@ on:
 jobs:
   prepare:
     name: Prepare
-    runs-on: ubuntu-latest
+    runs-on: macOS-latest
     strategy:
       matrix:
         node-version: [18.x, 20.x]
