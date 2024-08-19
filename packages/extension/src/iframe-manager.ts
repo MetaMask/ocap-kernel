@@ -1,10 +1,10 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import { createWindow } from '@metamask/snaps-utils';
-import type { MessagePortReader, MessagePortStreams } from '@ocap/streams';
+import type { MessagePortReader, MessagePortStreamPair } from '@ocap/streams';
 import {
   initializeMessageChannel,
-  makeMessagePortStreams,
+  makeMessagePortStreamPair,
 } from '@ocap/streams';
 
 import type { IframeMessage, WrappedIframeMessage } from './shared.js';
@@ -31,7 +31,7 @@ export class IframeManager {
 
   #unresolvedMessages: Map<string, PromiseCallbacks>;
 
-  #vats: Map<string, MessagePortStreams<WrappedIframeMessage>>;
+  #vats: Map<string, MessagePortStreamPair<WrappedIframeMessage>>;
 
   /**
    * Create a new IframeManager.
@@ -57,7 +57,7 @@ export class IframeManager {
 
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
     const port = await getPort(newWindow);
-    const streams = makeMessagePortStreams<WrappedIframeMessage>(port);
+    const streams = makeMessagePortStreamPair<WrappedIframeMessage>(port);
     this.#vats.set(id, streams);
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(streams.reader).catch((error) => {
@@ -81,10 +81,7 @@ export class IframeManager {
       return undefined;
     }
 
-    const { reader, writer } = streams;
-    const closeP = Promise.all([reader.return(), writer.return()]).then(
-      () => undefined,
-    );
+    const closeP = streams.return();
     // TODO: Handle orphaned messages
     this.#vats.delete(id);
 
