@@ -20,9 +20,9 @@ export class IframeManager {
 
   #currentId: number;
 
-  #unresolvedMessages: Map<string, PromiseCallbacks>;
+  readonly #unresolvedMessages: Map<string, PromiseCallbacks>;
 
-  #iframes: Map<string, Window>;
+  readonly #iframes: Map<string, Window>;
 
   /**
    * Create a new IframeManager.
@@ -48,6 +48,7 @@ export class IframeManager {
 
   /**
    * Get the singleton instance of IframeManager.
+   *
    * @returns The singleton instance of IframeManager.
    */
   public static getInstance(): IframeManager {
@@ -59,6 +60,7 @@ export class IframeManager {
 
   /**
    * Create a new iframe.
+   *
    * @param id - The id of the iframe to create.
    * @returns The iframe's content window, and its id.
    */
@@ -73,6 +75,7 @@ export class IframeManager {
 
   /**
    * Delete an iframe.
+   *
    * @param id - The id of the iframe to delete.
    */
   delete(id: string) {
@@ -95,6 +98,7 @@ export class IframeManager {
 
   /**
    * Send a message to an iframe.
+   *
    * @param id - The id of the iframe to send the message to.
    * @param message - The message to send.
    */

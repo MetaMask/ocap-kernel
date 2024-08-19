@@ -43,6 +43,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 
 /**
  * Evaluate a string in the default compartment.
+ *
  * @param source - The source string to evaluate.
  * @returns The result of the evaluation, or an error message.
  */
@@ -59,6 +60,7 @@ function safelyEvaluate(source: string) {
 
 /**
  * Stringify an evaluation result.
+ *
  * @param result - The result to stringify.
  * @returns The stringified result.
  */
@@ -72,6 +74,7 @@ function stringifyResult(result: unknown) {
 
 /**
  * Reply to the parent window.
+ *
  * @param event - The message event to respond to.
  * @param id - The id of the message to reply to.
  * @param messageType - The message type.

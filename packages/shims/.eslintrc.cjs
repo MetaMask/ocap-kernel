@@ -8,9 +8,9 @@ module.exports = {
       files: ['src/**/*.mjs'],
       globals: { lockdown: 'readonly' },
       rules: {
-        'import/extensions': 'off',
-        'import/no-unassigned-import': 'off',
-        'import/no-unresolved': 'off',
+        'import-x/extensions': 'off',
+        'import-x/no-unassigned-import': 'off',
+        'import-x/no-unresolved': 'off',
       },
     },
   ],

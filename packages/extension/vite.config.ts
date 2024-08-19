@@ -14,7 +14,7 @@ const projectRoot = './src';
  * Module specifiers that will be ignored by Rollup if imported, and therefore
  * not transformed. **Only applies to JavaScript and TypeScript files.**
  */
-const externalModules: Readonly<string[]> = [
+const externalModules: readonly string[] = [
   './dev-console.js',
   './endoify.mjs',
 ];
@@ -23,7 +23,7 @@ const externalModules: Readonly<string[]> = [
  * Files that need to be statically copied to the destination directory.
  * Paths are relative from the project root directory.
  */
-const staticCopyTargets: Readonly<string[]> = [
+const staticCopyTargets: readonly string[] = [
   // The extension manifest
   'manifest.json',
   // External modules
@@ -67,6 +67,7 @@ export default defineConfig({
 
 /**
  * Vite plugin to insert the endoify script before the first script in the head element.
+ *
  * @throws If the HTML document already references the endoify script or lacks the expected
  * structure.
  * @returns The Vite plugin.

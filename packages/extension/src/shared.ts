@@ -38,6 +38,7 @@ export const isWrappedIframeMessage = (
 
 /**
  * Wrap an async callback to ensure any errors are at least logged.
+ *
  * @param callback - The async callback to wrap.
  * @returns The wrapped callback.
  */

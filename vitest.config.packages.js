@@ -2,13 +2,14 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest"/>
 
-/* eslint-disable jsdoc/valid-types, import/namespace */
+/* eslint-disable jsdoc/valid-types, import-x/namespace */
 import path from 'path';
 import { defineConfig } from 'vite';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 
 /**
  * Get the default vitest config. See https://vitest.dev/config/ for details.
+ *
  * @param {string} projectRoot - The vite project root directory.
  * @returns {import('vite').UserConfig} The default vitest config.
  */

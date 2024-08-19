@@ -1,7 +1,7 @@
-/* eslint-disable import/no-unassigned-import */
+/* eslint-disable import-x/no-unassigned-import */
 import './dev-console.js';
 import './endoify.mjs';
-/* eslint-enable import/no-unassigned-import */
+/* eslint-enable import-x/no-unassigned-import */
 
 import type { ExtensionMessage } from './shared.js';
 import { Command, makeHandledCallback } from './shared.js';
@@ -28,6 +28,7 @@ chrome.action.onClicked.addListener(() => {
 
 /**
  * Send a message to the offscreen document.
+ *
  * @param type - The message type.
  * @param data - The message data.
  * @param data.name - The name to include in the message.

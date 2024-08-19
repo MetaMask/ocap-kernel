@@ -1,5 +1,6 @@
 /**
  * Create a module mock for `@endo/promise-kit`.
+ *
  * @returns The mock.
  */
 export const makePromiseKitMock = () => ({

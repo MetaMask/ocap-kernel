@@ -25,9 +25,9 @@ module.exports = {
     // This prevents importing Node.js builtins. We currently use them in
     // our codebase, so this rule is disabled. This rule should be disabled
     // in `@metamask/eslint-config-nodejs` in the future.
-    'import/no-nodejs-modules': 'off',
+    'import-x/no-nodejs-modules': 'off',
 
-    'import/no-useless-path-segments': [
+    'import-x/no-useless-path-segments': [
       'error',
       {
         // Enabling this causes false errors in ESM files.
@@ -63,8 +63,8 @@ module.exports = {
         ecmaVersion: '2022',
       },
       rules: {
-        'import/extensions': 'off',
-        'import/no-unassigned-import': 'off',
+        'import-x/extensions': 'off',
+        'import-x/no-unassigned-import': 'off',
       },
     },
 
@@ -94,7 +94,7 @@ module.exports = {
     {
       files: ['*.d.ts'],
       rules: {
-        'import/unambiguous': 'off',
+        'import-x/unambiguous': 'off',
       },
     },
 
