@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 console.log('Bundling shims...');
 
-const rootDir = path.resolve(import.meta.dirname, '..');
+const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const src = path.resolve(rootDir, 'src');
 const dist = path.resolve(rootDir, 'dist');
 
