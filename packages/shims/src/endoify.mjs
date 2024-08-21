@@ -1,6 +1,6 @@
-/** @inline './ses.mjs'; */
-/** @inline './eventual-send.mjs'; */
-
+/* eslint-disable import-x/unambiguous */
+// @inline './ses.mjs';
+// @inline './eventual-send.mjs';
 lockdown({
   consoleTaming: 'unsafe',
   errorTaming: 'unsafe',
@@ -9,3 +9,4 @@ lockdown({
   domainTaming: 'unsafe',
   overrideTaming: 'severe',
 });
+/* eslint-enable import-x/unambiguous */

@@ -2,12 +2,12 @@ import 'ses';
 import '@endo/lockdown/commit.js';
 
 import bundleSource from '@endo/bundle-source';
+import { createReadStream, createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { rimraf } from 'rimraf';
-import { fileURLToPath } from 'url';
-import { createReadStream, createWriteStream } from 'fs';
 import { Readable } from 'stream';
+import { fileURLToPath } from 'url';
 
 console.log('Bundling shims...');
 
@@ -19,19 +19,23 @@ await mkdir(dist, { recursive: true });
 await rimraf(`${dist}/*`, { glob: true });
 
 /**
- * Bundles the target file as endoScript and returns the content as a readable stream
- * 
- * @param {string} specifier - import path to the file to bundle, e.g. '@endo/eventual-send/shim.js'
- * @returns {Promise<Readable>}
+ * Bundles the target file as endoScript and returns the content as a readable stream.
+ *
+ * @param {string} specifier - Import path to the file to bundle, e.g. '@endo/eventual-send/shim.js'.
+ * @returns {Promise<Readable>} A readable stream of the bundle contents.
  */
 const createEndoBundleReadStream = async (specifier) => {
   const filePath = fileURLToPath(import.meta.resolve(specifier));
-  const { source: bundle } = await bundleSource(filePath, { format: 'endoScript' });
+  const { source: bundle } = await bundleSource(filePath, {
+    format: 'endoScript',
+  });
   return Readable.from(bundle);
-}
+};
 
 const sources = [
-  createReadStream(path.resolve(rootDir, '../../node_modules/ses/dist/ses.mjs')),
+  createReadStream(
+    path.resolve(rootDir, '../../node_modules/ses/dist/ses.mjs'),
+  ),
   await createEndoBundleReadStream('@endo/eventual-send/shim.js'),
   createReadStream(path.resolve(src, 'endoify.mjs')),
 ];

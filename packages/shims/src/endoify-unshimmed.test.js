@@ -1,4 +1,7 @@
-import test from "ava";
+// eslint-disable-next-line import-x/no-unresolved
+import test from 'ava';
+
+/* eslint-disable id-length */
 
 test('lockdown not called', (t) => {
   t.assert(!Object.isFrozen(Array.prototype)); // Due to `lockdown()`, and therefore `ses`
@@ -7,3 +10,5 @@ test('lockdown not called', (t) => {
 test('eventual-send not loaded', (t) => {
   t.assert(typeof HandledPromise === 'undefined'); // Due to eventual send
 });
+
+/* eslint-enable id-length */
