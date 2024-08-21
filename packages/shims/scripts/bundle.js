@@ -2,10 +2,12 @@ import 'ses';
 import '@endo/lockdown/commit.js';
 
 import bundleSource from '@endo/bundle-source';
-import { copyFile, mkdir, writeFile } from 'fs/promises';
+import { copyFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { rimraf } from 'rimraf';
 import { fileURLToPath } from 'url';
+import { createWriteStream } from 'fs';
+import { Readable } from 'stream';
 
 console.log('Bundling shims...');
 
@@ -25,18 +27,20 @@ for (const fileName of [fileNames.endoify, fileNames.applyLockdown]) {
   await copyFile(path.resolve(src, fileName), path.resolve(dist, fileName));
 }
 
-const eventualSendSourcePath = fileURLToPath(
-  import.meta.resolve('@endo/eventual-send/shim.js'),
-);
+/**
+ * Bundles the target file as endoScript and returns the content as a readable stream
+ * 
+ * @param {string} specifier - import path to the file to bundle, e.g. '@endo/eventual-send/shim.js'
+ * @returns {Promise<Readable>}
+ */
+const createEndoBundleReadStream = async (specifier) => {
+  const filePath = fileURLToPath(import.meta.resolve(specifier));
+  const { source: bundle } = await bundleSource(filePath, { format: 'endoScript' });
+  return Readable.from(bundle);
+}
 
-const { source: eventualSendBundleSource } = await bundleSource(
-  eventualSendSourcePath,
-  { format: 'endoScript' },
-);
+const eSendBundle = await createEndoBundleReadStream('@endo/eventual-send/shim.js');
+const eSendOutput = createWriteStream(path.resolve(dist, fileNames.eventualSend));
 
-await writeFile(
-  path.resolve(dist, fileNames.eventualSend),
-  eventualSendBundleSource,
-);
-
-console.log('Success!');
+eSendBundle.pipe(eSendOutput);
+eSendBundle.on('end', () => console.log('Success!'));
