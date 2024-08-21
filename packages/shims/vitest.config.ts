@@ -2,15 +2,16 @@
 /// <reference types="vitest" />
 
 import { defineConfig, mergeConfig } from 'vite';
+
 import { getDefaultConfig } from '../../vitest.config.packages.js';
 
+const defaultConfig = getDefaultConfig();
 
 const config = mergeConfig(
-  getDefaultConfig(),
+  defaultConfig,
   defineConfig({
     test: {
       exclude: ['endoify-*shimmed.test.*'],
-      setupFiles: '../test-utils/src/env/mock-endo.ts',
     },
   }),
 );
