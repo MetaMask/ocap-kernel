@@ -117,6 +117,7 @@ jobs:
       - name: Require clean working directory
         shell: bash
         run: |
+          ls /home/runner/work/ocap-kernel/ocap-kernel/packages/shims/dist
           if ! git diff --exit-code; then
             echo "Working tree dirty at end of job"
             exit 1
@@ -144,6 +145,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
+      - name: ls-shims-dist
+        shell: bash
+        run: |
+          ls /home/runner/work/ocap-kernel/ocap-kernel/packages/shims/dist
       - run: yarn workspace ${{ matrix.package-name }} run test
       - name: Require clean working directory
         shell: bash
