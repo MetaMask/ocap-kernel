@@ -1,12 +1,16 @@
 /* eslint-disable n/no-sync */
 import jsdom from 'jsdom';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const endoifyBundleSourceTextURL = new URL(
   '../../shims/dist/endoify.mjs',
   import.meta.url.replace(/^https?:\/\/.*?\/@fs\//u, 'file:///'),
+);
+const endoifyShimsBundleSourceLocation = fileURLToPath(
+  endoifyBundleSourceTextURL.href,
 );
 
 /**
@@ -26,22 +30,45 @@ export default function endoified<
   endoifySourceLocation?: string | URL,
 ): () => void {
   return () => {
-    const relativeEndoifySourcePath = path.relative(
-      '.',
+    // console.log({ endoifySourceLocation: `${endoifySourceLocation}` });
+
+    const absoluteEndoifySourcePath =
       // eslint-disable-next-line no-nested-ternary
       endoifySourceLocation && typeof endoifySourceLocation === 'string'
         ? endoifySourceLocation
         : endoifySourceLocation && endoifySourceLocation instanceof URL
         ? fileURLToPath(endoifySourceLocation.href)
-        : fileURLToPath(endoifyBundleSourceTextURL.href),
+        : endoifyShimsBundleSourceLocation;
+
+    const relativeEndoifySourcePath = path.relative(
+      '.',
+      absoluteEndoifySourcePath,
     );
 
-    console.log({ relativeEndoifySourcePath });
+    if (
+      absoluteEndoifySourcePath === endoifyShimsBundleSourceLocation &&
+      !existsSync(endoifyShimsBundleSourceLocation)
+    ) {
+      spawnSync(
+        'node',
+        [
+          fileURLToPath(
+            new URL(
+              '../../shims/scripts/bundle.js',
+              import.meta.url.replace(/^https?:\/\/.*?\/@fs\//u, 'file:///'),
+            ).href,
+          ),
+        ],
+        { stdio: 'inherit' },
+      );
+    }
+
+    // console.log({ relativeEndoifySourcePath });
 
     const evaluatorSourceText = String(test);
     const endoifySourceText = readFileSync(relativeEndoifySourcePath, 'utf-8');
 
-    console.log({ endoifySourceText });
+    // console.log({ endoifySourceText });
 
     const dom = new jsdom.JSDOM(``, { runScripts: 'outside-only' });
 

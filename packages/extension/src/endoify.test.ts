@@ -3,9 +3,6 @@ import endoified from '@ocap/test-utils/endoified';
 import { describe } from 'vitest';
 import * as vitest from 'vitest';
 
-// eslint-disable-next-line spaced-comment
-/// <reference types="ses" />
-
 /* eslint-disable vitest/valid-describe-callback */
 describe(
   `endoify`,
@@ -36,10 +33,6 @@ describe(
       }
     },
     { ...vitest },
-    new URL(
-      '../dist/endoify.mjs',
-      import.meta.url.replace(/^https?:\/\/.*?\/@fs\//u, 'file:///'),
-    ),
   ),
 );
 
