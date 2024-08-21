@@ -26,7 +26,7 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "yarn build && ava && vitest run --config vitest.config.ts --passWithNoTests",
+    "test": "ava && vitest run --config vitest.config.ts --passWithNoTests",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
