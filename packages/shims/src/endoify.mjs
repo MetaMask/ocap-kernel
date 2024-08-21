@@ -1,5 +1,5 @@
-import './ses.mjs';
-import './eventual-send.mjs';
+/** @inline './ses.mjs'; */
+/** @inline './eventual-send.mjs'; */
 
 lockdown({
   consoleTaming: 'unsafe',
