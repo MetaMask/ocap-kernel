@@ -29,9 +29,6 @@ const staticCopyTargets: readonly string[] = [
   // External modules
   'dev-console.js',
   '../../shims/dist/endoify.mjs',
-  // Dependencies of external modules
-  '../../shims/dist/eventual-send.mjs',
-  '../../../node_modules/ses/dist/ses.mjs',
 ];
 
 // https://vitejs.dev/config/

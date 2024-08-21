@@ -1,5 +1,5 @@
-import './ses.mjs';
-import './eventual-send.mjs';
+import 'ses';
+import '@endo/eventual-send/shim.js';
 
 lockdown({
   consoleTaming: 'unsafe',

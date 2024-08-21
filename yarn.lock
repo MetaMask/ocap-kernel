@@ -1357,6 +1357,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/test-utils@workspace:packages/test-utils"
   dependencies:
+    jsdom: "npm:^24.1.1"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
     typescript: "npm:~4.9.5"
