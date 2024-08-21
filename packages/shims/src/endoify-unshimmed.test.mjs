@@ -1,4 +1,3 @@
-// eslint-disable-next-line import-x/no-unresolved
 import test from 'ava';
 
 /* eslint-disable id-length */

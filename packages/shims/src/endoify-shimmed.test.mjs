@@ -1,6 +1,4 @@
-// eslint-disable-next-line import-x/no-unassigned-import, import-x/no-unresolved
 import '@ocap/shims/endoify';
-// eslint-disable-next-line import-x/no-unresolved
 import test from 'ava';
 
 /* eslint-disable id-length */
