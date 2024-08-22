@@ -19,7 +19,7 @@ const fileNames = {
 };
 
 await mkdir(dist, { recursive: true });
-await rimraf(`${dist}/*`);
+await rimraf(`${dist}/*`, { glob: true });
 
 for (const fileName of [fileNames.endoify, fileNames.applyLockdown]) {
   await copyFile(path.resolve(src, fileName), path.resolve(dist, fileName));
