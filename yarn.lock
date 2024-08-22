@@ -1324,6 +1324,7 @@ __metadata:
     deepmerge: "npm:^4.3.1"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.7.0"
+    vite: "npm:^5.3.5"
     vitest: "npm:^2.0.5"
   languageName: unknown
   linkType: soft
