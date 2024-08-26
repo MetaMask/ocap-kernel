@@ -13,5 +13,9 @@
     { "path": "../shims/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" }
   ],
-  "include": ["./src/**/*.ts", "./src/dev-console.js"]
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*-trusted-header.js",
+    "./src/dev-console.js"
+  ]
 }

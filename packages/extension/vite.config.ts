@@ -11,12 +11,6 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 const projectRoot = './src';
 
 /**
- * Module specifiers that will be ignored by Rollup if imported, and therefore
- * not transformed. **Only applies to JavaScript and TypeScript files.**
- */
-const externalModules: readonly string[] = ['./dev-console.js', './endoify.js'];
-
-/**
  * Files that need to be statically copied to the destination directory.
  * Paths are relative from the project root directory.
  */
@@ -26,6 +20,7 @@ const staticCopyTargets: readonly string[] = [
   // External modules
   'dev-console.js',
   '../../shims/dist/endoify.js',
+  'background-trusted-header.js',
 ];
 
 // https://vitejs.dev/config/
@@ -36,7 +31,6 @@ export default defineConfig({
     emptyOutDir: true,
     outDir: path.resolve(projectRoot, '../dist'),
     rollupOptions: {
-      external: [...externalModules],
       input: {
         background: path.resolve(projectRoot, 'background.ts'),
         offscreen: path.resolve(projectRoot, 'offscreen.html'),
@@ -56,6 +50,7 @@ export default defineConfig({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
+    endoifyTrustedHeaderPlugin(),
   ],
 });
 
@@ -98,6 +93,94 @@ function endoifyHtmlFilesPlugin(): Plugin {
         parser: 'html',
         tabWidth: 2,
       });
+    },
+  };
+}
+
+/**
+ * Vite plugin to ensure that the following are true:
+ * - Every entrypoint contains at most one import from a *trusted-header file.
+ * - The import statement, if it exists, is the first line of the bundled output.
+ *
+ * @returns A rollup plugin for automatically externalizing trusted headers and checking they are imported first in the files that import them.
+ */
+function endoifyTrustedHeaderPlugin(): Plugin {
+  const trustedHeaderImporters = new Map<string, string>();
+  const isTrustedHeader = (value: string): boolean =>
+    value.match(/-trusted-header\./u) !== null;
+  const makeExpectedPrefix = (moduleId: string): RegExp => {
+    const headerName = `${path.basename(
+      moduleId,
+      path.extname(moduleId),
+    )}-trusted-header.`;
+    const expectedPrefix = new RegExp(
+      `^import\\s*['"]\\./${headerName}js['"];`,
+      'u',
+    );
+    console.log(expectedPrefix);
+    return expectedPrefix;
+  };
+  return {
+    name: 'ocap-kernel:trusted-header',
+
+    resolveId: {
+      order: 'pre',
+      handler(source, importer) {
+        if (isTrustedHeader(source) && importer !== undefined) {
+          if (trustedHeaderImporters.has(importer)) {
+            this.error(
+              `MultipleTrustedHeaders: Module "${importer}" attempted to import trusted-header "${source}" ` +
+                `but already imported trusted-header "${trustedHeaderImporters.get(
+                  importer,
+                )}".`,
+            );
+          }
+          trustedHeaderImporters.set(importer, source);
+          this.info(
+            `Module "${source}" has been externalized because it was identified as a trusted-header.`,
+          );
+          return { id: source, external: true };
+        }
+        return null;
+      },
+    },
+
+    buildEnd: {
+      order: 'post',
+      handler(error) {
+        if (error !== undefined) {
+          return;
+        }
+        const trustedHeaders = Array.from(this.getModuleIds()).filter(
+          (moduleId) => isTrustedHeader(moduleId),
+        );
+        const importers = trustedHeaders.map((trustedHeader) =>
+          this.getModuleInfo(trustedHeader)?.importers.at(0),
+        );
+        importers.forEach((moduleId: string | undefined) => {
+          if (moduleId === undefined) {
+            this.warn(
+              `UnusedTrustedHeader: Module ${moduleId} was identified as a trusted header but no modules import it.`,
+            );
+            return;
+          }
+          const code = this.getModuleInfo(moduleId)?.code;
+          if (code === null || code === undefined) {
+            this.error(
+              `NoCode: Module ${moduleId} was identified as a trusted header importer but has no code at buildEnd.`,
+            );
+          }
+          const prefix = makeExpectedPrefix(moduleId);
+          if (code.match(prefix) === null) {
+            this.error(
+              `MissingTrustedHeaderImport: Module ${moduleId} was identified as a trusted header importer, ` +
+                `but does not begin with trusted header import.\n` +
+                `ExpectedPrefix: ${prefix}\n` +
+                `ObservedCode: ${code.split(';').at(0)}`,
+            );
+          }
+        });
+      },
     },
   };
 }
