@@ -1,6 +1,6 @@
 /* eslint-disable import-x/no-unassigned-import */
 import './dev-console.js';
-import './endoify.mjs';
+import './endoify.js';
 /* eslint-enable import-x/no-unassigned-import */
 
 import type { ExtensionMessage } from './shared.js';

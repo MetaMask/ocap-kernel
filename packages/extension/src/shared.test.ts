@@ -1,3 +1,4 @@
+import './endoify.js';
 import { delay } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 

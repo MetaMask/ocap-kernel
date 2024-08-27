@@ -12,12 +12,9 @@ const config = mergeConfig(
   defineConfig({
     test: {
       pool: 'vmThreads',
-      environment: './vitest-environment-endoified.ts',
-      setupFiles: '../dist/endoify.mjs',
     },
   }),
 );
 
-// @ts-expect-error We can and will delete this.
 delete config.test.coverage.thresholds;
 export default config;
