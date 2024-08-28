@@ -76,6 +76,16 @@ module.exports = {
         project: ['./tsconfig.packages.json'],
       },
       rules: {
+        '@typescript-eslint/explicit-function-return-type': [
+          'error',
+          {
+            // To permit omitting the return type in situations like:
+            // `const obj = { foo: (bar: string) => bar };`
+            // We'll presume that `obj` has a type that enforces the return type.
+            allowExpressions: true,
+          },
+        ],
+
         '@typescript-eslint/no-explicit-any': 'error',
 
         // This rule is broken, and without the `allowAny` option, it reports a lot

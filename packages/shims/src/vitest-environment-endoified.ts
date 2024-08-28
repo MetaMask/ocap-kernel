@@ -13,8 +13,9 @@ export default {
           clearTimeout,
         });
       },
-      // eslint-disable-next-line no-empty-function
-      teardown(): void {},
+      teardown(): void {
+        return undefined;
+      },
     };
   },
   async setup() {
