@@ -40,6 +40,7 @@
     "@metamask/auto-changelog": "^3.4.4",
     "deepmerge": "^4.3.1",
     "rimraf": "^6.0.1",
+    "typescript": "~5.5.4",
     "vite": "^5.3.5",
     "vitest": "^2.0.5"
   },
