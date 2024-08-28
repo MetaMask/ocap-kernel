@@ -10,9 +10,7 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./apply-lockdown": "./dist/apply-lockdown.mjs",
     "./endoify": "./dist/endoify.mjs",
-    "./eventual-send": "./dist/eventual-send.mjs",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
