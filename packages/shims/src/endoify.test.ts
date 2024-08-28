@@ -1,4 +1,4 @@
-import './endoify.js';
+import { HandledPromise } from '@endo/eventual-send';
 import { describe, expect, it } from 'vitest';
 
 describe('endoified', () => {
@@ -10,8 +10,3 @@ describe('endoified', () => {
     expect(typeof HandledPromise).not.toBe('undefined'); // Due to eventual send
   });
 });
-
-declare global {
-  // eslint-disable-next-line no-var, @typescript-eslint/consistent-type-imports
-  var HandledPromise: import('@endo/eventual-send').HandledPromiseConstructor;
-}

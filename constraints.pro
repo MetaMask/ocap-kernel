@@ -309,6 +309,7 @@ gen_enforced_field(WorkspaceCwd, 'scripts.changelog:update', CorrectChangelogUpd
 
 % All non-root packages must have the same "test" script.
 gen_enforced_field(WorkspaceCwd, 'scripts.test', 'vitest run --config vitest.config.ts') :-
+  WorkspaceCwd \= 'packages/shims',
   WorkspaceCwd \= 'packages/test-utils',
   WorkspaceCwd \= '.'.
 

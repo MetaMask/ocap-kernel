@@ -1,4 +1,3 @@
-import './endoify.js';
 import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
