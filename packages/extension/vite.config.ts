@@ -50,6 +50,15 @@ export default defineConfig({
     },
   },
 
+  resolve: {
+    alias: [
+      {
+        find: '@ocap/shims/endoify',
+        replacement: './endoify.js',
+      },
+    ],
+  },
+
   plugins: [
     endoifyHtmlFilesPlugin(),
     viteStaticCopy({
@@ -72,20 +81,28 @@ function endoifyHtmlFilesPlugin(): Plugin {
   return {
     name: 'externalize-plugin',
     async transformIndexHtml(htmlString): Promise<string> {
-      if (htmlString.includes('endoify.js')) {
+      const htmlDoc = loadHtml(htmlString);
+
+      if (htmlDoc('script[src="endoify.ts"]').length > 0) {
+        throw new Error(
+          `HTML document should not reference "endoify.ts" directly:\n${htmlString}`,
+        );
+      }
+
+      if (htmlDoc('script[src="endoify.js"]').length > 0) {
         throw new Error(
           `HTML document already references endoify script:\n${htmlString}`,
         );
       }
 
-      const htmlDoc = loadHtml(htmlString);
-      if (htmlDoc('head').length !== 1 || htmlDoc('head script').length < 1) {
+      if (htmlDoc('head').length !== 1 || htmlDoc('head > script').length < 1) {
         throw new Error(
           `Expected HTML document with a single <head> containing at least one <script>. Received:\n${htmlString}`,
         );
       }
 
       htmlDoc(endoifyElement).insertBefore('head:first script:first');
+
       return await prettierFormat(htmlDoc.html(), {
         parser: 'html',
         tabWidth: 2,
