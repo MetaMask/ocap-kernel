@@ -24,7 +24,7 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "yarn build && vitest run --config vitest.config.ts --passWithNoTests",
+    "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
@@ -40,6 +40,7 @@
     "@metamask/auto-changelog": "^3.4.4",
     "deepmerge": "^4.3.1",
     "rimraf": "^6.0.1",
+    "typescript": "~5.5.4",
     "vite": "^5.3.5",
     "vitest": "^2.0.5"
   },
