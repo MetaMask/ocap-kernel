@@ -13,7 +13,7 @@ const config = mergeConfig(
     test: {
       pool: 'vmThreads',
       environment: './vitest-environment-endoified.ts',
-      setupFiles: '../dist/endoify.mjs',
+      setupFiles: '../dist/endoify.js',
     },
   }),
 );

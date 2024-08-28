@@ -37,10 +37,10 @@ const sources = {
     path.resolve(rootDir, '../../node_modules/ses/dist/ses.mjs'),
   ),
   eventualSend: await createEndoBundleReadStream('@endo/eventual-send/shim.js'),
-  shim: createReadStream(path.resolve(src, 'endoify.mjs')),
+  shim: createReadStream(path.resolve(src, 'endoify.js')),
 };
 
-const target = createWriteStream(path.resolve(dist, 'endoify.mjs'));
+const target = createWriteStream(path.resolve(dist, 'endoify.js'));
 
 sources.ses.pipe(target, { end: false });
 sources.ses.on('end', () => sources.eventualSend.pipe(target, { end: false }));

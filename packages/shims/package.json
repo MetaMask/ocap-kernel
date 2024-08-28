@@ -10,7 +10,7 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./endoify": "./dist/endoify.mjs",
+    "./endoify": "./dist/endoify.js",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

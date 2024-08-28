@@ -16,7 +16,7 @@ const projectRoot = './src';
  */
 const externalModules: readonly string[] = [
   './dev-console.js',
-  './endoify.mjs',
+  './endoify.js',
 ];
 
 /**
@@ -28,7 +28,7 @@ const staticCopyTargets: readonly string[] = [
   'manifest.json',
   // External modules
   'dev-console.js',
-  '../../shims/dist/endoify.mjs',
+  '../../shims/dist/endoify.js',
   // Dependencies of external modules
   '../../shims/dist/eventual-send.mjs',
   '../../../node_modules/ses/dist/ses.mjs',
@@ -73,12 +73,12 @@ export default defineConfig({
  * @returns The Vite plugin.
  */
 function endoifyHtmlFilesPlugin(): Plugin {
-  const endoifyElement = '<script src="endoify.mjs" type="module"></script>';
+  const endoifyElement = '<script src="endoify.js" type="module"></script>';
 
   return {
     name: 'externalize-plugin',
     async transformIndexHtml(htmlString): Promise<string> {
-      if (htmlString.includes('endoify.mjs')) {
+      if (htmlString.includes('endoify.js')) {
         throw new Error(
           `HTML document already references endoify script:\n${htmlString}`,
         );
