@@ -14,10 +14,7 @@ const projectRoot = './src';
  * Module specifiers that will be ignored by Rollup if imported, and therefore
  * not transformed. **Only applies to JavaScript and TypeScript files.**
  */
-const externalModules: readonly string[] = [
-  './dev-console.js',
-  './endoify.mjs',
-];
+const externalModules: readonly string[] = ['./dev-console.js', './endoify.js'];
 
 /**
  * Files that need to be statically copied to the destination directory.
@@ -28,10 +25,7 @@ const staticCopyTargets: readonly string[] = [
   'manifest.json',
   // External modules
   'dev-console.js',
-  '../../shims/dist/endoify.mjs',
-  // Dependencies of external modules
-  '../../shims/dist/eventual-send.mjs',
-  '../../../node_modules/ses/dist/ses.mjs',
+  '../../shims/dist/endoify.js',
 ];
 
 // https://vitejs.dev/config/
@@ -73,12 +67,12 @@ export default defineConfig({
  * @returns The Vite plugin.
  */
 function endoifyHtmlFilesPlugin(): Plugin {
-  const endoifyElement = '<script src="endoify.mjs" type="module"></script>';
+  const endoifyElement = '<script src="endoify.js" type="module"></script>';
 
   return {
     name: 'externalize-plugin',
     async transformIndexHtml(htmlString): Promise<string> {
-      if (htmlString.includes('endoify.mjs')) {
+      if (htmlString.includes('endoify.js')) {
         throw new Error(
           `HTML document already references endoify script:\n${htmlString}`,
         );

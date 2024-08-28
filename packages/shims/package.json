@@ -10,7 +10,7 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./endoify": "./dist/endoify.mjs",
+    "./endoify": "./dist/endoify.js",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -24,7 +24,7 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "publish:preview": "yarn npm publish --tag preview",
-    "test": "yarn build && vitest run --config vitest.config.ts --passWithNoTests",
+    "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",

@@ -2,47 +2,37 @@ import 'ses';
 import '@endo/lockdown/commit.js';
 
 import bundleSource from '@endo/bundle-source';
-import { createReadStream, createWriteStream } from 'fs';
-import { mkdir } from 'fs/promises';
-import path from 'path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { rimraf } from 'rimraf';
-import { Readable } from 'stream';
-import { fileURLToPath } from 'url';
+
+import endoScriptIdentifierTransformPlugin from './helpers/rollup-plugin-endo-script-identifier-transform.js';
 
 console.log('Bundling shims...');
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
-const src = path.resolve(rootDir, 'src');
-const dist = path.resolve(rootDir, 'dist');
+const srcDir = path.resolve(rootDir, 'src');
+const distDir = path.resolve(rootDir, 'dist');
 
-await mkdir(dist, { recursive: true });
-await rimraf(`${dist}/*`, { glob: true });
+await mkdir(distDir, { recursive: true });
+await rimraf(`${distDir}/*`, { glob: true });
 
-/**
- * Bundles the target file as endoScript and returns the content as a readable stream.
- *
- * @param {string} specifier - Import path to the file to bundle, e.g. `'@endo/eventual-send/shim.js'`.
- * @returns {Promise<Readable>} The bundled file contents as a Readable stream.
- */
-const createEndoBundleReadStream = async (specifier) => {
-  const filePath = fileURLToPath(import.meta.resolve(specifier));
-  const { source: bundle } = await bundleSource(filePath, {
-    format: 'endoScript',
-  });
-  return Readable.from(bundle);
-};
+for (const [name, specifier] of Object.entries({
+  endoify: path.resolve(srcDir, 'endoify.js'),
+})) {
+  const outputPath = path.resolve(distDir, `${name}.js`);
+  const sourcePath = fileURLToPath(import.meta.resolve(specifier));
 
-const sources = {
-  ses: createReadStream(
-    path.resolve(rootDir, '../../node_modules/ses/dist/ses.mjs'),
-  ),
-  eventualSend: await createEndoBundleReadStream('@endo/eventual-send/shim.js'),
-  shim: createReadStream(path.resolve(src, 'endoify.mjs')),
-};
+  let { source } = await bundleSource(sourcePath, { format: 'endoScript' });
 
-const target = createWriteStream(path.resolve(dist, 'endoify.mjs'));
+  if (process.argv.includes('--with-zwj-rewrite')) {
+    source = endoScriptIdentifierTransformPlugin({
+      scopedRoot: path.resolve(rootDir, '../..'),
+    }).transform(source, specifier).code;
+  }
 
-sources.ses.pipe(target, { end: false });
-sources.ses.on('end', () => sources.eventualSend.pipe(target, { end: false }));
-sources.eventualSend.on('end', () => sources.shim.pipe(target, { end: true }));
-sources.shim.on('end', () => console.log('Success!'));
+  await writeFile(outputPath, source);
+}
+
+console.log('Success!');
