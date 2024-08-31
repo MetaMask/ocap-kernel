@@ -16,9 +16,9 @@ import endoScriptIdentifierTransformPlugin from './rollup-plugin-endo-script-ide
  * used are: `{ format: 'endoScript' }`.
  *
  * The `rewrite` operation will be skipped when:
+ *   - The `rewrite` is `false`
  *   - The `rewrite` option  and the `argv` options are omitted
  *   - The `argv` option does not include `--with-zwj-rewrite`
- *   - The `rewrite` is `false`, the oeration will be skipped
  *
  * Otherwise, when the `rewrite` option is `true` or some of its
  * options are omitted, the `argv` option is checked for the
@@ -60,6 +60,8 @@ export async function generateEndoScriptBundle(specifier, outputPath, options) {
         ...Object(options?.rewrite),
         scopedRoot:
           options?.scope ??
+          // @ts-ignore
+          options?.rewrite?.scopedRoot ??
           fileURLToPath(new URL('../../../../', import.meta.url)),
       }).transform(source, specifier)?.code ?? source;
   }
