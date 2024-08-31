@@ -5,7 +5,7 @@ module.exports = {
 
   overrides: [
     {
-      files: ['src/**/*.js'],
+      files: ['src/**/*.js', 'scripts/**/*.js'],
       globals: { lockdown: 'readonly' },
       rules: {
         'import-x/extensions': 'off',
