@@ -19,7 +19,6 @@ const config = mergeConfig(
           {
             find: '@ocap/shims/endoify',
             replacement: path.resolve('../shims/src/endoify.js'),
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
             customResolver: (id) => ({ external: true, id }),
           },
         ],
