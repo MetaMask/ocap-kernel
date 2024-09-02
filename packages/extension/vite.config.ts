@@ -50,15 +50,6 @@ export default defineConfig({
     },
   },
 
-  resolve: {
-    alias: [
-      {
-        find: '@ocap/shims/endoify',
-        replacement: './endoify.js',
-      },
-    ],
-  },
-
   plugins: [
     endoifyHtmlFilesPlugin(),
     viteStaticCopy({
