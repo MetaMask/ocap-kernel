@@ -19,5 +19,14 @@ module.exports = {
         project: ['./tsconfig.scripts.json'],
       },
     },
+
+    {
+      files: ['src/**/*-trusted-header.js'],
+      rules: {
+        'import-x/extensions': 'off',
+        'import-x/no-unassigned-import': 'off',
+        'import-x/no-unresolved': 'off',
+      },
+    },
   ],
 };
