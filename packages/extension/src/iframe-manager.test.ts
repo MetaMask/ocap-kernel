@@ -126,6 +126,55 @@ describe('IframeManager', () => {
 
       expect(removeSpy).not.toHaveBeenCalled();
     });
+
+    it('warns of unresolved messages', async () => {
+      const id = 'foo';
+      const messageCount = 7;
+      const awaitCount = 2;
+
+      vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
+
+      const manager = new IframeManager();
+
+      vi.spyOn(manager, 'sendMessage').mockImplementationOnce(vi.fn());
+
+      const { port1, port2 } = new MessageChannel();
+
+      await manager.create({ id, getPort: makeGetPort(port1) });
+
+      const warnSpy = vi.spyOn(console, 'warn');
+
+      const messagePromises = Array(messageCount)
+        .fill(0)
+        .map(async (_, i) =>
+          manager.sendMessage(id, { type: Command.Evaluate, data: `${i}+1` }),
+        );
+
+      // resolve the first `awaitCount` promises
+      for (let i = 0; i < awaitCount; i++) {
+        port2.postMessage({
+          done: false,
+          value: {
+            label: 'message',
+            payload: {
+              id: `foo-${i + 1}`,
+              message: {
+                type: Command.Evaluate,
+                data: `${i + 1}`,
+              },
+            },
+          },
+        });
+        await messagePromises[i];
+      }
+
+      await manager.delete(id);
+      expect(warnSpy).toHaveBeenCalledTimes(messageCount - awaitCount);
+      // This test assumes messageIds begin at 1, not 0
+      expect(warnSpy).toHaveBeenLastCalledWith(
+        `Unhandled orphaned message: ${id}-${messageCount}`,
+      );
+    });
   });
 
   describe('sendMessage', () => {

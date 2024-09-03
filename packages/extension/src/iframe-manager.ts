@@ -99,6 +99,9 @@ export class IframeManager {
 
     const closeP = vat.streams.return();
     // TODO: Handle orphaned messages
+    for (const [messageId] of this.#unresolvedMessagesOf(id)) {
+      console.warn(`Unhandled orphaned message: ${messageId}`);
+    }
     this.#vats.delete(id);
 
     const iframe = document.getElementById(getHtmlId(id));
@@ -200,6 +203,7 @@ export class IframeManager {
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${id}".`);
           } else {
+            this.#unresolvedMessages.delete(id);
             promiseCallbacks.resolve(message.data);
           }
           break;
@@ -208,6 +212,19 @@ export class IframeManager {
         default:
           // @ts-expect-error Exhaustiveness check
           throw new Error(`Unexpected message label "${rawMessage.label}".`);
+      }
+    }
+  }
+
+  *#unresolvedMessagesOf(
+    id: VatId,
+  ): Generator<readonly [MessageId, PromiseCallbacks]> {
+    for (const messageId of this.#unresolvedMessages.keys()) {
+      if (messageId.split('-').slice(0, -1).join('-') === id) {
+        yield [
+          messageId,
+          this.#unresolvedMessages.get(messageId) as PromiseCallbacks,
+        ] as const;
       }
     }
   }
