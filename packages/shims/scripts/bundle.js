@@ -1,38 +1,29 @@
+// @ts-check
+
 import 'ses';
 import '@endo/lockdown/commit.js';
 
-import bundleSource from '@endo/bundle-source';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rimraf } from 'rimraf';
 
-import endoScriptIdentifierTransformPlugin from './helpers/rollup-plugin-endo-script-identifier-transform.js';
+import { generateEndoScriptBundle } from './helpers/generate-endo-script-bundle.js';
 
 console.log('Bundling shims...');
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const srcDir = path.resolve(rootDir, 'src');
 const distDir = path.resolve(rootDir, 'dist');
+const argv = Object.freeze([...process.argv]);
 
 await mkdir(distDir, { recursive: true });
 await rimraf(`${distDir}/*`, { glob: true });
 
-for (const [name, specifier] of Object.entries({
-  endoify: path.resolve(srcDir, 'endoify.js'),
-})) {
-  const outputPath = path.resolve(distDir, `${name}.js`);
-  const sourcePath = fileURLToPath(import.meta.resolve(specifier));
-
-  let { source } = await bundleSource(sourcePath, { format: 'endoScript' });
-
-  if (process.argv.includes('--with-zwj-rewrite')) {
-    source = endoScriptIdentifierTransformPlugin({
-      scopedRoot: path.resolve(rootDir, '../..'),
-    }).transform(source, specifier).code;
-  }
-
-  await writeFile(outputPath, source);
-}
+generateEndoScriptBundle(
+  path.resolve(srcDir, 'endoify.js'),
+  path.resolve(distDir, `endoify.js`),
+  { argv },
+);
 
 console.log('Success!');
