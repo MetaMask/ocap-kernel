@@ -147,7 +147,6 @@ export class IframeManager {
     if (capTp === undefined) {
       throw new Error(`Vat with id "${id}" does not have a CapTP connection.`);
     }
-    // @ts-expect-error The types are unwell.
     return E(capTp.getBootstrap())[method](...params);
   }
 
