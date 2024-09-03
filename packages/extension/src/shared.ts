@@ -1,5 +1,8 @@
 import { isObject } from '@metamask/utils';
 
+export type VatId = string;
+export type MessageId = string;
+
 export enum Command {
   CapTpCall = 'callCapTp',
   CapTpInit = 'makeCapTp',
@@ -25,7 +28,7 @@ export type IframeMessage<
 };
 
 export type WrappedIframeMessage = {
-  id: string;
+  id: MessageId;
   message: IframeMessage<Command, string | null>;
 };
 
