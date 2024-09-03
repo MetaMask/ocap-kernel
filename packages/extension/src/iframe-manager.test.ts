@@ -34,7 +34,7 @@ describe('IframeManager', () => {
       expect(id).toBeTypeOf('string');
       expect(sendMessageSpy).toHaveBeenCalledOnce();
       expect(sendMessageSpy).toHaveBeenCalledWith(id, {
-        type: 'ping',
+        type: Command.Ping,
         data: null,
       });
     });
@@ -59,7 +59,7 @@ describe('IframeManager', () => {
       expect(returnedId).toBe(id);
       expect(sendMessageSpy).toHaveBeenCalledOnce();
       expect(sendMessageSpy).toHaveBeenCalledWith(id, {
-        type: 'ping',
+        type: Command.Ping,
         data: null,
       });
     });
@@ -89,7 +89,7 @@ describe('IframeManager', () => {
       expect(id).toBeTypeOf('string');
       expect(sendMessageSpy).toHaveBeenCalledOnce();
       expect(sendMessageSpy).toHaveBeenCalledWith(id, {
-        type: 'ping',
+        type: Command.Ping,
         data: null,
       });
     });
