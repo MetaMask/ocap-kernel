@@ -143,32 +143,41 @@ describe('IframeManager', () => {
       await manager.create({ id, getPort: makeGetPort(port1) });
 
       const message = { type: Command.Evaluate, data: '2+2' };
+      const response = { type: Command.Evaluate, data: '4' };
 
+      // sendMessage wraps the payload in a 'message' envelope
       const messagePromise = manager.sendMessage(id, message);
       const messageId: string | undefined =
-        portPostMessageSpy.mock.lastCall?.[0]?.value?.id;
+        portPostMessageSpy.mock.lastCall?.[0]?.value?.payload?.id;
       expect(messageId).toBeTypeOf('string');
 
+      // postMessage sends the json directly, so we have to wrap it in an envelope here
       port2.postMessage({
         done: false,
         value: {
-          id: messageId,
-          message: {
-            type: Command.Evaluate,
-            data: '4',
+          label: 'message',
+          payload: {
+            id: messageId,
+            message: response,
           },
         },
       });
 
+      // awaiting event loop should resolve the messagePromise
+      expect(await messagePromise).toBe(response.data);
+
+      // messagePromise doesn't resolve until message was posted
       expect(portPostMessageSpy).toHaveBeenCalledOnce();
       expect(portPostMessageSpy).toHaveBeenCalledWith({
         done: false,
         value: {
-          id: messageId,
-          message,
+          label: 'message',
+          payload: {
+            id: messageId,
+            message,
+          },
         },
       });
-      expect(await messagePromise).toBe('4');
     });
 
     it('throws if iframe not found', async () => {
@@ -219,10 +228,13 @@ describe('IframeManager', () => {
       port2.postMessage({
         done: false,
         value: {
-          id: 'foo',
-          message: {
-            type: Command.Evaluate,
-            data: '"bar"',
+          label: 'message',
+          payload: {
+            id: 'foo',
+            message: {
+              type: Command.Evaluate,
+              data: '"bar"',
+            },
           },
         },
       });
