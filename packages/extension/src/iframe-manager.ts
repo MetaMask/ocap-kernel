@@ -10,18 +10,23 @@ import {
   makeMessagePortStreamPair,
 } from '@ocap/streams';
 
-import type { IframeMessage, StreamPayloadEnvelope } from './shared.js';
 import { isStreamPayloadEnvelope, Command } from './shared.js';
+import type {
+  IframeMessage,
+  StreamPayloadEnvelope,
+  VatId,
+  MessageId,
+} from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
 
 /**
  * Get a DOM id for our iframes, for greater collision resistance.
  *
- * @param id - The id to base the DOM id on.
+ * @param id - The vat id to base the DOM id on.
  * @returns The DOM id.
  */
-const getHtmlId = (id: string): string => `ocap-iframe-${id}`;
+const getHtmlId = (id: VatId): string => `ocap-iframe-${id}`;
 
 type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 
@@ -38,9 +43,9 @@ type VatRecord = {
 export class IframeManager {
   #currentId: number;
 
-  readonly #unresolvedMessages: Map<string, PromiseCallbacks>;
+  readonly #unresolvedMessages: Map<MessageId, PromiseCallbacks>;
 
-  readonly #vats: Map<string, VatRecord>;
+  readonly #vats: Map<VatId, VatRecord>;
 
   /**
    * Create a new IframeManager.
@@ -57,12 +62,12 @@ export class IframeManager {
    * @param args - Options bag.
    * @param args.id - The id of the vat to create.
    * @param args.getPort - A function to get the message port for the iframe.
-   * @returns The iframe's content window, and its internal id.
+   * @returns The iframe's content window, and the id of the associated vat.
    */
   async create(
-    args: { id?: string; getPort?: GetPort } = {},
-  ): Promise<readonly [Window, string]> {
-    const id = args.id ?? this.#nextId();
+    args: { id?: VatId; getPort?: GetPort } = {},
+  ): Promise<readonly [Window, VatId]> {
+    const id = args.id ?? this.#nextVatId();
     const getPort = args.getPort ?? initializeMessageChannel;
 
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
@@ -81,12 +86,12 @@ export class IframeManager {
   }
 
   /**
-   * Delete an iframe.
+   * Delete a vat and its associated iframe.
    *
-   * @param id - The id of the iframe to delete.
+   * @param id - The id of the vat to delete.
    * @returns A promise that resolves when the iframe is deleted.
    */
-  async delete(id: string): Promise<void> {
+  async delete(id: VatId): Promise<void> {
     const vat = this.#vats.get(id);
     if (vat === undefined) {
       return undefined;
@@ -108,19 +113,19 @@ export class IframeManager {
   }
 
   /**
-   * Send a message to an iframe.
+   * Send a message to a vat.
    *
-   * @param id - The id of the iframe to send the message to.
+   * @param id - The id of the vat to send the message to.
    * @param message - The message to send.
    * @returns A promise that resolves the response to the message.
    */
   async sendMessage(
-    id: string,
+    id: VatId,
     message: IframeMessage<Command, string | null>,
   ): Promise<unknown> {
     const vat = this.#expectGetVat(id);
     const { promise, reject, resolve } = makePromiseKit();
-    const messageId = this.#nextId();
+    const messageId = this.#nextMessageId(id);
 
     this.#unresolvedMessages.set(messageId, { reject, resolve });
     await vat.streams.writer.next({
@@ -131,7 +136,7 @@ export class IframeManager {
   }
 
   async callCapTp(
-    id: string,
+    id: VatId,
     method: string,
     ...params: Json[]
   ): Promise<unknown> {
@@ -163,7 +168,7 @@ export class IframeManager {
   }
 
   async #receiveMessages(
-    vatId: string,
+    vatId: VatId,
     reader: MessagePortReader<StreamPayloadEnvelope>,
   ): Promise<void> {
     for await (const rawMessage of reader) {
@@ -213,7 +218,7 @@ export class IframeManager {
    * @param id - The id of the vat to get.
    * @returns The vat record.
    */
-  #expectGetVat(id: string): VatRecord {
+  #expectGetVat(id: VatId): VatRecord {
     const vat = this.#vats.get(id);
     if (vat === undefined) {
       throw new Error(`No vat with id "${id}"`);
@@ -221,9 +226,13 @@ export class IframeManager {
     return vat;
   }
 
-  #nextId(): string {
-    const id = this.#currentId;
+  readonly #nextMessageId = (id: VatId): MessageId => {
     this.#currentId += 1;
-    return String(id);
-  }
+    return `${id}-${this.#currentId}`;
+  };
+
+  readonly #nextVatId = (): MessageId => {
+    this.#currentId += 1;
+    return `${this.#currentId}`;
+  };
 }
