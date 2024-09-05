@@ -4,7 +4,7 @@ import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import { createWindow } from '@metamask/snaps-utils';
 import type { Json } from '@metamask/utils';
-import type { MessagePortReader, MessagePortStreamPair } from '@ocap/streams';
+import type { StreamPair, Reader } from '@ocap/streams';
 import {
   initializeMessageChannel,
   makeMessagePortStreamPair,
@@ -33,7 +33,7 @@ type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 type GetPort = (targetWindow: Window) => Promise<MessagePort>;
 
 type VatRecord = {
-  streams: MessagePortStreamPair<StreamPayloadEnvelope>;
+  streams: StreamPair<StreamPayloadEnvelope>;
   capTp?: ReturnType<typeof makeCapTP>;
 };
 
@@ -171,7 +171,7 @@ export class IframeManager {
 
   async #receiveMessages(
     vatId: VatId,
-    reader: MessagePortReader<StreamPayloadEnvelope>,
+    reader: Reader<StreamPayloadEnvelope>,
   ): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);

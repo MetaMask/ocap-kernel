@@ -313,7 +313,7 @@ describe('makeMessagePortStreamPair', () => {
     const { port1, port2 } = new MessageChannel();
     const streamPair = makeMessagePortStreamPair(port1);
     const remoteReader = new MessagePortReader(port2);
-    const localReadP = streamPair.reader.next();
+    const localReadP = (streamPair.reader as MessagePortReader<unknown>).next();
     const remoteReadP = remoteReader.next();
 
     expect(port1.onmessage).toBeDefined();

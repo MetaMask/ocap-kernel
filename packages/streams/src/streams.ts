@@ -22,6 +22,8 @@ import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { hasProperty, isObject } from '@metamask/utils';
 
+export type { Reader, Writer };
+
 type PromiseCallbacks = {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
@@ -318,9 +320,9 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
 }
 harden(MessagePortWriter);
 
-export type MessagePortStreamPair<Value> = Readonly<{
-  reader: MessagePortReader<Value>;
-  writer: MessagePortWriter<Value>;
+export type StreamPair<Value> = Readonly<{
+  reader: Reader<Value>;
+  writer: Writer<Value>;
   /**
    * Calls `.return()` on both streams.
    */
@@ -343,7 +345,7 @@ export type MessagePortStreamPair<Value> = Readonly<{
  */
 export const makeMessagePortStreamPair = <Value>(
   port: MessagePort,
-): MessagePortStreamPair<Value> => {
+): StreamPair<Value> => {
   const reader = new MessagePortReader<Value>(port);
   const writer = new MessagePortWriter<Value>(port);
 
