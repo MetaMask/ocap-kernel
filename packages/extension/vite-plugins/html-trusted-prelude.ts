@@ -9,7 +9,7 @@ import type { Plugin } from 'vite';
  * structure.
  * @returns The Vite plugin.
  */
-export function htmlTrustedPreludePlugin(): Plugin {
+export function htmlTrustedPrelude(): Plugin {
   const endoifyElement = '<script src="endoify.js" type="module"></script>';
 
   return {

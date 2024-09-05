@@ -5,8 +5,8 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-import { htmlTrustedPreludePlugin } from './vite-plugins/html-trusted-prelude';
-import { jsTrustedPreludePlugin } from './vite-plugins/js-trusted-prelude';
+import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude';
+import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude';
 
 const projectRoot = './src';
 
@@ -45,11 +45,11 @@ export default defineConfig({
   },
 
   plugins: [
-    htmlTrustedPreludePlugin(),
+    htmlTrustedPrelude(),
     viteStaticCopy({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
-    jsTrustedPreludePlugin(),
+    jsTrustedPrelude(),
   ],
 });

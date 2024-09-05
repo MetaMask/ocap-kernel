@@ -8,7 +8,7 @@ import type { Plugin } from 'vite';
  *
  * @returns A vite plugin for automatically externalizing trusted preludes and checking they are imported first in the files that import them.
  */
-export function jsTrustedPreludePlugin(): Plugin {
+export function jsTrustedPrelude(): Plugin {
   const trustedPreludeImporters = new Map<string, string>();
   const isTrustedPrelude = (value: string): boolean =>
     value.match(/-trusted-prelude\./u) !== null;
