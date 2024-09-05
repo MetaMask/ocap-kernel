@@ -5,8 +5,8 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-import { endoifyTrustedHeaderPlugin } from './plugins/rollup-plugin-endoify-trusted-header';
-import { endoifyHtmlFilesPlugin } from './plugins/vite-plugin-endoify-html-files';
+import { htmlTrustedPreludePlugin } from './vite-plugins/html-trusted-prelude';
+import { jsTrustedPreludePlugin } from './vite-plugins/js-trusted-prelude';
 
 const projectRoot = './src';
 
@@ -20,7 +20,7 @@ const staticCopyTargets: readonly string[] = [
   // External modules
   'dev-console.js',
   '../../shims/dist/endoify.js',
-  'background-trusted-header.js',
+  'background-trusted-prelude.js',
 ];
 
 // https://vitejs.dev/config/
@@ -45,11 +45,11 @@ export default defineConfig({
   },
 
   plugins: [
-    endoifyHtmlFilesPlugin(),
+    htmlTrustedPreludePlugin(),
     viteStaticCopy({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
-    endoifyTrustedHeaderPlugin(),
+    jsTrustedPreludePlugin(),
   ],
 });

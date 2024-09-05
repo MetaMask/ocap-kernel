@@ -15,7 +15,7 @@
   ],
   "include": [
     "./src/**/*.ts",
-    "./src/**/*-trusted-header.js",
+    "./src/**/*-trusted-prelude.js",
     "./src/dev-console.js"
   ]
 }

@@ -21,7 +21,7 @@ module.exports = {
     },
 
     {
-      files: ['src/**/*-trusted-header.js'],
+      files: ['src/**/*-trusted-prelude.js'],
       rules: {
         'import-x/extensions': 'off',
         'import-x/no-unassigned-import': 'off',

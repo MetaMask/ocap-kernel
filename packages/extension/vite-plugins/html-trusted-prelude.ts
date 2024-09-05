@@ -9,11 +9,11 @@ import type { Plugin } from 'vite';
  * structure.
  * @returns The Vite plugin.
  */
-export function endoifyHtmlFilesPlugin(): Plugin {
+export function htmlTrustedPreludePlugin(): Plugin {
   const endoifyElement = '<script src="endoify.js" type="module"></script>';
 
   return {
-    name: 'ocap-kernel:endoify-html-files',
+    name: 'ocap-kernel:html-trusted-prelude',
     async transformIndexHtml(htmlString): Promise<string> {
       const htmlDoc = loadHtml(htmlString);
 
