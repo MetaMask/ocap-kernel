@@ -11,9 +11,14 @@ const { basename, resolve } = require('path');
 const semver = require('semver');
 const { inspect } = require('util');
 
+// Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
+// Packages that do not have typedoc
 const typedocExceptions = ['test-utils', 'extension'];
+// Packages that do not have build or tests
 const noBuildOrTests = ['test-utils'];
+// Packages that do not export a `package.json` file
+const noPackageJson = ['extension'];
 
 /**
  * Aliases for the Yarn type definitions, to make the code more readable.
@@ -160,7 +165,7 @@ module.exports = defineConfig({
         }
 
         // All non-root packages must export a `package.json` file except for the extension package
-        if (workspaceBasename !== 'extension') {
+        if (!noPackageJson.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'exports["./package.json"]',
