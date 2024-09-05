@@ -33,7 +33,7 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
         if (isTrustedHeader(source) && importer !== undefined) {
           if (trustedHeaderImporters.has(importer)) {
             this.error(
-              `MultipleTrustedHeaders: Module "${importer}" attempted to import trusted-header "${source}" ` +
+              `Module "${importer}" attempted to import trusted-header "${source}" ` +
                 `but already imported trusted-header "${trustedHeaderImporters.get(
                   importer,
                 )}".`,
@@ -64,20 +64,20 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
         importers.forEach((moduleId: string | undefined) => {
           if (moduleId === undefined) {
             this.warn(
-              `UnusedTrustedHeader: Module ${moduleId} was identified as a trusted header but no modules import it.`,
+              `Module ${moduleId} was identified as a trusted header but no modules import it.`,
             );
             return;
           }
           const code = this.getModuleInfo(moduleId)?.code;
           if (code === null || code === undefined) {
             this.error(
-              `NoCode: Module ${moduleId} was identified as a trusted header importer but has no code at buildEnd.`,
+              `Module ${moduleId} was identified as a trusted header importer but has no code at buildEnd.`,
             );
           }
           const prefix = makeExpectedPrefix(moduleId);
           if (code.match(prefix) === null) {
             this.error(
-              `MissingTrustedHeaderImport: Module ${moduleId} was identified as a trusted header importer, ` +
+              `Module ${moduleId} was identified as a trusted header importer, ` +
                 `but does not begin with trusted header import.\n` +
                 `ExpectedPrefix: ${prefix}\n` +
                 `ObservedCode: ${code.split(';').at(0)}`,
