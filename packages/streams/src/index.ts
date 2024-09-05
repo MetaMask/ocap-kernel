@@ -2,7 +2,7 @@ export {
   initializeMessageChannel,
   receiveMessagePort,
 } from './message-channel.js';
-export type { MessagePortStreamPair } from './streams.js';
+export type { StreamPair, Reader, Writer } from './streams.js';
 export {
   makeMessagePortStreamPair,
   MessagePortReader,
