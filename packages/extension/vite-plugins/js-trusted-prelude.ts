@@ -21,7 +21,6 @@ export function jsTrustedPreludePlugin(): Plugin {
       `^import\\s*['"]\\./${preludeName}js['"];`,
       'u',
     );
-    console.log(expectedPrefix);
     return expectedPrefix;
   };
   return {
@@ -73,7 +72,7 @@ export function jsTrustedPreludePlugin(): Plugin {
           return;
         }
         const trustedPreludes = Array.from(this.getModuleIds()).filter(
-          (moduleId) => isTrustedPrelude(moduleId),
+          isTrustedPrelude,
         );
         const importers = trustedPreludes.map((trustedPrelude) =>
           this.getModuleInfo(trustedPrelude)?.importers.at(0),
@@ -86,7 +85,7 @@ export function jsTrustedPreludePlugin(): Plugin {
             return;
           }
           const code = this.getModuleInfo(moduleId)?.code;
-          if (code === null || code === undefined) {
+          if (!code) {
             this.error(
               `Module ${moduleId} was identified as a trusted prelude importer but has no code at buildEnd.`,
             );
