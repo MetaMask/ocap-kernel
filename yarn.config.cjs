@@ -164,7 +164,7 @@ module.exports = defineConfig({
           workspace.unset('sideEffects');
         }
 
-        // All non-root packages must export a `package.json` file except for the extension package
+        // All non-root packages must export a `package.json` file except for the ones that are exempted
         if (!noPackageJson.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
