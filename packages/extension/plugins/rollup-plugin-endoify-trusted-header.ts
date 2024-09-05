@@ -3,10 +3,10 @@ import type { Plugin } from 'vite';
 
 /**
  * Vite plugin to ensure that the following are true:
- * - Every entrypoint contains at most one import from a *trusted-header file.
+ * - Every bundle contains at most one import from a *trusted-header file.
  * - The import statement, if it exists, is the first line of the bundled output.
  *
- * @returns A rollup plugin for automatically externalizing trusted headers and checking they are imported first in the files that import them.
+ * @returns A vite plugin for automatically externalizing trusted headers and checking they are imported first in the files that import them.
  */
 export function endoifyTrustedHeaderPlugin(): Plugin {
   const trustedHeaderImporters = new Map<string, string>();
@@ -29,8 +29,18 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
 
     resolveId: {
       order: 'pre',
+
+      /**
+       * Automatically externalize files with names `*-trusted-header.*`, and ensure no source imports more than one such file.
+       *
+       * @param source - The module which is doing the importing.
+       * @param importer - The module being imported.
+       * @returns A ResolveIdResult indicating how vite should resolve this source.
+       * @throws If a source attempts to import more than one trusted header.
+       */
       handler(source, importer) {
         if (isTrustedHeader(source) && importer !== undefined) {
+          // Check if this importer has already imported another trusted header.
           if (trustedHeaderImporters.has(importer)) {
             this.error(
               `Module "${importer}" attempted to import trusted-header "${source}" ` +
@@ -40,6 +50,7 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
             );
           }
           trustedHeaderImporters.set(importer, source);
+          // Tell vite to externalize this source.
           this.info(
             `Module "${source}" has been externalized because it was identified as a trusted-header.`,
           );
@@ -51,7 +62,13 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
 
     buildEnd: {
       order: 'post',
-      handler(error) {
+      /**
+       * Check that identified trusted-headers are their importers' first import in the output bundle.
+       *
+       * @param error - The error that caused the build to end, undefined if none (yet) occured.
+       * @throws If an identified trusted-header importer does not import its trusted header at buildEnd.
+       */
+      handler(error): void {
         if (error !== undefined) {
           return;
         }
