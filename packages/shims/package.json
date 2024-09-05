@@ -16,7 +16,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "files": [
-    "dist"
+    "dist/"
   ],
   "scripts": {
     "build": "node scripts/bundle.js",

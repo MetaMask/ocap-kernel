@@ -1289,7 +1289,9 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^13.0.0"
     "@ts-bridge/cli": "npm:^0.3.0"
     "@ts-bridge/shims": "npm:^0.1.1"
+    "@types/lodash": "npm:^4"
     "@types/node": "npm:^18.18.14"
+    "@types/semver": "npm:^7"
     "@typescript-eslint/eslint-plugin": "npm:^8.1.0"
     "@typescript-eslint/parser": "npm:^8.1.0"
     "@yarnpkg/types": "npm:^4.0.0"
@@ -1302,9 +1304,11 @@ __metadata:
     eslint-plugin-prettier: "npm:^4.2.1"
     eslint-plugin-promise: "npm:^6.1.1"
     eslint-plugin-vitest: "npm:^0.4.1"
+    lodash: "npm:^4.17.21"
     prettier: "npm:^2.7.1"
     prettier-plugin-packagejson: "npm:^2.3.0"
     rimraf: "npm:^6.0.1"
+    semver: "npm:^7.6.3"
     typedoc: "npm:^0.24.8"
     typescript: "npm:~5.5.4"
     vite: "npm:^5.3.5"
@@ -1732,6 +1736,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4":
+  version: 4.17.7
+  resolution: "@types/lodash@npm:4.17.7"
+  checksum: 10/b8177f19cf962414a66989837481b13f546afc2e98e8d465bec59e6ac03a59c584eb7053ce511cde3a09c5f3096d22a5ae22cfb56b23f3b0da75b0743b6b1a44
+  languageName: node
+  linkType: hard
+
 "@types/minimatch@npm:^3.0.3":
   version: 3.0.5
   resolution: "@types/minimatch@npm:3.0.5"
@@ -1777,6 +1788,13 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10/dc6a6df507656004e242dcb02c784479deca516d5f4b58a1707e708022b269ae147e1da0521f3e8ad0d63638869d87e0adc023f0bd5454aa6f72ac66c7525cf5
+  languageName: node
+  linkType: hard
+
+"@types/semver@npm:^7":
+  version: 7.5.8
+  resolution: "@types/semver@npm:7.5.8"
+  checksum: 10/3496808818ddb36deabfe4974fd343a78101fa242c4690044ccdc3b95dcf8785b494f5d628f2f47f38a702f8db9c53c67f47d7818f2be1b79f2efb09692e1178
   languageName: node
   linkType: hard
 
@@ -5901,7 +5919,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:^7.0.0, semver@npm:^7.1.1, semver@npm:^7.3.5, semver@npm:^7.5.3, semver@npm:^7.5.4, semver@npm:^7.6.0":
+"semver@npm:^7.0.0, semver@npm:^7.1.1, semver@npm:^7.3.5, semver@npm:^7.5.3, semver@npm:^7.5.4, semver@npm:^7.6.0, semver@npm:^7.6.3":
   version: 7.6.3
   resolution: "semver@npm:7.6.3"
   bin:
