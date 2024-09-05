@@ -1,9 +1,9 @@
-import { IframeManager } from './iframe-manager.js';
+import { IframeManager } from './iframe-manager-new.js';
 import type { ExtensionMessage } from './shared.js';
 import { Command, makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
-
+console.log('STARTING OFFSCREEN');
 /**
  * The main function for the offscreen script.
  */

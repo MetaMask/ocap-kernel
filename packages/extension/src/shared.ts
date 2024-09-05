@@ -10,6 +10,11 @@ export enum Command {
   Ping = 'ping',
 }
 
+export enum Label {
+  COMMAND = 'message',
+  CAPTP = 'capTp',
+}
+
 export type ExtensionMessage<
   Type extends Command,
   Data extends null | string | unknown[] | Record<string, unknown>,
