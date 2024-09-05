@@ -79,8 +79,8 @@ export function endoifyTrustedHeaderPlugin(): Plugin {
             this.error(
               `Module ${moduleId} was identified as a trusted header importer, ` +
                 `but does not begin with trusted header import.\n` +
-                `ExpectedPrefix: ${prefix}\n` +
-                `ObservedCode: ${code.split(';').at(0)}`,
+                `Expected prefix: ${prefix}\n` +
+                `Observed code: ${code.split(';').at(0)}`,
             );
           }
         });
