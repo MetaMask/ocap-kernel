@@ -1,11 +1,12 @@
+// @ts-check
 // This file is used to define, among other configuration, rules that Yarn will
 // execute when you run `yarn constraints`. These rules primarily check the
 // manifests of each package in the monorepo to ensure they follow a standard
 // format, but also check the presence of certain files as well.
 
-/** @type {import('@yarnpkg/types')} */
 const { defineConfig } = require('@yarnpkg/types');
 const { readFile } = require('fs/promises');
+// @ts-expect-error lodash is not a valid module, but that's OK
 const { get } = require('lodash');
 const { basename, resolve } = require('path');
 const semver = require('semver');
@@ -23,10 +24,10 @@ const noPackageJson = ['extension'];
 /**
  * Aliases for the Yarn type definitions, to make the code more readable.
  *
- * @typedef {import('@yarnpkg/types').Yarn} Yarn
- * @typedef {import('@yarnpkg/types').Yarn.Constraints.Workspace} Workspace
+ * @typedef {import('@yarnpkg/types').Yarn.Constraints.Context['Yarn']} Yarn
  * @typedef {import('@yarnpkg/types').Yarn.Constraints.Dependency} Dependency
  * @typedef {import('@yarnpkg/types').Yarn.Constraints.DependencyType} DependencyType
+ * @typedef {import('@yarnpkg/types').Yarn.Constraints.Workspace} Workspace
  */
 
 module.exports = defineConfig({
