@@ -42,6 +42,7 @@
     "@metamask/eslint-config-typescript": "^13.0.0",
     "@ts-bridge/cli": "^0.3.0",
     "@ts-bridge/shims": "^0.1.1",
+    "@types/lodash": "^4.17.7",
     "@types/node": "^18.18.14",
     "@typescript-eslint/eslint-plugin": "^8.1.0",
     "@typescript-eslint/parser": "^8.1.0",

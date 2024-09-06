@@ -10,3 +10,4 @@ ignores:
   - 'prettier-plugin-packagejson'
   - 'rimraf'
   - 'typedoc'
+  - '@types/lodash'
