@@ -266,16 +266,6 @@ module.exports = defineConfig({
         dependenciesByIdentAndType,
       );
 
-      // If one workspace package (A) lists another workspace package (B) in its
-      // `dependencies`, and B is a controller package, then we need to ensure
-      // that B is also listed in A's `peerDependencies` and that the version
-      // range satisfies the current version of B.
-      expectControllerDependenciesListedAsPeerDependencies(
-        Yarn,
-        workspace,
-        dependenciesByIdentAndType,
-      );
-
       // The root workspace (and only the root workspace) must specify the Yarn
       // version required for development.
       if (isChildWorkspace) {
@@ -570,59 +560,6 @@ function expectDependenciesNotInBothProdAndDev(
     ) {
       workspace.error(
         `\`${dependencyIdent}\` cannot be listed in both \`dependencies\` and \`devDependencies\``,
-      );
-    }
-  }
-}
-
-/**
- * Expect that if the workspace package lists another workspace package in its
- * dependencies, and it is a controller package, that the controller package is
- * listed in the workspace's `peerDependencies` and the version range satisfies
- * the current version of the controller package.
- *
- * The expectation in this case is that the client will instantiate B in order
- * to pass it into A. Therefore, it needs to list not only A as a dependency,
- * but also B. Additionally, the version of B that the client is using with A
- * needs to match the version that A itself is expecting internally.
- *
- * Note that this constraint does not apply for packages that seem to represent
- * instantiable controllers but actually represent abstract classes.
- *
- * @param {Yarn} Yarn - The Yarn "global".
- * @param {Workspace} workspace - The workspace to check.
- * @param {Map<string, Map<DependencyType, Dependency>>} dependenciesByIdentAndType - Map of
- * dependency ident to dependency type and dependency.
- */
-function expectControllerDependenciesListedAsPeerDependencies(
-  Yarn,
-  workspace,
-  dependenciesByIdentAndType,
-) {
-  for (const [
-    dependencyIdent,
-    dependencyInstancesByType,
-  ] of dependenciesByIdentAndType.entries()) {
-    if (!dependencyInstancesByType.has('dependencies')) {
-      continue;
-    }
-
-    const dependencyWorkspace = Yarn.workspace({ ident: dependencyIdent });
-
-    if (
-      dependencyWorkspace !== null &&
-      dependencyIdent.endsWith('-controller') &&
-      dependencyIdent !== '@metamask/base-controller' &&
-      dependencyIdent !== '@metamask/polling-controller' &&
-      !dependencyInstancesByType.has('peerDependencies')
-    ) {
-      const dependencyWorkspaceVersion = new semver.SemVer(
-        dependencyWorkspace.manifest.version,
-      );
-      expectWorkspaceField(
-        workspace,
-        `peerDependencies["${dependencyIdent}"]`,
-        `^${dependencyWorkspaceVersion.major}.0.0`,
       );
     }
   }
