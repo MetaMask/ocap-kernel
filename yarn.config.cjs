@@ -6,7 +6,6 @@
 
 const { defineConfig } = require('@yarnpkg/types');
 const { readFile } = require('fs/promises');
-// @ts-expect-error lodash is not a valid module, but that's OK
 const { get } = require('lodash');
 const { basename, resolve } = require('path');
 const semver = require('semver');
@@ -480,6 +479,9 @@ function expectWorkspaceDescription(workspace) {
  * @param {Workspace} workspace - The workspace to check.
  */
 function expectCorrectWorkspaceChangelogScripts(workspace) {
+  /**
+   * @type {Record<string, { expectedStartString: string, script: string, match: RegExpMatchArray | null }>}
+   */
   const scripts = ['update', 'validate'].reduce((obj, variant) => {
     const expectedStartString = `../../scripts/${variant}-changelog.sh ${workspace.manifest.name}`;
     const script = workspace.manifest.scripts[`changelog:${variant}`] ?? '';
@@ -551,7 +553,7 @@ function expectUpToDateWorkspacePeerDependencies(Yarn, workspace) {
  * `dependencies` and `devDependencies`.
  *
  * @param {Workspace} workspace - The workspace to check.
- * @param {Map<string, Dependency>} dependenciesByIdentAndType - Map of
+ * @param {Map<string, Map<DependencyType, Dependency>>} dependenciesByIdentAndType - Map of
  * dependency ident to dependency type and dependency.
  */
 function expectDependenciesNotInBothProdAndDev(
@@ -589,7 +591,7 @@ function expectDependenciesNotInBothProdAndDev(
  *
  * @param {Yarn} Yarn - The Yarn "global".
  * @param {Workspace} workspace - The workspace to check.
- * @param {Map<string, Dependency>} dependenciesByIdentAndType - Map of
+ * @param {Map<string, Map<DependencyType, Dependency>>} dependenciesByIdentAndType - Map of
  * dependency ident to dependency type and dependency.
  */
 function expectControllerDependenciesListedAsPeerDependencies(
