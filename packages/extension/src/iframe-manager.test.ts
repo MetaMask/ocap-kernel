@@ -177,6 +177,156 @@ describe('IframeManager', () => {
     });
   });
 
+  describe('capTp', () => {
+    it('does TheGreatFrangooly', async () => {
+      const id = 'frangooly';
+
+      const capTpInit = {
+        query: {
+          label: 'message',
+          payload: {
+            id: `${id}-1`,
+            message: {
+              data: null,
+              type: 'makeCapTp',
+            },
+          },
+        },
+        response: {
+          label: 'message',
+          payload: {
+            id: `${id}-1`,
+            message: {
+              type: 'makeCapTp',
+              data: null,
+            },
+          },
+        },
+      };
+
+      const greatFrangoolyBootstrap = {
+        query: {
+          label: 'capTp',
+          payload: {
+            epoch: 0,
+            questionID: 'q-1',
+            type: 'CTP_BOOTSTRAP',
+          },
+        },
+        response: {
+          label: 'capTp',
+          payload: {
+            type: 'CTP_RETURN',
+            epoch: 0,
+            answerID: 'q-1',
+            result: {
+              body: '{"@qclass":"slot","iface":"Alleged: TheGreatFrangooly","index":0}',
+              slots: ['o+1'],
+            },
+          },
+        },
+      };
+
+      const greatFrangoolyCall = {
+        query: {
+          label: 'capTp',
+          payload: {
+            type: 'CTP_CALL',
+            epoch: 0,
+            method: {
+              body: '["whatIsTheGreatFrangooly",[]]',
+              slots: [],
+            },
+            questionID: 'q-2',
+            target: 'o-1',
+          },
+        },
+        response: {
+          label: 'capTp',
+          payload: {
+            type: 'CTP_RETURN',
+            epoch: 0,
+            answerID: 'q-2',
+            result: {
+              body: '"Crowned with Chaos"',
+              slots: [],
+            },
+          },
+        },
+      };
+
+      vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
+
+      const { port1, port2 } = new MessageChannel();
+      const port1PostMessageSpy = vi
+        .spyOn(port1, 'postMessage')
+        .mockImplementation(vi.fn());
+
+      let port1PostMessageCallCounter: number = 0;
+      const expectSendMessageToHaveBeenCalledOnceMoreWith = (
+        expectation: unknown,
+      ): void => {
+        port1PostMessageCallCounter += 1;
+        expect(port1PostMessageSpy).toHaveBeenCalledTimes(
+          port1PostMessageCallCounter,
+        );
+        expect(port1PostMessageSpy).toHaveBeenLastCalledWith({
+          done: false,
+          value: expectation,
+        });
+      };
+
+      const mockReplyWith = (message: unknown): void =>
+        port2.postMessage({
+          done: false,
+          value: message,
+        });
+
+      const manager = new IframeManager();
+
+      vi.spyOn(manager, 'sendMessage').mockImplementationOnce(vi.fn());
+
+      await manager.create({ id, getPort: makeGetPort(port1) });
+
+      // Init CapTP connection
+      const initCapTpPromise = manager.makeCapTp(id);
+
+      expectSendMessageToHaveBeenCalledOnceMoreWith(capTpInit.query);
+      mockReplyWith(capTpInit.response);
+
+      await initCapTpPromise.then((resolvedValue) =>
+        console.debug(`CapTp initialized: ${JSON.stringify(resolvedValue)}`),
+      );
+
+      // Bootstrap TheGreatFrangooly...
+      const callCapTpResponse = manager.callCapTp(
+        id,
+        'whatIsTheGreatFrangooly',
+      );
+
+      expectSendMessageToHaveBeenCalledOnceMoreWith(
+        greatFrangoolyBootstrap.query,
+      );
+      mockReplyWith(greatFrangoolyBootstrap.response);
+
+      await delay().then(() =>
+        console.debug('TheGreatFrangooly bootstrapped...'),
+      );
+
+      // ...and call it.
+      expectSendMessageToHaveBeenCalledOnceMoreWith(greatFrangoolyCall.query);
+      mockReplyWith(greatFrangoolyCall.response);
+
+      await callCapTpResponse.then((resolvedValue) =>
+        console.debug(
+          `TheGreatFrangooly called: ${JSON.stringify(resolvedValue)}`,
+        ),
+      );
+
+      expect(await callCapTpResponse).equals('Crowned with Chaos');
+    });
+  });
+
   describe('sendMessage', () => {
     it('sends a message to an iframe', async () => {
       vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce({} as Window);

@@ -64,7 +64,7 @@ async function main(): Promise<void> {
         if (typeof message.data !== 'string') {
           console.error(
             'iframe received message with unexpected data type',
-            message.data,
+            stringifyResult(message.data),
           );
           return;
         }

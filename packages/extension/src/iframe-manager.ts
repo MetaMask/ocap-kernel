@@ -150,7 +150,7 @@ export class IframeManager {
     return E(capTp.getBootstrap())[method](...params);
   }
 
-  async makeCapTp(id: VatId): Promise<void> {
+  async makeCapTp(id: VatId): Promise<unknown> {
     const vat = this.#expectGetVat(id);
     if (vat.capTp !== undefined) {
       throw new Error(`Vat with id "${id}" already has a CapTP connection.`);
@@ -166,7 +166,7 @@ export class IframeManager {
     });
 
     vat.capTp = ctp;
-    await this.sendMessage(id, { type: Command.CapTpInit, data: null });
+    return this.sendMessage(id, { type: Command.CapTpInit, data: null });
   }
 
   async #receiveMessages(
