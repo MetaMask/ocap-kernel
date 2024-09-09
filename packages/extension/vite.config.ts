@@ -10,6 +10,10 @@ import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude';
 
 const projectRoot = './src';
 
+const jsTrustedPreludes = {
+  background: path.resolve(projectRoot, 'background-trusted-prelude.js'),
+};
+
 /**
  * Files that need to be statically copied to the destination directory.
  * Paths are relative from the project root directory.
@@ -20,7 +24,8 @@ const staticCopyTargets: readonly string[] = [
   // External modules
   'dev-console.js',
   '../../shims/dist/endoify.js',
-  'background-trusted-prelude.js',
+  // Trusted preludes
+  ...new Set(Object.values(jsTrustedPreludes)),
 ];
 
 // https://vitejs.dev/config/
@@ -50,6 +55,8 @@ export default defineConfig({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
     }),
-    jsTrustedPrelude(),
+    jsTrustedPrelude({
+      trustedPreludes: jsTrustedPreludes,
+    }),
   ],
 });
