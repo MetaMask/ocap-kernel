@@ -20,7 +20,7 @@ const argv = Object.freeze([...process.argv]);
 await mkdir(distDir, { recursive: true });
 await rimraf(`${distDir}/*`, { glob: true });
 
-generateEndoScriptBundle(
+await generateEndoScriptBundle(
   path.resolve(srcDir, 'endoify.js'),
   path.resolve(distDir, `endoify.js`),
   { argv },
