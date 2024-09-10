@@ -49,8 +49,7 @@
   "dependencies": {
     "@endo/promise-kit": "^1.1.4",
     "@endo/stream": "^1.2.2",
-    "@metamask/utils": "^9.1.0",
-    "ses": "^1.7.0"
+    "@metamask/utils": "^9.1.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
@@ -76,6 +75,7 @@
     "jsdom": "^24.1.1",
     "prettier": "^2.7.1",
     "rimraf": "^6.0.1",
+    "ses": "^1.7.0",
     "typedoc": "^0.24.8",
     "typescript": "~5.5.4",
     "vite": "^5.3.5",
