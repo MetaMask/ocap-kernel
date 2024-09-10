@@ -220,9 +220,8 @@ export function jsTrustedPrelude(pluginConfig: {
               `Module "${chunk.name}" was declared as a trusted prelude importer but its first import was not the declared trusted prelude.`,
             );
             const prefix = `import"./${declaredTrustedPrelude}";`;
-            // TODO: Maybe remove redundant import statements from code body.
-            // - Note: Not functionally necessary due to idempotency of import statements.
-            // - Implementation tip: this.parse(chunk.code).body [...];
+            // Due to idempotency of ESM import statements, it is not necessary to remove duplicate imports.
+            // It is only necessary to ensure the trusted prelude import is the first.
             chunk.code = prefix + chunk.code;
             this.warn(
               `Automatically prepended prefix '${prefix}' to code for module "${chunk.name}".`,
