@@ -41,9 +41,9 @@ const importsTrustedPreludeFirst = (
  * A Vite plugin to ensure the following.
  * - Every declared trusted prelude is handled externally (automatically merged into {@link RollupOptions.external}).
  * - Every declared trusted prelude importer:
- *   - Begins by importing its declared trusted header (prepended during {@link Plugin.generateBundle} if missing).
- *   - Imports at most one declared trusted prelude (throws during {@link Plugin.generateBundle} otherwise).
  *   - Is a declared entry point (throws during {@link Plugin.buildStart} otherwise).
+ *   - Imports at most one declared trusted prelude (throws during {@link Plugin.generateBundle} otherwise).
+ *   - Begins by importing its declared trusted header (prepended during {@link Plugin.generateBundle} if missing).
  *
  * @param pluginConfig - The config options bag.
  * @param pluginConfig.trustedPreludes - A mapping from the keys of {@link RollupOptions.input} to the file names of trusted preludes for the corresponding entry point.
