@@ -18,7 +18,6 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn lint:dependencies",
-    "lint:ci": "yarn lint",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache --ext js,mjs,cjs,ts,mts,cts",
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write",
