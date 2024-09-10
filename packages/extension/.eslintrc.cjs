@@ -5,9 +5,9 @@ module.exports = {
     {
       files: ['src/**/*.ts'],
       globals: {
-        // chrome: 'readonly',
-        // clients: 'readonly',
-        // Compartment: 'readonly',
+        chrome: 'readonly',
+        clients: 'readonly',
+        Compartment: 'readonly',
       },
     },
 
