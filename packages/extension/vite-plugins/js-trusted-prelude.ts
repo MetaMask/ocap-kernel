@@ -43,7 +43,7 @@ const importsTrustedPreludeFirst = (
  * - Every declared trusted prelude importer:
  *   - Is a declared entry point (throws during {@link Plugin.buildStart} otherwise).
  *   - Imports at most one declared trusted prelude (throws during {@link Plugin.generateBundle} otherwise).
- *   - Begins by importing its declared trusted header (prepended during {@link Plugin.generateBundle} if missing).
+ *   - Begins by importing its declared trusted prelude (prepended during {@link Plugin.generateBundle} if missing).
  *
  * @param pluginConfig - The config options bag.
  * @param pluginConfig.trustedPreludes - A mapping from the keys of {@link RollupOptions.input} to the file names of trusted preludes for the corresponding entry point.
@@ -164,7 +164,7 @@ export function jsTrustedPrelude(pluginConfig: {
        * At write time, ensure the following.
        * Every declared trusted prelude importer:
        *  - Imports at most one declared trusted prelude (throws otherwise).
-       *  - Begins by importing its declared trusted header (prepended if missing).
+       *  - Begins by importing its declared trusted prelude (prepended if missing).
        *
        * @param _ - Unused.
        * @param bundle - The OutputBundle being generated.
