@@ -2,8 +2,8 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest"/>
 
-/* eslint-disable jsdoc/valid-types, import-x/namespace */
 import path from 'path';
+// eslint-disable-next-line import-x/namespace
 import { defineConfig } from 'vite';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 
