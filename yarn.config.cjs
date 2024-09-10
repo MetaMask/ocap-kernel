@@ -194,6 +194,33 @@ module.exports = defineConfig({
         // No non-root packages may have a "prepack" script.
         workspace.unset('scripts.prepack');
 
+        // All packages except the root must have the same "lint" scripts.
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint',
+          'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:dependencies',
+          'depcheck',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:eslint',
+          'eslint . --cache --ext js,mjs,cjs,ts,mts,cts',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:fix',
+          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:misc',
+          "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path .gitignore",
+        );
+
         // All non-root packages must have the same "test" script.
         if (!noBuildOrTests.includes(workspaceBasename)) {
           expectWorkspaceField(
