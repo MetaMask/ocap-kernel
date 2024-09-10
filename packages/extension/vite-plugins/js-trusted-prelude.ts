@@ -67,7 +67,10 @@ export function jsTrustedPrelude(pluginConfig: {
    * @param importer - The name of the trusted prelude importer.
    * @throws If importer was not declared as a trusted prelude importer.
    */
-  let getTrustedPrelude: (context: PluginContext, importer: string) => string;
+  let getTrustedPreludeFileName: (
+    context: PluginContext,
+    importer: string,
+  ) => string;
 
   return {
     name: 'ocap-kernel:js-trusted-prelude',
@@ -118,17 +121,13 @@ export function jsTrustedPrelude(pluginConfig: {
         resolvedTrustedPreludes.has(resolvePreludeFileName(source));
       isTrustingImporter = (importer: string) =>
         resolvedTrustingImporters.has(importer);
-      getTrustedPrelude = (context: PluginContext, importer: string) => {
-        const trustedPrelude = resolvedTrustingImporters.get(importer);
+      getTrustedPreludeFileName = (context: PluginContext, importer: string) =>
         // Ensure importer was declared and recognized as a trusting importer.
-        if (!trustedPrelude) {
+        resolvedTrustingImporters.get(importer) ??
+        context.error(
           // Shouldn't be possible without heavy interference from other plugins.
-          context.error(
-            `Module "${importer}" was identified as but not declared as a trusted prelude importer.`,
-          );
-        }
-        return trustedPrelude;
-      };
+          `Module "${importer}" was identified as but not declared as a trusted prelude importer.`,
+        );
 
       // If misconfigured, prepare error for buildStart phase.
       configError =
@@ -214,17 +213,17 @@ export function jsTrustedPrelude(pluginConfig: {
           }
 
           // Add the trusted prelude import to the beginning of the file if it is missing.
-          const declaredTrustedPrelude = getTrustedPrelude(this, chunk.name);
-          if (!importsTrustedPreludeFirst(chunk.code, declaredTrustedPrelude)) {
+          const declaredPrelude = getTrustedPreludeFileName(this, chunk.name);
+          if (!importsTrustedPreludeFirst(chunk.code, declaredPrelude)) {
             this.warn(
               `Module "${chunk.name}" was declared as a trusted prelude importer but its first import was not the declared trusted prelude.`,
             );
-            const prefix = `import"./${declaredTrustedPrelude}";`;
+            const trustedPreludeImportStatement = `import"./${declaredPrelude}";`;
             // Due to idempotency of ESM import statements, it is not necessary to remove duplicate imports.
             // It is only necessary to ensure the trusted prelude import is the first.
-            chunk.code = prefix + chunk.code;
+            chunk.code = trustedPreludeImportStatement + chunk.code;
             this.warn(
-              `Automatically prepended prefix '${prefix}' to code for module "${chunk.name}".`,
+              `Automatically prepended prefix "${trustedPreludeImportStatement}" to code for module "${chunk.name}".`,
             );
           }
         }
