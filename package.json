@@ -31,7 +31,7 @@
     "test": "yarn workspaces foreach --all --parallel --verbose run test",
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
     "test:verbose": "yarn workspaces foreach --all --parallel --verbose run test:verbose",
-    "why:all": "./scripts/why-all.sh"
+    "why:batch": "./scripts/why-batch.sh"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
