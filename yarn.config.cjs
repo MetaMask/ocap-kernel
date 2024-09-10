@@ -213,7 +213,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:fix',
-          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix',
+          'yarn constraints --fix && yarn lint:eslint --fix && yarn lint:misc --write',
         );
         expectWorkspaceField(
           workspace,

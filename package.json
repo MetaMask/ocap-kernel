@@ -24,7 +24,7 @@
     "lint": "yarn workspaces foreach --all --parallel run lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "yarn workspaces foreach --all --parallel --verbose run lint:dependencies && yarn dedupe --check",
     "lint:eslint": "eslint . --cache --ext js,mjs,cjs,ts,mts,cts",
-    "lint:fix": "yarn workspaces foreach --all --parallel run lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn dedupe",
+    "lint:fix": "yarn constraints --fix && yarn workspaces foreach --all --parallel run lint:eslint --fix && yarn lint:misc --write && yarn dedupe",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path .gitignore",
     "prepack": "./scripts/prepack.sh",
     "test": "yarn workspaces foreach --all --parallel --verbose run test",
