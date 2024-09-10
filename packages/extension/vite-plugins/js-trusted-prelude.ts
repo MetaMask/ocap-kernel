@@ -1,5 +1,9 @@
 import path from 'path';
-import type { Plugin } from 'vite';
+import type { Plugin, ResolvedConfig } from 'vite';
+
+// This type is referenced in JSDoc strings in this file.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type RollupOptions = ResolvedConfig['build']['rollupOptions'];
 
 type PluginContext = {
   warn: (message: string) => void;
@@ -35,14 +39,14 @@ const importsTrustedPreludeFirst = (
 
 /**
  * A Vite plugin to ensure the following.
- * - Every declared trusted prelude is handled externally (automatically merged into rollupOptions config).
+ * - Every declared trusted prelude is handled externally (automatically merged into {@link RollupOptions.external}).
  * - Every declared trusted prelude importer:
- *   - Begins by importing its declared trusted header (prepended at bundle write time if missing).
- *   - Imports at most one declared trusted prelude (throws otherwise).
- *   - Is a declared entry point (throws otherwise).
+ *   - Begins by importing its declared trusted header (prepended during {@link Plugin.generateBundle} if missing).
+ *   - Imports at most one declared trusted prelude (throws during {@link Plugin.generateBundle} otherwise).
+ *   - Is a declared entry point (throws during {@link Plugin.buildStart} otherwise).
  *
  * @param pluginConfig - The config options bag.
- * @param pluginConfig.trustedPreludes - A mapping from the keys of rollupOptions.input to the file names of trusted preludes for the corresponding entry point.
+ * @param pluginConfig.trustedPreludes - A mapping from the keys of {@link RollupOptions.input} to the file names of trusted preludes for the corresponding entry point.
  * @returns The Vite plugin.
  */
 export function jsTrustedPrelude(pluginConfig: {
@@ -59,7 +63,7 @@ export function jsTrustedPrelude(pluginConfig: {
   /**
    * Given the name of a trusted prelude importer, return the resolved file name of its trusted prelude.
    *
-   * @param context - The calling plugin context, whose context.error will be called if necessary.
+   * @param context - The calling plugin context which provides `.warn` and `.error` methods.
    * @param importer - The name of the trusted prelude importer.
    * @throws If importer was not declared as a trusted prelude importer.
    */
@@ -69,14 +73,11 @@ export function jsTrustedPrelude(pluginConfig: {
     name: 'ocap-kernel:js-trusted-prelude',
 
     /**
-     * Append declared trusted preludes to rollup's 'external' declaration.
+     * Append declared trusted preludes to the {@link RollupOptions.external} declaration.
      *
-     * @param _ - Unused.
-     * @param __ - Unused.
      * @returns Changes to be deeply merged into the declared vite config file.
      */
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    config(_, __) {
+    config() {
       return {
         build: {
           rollupOptions: {
@@ -87,11 +88,11 @@ export function jsTrustedPrelude(pluginConfig: {
     },
 
     /**
-     * Whenever the config changes, update config dependent functions and collect configuration errors to be thrown at buildStart.
+     * Whenever the config changes, update config dependent functions and collect configuration errors to be thrown during {@link Plugin.buildStart}.
      *
      * @param viteConfig - The resolved vite config file after all plugins have had a change to modify it.
      */
-    configResolved(viteConfig) {
+    configResolved(viteConfig: ResolvedConfig) {
       // Collect entry points.
       const entryPoints = new Map(
         Object.entries(viteConfig.build.rollupOptions.input ?? {}),
@@ -147,21 +148,28 @@ export function jsTrustedPrelude(pluginConfig: {
             };
     },
 
-    // Throw configuration errors at build start to utilize rollup's `this.error`.
-    buildStart(_) {
+    /**
+     * Throw configuration errors if there were any.
+     * Wait until buildStart to throw configuration errors to utilize {@link PluginContext}'s `warn` and `error`.
+     *
+     * @throws If a declared trusted prelude importer was not a declared entry point.
+     */
+    buildStart() {
       configError?.(this);
     },
 
     generateBundle: {
       order: 'post',
       /**
-       * At write time, ensure the following are true.
-       * - Every js entry point contains at most one import from a trusted prelude file.
-       * - The trusted prelude import statement is the first line of the bundled output.
+       * At write time, ensure the following.
+       * Every declared trusted prelude importer:
+       *  - Imports at most one declared trusted prelude (throws otherwise).
+       *  - Begins by importing its declared trusted header (prepended if missing).
        *
-       * @param _ - The NormalizedOutputOptions.
+       * @param _ - Unused.
        * @param bundle - The OutputBundle being generated.
        * @param isWrite - Whether bundle is being written.
+       * @throws If a declared trusted prelude importer imports more than one declared trusted prelude.
        */
       async handler(_, bundle, isWrite) {
         if (!isWrite) {
