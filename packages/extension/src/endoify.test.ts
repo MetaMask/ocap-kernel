@@ -1,5 +1,4 @@
 import './endoify.js';
-// eslint-disable-next-line n/no-extraneous-import
 import type { HandledPromiseConstructor } from '@endo/eventual-send';
 import { describe, expect, it } from 'vitest';
 
