@@ -88,14 +88,3 @@ chrome.runtime.onMessage.addListener(
     }
   }),
 );
-
-// TODO: Add method to close offscreen document?
-// /**
-//  * Close the offscreen document if it exists.
-//  */
-// async function closeOffscreenDocument(): Promise<void> {
-//   if (!(await chrome.offscreen.hasDocument())) {
-//     return;
-//   }
-//   await chrome.offscreen.closeDocument();
-// }

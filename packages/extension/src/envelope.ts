@@ -15,29 +15,6 @@ export type StreamEnvelope =
     }
   | { label: EnvelopeLabel.CapTp; content: unknown };
 
-/*
-type MessageHandler = (message: WrappedIframeMessage) => void | Promise<void>;
-type CapTpHandler = (capTpMessage: unknown) => void | Promise<void>;
-export const makeEnvelopeUnwrapper =
-  (handleMessage: MessageHandler, handleCapTp: CapTpHandler) =>
-  async (envelope: StreamEnvelope): Promise<void> => {
-    switch (envelope.label) {
-      case EnvelopeLabel.CapTp:
-        return handleCapTp(envelope.payload);
-      case EnvelopeLabel.Command:
-        return handleMessage(envelope.payload);
-      default:
-        throw new Error(
-          `Unexpected message label in message:\n${JSON.stringify(
-            envelope,
-            null,
-            2,
-          )}`,
-        );
-    }
-  };
-  */
-
 export const isStreamEnvelope = (value: unknown): value is StreamEnvelope =>
   isObject(value) &&
   (value.label === EnvelopeLabel.CapTp ||
