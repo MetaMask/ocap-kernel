@@ -13,7 +13,7 @@ import type { StreamEnvelope } from './envelope.js';
 import { EnvelopeLabel, isStreamEnvelope } from './envelope.js';
 import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
 import { Command } from './message.js';
-import type { VatId } from './shared.js';
+import { makeCounter, type VatId } from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
 
@@ -31,6 +31,7 @@ type GetPort = (targetWindow: Window) => Promise<MessagePort>;
 
 type VatRecord = {
   streams: StreamPair<StreamEnvelope>;
+  messageCounter: () => number;
   capTp?: ReturnType<typeof makeCapTP>;
 };
 
@@ -38,19 +39,19 @@ type VatRecord = {
  * A singleton class to manage and message iframes.
  */
 export class IframeManager {
-  #currentId: number;
-
   readonly #unresolvedMessages: Map<MessageId, PromiseCallbacks>;
 
   readonly #vats: Map<VatId, VatRecord>;
+
+  readonly #vatIdCounter: () => number;
 
   /**
    * Create a new IframeManager.
    */
   constructor() {
-    this.#currentId = 0;
     this.#vats = new Map();
     this.#unresolvedMessages = new Map();
+    this.#vatIdCounter = makeCounter();
   }
 
   /**
@@ -70,7 +71,7 @@ export class IframeManager {
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
     const port = await getPort(newWindow);
     const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
-    this.#vats.set(id, { streams });
+    this.#vats.set(id, { streams, messageCounter: makeCounter() });
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(id, streams.reader).catch((error) => {
       console.error(`Unexpected read error from vat "${id}"`, error);
@@ -233,12 +234,10 @@ export class IframeManager {
   }
 
   readonly #nextMessageId = (id: VatId): MessageId => {
-    this.#currentId += 1;
-    return `${id}-${this.#currentId}`;
+    return `${id}-${this.#expectGetVat(id).messageCounter()}`;
   };
 
   readonly #nextVatId = (): MessageId => {
-    this.#currentId += 1;
-    return `${this.#currentId}`;
+    return `${this.#vatIdCounter()}`;
   };
 }
