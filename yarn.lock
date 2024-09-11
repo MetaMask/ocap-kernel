@@ -1371,7 +1371,6 @@ __metadata:
     "@endo/captp": "npm:^4.2.2"
     "@endo/eventual-send": "npm:^1.2.4"
     "@endo/exo": "npm:^1.5.2"
-    "@endo/lockdown": "npm:^1.0.9"
     "@endo/patterns": "npm:^1.4.2"
     "@endo/promise-kit": "npm:^1.1.4"
     "@metamask/auto-changelog": "npm:^3.4.4"
