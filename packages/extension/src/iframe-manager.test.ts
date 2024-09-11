@@ -179,6 +179,98 @@ describe('IframeManager', () => {
   });
 
   describe('capTp', () => {
+    it('throws if called before initialization', async () => {
+      const mockWindow = {};
+      vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(
+        mockWindow as Window,
+      );
+      const manager = new IframeManager();
+      vi.spyOn(manager, 'sendMessage').mockImplementation(vi.fn());
+      const [, id] = await manager.create({ getPort: makeGetPort() });
+
+      await expect(
+        async () =>
+          await manager.callCapTp(id, {
+            method: 'whatIsTheGreatFrangooly',
+            params: [],
+          }),
+      ).rejects.toThrow(/does not have a CapTP connection\.$/u);
+    });
+
+    it('throws if initialization is called twice on the same vat', async () => {
+      const id = 'frangooly';
+
+      const capTpInit = {
+        query: {
+          label: 'message',
+          payload: {
+            id: `${id}-1`,
+            message: {
+              data: null,
+              type: 'makeCapTp',
+            },
+          },
+        },
+        response: {
+          label: 'message',
+          payload: {
+            id: `${id}-1`,
+            message: {
+              type: 'makeCapTp',
+              data: null,
+            },
+          },
+        },
+      };
+
+      vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
+
+      const { port1, port2 } = new MessageChannel();
+      const port1PostMessageSpy = vi
+        .spyOn(port1, 'postMessage')
+        .mockImplementation(vi.fn());
+
+      let port1PostMessageCallCounter: number = 0;
+      const expectSendMessageToHaveBeenCalledOnceMoreWith = (
+        expectation: unknown,
+      ): void => {
+        port1PostMessageCallCounter += 1;
+        expect(port1PostMessageSpy).toHaveBeenCalledTimes(
+          port1PostMessageCallCounter,
+        );
+        expect(port1PostMessageSpy).toHaveBeenLastCalledWith({
+          done: false,
+          value: expectation,
+        });
+      };
+
+      const mockReplyWith = (message: unknown): void =>
+        port2.postMessage({
+          done: false,
+          value: message,
+        });
+
+      const manager = new IframeManager();
+
+      vi.spyOn(manager, 'sendMessage').mockImplementationOnce(vi.fn());
+
+      await manager.create({ id, getPort: makeGetPort(port1) });
+
+      // Init CapTP connection
+      const initCapTpPromise = manager.makeCapTp(id);
+
+      expectSendMessageToHaveBeenCalledOnceMoreWith(capTpInit.query);
+      mockReplyWith(capTpInit.response);
+
+      await initCapTpPromise.then((resolvedValue) =>
+        console.debug(`CapTp initialized: ${JSON.stringify(resolvedValue)}`),
+      );
+
+      await expect(async () => await manager.makeCapTp(id)).rejects.toThrow(
+        /already has a CapTP connection\./u,
+      );
+    });
+
     it('does TheGreatFrangooly', async () => {
       const id = 'frangooly';
 
