@@ -157,7 +157,7 @@ describe('IframeManager', () => {
           done: false,
           value: {
             label: 'message',
-            payload: {
+            content: {
               id: `foo-${i + 1}`,
               message: {
                 type: Command.Evaluate,
@@ -203,7 +203,7 @@ describe('IframeManager', () => {
       const capTpInit = {
         query: {
           label: 'message',
-          payload: {
+          content: {
             id: `${id}-1`,
             message: {
               data: null,
@@ -213,7 +213,7 @@ describe('IframeManager', () => {
         },
         response: {
           label: 'message',
-          payload: {
+          content: {
             id: `${id}-1`,
             message: {
               type: 'makeCapTp',
@@ -277,7 +277,7 @@ describe('IframeManager', () => {
       const capTpInit = {
         query: {
           label: 'message',
-          payload: {
+          content: {
             id: `${id}-1`,
             message: {
               data: null,
@@ -287,7 +287,7 @@ describe('IframeManager', () => {
         },
         response: {
           label: 'message',
-          payload: {
+          content: {
             id: `${id}-1`,
             message: {
               type: 'makeCapTp',
@@ -300,7 +300,7 @@ describe('IframeManager', () => {
       const greatFrangoolyBootstrap = {
         query: {
           label: 'capTp',
-          payload: {
+          content: {
             epoch: 0,
             questionID: 'q-1',
             type: 'CTP_BOOTSTRAP',
@@ -308,7 +308,7 @@ describe('IframeManager', () => {
         },
         response: {
           label: 'capTp',
-          payload: {
+          content: {
             type: 'CTP_RETURN',
             epoch: 0,
             answerID: 'q-1',
@@ -323,7 +323,7 @@ describe('IframeManager', () => {
       const greatFrangoolyCall = {
         query: {
           label: 'capTp',
-          payload: {
+          content: {
             type: 'CTP_CALL',
             epoch: 0,
             method: {
@@ -336,7 +336,7 @@ describe('IframeManager', () => {
         },
         response: {
           label: 'capTp',
-          payload: {
+          content: {
             type: 'CTP_RETURN',
             epoch: 0,
             answerID: 'q-2',
@@ -437,10 +437,10 @@ describe('IframeManager', () => {
       const message: IframeMessage = { type: Command.Evaluate, data: '2+2' };
       const response: IframeMessage = { type: Command.Evaluate, data: '4' };
 
-      // sendMessage wraps the payload in a 'message' envelope
+      // sendMessage wraps the content in a 'message' envelope
       const messagePromise = manager.sendMessage(id, message);
       const messageId: string | undefined =
-        portPostMessageSpy.mock.lastCall?.[0]?.value?.payload?.id;
+        portPostMessageSpy.mock.lastCall?.[0]?.value?.content?.id;
       expect(messageId).toBeTypeOf('string');
 
       // postMessage sends the json directly, so we have to wrap it in an envelope here
@@ -448,7 +448,7 @@ describe('IframeManager', () => {
         done: false,
         value: {
           label: 'message',
-          payload: {
+          content: {
             id: messageId,
             message: response,
           },
@@ -464,7 +464,7 @@ describe('IframeManager', () => {
         done: false,
         value: {
           label: 'message',
-          payload: {
+          content: {
             id: messageId,
             message,
           },
@@ -521,7 +521,7 @@ describe('IframeManager', () => {
         done: false,
         value: {
           label: 'message',
-          payload: {
+          content: {
             id: 'foo',
             message: {
               type: Command.Evaluate,

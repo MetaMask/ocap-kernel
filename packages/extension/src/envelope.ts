@@ -8,19 +8,19 @@ export enum EnvelopeLabel {
   CapTp = 'capTp',
 }
 
-export type StreamPayloadEnvelope =
+export type StreamEnvelope =
   | {
       label: EnvelopeLabel.Command;
-      payload: WrappedIframeMessage;
+      content: WrappedIframeMessage;
     }
-  | { label: EnvelopeLabel.CapTp; payload: unknown };
+  | { label: EnvelopeLabel.CapTp; content: unknown };
 
 /*
 type MessageHandler = (message: WrappedIframeMessage) => void | Promise<void>;
 type CapTpHandler = (capTpMessage: unknown) => void | Promise<void>;
 export const makeEnvelopeUnwrapper =
   (handleMessage: MessageHandler, handleCapTp: CapTpHandler) =>
-  async (envelope: StreamPayloadEnvelope): Promise<void> => {
+  async (envelope: StreamEnvelope): Promise<void> => {
     switch (envelope.label) {
       case EnvelopeLabel.CapTp:
         return handleCapTp(envelope.payload);
@@ -38,10 +38,8 @@ export const makeEnvelopeUnwrapper =
   };
   */
 
-export const isStreamPayloadEnvelope = (
-  value: unknown,
-): value is StreamPayloadEnvelope =>
+export const isStreamEnvelope = (value: unknown): value is StreamEnvelope =>
   isObject(value) &&
   (value.label === EnvelopeLabel.CapTp ||
     (value.label === EnvelopeLabel.Command &&
-      isWrappedIframeMessage(value.payload)));
+      isWrappedIframeMessage(value.content)));

@@ -3,8 +3,8 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
-import type { StreamPayloadEnvelope } from './envelope.js';
-import { EnvelopeLabel, isStreamPayloadEnvelope } from './envelope.js';
+import type { StreamEnvelope } from './envelope.js';
+import { EnvelopeLabel, isStreamEnvelope } from './envelope.js';
 import type { IframeMessage, WrappedIframeMessage } from './message.js';
 import { Command } from './message.js';
 
@@ -17,13 +17,13 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreamPair<StreamPayloadEnvelope>(port);
+  const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
   let capTp: ReturnType<typeof makeCapTP> | undefined;
 
   for await (const rawMessage of streams.reader) {
     console.debug('iframe received message', rawMessage);
 
-    if (!isStreamPayloadEnvelope(rawMessage)) {
+    if (!isStreamEnvelope(rawMessage)) {
       console.error(
         'iframe received message with unexpected format',
         rawMessage,
@@ -34,11 +34,11 @@ async function main(): Promise<void> {
     switch (rawMessage.label) {
       case EnvelopeLabel.CapTp:
         if (capTp !== undefined) {
-          capTp.dispatch(rawMessage.payload);
+          capTp.dispatch(rawMessage.content);
         }
         break;
       case EnvelopeLabel.Command:
-        await handleMessage(rawMessage.payload);
+        await handleMessage(rawMessage.content);
         break;
       /* v8 ignore next 3: Exhaustiveness check */
       default:
@@ -87,8 +87,8 @@ async function main(): Promise<void> {
 
         capTp = makeCapTP(
           'iframe',
-          async (payload: unknown) =>
-            streams.writer.next({ label: EnvelopeLabel.CapTp, payload }),
+          async (content: unknown) =>
+            streams.writer.next({ label: EnvelopeLabel.CapTp, content }),
           bootstrap,
         );
         await replyToMessage(id, { type: Command.CapTpInit, data: null });
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
   ): Promise<void> {
     await streams.writer.next({
       label: EnvelopeLabel.Command,
-      payload: { id, message },
+      content: { id, message },
     });
   }
 

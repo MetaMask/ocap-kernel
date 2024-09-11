@@ -9,8 +9,8 @@ import {
   makeMessagePortStreamPair,
 } from '@ocap/streams';
 
-import type { StreamPayloadEnvelope } from './envelope.js';
-import { EnvelopeLabel, isStreamPayloadEnvelope } from './envelope.js';
+import type { StreamEnvelope } from './envelope.js';
+import { EnvelopeLabel, isStreamEnvelope } from './envelope.js';
 import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
 import { Command } from './message.js';
 import type { VatId } from './shared.js';
@@ -30,7 +30,7 @@ type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 type GetPort = (targetWindow: Window) => Promise<MessagePort>;
 
 type VatRecord = {
-  streams: StreamPair<StreamPayloadEnvelope>;
+  streams: StreamPair<StreamEnvelope>;
   capTp?: ReturnType<typeof makeCapTP>;
 };
 
@@ -69,7 +69,7 @@ export class IframeManager {
 
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
     const port = await getPort(newWindow);
-    const streams = makeMessagePortStreamPair<StreamPayloadEnvelope>(port);
+    const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
     this.#vats.set(id, { streams });
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(id, streams.reader).catch((error) => {
@@ -127,7 +127,7 @@ export class IframeManager {
     this.#unresolvedMessages.set(messageId, { reject, resolve });
     await vat.streams.writer.next({
       label: EnvelopeLabel.Command,
-      payload: { id: messageId, message },
+      content: { id: messageId, message },
     });
     return promise;
   }
@@ -150,9 +150,9 @@ export class IframeManager {
     const { writer } = vat.streams;
     // https://github.com/endojs/endo/issues/2412
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    const ctp = makeCapTP(id, async (payload: unknown) => {
-      console.log('CapTP to vat', JSON.stringify(payload, null, 2));
-      await writer.next({ label: EnvelopeLabel.CapTp, payload });
+    const ctp = makeCapTP(id, async (content: unknown) => {
+      console.log('CapTP to vat', JSON.stringify(content, null, 2));
+      await writer.next({ label: EnvelopeLabel.CapTp, content });
     });
 
     vat.capTp = ctp;
@@ -161,12 +161,12 @@ export class IframeManager {
 
   async #receiveMessages(
     vatId: VatId,
-    reader: Reader<StreamPayloadEnvelope>,
+    reader: Reader<StreamEnvelope>,
   ): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
 
-      if (!isStreamPayloadEnvelope(rawMessage)) {
+      if (!isStreamEnvelope(rawMessage)) {
         console.warn(
           'Offscreen received message with unexpected format',
           rawMessage,
@@ -178,16 +178,16 @@ export class IframeManager {
         case EnvelopeLabel.CapTp: {
           console.log(
             'CapTP from vat',
-            JSON.stringify(rawMessage.payload, null, 2),
+            JSON.stringify(rawMessage.content, null, 2),
           );
           const { capTp } = this.#expectGetVat(vatId);
           if (capTp !== undefined) {
-            capTp.dispatch(rawMessage.payload);
+            capTp.dispatch(rawMessage.content);
           }
           break;
         }
         case EnvelopeLabel.Command: {
-          const { id, message } = rawMessage.payload;
+          const { id, message } = rawMessage.content;
           const promiseCallbacks = this.#unresolvedMessages.get(id);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${id}".`);
