@@ -5,7 +5,7 @@ import type { ExtensionMessage } from './message.js';
 import { Command, ExtensionTarget } from './message.js';
 import { makeHandledCallback } from './shared.js';
 
-// globalThis.kernel will exist due to dev-console.js
+// globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
     value: async (method: string, params: Json[]) =>
