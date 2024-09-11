@@ -1,6 +1,6 @@
 import { IframeManager } from './iframe-manager.js';
 import type { ExtensionMessage } from './message.js';
-import { Command } from './message.js';
+import { Command, ExtensionTarget } from './message.js';
 import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: ExtensionMessage) => {
-      if (message.target !== 'offscreen') {
+      if (message.target !== ExtensionTarget.Offscreen) {
         console.warn(
           `Offscreen received message with unexpected target: "${message.target}"`,
         );
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   async function reply(type: Command, data?: string): Promise<void> {
     await chrome.runtime.sendMessage({
       data: data ?? null,
-      target: 'background',
+      target: ExtensionTarget.Background,
       type,
     });
   }
