@@ -3,8 +3,10 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
-import type { StreamPayloadEnvelope, WrappedIframeMessage } from './shared.js';
-import { isStreamPayloadEnvelope, Command } from './shared.js';
+import type { StreamPayloadEnvelope } from './envelope.js';
+import { EnvelopeLabel, isStreamPayloadEnvelope } from './envelope.js';
+import type { IframeMessage, WrappedIframeMessage } from './message.js';
+import { Command } from './message.js';
 
 const defaultCompartment = new Compartment({ URL });
 
@@ -30,12 +32,12 @@ async function main(): Promise<void> {
     }
 
     switch (rawMessage.label) {
-      case 'capTp':
+      case EnvelopeLabel.CapTp:
         if (capTp !== undefined) {
           capTp.dispatch(rawMessage.payload);
         }
         break;
-      case 'message':
+      case EnvelopeLabel.Command:
         await handleMessage(rawMessage.payload);
         break;
       /* v8 ignore next 3: Exhaustiveness check */
@@ -64,12 +66,16 @@ async function main(): Promise<void> {
         if (typeof message.data !== 'string') {
           console.error(
             'iframe received message with unexpected data type',
+            // @ts-expect-error Exhaustiveness check
             stringifyResult(message.data),
           );
           return;
         }
         const result = safelyEvaluate(message.data);
-        await replyToMessage(id, Command.Evaluate, stringifyResult(result));
+        await replyToMessage(id, {
+          type: Command.Evaluate,
+          data: stringifyResult(result),
+        });
         break;
       }
       case Command.CapTpInit: {
@@ -80,18 +86,16 @@ async function main(): Promise<void> {
         );
 
         capTp = makeCapTP(
-          'iframe', // TODO
-          // https://github.com/endojs/endo/issues/2412
-          // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          'iframe',
           async (payload: unknown) =>
-            streams.writer.next({ label: 'capTp', payload }),
+            streams.writer.next({ label: EnvelopeLabel.CapTp, payload }),
           bootstrap,
         );
-        await replyToMessage(id, Command.CapTpInit);
+        await replyToMessage(id, { type: Command.CapTpInit, data: null });
         break;
       }
       case Command.Ping:
-        await replyToMessage(id, Command.Ping, 'pong');
+        await replyToMessage(id, { type: Command.Ping, data: 'pong' });
         break;
       default:
         console.error(
@@ -105,17 +109,15 @@ async function main(): Promise<void> {
    * Reply to a message from the parent window.
    *
    * @param id - The id of the message to reply to.
-   * @param messageType - The message type.
-   * @param data - The message data.
+   * @param message - The message to reply with.
    */
   async function replyToMessage(
     id: string,
-    messageType: Command,
-    data: string | null = null,
+    message: IframeMessage,
   ): Promise<void> {
     await streams.writer.next({
-      label: 'message',
-      payload: { id, message: { type: messageType, data } },
+      label: EnvelopeLabel.Command,
+      payload: { id, message },
     });
   }
 

@@ -4,7 +4,8 @@ import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
 import { IframeManager } from './iframe-manager.js';
-import { Command } from './shared.js';
+import type { IframeMessage } from './message.js';
+import { Command } from './message.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -299,10 +300,10 @@ describe('IframeManager', () => {
       );
 
       // Bootstrap TheGreatFrangooly...
-      const callCapTpResponse = manager.callCapTp(
-        id,
-        'whatIsTheGreatFrangooly',
-      );
+      const callCapTpResponse = manager.callCapTp(id, {
+        method: 'whatIsTheGreatFrangooly',
+        params: [],
+      });
 
       expectSendMessageToHaveBeenCalledOnceMoreWith(
         greatFrangoolyBootstrap.query,
@@ -341,8 +342,8 @@ describe('IframeManager', () => {
       const id = 'foo';
       await manager.create({ id, getPort: makeGetPort(port1) });
 
-      const message = { type: Command.Evaluate, data: '2+2' };
-      const response = { type: Command.Evaluate, data: '4' };
+      const message: IframeMessage = { type: Command.Evaluate, data: '2+2' };
+      const response: IframeMessage = { type: Command.Evaluate, data: '4' };
 
       // sendMessage wraps the payload in a 'message' envelope
       const messagePromise = manager.sendMessage(id, message);
@@ -382,7 +383,7 @@ describe('IframeManager', () => {
     it('throws if iframe not found', async () => {
       const manager = new IframeManager();
       const id = 'foo';
-      const message = { type: Command.Ping, data: null };
+      const message: IframeMessage = { type: Command.Ping, data: null };
 
       await expect(manager.sendMessage(id, message)).rejects.toThrow(
         `No vat with id "${id}"`,

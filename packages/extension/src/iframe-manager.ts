@@ -3,20 +3,17 @@ import { E } from '@endo/eventual-send';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import { createWindow } from '@metamask/snaps-utils';
-import type { Json } from '@metamask/utils';
 import type { StreamPair, Reader } from '@ocap/streams';
 import {
   initializeMessageChannel,
   makeMessagePortStreamPair,
 } from '@ocap/streams';
 
-import { isStreamPayloadEnvelope, Command } from './shared.js';
-import type {
-  IframeMessage,
-  StreamPayloadEnvelope,
-  VatId,
-  MessageId,
-} from './shared.js';
+import type { StreamPayloadEnvelope } from './envelope.js';
+import { EnvelopeLabel, isStreamPayloadEnvelope } from './envelope.js';
+import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
+import { Command } from './message.js';
+import type { VatId } from './shared.js';
 
 const IFRAME_URI = 'iframe.html';
 
@@ -122,32 +119,25 @@ export class IframeManager {
    * @param message - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(
-    id: VatId,
-    message: IframeMessage<Command, string | null>,
-  ): Promise<unknown> {
+  async sendMessage(id: VatId, message: IframeMessage): Promise<unknown> {
     const vat = this.#expectGetVat(id);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId(id);
 
     this.#unresolvedMessages.set(messageId, { reject, resolve });
     await vat.streams.writer.next({
-      label: 'message',
+      label: EnvelopeLabel.Command,
       payload: { id: messageId, message },
     });
     return promise;
   }
 
-  async callCapTp(
-    id: VatId,
-    method: string,
-    ...params: Json[]
-  ): Promise<unknown> {
+  async callCapTp(id: VatId, payload: CapTpPayload): Promise<unknown> {
     const { capTp } = this.#expectGetVat(id);
     if (capTp === undefined) {
       throw new Error(`Vat with id "${id}" does not have a CapTP connection.`);
     }
-    return E(capTp.getBootstrap())[method](...params);
+    return E(capTp.getBootstrap())[payload.method](...payload.params);
   }
 
   async makeCapTp(id: VatId): Promise<unknown> {
@@ -162,7 +152,7 @@ export class IframeManager {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const ctp = makeCapTP(id, async (payload: unknown) => {
       console.log('CapTP to vat', JSON.stringify(payload, null, 2));
-      await writer.next({ label: 'capTp', payload });
+      await writer.next({ label: EnvelopeLabel.CapTp, payload });
     });
 
     vat.capTp = ctp;
@@ -185,7 +175,7 @@ export class IframeManager {
       }
 
       switch (rawMessage.label) {
-        case 'capTp': {
+        case EnvelopeLabel.CapTp: {
           console.log(
             'CapTP from vat',
             JSON.stringify(rawMessage.payload, null, 2),
@@ -196,7 +186,7 @@ export class IframeManager {
           }
           break;
         }
-        case 'message': {
+        case EnvelopeLabel.Command: {
           const { id, message } = rawMessage.payload;
           const promiseCallbacks = this.#unresolvedMessages.get(id);
           if (promiseCallbacks === undefined) {

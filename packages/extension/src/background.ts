@@ -1,6 +1,9 @@
+import type { Json } from '@metamask/utils';
+
 import './background-trusted-prelude.js';
-import type { ExtensionMessage } from './shared.js';
-import { Command, makeHandledCallback } from './shared.js';
+import type { ExtensionMessage } from './message.js';
+import { Command } from './message.js';
+import { makeHandledCallback } from './shared.js';
 
 // globalThis.kernel will exist due to dev-console.js
 Object.defineProperties(globalThis.kernel, {
@@ -61,7 +64,7 @@ async function provideOffScreenDocument(): Promise<void> {
 
 // Handle replies from the offscreen document
 chrome.runtime.onMessage.addListener(
-  makeHandledCallback(async (message: ExtensionMessage<Command, string>) => {
+  makeHandledCallback(async (message: ExtensionMessage) => {
     if (message.target !== 'background') {
       console.warn(
         `Background received message with unexpected target: "${message.target}"`,
@@ -78,6 +81,7 @@ chrome.runtime.onMessage.addListener(
         break;
       default:
         console.error(
+          // @ts-expect-error Exhaustiveness check
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `Background received unexpected message type: "${message.type}"`,
         );

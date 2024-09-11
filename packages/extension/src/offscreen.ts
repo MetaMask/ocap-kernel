@@ -1,6 +1,7 @@
 import { IframeManager } from './iframe-manager.js';
-import type { ExtensionMessage } from './shared.js';
-import { Command, makeHandledCallback } from './shared.js';
+import type { ExtensionMessage } from './message.js';
+import { Command } from './message.js';
+import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
 
@@ -17,7 +18,7 @@ async function main(): Promise<void> {
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: ExtensionMessage<Command, string>) => {
+    makeHandledCallback(async (message: ExtensionMessage) => {
       if (message.target !== 'offscreen') {
         console.warn(
           `Offscreen received message with unexpected target: "${message.target}"`,
@@ -32,13 +33,7 @@ async function main(): Promise<void> {
           await reply(Command.Evaluate, await evaluate(message.data));
           break;
         case Command.CapTpCall: {
-          const result = await iframeManager.callCapTp(
-            IFRAME_ID,
-            // @ts-expect-error TODO: Type assertions
-            message.data.method,
-            // @ts-expect-error TODO: Type assertions
-            ...message.data.params,
-          );
+          const result = await iframeManager.callCapTp(IFRAME_ID, message.data);
           await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
           break;
         }
@@ -51,6 +46,7 @@ async function main(): Promise<void> {
           break;
         default:
           console.error(
+            // @ts-expect-error Exhaustiveness check
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `Offscreen received unexpected message type: "${message.type}"`,
           );
