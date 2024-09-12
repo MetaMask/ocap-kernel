@@ -3,6 +3,7 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
+import { EnvelopeLabel } from './envelope.js';
 import { IframeManager } from './iframe-manager.js';
 import type { IframeMessage } from './message.js';
 import { Command } from './message.js';
@@ -156,7 +157,7 @@ describe('IframeManager', () => {
         port2.postMessage({
           done: false,
           value: {
-            label: 'message',
+            label: EnvelopeLabel.Command,
             content: {
               id: `foo-${i + 1}`,
               message: {
@@ -202,7 +203,7 @@ describe('IframeManager', () => {
 
       const capTpInit = {
         query: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: `${id}-1`,
             message: {
@@ -212,7 +213,7 @@ describe('IframeManager', () => {
           },
         },
         response: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: `${id}-1`,
             message: {
@@ -276,7 +277,7 @@ describe('IframeManager', () => {
 
       const capTpInit = {
         query: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: `${id}-1`,
             message: {
@@ -286,7 +287,7 @@ describe('IframeManager', () => {
           },
         },
         response: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: `${id}-1`,
             message: {
@@ -437,7 +438,7 @@ describe('IframeManager', () => {
       const message: IframeMessage = { type: Command.Evaluate, data: '2+2' };
       const response: IframeMessage = { type: Command.Evaluate, data: '4' };
 
-      // sendMessage wraps the content in a 'message' envelope
+      // sendMessage wraps the content in a EnvelopeLabel.Command envelope
       const messagePromise = manager.sendMessage(id, message);
       const messageId: string | undefined =
         portPostMessageSpy.mock.lastCall?.[0]?.value?.content?.id;
@@ -447,7 +448,7 @@ describe('IframeManager', () => {
       port2.postMessage({
         done: false,
         value: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: messageId,
             message: response,
@@ -463,7 +464,7 @@ describe('IframeManager', () => {
       expect(portPostMessageSpy).toHaveBeenCalledWith({
         done: false,
         value: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: messageId,
             message,
@@ -520,7 +521,7 @@ describe('IframeManager', () => {
       port2.postMessage({
         done: false,
         value: {
-          label: 'message',
+          label: EnvelopeLabel.Command,
           content: {
             id: 'foo',
             message: {

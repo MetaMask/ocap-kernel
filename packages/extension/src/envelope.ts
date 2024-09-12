@@ -4,7 +4,7 @@ import type { WrappedIframeMessage } from './message.js';
 import { isWrappedIframeMessage } from './message.js';
 
 export enum EnvelopeLabel {
-  Command = 'message',
+  Command = 'command',
   CapTp = 'capTp',
 }
 
