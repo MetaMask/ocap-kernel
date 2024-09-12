@@ -1,2 +1,2 @@
-import './dev-console.js';
 import './endoify.js';
+import './dev-console.js';

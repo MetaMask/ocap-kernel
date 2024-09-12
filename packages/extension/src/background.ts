@@ -24,6 +24,7 @@ Object.defineProperties(globalThis.kernel, {
     value: sendMessage,
   },
 });
+harden(globalThis.kernel);
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 

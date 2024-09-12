@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import './dev-console.js';
 import '@ocap/shims/endoify';
+import './dev-console.js';
 
 describe('vat-console', () => {
   describe('kernel', () => {
@@ -8,22 +8,14 @@ describe('vat-console', () => {
       expect(kernel).toBeDefined();
     });
 
-    it('is writable', async () => {
-      Object.defineProperty(globalThis.kernel, 'namingThings', {
-        value: 'is hard',
+    it('has expected property descriptors', async () => {
+      expect(
+        Object.getOwnPropertyDescriptor(globalThis, 'kernel'),
+      ).toMatchObject({
+        configurable: false,
+        enumerable: true,
+        writable: false,
       });
-      expect(kernel).toHaveProperty('namingThings', 'is hard');
-    });
-
-    it('is not rewritable', async () => {
-      Object.defineProperty(globalThis.kernel, 'namingThings', {
-        value: 'is hard',
-      });
-      expect(() =>
-        Object.defineProperty(globalThis.kernel, 'namingThings', {
-          value: 'and final',
-        }),
-      ).toThrow(/Cannot redefine property:/u);
     });
   });
 });
