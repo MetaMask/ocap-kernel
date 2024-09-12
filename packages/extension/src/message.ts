@@ -9,7 +9,7 @@ type DataObject =
   | DataObject[]
   | { [key: string]: DataObject };
 
-export enum ExtensionTarget {
+export enum ExtensionMessageTarget {
   Background = 'background',
   Offscreen = 'offscreen',
 }
@@ -17,7 +17,7 @@ export enum ExtensionTarget {
 type CommandForm<
   CommandType extends Command,
   Data extends DataObject,
-  TargetType extends ExtensionTarget,
+  TargetType extends ExtensionMessageTarget,
 > = {
   type: CommandType;
   target?: TargetType;
@@ -36,13 +36,13 @@ export type CapTpPayload = {
   params: DataObject[];
 };
 
-type CommandMessage<TargetType extends ExtensionTarget> =
+type CommandMessage<TargetType extends ExtensionMessageTarget> =
   | CommandForm<Command.Ping, null | 'pong', TargetType>
   | CommandForm<Command.Evaluate, string, TargetType>
   | CommandForm<Command.CapTpInit, null, TargetType>
   | CommandForm<Command.CapTpCall, CapTpPayload, TargetType>;
 
-export type ExtensionMessage = CommandMessage<ExtensionTarget>;
+export type ExtensionMessage = CommandMessage<ExtensionMessageTarget>;
 export type IframeMessage = CommandMessage<never>;
 
 export type WrappedIframeMessage = {
