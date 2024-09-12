@@ -42,7 +42,7 @@ async function main(): Promise<void> {
         break;
       /* v8 ignore next 3: Exhaustiveness check */
       default:
-        // @ts-expect-error Exhaustiveness check
+        // @ts-expect-error The type of `rawMessage` is `never`, but this could happen at runtime.
         throw new Error(`Unexpected message label "${rawMessage.label}".`);
     }
   }
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
         if (typeof message.data !== 'string') {
           console.error(
             'iframe received message with unexpected data type',
-            // @ts-expect-error Exhaustiveness check
+            // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
             stringifyResult(message.data),
           );
           return;

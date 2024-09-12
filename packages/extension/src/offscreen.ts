@@ -46,7 +46,7 @@ async function main(): Promise<void> {
           break;
         default:
           console.error(
-            // @ts-expect-error Exhaustiveness check
+            // @ts-expect-error The type of `message` is `never`, but this could happen at runtime.
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `Offscreen received unexpected message type: "${message.type}"`,
           );

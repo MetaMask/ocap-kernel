@@ -200,7 +200,7 @@ export class IframeManager {
         }
         /* v8 ignore next 3: Exhaustiveness check */
         default:
-          // @ts-expect-error Exhaustiveness check
+          // @ts-expect-error The type of `rawMessage` is `never`, but this could happen at runtime.
           throw new Error(`Unexpected message label "${rawMessage.label}".`);
       }
     }
