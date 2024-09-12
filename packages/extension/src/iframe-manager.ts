@@ -32,6 +32,7 @@ type GetPort = (targetWindow: Window) => Promise<MessagePort>;
 type VatRecord = {
   streams: StreamPair<StreamEnvelope>;
   messageCounter: () => number;
+  unresolvedMessages: Map<MessageId, PromiseCallbacks>;
   capTp?: ReturnType<typeof makeCapTP>;
 };
 
@@ -39,8 +40,6 @@ type VatRecord = {
  * A singleton class to manage and message iframes.
  */
 export class IframeManager {
-  readonly #unresolvedMessages: Map<MessageId, PromiseCallbacks>;
-
   readonly #vats: Map<VatId, VatRecord>;
 
   readonly #vatIdCounter: () => number;
@@ -50,7 +49,6 @@ export class IframeManager {
    */
   constructor() {
     this.#vats = new Map();
-    this.#unresolvedMessages = new Map();
     this.#vatIdCounter = makeCounter();
   }
 
@@ -71,7 +69,11 @@ export class IframeManager {
     const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
     const port = await getPort(newWindow);
     const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
-    this.#vats.set(id, { streams, messageCounter: makeCounter() });
+    this.#vats.set(id, {
+      streams,
+      messageCounter: makeCounter(),
+      unresolvedMessages: new Map(),
+    });
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(id, streams.reader).catch((error) => {
       console.error(`Unexpected read error from vat "${id}"`, error);
@@ -97,7 +99,7 @@ export class IframeManager {
 
     const closeP = vat.streams.return();
     // TODO: Handle orphaned messages
-    for (const [messageId] of this.#unresolvedMessagesOf(id)) {
+    for (const [messageId] of vat.unresolvedMessages) {
       console.warn(`Unhandled orphaned message: ${messageId}`);
     }
     this.#vats.delete(id);
@@ -125,7 +127,7 @@ export class IframeManager {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId(id);
 
-    this.#unresolvedMessages.set(messageId, { reject, resolve });
+    vat.unresolvedMessages.set(messageId, { reject, resolve });
     await vat.streams.writer.next({
       label: EnvelopeLabel.Command,
       content: { id: messageId, message },
@@ -164,6 +166,7 @@ export class IframeManager {
     vatId: VatId,
     reader: Reader<StreamEnvelope>,
   ): Promise<void> {
+    const vat = this.#expectGetVat(vatId);
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
 
@@ -189,11 +192,11 @@ export class IframeManager {
         }
         case EnvelopeLabel.Command: {
           const { id, message } = rawMessage.content;
-          const promiseCallbacks = this.#unresolvedMessages.get(id);
+          const promiseCallbacks = vat.unresolvedMessages.get(id);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${id}".`);
           } else {
-            this.#unresolvedMessages.delete(id);
+            vat.unresolvedMessages.delete(id);
             promiseCallbacks.resolve(message.data);
           }
           break;
@@ -202,19 +205,6 @@ export class IframeManager {
         default:
           // @ts-expect-error The type of `rawMessage` is `never`, but this could happen at runtime.
           throw new Error(`Unexpected message label "${rawMessage.label}".`);
-      }
-    }
-  }
-
-  *#unresolvedMessagesOf(
-    id: VatId,
-  ): Generator<readonly [MessageId, PromiseCallbacks]> {
-    for (const messageId of this.#unresolvedMessages.keys()) {
-      if (messageId.split('-').slice(0, -1).join('-') === id) {
-        yield [
-          messageId,
-          this.#unresolvedMessages.get(messageId) as PromiseCallbacks,
-        ] as const;
       }
     }
   }
