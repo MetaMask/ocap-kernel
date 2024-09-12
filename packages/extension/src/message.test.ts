@@ -13,18 +13,14 @@ describe('message', () => {
       ).toBe(true);
     });
 
-    it('returns false for invalid messages', () => {
-      const invalidMessages = [
-        {},
-        { id: '1' },
-        { message: { type: 'evaluate' } },
-        { id: '1', message: { type: 'evaluate' } },
-        { id: '1', message: { type: 'evaluate', data: 1 } },
-      ];
-
-      invalidMessages.forEach((message) => {
-        expect(isWrappedIframeMessage(message)).toBe(false);
-      });
+    it.each([
+      [{}],
+      [{ id: '1' }],
+      [{ message: { type: 'evaluate' } }],
+      [{ id: '1', message: { type: 'evaluate' } }],
+      [{ id: '1', message: { type: 'evaluate', data: 1 } }],
+    ])('returns false for invalid messages: %j', (message) => {
+      expect(isWrappedIframeMessage(message)).toBe(false);
     });
   });
 });
