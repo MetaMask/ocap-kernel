@@ -9,7 +9,10 @@ updates:
       interval: 'daily'
       time: '06:00'
     allow:
+      - dependency-name: '@endo/*'
+      - dependency-name: '@lavamoat/*'
       - dependency-name: '@metamask/*'
+      - dependency-name: '@ts-bridge/*'
     target-branch: 'main'
     versioning-strategy: 'increase-if-necessary'
     open-pull-requests-limit: 10
