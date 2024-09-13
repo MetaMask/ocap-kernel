@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         background: path.resolve(projectRoot, 'background.ts'),
+        'kernel-worker': path.resolve(projectRoot, 'kernel-worker.ts'),
         offscreen: path.resolve(projectRoot, 'offscreen.html'),
         iframe: path.resolve(projectRoot, 'iframe.html'),
       },

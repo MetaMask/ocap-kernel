@@ -41,6 +41,7 @@
     "@metamask/utils": "^9.1.0",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
+    "@sqlite.org/sqlite-wasm": "3.46.1-build3",
     "ses": "^1.7.0"
   },
   "devDependencies": {

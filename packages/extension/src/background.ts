@@ -23,6 +23,13 @@ Object.defineProperties(globalThis.kernel, {
   sendMessage: {
     value: sendMessage,
   },
+  kvGet: {
+    value: async (key: string) => sendMessage(Command.KVGet, key),
+  },
+  kvSet: {
+    value: async (key: string, value: string) =>
+      sendMessage(Command.KVSet, { key, value }),
+  },
 });
 harden(globalThis.kernel);
 
@@ -78,6 +85,8 @@ chrome.runtime.onMessage.addListener(
       case Command.CapTpCall:
       case Command.CapTpInit:
       case Command.Ping:
+      case Command.KVGet:
+      case Command.KVSet:
         console.log(message.data);
         break;
       default:

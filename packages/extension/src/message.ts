@@ -3,7 +3,7 @@ import { isObject } from '@metamask/utils';
 
 export type MessageId = string;
 
-type DataObject =
+export type DataObject =
   | Primitive
   | Promise<DataObject>
   | DataObject[]
@@ -29,6 +29,8 @@ export enum Command {
   CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
   Ping = 'ping',
+  KVSet = 'kvSet',
+  KVGet = 'kvGet',
 }
 
 export type CapTpPayload = {
@@ -41,6 +43,8 @@ type CommandMessage<TargetType extends ExtensionMessageTarget> =
   | CommandLike<Command.Evaluate, string, TargetType>
   | CommandLike<Command.CapTpInit, null, TargetType>
   | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>;
+  | CommandLike<Command.KVGet, string, TargetType>
+  | CommandLike<Command.KVSet, { key: string, value: string }, TargetType>;
 
 export type ExtensionMessage = CommandMessage<ExtensionMessageTarget>;
 export type IframeMessage = CommandMessage<never>;
