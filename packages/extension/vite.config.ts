@@ -47,6 +47,7 @@ export default defineConfig({
         assetFileNames: '[name].[ext]',
       },
     },
+    sourcemap: 'inline',
   },
 
   plugins: [
