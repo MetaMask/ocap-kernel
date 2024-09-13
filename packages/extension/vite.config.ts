@@ -29,7 +29,7 @@ const staticCopyTargets: readonly string[] = [
 ];
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: projectRoot,
 
   build: {
@@ -47,8 +47,12 @@ export default defineConfig({
         assetFileNames: '[name].[ext]',
       },
     },
-    minify: false,
-    sourcemap: 'inline',
+    ...(mode === 'development'
+      ? {
+          minify: false,
+          sourcemap: 'inline',
+        }
+      : {}),
   },
 
   plugins: [
@@ -61,4 +65,4 @@ export default defineConfig({
       trustedPreludes: jsTrustedPreludes,
     }),
   ],
-});
+}));
