@@ -8,25 +8,26 @@ import { getDefaultConfig } from '../../vitest.config.packages.js';
 
 const defaultConfig = getDefaultConfig();
 
-const config = mergeConfig(
-  viteConfig,
-  mergeConfig(
-    defaultConfig,
-    defineConfig({
-      test: {
-        pool: 'vmThreads',
-        alias: [
-          {
-            find: '@ocap/shims/endoify',
-            replacement: path.resolve('../shims/src/endoify.js'),
-            customResolver: (id) => ({ external: true, id }),
-          },
-        ],
-      },
-    }),
-  ),
-);
+export default defineConfig((configEnv) => {
+  const config = mergeConfig(
+    viteConfig(configEnv),
+    mergeConfig(
+      defaultConfig,
+      defineConfig({
+        test: {
+          pool: 'vmThreads',
+          alias: [
+            {
+              find: '@ocap/shims/endoify',
+              replacement: path.resolve('../shims/src/endoify.js'),
+              customResolver: (id) => ({ external: true, id }),
+            },
+          ],
+        },
+      }),
+    ),
+  );
 
-delete config.test.coverage.thresholds;
-
-export default config;
+  delete config.test.coverage.thresholds;
+  return config;
+});
