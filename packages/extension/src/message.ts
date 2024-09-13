@@ -58,3 +58,6 @@ export const isWrappedIframeMessage = (
   isObject(value.message) &&
   typeof value.message.type === 'string' &&
   (typeof value.message.data === 'string' || value.message.data === null);
+
+export type CapTpMessage = unknown;
+export const isCapTpMessage = (value: unknown): value is CapTpMessage => true;
