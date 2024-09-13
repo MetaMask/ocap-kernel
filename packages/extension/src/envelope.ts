@@ -125,22 +125,52 @@ export const isStreamEnvelope = (value: unknown): value is StreamEnvelope =>
   isLabeled(value) &&
   Object.values(envelopeKits).some((kit) => kit.check(value));
 
+/**
+ * Sniffs envelope labels, applying the label's handler if known,
+ * and applying the error handler if the label is not handled or
+ * if the content did not meet the envelope's type guard.
+ */
+type StreamEnvelopeHandler = (envelope: StreamEnvelope) => Promise<unknown>;
+
+/**
+ * A handler for a specific stream envelope label.
+ * The stream envelope handler will return the returned value if applied to a
+ * well-formed envelope with the corresponding label.
+ */
 type ContentHandler<Label extends LabelOf<StreamEnvelope>> = (
   content: StreamEnvelopeContent<Label>,
 ) => Promise<unknown>;
 
+/**
+ * An object with {@link EnvelopeLabel} keys mapping to an appropriate {@link ContentHandler}.
+ * If the stream envelope handler encounters a well-formed stream envelope without a defined handler,
+ * the envelope will be passed to the {@link ErrorHandler}.
+ */
+type ContentHandlerBag = { [Label in EnvelopeLabel]?: ContentHandler<Label> };
+
+/**
+ * A handler for stream envelope parsing errors.
+ * If the stream envelope handler encounters a parsing error, it will
+ *  - throw the error handler's error if one is thrown
+ *  - return the error handler's returned value otherwise
+ */
 type ErrorHandler = (reason: string) => unknown;
 
-type ContentHandlerBag = { [Label in EnvelopeLabel]?: ContentHandler<Label> };
-const defaultErrorHandler: ErrorHandler = (reason) => {
-  throw new Error(reason);
-};
+/**
+ * Makes a {@link StreamEnvelopeHandler}.
+ *
+ * @param contentHandlers - A bag of async content handlers labeled with the envelope label they handle.
+ * @param errorHandler - An optional synchronous error handler, required to throw.
+ * @returns The stream envelope handler.
+ */
 export const makeStreamEnvelopeHandler =
   (
     contentHandlers: ContentHandlerBag,
-    errorHandler: ErrorHandler = defaultErrorHandler,
-  ) =>
-  async (value: unknown): Promise<unknown> => {
+    errorHandler: ErrorHandler = (reason) => {
+      throw new Error(reason);
+    },
+  ): StreamEnvelopeHandler =>
+  async (value: unknown) => {
     if (!isStreamEnvelope(value)) {
       return errorHandler(
         `Stream envelope handler received unexpected value ${JSON.stringify(
