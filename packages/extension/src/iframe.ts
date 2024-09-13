@@ -4,7 +4,7 @@ import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
 import type { StreamEnvelope } from './envelope.js';
-import { EnvelopeLabel, isStreamEnvelope } from './envelope.js';
+import { streamEnveloper, makeStreamEnvelopeHandler } from './envelope.js';
 import type { IframeMessage, WrappedIframeMessage } from './message.js';
 import { Command } from './message.js';
 
@@ -20,31 +20,19 @@ async function main(): Promise<void> {
   const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
   let capTp: ReturnType<typeof makeCapTP> | undefined;
 
+  const streamEnvelopeHandler = makeStreamEnvelopeHandler(
+    {
+      command: handleMessage,
+      capTp: async (content) => capTp?.dispatch(content),
+    },
+    (problem: unknown) => {
+      throw new Error(`[vat IFRAME] ${String(problem)}`);
+    },
+  );
+
   for await (const rawMessage of streams.reader) {
     console.debug('iframe received message', rawMessage);
-
-    if (!isStreamEnvelope(rawMessage)) {
-      console.error(
-        'iframe received message with unexpected format',
-        rawMessage,
-      );
-      return;
-    }
-
-    switch (rawMessage.label) {
-      case EnvelopeLabel.CapTp:
-        if (capTp !== undefined) {
-          capTp.dispatch(rawMessage.content);
-        }
-        break;
-      case EnvelopeLabel.Command:
-        await handleMessage(rawMessage.content);
-        break;
-      /* v8 ignore next 3: Exhaustiveness check */
-      default:
-        // @ts-expect-error The type of `rawMessage` is `never`, but this could happen at runtime.
-        throw new Error(`Unexpected message label "${rawMessage.label}".`);
-    }
+    await streamEnvelopeHandler(rawMessage);
   }
 
   await streams.return();
@@ -88,7 +76,7 @@ async function main(): Promise<void> {
         capTp = makeCapTP(
           'iframe',
           async (content: unknown) =>
-            streams.writer.next({ label: EnvelopeLabel.CapTp, content }),
+            streams.writer.next(streamEnveloper.wrapCapTp(content)),
           bootstrap,
         );
         await replyToMessage(id, { type: Command.CapTpInit, data: null });
@@ -115,10 +103,7 @@ async function main(): Promise<void> {
     id: string,
     message: IframeMessage,
   ): Promise<void> {
-    await streams.writer.next({
-      label: EnvelopeLabel.Command,
-      content: { id, message },
-    });
+    await streams.writer.next(streamEnveloper.wrapCommand({ id, message }));
   }
 
   /**

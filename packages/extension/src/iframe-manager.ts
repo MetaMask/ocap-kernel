@@ -10,7 +10,7 @@ import {
 } from '@ocap/streams';
 
 import type { StreamEnvelope } from './envelope.js';
-import { EnvelopeLabel, isStreamEnvelope } from './envelope.js';
+import { EnvelopeLabel, makeStreamEnvelopeHandler } from './envelope.js';
 import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
 import { Command } from './message.js';
 import { makeCounter, type VatId } from './shared.js';
@@ -169,31 +169,10 @@ export class IframeManager {
     reader: Reader<StreamEnvelope>,
   ): Promise<void> {
     const vat = this.#expectGetVat(vatId);
-    for await (const rawMessage of reader) {
-      console.debug('Offscreen received message', rawMessage);
 
-      if (!isStreamEnvelope(rawMessage)) {
-        console.warn(
-          'Offscreen received message with unexpected format',
-          rawMessage,
-        );
-        return;
-      }
-
-      switch (rawMessage.label) {
-        case EnvelopeLabel.CapTp: {
-          console.log(
-            'CapTP from vat',
-            JSON.stringify(rawMessage.content, null, 2),
-          );
-          const { capTp } = this.#expectGetVat(vatId);
-          if (capTp !== undefined) {
-            capTp.dispatch(rawMessage.content);
-          }
-          break;
-        }
-        case EnvelopeLabel.Command: {
-          const { id, message } = rawMessage.content;
+    const streamEnvelopeHandler = makeStreamEnvelopeHandler(
+      {
+        command: async ({ id, message }) => {
           const promiseCallbacks = vat.unresolvedMessages.get(id);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${id}".`);
@@ -201,13 +180,18 @@ export class IframeManager {
             vat.unresolvedMessages.delete(id);
             promiseCallbacks.resolve(message.data);
           }
-          break;
-        }
-        /* v8 ignore next 3: Exhaustiveness check */
-        default:
-          // @ts-expect-error The type of `rawMessage` is `never`, but this could happen at runtime.
-          throw new Error(`Unexpected message label "${rawMessage.label}".`);
-      }
+        },
+        capTp: async (content) => {
+          console.log('CapTP from vat', JSON.stringify(content, null, 2));
+          vat.capTp?.dispatch(content);
+        },
+      },
+      console.warn,
+    );
+
+    for await (const rawMessage of reader) {
+      console.debug('Offscreen received message', rawMessage);
+      await streamEnvelopeHandler(rawMessage);
     }
   }
 

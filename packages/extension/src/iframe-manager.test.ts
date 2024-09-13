@@ -502,8 +502,7 @@ describe('IframeManager', () => {
       await delay(10);
 
       expect(warnSpy).toHaveBeenCalledWith(
-        'Offscreen received message with unexpected format',
-        'foo',
+        'Stream envelope handler received unexpected value "foo"',
       );
     });
 

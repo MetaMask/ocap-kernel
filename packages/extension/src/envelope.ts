@@ -129,36 +129,40 @@ type ContentHandler<Label extends LabelOf<StreamEnvelope>> = (
   content: StreamEnvelopeContent<Label>,
 ) => Promise<unknown>;
 
-type ErrorHandler = (...args: unknown[]) => never;
+type ErrorHandler = (reason: string) => unknown;
 
 type ContentHandlerBag = { [Label in EnvelopeLabel]?: ContentHandler<Label> };
-
-const defaultStreamEnvelopeErrorHandler = (problem: unknown): never => {
-  throw new Error(String(problem));
+const defaultErrorHandler: ErrorHandler = (reason) => {
+  throw new Error(reason);
 };
 export const makeStreamEnvelopeHandler =
   (
     contentHandlers: ContentHandlerBag,
-    errorHandler: ErrorHandler = defaultStreamEnvelopeErrorHandler,
+    errorHandler: ErrorHandler = defaultErrorHandler,
   ) =>
-  async (value: unknown) => {
-    const envelope = isStreamEnvelope(value)
-      ? value
-      : errorHandler(
-          `Stream envelope handler received unexpected value ${JSON.stringify(
-            value,
-          )}`,
-        );
-    const kit =
-      /* v8 ignore next 4: Not known to be possible. */
-      envelopeKits[envelope.label] ??
-      errorHandler(
+  async (value: unknown): Promise<unknown> => {
+    if (!isStreamEnvelope(value)) {
+      return errorHandler(
+        `Stream envelope handler received unexpected value ${JSON.stringify(
+          value,
+        )}`,
+      );
+    }
+    const envelope = value;
+    const kit = envelopeKits[envelope.label];
+    /* v8 ignore next 5: Not known to be possible. */
+    if (!kit) {
+      return errorHandler(
         `Stream envelope handler received an envelope with unknown label "${envelope.label}"`,
       );
-    const handler: ContentHandler<typeof envelope.label> =
-      contentHandlers[envelope.label] ??
-      errorHandler(
+    }
+    const handler = contentHandlers[envelope.label];
+    if (!handler) {
+      return errorHandler(
         `Stream envelope handler received an envelope with known but unexpected label "${envelope.label}"`,
       );
-    return handler(kit.unwrap(envelope));
+    }
+    return await (handler as ContentHandler<typeof envelope.label>)(
+      kit.unwrap(envelope),
+    );
   };
