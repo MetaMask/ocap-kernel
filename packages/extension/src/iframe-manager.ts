@@ -98,9 +98,11 @@ export class IframeManager {
     }
 
     const closeP = vat.streams.return();
-    // TODO: Handle orphaned messages
-    for (const [messageId] of vat.unresolvedMessages) {
-      console.warn(`Unhandled orphaned message: ${messageId}`);
+
+    // Handle orphaned messages
+    for (const [messageId, promiseCallback] of vat.unresolvedMessages) {
+      promiseCallback?.reject(new Error('Vat was deleted'));
+      vat.unresolvedMessages.delete(messageId);
     }
     this.#vats.delete(id);
 

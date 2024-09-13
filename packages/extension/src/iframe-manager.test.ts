@@ -129,7 +129,7 @@ describe('IframeManager', () => {
       expect(removeSpy).not.toHaveBeenCalled();
     });
 
-    it('warns of unresolved messages', async () => {
+    it('rejects unresolved messages', async () => {
       const id = 'foo';
       const messageCount = 7;
       const awaitCount = 2;
@@ -137,23 +137,10 @@ describe('IframeManager', () => {
       vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
 
       const manager = new IframeManager();
-
       vi.spyOn(manager, 'sendMessage').mockImplementationOnce(vi.fn());
 
       const { port1, port2 } = new MessageChannel();
-
-      await manager.create({ id, getPort: makeGetPort(port1) });
-
-      const warnSpy = vi.spyOn(console, 'warn');
-
-      const messagePromises = Array(messageCount)
-        .fill(0)
-        .map(async (_, i) =>
-          manager.sendMessage(id, { type: Command.Evaluate, data: `${i}+1` }),
-        );
-
-      // resolve the first `awaitCount` promises
-      for (let i = 0; i < awaitCount; i++) {
+      const postMessage = (i: number): void => {
         port2.postMessage({
           done: false,
           value: {
@@ -167,15 +154,29 @@ describe('IframeManager', () => {
             },
           },
         });
+      };
+
+      await manager.create({ id, getPort: makeGetPort(port1) });
+
+      const messagePromises = Array(messageCount)
+        .fill(0)
+        .map(async (_, i) =>
+          manager.sendMessage(id, { type: Command.Evaluate, data: `${i}+1` }),
+        );
+
+      // resolve the first `awaitCount` promises
+      for (let i = 0; i < awaitCount; i++) {
+        postMessage(i);
         await messagePromises[i];
       }
 
       await manager.delete(id);
-      expect(warnSpy).toHaveBeenCalledTimes(messageCount - awaitCount);
-      // This test assumes messageIds begin at 1, not 0
-      expect(warnSpy).toHaveBeenLastCalledWith(
-        `Unhandled orphaned message: ${id}-${messageCount}`,
-      );
+
+      // reject the rest of the promises
+      for (let i = awaitCount; i < messageCount; i++) {
+        postMessage(i);
+        await expect(messagePromises[i]).rejects.toThrow('Vat was deleted');
+      }
     });
   });
 
