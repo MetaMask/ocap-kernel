@@ -6,7 +6,8 @@ ignores:
   - '@metamask/auto-changelog'
   - '@ts-bridge/cli'
   - '@ts-bridge/shims'
-  - '@yarnpkg/types'
+  - '@vitest/coverage-v8'
+  - 'depcheck' # ._.
   - 'prettier-plugin-packagejson'
   - 'rimraf'
   - 'typedoc'
