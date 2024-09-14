@@ -502,7 +502,8 @@ describe('IframeManager', () => {
       await delay(10);
 
       expect(warnSpy).toHaveBeenCalledWith(
-        'Stream envelope handler received unexpected value "foo"',
+        'Stream envelope handler received unexpected value',
+        'foo',
       );
     });
 
