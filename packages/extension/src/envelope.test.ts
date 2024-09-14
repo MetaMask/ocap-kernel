@@ -113,11 +113,12 @@ describe('envelope', () => {
       enveloper           | envelope
       ${commandEnveloper} | ${contentFixtures.capTp}
       ${capTpEnveloper}   | ${contentFixtures.command}
+      ${commandEnveloper} | ${capTpEnveloper.wrap(contentFixtures.command)}
     `(
-      'throws when unwrapping a malformed envelope',
+      'throws when $enveloper.label enveloper attempts to unwrap a malformed envelope $envelope',
       ({ enveloper, envelope }) => {
         expect(() => enveloper.unwrap(envelope)).toThrow(
-          /Expected envelope labelled/u,
+          /^Expected envelope labelled/u,
         );
       },
     );
