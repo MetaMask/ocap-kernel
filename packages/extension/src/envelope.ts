@@ -8,12 +8,12 @@ export enum EnvelopeLabel {
   CapTp = 'capTp',
 }
 
-type EnvelopeForm<Label extends EnvelopeLabel, Content> = {
+type EnvelopeLike<Label extends EnvelopeLabel, Content> = {
   label: Label;
   content: Content;
 };
 
-type LabelOf<Env> = Env extends EnvelopeForm<infer Label, unknown>
+type LabelOf<Envelope> = Envelope extends EnvelopeLike<infer Label, unknown>
   ? Label
   : never;
 type LabeledWith<Label extends EnvelopeLabel> = {
@@ -28,7 +28,10 @@ const isLabeled = <Label extends EnvelopeLabel>(
   typeof value.label !== 'undefined' &&
   (label === undefined || value.label === label);
 
-type ContentOf<Env> = Env extends EnvelopeForm<EnvelopeLabel, infer Content>
+type ContentOf<Envelope> = Envelope extends EnvelopeLike<
+  EnvelopeLabel,
+  infer Content
+>
   ? Content
   : never;
 type ContainerOf<Content> = {
@@ -36,37 +39,42 @@ type ContainerOf<Content> = {
   [key: string]: unknown;
 };
 
-type GenericEnvelope<Env> = EnvelopeForm<LabelOf<Env>, ContentOf<Env>>;
+type GenericEnvelope<Envelope> = EnvelopeLike<
+  LabelOf<Envelope>,
+  ContentOf<Envelope>
+>;
 
-type EnvelopeKit<Env extends GenericEnvelope<Env>> = {
-  label: Env['label'];
-  sniff: (value: unknown) => value is LabeledWith<Env['label']>;
-  check: (value: unknown) => value is Env;
-  wrap: (content: Env['content']) => Env;
-  unwrap: (envelope: Env) => Env['content'];
+type EnvelopeKit<Envelope extends GenericEnvelope<Envelope>> = {
+  label: Envelope['label'];
+  sniff: (value: unknown) => value is LabeledWith<Envelope['label']>;
+  check: (value: unknown) => value is Envelope;
+  wrap: (content: Envelope['content']) => Envelope;
+  unwrap: (envelope: Envelope) => Envelope['content'];
 };
 
-const makeEnvelopeKit = <Env extends GenericEnvelope<Env>>(
-  label: Env['label'],
-  isContent: (value: unknown) => value is Env['content'],
-): EnvelopeKit<Env> => {
-  const hasLabel = (value: unknown): value is LabeledWith<Env['label']> =>
+const makeEnvelopeKit = <Envelope extends GenericEnvelope<Envelope>>(
+  label: Envelope['label'],
+  isContent: (value: unknown) => value is Envelope['content'],
+): EnvelopeKit<Envelope> => {
+  const hasLabel = (value: unknown): value is LabeledWith<Envelope['label']> =>
     isLabeled(value, label);
-  const hasContent = (value: unknown): value is ContainerOf<Env['content']> =>
+  const hasContent = (
+    value: unknown,
+  ): value is ContainerOf<Envelope['content']> =>
     isObject(value) &&
     typeof value.content !== 'undefined' &&
     isContent(value.content);
   return {
     label,
     sniff: hasLabel,
-    check: (value: unknown): value is Env =>
+    check: (value: unknown): value is Envelope =>
       hasLabel(value) && hasContent(value),
-    wrap: (content: Env['content']) =>
+    wrap: (content: Envelope['content']) =>
       ({
         label,
         content,
-      } as Env),
-    unwrap: (envelope: Env): Env['content'] => {
+      } as Envelope),
+    unwrap: (envelope: Envelope): Envelope['content'] => {
       if (!hasLabel(envelope)) {
         throw new Error(
           // @ts-expect-error The type of `envelope` is `never`, but this could happen at runtime.
@@ -79,11 +87,11 @@ const makeEnvelopeKit = <Env extends GenericEnvelope<Env>>(
   };
 };
 
-type CommandEnvelope = EnvelopeForm<
+type CommandEnvelope = EnvelopeLike<
   EnvelopeLabel.Command,
   WrappedIframeMessage
 >;
-type CapTpEnvelope = EnvelopeForm<EnvelopeLabel.CapTp, CapTpMessage>;
+type CapTpEnvelope = EnvelopeLike<EnvelopeLabel.CapTp, CapTpMessage>;
 
 export const commandEnveloper = makeEnvelopeKit<CommandEnvelope>(
   EnvelopeLabel.Command,

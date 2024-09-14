@@ -14,7 +14,7 @@ export enum ExtensionMessageTarget {
   Offscreen = 'offscreen',
 }
 
-type CommandForm<
+type CommandLike<
   CommandType extends Command,
   Data extends DataObject,
   TargetType extends ExtensionMessageTarget,
@@ -37,10 +37,10 @@ export type CapTpPayload = {
 };
 
 type CommandMessage<TargetType extends ExtensionMessageTarget> =
-  | CommandForm<Command.Ping, null | 'pong', TargetType>
-  | CommandForm<Command.Evaluate, string, TargetType>
-  | CommandForm<Command.CapTpInit, null, TargetType>
-  | CommandForm<Command.CapTpCall, CapTpPayload, TargetType>;
+  | CommandLike<Command.Ping, null | 'pong', TargetType>
+  | CommandLike<Command.Evaluate, string, TargetType>
+  | CommandLike<Command.CapTpInit, null, TargetType>
+  | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>;
 
 export type ExtensionMessage = CommandMessage<ExtensionMessageTarget>;
 export type IframeMessage = CommandMessage<never>;
