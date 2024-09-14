@@ -3,7 +3,7 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { EnvelopeLabel } from './envelope.js';
+import { capTpEnveloper, EnvelopeLabel } from './envelope.js';
 import { IframeManager } from './iframe-manager.js';
 import type { IframeMessage } from './message.js';
 import { Command } from './message.js';
@@ -181,6 +181,38 @@ describe('IframeManager', () => {
   });
 
   describe('capTp', () => {
+    it('calls console.warn when receiving a capTp envelope before initialization', async () => {
+      const id = 'foo';
+
+      vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
+      const warnSpy = vi.spyOn(console, 'warn');
+
+      const manager = new IframeManager();
+      vi.spyOn(manager, 'sendMessage').mockImplementationOnce(vi.fn());
+
+      const { port1, port2 } = new MessageChannel();
+
+      await manager.create({ id, getPort: makeGetPort(port1) });
+
+      const envelope = capTpEnveloper.wrap({
+        epoch: 0,
+        questionID: 'q-1',
+        type: 'CTP_BOOTSTRAP',
+      });
+
+      port2.postMessage({
+        done: false,
+        value: envelope,
+      });
+
+      await delay();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Stream envelope handler received an envelope with known but unexpected label',
+        envelope,
+      );
+    });
+
     it('throws if called before initialization', async () => {
       const mockWindow = {};
       vi.mocked(snapsUtils.createWindow).mockResolvedValueOnce(

@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
   for await (const rawMessage of streams.reader) {
     console.debug('iframe received message', rawMessage);
-    await streamEnvelopeHandler(rawMessage);
+    await streamEnvelopeHandler.handle(rawMessage);
   }
 
   await streams.return();

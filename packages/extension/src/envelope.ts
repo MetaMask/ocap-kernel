@@ -130,7 +130,11 @@ export const isStreamEnvelope = (value: unknown): value is StreamEnvelope =>
  * and applying the error handler if the label is not handled or
  * if the content did not meet the envelope's type guard.
  */
-type StreamEnvelopeHandler = (envelope: StreamEnvelope) => Promise<unknown>;
+export type StreamEnvelopeHandler = {
+  handle: (envelope: StreamEnvelope) => Promise<unknown>;
+  contentHandlers: ContentHandlerBag;
+  errorHandler: StreamEnvelopeErrorHandler;
+};
 
 /**
  * A handler for a specific stream envelope label.
@@ -157,30 +161,29 @@ type StreamEnvelopeErrorHandler = (reason: string, value: unknown) => unknown;
 
 /**
  * Makes a {@link StreamEnvelopeHandler} which handles an unknown value.
- * 
+ *
  * If the supplied value is a valid envelope with a defined {@link StreamEnvelopeHandler},
  * the stream envelope handler will return whatever the defined handler returns.
- * 
+ *
  * If the stream envelope handler is passed a well-formed stream envelope without a defined handler,
  * an explanation and the envelope will be passed to the supplied {@link StreamEnvelopeErrorHandler}.
- * 
+ *
  * If the stream envelope handler encounters an error while parsing the supplied value,
  * it will pass the reason and value to the supplied {@link StreamEnvelopeErrorHandler}.
- * 
+ *
  * If no error handler is supplied, the default error handling behavior is to throw.
  *
  * @param contentHandlers - A bag of async content handlers labeled with the {@link EnvelopeLabel} they handle.
  * @param errorHandler - An optional synchronous error handler.
  * @returns The stream envelope handler.
  */
-export const makeStreamEnvelopeHandler =
-  (
-    contentHandlers: ContentHandlerBag,
-    errorHandler: StreamEnvelopeErrorHandler = (reason, value) => {
-      throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
-    },
-  ): StreamEnvelopeHandler =>
-  async (value: unknown) => {
+export const makeStreamEnvelopeHandler = (
+  contentHandlers: ContentHandlerBag,
+  errorHandler: StreamEnvelopeErrorHandler = (reason, value) => {
+    throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
+  },
+): StreamEnvelopeHandler => ({
+  handle: async (value: unknown) => {
     if (!isStreamEnvelope(value)) {
       return errorHandler(
         'Stream envelope handler received unexpected value',
@@ -206,4 +209,7 @@ export const makeStreamEnvelopeHandler =
     return await (handler as ContentHandler<typeof envelope.label>)(
       kit.unwrap(envelope),
     );
-  };
+  },
+  contentHandlers,
+  errorHandler,
+});

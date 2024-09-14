@@ -9,7 +9,7 @@ import {
   makeMessagePortStreamPair,
 } from '@ocap/streams';
 
-import type { StreamEnvelope } from './envelope.js';
+import type { StreamEnvelope, StreamEnvelopeHandler } from './envelope.js';
 import { EnvelopeLabel, makeStreamEnvelopeHandler } from './envelope.js';
 import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
 import { Command } from './message.js';
@@ -27,12 +27,15 @@ const getHtmlId = (id: VatId): string => `ocap-iframe-${id}`;
 
 type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 
+type UnresolvedMessages = Map<MessageId, PromiseCallbacks>;
+
 type GetPort = (targetWindow: Window) => Promise<MessagePort>;
 
 type VatRecord = {
   streams: StreamPair<StreamEnvelope>;
   messageCounter: () => number;
-  unresolvedMessages: Map<MessageId, PromiseCallbacks>;
+  unresolvedMessages: UnresolvedMessages;
+  streamEnvelopeHandler: StreamEnvelopeHandler;
   capTp?: ReturnType<typeof makeCapTP>;
 };
 
@@ -63,26 +66,41 @@ export class IframeManager {
   async create(
     args: { id?: VatId; getPort?: GetPort } = {},
   ): Promise<readonly [Window, VatId]> {
-    const id = args.id ?? this.#nextVatId();
+    const vatId = args.id ?? this.#nextVatId();
     const getPort = args.getPort ?? initializeMessageChannel;
 
-    const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
+    const newWindow = await createWindow(IFRAME_URI, getHtmlId(vatId));
     const port = await getPort(newWindow);
     const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
-    this.#vats.set(id, {
+    const unresolvedMessages = new Map();
+    this.#vats.set(vatId, {
       streams,
       messageCounter: makeCounter(),
-      unresolvedMessages: new Map(),
+      unresolvedMessages,
+      streamEnvelopeHandler: makeStreamEnvelopeHandler(
+        {
+          command: async ({ id, message }) => {
+            const promiseCallbacks = unresolvedMessages.get(id);
+            if (promiseCallbacks === undefined) {
+              console.error(`No unresolved message with id "${id}".`);
+            } else {
+              unresolvedMessages.delete(id);
+              promiseCallbacks.resolve(message.data);
+            }
+          },
+        },
+        console.warn,
+      ),
     });
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(id, streams.reader).catch((error) => {
-      console.error(`Unexpected read error from vat "${id}"`, error);
-      this.delete(id).catch(() => undefined);
+    this.#receiveMessages(vatId, streams.reader).catch((error) => {
+      console.error(`Unexpected read error from vat "${vatId}"`, error);
+      this.delete(vatId).catch(() => undefined);
     });
 
-    await this.sendMessage(id, { type: Command.Ping, data: null });
-    console.debug(`Created vat with id "${id}"`);
-    return [newWindow, id] as const;
+    await this.sendMessage(vatId, { type: Command.Ping, data: null });
+    console.debug(`Created vat with id "${vatId}"`);
+    return [newWindow, vatId] as const;
   }
 
   /**
@@ -161,6 +179,17 @@ export class IframeManager {
     });
 
     vat.capTp = ctp;
+    vat.streamEnvelopeHandler = makeStreamEnvelopeHandler(
+      {
+        ...vat.streamEnvelopeHandler.contentHandlers,
+        capTp: async (content) => {
+          console.log('CapTP from vat', JSON.stringify(content, null, 2));
+          ctp.dispatch(content);
+        },
+      },
+      vat.streamEnvelopeHandler.errorHandler,
+    );
+
     return this.sendMessage(id, { type: Command.CapTpInit, data: null });
   }
 
@@ -170,28 +199,9 @@ export class IframeManager {
   ): Promise<void> {
     const vat = this.#expectGetVat(vatId);
 
-    const streamEnvelopeHandler = makeStreamEnvelopeHandler(
-      {
-        command: async ({ id, message }) => {
-          const promiseCallbacks = vat.unresolvedMessages.get(id);
-          if (promiseCallbacks === undefined) {
-            console.error(`No unresolved message with id "${id}".`);
-          } else {
-            vat.unresolvedMessages.delete(id);
-            promiseCallbacks.resolve(message.data);
-          }
-        },
-        capTp: async (content) => {
-          console.log('CapTP from vat', JSON.stringify(content, null, 2));
-          vat.capTp?.dispatch(content);
-        },
-      },
-      console.warn,
-    );
-
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
-      await streamEnvelopeHandler(rawMessage);
+      await vat.streamEnvelopeHandler.handle(rawMessage);
     }
   }
 

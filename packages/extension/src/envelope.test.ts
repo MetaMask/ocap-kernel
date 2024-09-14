@@ -69,17 +69,17 @@ describe('envelope', () => {
         testEnvelopeHandlers,
         testErrorHandler,
       );
-      expect(await handler(enveloper.wrap(message))).toStrictEqual(
+      expect(await handler.handle(enveloper.wrap(message))).toStrictEqual(
         enveloper.label,
       );
     });
 
     it('routes invalid envelopes to default error handler', async () => {
       const handler = makeStreamEnvelopeHandler(testEnvelopeHandlers);
-      // @ts-expect-error label is intentionally unknown
-      await expect(handler({ label: 'unknown', content: [] })).rejects.toThrow(
-        /^Stream envelope handler received unexpected value/u,
-      );
+      await expect(
+        // @ts-expect-error label is intentionally unknown
+        handler.handle({ label: 'unknown', content: [] }),
+      ).rejects.toThrow(/^Stream envelope handler received unexpected value/u);
     });
 
     it('routes invalid envelopes to supplied error handler', async () => {
@@ -87,8 +87,10 @@ describe('envelope', () => {
         testEnvelopeHandlers,
         testErrorHandler,
       );
-      // @ts-expect-error label is intentionally unknown
-      await expect(handler({ label: 'unknown', content: [] })).rejects.toThrow(
+      await expect(
+        // @ts-expect-error label is intentionally unknown
+        handler.handle({ label: 'unknown', content: [] }),
+      ).rejects.toThrow(
         /^TEST Stream envelope handler received unexpected value/u,
       );
     });
@@ -99,7 +101,7 @@ describe('envelope', () => {
         testErrorHandler,
       );
       await expect(
-        handler(capTpEnveloper.wrap(contentFixtures.capTp)),
+        handler.handle(capTpEnveloper.wrap(contentFixtures.capTp)),
       ).rejects.toThrow(
         /^TEST Stream envelope handler received an envelope with known but unexpected label/u,
       );
