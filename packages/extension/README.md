@@ -4,16 +4,19 @@ For running Ocap Kernel experiments in an extension environment.
 
 ## Usage
 
-`yarn build` creates a production build of the extension, while `yarn start` runs a dev server with hot reloading.
+Build options:
+
+- `yarn build` for production builds
+- `yarn build:dev` for development builds (source maps enabled, minification disabled)
+- `yarn start` for watched development builds
 
 To use the extension, load the `dist` directory as an unpacked extension in your
-Chromium browser of choice. You may have to manually reload the extension on changes,
-event with the dev server running.
+Chromium browser of choice. You have to manually reload the extension on changes,
+even with `yarn start` running.
 
-The extension has no UI. To start the background service worker, click the extension's
-action button in the browser bar. Once the service worker is running, inspect it via
-`chrome://extensions`. With the console open, you can evaluate arbitrary strings in a
-SES compartment:
+The extension has no UI. Simply inspect the extension's background service worker via
+`chrome://extensions` to start it. With the console open, you can send commands via the `kernel` global.
+This allows you to e.g. evaluate arbitrary strings in a SES compartment:
 
 ```text
 > await kernel.evaluate('[1, 2, 3].join(", ");')
