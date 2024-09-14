@@ -162,6 +162,19 @@ type StreamEnvelopeContentHandlerBag = {
 type StreamEnvelopeErrorHandler = (reason: string, value: unknown) => unknown;
 
 /**
+ * The default handler for stream envelope parsing errors.
+ *
+ * @param reason - The reason for the error.
+ * @param value - The value that caused the error.
+ */
+const defaultStreamEnvelopeErrorHandler: StreamEnvelopeErrorHandler = (
+  reason,
+  value,
+) => {
+  throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
+};
+
+/**
  * Makes a {@link StreamEnvelopeHandler} which handles an unknown value.
  *
  * If the supplied value is a valid envelope with a defined {@link StreamEnvelopeHandler},
@@ -181,9 +194,7 @@ type StreamEnvelopeErrorHandler = (reason: string, value: unknown) => unknown;
  */
 export const makeStreamEnvelopeHandler = (
   contentHandlers: StreamEnvelopeContentHandlerBag,
-  errorHandler: StreamEnvelopeErrorHandler = (reason, value) => {
-    throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
-  },
+  errorHandler: StreamEnvelopeErrorHandler = defaultStreamEnvelopeErrorHandler,
 ): StreamEnvelopeHandler => ({
   handle: async (value: unknown) => {
     if (!isStreamEnvelope(value)) {
