@@ -25,8 +25,8 @@ async function main(): Promise<void> {
       command: handleMessage,
       capTp: async (content) => capTp?.dispatch(content),
     },
-    (problem: unknown) => {
-      throw new Error(`[vat IFRAME] ${String(problem)}`);
+    (reason, value) => {
+      throw new Error(`[vat IFRAME] ${reason} ${stringifyResult(value)}`);
     },
   );
 
