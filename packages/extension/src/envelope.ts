@@ -141,7 +141,7 @@ export type StreamEnvelopeHandler = {
  * The stream envelope handler will return the returned value if applied to a
  * well-formed envelope with the corresponding label.
  */
-type ContentHandler<Label extends LabelOf<StreamEnvelope>> = (
+type ContentHandler<Label extends EnvelopeLabel> = (
   content: StreamEnvelopeContent<Label>,
 ) => Promise<unknown>;
 

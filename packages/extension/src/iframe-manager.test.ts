@@ -3,7 +3,7 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { capTpEnveloper, EnvelopeLabel } from './envelope.js';
+import { capTpEnveloper, streamEnveloper } from './envelope.js';
 import { IframeManager } from './iframe-manager.js';
 import type { IframeMessage } from './message.js';
 import { Command } from './message.js';
@@ -143,16 +143,13 @@ describe('IframeManager', () => {
       const postMessage = (i: number): void => {
         port2.postMessage({
           done: false,
-          value: {
-            label: EnvelopeLabel.Command,
-            content: {
-              id: `foo-${i + 1}`,
-              message: {
-                type: Command.Evaluate,
-                data: `${i + 1}`,
-              },
+          value: streamEnveloper.wrapCommand({
+            id: `foo-${i + 1}`,
+            message: {
+              type: Command.Evaluate,
+              data: `${i + 1}`,
             },
-          },
+          }),
         });
       };
 
@@ -235,26 +232,20 @@ describe('IframeManager', () => {
       const id = 'frangooly';
 
       const capTpInit = {
-        query: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: `${id}-1`,
-            message: {
-              data: null,
-              type: 'makeCapTp',
-            },
+        query: streamEnveloper.wrapCommand({
+          id: `${id}-1`,
+          message: {
+            data: null,
+            type: Command.CapTpInit,
           },
-        },
-        response: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: `${id}-1`,
-            message: {
-              type: 'makeCapTp',
-              data: null,
-            },
+        }),
+        response: streamEnveloper.wrapCommand({
+          id: `${id}-1`,
+          message: {
+            type: Command.CapTpInit,
+            data: null,
           },
-        },
+        }),
       };
 
       vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
@@ -309,77 +300,59 @@ describe('IframeManager', () => {
       const id = 'frangooly';
 
       const capTpInit = {
-        query: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: `${id}-1`,
-            message: {
-              data: null,
-              type: 'makeCapTp',
-            },
+        query: streamEnveloper.wrapCommand({
+          id: `${id}-1`,
+          message: {
+            data: null,
+            type: Command.CapTpInit,
           },
-        },
-        response: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: `${id}-1`,
-            message: {
-              type: 'makeCapTp',
-              data: null,
-            },
+        }),
+        response: streamEnveloper.wrapCommand({
+          id: `${id}-1`,
+          message: {
+            type: Command.CapTpInit,
+            data: null,
           },
-        },
+        }),
       };
 
       const greatFrangoolyBootstrap = {
-        query: {
-          label: 'capTp',
-          content: {
-            epoch: 0,
-            questionID: 'q-1',
-            type: 'CTP_BOOTSTRAP',
+        query: streamEnveloper.wrapCapTp({
+          epoch: 0,
+          questionID: 'q-1',
+          type: 'CTP_BOOTSTRAP',
+        }),
+        response: streamEnveloper.wrapCapTp({
+          type: 'CTP_RETURN',
+          epoch: 0,
+          answerID: 'q-1',
+          result: {
+            body: '{"@qclass":"slot","iface":"Alleged: TheGreatFrangooly","index":0}',
+            slots: ['o+1'],
           },
-        },
-        response: {
-          label: 'capTp',
-          content: {
-            type: 'CTP_RETURN',
-            epoch: 0,
-            answerID: 'q-1',
-            result: {
-              body: '{"@qclass":"slot","iface":"Alleged: TheGreatFrangooly","index":0}',
-              slots: ['o+1'],
-            },
-          },
-        },
+        }),
       };
 
       const greatFrangoolyCall = {
-        query: {
-          label: 'capTp',
-          content: {
-            type: 'CTP_CALL',
-            epoch: 0,
-            method: {
-              body: '["whatIsTheGreatFrangooly",[]]',
-              slots: [],
-            },
-            questionID: 'q-2',
-            target: 'o-1',
+        query: streamEnveloper.wrapCapTp({
+          type: 'CTP_CALL',
+          epoch: 0,
+          method: {
+            body: '["whatIsTheGreatFrangooly",[]]',
+            slots: [],
           },
-        },
-        response: {
-          label: 'capTp',
-          content: {
-            type: 'CTP_RETURN',
-            epoch: 0,
-            answerID: 'q-2',
-            result: {
-              body: '"Crowned with Chaos"',
-              slots: [],
-            },
+          questionID: 'q-2',
+          target: 'o-1',
+        }),
+        response: streamEnveloper.wrapCapTp({
+          type: 'CTP_RETURN',
+          epoch: 0,
+          answerID: 'q-2',
+          result: {
+            body: '"Crowned with Chaos"',
+            slots: [],
           },
-        },
+        }),
       };
 
       vi.mocked(snapsUtils.createWindow).mockImplementationOnce(vi.fn());
@@ -471,22 +444,19 @@ describe('IframeManager', () => {
       const message: IframeMessage = { type: Command.Evaluate, data: '2+2' };
       const response: IframeMessage = { type: Command.Evaluate, data: '4' };
 
-      // sendMessage wraps the content in a EnvelopeLabel.Command envelope
+      // sendMessage wraps the content in a Command envelope
       const messagePromise = manager.sendMessage(id, message);
-      const messageId: string | undefined =
+      const messageId: string =
         portPostMessageSpy.mock.lastCall?.[0]?.value?.content?.id;
       expect(messageId).toBeTypeOf('string');
 
       // postMessage sends the json directly, so we have to wrap it in an envelope here
       port2.postMessage({
         done: false,
-        value: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: messageId,
-            message: response,
-          },
-        },
+        value: streamEnveloper.wrapCommand({
+          id: messageId,
+          message: response,
+        }),
       });
 
       // awaiting event loop should resolve the messagePromise
@@ -496,13 +466,10 @@ describe('IframeManager', () => {
       expect(portPostMessageSpy).toHaveBeenCalledOnce();
       expect(portPostMessageSpy).toHaveBeenCalledWith({
         done: false,
-        value: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: messageId,
-            message,
-          },
-        },
+        value: streamEnveloper.wrapCommand({
+          id: messageId,
+          message,
+        }),
       });
     });
 
@@ -553,16 +520,13 @@ describe('IframeManager', () => {
 
       port2.postMessage({
         done: false,
-        value: {
-          label: EnvelopeLabel.Command,
-          content: {
-            id: 'foo',
-            message: {
-              type: Command.Evaluate,
-              data: '"bar"',
-            },
+        value: streamEnveloper.wrapCommand({
+          id: 'foo',
+          message: {
+            type: Command.Evaluate,
+            data: '"bar"',
           },
-        },
+        }),
       });
       await delay(10);
 
