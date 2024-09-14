@@ -52,7 +52,7 @@ const makeEnvelopeKit = <Env extends GenericEnvelope<Env>>(
 ): EnvelopeKit<Env> => {
   const hasLabel = (value: unknown): value is LabeledWith<Env['label']> =>
     isLabeled(value, label);
-  const hasContent = (value: unknown): value is ContainerOf<ContentOf<Env>> =>
+  const hasContent = (value: unknown): value is ContainerOf<Env['content']> =>
     isObject(value) &&
     typeof value.content !== 'undefined' &&
     isContent(value.content);
@@ -61,7 +61,7 @@ const makeEnvelopeKit = <Env extends GenericEnvelope<Env>>(
     sniff: hasLabel,
     check: (value: unknown): value is Env =>
       hasLabel(value) && hasContent(value),
-    wrap: (content: ContentOf<Env>) =>
+    wrap: (content: Env['content']) =>
       ({
         label,
         content,
@@ -108,7 +108,7 @@ export const streamEnveloper = {
 
 export type StreamEnvelope = CommandEnvelope | CapTpEnvelope;
 
-type StreamEnvelopeContent<Label extends LabelOf<StreamEnvelope>> =
+type StreamEnvelopeContent<Label extends StreamEnvelope['label']> =
   Label extends EnvelopeLabel.Command
     ? CommandEnvelope['content']
     : Label extends EnvelopeLabel.CapTp
@@ -126,31 +126,33 @@ export const isStreamEnvelope = (value: unknown): value is StreamEnvelope =>
   Object.values(envelopeKits).some((kit) => kit.check(value));
 
 /**
- * Sniffs envelope labels, applying the label's handler if known,
- * and applying the error handler if the label is not handled or
- * if the content did not meet the envelope's type guard.
+ * A handler for automatically unwrapping stream envelopes and handling their content.
+ *
+ * @property handle - Sniffs an unknown value for envelope labels, applying the label's handler if known, and applying the error handler if the label is not handled or if the content did not pass the envelope's type guard.
+ * @property contentHandlers - The bag of content candlers passed to the maker.
+ * @property errorHandler - The error handler passed to the maker.
  */
 export type StreamEnvelopeHandler = {
   handle: (envelope: StreamEnvelope) => Promise<unknown>;
-  contentHandlers: ContentHandlerBag;
+  contentHandlers: StreamEnvelopeContentHandlerBag;
   errorHandler: StreamEnvelopeErrorHandler;
 };
 
 /**
  * A handler for a specific stream envelope label.
- * The stream envelope handler will return the returned value if applied to a
- * well-formed envelope with the corresponding label.
  */
-type ContentHandler<Label extends EnvelopeLabel> = (
+type StreamEnvelopeContentHandler<Label extends EnvelopeLabel> = (
   content: StreamEnvelopeContent<Label>,
 ) => Promise<unknown>;
 
 /**
- * An object with {@link EnvelopeLabel} keys mapping to an appropriate {@link ContentHandler}.
+ * An object with {@link EnvelopeLabel} keys mapping to an appropriate {@link StreamEnvelopeContentHandler}.
  * If the stream envelope handler encounters a well-formed stream envelope without a defined handler,
  * the envelope will be passed to the {@link ErrorHandler}.
  */
-type ContentHandlerBag = { [Label in EnvelopeLabel]?: ContentHandler<Label> };
+type StreamEnvelopeContentHandlerBag = {
+  [Label in EnvelopeLabel]?: StreamEnvelopeContentHandler<Label>;
+};
 
 /**
  * A handler for stream envelope parsing errors.
@@ -178,7 +180,7 @@ type StreamEnvelopeErrorHandler = (reason: string, value: unknown) => unknown;
  * @returns The stream envelope handler.
  */
 export const makeStreamEnvelopeHandler = (
-  contentHandlers: ContentHandlerBag,
+  contentHandlers: StreamEnvelopeContentHandlerBag,
   errorHandler: StreamEnvelopeErrorHandler = (reason, value) => {
     throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
   },
@@ -206,9 +208,9 @@ export const makeStreamEnvelopeHandler = (
         envelope,
       );
     }
-    return await (handler as ContentHandler<typeof envelope.label>)(
-      kit.unwrap(envelope),
-    );
+    return await (
+      handler as StreamEnvelopeContentHandler<typeof envelope.label>
+    )(kit.unwrap(envelope));
   },
   contentHandlers,
   errorHandler,
