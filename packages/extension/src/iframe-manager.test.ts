@@ -3,7 +3,7 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { capTpEnveloper, streamEnveloper } from './envelope.js';
+import { capTpEnveloper, wrapCommand, wrapCapTp } from './envelope.js';
 import { IframeManager } from './iframe-manager.js';
 import type { IframeMessage } from './message.js';
 import { Command } from './message.js';
@@ -143,7 +143,7 @@ describe('IframeManager', () => {
       const postMessage = (i: number): void => {
         port2.postMessage({
           done: false,
-          value: streamEnveloper.wrapCommand({
+          value: wrapCommand({
             id: `foo-${i + 1}`,
             message: {
               type: Command.Evaluate,
@@ -232,14 +232,14 @@ describe('IframeManager', () => {
       const id = 'frangooly';
 
       const capTpInit = {
-        query: streamEnveloper.wrapCommand({
+        query: wrapCommand({
           id: `${id}-1`,
           message: {
             data: null,
             type: Command.CapTpInit,
           },
         }),
-        response: streamEnveloper.wrapCommand({
+        response: wrapCommand({
           id: `${id}-1`,
           message: {
             type: Command.CapTpInit,
@@ -300,14 +300,14 @@ describe('IframeManager', () => {
       const id = 'frangooly';
 
       const capTpInit = {
-        query: streamEnveloper.wrapCommand({
+        query: wrapCommand({
           id: `${id}-1`,
           message: {
             data: null,
             type: Command.CapTpInit,
           },
         }),
-        response: streamEnveloper.wrapCommand({
+        response: wrapCommand({
           id: `${id}-1`,
           message: {
             type: Command.CapTpInit,
@@ -317,12 +317,12 @@ describe('IframeManager', () => {
       };
 
       const greatFrangoolyBootstrap = {
-        query: streamEnveloper.wrapCapTp({
+        query: wrapCapTp({
           epoch: 0,
           questionID: 'q-1',
           type: 'CTP_BOOTSTRAP',
         }),
-        response: streamEnveloper.wrapCapTp({
+        response: wrapCapTp({
           type: 'CTP_RETURN',
           epoch: 0,
           answerID: 'q-1',
@@ -334,7 +334,7 @@ describe('IframeManager', () => {
       };
 
       const greatFrangoolyCall = {
-        query: streamEnveloper.wrapCapTp({
+        query: wrapCapTp({
           type: 'CTP_CALL',
           epoch: 0,
           method: {
@@ -344,7 +344,7 @@ describe('IframeManager', () => {
           questionID: 'q-2',
           target: 'o-1',
         }),
-        response: streamEnveloper.wrapCapTp({
+        response: wrapCapTp({
           type: 'CTP_RETURN',
           epoch: 0,
           answerID: 'q-2',
@@ -453,7 +453,7 @@ describe('IframeManager', () => {
       // postMessage sends the json directly, so we have to wrap it in an envelope here
       port2.postMessage({
         done: false,
-        value: streamEnveloper.wrapCommand({
+        value: wrapCommand({
           id: messageId,
           message: response,
         }),
@@ -466,7 +466,7 @@ describe('IframeManager', () => {
       expect(portPostMessageSpy).toHaveBeenCalledOnce();
       expect(portPostMessageSpy).toHaveBeenCalledWith({
         done: false,
-        value: streamEnveloper.wrapCommand({
+        value: wrapCommand({
           id: messageId,
           message,
         }),
@@ -520,7 +520,7 @@ describe('IframeManager', () => {
 
       port2.postMessage({
         done: false,
-        value: streamEnveloper.wrapCommand({
+        value: wrapCommand({
           id: 'foo',
           message: {
             type: Command.Evaluate,

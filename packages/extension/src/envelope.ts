@@ -46,7 +46,6 @@ type GenericEnvelope<Envelope> = EnvelopeLike<
 
 type EnvelopeKit<Envelope extends GenericEnvelope<Envelope>> = {
   label: Envelope['label'];
-  sniff: (value: unknown) => value is LabeledWith<Envelope['label']>;
   check: (value: unknown) => value is Envelope;
   wrap: (content: Envelope['content']) => Envelope;
   unwrap: (envelope: Envelope) => Envelope['content'];
@@ -66,7 +65,6 @@ const makeEnvelopeKit = <Envelope extends GenericEnvelope<Envelope>>(
     isContent(value.content);
   return {
     label,
-    sniff: hasLabel,
     check: (value: unknown): value is Envelope =>
       hasLabel(value) && hasContent(value),
     wrap: (content: Envelope['content']) =>
@@ -102,17 +100,8 @@ export const capTpEnveloper = makeEnvelopeKit<CapTpEnvelope>(
   isCapTpMessage,
 );
 
-export const streamEnveloper = {
-  sniffCommand: commandEnveloper.sniff,
-  checkCommand: commandEnveloper.check,
-  wrapCommand: commandEnveloper.wrap,
-  unwrapCommand: commandEnveloper.unwrap,
-
-  sniffCapTp: capTpEnveloper.sniff,
-  checkCapTp: capTpEnveloper.check,
-  wrapCapTp: capTpEnveloper.wrap,
-  unwrapCapTp: capTpEnveloper.unwrap,
-};
+export const wrapCommand = commandEnveloper.wrap;
+export const wrapCapTp = capTpEnveloper.wrap;
 
 export type StreamEnvelope = CommandEnvelope | CapTpEnvelope;
 

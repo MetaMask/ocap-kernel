@@ -4,7 +4,11 @@ import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
 import type { StreamEnvelope } from './envelope.js';
-import { streamEnveloper, makeStreamEnvelopeHandler } from './envelope.js';
+import {
+  wrapCapTp,
+  wrapCommand,
+  makeStreamEnvelopeHandler,
+} from './envelope.js';
 import type {
   CapTpMessage,
   IframeMessage,
@@ -80,9 +84,7 @@ async function main(): Promise<void> {
         capTp = makeCapTP(
           'iframe',
           async (content: unknown) =>
-            streams.writer.next(
-              streamEnveloper.wrapCapTp(content as CapTpMessage),
-            ),
+            streams.writer.next(wrapCapTp(content as CapTpMessage)),
           bootstrap,
         );
         await replyToMessage(id, { type: Command.CapTpInit, data: null });
@@ -109,7 +111,7 @@ async function main(): Promise<void> {
     id: string,
     message: IframeMessage,
   ): Promise<void> {
-    await streams.writer.next(streamEnveloper.wrapCommand({ id, message }));
+    await streams.writer.next(wrapCommand({ id, message }));
   }
 
   /**

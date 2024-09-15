@@ -10,7 +10,11 @@ import {
 } from '@ocap/streams';
 
 import type { StreamEnvelope, StreamEnvelopeHandler } from './envelope.js';
-import { makeStreamEnvelopeHandler, streamEnveloper } from './envelope.js';
+import {
+  makeStreamEnvelopeHandler,
+  wrapCapTp,
+  wrapCommand,
+} from './envelope.js';
 import type {
   CapTpMessage,
   CapTpPayload,
@@ -153,9 +157,7 @@ export class IframeManager {
     const messageId = this.#nextMessageId(id);
 
     vat.unresolvedMessages.set(messageId, { reject, resolve });
-    await vat.streams.writer.next(
-      streamEnveloper.wrapCommand({ id: messageId, message }),
-    );
+    await vat.streams.writer.next(wrapCommand({ id: messageId, message }));
     return promise;
   }
 
@@ -179,7 +181,7 @@ export class IframeManager {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const ctp = makeCapTP(id, async (content: unknown) => {
       console.log('CapTP to vat', JSON.stringify(content, null, 2));
-      await writer.next(streamEnveloper.wrapCapTp(content as CapTpMessage));
+      await writer.next(wrapCapTp(content as CapTpMessage));
     });
 
     vat.capTp = ctp;
