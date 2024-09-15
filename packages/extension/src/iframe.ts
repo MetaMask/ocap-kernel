@@ -3,18 +3,18 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
-import type { StreamEnvelope } from './envelope.js';
-import {
-  wrapCapTp,
-  wrapCommand,
-  makeStreamEnvelopeHandler,
-} from './envelope.js';
 import type {
   CapTpMessage,
   IframeMessage,
   WrappedIframeMessage,
 } from './message.js';
 import { Command } from './message.js';
+import type { StreamEnvelope } from './stream-envelope.js';
+import {
+  wrapCapTp,
+  wrapCommand,
+  makeStreamEnvelopeHandler,
+} from './stream-envelope.js';
 
 const defaultCompartment = new Compartment({ URL });
 

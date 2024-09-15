@@ -3,10 +3,10 @@ import * as snapsUtils from '@metamask/snaps-utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { vi, describe, it, expect } from 'vitest';
 
-import { capTpEnveloper, wrapCommand, wrapCapTp } from './envelope.js';
 import { IframeManager } from './iframe-manager.js';
 import type { IframeMessage } from './message.js';
 import { Command } from './message.js';
+import { wrapCommand, wrapCapTp } from './stream-envelope.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -68,12 +68,17 @@ describe('IframeManager', () => {
 
     it('creates a new iframe with the default getPort function', async () => {
       vi.resetModules();
-      vi.doMock('@ocap/streams', () => ({
-        initializeMessageChannel: vi.fn(),
-        makeMessagePortStreamPair: vi.fn(() => ({ reader: {}, writer: {} })),
-        MessagePortReader: class Mock1 {},
-        MessagePortWriter: class Mock2 {},
-      }));
+      vi.doMock('@ocap/streams', async (importOriginal) => {
+        // @ts-expect-error This import is known to exist, and the linter erases the appropriate assertion.
+        const { makeStreamEnvelopeKit } = await importOriginal();
+        return {
+          initializeMessageChannel: vi.fn(),
+          makeMessagePortStreamPair: vi.fn(() => ({ reader: {}, writer: {} })),
+          MessagePortReader: class Mock1 {},
+          MessagePortWriter: class Mock2 {},
+          makeStreamEnvelopeKit,
+        };
+      });
       const IframeManager2 = (await import('./iframe-manager.js'))
         .IframeManager;
 
@@ -191,7 +196,7 @@ describe('IframeManager', () => {
 
       await manager.create({ id, getPort: makeGetPort(port1) });
 
-      const envelope = capTpEnveloper.wrap({
+      const envelope = wrapCapTp({
         epoch: 0,
         questionID: 'q-1',
         type: 'CTP_BOOTSTRAP',

@@ -9,12 +9,6 @@ import {
   makeMessagePortStreamPair,
 } from '@ocap/streams';
 
-import type { StreamEnvelope, StreamEnvelopeHandler } from './envelope.js';
-import {
-  makeStreamEnvelopeHandler,
-  wrapCapTp,
-  wrapCommand,
-} from './envelope.js';
 import type {
   CapTpMessage,
   CapTpPayload,
@@ -23,6 +17,15 @@ import type {
 } from './message.js';
 import { Command } from './message.js';
 import { makeCounter, type VatId } from './shared.js';
+import {
+  makeStreamEnvelopeHandler,
+  wrapCapTp,
+  wrapCommand,
+} from './stream-envelope.js';
+import type {
+  StreamEnvelope,
+  StreamEnvelopeHandler,
+} from './stream-envelope.js';
 
 const IFRAME_URI = 'iframe.html';
 
