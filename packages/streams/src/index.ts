@@ -8,3 +8,4 @@ export {
   MessagePortReader,
   MessagePortWriter,
 } from './streams.js';
+export { makeStreamEnvelopeKit } from './envelope-kit.js';
