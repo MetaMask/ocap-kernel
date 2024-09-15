@@ -11,7 +11,12 @@ import {
 
 import type { StreamEnvelope, StreamEnvelopeHandler } from './envelope.js';
 import { makeStreamEnvelopeHandler, streamEnveloper } from './envelope.js';
-import type { CapTpPayload, IframeMessage, MessageId } from './message.js';
+import type {
+  CapTpMessage,
+  CapTpPayload,
+  IframeMessage,
+  MessageId,
+} from './message.js';
 import { Command } from './message.js';
 import { makeCounter, type VatId } from './shared.js';
 
@@ -174,7 +179,7 @@ export class IframeManager {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const ctp = makeCapTP(id, async (content: unknown) => {
       console.log('CapTP to vat', JSON.stringify(content, null, 2));
-      await writer.next(streamEnveloper.wrapCapTp(content));
+      await writer.next(streamEnveloper.wrapCapTp(content as CapTpMessage));
     });
 
     vat.capTp = ctp;

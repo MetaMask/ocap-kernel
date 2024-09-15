@@ -5,7 +5,11 @@ import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 
 import type { StreamEnvelope } from './envelope.js';
 import { streamEnveloper, makeStreamEnvelopeHandler } from './envelope.js';
-import type { IframeMessage, WrappedIframeMessage } from './message.js';
+import type {
+  CapTpMessage,
+  IframeMessage,
+  WrappedIframeMessage,
+} from './message.js';
 import { Command } from './message.js';
 
 const defaultCompartment = new Compartment({ URL });
@@ -76,7 +80,9 @@ async function main(): Promise<void> {
         capTp = makeCapTP(
           'iframe',
           async (content: unknown) =>
-            streams.writer.next(streamEnveloper.wrapCapTp(content)),
+            streams.writer.next(
+              streamEnveloper.wrapCapTp(content as CapTpMessage),
+            ),
           bootstrap,
         );
         await replyToMessage(id, { type: Command.CapTpInit, data: null });

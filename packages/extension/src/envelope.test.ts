@@ -7,11 +7,19 @@ import {
   isStreamEnvelope,
   makeStreamEnvelopeHandler,
 } from './envelope.js';
+import type { CapTpMessage, WrappedIframeMessage } from './message.js';
 import { Command } from './message.js';
 
 const contentFixtures = {
-  command: { id: '1', message: { type: Command.Evaluate, data: '1 + 1' } },
-  capTp: { id: '4', message: { type: 'CTP_CALL', epoch: 0 } },
+  command: {
+    id: '1',
+    message: { type: Command.Evaluate, data: '1 + 1' },
+  } as WrappedIframeMessage,
+  capTp: {
+    type: 'CTP_CALL',
+    epoch: 0,
+    unreliableKey: Symbol('unreliableValue'),
+  } as CapTpMessage,
 };
 
 describe('envelope', () => {
@@ -113,7 +121,7 @@ describe('envelope', () => {
       enveloper           | envelope
       ${commandEnveloper} | ${contentFixtures.capTp}
       ${capTpEnveloper}   | ${contentFixtures.command}
-      ${commandEnveloper} | ${capTpEnveloper.wrap(contentFixtures.command)}
+      ${commandEnveloper} | ${capTpEnveloper.wrap(contentFixtures.command as unknown as CapTpMessage)}
     `(
       'throws when $enveloper.label enveloper attempts to unwrap a malformed envelope $envelope',
       ({ enveloper, envelope }) => {

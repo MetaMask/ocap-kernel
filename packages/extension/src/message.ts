@@ -59,5 +59,14 @@ export const isWrappedIframeMessage = (
   typeof value.message.type === 'string' &&
   (typeof value.message.data === 'string' || value.message.data === null);
 
-export type CapTpMessage = unknown;
-export const isCapTpMessage = (value: unknown): value is CapTpMessage => true;
+export type CapTpMessage<Type extends `CTP_${string}` = `CTP_${string}`> = {
+  type: Type;
+  epoch: number;
+  [key: string]: unknown;
+};
+
+export const isCapTpMessage = (value: unknown): value is CapTpMessage =>
+  isObject(value) &&
+  typeof value.type === 'string' &&
+  value.type.startsWith('CTP_') &&
+  typeof value.epoch === 'number';
