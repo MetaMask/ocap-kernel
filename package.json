@@ -76,8 +76,5 @@
       "@lavamoat/preinstall-always-fail": false,
       "vite>esbuild": false
     }
-  },
-  "dependencies": {
-    "@sqlite.org/sqlite-wasm": "^3.46.1-build1"
   }
 }
