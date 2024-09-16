@@ -1,130 +1,28 @@
-import { isObject } from '@metamask/utils';
+import type {
+  StreamEnvelopeContentHandlerBag,
+  StreamEnvelopeErrorHandler,
+  StreamEnvelopeHandler,
+} from './envelope-handler.js';
+import { makeStreamEnvelopeHandler as makeHandler } from './envelope-handler.js';
+import type { StreamEnvelope } from './envelope.js';
+import { isLabeled } from './envelope.js';
+import type {
+  Enveloper,
+  StreamEnveloper,
+  StreamEnveloperGuards,
+} from './enveloper.js';
+import { makeStreamEnveloper } from './enveloper.js';
+import type { TypeMap } from './generics.js';
 
-// Utilitous mapped types.
-
-/**
- * An object type mapping keys to `ValueType`.
- * A type which extends `TypeMap<SpecificKeys, unknown>` can map each key to a different type.
- */
-type TypeMap<Keys extends string, ValueType = unknown> = {
-  [key in Keys]: ValueType;
-};
-
-/**
- * Omit from `ObjectType` all keys without the specified `ValueType`.
- */
-type PickByValue<ObjectType, ValueType> = Pick<
-  ObjectType,
-  {
-    [K in keyof ObjectType]: ObjectType[K] extends ValueType ? K : never;
-  }[keyof ObjectType]
->;
-
-/**
- * The result type of calling `Object.entries` on an object of type `ObjectType`.
- *
- * WARNING: If an object is typed as `ObjectType` but has excess properties,
- * `Entries<typeof object>` will incorrectly omit the entries corresponding to the
- * excess properties. Ensure your assumptions about the object align with typescript's.
- * To be safe, use a type guard or only apply to objects you have declared.
- *
- * See https://www.typescriptlang.org/docs/handbook/2/objects.html#excess-property-checks
- * for a description of excess properties.
- */
-type Entries<ObjectType> = {
-  [K in keyof ObjectType]: [
-    keyof PickByValue<ObjectType, ObjectType[K]>,
-    ObjectType[K],
-  ];
-}[keyof ObjectType][];
-
-// Envelope types and type guards.
-
-type Envelope<Label extends string, Content> = {
-  label: Label;
-  content: Content;
-};
-
-type LabeledWith<Label extends string> = {
-  label: Label;
-  [key: string]: unknown;
-};
-
-const isLabeled = <Label extends string>(
-  value: unknown,
-  label?: Label,
-): value is LabeledWith<Label> =>
-  isObject(value) &&
-  typeof value.label !== 'undefined' &&
-  (label === undefined || value.label === label);
-
-type ContainerOf<Content> = {
-  content: Content;
-  [key: string]: unknown;
-};
-
-// Enveloper.
-
-type Enveloper<Label extends string, Content> = {
-  label: Label;
-  check: (value: unknown) => value is Envelope<Label, Content>;
-  wrap: (content: Content) => Envelope<Label, Content>;
-  unwrap: (envelope: Envelope<Label, Content>) => Content;
-};
-
-const makeEnveloper = <Label extends string, Content>(
-  label: Label,
-  isContent: (value: unknown) => value is Content,
-): Enveloper<Label, Content> => {
-  const hasLabel = (value: unknown): value is LabeledWith<Label> =>
-    isLabeled(value, label);
-  const hasContent = (value: unknown): value is ContainerOf<Content> =>
-    isObject(value) &&
-    typeof value.content !== 'undefined' &&
-    isContent(value.content);
-  return {
-    label,
-    check: (value: unknown): value is Envelope<Label, Content> =>
-      hasLabel(value) && hasContent(value),
-    wrap: (content: Content) =>
-      ({
-        label,
-        content,
-      } as Envelope<Label, Content>),
-    unwrap: (envelope: Envelope<Label, Content>): Content => {
-      if (!hasLabel(envelope)) {
-        throw new Error(
-          // @ts-expect-error The type of `envelope` is `never`, but this could happen at runtime.
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Expected envelope labelled "${label}" but got "${envelope.label}".`,
-        );
-      }
-      return envelope.content;
-    },
-  };
-};
-
-// Stream envelope kit.
-
-type StreamEnvelopeKitGuards<
+export type MakeStreamEnvelopeHandler<
   Labels extends readonly string[],
   ContentMap extends TypeMap<Labels[number]>,
-> = {
-  [K in Labels[number]]: (value: unknown) => value is ContentMap[K];
-};
+> = (
+  contentHandlers: StreamEnvelopeContentHandlerBag<Labels, ContentMap>,
+  errorHandler?: StreamEnvelopeErrorHandler,
+) => StreamEnvelopeHandler<Labels, ContentMap>;
 
-type StreamEnveloper<
-  Labels extends readonly string[],
-  ContentMap extends TypeMap<Labels[number]>,
-> = {
-  [K in Labels[number]]: Enveloper<K, ContentMap[K]>;
-};
-
-type StreamEnvelope<Label extends string, ContentMap extends TypeMap<Label>> = {
-  [K in Label]: Envelope<K, ContentMap[K]>;
-}[Label];
-
-type StreamEnvelopeKit<
+export type StreamEnvelopeKit<
   Labels extends readonly string[],
   ContentMap extends TypeMap<Labels[number]>,
 > = {
@@ -132,6 +30,7 @@ type StreamEnvelopeKit<
   isStreamEnvelope: (
     value: unknown,
   ) => value is StreamEnvelope<Labels[number], ContentMap>;
+  makeStreamEnvelopeHandler: MakeStreamEnvelopeHandler<Labels, ContentMap>;
 };
 
 /**
@@ -148,28 +47,49 @@ export const makeStreamEnvelopeKit = <
   Labels extends string[],
   ContentMap extends TypeMap<Labels[number]>,
 >(
-  guards: StreamEnvelopeKitGuards<Labels, ContentMap>,
+  guards: StreamEnveloperGuards<Labels, ContentMap>,
 ): StreamEnvelopeKit<Labels, ContentMap> => {
-  const entries = Object.entries(guards) as Entries<
-    StreamEnvelopeKitGuards<Labels, ContentMap>
-  >;
-  const streamEnveloper = Object.fromEntries(
-    entries.map(([label, isContent]) => [
-      label,
-      makeEnveloper(label, isContent),
-    ]),
-  );
+  const streamEnveloper = makeStreamEnveloper(guards);
+  const isStreamEnvelope = (
+    value: unknown,
+  ): value is StreamEnvelope<Labels[number], ContentMap> =>
+    isLabeled(value) &&
+    (
+      Object.values(streamEnveloper) as Enveloper<Labels[number], unknown>[]
+    ).some((enveloper) => enveloper.check(value));
+
+  /**
+   * Makes a {@link StreamEnvelopeHandler} which handles an unknown value.
+   *
+   * If the supplied value is a valid envelope with a defined {@link StreamEnvelopeHandler},
+   * the stream envelope handler will return whatever the defined handler returns.
+   *
+   * If the stream envelope handler is passed a well-formed stream envelope without a defined handler,
+   * an explanation and the envelope will be passed to the supplied {@link StreamEnvelopeErrorHandler}.
+   *
+   * If the stream envelope handler encounters an error while parsing the supplied value,
+   * it will pass the reason and value to the supplied {@link StreamEnvelopeErrorHandler}.
+   *
+   * If no error handler is supplied, the default error handling behavior is to throw.
+   *
+   * @param contentHandlers - A bag of async content handlers labeled with the {@link EnvelopeLabel} they handle.
+   * @param errorHandler - An optional synchronous error handler.
+   * @returns The stream envelope handler.
+   */
+  const makeStreamEnvelopeHandler = (
+    contentHandlers: StreamEnvelopeContentHandlerBag<Labels, ContentMap>,
+    errorHandler?: StreamEnvelopeErrorHandler,
+  ): StreamEnvelopeHandler<Labels, ContentMap> =>
+    makeHandler(
+      streamEnveloper,
+      isStreamEnvelope,
+      contentHandlers,
+      errorHandler,
+    );
+
   return {
-    streamEnveloper: streamEnveloper as unknown as StreamEnveloper<
-      Labels,
-      ContentMap
-    >,
-    isStreamEnvelope: (
-      value: unknown,
-    ): value is StreamEnvelope<Labels[number], ContentMap> =>
-      isLabeled(value) &&
-      Object.values(streamEnveloper).some((enveloper) =>
-        enveloper.check(value),
-      ),
+    streamEnveloper,
+    isStreamEnvelope,
+    makeStreamEnvelopeHandler,
   };
 };

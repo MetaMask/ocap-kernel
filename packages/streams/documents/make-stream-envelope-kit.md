@@ -63,7 +63,9 @@ export const myStreamEnvelopeKit = makeStreamEnvelopeKit<
 });
 ```
 
-### Example use
+### Enveloper use
+
+The low level enveloping functionality is available via the included `streamEnveloper` and `isStreamEnvelope`.
 
 ```ts
 // Destructure your new envelope kit.
@@ -79,5 +81,46 @@ const envelope = streamEnveloper.foo.wrap({
 if (isStreamEnvelope(envelope)) {
   // ~~~ Unwrap your envelope right away! ~~~
   const content = streamEnveloper[envelope.label].unwrap(envelope);
+}
+```
+
+### Handler use
+
+If you know in advance how you plan to handle with your envelopes, you can let a `StreamEnvelopeHandler` do the checking and unwrapping for you.
+
+```ts
+// Destructure the maker from the kit.
+const { makeStreamEnvelopeHandler } = myStreamEnvelopeKit;
+
+// Declare how you want your envelope labels handled.
+const streamEnvelopeHandler = makeStreamEnvelopeHandler(
+  {
+    // The content type is automatically inferred in the declaration.
+    foo: async (content) => {
+      await delay(content.a);
+      return content.b;
+    },
+    bar: async (content) => (content.c ? 'yes' : 'no'),
+  },
+  // The optional errorHandler can throw or return.
+  // If unspecified, the default behavior is to throw.
+  (reason, value) => {
+    if (reason.match(/unexpected value/u)) {
+      throw new Error(`[myStreamError] ${reason}`);
+    }
+    return ['[myStreamWarning]', reason, value];
+  },
+);
+
+// Read messages from an @ocap/streams Reader.
+for await (const newMessage of myStreamReader) {
+  // And handle the message.
+  await streamEnvelopeHandler
+    .handle(newMessage)
+    // If the errorHandler throws, you can catch it here.
+    .catch(console.error)
+    // Otherwise, the promise resolves to the value returned by
+    // its appropriate content handler, or by the errorHandler.
+    .then(console.log);
 }
 ```
