@@ -102,10 +102,9 @@ describe('makeStreamEnvelopeKit', () => {
 
       /* eslint-disable @typescript-eslint/no-unused-expressions */
       // eslint-disable-next-line vitest/expect-expect
-      it.each`
-        envelope
-        ${null}
-      `('provides proper typescript inferences', ({ envelope }) => {
+      it('provides proper typescript inferences', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const envelope: any = null;
         // eslint-disable-next-line vitest/no-conditional-in-test
         if (streamEnveloper.foo.check(envelope)) {
           inferNumber(envelope.content.a);
@@ -205,10 +204,9 @@ describe('makeStreamEnvelopeKit', () => {
 
       /* eslint-disable @typescript-eslint/no-unused-expressions */
       // eslint-disable-next-line vitest/expect-expect
-      it.each`
-        envelope
-        ${null}
-      `('provides proper typescript inferences', ({ envelope }) => {
+      it('provides proper typescript inferences', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const envelope: any = null;
         try {
           const content = streamEnveloper.foo.unwrap(envelope);
 
@@ -245,10 +243,9 @@ describe('makeStreamEnvelopeKit', () => {
 
       /* eslint-disable @typescript-eslint/no-unused-expressions */
       // eslint-disable-next-line vitest/expect-expect
-      it.each`
-        fooEnveloper
-        ${streamEnveloper.foo}
-      `('provides proper typescript inferences', ({ fooEnveloper }) => {
+      it('provides proper typescript inferences', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fooEnveloper: any = streamEnveloper.foo;
         const inferFooEnveloper = (
           enveloper: typeof streamEnveloper.foo,
         ): unknown => enveloper;
@@ -303,10 +300,9 @@ describe('makeStreamEnvelopeKit', () => {
 
     /* eslint-disable @typescript-eslint/no-unused-expressions */
     // eslint-disable-next-line vitest/expect-expect
-    it.each`
-      value
-      ${null}
-    `('provides proper typescript inferences', ({ value }) => {
+    it('provides proper typescript inferences', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const value: any = null;
       // eslint-disable-next-line vitest/no-conditional-in-test
       if (isStreamEnvelope(value)) {
         switch (value.label) {
