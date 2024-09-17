@@ -76,3 +76,7 @@ node_modules/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Diagnostic files
+/packages/*/types.d.ts
+/packages/*/types.d.ts.map

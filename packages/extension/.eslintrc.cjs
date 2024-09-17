@@ -1,6 +1,8 @@
 module.exports = {
   extends: ['../../.eslintrc.cjs'],
 
+  ignorePatterns: ['types.d.ts'],
+
   overrides: [
     {
       files: ['src/**/*.ts'],

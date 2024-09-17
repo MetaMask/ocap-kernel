@@ -12,3 +12,6 @@ ignores:
   - 'rimraf'
   - 'typedoc'
   - '@types/lodash'
+
+ignore-patterns:
+  - /types.d.ts

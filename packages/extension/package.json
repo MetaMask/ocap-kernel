@@ -14,6 +14,7 @@
   "scripts": {
     "build": "yarn lint:types && yarn build:vite",
     "build:dev": "yarn lint:types && yarn build:vite:dev",
+    "build:types": "tsc --project tsconfig.build.json --noEmit false --emitDeclarationOnly --outFile types.d.ts",
     "build:vite": "vite build --config vite.config.ts",
     "build:vite:dev": "yarn build:vite --mode development",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",

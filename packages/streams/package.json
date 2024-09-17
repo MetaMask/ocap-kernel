@@ -31,6 +31,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
+    "build:types": "tsc --project tsconfig.build.json --noEmit false --emitDeclarationOnly --outFile types.d.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh streams",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
