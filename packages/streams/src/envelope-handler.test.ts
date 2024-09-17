@@ -7,7 +7,7 @@ import {
   isStreamEnvelope,
   Label,
   streamEnveloper,
-} from './envelope-test-fixtures.js';
+} from '../test/envelope-kit-fixtures.js';
 
 describe('StreamEnvelopeHandler', () => {
   const testEnvelopeHandlers = {

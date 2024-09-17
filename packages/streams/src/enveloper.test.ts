@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { barContent, fooContent, inferBoolean, inferNumber, inferString, Label, streamEnveloper } from './envelope-test-fixtures.js';
+
+import {
+  barContent,
+  fooContent,
+  Label,
+  streamEnveloper,
+} from '../test/envelope-kit-fixtures.js';
 
 describe('StreamEnveloper', () => {
   describe('check', () => {
@@ -36,66 +42,9 @@ describe('StreamEnveloper', () => {
       ${streamEnveloper.foo} | ${{ id: '0xcafebeef' }}
       ${streamEnveloper.foo} | ${{ label: 'foo', content: barContent }}
       ${streamEnveloper.bar} | ${{ label: 'Bar', content: barContent }}
-    `(
-      'returns false for invalid envelopes: $value',
-      ({ enveloper, value }) => {
-        expect(enveloper.check(value)).toBe(false);
-      },
-    );
-
-    /* eslint-disable @typescript-eslint/no-unused-expressions */
-    // eslint-disable-next-line vitest/expect-expect
-    it('provides proper typescript inferences', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const envelope: any = null;
-      // eslint-disable-next-line vitest/no-conditional-in-test
-      if (streamEnveloper.foo.check(envelope)) {
-        inferNumber(envelope.content.a);
-        // @ts-expect-error a is not a string
-        inferString(envelope.content.a);
-        // @ts-expect-error b is not a number
-        inferNumber(envelope.content.b);
-        inferString(envelope.content.b);
-        // @ts-expect-error c is not defined
-        envelope.content.c;
-        switch (envelope.label) {
-          case Label.Foo:
-            expect(envelope.label).toMatch(Label.Foo);
-            break;
-          // @ts-expect-error label is Label.Foo
-          case Label.Bar: // unreachable
-            // @ts-expect-error label is inferred to be never
-            envelope.label.length;
-            break;
-          default: // unreachable
-            // @ts-expect-error label is inferred to be never
-            envelope.label.length;
-        }
-      }
-
-      // eslint-disable-next-line vitest/no-conditional-in-test
-      if (streamEnveloper.bar.check(envelope)) {
-        // @ts-expect-error a is not defined
-        envelope.content.a;
-        // @ts-expect-error b is not defined
-        envelope.content.b;
-        inferBoolean(envelope.content.c);
-        switch (envelope.label) {
-          // @ts-expect-error label is Label.Bar
-          case Label.Foo: // unreachable
-            // @ts-expect-error label is inferred to be never
-            envelope.label.length;
-            break;
-          case Label.Bar:
-            expect(envelope.label).toMatch(Label.Bar);
-            break;
-          default: // unreachable
-            // @ts-expect-error label is inferred to be never
-            envelope.label.length;
-        }
-      }
+    `('returns false for invalid envelopes: $value', ({ enveloper, value }) => {
+      expect(enveloper.check(value)).toBe(false);
     });
-    /* eslint-enable @typescript-eslint/no-unused-expressions */
   });
 
   describe('wrap', () => {
@@ -111,16 +60,6 @@ describe('StreamEnveloper', () => {
         );
       },
     );
-
-    // eslint-disable-next-line vitest/expect-expect
-    it('provides proper typescript inferences', () => {
-      streamEnveloper.foo.wrap(fooContent);
-      // @ts-expect-error foo rejects barContent
-      streamEnveloper.foo.wrap(barContent);
-      // @ts-expect-error bar rejects fooContent
-      streamEnveloper.bar.wrap(fooContent);
-      streamEnveloper.bar.wrap(barContent);
-    });
   });
 
   describe('unwrap', () => {
@@ -136,35 +75,6 @@ describe('StreamEnveloper', () => {
         );
       },
     );
-
-    /* eslint-disable @typescript-eslint/no-unused-expressions */
-    // eslint-disable-next-line vitest/expect-expect
-    it('provides proper typescript inferences', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const envelope: any = null;
-      try {
-        const content = streamEnveloper.foo.unwrap(envelope);
-
-        inferNumber(content.a);
-        // @ts-expect-error a is not a string
-        inferString(content.a);
-        // @ts-expect-error b is not a number
-        inferNumber(content.b);
-        inferString(content.b);
-        // @ts-expect-error c is undefined
-        content.c;
-      } catch {
-        undefined;
-      }
-
-      try {
-        // @ts-expect-error envelope was already inferred to be Envelope<Label.Foo, Foo>
-        content = streamEnveloper.bar.unwrap(envelope);
-      } catch {
-        undefined;
-      }
-    });
-    /* eslint-enable @typescript-eslint/no-unused-expressions */
   });
 
   describe('label', () => {
@@ -175,38 +85,5 @@ describe('StreamEnveloper', () => {
     `('has the right label: $label', ({ enveloper, label }) => {
       expect(enveloper.label).toBe(label);
     });
-
-    /* eslint-disable @typescript-eslint/no-unused-expressions */
-    // eslint-disable-next-line vitest/expect-expect
-    it('provides proper typescript inferences', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fooEnveloper: any = streamEnveloper.foo;
-      const inferFooEnveloper = (
-        enveloper: typeof streamEnveloper.foo,
-      ): unknown => enveloper;
-      const inferBarEnveloper = (
-        enveloper: typeof streamEnveloper.bar,
-      ): unknown => enveloper;
-
-      type Enveloper = (typeof streamEnveloper)[keyof typeof streamEnveloper];
-      const ambiguousEnveloper = fooEnveloper as Enveloper;
-
-      switch (ambiguousEnveloper.label) {
-        case Label.Foo:
-          inferFooEnveloper(ambiguousEnveloper);
-          // @ts-expect-error label = Label.Foo implies ambiguousEnveloper is a FooEnveloper
-          inferBarEnveloper(ambiguousEnveloper);
-          break;
-        case Label.Bar:
-          // @ts-expect-error label = Label.Bar implies ambiguousEnveloper is a BarEnveloper
-          inferFooEnveloper(ambiguousEnveloper);
-          inferBarEnveloper(ambiguousEnveloper);
-          break;
-        default: // unreachable
-          // @ts-expect-error label options are exhausted
-          ambiguousEnveloper.label;
-      }
-    });
-    /* eslint-enable @typescript-eslint/no-unused-expressions */
   });
 });

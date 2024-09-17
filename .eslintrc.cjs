@@ -165,5 +165,21 @@ module.exports = {
         ],
       },
     },
+
+    {
+      // Rules for writing tests of typescript inference behavior.
+      // Mostly inherits rules for `files: ['**/*.test.{ts,js}']`.
+      files: ['**/*.types.test.ts'],
+      rules: {
+        // An explicit any type is useful for testing type narrowing.
+        '@typescript-eslint/no-explicit-any': 'off',
+        // Merely expressing an object is enough to invoke type inference.
+        '@typescript-eslint/no-unused-expressions': 'off',
+        // These sorts of tests don't generally need to run, only compile.
+        'vitest/expect-expect': 'off',
+        // Useful for `if (typeGuard(object))` statements.
+        'vitest/no-conditional-in-test': 'off',
+      },
+    },
   ],
 };

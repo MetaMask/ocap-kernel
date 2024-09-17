@@ -1,6 +1,6 @@
 import { isObject } from '@metamask/utils';
 
-import { makeStreamEnvelopeKit } from './envelope-kit.js';
+import { makeStreamEnvelopeKit } from '../src/envelope-kit.js';
 
 export type Foo = {
   a: number;
@@ -32,8 +32,3 @@ export const { streamEnveloper, isStreamEnvelope, makeStreamEnvelopeHandler } =
 
 export const fooContent: Foo = { a: 0, b: 's' };
 export const barContent: Bar = { c: false };
-
-/* v8 ignore next 3: These are type assertions used in other tests. */
-export const inferNumber = (value: number): number => value;
-export const inferString = (value: string): string => value;
-export const inferBoolean = (value: boolean): boolean => value;

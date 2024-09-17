@@ -6,5 +6,5 @@
     "types": ["ses", "vitest", "vitest/jsdom"]
   },
   "references": [{ "path": "../test-utils" }],
-  "include": ["./src"]
+  "include": ["./src", "test/envelope-kit-fixtures.ts"]
 }
