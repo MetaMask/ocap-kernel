@@ -12,8 +12,8 @@
     "dist/"
   ],
   "scripts": {
-    "build": "yarn lint:types && yarn build:vite",
-    "build:dev": "yarn lint:types && yarn build:vite:dev",
+    "build": "yarn build:vite",
+    "build:dev": "yarn build:vite:dev",
     "build:vite": "vite build --config vite.config.ts",
     "build:vite:dev": "yarn build:vite --mode development",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
@@ -23,7 +23,6 @@
     "lint:eslint": "eslint . --cache --ext js,mjs,cjs,ts,mts,cts",
     "lint:fix": "yarn constraints --fix && yarn lint:eslint --fix && yarn lint:misc --write",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
-    "lint:types": "tsc --project tsconfig.build.json",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
     "test": "vitest run --config vitest.config.ts",
