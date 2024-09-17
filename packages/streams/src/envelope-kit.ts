@@ -12,7 +12,7 @@ import type {
   StreamEnveloperGuards,
 } from './enveloper.js';
 import { makeStreamEnveloper } from './enveloper.js';
-import type { TypeMap } from './generics.js';
+import type { TypeMap } from './utils/generics.js';
 
 export type MakeStreamEnvelopeHandler<
   Labels extends readonly string[],

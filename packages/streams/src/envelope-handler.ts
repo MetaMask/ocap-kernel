@@ -1,6 +1,6 @@
 import type { StreamEnvelope } from './envelope.js';
 import type { StreamEnveloper } from './enveloper.js';
-import type { TypeMap } from './generics.js';
+import type { TypeMap } from './utils/generics.js';
 
 /**
  * A handler for automatically unwrapping stream envelopes and handling their content.

@@ -2,7 +2,7 @@
 
 import { isObject } from '@metamask/utils';
 
-import type { TypeMap } from './generics.js';
+import type { TypeMap } from './utils/generics.js';
 
 export type Envelope<Label extends string, Content> = {
   label: Label;

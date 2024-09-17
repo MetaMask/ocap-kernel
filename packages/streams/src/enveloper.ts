@@ -4,7 +4,7 @@ import { isObject } from '@metamask/utils';
 
 import type { ContainerOf, Envelope, LabeledWith } from './envelope.js';
 import { isLabeled } from './envelope.js';
-import type { Entries, TypeMap } from './generics.js';
+import type { Entries, TypeMap } from './utils/generics.js';
 
 export type Enveloper<Label extends string, Content> = {
   label: Label;
