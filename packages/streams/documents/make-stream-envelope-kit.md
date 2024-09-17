@@ -19,14 +19,12 @@ Due to a [typescript limitation](https://github.com/microsoft/TypeScript/issues/
 ```ts
 import { makeStreamEnvelopeKit } from '@ocap/streams';
 
-// Import or declare the content types.
-import type { FooContent } from './foo.js';
-/*
+// Declare the content types.
 type FooContent = {
   a: number;
   b: string;
 };
-*/
+
 type BarContent = {
   c: boolean;
 };
