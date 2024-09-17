@@ -3,6 +3,7 @@
 
 import path from 'path';
 import { defineConfig } from 'vite';
+import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude';
@@ -57,12 +58,14 @@ export default defineConfig(({ mode }) => ({
 
   plugins: [
     htmlTrustedPrelude(),
-    viteStaticCopy({
-      targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
-      watch: { reloadPageOnChange: true },
-    }),
     jsTrustedPrelude({
       trustedPreludes: jsTrustedPreludes,
     }),
+    viteStaticCopy({
+      targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
+      watch: { reloadPageOnChange: true },
+      silent: mode === 'development',
+    }),
+    viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
   ],
 }));
