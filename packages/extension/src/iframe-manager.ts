@@ -188,16 +188,10 @@ export class IframeManager {
     });
 
     vat.capTp = ctp;
-    vat.streamEnvelopeHandler = makeStreamEnvelopeHandler(
-      {
-        ...vat.streamEnvelopeHandler.contentHandlers,
-        capTp: async (content) => {
-          console.log('CapTP from vat', JSON.stringify(content, null, 2));
-          ctp.dispatch(content);
-        },
-      },
-      vat.streamEnvelopeHandler.errorHandler,
-    );
+    vat.streamEnvelopeHandler.contentHandlers.capTp = async (content) => {
+      console.log('CapTP from vat', JSON.stringify(content, null, 2));
+      ctp.dispatch(content);
+    };
 
     return this.sendMessage(id, { type: Command.CapTpInit, data: null });
   }
