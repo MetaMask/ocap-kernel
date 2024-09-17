@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
-import {
-  barContent,
-  fooContent,
-  inferBoolean,
-  inferNumber,
-  inferString,
-  Label,
-  streamEnveloper,
-} from './envelope-test-fixtures.js';
+import { barContent, fooContent, inferBoolean, inferNumber, inferString, Label, streamEnveloper } from './envelope-test-fixtures.js';
 
 describe('StreamEnveloper', () => {
   describe('check', () => {
@@ -45,9 +36,12 @@ describe('StreamEnveloper', () => {
       ${streamEnveloper.foo} | ${{ id: '0xcafebeef' }}
       ${streamEnveloper.foo} | ${{ label: 'foo', content: barContent }}
       ${streamEnveloper.bar} | ${{ label: 'Bar', content: barContent }}
-    `('returns false for invalid envelopes: $value', ({ enveloper, value }) => {
-      expect(enveloper.check(value)).toBe(false);
-    });
+    `(
+      'returns false for invalid envelopes: $value',
+      ({ enveloper, value }) => {
+        expect(enveloper.check(value)).toBe(false);
+      },
+    );
 
     /* eslint-disable @typescript-eslint/no-unused-expressions */
     // eslint-disable-next-line vitest/expect-expect
@@ -71,15 +65,11 @@ describe('StreamEnveloper', () => {
           // @ts-expect-error label is Label.Foo
           case Label.Bar: // unreachable
             // @ts-expect-error label is inferred to be never
-            expect(envelope.label.concat('')).toMatch(
-              'This test line should be unreachable.',
-            );
+            envelope.label.length;
             break;
           default: // unreachable
             // @ts-expect-error label is inferred to be never
-            expect(envelope.label.concat('')).toMatch(
-              'This test line should be unreachable.',
-            );
+            envelope.label.length;
         }
       }
 
@@ -94,18 +84,14 @@ describe('StreamEnveloper', () => {
           // @ts-expect-error label is Label.Bar
           case Label.Foo: // unreachable
             // @ts-expect-error label is inferred to be never
-            expect(envelope.label.concat('')).toMatch(
-              'This test line should be unreachable.',
-            );
+            envelope.label.length;
             break;
           case Label.Bar:
             expect(envelope.label).toMatch(Label.Bar);
             break;
           default: // unreachable
             // @ts-expect-error label is inferred to be never
-            expect(envelope.label.concat('')).toMatch(
-              'This test line should be unreachable.',
-            );
+            envelope.label.length;
         }
       }
     });
