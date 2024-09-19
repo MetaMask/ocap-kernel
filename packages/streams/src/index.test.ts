@@ -6,9 +6,10 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
       expect.arrayContaining([
+        'makeConnectionStreamPair',
         'makeMessagePortStreamPair',
-        'MessagePortReader',
-        'MessagePortWriter',
+        'makeMessagePortReader',
+        'makeMessagePortWriter',
         'initializeMessageChannel',
         'receiveMessagePort',
       ]),

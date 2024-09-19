@@ -19,10 +19,46 @@
  */
 
 import { makePromiseKit } from '@endo/promise-kit';
-import type { Reader, Writer } from '@endo/stream';
+import type { Reader as EndoReader, Writer as EndoWriter } from '@endo/stream';
 import { hasProperty, isObject } from '@metamask/utils';
 
+import { makeDoneKit, makeDoneResult } from './done-kit.js';
+
+abstract class Reader<Yield> implements EndoReader<Yield> {
+  abstract next(): Promise<IteratorResult<Yield>>;
+
+  abstract return(): Promise<IteratorResult<Yield>>;
+
+  abstract throw(error: Error): Promise<IteratorResult<Yield>>;
+
+  abstract [Symbol.asyncIterator](): Reader<Yield>;
+}
+
+abstract class Writer<Yield> implements EndoWriter<Yield> {
+  abstract next(value: Yield): Promise<IteratorResult<undefined>>;
+
+  abstract return(): Promise<IteratorResult<undefined>>;
+
+  abstract throw(error: Error): Promise<IteratorResult<undefined>>;
+
+  abstract [Symbol.asyncIterator](): Writer<Yield>;
+}
+
 export type { Reader, Writer };
+
+export const isStream = (
+  value: unknown,
+): value is Reader<unknown> | Writer<unknown> =>
+  isObject(value) &&
+  typeof value.next === 'function' &&
+  typeof value.return === 'function' &&
+  typeof value.throw === 'function';
+
+export type ReaderMessage<Yield> = IteratorResult<Yield, undefined> & {
+  data: any;
+};
+
+export type WriterMessage<Yield> = IteratorResult<Yield, undefined> | Error;
 
 type PromiseCallbacks = {
   resolve: (value: unknown) => void;
@@ -36,61 +72,82 @@ const isIteratorResult = (
   (!hasProperty(value, 'done') || typeof value.done === 'boolean') &&
   hasProperty(value, 'value');
 
-export const makeDoneResult = (): { done: true; value: undefined } => ({
-  done: true,
-  value: undefined,
+export type Connection<Incoming, Outgoing> = {
+  open: () => Promise<void>;
+  sendMessage: (message: Outgoing) => Promise<void>;
+  setMessageHandler: (handler: (message: Incoming) => void) => void;
+  close: () => Promise<void>;
+};
+
+const makeMessagePortConnection = <Read, Write>(
+  port: MessagePort,
+): Connection<ReaderMessage<Read>, WriterMessage<Write>> => ({
+  open: async () => {},
+  sendMessage: async (message: any) => port.postMessage(message),
+  setMessageHandler: (handler: (message: any) => void) => {
+    port.onmessage = handler;
+  },
+  close: async () => {
+    port.close();
+    port.onmessage = null;
+  },
 });
 
 /**
- * A readable stream over a {@link MessagePort}.
+ * Make a readable stream over a {@link Connection}.
  *
- * This class is a naive passthrough mechanism for data over a pair of linked message
- * ports. Expects exclusive access to its port.
+ * This class is a naive passthrough mechanism for data over a connection.
+ * Expects exclusive access to the connection.
  *
+ * @param connection
  * @see
- * - {@link MessagePortWriter} for the corresponding writable stream.
+ * - {@link makeConnectionWriter} for the corresponding writable stream maker.
  * - The module-level documentation for more details.
  */
-export class MessagePortReader<Yield> implements Reader<Yield> {
-  #isDone: boolean;
-
-  readonly #port: MessagePort;
-
+export const makeConnectionReader = <Yield>(
+  connection: Connection<ReaderMessage<Yield>, any>,
+): Reader<Yield> => {
   /**
    * For buffering messages to manage backpressure, i.e. the input rate exceeding the
    * read rate.
    */
-  #messageQueue: MessageEvent<IteratorResult<unknown, unknown>>[];
+  let messageQueue: ReaderMessage<Yield>[] = [];
 
   /**
    * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
    */
-  readonly #readQueue: PromiseCallbacks[];
+  const readQueue: PromiseCallbacks[] = [];
 
-  constructor(port: MessagePort) {
-    this.#isDone = false;
-    this.#port = port;
-    this.#messageQueue = [];
-    this.#readQueue = [];
+  const { setDone, doIfNotDone, returnIfNotDone } = makeDoneKit(async () => {
+    // free references held in queues
+    messageQueue = [];
+    await connection.close();
+  });
 
-    // Assigning to the `onmessage` property initializes the port's message queue.
-    // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
-    this.#port.onmessage = this.#handleMessage.bind(this);
-    harden(this);
-  }
+  const doThrow = (error: Error): void => {
+    while (readQueue.length > 0) {
+      const { reject } = readQueue.shift() as PromiseCallbacks;
+      reject(error);
+    }
+    setDone();
+  };
 
-  [Symbol.asyncIterator](): MessagePortReader<Yield> {
-    return this;
-  }
+  const doReturn = (): void => {
+    while (readQueue.length > 0) {
+      const { resolve } = readQueue.shift() as PromiseCallbacks;
+      resolve(makeDoneResult());
+    }
+    setDone();
+  };
 
-  #handleMessage(message: MessageEvent): void {
+  connection.setMessageHandler((message: ReaderMessage<Yield>): void => {
     if (message.data instanceof Error) {
-      this.#throw(message.data);
+      doThrow(message.data);
       return;
     }
 
     if (!isIteratorResult(message.data)) {
-      this.#throw(
+      doThrow(
         new Error(
           `Received unexpected message via message port:\n${JSON.stringify(
             message.data,
@@ -103,174 +160,74 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
     }
 
     if (message.data.done === true) {
-      this.#return();
+      doReturn();
       return;
     }
 
-    if (this.#readQueue.length > 0) {
-      const { resolve } = this.#readQueue.shift() as PromiseCallbacks;
+    if (readQueue.length > 0) {
+      const { resolve } = readQueue.shift() as PromiseCallbacks;
       resolve({ ...message.data });
     } else {
-      this.#messageQueue.push(message);
+      messageQueue.push(message);
     }
-  }
+  });
 
-  /**
-   * Reads the next message from the port.
-   *
-   * @returns The next message from the port.
-   */
-  async next(): Promise<IteratorResult<Yield, undefined>> {
-    if (this.#isDone) {
-      return makeDoneResult();
-    }
+  const reader: Reader<Yield> = {
+    [Symbol.asyncIterator]: () => reader,
 
-    const { promise, resolve, reject } = makePromiseKit();
-    if (this.#messageQueue.length > 0) {
-      const message = this.#messageQueue.shift() as MessageEvent<
-        IteratorResult<unknown, unknown>
-      >;
-      resolve({ ...message.data });
-    } else {
-      this.#readQueue.push({ resolve, reject });
-    }
-    return promise as Promise<IteratorResult<Yield, undefined>>;
-  }
+    /**
+     * Reads the next message from the connection.
+     *
+     * @returns The next message from the connection.
+     */
+    next: returnIfNotDone(async () => {
+      const { promise, resolve, reject } = makePromiseKit();
+      if (messageQueue.length > 0) {
+        const message = messageQueue.shift() as ReaderMessage<Yield>;
+        resolve({ ...message.data });
+      } else {
+        readQueue.push({ resolve, reject });
+      }
+      return promise as Promise<IteratorResult<Yield, undefined>>;
+    }),
 
-  /**
-   * Closes the underlying port and returns. Any unread messages will be lost.
-   *
-   * @returns The final result for this stream.
-   */
-  async return(): Promise<IteratorResult<Yield, undefined>> {
-    if (!this.#isDone) {
-      this.#return();
-    }
-    return makeDoneResult();
-  }
+    /**
+     * Closes the underlying port and returns. Any unread messages will be lost.
+     *
+     * @returns The final result for this stream.
+     */
+    return: doIfNotDone(doReturn),
 
-  #return(): void {
-    while (this.#readQueue.length > 0) {
-      const { resolve } = this.#readQueue.shift() as PromiseCallbacks;
-      resolve(makeDoneResult());
-    }
-    this.#end();
-  }
+    /**
+     * Rejects all pending reads with the specified error, closes the underlying port,
+     * and returns.
+     *
+     * @param error - The error to reject pending reads with.
+     * @returns The final result for this stream.
+     */
+    throw: doIfNotDone(doThrow),
+  };
 
-  /**
-   * Rejects all pending reads with the specified error, closes the underlying port,
-   * and returns.
-   *
-   * @param error - The error to reject pending reads with.
-   * @returns The final result for this stream.
-   */
-  async throw(error: Error): Promise<IteratorResult<Yield, undefined>> {
-    if (!this.#isDone) {
-      this.#throw(error);
-    }
-    return makeDoneResult();
-  }
-
-  #throw(error: Error): void {
-    while (this.#readQueue.length > 0) {
-      const { reject } = this.#readQueue.shift() as PromiseCallbacks;
-      reject(error);
-    }
-    this.#end();
-  }
-
-  #end(): void {
-    this.#isDone = true;
-    this.#messageQueue = [];
-    this.#port.close();
-    this.#port.onmessage = null;
-  }
-}
-harden(MessagePortReader);
+  return harden(reader);
+};
 
 /**
- * A writable stream over a {@link MessagePort}.
+ * Make a writable stream over a {@link MessagePort}.
  *
  * This class is a naive passthrough mechanism for data over a pair of linked message
  * ports. The message port mechanism is assumed to be completely reliable, and this
  * class therefore has no concept of errors or error handling. Errors and closure
  * are expected to be handled at a higher level of abstraction.
  *
+ * @param connection
  * @see
- * - {@link MessagePortReader} for the corresponding readable stream.
+ * - {@link makeMessagePortReader} for the corresponding readable stream maker.
  * - The module-level documentation for more details.
  */
-export class MessagePortWriter<Yield> implements Writer<Yield> {
-  #isDone: boolean;
-
-  readonly #port: MessagePort;
-
-  constructor(port: MessagePort) {
-    this.#isDone = false;
-    this.#port = port;
-    harden(this);
-  }
-
-  [Symbol.asyncIterator](): MessagePortWriter<Yield> {
-    return this;
-  }
-
-  /**
-   * Writes the next message to the port.
-   *
-   * @param value - The next message to write to the port.
-   * @returns The result of writing the message.
-   */
-  async next(value: Yield): Promise<IteratorResult<undefined, undefined>> {
-    if (this.#isDone) {
-      return makeDoneResult();
-    }
-    return this.#send({ done: false, value });
-  }
-
-  /**
-   * Closes the underlying port and returns. Idempotent.
-   *
-   * @returns The final result for this stream.
-   */
-  async return(): Promise<IteratorResult<undefined, undefined>> {
-    if (!this.#isDone) {
-      this.#send(makeDoneResult());
-      this.#end();
-    }
-    return makeDoneResult();
-  }
-
-  /**
-   * Forwards the error to the port and closes this stream. Idempotent.
-   *
-   * @param error - The error to forward to the port.
-   * @returns The final result for this stream.
-   */
-  async throw(error: Error): Promise<IteratorResult<undefined, undefined>> {
-    if (!this.#isDone) {
-      this.#throw(error);
-    }
-    return makeDoneResult();
-  }
-
-  /**
-   * Forwards the error the port and calls `#finish()`. Mutually recursive with `#send()`.
-   * For this reason, includes a flag indicating past failure, so that `#send()` can avoid
-   * infinite recursion. See `#send()` for more details.
-   *
-   * @param error - The error to forward.
-   * @param hasFailed - Whether sending has failed previously.
-   * @returns The final result for this stream.
-   */
-  #throw(
-    error: Error,
-    hasFailed = false,
-  ): IteratorResult<undefined, undefined> {
-    const result = this.#send(error, hasFailed);
-    !this.#isDone && this.#end();
-    return result;
-  }
+export const makeConnectionWriter = <Yield>(
+  connection: Connection<any, WriterMessage<Yield>>,
+): Writer<Yield> => {
+  const { setDone, doIfNotDone, callIfNotDone } = makeDoneKit(connection.close);
 
   /**
    * Sends the value over the port. If sending the value fails, calls `#throw()`, and is
@@ -284,12 +241,12 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * @param hasFailed - Whether sending has failed previously.
    * @returns The result of sending the value.
    */
-  #send(
+  const send = async (
     value: IteratorResult<Yield, undefined> | Error,
     hasFailed = false,
-  ): IteratorResult<undefined, undefined> {
+  ): Promise<IteratorResult<undefined, undefined>> => {
     try {
-      this.#port.postMessage(value);
+      await connection.sendMessage(value);
       return value instanceof Error || value.done === true
         ? makeDoneResult()
         : { done: false, value: undefined };
@@ -303,26 +260,75 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
           'MessagePortWriter experienced repeated send failures.',
           { cause: error },
         );
-        this.#port.postMessage(repeatedFailureError);
+        await connection.sendMessage(repeatedFailureError);
         throw repeatedFailureError;
       } else {
         // postMessage throws only DOMExceptions, which inherit from Error
-        this.#throw(error as Error, true);
+        await doThrow(error as Error, true);
       }
       return makeDoneResult();
     }
+  };
+
+  /**
+   * Forwards the error the port and calls `#finish()`. Mutually recursive with `#send()`.
+   * For this reason, includes a flag indicating past failure, so that `#send()` can avoid
+   * infinite recursion. See `#send()` for more details.
+   *
+   * @param error - The error to forward.
+   * @param hasFailed - Whether sending has failed previously.
+   * @returns The final result for this stream.
+   */
+  async function doThrow(
+    error: Error,
+    hasFailed = false,
+  ): Promise<IteratorResult<undefined, undefined>> {
+    const result = send(error, hasFailed);
+    await setDone();
+    return result;
   }
 
-  #end(): void {
-    this.#isDone = true;
-    this.#port.close();
-  }
-}
-harden(MessagePortWriter);
+  const writer: Writer<Yield> = {
+    [Symbol.asyncIterator]: () => writer,
 
-export type StreamPair<Value> = Readonly<{
-  reader: Reader<Value>;
-  writer: Writer<Value>;
+    /**
+     * Writes the next message to the port.
+     *
+     * @param value - The next message to write to the port.
+     * @returns The result of writing the message.
+     */
+    next: callIfNotDone(async (value: Yield) => send({ done: false, value })),
+
+    /**
+     * Closes the underlying port and returns. Idempotent.
+     *
+     * @returns The final result for this stream.
+     */
+    return: doIfNotDone(async () => {
+      send(makeDoneResult());
+      await setDone();
+    }),
+
+    /**
+     * Forwards the error to the port and closes this stream. Idempotent.
+     *
+     * @param error - The error to forward to the port.
+     * @returns The final result for this stream.
+     */
+    throw: doIfNotDone(doThrow),
+  };
+
+  return harden(writer);
+};
+
+export const makeMessagePortReader = (port: MessagePort) =>
+  makeConnectionReader(makeMessagePortConnection(port));
+export const makeMessagePortWriter = (port: MessagePort) =>
+  makeConnectionWriter(makeMessagePortConnection(port));
+
+export type StreamPair<Read, Write = Read> = Readonly<{
+  reader: Reader<Read>;
+  writer: Writer<Write>;
   /**
    * Calls `.return()` on both streams.
    */
@@ -337,17 +343,18 @@ export type StreamPair<Value> = Readonly<{
 }>;
 
 /**
- * Makes a reader / writer pair over the same port, and provides convenience methods
+ * Makes a reader / writer pair over the same connection, and provides convenience methods
  * for cleaning them up.
  *
  * @param port - The message port to make the streams over.
+ * @param connection
  * @returns The reader and writer streams, and cleanup methods.
  */
-export const makeMessagePortStreamPair = <Value>(
-  port: MessagePort,
-): StreamPair<Value> => {
-  const reader = new MessagePortReader<Value>(port);
-  const writer = new MessagePortWriter<Value>(port);
+export const makeConnectionStreamPair = <Read, Write>(
+  connection: Connection<ReaderMessage<Read>, WriterMessage<Write>>,
+): StreamPair<Read, Write> => {
+  const reader = makeConnectionReader(connection);
+  const writer = makeConnectionWriter(connection);
 
   return harden({
     reader,
@@ -357,4 +364,18 @@ export const makeMessagePortStreamPair = <Value>(
     throw: async (error: Error) =>
       Promise.all([writer.throw(error), reader.return()]).then(() => undefined),
   });
+};
+
+/**
+ * Makes a reader / writer pair over the same port, and provides convenience methods
+ * for cleaning them up.
+ *
+ * @param port - The message port to make the streams over.
+ * @returns The reader and writer streams, and cleanup methods.
+ */
+export const makeMessagePortStreamPair = <Read, Write = Read>(
+  port: MessagePort,
+): StreamPair<Read, Write> => {
+  const connection = makeMessagePortConnection<Read, Write>(port);
+  return makeConnectionStreamPair(connection);
 };
