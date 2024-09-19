@@ -75,7 +75,7 @@ const isIteratorResult = (
 export type Connection<Incoming, Outgoing> = {
   open: () => Promise<void>;
   sendMessage: (message: Outgoing) => Promise<void>;
-  setMessageHandler: (handler: (message: Incoming) => void) => void;
+  setMessageHandler: (handler: (message: Incoming) => Promise<void>) => void;
   close: () => Promise<void>;
 };
 
@@ -86,7 +86,7 @@ const makeMessagePortConnection = <Read, Write>(
   sendMessage: async (message: WriterMessage<Write>) =>
     port.postMessage(message),
   setMessageHandler: (handler: (message: ReaderMessage<Read>) => void) => {
-    port.onmessage = handler as unknown as typeof port.onmessage;
+    port.onmessage = handler;
   },
   close: async () => {
     port.close();
@@ -126,30 +126,30 @@ export const makeConnectionReader = <Read, Write>(
     await connection.close();
   });
 
-  const doThrow = (error: Error): void => {
+  const doThrow = async (error: Error): Promise<void> => {
     while (readQueue.length > 0) {
       const { reject } = readQueue.shift() as PromiseCallbacks;
       reject(error);
     }
-    setDone();
+    await setDone();
   };
 
-  const doReturn = (): void => {
+  const doReturn = async (): Promise<void> => {
     while (readQueue.length > 0) {
       const { resolve } = readQueue.shift() as PromiseCallbacks;
       resolve(makeDoneResult());
     }
-    setDone();
+    await setDone();
   };
 
-  connection.setMessageHandler((message: ReaderMessage<Read>): void => {
+  connection.setMessageHandler(async (message: ReaderMessage<Read>) => {
     if (message.data instanceof Error) {
-      doThrow(message.data);
+      await doThrow(message.data);
       return;
     }
 
     if (!isIteratorResult(message.data)) {
-      doThrow(
+      await doThrow(
         new Error(
           `Received unexpected message via message port:\n${JSON.stringify(
             message.data,
@@ -162,7 +162,7 @@ export const makeConnectionReader = <Read, Write>(
     }
 
     if (message.data.done === true) {
-      doReturn();
+      await doReturn();
       return;
     }
 
@@ -308,7 +308,7 @@ export const makeConnectionWriter = <Yield>(
      * @returns The final result for this stream.
      */
     return: doIfNotDone(async () => {
-      send(makeDoneResult());
+      await send(makeDoneResult());
       await setDone();
     }),
 
