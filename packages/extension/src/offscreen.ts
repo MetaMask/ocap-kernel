@@ -1,4 +1,7 @@
-import { IframeManager } from './iframe-manager.js';
+import { createWindow } from '@metamask/snaps-utils';
+import { initializeMessageChannel } from '@ocap/streams';
+import { VatManager, VatIframe } from '@ocap/kernel';
+
 import type { ExtensionMessage } from './message.js';
 import { Command, ExtensionMessageTarget } from './message.js';
 import { makeHandledCallback } from './shared.js';
@@ -9,12 +12,15 @@ main().catch(console.error);
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  // Hard-code a single iframe for now.
-  const IFRAME_ID = 'default';
-  const iframeManager = new IframeManager();
-  const iframeReadyP = iframeManager
-    .create({ id: IFRAME_ID })
-    .then(async () => iframeManager.makeCapTp(IFRAME_ID));
+  const kernel = new VatManager();
+
+  const vatIframe = new VatIframe({ id: 'default' });
+  const newWindow = await createWindow('iframe.html', vatIframe.iframeId);
+  const port = await initializeMessageChannel(newWindow);
+  await vatIframe.init(port);
+  const iframeReadyP = await vatIframe.makeCapTp();
+
+  kernel.addVat(vatIframe);
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
@@ -33,12 +39,12 @@ async function main(): Promise<void> {
           await reply(Command.Evaluate, await evaluate(message.data));
           break;
         case Command.CapTpCall: {
-          const result = await iframeManager.callCapTp(IFRAME_ID, message.data);
+          const result = await vatIframe.callCapTp(message.data);
           await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
           break;
         }
         case Command.CapTpInit:
-          await iframeManager.makeCapTp(IFRAME_ID);
+          await vatIframe.makeCapTp();
           await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
           break;
         case Command.Ping:
@@ -76,7 +82,7 @@ async function main(): Promise<void> {
    */
   async function evaluate(source: string): Promise<string> {
     try {
-      const result = await iframeManager.sendMessage(IFRAME_ID, {
+      const result = await kernel.sendMessage(vatIframe.id, {
         type: Command.Evaluate,
         data: source,
       });

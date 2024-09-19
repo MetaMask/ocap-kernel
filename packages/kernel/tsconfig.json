@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "references": [],
+  "include": ["./src"]
+}
