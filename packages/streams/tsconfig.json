@@ -3,7 +3,11 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
-    "types": ["ses", "vitest", "vitest/jsdom"]
+    "types": ["ses", "vitest", "vitest/jsdom"],
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "allowJs": true,
+    "checkJs": true
   },
   "references": [{ "path": "../test-utils" }],
   "include": ["./src", "./test/envelope-kit-fixtures.ts"]

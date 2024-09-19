@@ -1,9 +1,11 @@
 import '@ocap/shims/endoify';
-import type { VatId, VatMessage } from './types.ts';
-import type { VatIframe } from './VatIframe.ts';
+import type { VatMessage } from '@ocap/streams';
 
-export class VatManager {
-  readonly #vats: Map<VatId, VatIframe>;
+import type { VatId } from './types.js';
+import type { Vat } from './Vat.js';
+
+export class Kernel {
+  readonly #vats: Map<VatId, Vat>;
 
   constructor() {
     this.#vats = new Map();
@@ -23,17 +25,11 @@ export class VatManager {
    *
    * @param vat - The vat record.
    */
-  public addVat(vat: VatIframe): void {
+  public addVat(vat: Vat): void {
     if (this.#vats.has(vat.id)) {
       throw new Error(`Vat with ID ${vat.id} already exists.`);
     }
     this.#vats.set(vat.id, vat);
-
-    /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(vat.id, vat.streams.reader).catch((error) => {
-      console.error(`Unexpected read error from vat "${vat.id}"`, error);
-      this.deleteVat(vat.id);
-    });
   }
 
   /**
@@ -41,9 +37,9 @@ export class VatManager {
    *
    * @param id - The ID of the vat.
    */
-  public deleteVat(id: string): void {
+  public async deleteVat(id: string): Promise<void> {
     const vat = this.#vats.get(id);
-    vat?.terminate();
+    await vat?.terminate();
     this.#vats.delete(id);
   }
 
@@ -60,30 +56,12 @@ export class VatManager {
   }
 
   /**
-   * Receives messages from a vat.
-   *
-   * @param vatId - The ID of the vat.
-   * @param reader - The reader for the messages.
-   */
-  async #receiveMessages(
-    vatId: VatId,
-    reader: Reader<StreamEnvelope>,
-  ): Promise<void> {
-    const vat = this.#getVat(vatId);
-
-    for await (const rawMessage of reader) {
-      console.debug('Offscreen received message', rawMessage);
-      await vat.streamEnvelopeHandler.handle(rawMessage);
-    }
-  }
-
-  /**
    * Gets a vat from the kernel.
    *
    * @param id - The ID of the vat.
    * @returns The vat record.
    */
-  #getVat(id: string): VatIframe {
+  #getVat(id: string): Vat {
     const vat = this.#vats.get(id);
     if (vat === undefined) {
       throw new Error(`Vat with ID ${id} does not exist.`);

@@ -1,6 +1,6 @@
 import { isObject } from '@metamask/utils';
 
-import type { CapTpMessage, WrappedVatMessage } from './types.ts';
+import type { CapTpMessage, WrappedVatMessage } from './types.js';
 
 export const isWrappedVatMessage = (
   value: unknown,

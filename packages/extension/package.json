@@ -36,7 +36,6 @@
     "@endo/eventual-send": "^1.2.4",
     "@endo/exo": "^1.5.2",
     "@endo/patterns": "^1.4.2",
-    "@endo/promise-kit": "^1.1.4",
     "@metamask/snaps-utils": "^7.8.0",
     "@metamask/utils": "^9.1.0",
     "@ocap/kernel": "workspace:^",

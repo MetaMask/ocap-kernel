@@ -8,5 +8,5 @@
     "checkJs": true
   },
   "references": [],
-  "include": ["./src"]
+  "include": ["./src", "../streams/src/type-guards.ts"]
 }

@@ -1,16 +1,16 @@
 import '@ocap/shims/endoify';
 import { describe, it, expect } from 'vitest';
 
-import type { CapTpMessage, WrappedIframeMessage } from './message.js';
-import { Command } from './message.js';
 import {
   wrapCapTp,
-  wrapCommand,
+  wrapStreamCommand,
   makeStreamEnvelopeHandler,
 } from './stream-envelope.js';
+import type { CapTpMessage, WrappedVatMessage } from './types.js';
+import { Command } from './types.js';
 
 describe('StreamEnvelopeHandler', () => {
-  const commandContent: WrappedIframeMessage = {
+  const commandContent: WrappedVatMessage = {
     id: '1',
     message: { type: Command.Evaluate, data: '1 + 1' },
   };
@@ -21,7 +21,7 @@ describe('StreamEnvelopeHandler', () => {
     unreliableKey: Symbol('unreliableValue'),
   };
 
-  const commandLabel = wrapCommand(commandContent).label;
+  const commandLabel = wrapStreamCommand(commandContent).label;
   const capTpLabel = wrapCapTp(capTpContent).label;
 
   const testEnvelopeHandlers = {
@@ -34,9 +34,9 @@ describe('StreamEnvelopeHandler', () => {
   };
 
   it.each`
-    wrapper        | content           | label
-    ${wrapCommand} | ${commandContent} | ${commandLabel}
-    ${wrapCapTp}   | ${capTpContent}   | ${capTpLabel}
+    wrapper              | content           | label
+    ${wrapStreamCommand} | ${commandContent} | ${commandLabel}
+    ${wrapCapTp}         | ${capTpContent}   | ${capTpLabel}
   `('handles valid StreamEnvelopes', async ({ wrapper, content, label }) => {
     const handler = makeStreamEnvelopeHandler(
       testEnvelopeHandlers,

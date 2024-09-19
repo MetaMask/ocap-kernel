@@ -1,20 +1,20 @@
 import { makeCapTP } from '@endo/captp';
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
-import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
-
 import type {
+  StreamEnvelope,
   CapTpMessage,
-  IframeMessage,
-  WrappedIframeMessage,
-} from './message.js';
-import { Command } from './message.js';
-import type { StreamEnvelope } from './stream-envelope.js';
+  VatMessage,
+  WrappedVatMessage,
+} from '@ocap/streams';
 import {
-  wrapCapTp,
-  wrapCommand,
+  receiveMessagePort,
+  makeMessagePortStreamPair,
   makeStreamEnvelopeHandler,
-} from './stream-envelope.js';
+  Command,
+  wrapCapTp,
+  wrapStreamCommand,
+} from '@ocap/streams';
 
 const defaultCompartment = new Compartment({ URL });
 
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   async function handleMessage({
     id,
     message,
-  }: WrappedIframeMessage): Promise<void> {
+  }: WrappedVatMessage): Promise<void> {
     switch (message.type) {
       case Command.Evaluate: {
         if (typeof message.data !== 'string') {
@@ -109,9 +109,9 @@ async function main(): Promise<void> {
    */
   async function replyToMessage(
     id: string,
-    message: IframeMessage,
+    message: VatMessage,
   ): Promise<void> {
-    await streams.writer.next(wrapCommand({ id, message }));
+    await streams.writer.next(wrapStreamCommand({ id, message }));
   }
 
   /**

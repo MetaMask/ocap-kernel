@@ -7,19 +7,16 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
-  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "node scripts/bundle.js",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
@@ -38,21 +35,18 @@
   "dependencies": {
     "@endo/captp": "^4.2.2",
     "@endo/eventual-send": "^1.2.4",
-    "@endo/exo": "^1.5.2",
-    "@endo/patterns": "^1.4.2",
-    "@endo/promise-kit": "^1.1.5",
-    "@metamask/snaps-utils": "^7.8.0",
-    "@metamask/utils": "^9.1.0",
+    "@endo/promise-kit": "^1.1.4",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
     "ses": "^1.7.0"
   },
   "devDependencies": {
-    "@endo/bundle-source": "^3.3.0",
     "@metamask/auto-changelog": "^3.4.4",
     "@metamask/eslint-config": "^13.0.0",
     "@metamask/eslint-config-nodejs": "^13.0.0",
     "@metamask/eslint-config-typescript": "^13.0.0",
+    "@ts-bridge/cli": "^0.5.1",
+    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.1.0",
     "@typescript-eslint/parser": "^8.1.0",
     "depcheck": "^1.4.7",

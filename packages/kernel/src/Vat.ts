@@ -1,49 +1,60 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
-import type { StreamPair } from '@ocap/streams';
-import { makeMessagePortStreamPair } from '@ocap/streams';
-
 import type {
+  StreamPair,
+  StreamEnvelope,
+  StreamEnvelopeHandler,
+  Reader,
   CapTpMessage,
   CapTpPayload,
-  MessageId,
-  UnresolvedMessages,
   VatMessage,
-} from './types.ts';
-import { Command } from './types.ts';
-import { makeCounter } from './utils/makeCounter.ts';
+  MessageId,
+} from '@ocap/streams';
+import {
+  wrapCapTp,
+  wrapStreamCommand,
+  Command,
+  makeStreamEnvelopeHandler,
+} from '@ocap/streams';
 
-export type VatBaseProps = {
+import type { UnresolvedMessages, VatRealm } from './types.js';
+import { makeCounter } from './utils/makeCounter.js';
+
+export type VatProps = {
   id: string;
+  realm: VatRealm;
 };
 
-export abstract class VatBase {
-  readonly id: string;
+export class Vat {
+  readonly id: VatProps['id'];
+
+  readonly #realm: VatProps['realm'];
 
   readonly #messageCounter: () => number;
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  streams: StreamPair<StreamEnvelope>;
+  streams?: StreamPair<StreamEnvelope>;
 
-  streamEnvelopeHandler: StreamEnvelopeHandler;
+  streamEnvelopeHandler?: StreamEnvelopeHandler;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id }: VatBaseProps) {
+  constructor({ id, realm }: VatProps) {
     this.id = id;
+    this.#realm = realm;
     this.#messageCounter = makeCounter();
   }
 
   /**
    * Initializes the vat.
    *
-   * @param port - The message port to use for communication.
    * @returns A promise that resolves when the vat is initialized.
    */
-  async init(port: MessagePort): Promise<void> {
-    this.streams = makeMessagePortStreamPair<StreamEnvelope>(port);
+  async init(): Promise<unknown> {
+    const [streams] = await this.#realm.init();
+    this.streams = streams;
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
         command: async ({ id, message }) => {
@@ -59,8 +70,28 @@ export abstract class VatBase {
       console.warn,
     );
 
+    /* v8 ignore next 4: Not known to be possible. */
+    this.#receiveMessages(this.streams.reader).catch((error) => {
+      console.error(`Unexpected read error from vat "${this.id}"`, error);
+      throw error;
+    });
+
     await this.sendMessage({ type: Command.Ping, data: null });
     console.debug(`Created vat with id "${this.id}"`);
+
+    return await this.makeCapTp();
+  }
+
+  /**
+   * Receives messages from a vat.
+   *
+   * @param reader - The reader for the messages.
+   */
+  async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
+    for await (const rawMessage of reader) {
+      console.debug('Offscreen received message', rawMessage);
+      await this.streamEnvelopeHandler?.handle(rawMessage);
+    }
   }
 
   /**
@@ -75,6 +106,18 @@ export abstract class VatBase {
       );
     }
 
+    if (!this.streams) {
+      throw new Error(
+        `Vat with id "${this.id}" does not have a stream connection.`,
+      );
+    }
+
+    if (!this.streamEnvelopeHandler) {
+      throw new Error(
+        `Vat with id "${this.id}" does not have a stream envelope handler.`,
+      );
+    }
+
     // Handle writes here. #receiveMessages() handles reads.
     const { writer } = this.streams;
     // https://github.com/endojs/endo/issues/2412
@@ -86,7 +129,7 @@ export abstract class VatBase {
 
     this.capTp = ctp;
     this.streamEnvelopeHandler.contentHandlers.capTp = async (
-      content: string,
+      content: CapTpMessage,
     ) => {
       console.log('CapTP from vat', JSON.stringify(content, null, 2));
       ctp.dispatch(content);
@@ -113,14 +156,16 @@ export abstract class VatBase {
   /**
    * Terminates the vat.
    */
-  terminate(): void {
-    this.streams.return();
+  async terminate(): Promise<void> {
+    await this.streams?.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
       promiseCallback?.reject(new Error('Vat was deleted'));
       this.unresolvedMessages.delete(messageId);
     }
+
+    await this.#realm.delete();
   }
 
   /**
@@ -133,14 +178,15 @@ export abstract class VatBase {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.streams.writer.next(wrapCommand({ id: messageId, message }));
+    await this.streams?.writer.next(
+      wrapStreamCommand({ id: messageId, message }),
+    );
     return promise;
   }
 
   /**
    * Gets the next message ID.
    *
-   * @param id - The vat ID.
    * @returns The message ID.
    */
   readonly #nextMessageId = (): MessageId => {

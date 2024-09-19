@@ -1,9 +1,12 @@
-import { createWindow } from '@metamask/snaps-utils';
-import { initializeMessageChannel } from '@ocap/streams';
-import { VatManager, VatIframe } from '@ocap/kernel';
+import { Kernel, Vat } from '@ocap/kernel';
+import {
+  initializeMessageChannel,
+  Command,
+  KernelMessageTarget,
+} from '@ocap/streams';
+import type { KernelMessage } from '@ocap/streams';
 
-import type { ExtensionMessage } from './message.js';
-import { Command, ExtensionMessageTarget } from './message.js';
+import { makeIframeVatRealm } from './makeIframeVatRealm.js';
 import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
@@ -12,39 +15,37 @@ main().catch(console.error);
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const kernel = new VatManager();
+  const kernel = new Kernel();
 
-  const vatIframe = new VatIframe({ id: 'default' });
-  const newWindow = await createWindow('iframe.html', vatIframe.iframeId);
-  const port = await initializeMessageChannel(newWindow);
-  await vatIframe.init(port);
-  const iframeReadyP = await vatIframe.makeCapTp();
+  const vat = new Vat({
+    id: 'default',
+    realm: makeIframeVatRealm('default', initializeMessageChannel),
+  });
+  await vat.init();
 
-  kernel.addVat(vatIframe);
+  kernel.addVat(vat);
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: ExtensionMessage) => {
-      if (message.target !== ExtensionMessageTarget.Offscreen) {
+    makeHandledCallback(async (message: KernelMessage) => {
+      if (message.target !== KernelMessageTarget.Offscreen) {
         console.warn(
           `Offscreen received message with unexpected target: "${message.target}"`,
         );
         return;
       }
 
-      await iframeReadyP;
-
       switch (message.type) {
         case Command.Evaluate:
           await reply(Command.Evaluate, await evaluate(message.data));
           break;
         case Command.CapTpCall: {
-          const result = await vatIframe.callCapTp(message.data);
+          const result = await vat.callCapTp(message.data);
           await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
           break;
         }
         case Command.CapTpInit:
-          await vatIframe.makeCapTp();
+          await vat.makeCapTp();
           await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
           break;
         case Command.Ping:
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
   async function reply(type: Command, data?: string): Promise<void> {
     await chrome.runtime.sendMessage({
       data: data ?? null,
-      target: ExtensionMessageTarget.Background,
+      target: KernelMessageTarget.Background,
       type,
     });
   }
@@ -82,7 +83,7 @@ async function main(): Promise<void> {
    */
   async function evaluate(source: string): Promise<string> {
     try {
-      const result = await kernel.sendMessage(vatIframe.id, {
+      const result = await kernel.sendMessage(vat.id, {
         type: Command.Evaluate,
         data: source,
       });

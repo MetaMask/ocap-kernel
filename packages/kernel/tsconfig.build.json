@@ -4,7 +4,8 @@
     "baseUrl": "./",
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["chrome", "ses"]
+    "lib": ["DOM", "ES2022"],
+    "types": ["ses"]
   },
   "references": [],
   "include": ["./src"]

@@ -1,2 +1,3 @@
-export { VatManager } from './VatManager.ts';
-export { VatIframe } from './VatIframe.ts';
+export { Kernel } from './Kernel.js';
+export { Vat } from './Vat.js';
+export type { VatId, VatRealm } from './types.js';
