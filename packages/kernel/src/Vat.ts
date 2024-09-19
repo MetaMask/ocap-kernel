@@ -100,7 +100,7 @@ export class Vat {
    * @returns A promise that resolves when the CapTP connection is made.
    */
   async makeCapTp(): Promise<unknown> {
-    if (!this.capTp) {
+    if (this.capTp !== undefined) {
       throw new Error(
         `Vat with id "${this.id}" already has a CapTP connection.`,
       );

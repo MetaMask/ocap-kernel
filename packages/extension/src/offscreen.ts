@@ -21,7 +21,7 @@ async function main(): Promise<void> {
     id: 'default',
     realm: makeIframeVatRealm('default', initializeMessageChannel),
   });
-  await vat.init();
+  const iframeReadyP = vat.init();
 
   kernel.addVat(vat);
 
@@ -34,6 +34,8 @@ async function main(): Promise<void> {
         );
         return;
       }
+
+      await iframeReadyP;
 
       switch (message.type) {
         case Command.Evaluate:
