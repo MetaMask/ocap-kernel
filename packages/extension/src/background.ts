@@ -1,78 +1,53 @@
 import type { Json } from '@metamask/utils';
 
 import './background-trusted-prelude.js';
-import type { ExtensionMessage } from './message.js';
+import type { CommandMessage } from './message.js';
 import { Command, ExtensionMessageTarget } from './message.js';
 import { makeHandledCallback } from './shared.js';
+import { makeBackgroundStreamPair } from './stream-pairs.js';
+
+const streams = makeBackgroundStreamPair();
 
 // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
     value: async (method: string, params: Json[]) =>
-      sendMessage(Command.CapTpCall, { method, params }),
+      await streams.writer.next({
+        type: Command.CapTpCall,
+        data: { method, params },
+      }),
   },
   capTpInit: {
-    value: async () => sendMessage(Command.CapTpInit),
+    value: async () =>
+      await streams.writer.next({ type: Command.CapTpInit, data: null }),
   },
   evaluate: {
-    value: async (source: string) => sendMessage(Command.Evaluate, source),
+    value: async (source: string) =>
+      await streams.writer.next({ type: Command.Evaluate, data: source }),
   },
   ping: {
-    value: async () => sendMessage(Command.Ping),
+    value: async () =>
+      await streams.writer.next({ type: Command.Ping, data: null }),
   },
   sendMessage: {
-    value: sendMessage,
+    value: async (message: CommandMessage<any>) =>
+      await streams.writer.next(message),
   },
 });
 harden(globalThis.kernel);
 
-const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
-
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage(Command.Ping).catch(console.error);
+  streams.writer.next({ type: Command.Ping, data: null }).catch(console.error);
 });
 
+handleMessages();
+
 /**
- * Send a message to the offscreen document.
  *
- * @param type - The message type.
- * @param data - The message data.
- * @param data.name - The name to include in the message.
  */
-async function sendMessage(type: string, data?: Json): Promise<void> {
-  await provideOffScreenDocument();
-
-  await chrome.runtime.sendMessage({
-    type,
-    target: ExtensionMessageTarget.Offscreen,
-    data: data ?? null,
-  });
-}
-
-/**
- * Create the offscreen document if it doesn't already exist.
- */
-async function provideOffScreenDocument(): Promise<void> {
-  if (!(await chrome.offscreen.hasDocument())) {
-    await chrome.offscreen.createDocument({
-      url: OFFSCREEN_DOCUMENT_PATH,
-      reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
-      justification: `Surely you won't object to our capabilities?`,
-    });
-  }
-}
-
-// Handle replies from the offscreen document
-chrome.runtime.onMessage.addListener(
-  makeHandledCallback(async (message: ExtensionMessage) => {
-    if (message.target !== ExtensionMessageTarget.Background) {
-      console.warn(
-        `Background received message with unexpected target: "${message.target}"`,
-      );
-      return;
-    }
-
+async function handleMessages() {
+  for await (const message of streams.reader) {
     switch (message.type) {
       case Command.Evaluate:
       case Command.CapTpCall:
@@ -87,5 +62,5 @@ chrome.runtime.onMessage.addListener(
           `Background received unexpected message type: "${message.type}"`,
         );
     }
-  }),
-);
+  }
+}

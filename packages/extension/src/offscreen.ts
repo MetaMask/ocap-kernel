@@ -1,7 +1,8 @@
 import { IframeManager } from './iframe-manager.js';
-import type { ExtensionMessage } from './message.js';
+import type { CommandMessage } from './message.js';
 import { Command, ExtensionMessageTarget } from './message.js';
 import { makeHandledCallback } from './shared.js';
+import { makeOffscreenStreamPair } from './stream-pairs.js';
 
 main().catch(console.error);
 
@@ -16,43 +17,35 @@ async function main(): Promise<void> {
     .create({ id: IFRAME_ID })
     .then(async () => iframeManager.makeCapTp(IFRAME_ID));
 
-  // Handle messages from the background service worker
-  chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: ExtensionMessage) => {
-      if (message.target !== ExtensionMessageTarget.Offscreen) {
-        console.warn(
-          `Offscreen received message with unexpected target: "${message.target}"`,
+  const streams = makeOffscreenStreamPair();
+
+  for await (const message of streams.reader) {
+    await iframeReadyP;
+
+    switch (message.type) {
+      case Command.Evaluate:
+        await reply(Command.Evaluate, await evaluate(message.data));
+        break;
+      case Command.CapTpCall: {
+        const result = await iframeManager.callCapTp(IFRAME_ID, message.data);
+        await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
+        break;
+      }
+      case Command.CapTpInit:
+        await iframeManager.makeCapTp(IFRAME_ID);
+        await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
+        break;
+      case Command.Ping:
+        await reply(Command.Ping, 'pong');
+        break;
+      default:
+        console.error(
+          // @ts-expect-error The type of `message` is `never`, but this could happen at runtime.
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Offscreen received unexpected message type: "${message.type}"`,
         );
-        return;
-      }
-
-      await iframeReadyP;
-
-      switch (message.type) {
-        case Command.Evaluate:
-          await reply(Command.Evaluate, await evaluate(message.data));
-          break;
-        case Command.CapTpCall: {
-          const result = await iframeManager.callCapTp(IFRAME_ID, message.data);
-          await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
-          break;
-        }
-        case Command.CapTpInit:
-          await iframeManager.makeCapTp(IFRAME_ID);
-          await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
-          break;
-        case Command.Ping:
-          await reply(Command.Ping, 'pong');
-          break;
-        default:
-          console.error(
-            // @ts-expect-error The type of `message` is `never`, but this could happen at runtime.
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Offscreen received unexpected message type: "${message.type}"`,
-          );
-      }
-    }),
-  );
+    }
+  }
 
   /**
    * Reply to the background script.
@@ -61,11 +54,10 @@ async function main(): Promise<void> {
    * @param data - The message data.
    */
   async function reply(type: Command, data?: string): Promise<void> {
-    await chrome.runtime.sendMessage({
-      data: data ?? null,
-      target: ExtensionMessageTarget.Background,
+    await streams.writer.next({
       type,
-    });
+      data: data ?? null,
+    } as CommandMessage<any>);
   }
 
   /**

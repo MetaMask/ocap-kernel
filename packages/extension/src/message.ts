@@ -36,7 +36,7 @@ export type CapTpPayload = {
   params: DataObject[];
 };
 
-type CommandMessage<TargetType extends ExtensionMessageTarget> =
+export type CommandMessage<TargetType extends ExtensionMessageTarget> =
   | CommandLike<Command.Ping, null | 'pong', TargetType>
   | CommandLike<Command.Evaluate, string, TargetType>
   | CommandLike<Command.CapTpInit, null, TargetType>
