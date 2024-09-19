@@ -1,7 +1,6 @@
 import { IframeManager } from './iframe-manager.js';
 import type { CommandMessage } from './message.js';
-import { Command, ExtensionMessageTarget } from './message.js';
-import { makeHandledCallback } from './shared.js';
+import { Command } from './message.js';
 import { makeOffscreenStreamPair } from './stream-pairs.js';
 
 main().catch(console.error);
@@ -57,7 +56,7 @@ async function main(): Promise<void> {
     await streams.writer.next({
       type,
       data: data ?? null,
-    } as CommandMessage<any>);
+    } as CommandMessage<never>);
   }
 
   /**

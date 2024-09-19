@@ -54,8 +54,8 @@ export const isStream = (
   typeof value.return === 'function' &&
   typeof value.throw === 'function';
 
-export type ReaderMessage<Yield> = IteratorResult<Yield, undefined> & {
-  data: any;
+export type ReaderMessage<Yield> = {
+  data: IteratorResult<Yield, undefined>;
 };
 
 export type WriterMessage<Yield> = IteratorResult<Yield, undefined> | Error;
@@ -82,10 +82,11 @@ export type Connection<Incoming, Outgoing> = {
 const makeMessagePortConnection = <Read, Write>(
   port: MessagePort,
 ): Connection<ReaderMessage<Read>, WriterMessage<Write>> => ({
-  open: async () => {},
-  sendMessage: async (message: any) => port.postMessage(message),
-  setMessageHandler: (handler: (message: any) => void) => {
-    port.onmessage = handler;
+  open: async () => undefined,
+  sendMessage: async (message: WriterMessage<Write>) =>
+    port.postMessage(message),
+  setMessageHandler: (handler: (message: ReaderMessage<Read>) => void) => {
+    port.onmessage = handler as unknown as typeof port.onmessage;
   },
   close: async () => {
     port.close();
@@ -99,19 +100,20 @@ const makeMessagePortConnection = <Read, Write>(
  * This class is a naive passthrough mechanism for data over a connection.
  * Expects exclusive access to the connection.
  *
- * @param connection
+ * @param connection - The connection to which the Reader subscribes.
+ * @returns A Reader for the connection.
  * @see
  * - {@link makeConnectionWriter} for the corresponding writable stream maker.
  * - The module-level documentation for more details.
  */
-export const makeConnectionReader = <Yield>(
-  connection: Connection<ReaderMessage<Yield>, any>,
-): Reader<Yield> => {
+export const makeConnectionReader = <Read, Write>(
+  connection: Connection<ReaderMessage<Read>, WriterMessage<Write>>,
+): Reader<Read> => {
   /**
    * For buffering messages to manage backpressure, i.e. the input rate exceeding the
    * read rate.
    */
-  let messageQueue: ReaderMessage<Yield>[] = [];
+  let messageQueue: ReaderMessage<Read>[] = [];
 
   /**
    * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
@@ -140,7 +142,7 @@ export const makeConnectionReader = <Yield>(
     setDone();
   };
 
-  connection.setMessageHandler((message: ReaderMessage<Yield>): void => {
+  connection.setMessageHandler((message: ReaderMessage<Read>): void => {
     if (message.data instanceof Error) {
       doThrow(message.data);
       return;
@@ -172,7 +174,7 @@ export const makeConnectionReader = <Yield>(
     }
   });
 
-  const reader: Reader<Yield> = {
+  const reader: Reader<Read> = {
     [Symbol.asyncIterator]: () => reader,
 
     /**
@@ -183,12 +185,12 @@ export const makeConnectionReader = <Yield>(
     next: returnIfNotDone(async () => {
       const { promise, resolve, reject } = makePromiseKit();
       if (messageQueue.length > 0) {
-        const message = messageQueue.shift() as ReaderMessage<Yield>;
+        const message = messageQueue.shift() as ReaderMessage<Read>;
         resolve({ ...message.data });
       } else {
         readQueue.push({ resolve, reject });
       }
-      return promise as Promise<IteratorResult<Yield, undefined>>;
+      return promise as Promise<IteratorResult<Read, undefined>>;
     }),
 
     /**
@@ -219,13 +221,14 @@ export const makeConnectionReader = <Yield>(
  * class therefore has no concept of errors or error handling. Errors and closure
  * are expected to be handled at a higher level of abstraction.
  *
- * @param connection
+ * @param connection - The connection over which the writer publishes.
+ * @returns A Writer for the connection.
  * @see
  * - {@link makeMessagePortReader} for the corresponding readable stream maker.
  * - The module-level documentation for more details.
  */
 export const makeConnectionWriter = <Yield>(
-  connection: Connection<any, WriterMessage<Yield>>,
+  connection: Connection<unknown, WriterMessage<Yield>>,
 ): Writer<Yield> => {
   const { setDone, doIfNotDone, callIfNotDone } = makeDoneKit(connection.close);
 
@@ -315,16 +318,18 @@ export const makeConnectionWriter = <Yield>(
      * @param error - The error to forward to the port.
      * @returns The final result for this stream.
      */
-    throw: doIfNotDone(doThrow),
+    throw: callIfNotDone(doThrow),
   };
 
   return harden(writer);
 };
 
-export const makeMessagePortReader = (port: MessagePort) =>
-  makeConnectionReader(makeMessagePortConnection(port));
-export const makeMessagePortWriter = (port: MessagePort) =>
-  makeConnectionWriter(makeMessagePortConnection(port));
+export const makeMessagePortReader = <Yield>(
+  port: MessagePort,
+): Reader<Yield> => makeConnectionReader(makeMessagePortConnection(port));
+export const makeMessagePortWriter = <Yield>(
+  port: MessagePort,
+): Writer<Yield> => makeConnectionWriter(makeMessagePortConnection(port));
 
 export type StreamPair<Read, Write = Read> = Readonly<{
   reader: Reader<Read>;
@@ -346,8 +351,7 @@ export type StreamPair<Read, Write = Read> = Readonly<{
  * Makes a reader / writer pair over the same connection, and provides convenience methods
  * for cleaning them up.
  *
- * @param port - The message port to make the streams over.
- * @param connection
+ * @param connection - The connection to make the streams over.
  * @returns The reader and writer streams, and cleanup methods.
  */
 export const makeConnectionStreamPair = <Read, Write>(

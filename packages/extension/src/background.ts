@@ -2,8 +2,7 @@ import type { Json } from '@metamask/utils';
 
 import './background-trusted-prelude.js';
 import type { CommandMessage } from './message.js';
-import { Command, ExtensionMessageTarget } from './message.js';
-import { makeHandledCallback } from './shared.js';
+import { Command } from './message.js';
 import { makeBackgroundStreamPair } from './stream-pairs.js';
 
 const streams = makeBackgroundStreamPair();
@@ -30,7 +29,7 @@ Object.defineProperties(globalThis.kernel, {
       await streams.writer.next({ type: Command.Ping, data: null }),
   },
   sendMessage: {
-    value: async (message: CommandMessage<any>) =>
+    value: async (message: CommandMessage<never>) =>
       await streams.writer.next(message),
   },
 });
@@ -41,12 +40,14 @@ chrome.action.onClicked.addListener(() => {
   streams.writer.next({ type: Command.Ping, data: null }).catch(console.error);
 });
 
+// This is the correct way to start the async stream reader.
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 handleMessages();
 
 /**
- *
+ * Listen to messages from offscreen over the stream.
  */
-async function handleMessages() {
+async function handleMessages(): Promise<void> {
   for await (const message of streams.reader) {
     switch (message.type) {
       case Command.Evaluate:

@@ -1,4 +1,9 @@
-import type { Connection, ReaderMessage, WriterMessage } from '@ocap/streams';
+import type {
+  Connection,
+  ReaderMessage,
+  StreamPair,
+  WriterMessage,
+} from '@ocap/streams';
 import { makeConnectionStreamPair } from '@ocap/streams';
 
 import type { CommandMessage } from './message.js';
@@ -22,7 +27,9 @@ const makeMakeExtensionConnection =
   >) =>
   () => ({
     open,
-    sendMessage: async (message: WriterMessage<CommandMessage<any>>) => {
+    sendMessage: async (
+      message: WriterMessage<CommandMessage<Interlocutor>>,
+    ) => {
       if (message instanceof Error) {
         throw new Error(`Attempt to send Error as message.`, {
           cause: message,
@@ -44,7 +51,7 @@ const makeMakeExtensionConnection =
         (message: ReaderMessage<CommandMessage<Swap<Interlocutor>>>) =>
           handler(message),
       ),
-    close: async () => {},
+    close: async () => undefined,
   });
 
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
@@ -67,12 +74,18 @@ export const makeOffscreenBackgroundConnection = makeMakeExtensionConnection(
   ExtensionMessageTarget.Background,
 );
 
-export const makeBackgroundStreamPair = () => {
+export const makeBackgroundStreamPair: () => StreamPair<
+  CommandMessage<ExtensionMessageTarget.Background>,
+  CommandMessage<ExtensionMessageTarget.Offscreen>
+> = () => {
   const connection = makeBackgroundOffscreenConnection();
   return makeConnectionStreamPair(connection);
 };
 
-export const makeOffscreenStreamPair = () => {
+export const makeOffscreenStreamPair: () => StreamPair<
+  CommandMessage<ExtensionMessageTarget.Offscreen>,
+  CommandMessage<ExtensionMessageTarget.Background>
+> = () => {
   const connection = makeOffscreenBackgroundConnection();
   return makeConnectionStreamPair(connection);
 };

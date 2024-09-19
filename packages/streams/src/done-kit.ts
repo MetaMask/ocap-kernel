@@ -10,7 +10,7 @@ type MaybeDone<Type = never> = Promise<Type | DoneResult>;
 export type DoneKit = {
   setDone: () => Promise<void>;
   doIfNotDone: <Args extends unknown[]>(
-    toDo: (...args: Args) => void,
+    toDo: (...args: Args) => Promise<void>,
   ) => (...args: Args) => MaybeDone;
   returnIfNotDone: <Return>(
     toReturn: () => Promise<Return>,
@@ -32,10 +32,10 @@ export const makeDoneKit = (onDone: () => Promise<void>): DoneKit => {
       await onDone();
     },
     doIfNotDone:
-      <Args extends unknown[]>(toDo: (...args: Args) => void) =>
+      <Args extends unknown[]>(toDo: (...args: Args) => Promise<void>) =>
       async (...args: Args) => {
         if (!done) {
-          toDo(...args);
+          await toDo(...args);
         }
         return makeDoneResult();
       },
