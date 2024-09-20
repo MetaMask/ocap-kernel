@@ -18,21 +18,18 @@ import {
   makeStreamEnvelopeHandler,
 } from '@ocap/streams';
 
-import type { UnresolvedMessages, VatLaunchProps } from './types.js';
+import type { UnresolvedMessages, VatId } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
 
 type VatConstructorProps = {
-  id: VatLaunchProps['id'];
+  id: VatId;
   streams: StreamPair<StreamEnvelope>;
-  deleteWorker: VatLaunchProps['worker']['delete'];
 };
 
 export class Vat {
   readonly id: VatConstructorProps['id'];
 
   readonly #streams: VatConstructorProps['streams'];
-
-  readonly #deleteWorker: VatConstructorProps['deleteWorker'];
 
   readonly #messageCounter: () => number;
 
@@ -42,10 +39,9 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, streams, deleteWorker }: VatConstructorProps) {
+  constructor({ id, streams }: VatConstructorProps) {
     this.id = id;
     this.#streams = streams;
-    this.#deleteWorker = deleteWorker;
     this.#messageCounter = makeCounter();
   }
 
@@ -158,8 +154,6 @@ export class Vat {
       promiseCallback?.reject(new Error('Vat was deleted'));
       this.unresolvedMessages.delete(messageId);
     }
-
-    await this.#deleteWorker();
   }
 
   /**

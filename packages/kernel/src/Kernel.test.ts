@@ -2,7 +2,7 @@ import type { VatMessage } from '@ocap/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';
-import type { VatLaunchProps, VatWorker } from './types.js';
+import type { VatWorker } from './types.js';
 import { Vat } from './Vat.js';
 
 describe('Kernel', () => {
@@ -58,7 +58,10 @@ describe('Kernel', () => {
       await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
       expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
       await expect(
-        kernel.launchVat({ id: 'vat-id-1' } as VatLaunchProps),
+        kernel.launchVat({
+          id: 'vat-id-1',
+          worker: mockWorker,
+        }),
       ).rejects.toThrow('Vat with ID vat-id-1 already exists.');
       expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
     });
@@ -71,6 +74,7 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual(['vat-id']);
       await kernel.deleteVat('vat-id');
       expect(terminateMock).toHaveBeenCalledOnce();
+      expect(mockWorker.delete).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 

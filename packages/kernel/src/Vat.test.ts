@@ -19,7 +19,6 @@ vi.mock('@endo/captp', () => {
 
 describe('Vat', () => {
   let mockStreams: StreamPair<StreamEnvelope>;
-  let mockDeleteWorker: () => Promise<void>;
   let vat: Vat;
 
   beforeEach(() => {
@@ -51,14 +50,10 @@ describe('Vat', () => {
       throw: vi.fn().mockResolvedValue(undefined),
     };
 
-    // Mock the delete worker function
-    mockDeleteWorker = vi.fn().mockResolvedValue(undefined);
-
     // Create a new instance of the Vat class
     vat = new Vat({
       id: 'test-vat',
       streams: mockStreams,
-      deleteWorker: mockDeleteWorker,
     });
   });
 
@@ -98,7 +93,6 @@ describe('Vat', () => {
       const mockSpy = vi.spyOn(mockPromiseKit, 'reject');
       vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
       await vat.terminate();
-      expect(mockDeleteWorker).toHaveBeenCalled();
       expect(mockSpy).toHaveBeenCalledWith(expect.any(Error));
     });
   });

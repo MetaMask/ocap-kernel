@@ -1,11 +1,11 @@
 import '@ocap/shims/endoify';
 import type { VatMessage } from '@ocap/streams';
 
-import type { VatId, VatLaunchProps } from './types.js';
+import type { VatId, VatLaunchProps, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
-  readonly #vats: Map<VatId, Vat>;
+  readonly #vats: Map<VatId, { vat: Vat; worker: VatWorker }>;
 
   constructor() {
     this.#vats = new Map();
@@ -33,8 +33,8 @@ export class Kernel {
       throw new Error(`Vat with ID ${id} already exists.`);
     }
     const [streams] = await worker.init();
-    const vat = new Vat({ id, streams, deleteWorker: worker.delete });
-    this.#vats.set(vat.id, vat);
+    const vat = new Vat({ id, streams });
+    this.#vats.set(vat.id, { vat, worker });
     await vat.init();
     return vat;
   }
@@ -45,8 +45,10 @@ export class Kernel {
    * @param id - The ID of the vat.
    */
   public async deleteVat(id: string): Promise<void> {
-    const vat = this.#getVat(id);
+    const vatRecord = this.#getVatRecord(id);
+    const { vat, worker } = vatRecord;
     await vat.terminate();
+    await worker.delete();
     this.#vats.delete(id);
   }
 
@@ -58,21 +60,21 @@ export class Kernel {
    * @returns A promise that resolves the response to the message.
    */
   public async sendMessage(id: VatId, message: VatMessage): Promise<unknown> {
-    const vat = this.#getVat(id);
+    const { vat } = this.#getVatRecord(id);
     return vat.sendMessage(message);
   }
 
   /**
-   * Gets a vat from the kernel.
+   * Gets a vat record from the kernel.
    *
    * @param id - The ID of the vat.
-   * @returns The vat record.
+   * @returns The vat record (vat and worker).
    */
-  #getVat(id: string): Vat {
-    const vat = this.#vats.get(id);
-    if (vat === undefined) {
+  #getVatRecord(id: string): { vat: Vat; worker: VatWorker } {
+    const vatRecord = this.#vats.get(id);
+    if (vatRecord === undefined) {
       throw new Error(`Vat with ID ${id} does not exist.`);
     }
-    return vat;
+    return vatRecord;
   }
 }
