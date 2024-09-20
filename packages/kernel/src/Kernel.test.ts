@@ -9,6 +9,7 @@ describe('Kernel', () => {
   let mockWorker: VatWorker;
   let initMock: unknown;
   let terminateMock: unknown;
+
   beforeEach(() => {
     vi.resetAllMocks();
 
