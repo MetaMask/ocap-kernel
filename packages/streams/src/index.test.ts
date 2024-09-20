@@ -6,11 +6,15 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
       expect.arrayContaining([
-        'makeMessagePortStreamPair',
-        'MessagePortReader',
-        'MessagePortWriter',
         'initializeMessageChannel',
         'receiveMessagePort',
+        'makeMessagePortStreamPair',
+        'makeStreamEnvelopeKit',
+        'KernelMessageTarget',
+        'Command',
+        'wrapStreamCommand',
+        'wrapCapTp',
+        'makeStreamEnvelopeHandler',
       ]),
     );
   });
