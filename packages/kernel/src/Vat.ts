@@ -38,9 +38,9 @@ export class Vat {
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  #streamEnvelopeHandler?: StreamEnvelopeHandler;
+  streamEnvelopeHandler?: StreamEnvelopeHandler;
 
-  #capTp?: ReturnType<typeof makeCapTP>;
+  capTp?: ReturnType<typeof makeCapTP>;
 
   constructor({ id, streams, deleteWorker }: VatConstructorProps) {
     this.id = id;
@@ -55,7 +55,7 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    this.#streamEnvelopeHandler = makeStreamEnvelopeHandler(
+    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
         command: async ({ id, message }) => {
           const promiseCallbacks = this.unresolvedMessages.get(id);
@@ -90,7 +90,7 @@ export class Vat {
   async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
-      await this.#streamEnvelopeHandler?.handle(rawMessage);
+      await this.streamEnvelopeHandler?.handle(rawMessage);
     }
   }
 
@@ -100,13 +100,13 @@ export class Vat {
    * @returns A promise that resolves when the CapTP connection is made.
    */
   async makeCapTp(): Promise<unknown> {
-    if (this.#capTp !== undefined) {
+    if (this.capTp !== undefined) {
       throw new Error(
         `Vat with id "${this.id}" already has a CapTP connection.`,
       );
     }
 
-    if (!this.#streamEnvelopeHandler) {
+    if (!this.streamEnvelopeHandler) {
       throw new Error(
         `Vat with id "${this.id}" does not have a stream envelope handler.`,
       );
@@ -121,8 +121,8 @@ export class Vat {
       await writer.next(wrapCapTp(content as CapTpMessage));
     });
 
-    this.#capTp = ctp;
-    this.#streamEnvelopeHandler.contentHandlers.capTp = async (
+    this.capTp = ctp;
+    this.streamEnvelopeHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
       console.log('CapTP from vat', JSON.stringify(content, null, 2));
@@ -139,24 +139,18 @@ export class Vat {
    * @returns A promise that resolves the result of the CapTP call.
    */
   async callCapTp(payload: CapTpPayload): Promise<unknown> {
-    if (!this.#capTp) {
+    if (!this.capTp) {
       throw new Error(
         `Vat with id "${this.id}" does not have a CapTP connection.`,
       );
     }
-    return E(this.#capTp.getBootstrap())[payload.method](...payload.params);
+    return E(this.capTp.getBootstrap())[payload.method](...payload.params);
   }
 
   /**
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    if (!this.#streams) {
-      throw new Error(
-        `Vat with id "${this.id}" does not have a stream connection.`,
-      );
-    }
-
     await this.#streams.return();
 
     // Handle orphaned messages
@@ -175,6 +169,7 @@ export class Vat {
    * @returns A promise that resolves the response to the message.
    */
   public async sendMessage(message: VatMessage): Promise<unknown> {
+    console.debug(`Sending message to vat "${this.id}"`, message);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
