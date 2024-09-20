@@ -10,8 +10,8 @@ describe('Kernel', () => {
   let initMock: unknown;
   let terminateMock: unknown;
   beforeEach(() => {
-    // Reset all mocks before each test
     vi.resetAllMocks();
+
     mockWorker = {
       init: vi.fn().mockResolvedValue([{}]),
       delete: vi.fn(),
