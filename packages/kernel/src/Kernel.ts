@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import type { VatMessage } from '@ocap/streams';
 
-import type { VatId, VatLaunchProps, VatWorker } from './types.js';
+import type { VatId, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
@@ -28,7 +28,13 @@ export class Kernel {
    * @param options.worker - The worker to use for the vat.
    * @returns A promise that resolves the vat.
    */
-  public async launchVat({ id, worker }: VatLaunchProps): Promise<Vat> {
+  public async launchVat({
+    id,
+    worker,
+  }: {
+    id: VatId;
+    worker: VatWorker;
+  }): Promise<Vat> {
     if (this.#vats.has(id)) {
       throw new Error(`Vat with ID ${id} already exists.`);
     }
