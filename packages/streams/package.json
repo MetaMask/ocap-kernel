@@ -49,8 +49,7 @@
     "@endo/captp": "^4.2.2",
     "@endo/promise-kit": "^1.1.4",
     "@endo/stream": "^1.2.2",
-    "@metamask/utils": "^9.1.0",
-    "@ocap/shims": "workspace:^"
+    "@metamask/utils": "^9.1.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
