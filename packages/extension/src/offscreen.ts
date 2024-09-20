@@ -1,4 +1,4 @@
-import { Kernel, Vat } from '@ocap/kernel';
+import { Kernel } from '@ocap/kernel';
 import {
   initializeMessageChannel,
   Command,
@@ -16,14 +16,10 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const kernel = new Kernel();
-
-  const vat = new Vat({
+  const iframeReadyP = kernel.launchVat({
     id: 'default',
     worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
-  const iframeReadyP = vat.init();
-
-  kernel.addVat(vat);
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
@@ -35,11 +31,11 @@ async function main(): Promise<void> {
         return;
       }
 
-      await iframeReadyP;
+      const vat = await iframeReadyP;
 
       switch (message.type) {
         case Command.Evaluate:
-          await reply(Command.Evaluate, await evaluate(message.data));
+          await reply(Command.Evaluate, await evaluate(vat.id, message.data));
           break;
         case Command.CapTpCall: {
           const result = await vat.callCapTp(message.data);
@@ -80,12 +76,13 @@ async function main(): Promise<void> {
   /**
    * Evaluate a string in the default iframe.
    *
+   * @param vatId - The ID of the vat to send the message to.
    * @param source - The source string to evaluate.
    * @returns The result of the evaluation, or an error message.
    */
-  async function evaluate(source: string): Promise<string> {
+  async function evaluate(vatId: string, source: string): Promise<string> {
     try {
-      const result = await kernel.sendMessage(vat.id, {
+      const result = await kernel.sendMessage(vatId, {
         type: Command.Evaluate,
         data: source,
       });

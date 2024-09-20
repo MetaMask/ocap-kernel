@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
 import type { VatMessage } from '@ocap/streams';
 
-import type { VatId } from './types.js';
-import type { Vat } from './Vat.js';
+import type { VatId, VatLaunchProps } from './types.js';
+import { Vat } from './Vat.js';
 
 export class Kernel {
   readonly #vats: Map<VatId, Vat>;
@@ -16,20 +16,27 @@ export class Kernel {
    *
    * @returns An array of vat IDs.
    */
-  public getVatIDs(): VatId[] {
+  public getVatIds(): VatId[] {
     return Array.from(this.#vats.keys());
   }
 
   /**
-   * Adds a vat to the kernel.
+   * Launches a vat in the kernel.
    *
-   * @param vat - The vat record.
+   * @param options - The options for launching the vat.
+   * @param options.id - The ID of the vat.
+   * @param options.worker - The worker to use for the vat.
+   * @returns A promise that resolves the vat.
    */
-  public addVat(vat: Vat): void {
-    if (this.#vats.has(vat.id)) {
-      throw new Error(`Vat with ID ${vat.id} already exists.`);
+  public async launchVat({ id, worker }: VatLaunchProps): Promise<Vat> {
+    if (this.#vats.has(id)) {
+      throw new Error(`Vat with ID ${id} already exists.`);
     }
+    const [streams] = await worker.init();
+    const vat = new Vat({ id, streams, deleteWorker: worker.delete });
     this.#vats.set(vat.id, vat);
+    await vat.init();
+    return vat;
   }
 
   /**

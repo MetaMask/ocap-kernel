@@ -18,32 +18,34 @@ import {
   makeStreamEnvelopeHandler,
 } from '@ocap/streams';
 
-import type { UnresolvedMessages, VatWorker } from './types.js';
+import type { UnresolvedMessages, VatLaunchProps } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
 
-export type VatProps = {
-  id: string;
-  worker: VatWorker;
+type VatConstructorProps = {
+  id: VatLaunchProps['id'];
+  streams: StreamPair<StreamEnvelope>;
+  deleteWorker: VatLaunchProps['worker']['delete'];
 };
 
 export class Vat {
-  readonly id: VatProps['id'];
+  readonly id: VatConstructorProps['id'];
 
-  readonly #worker: VatProps['worker'];
+  readonly #streams: VatConstructorProps['streams'];
+
+  readonly #deleteWorker: VatConstructorProps['deleteWorker'];
 
   readonly #messageCounter: () => number;
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  streams?: StreamPair<StreamEnvelope>;
+  #streamEnvelopeHandler?: StreamEnvelopeHandler;
 
-  streamEnvelopeHandler?: StreamEnvelopeHandler;
+  #capTp?: ReturnType<typeof makeCapTP>;
 
-  capTp?: ReturnType<typeof makeCapTP>;
-
-  constructor({ id, worker }: VatProps) {
+  constructor({ id, streams, deleteWorker }: VatConstructorProps) {
     this.id = id;
-    this.#worker = worker;
+    this.#streams = streams;
+    this.#deleteWorker = deleteWorker;
     this.#messageCounter = makeCounter();
   }
 
@@ -53,9 +55,7 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    const [streams] = await this.#worker.init();
-    this.streams = streams;
-    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
+    this.#streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
         command: async ({ id, message }) => {
           const promiseCallbacks = this.unresolvedMessages.get(id);
@@ -71,7 +71,7 @@ export class Vat {
     );
 
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(this.streams.reader).catch((error) => {
+    this.#receiveMessages(this.#streams.reader).catch((error) => {
       console.error(`Unexpected read error from vat "${this.id}"`, error);
       throw error;
     });
@@ -90,7 +90,7 @@ export class Vat {
   async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Offscreen received message', rawMessage);
-      await this.streamEnvelopeHandler?.handle(rawMessage);
+      await this.#streamEnvelopeHandler?.handle(rawMessage);
     }
   }
 
@@ -100,26 +100,20 @@ export class Vat {
    * @returns A promise that resolves when the CapTP connection is made.
    */
   async makeCapTp(): Promise<unknown> {
-    if (this.capTp !== undefined) {
+    if (this.#capTp !== undefined) {
       throw new Error(
         `Vat with id "${this.id}" already has a CapTP connection.`,
       );
     }
 
-    if (!this.streams) {
-      throw new Error(
-        `Vat with id "${this.id}" does not have a stream connection.`,
-      );
-    }
-
-    if (!this.streamEnvelopeHandler) {
+    if (!this.#streamEnvelopeHandler) {
       throw new Error(
         `Vat with id "${this.id}" does not have a stream envelope handler.`,
       );
     }
 
     // Handle writes here. #receiveMessages() handles reads.
-    const { writer } = this.streams;
+    const { writer } = this.#streams;
     // https://github.com/endojs/endo/issues/2412
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     const ctp = makeCapTP(this.id, async (content: unknown) => {
@@ -127,8 +121,8 @@ export class Vat {
       await writer.next(wrapCapTp(content as CapTpMessage));
     });
 
-    this.capTp = ctp;
-    this.streamEnvelopeHandler.contentHandlers.capTp = async (
+    this.#capTp = ctp;
+    this.#streamEnvelopeHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
       console.log('CapTP from vat', JSON.stringify(content, null, 2));
@@ -145,25 +139,25 @@ export class Vat {
    * @returns A promise that resolves the result of the CapTP call.
    */
   async callCapTp(payload: CapTpPayload): Promise<unknown> {
-    if (!this.capTp) {
+    if (!this.#capTp) {
       throw new Error(
         `Vat with id "${this.id}" does not have a CapTP connection.`,
       );
     }
-    return E(this.capTp.getBootstrap())[payload.method](...payload.params);
+    return E(this.#capTp.getBootstrap())[payload.method](...payload.params);
   }
 
   /**
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    if (!this.streams) {
+    if (!this.#streams) {
       throw new Error(
         `Vat with id "${this.id}" does not have a stream connection.`,
       );
     }
 
-    await this.streams.return();
+    await this.#streams.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -171,7 +165,7 @@ export class Vat {
       this.unresolvedMessages.delete(messageId);
     }
 
-    await this.#worker.delete();
+    await this.#deleteWorker();
   }
 
   /**
@@ -184,7 +178,7 @@ export class Vat {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.streams?.writer.next(
+    await this.#streams?.writer.next(
       wrapStreamCommand({ id: messageId, message }),
     );
     return promise;

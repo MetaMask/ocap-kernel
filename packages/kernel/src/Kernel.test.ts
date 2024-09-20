@@ -1,55 +1,76 @@
 import type { VatMessage } from '@ocap/streams';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';
-import type { Vat } from './Vat.js';
+import type { VatLaunchProps, VatWorker } from './types.js';
+import { Vat } from './Vat.js';
 
 describe('Kernel', () => {
-  describe('#getVatIDs()', () => {
+  let mockWorker: VatWorker;
+  let initMock: unknown;
+  let terminateMock: unknown;
+  beforeEach(() => {
+    // Reset all mocks before each test
+    vi.resetAllMocks();
+    mockWorker = {
+      init: vi.fn().mockResolvedValue([{}]),
+      delete: vi.fn(),
+    };
+
+    initMock = vi.spyOn(Vat.prototype, 'init').mockImplementation(vi.fn());
+    terminateMock = vi
+      .spyOn(Vat.prototype, 'terminate')
+      .mockImplementation(vi.fn());
+  });
+
+  describe('#getVatIds()', () => {
     it('returns an empty array when no vats are added', () => {
       const kernel = new Kernel();
-      expect(kernel.getVatIDs()).toStrictEqual([]);
+      expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
-    it('returns the vat IDs after adding a vat', () => {
+    it('returns the vat IDs after adding a vat', async () => {
       const kernel = new Kernel();
-      kernel.addVat({ id: 'vat-id-1' } as Vat);
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id-1']);
+      await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
     });
 
-    it('returns multiple vat IDs after adding multiple vats', () => {
+    it('returns multiple vat IDs after adding multiple vats', async () => {
       const kernel = new Kernel();
-      kernel.addVat({ id: 'vat-id-1' } as Vat);
-      kernel.addVat({ id: 'vat-id-2' } as Vat);
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id-1', 'vat-id-2']);
+      await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
+      await kernel.launchVat({ id: 'vat-id-2', worker: mockWorker });
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id-1', 'vat-id-2']);
     });
   });
 
-  describe('#addVat()', () => {
-    it('adds a vat to the kernel without errors when no vat with the same ID exists', () => {
+  describe('#launchVat()', () => {
+    it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
       const kernel = new Kernel();
-      kernel.addVat({ id: 'vat-id' } as Vat);
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id']);
+      await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
+      expect(initMock).toHaveBeenCalledOnce();
+      expect(mockWorker.init).toHaveBeenCalled();
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
     });
 
-    it('throws an error when adding a vat that already exists in the kernel', () => {
+    it('throws an error when launching a vat that already exists in the kernel', async () => {
       const kernel = new Kernel();
-      kernel.addVat({ id: 'vat-id-1' } as Vat);
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id-1']);
-      expect(() => kernel.addVat({ id: 'vat-id-1' } as Vat)).toThrow(
-        'Vat with ID vat-id-1 already exists.',
-      );
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id-1']);
+      await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
+      await expect(
+        kernel.launchVat({ id: 'vat-id-1' } as VatLaunchProps),
+      ).rejects.toThrow('Vat with ID vat-id-1 already exists.');
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id-1']);
     });
   });
 
   describe('#deleteVat()', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
       const kernel = new Kernel();
-      kernel.addVat({ id: 'vat-id', terminate: vi.fn() } as unknown as Vat);
-      expect(kernel.getVatIDs()).toStrictEqual(['vat-id']);
+      await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
+      expect(kernel.getVatIds()).toStrictEqual(['vat-id']);
       await kernel.deleteVat('vat-id');
-      expect(kernel.getVatIDs()).toStrictEqual([]);
+      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
     it('throws an error when deleting a vat that does not exist in the kernel', async () => {
@@ -57,16 +78,13 @@ describe('Kernel', () => {
       await expect(async () =>
         kernel.deleteVat('non-existent-vat-id'),
       ).rejects.toThrow('Vat with ID non-existent-vat-id does not exist.');
+      expect(terminateMock).not.toHaveBeenCalled();
     });
 
     it('throws an error when a vat terminate method throws', async () => {
       const kernel = new Kernel();
-      kernel.addVat({
-        id: 'vat-id',
-        terminate: () => {
-          throw new Error('Test error');
-        },
-      } as unknown as Vat);
+      await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
+      vi.spyOn(Vat.prototype, 'terminate').mockRejectedValueOnce('Test error');
       await expect(async () => kernel.deleteVat('vat-id')).rejects.toThrow(
         'Test error',
       );
@@ -76,10 +94,8 @@ describe('Kernel', () => {
   describe('#sendMessage()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel();
-      kernel.addVat({
-        id: 'vat-id',
-        sendMessage: async (prop) => Promise.resolve(prop),
-      } as Vat);
+      await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
+      vi.spyOn(Vat.prototype, 'sendMessage').mockResolvedValueOnce('test');
       expect(
         await kernel.sendMessage('vat-id', 'test' as unknown as VatMessage),
       ).toBe('test');
@@ -94,13 +110,11 @@ describe('Kernel', () => {
 
     it('throws an error when sending a message to the vat throws', async () => {
       const kernel = new Kernel();
-      kernel.addVat({
-        id: 'vat-id',
-        sendMessage: async () => Promise.reject(new Error('Test error')),
-      } as unknown as Vat);
+      await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
+      vi.spyOn(Vat.prototype, 'sendMessage').mockRejectedValueOnce('error');
       await expect(async () =>
         kernel.sendMessage('vat-id', {} as VatMessage),
-      ).rejects.toThrow('Test error');
+      ).rejects.toThrow('error');
     });
   });
 

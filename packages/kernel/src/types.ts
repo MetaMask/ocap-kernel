@@ -11,3 +11,8 @@ export type VatWorker = {
 export type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
 
 export type UnresolvedMessages = Map<MessageId, PromiseCallbacks>;
+
+export type VatLaunchProps = {
+  id: VatId;
+  worker: VatWorker;
+};
