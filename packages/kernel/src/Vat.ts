@@ -18,18 +18,18 @@ import {
   makeStreamEnvelopeHandler,
 } from '@ocap/streams';
 
-import type { UnresolvedMessages, VatRealm } from './types.js';
+import type { UnresolvedMessages, VatWorker } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
 
 export type VatProps = {
   id: string;
-  realm: VatRealm;
+  worker: VatWorker;
 };
 
 export class Vat {
   readonly id: VatProps['id'];
 
-  readonly #realm: VatProps['realm'];
+  readonly #worker: VatProps['worker'];
 
   readonly #messageCounter: () => number;
 
@@ -41,9 +41,9 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, realm }: VatProps) {
+  constructor({ id, worker }: VatProps) {
     this.id = id;
-    this.#realm = realm;
+    this.#worker = worker;
     this.#messageCounter = makeCounter();
   }
 
@@ -53,7 +53,7 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    const [streams] = await this.#realm.init();
+    const [streams] = await this.#worker.init();
     this.streams = streams;
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
@@ -157,7 +157,13 @@ export class Vat {
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    await this.streams?.return();
+    if (!this.streams) {
+      throw new Error(
+        `Vat with id "${this.id}" does not have a stream connection.`,
+      );
+    }
+
+    await this.streams.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -165,7 +171,7 @@ export class Vat {
       this.unresolvedMessages.delete(messageId);
     }
 
-    await this.#realm.delete();
+    await this.#worker.delete();
   }
 
   /**

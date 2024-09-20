@@ -6,7 +6,7 @@ import {
 } from '@ocap/streams';
 import type { KernelMessage } from '@ocap/streams';
 
-import { makeIframeVatRealm } from './makeIframeVatRealm.js';
+import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
@@ -19,7 +19,7 @@ async function main(): Promise<void> {
 
   const vat = new Vat({
     id: 'default',
-    realm: makeIframeVatRealm('default', initializeMessageChannel),
+    worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
   const iframeReadyP = vat.init();
 

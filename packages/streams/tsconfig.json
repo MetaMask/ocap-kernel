@@ -4,8 +4,6 @@
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
     "types": ["ses", "vitest", "vitest/jsdom"],
-    "allowImportingTsExtensions": true,
-    "emitDeclarationOnly": true,
     "allowJs": true,
     "checkJs": true
   },

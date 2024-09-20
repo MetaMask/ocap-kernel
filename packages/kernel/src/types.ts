@@ -3,7 +3,7 @@ import type { StreamPair, MessageId, StreamEnvelope } from '@ocap/streams';
 
 export type VatId = string;
 
-export type VatRealm = {
+export type VatWorker = {
   init: () => Promise<[StreamPair<StreamEnvelope>, unknown]>;
   delete: () => Promise<void>;
 };

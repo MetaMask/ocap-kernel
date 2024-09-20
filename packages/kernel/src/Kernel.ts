@@ -38,8 +38,8 @@ export class Kernel {
    * @param id - The ID of the vat.
    */
   public async deleteVat(id: string): Promise<void> {
-    const vat = this.#vats.get(id);
-    await vat?.terminate();
+    const vat = this.#getVat(id);
+    await vat.terminate();
     this.#vats.delete(id);
   }
 
