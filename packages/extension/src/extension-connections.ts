@@ -1,35 +1,38 @@
-import type {
-  Connection,
-  ReaderMessage,
-  StreamPair,
-  WriterMessage,
-} from '@ocap/streams';
-import { makeConnectionStreamPair } from '@ocap/streams';
+import type { Connection, ReaderMessage, WriterMessage } from '@ocap/streams';
 
 import type { CommandMessage } from './message.js';
 import { ExtensionMessageTarget } from './message.js';
 
-type Swap<Interlocutor extends ExtensionMessageTarget> =
+// Abstract extension connection.
+
+type Target<Interlocutor extends ExtensionMessageTarget> =
   Interlocutor extends ExtensionMessageTarget.Background
     ? ExtensionMessageTarget.Offscreen
     : Interlocutor extends ExtensionMessageTarget.Offscreen
     ? ExtensionMessageTarget.Background
     : never;
 
-// Use chrome's extension API to send messages between the background service worker and its offscreen document.
+// Provides a switch for when we differentiate Command/CommandReply types
+type Mode<Interlocutor extends ExtensionMessageTarget> =
+  Interlocutor extends ExtensionMessageTarget.Background
+    ? CommandMessage<Target<Interlocutor>>
+    : Interlocutor extends ExtensionMessageTarget.Offscreen
+    ? CommandMessage<Target<Interlocutor>>
+    : never;
+
+// Use chrome's extension API to send messages between the
+// background service worker and its offscreen document.
 const makeMakeExtensionConnection =
   <Interlocutor extends ExtensionMessageTarget>(
     interlocutor: Interlocutor,
     open: () => Promise<void> = async () => undefined,
   ): (() => Connection<
-    ReaderMessage<CommandMessage<Swap<Interlocutor>>>,
-    WriterMessage<CommandMessage<Interlocutor>>
+    ReaderMessage<Mode<Target<Interlocutor>>>,
+    WriterMessage<Mode<Interlocutor>>
   >) =>
   () => ({
     open,
-    sendMessage: async (
-      message: WriterMessage<CommandMessage<Interlocutor>>,
-    ) => {
+    sendMessage: async (message: WriterMessage<Mode<Interlocutor>>) => {
       if (message instanceof Error) {
         throw new Error(`Attempt to send Error as message.`, {
           cause: message,
@@ -43,16 +46,16 @@ const makeMakeExtensionConnection =
       });
     },
     setMessageHandler: (
-      handler: (
-        message: ReaderMessage<CommandMessage<Swap<Interlocutor>>>,
-      ) => void,
+      handler: (message: ReaderMessage<Mode<Target<Interlocutor>>>) => void,
     ) =>
       chrome.runtime.onMessage.addListener(
-        (message: ReaderMessage<CommandMessage<Swap<Interlocutor>>>) =>
+        (message: ReaderMessage<Mode<Target<Interlocutor>>>) =>
           handler(message),
       ),
     close: async () => undefined,
   });
+
+// Extension connection implementations.
 
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 
@@ -73,19 +76,3 @@ export const makeBackgroundOffscreenConnection = makeMakeExtensionConnection(
 export const makeOffscreenBackgroundConnection = makeMakeExtensionConnection(
   ExtensionMessageTarget.Background,
 );
-
-export const makeBackgroundStreamPair: () => StreamPair<
-  CommandMessage<ExtensionMessageTarget.Background>,
-  CommandMessage<ExtensionMessageTarget.Offscreen>
-> = () => {
-  const connection = makeBackgroundOffscreenConnection();
-  return makeConnectionStreamPair(connection);
-};
-
-export const makeOffscreenStreamPair: () => StreamPair<
-  CommandMessage<ExtensionMessageTarget.Offscreen>,
-  CommandMessage<ExtensionMessageTarget.Background>
-> = () => {
-  const connection = makeOffscreenBackgroundConnection();
-  return makeConnectionStreamPair(connection);
-};

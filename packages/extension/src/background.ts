@@ -1,11 +1,11 @@
 import type { Json } from '@metamask/utils';
 
 import './background-trusted-prelude.js';
+import { makeBackgroundOffscreenStreamPair } from './extension-stream-pairs.js';
 import type { CommandMessage } from './message.js';
 import { Command } from './message.js';
-import { makeBackgroundStreamPair } from './stream-pairs.js';
 
-const streams = makeBackgroundStreamPair();
+const streams = makeBackgroundOffscreenStreamPair();
 
 // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {

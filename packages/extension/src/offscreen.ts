@@ -1,7 +1,7 @@
+import { makeOffscreenBackgroundStreamPair } from './extension-stream-pairs.js';
 import { IframeManager } from './iframe-manager.js';
 import type { CommandMessage } from './message.js';
 import { Command } from './message.js';
-import { makeOffscreenStreamPair } from './stream-pairs.js';
 
 main().catch(console.error);
 
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
     .create({ id: IFRAME_ID })
     .then(async () => iframeManager.makeCapTp(IFRAME_ID));
 
-  const streams = makeOffscreenStreamPair();
+  const streams = makeOffscreenBackgroundStreamPair();
 
   for await (const message of streams.reader) {
     await iframeReadyP;
