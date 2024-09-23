@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-
 /**
  * Create a module mock for `@endo/promise-kit`.
  *
  * @returns The mock.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const makePromiseKitMock = () => ({
   makePromiseKit: () => {
     let resolve: (value: unknown) => void, reject: (reason?: unknown) => void;

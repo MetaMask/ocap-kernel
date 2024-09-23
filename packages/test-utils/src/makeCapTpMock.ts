@@ -1,27 +1,23 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-
 /**
  * Create a module mock for `@endo/captp`.
  *
  * @returns The mock.
  */
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const makeCapTpMock = () => ({
   makeCapTP: (
     id: string,
     send: (message: unknown) => Promise<void>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bootstrapObj?: any,
+    bootstrapObj?: unknown,
   ) => {
     const capTp = {
       id,
       send,
+      bootstrapObj,
       dispatch: () => undefined,
-      getBootstrap: () => undefined,
-      bootstrapObj: bootstrapObj ?? {
-        testMethod: Promise.resolve('bootstrap-result'),
-      },
+      getBootstrap: () => capTp.bootstrapObj,
     };
-    capTp.getBootstrap = () => capTp.bootstrapObj;
     return capTp;
   },
 });
