@@ -1,7 +1,9 @@
+import { createWindow } from '@metamask/snaps-utils';
 import { makeOffscreenBackgroundStreamPair } from './extension-stream-pairs.js';
 import { IframeManager } from './iframe-manager.js';
 import type { CommandMessage } from './message.js';
 import { Command } from './message.js';
+import { initializeMessageChannel } from '../../streams/dist/message-channel.cjs';
 
 main().catch(console.error);
 
@@ -36,6 +38,12 @@ async function main(): Promise<void> {
         break;
       case Command.Ping:
         await reply(Command.Ping, 'pong');
+        break;
+      case Command.HelloThere:
+        const iframe = await createWindow('poc-iframe.html', 'poc-iframe'); 
+        console.log('offscreen received message', message);
+        const initMessage = { type: 'INIT_MESSAGE_CHANNEL' }; 
+        iframe.postMessage(initMessage, '*', [message.data]);
         break;
       default:
         console.error(

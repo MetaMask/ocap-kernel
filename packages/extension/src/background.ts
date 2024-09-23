@@ -7,6 +7,13 @@ import { Command } from './message.js';
 
 const streams = makeBackgroundOffscreenStreamPair();
 
+const {
+  port1: portBackgroundKernel,
+  port2: portKernelBackground,
+} = new MessageChannel();
+
+portBackgroundKernel.onmessage = console.log;
+
 // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
@@ -32,6 +39,11 @@ Object.defineProperties(globalThis.kernel, {
     value: async (message: CommandMessage<never>) =>
       await streams.writer.next(message),
   },
+  helloThere: {
+    value: async () => {
+      await streams.writer.next({ type: Command.HelloThere, data: portKernelBackground });
+    }
+  }
 });
 harden(globalThis.kernel);
 
@@ -54,6 +66,7 @@ async function handleMessages(): Promise<void> {
       case Command.CapTpCall:
       case Command.CapTpInit:
       case Command.Ping:
+      case Command.HelloThere:
         console.log(message.data);
         break;
       default:

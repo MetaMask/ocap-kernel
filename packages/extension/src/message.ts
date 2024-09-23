@@ -5,6 +5,7 @@ export type MessageId = string;
 
 type DataObject =
   | Primitive
+  | Transferable
   | Promise<DataObject>
   | DataObject[]
   | { [key: string]: DataObject };
@@ -29,6 +30,7 @@ export enum Command {
   CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
   Ping = 'ping',
+  HelloThere = 'helloThere'
 }
 
 export type CapTpPayload = {
@@ -40,7 +42,8 @@ export type CommandMessage<TargetType extends ExtensionMessageTarget> =
   | CommandLike<Command.Ping, null | 'pong', TargetType>
   | CommandLike<Command.Evaluate, string, TargetType>
   | CommandLike<Command.CapTpInit, null, TargetType>
-  | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>;
+  | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>
+  | CommandLike<Command.HelloThere, MessagePort, TargetType>;
 
 export type ExtensionMessage = CommandMessage<ExtensionMessageTarget>;
 export type IframeMessage = CommandMessage<never>;
