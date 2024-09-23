@@ -8,12 +8,12 @@ import type { StreamEnvelope, VatMessage } from '@ocap/streams';
 import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { Vat } from './Vat.js';
+import { VatProxy } from './VatProxy.js';
 
 vi.mock('@endo/captp', () => makeCapTpMock());
 
-describe('Vat', () => {
-  let vat: Vat;
+describe('VatProxy', () => {
+  let vat: VatProxy;
   let port1: MessagePort;
 
   beforeEach(() => {
@@ -24,7 +24,7 @@ describe('Vat', () => {
 
     const streams = makeMessagePortStreamPair<StreamEnvelope>(port1);
 
-    vat = new Vat({
+    vat = new VatProxy({
       id: 'test-vat',
       streams,
     });

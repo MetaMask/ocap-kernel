@@ -2,10 +2,10 @@ import '@ocap/shims/endoify';
 import type { VatMessage } from '@ocap/streams';
 
 import type { VatId, VatWorker } from './types.js';
-import { Vat } from './Vat.js';
+import { VatProxy } from './VatProxy.js';
 
 export class Kernel {
-  readonly #vats: Map<VatId, { vat: Vat; worker: VatWorker }>;
+  readonly #vats: Map<VatId, { vat: VatProxy; worker: VatWorker }>;
 
   constructor() {
     this.#vats = new Map();
@@ -34,12 +34,12 @@ export class Kernel {
   }: {
     id: VatId;
     worker: VatWorker;
-  }): Promise<Vat> {
+  }): Promise<VatProxy> {
     if (this.#vats.has(id)) {
       throw new Error(`Vat with ID ${id} already exists.`);
     }
     const [streams] = await worker.init();
-    const vat = new Vat({ id, streams });
+    const vat = new VatProxy({ id, streams });
     this.#vats.set(vat.id, { vat, worker });
     await vat.init();
     return vat;
@@ -76,7 +76,7 @@ export class Kernel {
    * @param id - The ID of the vat.
    * @returns The vat record (vat and worker).
    */
-  #getVatRecord(id: VatId): { vat: Vat; worker: VatWorker } {
+  #getVatRecord(id: VatId): { vat: VatProxy; worker: VatWorker } {
     const vatRecord = this.#vats.get(id);
     if (vatRecord === undefined) {
       throw new Error(`Vat with ID ${id} does not exist.`);

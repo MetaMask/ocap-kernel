@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';
 import type { VatWorker } from './types.js';
-import { Vat } from './Vat.js';
+import { VatProxy } from './VatProxy.js';
 
 describe('Kernel', () => {
   let mockWorker: VatWorker;
@@ -18,9 +18,9 @@ describe('Kernel', () => {
       delete: vi.fn(),
     };
 
-    initMock = vi.spyOn(Vat.prototype, 'init').mockImplementation(vi.fn());
+    initMock = vi.spyOn(VatProxy.prototype, 'init').mockImplementation(vi.fn());
     terminateMock = vi
-      .spyOn(Vat.prototype, 'terminate')
+      .spyOn(VatProxy.prototype, 'terminate')
       .mockImplementation(vi.fn());
   });
 
@@ -89,7 +89,9 @@ describe('Kernel', () => {
     it('throws an error when a vat terminate method throws', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
-      vi.spyOn(Vat.prototype, 'terminate').mockRejectedValueOnce('Test error');
+      vi.spyOn(VatProxy.prototype, 'terminate').mockRejectedValueOnce(
+        'Test error',
+      );
       await expect(async () => kernel.deleteVat('vat-id')).rejects.toThrow(
         'Test error',
       );
@@ -100,7 +102,7 @@ describe('Kernel', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
-      vi.spyOn(Vat.prototype, 'sendMessage').mockResolvedValueOnce('test');
+      vi.spyOn(VatProxy.prototype, 'sendMessage').mockResolvedValueOnce('test');
       expect(
         await kernel.sendMessage('vat-id', 'test' as unknown as VatMessage),
       ).toBe('test');
@@ -116,7 +118,9 @@ describe('Kernel', () => {
     it('throws an error when sending a message to the vat throws', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
-      vi.spyOn(Vat.prototype, 'sendMessage').mockRejectedValueOnce('error');
+      vi.spyOn(VatProxy.prototype, 'sendMessage').mockRejectedValueOnce(
+        'error',
+      );
       await expect(async () =>
         kernel.sendMessage('vat-id', {} as VatMessage),
       ).rejects.toThrow('error');

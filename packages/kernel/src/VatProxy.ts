@@ -21,15 +21,15 @@ import {
 import type { UnresolvedMessages, VatId } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
 
-type VatConstructorProps = {
+type VatProxyArgs = {
   id: VatId;
   streams: StreamPair<StreamEnvelope>;
 };
 
-export class Vat {
-  readonly id: VatConstructorProps['id'];
+export class VatProxy {
+  readonly id: VatProxyArgs['id'];
 
-  readonly streams: VatConstructorProps['streams'];
+  readonly streams: VatProxyArgs['streams'];
 
   readonly #messageCounter: () => number;
 
@@ -39,7 +39,7 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, streams }: VatConstructorProps) {
+  constructor({ id, streams }: VatProxyArgs) {
     this.id = id;
     this.streams = streams;
     this.#messageCounter = makeCounter();

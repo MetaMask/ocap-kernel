@@ -5,7 +5,7 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
-      expect.arrayContaining(['Kernel', 'Vat']),
+      expect.arrayContaining(['Kernel', 'VatProxy']),
     );
   });
 });
