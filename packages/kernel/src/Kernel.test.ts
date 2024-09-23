@@ -44,7 +44,7 @@ describe('Kernel', () => {
     });
   });
 
-  describe('#launchVat()', () => {
+  describe('launchVat()', () => {
     it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id-1', worker: mockWorker });
@@ -123,7 +123,7 @@ describe('Kernel', () => {
     });
   });
 
-  describe('#constructor()', () => {
+  describe('constructor()', () => {
     it('initializes the kernel without errors', () => {
       expect(async () => new Kernel()).not.toThrow();
     });

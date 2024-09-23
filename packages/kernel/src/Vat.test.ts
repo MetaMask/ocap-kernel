@@ -70,7 +70,7 @@ describe('Vat', () => {
     });
   });
 
-  describe('#makeCapTp', () => {
+  describe('makeCapTp', () => {
     it('throws an error if CapTP connection already exists', async () => {
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
@@ -93,7 +93,7 @@ describe('Vat', () => {
     });
   });
 
-  describe('#callCapTp', () => {
+  describe('callCapTp', () => {
     it('throws an error if CapTP connection is not established', async () => {
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
