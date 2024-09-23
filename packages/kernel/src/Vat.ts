@@ -29,20 +29,34 @@ type VatConstructorProps = {
 export class Vat {
   readonly id: VatConstructorProps['id'];
 
-  readonly #streams: VatConstructorProps['streams'];
+  readonly streams: VatConstructorProps['streams'];
 
   readonly #messageCounter: () => number;
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  streamEnvelopeHandler?: StreamEnvelopeHandler;
+  streamEnvelopeHandler: StreamEnvelopeHandler;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
   constructor({ id, streams }: VatConstructorProps) {
     this.id = id;
-    this.#streams = streams;
+    this.streams = streams;
     this.#messageCounter = makeCounter();
+    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
+      {
+        command: async ({ id: messageId, message }) => {
+          const promiseCallbacks = this.unresolvedMessages.get(messageId);
+          if (promiseCallbacks === undefined) {
+            console.error(`No unresolved message with id "${messageId}".`);
+          } else {
+            this.unresolvedMessages.delete(messageId);
+            promiseCallbacks.resolve(message.data);
+          }
+        },
+      },
+      console.warn,
+    );
   }
 
   /**
@@ -51,23 +65,8 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
-      {
-        command: async ({ id, message }) => {
-          const promiseCallbacks = this.unresolvedMessages.get(id);
-          if (promiseCallbacks === undefined) {
-            console.error(`No unresolved message with id "${id}".`);
-          } else {
-            this.unresolvedMessages.delete(id);
-            promiseCallbacks.resolve(message.data);
-          }
-        },
-      },
-      console.warn,
-    );
-
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(this.#streams.reader).catch((error) => {
+    this.#receiveMessages(this.streams.reader).catch((error) => {
       console.error(`Unexpected read error from vat "${this.id}"`, error);
       throw error;
     });
@@ -85,8 +84,8 @@ export class Vat {
    */
   async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
     for await (const rawMessage of reader) {
-      console.debug('Offscreen received message', rawMessage);
-      await this.streamEnvelopeHandler?.handle(rawMessage);
+      console.debug('Vat received message', rawMessage);
+      await this.streamEnvelopeHandler.handle(rawMessage);
     }
   }
 
@@ -102,16 +101,8 @@ export class Vat {
       );
     }
 
-    if (!this.streamEnvelopeHandler) {
-      throw new Error(
-        `Vat with id "${this.id}" does not have a stream envelope handler.`,
-      );
-    }
-
     // Handle writes here. #receiveMessages() handles reads.
-    const { writer } = this.#streams;
-    // https://github.com/endojs/endo/issues/2412
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    const { writer } = this.streams;
     const ctp = makeCapTP(this.id, async (content: unknown) => {
       console.log('CapTP to vat', JSON.stringify(content, null, 2));
       await writer.next(wrapCapTp(content as CapTpMessage));
@@ -147,7 +138,7 @@ export class Vat {
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    await this.#streams.return();
+    await this.streams.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -162,12 +153,12 @@ export class Vat {
    * @param message - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  public async sendMessage(message: VatMessage): Promise<unknown> {
+  async sendMessage(message: VatMessage): Promise<unknown> {
     console.debug(`Sending message to vat "${this.id}"`, message);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.#streams?.writer.next(
+    await this.streams.writer.next(
       wrapStreamCommand({ id: messageId, message }),
     );
     return promise;

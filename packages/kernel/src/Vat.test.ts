@@ -1,82 +1,55 @@
 import '@ocap/shims/endoify';
-import type { StreamPair, StreamEnvelope, VatMessage } from '@ocap/streams';
-import { makePromiseKitMock } from '@ocap/test-utils';
+import {
+  makeMessagePortStreamPair,
+  makeStreamEnvelopeHandler,
+  Command,
+} from '@ocap/streams';
+import type { StreamEnvelope, VatMessage } from '@ocap/streams';
+import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Vat } from './Vat.js';
 
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
-
-vi.mock('@endo/captp', () => {
-  return {
-    makeCapTP: vi.fn(() => ({
-      getBootstrap: vi.fn(() => ({
-        testMethod: vi.fn().mockResolvedValue('test-result'),
-      })),
-    })),
-  };
-});
+vi.mock('@endo/captp', () => makeCapTpMock());
 
 describe('Vat', () => {
-  let mockStreams: StreamPair<StreamEnvelope>;
   let vat: Vat;
+  let port1: MessagePort;
 
   beforeEach(() => {
     vi.resetAllMocks();
 
-    // Mock the streams
-    mockStreams = {
-      reader: {
-        // @ts-expect-error We are mocking the async iterator
-        async *[Symbol.asyncIterator]() {
-          yield {
-            label: 'test-label',
-            message: {} as VatMessage,
-          };
-        },
-        return: vi.fn().mockResolvedValue(undefined),
-        throw: vi.fn(),
-      },
-      writer: {
-        next: vi.fn().mockResolvedValue({ done: false }),
-        return: vi.fn().mockResolvedValue(undefined),
-        throw: vi.fn(),
-        // @ts-expect-error We are mocking the async iterator
-        async *[Symbol.asyncIterator]() {
-          yield {};
-        },
-      },
-      return: vi.fn().mockResolvedValue(undefined),
-      throw: vi.fn().mockResolvedValue(undefined),
-    };
+    const messageChannel = new MessageChannel();
+    port1 = messageChannel.port1;
 
-    // Create a new instance of the Vat class
+    const streams = makeMessagePortStreamPair<StreamEnvelope>(port1);
+
     vat = new Vat({
       id: 'test-vat',
-      streams: mockStreams,
+      streams,
     });
   });
 
-  describe('#init', () => {
+  describe('init', () => {
     it('initializes the vat and sends a ping message', async () => {
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
         .mockResolvedValueOnce(undefined);
-      const makeCapTpMock = vi
+      const capTpMock = vi
         .spyOn(vat, 'makeCapTp')
         .mockResolvedValueOnce(undefined);
 
       await vat.init();
 
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: 'ping',
+        type: Command.Ping,
         data: null,
       });
-      expect(makeCapTpMock).toHaveBeenCalled();
+      expect(capTpMock).toHaveBeenCalled();
     });
   });
 
-  describe('#sendMessage', () => {
+  describe('sendMessage', () => {
     it('sends a message and resolves the promise', async () => {
       const mockMessage = { type: 'makeCapTp', data: null } as VatMessage;
       const sendMessagePromise = vat.sendMessage(mockMessage);
@@ -86,7 +59,7 @@ describe('Vat', () => {
     });
   });
 
-  describe('#terminate', () => {
+  describe('terminate', () => {
     it('terminates the vat and resolves/rejects unresolved messages', async () => {
       const mockMessageId = 'test-vat-1';
       const mockPromiseKit = makePromiseKitMock().makePromiseKit();
@@ -101,60 +74,31 @@ describe('Vat', () => {
     it('throws an error if CapTP connection already exists', async () => {
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
-
       await expect(vat.makeCapTp()).rejects.toThrow(
         `Vat with id "${vat.id}" already has a CapTP connection.`,
       );
     });
 
-    it('throws an error if stream envelope handler is not initialized', async () => {
-      // @ts-expect-error - Simulate the stream envelope handler not being set
-      vat.streamEnvelopeHandler = undefined;
-
-      await expect(vat.makeCapTp()).rejects.toThrow(
-        `Vat with id "${vat.id}" does not have a stream envelope handler.`,
-      );
-    });
-
     it('creates a CapTP connection and sends CapTpInit message', async () => {
-      const streamEnvelopeHandlerMock = {
-        contentHandlers: { capTp: undefined },
-      };
-      // @ts-expect-error - Set the streamEnvelopeHandler in the vat instance
-      vat.streamEnvelopeHandler = streamEnvelopeHandlerMock;
-
-      const sendMessageSpy = vi
+      vat.streamEnvelopeHandler = makeStreamEnvelopeHandler({}, console.warn);
+      const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
-        .mockResolvedValue(undefined);
-
-      vi.spyOn(mockStreams.writer, 'next').mockResolvedValue({
-        done: false,
-        value: undefined,
-      });
-
+        .mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
-
-      expect(sendMessageSpy).toHaveBeenCalledWith({
-        type: 'makeCapTp',
+      expect(vat.streamEnvelopeHandler.contentHandlers.capTp).toBeDefined();
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        type: Command.CapTpInit,
         data: null,
       });
-      expect(streamEnvelopeHandlerMock.contentHandlers.capTp).toBeDefined();
     });
   });
 
   describe('#callCapTp', () => {
-    it('throws an error if no CapTP connection exists', async () => {
-      // Ensure no CapTP connection exists in the vat instance
-      // @ts-expect-error - Simulate the CapTP connection not being set
-      vat.capTp = undefined;
-
-      const payload = {
-        method: 'testMethod',
-        params: ['param1', 'param2'],
-      };
-
-      await expect(vat.callCapTp(payload)).rejects.toThrow(
-        `Vat with id "${vat.id}" does not have a CapTP connection.`,
+    it('throws an error if CapTP connection is not established', async () => {
+      await expect(
+        vat.callCapTp({ method: 'testMethod', params: [] }),
+      ).rejects.toThrow(
+        `Vat with id "test-vat" does not have a CapTP connection.`,
       );
     });
   });

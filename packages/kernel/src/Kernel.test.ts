@@ -24,7 +24,7 @@ describe('Kernel', () => {
       .mockImplementation(vi.fn());
   });
 
-  describe('#getVatIds()', () => {
+  describe('getVatIds()', () => {
     it('returns an empty array when no vats are added', () => {
       const kernel = new Kernel();
       expect(kernel.getVatIds()).toStrictEqual([]);
@@ -67,7 +67,7 @@ describe('Kernel', () => {
     });
   });
 
-  describe('#deleteVat()', () => {
+  describe('deleteVat()', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
@@ -96,7 +96,7 @@ describe('Kernel', () => {
     });
   });
 
-  describe('#sendMessage()', () => {
+  describe('sendMessage()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel();
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });

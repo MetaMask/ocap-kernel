@@ -1,2 +1,3 @@
-export * from './mocks.js';
-export * from './utils.js';
+export { makePromiseKitMock } from './makePromiseKitMock.js';
+export { makeCapTpMock } from './makeCapTpMock.js';
+export { delay } from './delay.js';

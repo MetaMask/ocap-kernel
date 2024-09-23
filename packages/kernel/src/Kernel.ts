@@ -16,7 +16,7 @@ export class Kernel {
    *
    * @returns An array of vat IDs.
    */
-  public getVatIds(): VatId[] {
+  getVatIds(): VatId[] {
     return Array.from(this.#vats.keys());
   }
 
@@ -28,7 +28,7 @@ export class Kernel {
    * @param options.worker - The worker to use for the vat.
    * @returns A promise that resolves the vat.
    */
-  public async launchVat({
+  async launchVat({
     id,
     worker,
   }: {
@@ -50,7 +50,7 @@ export class Kernel {
    *
    * @param id - The ID of the vat.
    */
-  public async deleteVat(id: string): Promise<void> {
+  async deleteVat(id: VatId): Promise<void> {
     const vatRecord = this.#getVatRecord(id);
     const { vat, worker } = vatRecord;
     await vat.terminate();
@@ -65,7 +65,7 @@ export class Kernel {
    * @param message - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  public async sendMessage(id: VatId, message: VatMessage): Promise<unknown> {
+  async sendMessage(id: VatId, message: VatMessage): Promise<unknown> {
     const { vat } = this.#getVatRecord(id);
     return vat.sendMessage(message);
   }
@@ -76,7 +76,7 @@ export class Kernel {
    * @param id - The ID of the vat.
    * @returns The vat record (vat and worker).
    */
-  #getVatRecord(id: string): { vat: Vat; worker: VatWorker } {
+  #getVatRecord(id: VatId): { vat: Vat; worker: VatWorker } {
     const vatRecord = this.#vats.get(id);
     if (vatRecord === undefined) {
       throw new Error(`Vat with ID ${id} does not exist.`);
