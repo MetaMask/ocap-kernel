@@ -1,15 +1,57 @@
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { isConnection } from './connection.js';
 import { makeDoneResult } from './done-kit.js';
 import {
   makeMessagePortStreamPair,
   makeMessagePortReader,
   makeMessagePortWriter,
-  isStream,
-} from './streams.js';
+  makeMessagePortConnection,
+} from './message-port.js';
+import { isStream } from './shared.js';
+import { isStreamPair } from './stream-pair.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+
+describe.concurrent('makeMessagePortConnection', () => {
+  it('makes a Connection', () => {
+    const { port1 } = new MessageChannel();
+    const connection = makeMessagePortConnection(port1);
+    expect(isConnection(connection)).toBe(true);
+  });
+
+  it('sends messages over the port', async () => {
+    const { port1 } = new MessageChannel();
+    const postMessageSpy = vi.spyOn(port1, 'postMessage');
+    const connection = makeMessagePortConnection(port1);
+    await connection.sendMessage({ value: 'test' });
+    expect(postMessageSpy).toHaveBeenCalledWith({ value: 'test' });
+  });
+
+  it('handles messages from the port', async () => {
+    const { port1, port2 } = new MessageChannel();
+    const connection = makeMessagePortConnection(port1);
+    let recieved = null;
+    connection.setMessageHandler(async (message) => {
+      recieved = message.data.value;
+    });
+    port2.postMessage({ value: 'test' });
+
+    await delay(10);
+
+    expect(recieved).toBe('test');
+  });
+
+  it('closes the port when closing the connection', async () => {
+    const { port1 } = new MessageChannel();
+    const closeSpy = vi.spyOn(port1, 'close');
+    const connection = makeMessagePortConnection(port1);
+    await connection.close();
+    expect(closeSpy).toHaveBeenCalledOnce();
+    expect(port1.onmessage).toBeNull();
+  });
+});
 
 describe.concurrent('makeMessagePortReader', () => {
   it('constructs a MessagePortReader', async () => {
@@ -285,6 +327,12 @@ describe.concurrent('makeMessagePortWriter', () => {
 });
 
 describe('makeMessagePortStreamPair', () => {
+  it('makes a StreamPair', () => {
+    const { port1 } = new MessageChannel();
+    const streamPair = makeMessagePortStreamPair(port1);
+    expect(isStreamPair(streamPair)).toBe(true);
+  });
+
   it('returns a pair of message ports', async () => {
     const { port1 } = new MessageChannel();
     const { reader, writer } = makeMessagePortStreamPair(port1);
