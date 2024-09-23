@@ -1,6 +1,7 @@
 export {
   initializeMessageChannel,
   receiveMessagePort,
+  performIntroduction,
 } from './message-channel.js';
 export type { StreamPair } from './stream-pair.js';
 export type { Connection } from './connection.js';

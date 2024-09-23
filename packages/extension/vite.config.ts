@@ -41,6 +41,8 @@ export default defineConfig(({ mode }) => ({
         background: path.resolve(projectRoot, 'background.ts'),
         offscreen: path.resolve(projectRoot, 'offscreen.html'),
         iframe: path.resolve(projectRoot, 'iframe.html'),
+        iframe1: path.resolve(projectRoot, 'poc-iframe-angel.html'),
+        iframe2: path.resolve(projectRoot, 'poc-iframe-shadow.html'),
       },
       output: {
         entryFileNames: '[name].js',

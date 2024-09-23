@@ -43,7 +43,7 @@ export type CommandMessage<TargetType extends ExtensionMessageTarget> =
   | CommandLike<Command.Evaluate, string, TargetType>
   | CommandLike<Command.CapTpInit, null, TargetType>
   | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>
-  | CommandLike<Command.HelloThere, MessagePort, TargetType>;
+  | CommandLike<Command.HelloThere, null, TargetType>;
 
 export type ExtensionMessage = CommandMessage<ExtensionMessageTarget>;
 export type IframeMessage = CommandMessage<never>;

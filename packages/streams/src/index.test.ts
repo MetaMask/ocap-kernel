@@ -12,6 +12,7 @@ describe('index', () => {
         'makeMessagePortWriter',
         'initializeMessageChannel',
         'receiveMessagePort',
+        'performIntroduction',
       ]),
     );
   });

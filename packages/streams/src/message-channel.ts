@@ -110,3 +110,47 @@ export async function receiveMessagePort(): Promise<MessagePort> {
   window.addEventListener('message', listener);
   return promise;
 }
+
+/**
+ * Expects both target windows are awaiting a message port with receiveMessagePort();
+ * 
+ * @param targetWindow1
+ * @param targetWindow2
+ * @returns 
+ */
+export async function performIntroduction(
+  targetWindow1: Window,
+  targetWindow2: Window,
+): Promise<void> {
+  const { port1, port2 } = new MessageChannel();
+
+  const { promise, resolve, reject } = makePromiseKit<MessagePort>();
+  // Assigning to the `onmessage` property initializes the port's message queue.
+  port1.onmessage = (message: MessageEvent): void => {
+    if (!isAckMessage(message.data)) {
+      reject(
+        new Error(
+          `Received unexpected message via message port:\n${stringify(
+            message.data,
+          )}`,
+        ),
+      );
+      return;
+    }
+
+    resolve(port1);
+  };
+
+  const initMessage: InitializeMessage = {
+    type: MessageType.Initialize,
+  };
+  targetWindow1.postMessage(initMessage, '*', [port2]);
+
+  await promise.catch((error) => {
+    port1.close();
+    throw error;
+  })
+  .finally(() => (port1.onmessage = null));
+
+  targetWindow2.postMessage(initMessage, '*', [port1]);
+}

@@ -3,7 +3,8 @@ import { makeOffscreenBackgroundStreamPair } from './extension-stream-pairs.js';
 import { IframeManager } from './iframe-manager.js';
 import type { CommandMessage } from './message.js';
 import { Command } from './message.js';
-import { initializeMessageChannel } from '../../streams/dist/message-channel.cjs';
+import { performIntroduction } from '@ocap/streams';
+import { HELLO_THERE } from './poc-constants.js';
 
 main().catch(console.error);
 
@@ -40,10 +41,10 @@ async function main(): Promise<void> {
         await reply(Command.Ping, 'pong');
         break;
       case Command.HelloThere:
-        const iframe = await createWindow('poc-iframe.html', 'poc-iframe'); 
-        console.log('offscreen received message', message);
-        const initMessage = { type: 'INIT_MESSAGE_CHANNEL' }; 
-        iframe.postMessage(initMessage, '*', [message.data]);
+        console.log(HELLO_THERE);
+        await performIntroduction(
+          await createWindow('poc-iframe-angel.html', 'poc-iframe-angel'),
+          await createWindow('poc-iframe-shadow.html', 'poc-iframe-shadow'));
         break;
       default:
         console.error(
