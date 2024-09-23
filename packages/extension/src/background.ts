@@ -1,7 +1,7 @@
 import type { Json } from '@metamask/utils';
 import './background-trusted-prelude.js';
-import type { KernelMessage } from '@ocap/streams';
-import { Command, KernelMessageTarget } from '@ocap/streams';
+import type { KernelMessage } from '@ocap/utils';
+import { Command, KernelMessageTarget } from '@ocap/utils';
 
 import { makeHandledCallback } from './shared.js';
 

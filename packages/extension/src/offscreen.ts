@@ -1,10 +1,6 @@
 import { Kernel } from '@ocap/kernel';
-import {
-  initializeMessageChannel,
-  Command,
-  KernelMessageTarget,
-} from '@ocap/streams';
-import type { KernelMessage } from '@ocap/streams';
+import { initializeMessageChannel } from '@ocap/streams';
+import { Command, KernelMessageTarget, type KernelMessage } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import { makeHandledCallback } from './shared.js';

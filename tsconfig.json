@@ -12,6 +12,7 @@
     { "path": "./packages/extension" },
     { "path": "./packages/shims" },
     { "path": "./packages/streams" },
-    { "path": "./packages/test-utils" }
+    { "path": "./packages/test-utils" },
+    { "path": "./packages/utils" }
   ]
 }

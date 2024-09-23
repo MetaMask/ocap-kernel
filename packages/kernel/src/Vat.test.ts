@@ -1,11 +1,12 @@
 import '@ocap/shims/endoify';
+import { makeMessagePortStreamPair } from '@ocap/streams';
+import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
 import {
-  makeMessagePortStreamPair,
   makeStreamEnvelopeHandler,
   Command,
-} from '@ocap/streams';
-import type { StreamEnvelope, VatMessage } from '@ocap/streams';
-import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
+  type StreamEnvelope,
+  type VatMessage,
+} from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Vat } from './Vat.js';

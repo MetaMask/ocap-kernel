@@ -1,4 +1,5 @@
-import { makeStreamEnvelopeKit } from './envelope-kit.js';
+import { makeStreamEnvelopeKit } from '@ocap/streams';
+
 import { isCapTpMessage, isWrappedVatMessage } from './type-guards.js';
 import type { CapTpMessage, WrappedVatMessage } from './types.js';
 
@@ -24,7 +25,15 @@ enum EnvelopeLabel {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const envelopeLabels = Object.values(EnvelopeLabel);
 
-const envelopeKit = makeStreamEnvelopeKit<
+const envelopeKit: ReturnType<
+  typeof makeStreamEnvelopeKit<
+    typeof envelopeLabels,
+    {
+      command: WrappedVatMessage;
+      capTp: CapTpMessage;
+    }
+  >
+> = makeStreamEnvelopeKit<
   typeof envelopeLabels,
   {
     command: WrappedVatMessage;
@@ -35,13 +44,15 @@ const envelopeKit = makeStreamEnvelopeKit<
   capTp: isCapTpMessage,
 });
 
-const { streamEnveloper, makeStreamEnvelopeHandler } = envelopeKit;
-
 export type StreamEnvelope = GuardType<typeof envelopeKit.isStreamEnvelope>;
 export type StreamEnvelopeHandler = ReturnType<
-  typeof makeStreamEnvelopeHandler
+  typeof envelopeKit.makeStreamEnvelopeHandler
 >;
 
-export const wrapStreamCommand = streamEnveloper.command.wrap;
-export const wrapCapTp = streamEnveloper.capTp.wrap;
-export { makeStreamEnvelopeHandler };
+export const wrapStreamCommand: typeof envelopeKit.streamEnveloper.command.wrap =
+  envelopeKit.streamEnveloper.command.wrap;
+export const wrapCapTp: typeof envelopeKit.streamEnveloper.capTp.wrap =
+  envelopeKit.streamEnveloper.capTp.wrap;
+// eslint-disable-next-line prefer-destructuring
+export const makeStreamEnvelopeHandler: typeof envelopeKit.makeStreamEnvelopeHandler =
+  envelopeKit.makeStreamEnvelopeHandler;

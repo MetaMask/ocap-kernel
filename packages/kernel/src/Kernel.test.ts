@@ -1,4 +1,4 @@
-import type { VatMessage } from '@ocap/streams';
+import type { VatMessage } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';

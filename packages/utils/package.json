@@ -1,22 +1,33 @@
 {
-  "name": "@ocap/extension",
+  "name": "@ocap/utils",
   "version": "0.0.0",
   "private": true,
-  "description": "For running Ocap Kernel experiments in an extension environment",
+  "description": "A kitchen drawer of Ocap Kernel utilities",
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "yarn build:vite",
-    "build:dev": "yarn build:vite:dev",
-    "build:vite": "vite build --config vite.config.ts",
-    "build:vite:dev": "yarn build:vite --mode development",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:docs": "typedoc",
+    "changelog:validate": "../../scripts/validate-changelog.sh utils",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -24,7 +35,6 @@
     "lint:fix": "yarn constraints --fix && yarn lint:eslint --fix && yarn lint:misc --write",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "publish:preview": "yarn npm publish --tag preview",
-    "start": "yarn build:vite:dev --watch",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
@@ -33,16 +43,8 @@
   },
   "dependencies": {
     "@endo/captp": "^4.2.2",
-    "@endo/eventual-send": "^1.2.4",
-    "@endo/exo": "^1.5.2",
-    "@endo/patterns": "^1.4.2",
-    "@metamask/snaps-utils": "^7.8.0",
     "@metamask/utils": "^9.1.0",
-    "@ocap/kernel": "workspace:^",
-    "@ocap/shims": "workspace:^",
-    "@ocap/streams": "workspace:^",
-    "@ocap/utils": "workspace:^",
-    "ses": "^1.7.0"
+    "@ocap/streams": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
@@ -50,11 +52,10 @@
     "@metamask/eslint-config": "^13.0.0",
     "@metamask/eslint-config-nodejs": "^13.0.0",
     "@metamask/eslint-config-typescript": "^13.0.0",
-    "@ocap/test-utils": "workspace:^",
-    "@types/chrome": "^0.0.268",
+    "@ts-bridge/cli": "^0.5.1",
+    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.1.0",
     "@typescript-eslint/parser": "^8.1.0",
-    "cheerio": "^1.0.0-rc.12",
     "depcheck": "^1.4.7",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^8.8.0",
@@ -67,11 +68,10 @@
     "jsdom": "^24.1.1",
     "prettier": "^2.7.1",
     "rimraf": "^6.0.1",
+    "ses": "^1.7.0",
     "typedoc": "^0.24.8",
     "typescript": "~5.5.4",
     "vite": "^5.3.5",
-    "vite-plugin-checker": "^0.8.0",
-    "vite-plugin-static-copy": "^1.0.6",
     "vitest": "^2.0.5"
   },
   "engines": {

@@ -3,6 +3,6 @@
   "compilerOptions": {
     "baseUrl": "./"
   },
-  "references": [],
+  "references": [{ "path": "../utils" }],
   "include": ["./src"]
 }

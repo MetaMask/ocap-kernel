@@ -1,20 +1,19 @@
 import { makeCapTP } from '@endo/captp';
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
+import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 import type {
   StreamEnvelope,
   CapTpMessage,
   VatMessage,
   WrappedVatMessage,
-} from '@ocap/streams';
+} from '@ocap/utils';
 import {
-  receiveMessagePort,
-  makeMessagePortStreamPair,
   makeStreamEnvelopeHandler,
   Command,
   wrapCapTp,
   wrapStreamCommand,
-} from '@ocap/streams';
+} from '@ocap/utils';
 
 const defaultCompartment = new Compartment({ URL });
 

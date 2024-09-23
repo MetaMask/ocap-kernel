@@ -1,7 +1,8 @@
 import { createWindow } from '@metamask/snaps-utils';
 import type { VatId, VatWorker } from '@ocap/kernel';
-import type { initializeMessageChannel, StreamEnvelope } from '@ocap/streams';
+import type { initializeMessageChannel } from '@ocap/streams';
 import { makeMessagePortStreamPair } from '@ocap/streams';
+import type { StreamEnvelope } from '@ocap/utils';
 
 const IFRAME_URI = 'iframe.html';
 

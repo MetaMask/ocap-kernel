@@ -10,9 +10,10 @@
     "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
   },
   "references": [
+    { "path": "../shims" },
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../shims" }
+    { "path": "../utils" }
   ],
   "include": [
     "./src/**/*.ts",

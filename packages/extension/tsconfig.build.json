@@ -11,7 +11,8 @@
   },
   "references": [
     { "path": "../shims/tsconfig.build.json" },
-    { "path": "../streams/tsconfig.build.json" }
+    { "path": "../streams/tsconfig.build.json" },
+    { "path": "../utils/tsconfig.build.json" }
   ],
   "include": [
     "./src/**/*.ts",

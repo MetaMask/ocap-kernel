@@ -1,22 +1,21 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
+import type { StreamPair, Reader } from '@ocap/streams';
 import type {
-  StreamPair,
   StreamEnvelope,
   StreamEnvelopeHandler,
-  Reader,
   CapTpMessage,
   CapTpPayload,
   VatMessage,
   MessageId,
-} from '@ocap/streams';
+} from '@ocap/utils';
 import {
   wrapCapTp,
   wrapStreamCommand,
   Command,
   makeStreamEnvelopeHandler,
-} from '@ocap/streams';
+} from '@ocap/utils';
 
 import type { UnresolvedMessages, VatId } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
@@ -45,7 +44,13 @@ export class Vat {
     this.#messageCounter = makeCounter();
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
-        command: async ({ id: messageId, message }) => {
+        command: async ({
+          id: messageId,
+          message,
+        }: {
+          id: MessageId;
+          message: VatMessage;
+        }) => {
           const promiseCallbacks = this.unresolvedMessages.get(messageId);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${messageId}".`);

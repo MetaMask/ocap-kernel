@@ -47,6 +47,7 @@
     "@endo/promise-kit": "^1.1.4",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
+    "@ocap/utils": "workspace:^",
     "ses": "^1.7.0"
   },
   "devDependencies": {

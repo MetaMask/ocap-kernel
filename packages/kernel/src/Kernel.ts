@@ -1,5 +1,5 @@
 import '@ocap/shims/endoify';
-import type { VatMessage } from '@ocap/streams';
+import type { VatMessage } from '@ocap/utils';
 
 import type { VatId, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
