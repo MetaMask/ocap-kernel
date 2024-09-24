@@ -32,7 +32,6 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/captp": "^4.2.2",
     "@endo/eventual-send": "^1.2.4",
     "@endo/exo": "^1.5.2",
     "@endo/patterns": "^1.4.2",

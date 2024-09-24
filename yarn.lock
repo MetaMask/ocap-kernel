@@ -1368,7 +1368,6 @@ __metadata:
   resolution: "@ocap/extension@workspace:packages/extension"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.15.3"
-    "@endo/captp": "npm:^4.2.2"
     "@endo/eventual-send": "npm:^1.2.4"
     "@endo/exo": "npm:^1.5.2"
     "@endo/patterns": "npm:^1.4.2"

@@ -59,7 +59,7 @@ export class Vat {
           }
         },
       },
-      console.warn,
+      (error) => console.error('Vat stream error:', error),
     );
   }
 

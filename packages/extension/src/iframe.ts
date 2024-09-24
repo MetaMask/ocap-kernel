@@ -1,21 +1,7 @@
-import { makeCapTP } from '@endo/captp';
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
-import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
-import type {
-  StreamEnvelope,
-  CapTpMessage,
-  Command,
-  VatMessage,
-} from '@ocap/utils';
-import {
-  CommandMethod,
-  makeStreamEnvelopeHandler,
-  wrapCapTp,
-  wrapStreamCommand,
-} from '@ocap/utils';
-
-const defaultCompartment = new Compartment({ URL });
+import { Supervisor } from '@ocap/kernel';
+import { receiveMessagePort } from '@ocap/streams';
 
 main().catch(console.error);
 
@@ -24,123 +10,15 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
-  let capTp: ReturnType<typeof makeCapTP> | undefined;
 
-  const streamEnvelopeHandler = makeStreamEnvelopeHandler(
-    {
-      command: handleMessage,
-      capTp: async (content) => capTp?.dispatch(content),
-    },
-    (reason, value) => {
-      throw new Error(`[vat IFRAME] ${reason} ${stringifyResult(value)}`);
-    },
+  const bootstrap = makeExo(
+    'TheGreatFrangooly',
+    M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
+    { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
   );
 
-  for await (const rawMessage of streams.reader) {
-    console.debug('iframe received message', rawMessage);
-    await streamEnvelopeHandler.handle(rawMessage);
-  }
+  const supervisor = new Supervisor('iframe', port, bootstrap);
+  await supervisor.init();
 
-  await streams.return();
-  throw new Error('MessagePortReader ended unexpectedly.');
-
-  /**
-   * Handle a message from the parent window.
-   *
-   * @param vatMessage - The vat message to handle.
-   * @param vatMessage.id - The id of the message.
-   * @param vatMessage.payload - The payload to handle.
-   */
-  async function handleMessage({ id, payload }: VatMessage): Promise<void> {
-    switch (payload.method) {
-      case CommandMethod.Evaluate: {
-        if (typeof payload.params !== 'string') {
-          console.error(
-            'iframe received command with unexpected params',
-            // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
-            stringifyResult(payload.params),
-          );
-          return;
-        }
-        const result = safelyEvaluate(payload.params);
-        await replyToMessage(id, {
-          method: CommandMethod.Evaluate,
-          params: stringifyResult(result),
-        });
-        break;
-      }
-      case CommandMethod.CapTpInit: {
-        const bootstrap = makeExo(
-          'TheGreatFrangooly',
-          M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
-          { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
-        );
-
-        capTp = makeCapTP(
-          'iframe',
-          async (content: unknown) =>
-            streams.writer.next(wrapCapTp(content as CapTpMessage)),
-          bootstrap,
-        );
-        await replyToMessage(id, {
-          method: CommandMethod.CapTpInit,
-          params: null,
-        });
-        break;
-      }
-      case CommandMethod.Ping:
-        await replyToMessage(id, {
-          method: CommandMethod.Ping,
-          params: 'pong',
-        });
-        break;
-      default:
-        console.error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `iframe received unexpected command method: "${payload.method}"`,
-        );
-    }
-  }
-
-  /**
-   * Reply to a message from the parent window.
-   *
-   * @param id - The id of the message to reply to.
-   * @param payload - The payload to reply with.
-   */
-  async function replyToMessage(id: string, payload: Command): Promise<void> {
-    await streams.writer.next(wrapStreamCommand({ id, payload }));
-  }
-
-  /**
-   * Evaluate a string in the default compartment.
-   *
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  function safelyEvaluate(source: string): string {
-    try {
-      return defaultCompartment.evaluate(source);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
-  }
-
-  /**
-   * Stringify an evaluation result.
-   *
-   * @param result - The result to stringify.
-   * @returns The stringified result.
-   */
-  function stringifyResult(result: unknown): string {
-    try {
-      return JSON.stringify(result, null, 2);
-    } catch {
-      return String(result);
-    }
-  }
+  supervisor.evaluate(`console.log('Hello, World!');`);
 }
