@@ -6,7 +6,11 @@
  */
 export const stringifyResult = (value: unknown): string => {
   try {
-    return JSON.stringify(value, null, 2);
+    const result = JSON.stringify(value, null, 2);
+    if (result === undefined) {
+      return String(value);
+    }
+    return result;
   } catch {
     return String(value);
   }

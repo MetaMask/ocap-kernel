@@ -1,19 +1,18 @@
 import { makeCapTP } from '@endo/captp';
+import type { StreamPair, Reader } from '@ocap/streams';
 import type {
-  StreamPair,
+  CapTpMessage,
+  Command,
   StreamEnvelope,
   VatMessage,
-  CapTpMessage,
   StreamEnvelopeHandler,
-  WrappedVatMessage,
-  Reader,
-} from '@ocap/streams';
+} from '@ocap/utils';
 import {
-  Command,
+  CommandMethod,
+  makeStreamEnvelopeHandler,
   wrapCapTp,
   wrapStreamCommand,
-  makeStreamEnvelopeHandler,
-} from '@ocap/streams';
+} from '@ocap/utils';
 
 import { stringifyResult } from './utils/stringifyResult.js';
 
@@ -34,7 +33,7 @@ export class Supervisor {
 
   readonly #bootstrap: unknown;
 
-  #capTp?: ReturnType<typeof makeCapTP>;
+  capTp?: ReturnType<typeof makeCapTP>;
 
   constructor({ id, streams, bootstrap }: SupervisorConstructorProps) {
     this.id = id;
@@ -44,7 +43,7 @@ export class Supervisor {
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
         command: this.handleMessage.bind(this),
-        capTp: async (content) => this.#capTp?.dispatch(content),
+        capTp: async (content) => this.capTp?.dispatch(content),
       },
       (error) => console.error('Supervisor stream error:', error),
     );
@@ -80,51 +79,51 @@ export class Supervisor {
   /**
    * Handle a message from the parent window.
    *
-   * @param wrappedMessage - The wrapped message to handle.
-   * @param wrappedMessage.id - The id of the message.
-   * @param wrappedMessage.message - The message to handle.
+   * @param vatMessage - The vat message to handle.
+   * @param vatMessage.id - The id of the message.
+   * @param vatMessage.payload - The payload to handle.
    */
-  async handleMessage({ id, message }: WrappedVatMessage): Promise<void> {
-    console.debug('Supervisor received message', { id, message });
-    switch (message.type) {
-      case Command.Ping: {
+  async handleMessage({ id, payload }: VatMessage): Promise<void> {
+    switch (payload.method) {
+      case CommandMethod.Evaluate: {
+        if (typeof payload.params !== 'string') {
+          console.error(
+            'Supervisor received command with unexpected params',
+            // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
+            stringifyResult(payload.params),
+          );
+          return;
+        }
+        const result = this.evaluate(payload.params);
         await this.replyToMessage(id, {
-          type: Command.Ping,
-          data: 'pong',
+          method: CommandMethod.Evaluate,
+          params: stringifyResult(result),
         });
         break;
       }
-      case Command.CapTpInit: {
-        this.#capTp = makeCapTP(
-          this.id,
+      case CommandMethod.CapTpInit: {
+        this.capTp = makeCapTP(
+          'iframe',
           async (content: unknown) =>
             this.streams.writer.next(wrapCapTp(content as CapTpMessage)),
           this.#bootstrap,
         );
         await this.replyToMessage(id, {
-          type: Command.CapTpInit,
-          data: null,
+          method: CommandMethod.CapTpInit,
+          params: null,
         });
         break;
       }
-      case Command.Evaluate: {
-        if (typeof message.data !== 'string') {
-          console.error(
-            `Supervisor "${this.id}" received message with unexpected data type`,
-            // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
-            stringifyResult(message.data),
-          );
-          return;
-        }
-        const result = this.evaluate(message.data);
+      case CommandMethod.Ping:
         await this.replyToMessage(id, {
-          type: Command.Evaluate,
-          data: stringifyResult(result),
+          method: CommandMethod.Ping,
+          params: 'pong',
         });
         break;
-      }
       default:
-        console.error(`Unknown message type: ${message.type}`);
+        console.error(
+          `Supervisor received unexpected command method: "${payload.method}"`,
+        );
     }
   }
 
@@ -132,10 +131,10 @@ export class Supervisor {
    * Reply to a message from the parent window.
    *
    * @param id - The id of the message to reply to.
-   * @param message - The message to reply with.
+   * @param payload - The payload to reply with.
    */
-  async replyToMessage(id: string, message: VatMessage): Promise<void> {
-    await this.streams.writer.next(wrapStreamCommand({ id, message }));
+  async replyToMessage(id: string, payload: Command): Promise<void> {
+    await this.streams.writer.next(wrapStreamCommand({ id, payload }));
   }
 
   /**
@@ -148,10 +147,7 @@ export class Supervisor {
     try {
       return this.#defaultCompartment.evaluate(source);
     } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
+      return `Error: ${error instanceof Error ? error.message : 'Unknown'}`;
     }
   }
 }

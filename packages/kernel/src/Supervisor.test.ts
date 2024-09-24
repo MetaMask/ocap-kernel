@@ -1,109 +1,177 @@
 import '@ocap/shims/endoify';
-import type { StreamEnvelope } from '@ocap/streams';
-import { Command, makeMessagePortStreamPair } from '@ocap/streams';
-import { messagePortTracker } from '@ocap/test-utils';
-import type { MessagePortTracker } from '@ocap/test-utils';
+import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
+import { delay } from '@ocap/test-utils';
+import type { StreamEnvelope } from '@ocap/utils';
+import * as ocapUtils from '@ocap/utils';
+import { CommandMethod } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Supervisor } from './Supervisor.js';
 
 describe('Supervisor', () => {
   let supervisor: Supervisor;
-  let port1: MessagePort;
-  let tracker: MessagePortTracker;
+  let messageChannel: MessageChannel;
 
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const messageChannel = new MessageChannel();
-    port1 = messageChannel.port1;
-    tracker = messagePortTracker(port1);
+    messageChannel = new MessageChannel();
 
-    const streams = makeMessagePortStreamPair<StreamEnvelope>(port1);
+    const streams = makeMessagePortStreamPair<StreamEnvelope>(
+      messageChannel.port1,
+    );
     supervisor = new Supervisor({ id: 'test-id', streams });
   });
 
   describe('init', () => {
-    it('initializes the Supervisor correctly', () => {
+    it('initializes the Supervisor correctly', async () => {
       expect(supervisor.id).toBe('test-id');
       expect(supervisor.streams).toBeDefined();
       expect(supervisor.streamEnvelopeHandler).toBeDefined();
     });
+
+    it('throws an error the Supervisor correctly', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const error = new Error('test-error');
+      await supervisor.streams.reader.throw(error);
+      await delay(10);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        error,
+      );
+    });
+  });
+
+  describe('#receiveMessages', () => {
+    it('receives messages correctly', async () => {
+      const handleSpy = vi.spyOn(supervisor.streamEnvelopeHandler, 'handle');
+      const writer = new MessagePortWriter(messageChannel.port2);
+      const rawMessage = { type: 'command', payload: { method: 'test' } };
+      await writer.next(rawMessage);
+      await delay(10);
+      expect(handleSpy).toHaveBeenCalledWith(rawMessage);
+    });
   });
 
   describe('handleMessage', () => {
-    it('should handle Command.Ping messages', async () => {
+    it('handles Ping messages', async () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
         id: 'message-id',
-        message: { type: Command.Ping, data: null },
+        payload: { method: CommandMethod.Ping, params: null },
       });
 
       expect(replySpy).toHaveBeenCalledWith('message-id', {
-        type: Command.Ping,
-        data: 'pong',
+        method: CommandMethod.Ping,
+        params: 'pong',
       });
     });
 
-    it('should handle Command.CapTpInit messages', async () => {
+    it('handles CapTpInit messages', async () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
         id: 'message-id',
-        message: { type: Command.CapTpInit, data: null },
+        payload: { method: CommandMethod.CapTpInit, params: null },
       });
 
       expect(replySpy).toHaveBeenCalledWith('message-id', {
-        type: Command.CapTpInit,
-        data: null,
+        method: CommandMethod.CapTpInit,
+        params: null,
       });
     });
 
-    it('should handle Command.Evaluate messages', async () => {
+    it('handles CapTp messages', async () => {
+      const wrapCapTpSpy = vi.spyOn(ocapUtils, 'wrapCapTp');
+
+      await supervisor.handleMessage({
+        id: 'message-id',
+        payload: { method: CommandMethod.CapTpInit, params: null },
+      });
+
+      const capTpQuestion = {
+        type: 'CTP_BOOTSTRAP',
+        epoch: 0,
+        questionID: 'q-1',
+      };
+      expect(supervisor.capTp?.dispatch(capTpQuestion)).toBe(true);
+
+      await delay(10);
+
+      const capTpAnswer = {
+        type: 'CTP_RETURN',
+        epoch: 0,
+        answerID: 'q-1',
+        result: {
+          body: '{"@qclass":"undefined"}',
+          slots: [],
+        },
+      };
+      expect(wrapCapTpSpy).toHaveBeenCalledWith(capTpAnswer);
+    });
+
+    it('handles Evaluate messages', async () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
         id: 'message-id',
-        message: { type: Command.Evaluate, data: '2 + 2' },
+        payload: { method: CommandMethod.Evaluate, params: '2 + 2' },
       });
 
       expect(replySpy).toHaveBeenCalledWith('message-id', {
-        type: Command.Evaluate,
-        data: '4',
+        method: CommandMethod.Evaluate,
+        params: '4',
       });
     });
 
-    it('should handle unknown message types', async () => {
+    it('logs error on invalid Evaluate messages', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
+
+      await supervisor.handleMessage({
+        id: 'message-id',
+        // @ts-expect-error - invalid params type.
+        payload: { method: CommandMethod.Evaluate, params: null },
+      });
+
+      expect(replySpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Supervisor received command with unexpected params',
+        'null',
+      );
+    });
+
+    it('handles unknown message types', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       await supervisor.handleMessage({
         id: 'message-id',
         // @ts-expect-error - unknown message type.
-        message: { type: 'UnknownType' },
+        payload: { method: 'UnknownType' },
       });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Unknown message type: UnknownType',
+        'Supervisor received unexpected command method: "UnknownType"',
       );
     });
   });
 
   describe('terminate', () => {
-    it('should terminate correctly', async () => {
-      expect(tracker.isOpen()).toBe(true);
+    it('terminates correctly', async () => {
+      expect(messageChannel.port1.onmessage).not.toBeNull();
       await supervisor.terminate();
-      expect(tracker.isOpen()).toBe(false);
+      expect(messageChannel.port1.onmessage).toBeNull();
     });
   });
 
   describe('evaluate', () => {
-    it('should evaluate code correctly', () => {
+    it('evaluates code correctly', () => {
       const result = supervisor.evaluate('1 + 1');
       expect(result).toBe(2);
     });
 
-    it('should return an error message when evaluation fails', () => {
+    it('returns an error message when evaluation fails', () => {
       const result = supervisor.evaluate('invalidCode!');
       expect(result).toBe("Error: Unexpected token '!'");
     });
