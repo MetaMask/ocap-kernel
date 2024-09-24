@@ -2,7 +2,7 @@ import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair } from '@ocap/streams';
 import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
 import {
-  CommandType,
+  CommandMethod,
   makeStreamEnvelopeHandler,
   type Command,
   type StreamEnvelope,
@@ -43,7 +43,7 @@ describe('Vat', () => {
       await vat.init();
 
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: CommandType.Ping,
+        type: CommandMethod.Ping,
         data: null,
       });
       expect(capTpMock).toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('Vat', () => {
       await vat.makeCapTp();
       expect(vat.streamEnvelopeHandler.contentHandlers.capTp).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: CommandType.CapTpInit,
+        type: CommandMethod.CapTpInit,
         data: null,
       });
     });

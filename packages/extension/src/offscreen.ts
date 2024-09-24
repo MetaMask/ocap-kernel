@@ -1,6 +1,6 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import { CommandType } from '@ocap/utils';
+import { CommandMethod } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -40,23 +40,23 @@ async function main(): Promise<void> {
       const { payload } = message;
 
       switch (payload.type) {
-        case CommandType.Evaluate:
+        case CommandMethod.Evaluate:
           await reply(
-            CommandType.Evaluate,
+            CommandMethod.Evaluate,
             await evaluate(vat.id, payload.data),
           );
           break;
-        case CommandType.CapTpCall: {
+        case CommandMethod.CapTpCall: {
           const result = await vat.callCapTp(payload.data);
-          await reply(CommandType.CapTpCall, JSON.stringify(result, null, 2));
+          await reply(CommandMethod.CapTpCall, JSON.stringify(result, null, 2));
           break;
         }
-        case CommandType.CapTpInit:
+        case CommandMethod.CapTpInit:
           await vat.makeCapTp();
-          await reply(CommandType.CapTpInit, '~~~ CapTP Initialized ~~~');
+          await reply(CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~');
           break;
-        case CommandType.Ping:
-          await reply(CommandType.Ping, 'pong');
+        case CommandMethod.Ping:
+          await reply(CommandMethod.Ping, 'pong');
           break;
         default:
           console.error(
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
    * @param type - The message type.
    * @param data - The message data.
    */
-  async function reply(type: CommandType, data?: string): Promise<void> {
+  async function reply(type: CommandMethod, data?: string): Promise<void> {
     await chrome.runtime.sendMessage({
       target: ExtensionMessageTarget.Background,
       payload: {
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
   async function evaluate(vatId: string, source: string): Promise<string> {
     try {
       const result = await kernel.sendMessage(vatId, {
-        type: CommandType.Evaluate,
+        type: CommandMethod.Evaluate,
         data: source,
       });
       return String(result);

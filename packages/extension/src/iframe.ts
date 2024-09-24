@@ -9,7 +9,7 @@ import type {
   VatMessage,
 } from '@ocap/utils';
 import {
-  CommandType,
+  CommandMethod,
   makeStreamEnvelopeHandler,
   wrapCapTp,
   wrapStreamCommand,
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
    */
   async function handleMessage({ id, payload }: VatMessage): Promise<void> {
     switch (payload.type) {
-      case CommandType.Evaluate: {
+      case CommandMethod.Evaluate: {
         if (typeof payload.data !== 'string') {
           console.error(
             'iframe received message with unexpected data type',
@@ -65,12 +65,12 @@ async function main(): Promise<void> {
         }
         const result = safelyEvaluate(payload.data);
         await replyToMessage(id, {
-          type: CommandType.Evaluate,
+          type: CommandMethod.Evaluate,
           data: stringifyResult(result),
         });
         break;
       }
-      case CommandType.CapTpInit: {
+      case CommandMethod.CapTpInit: {
         const bootstrap = makeExo(
           'TheGreatFrangooly',
           M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
@@ -83,11 +83,11 @@ async function main(): Promise<void> {
             streams.writer.next(wrapCapTp(content as CapTpMessage)),
           bootstrap,
         );
-        await replyToMessage(id, { type: CommandType.CapTpInit, data: null });
+        await replyToMessage(id, { type: CommandMethod.CapTpInit, data: null });
         break;
       }
-      case CommandType.Ping:
-        await replyToMessage(id, { type: CommandType.Ping, data: 'pong' });
+      case CommandMethod.Ping:
+        await replyToMessage(id, { type: CommandMethod.Ping, data: 'pong' });
         break;
       default:
         console.error(

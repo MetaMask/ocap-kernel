@@ -1,6 +1,6 @@
 import type { Primitive } from '@endo/captp';
 
-export enum CommandType {
+export enum CommandMethod {
   CapTpCall = 'callCapTp',
   CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
@@ -18,16 +18,16 @@ export type CapTpPayload = {
   params: DataObject[];
 };
 
-type CommandLike<Type extends CommandType, Data extends DataObject> = {
+type CommandLike<Type extends CommandMethod, Data extends DataObject> = {
   type: Type;
   data: Data;
 };
 
 export type Command =
-  | CommandLike<CommandType.Ping, null | 'pong'>
-  | CommandLike<CommandType.Evaluate, string>
-  | CommandLike<CommandType.CapTpInit, null>
-  | CommandLike<CommandType.CapTpCall, CapTpPayload>;
+  | CommandLike<CommandMethod.Ping, null | 'pong'>
+  | CommandLike<CommandMethod.Evaluate, string>
+  | CommandLike<CommandMethod.CapTpInit, null>
+  | CommandLike<CommandMethod.CapTpCall, CapTpPayload>;
 
 export type VatMessage = {
   id: string;

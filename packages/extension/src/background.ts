@@ -1,6 +1,6 @@
 import type { Json } from '@metamask/utils';
 import './background-trusted-prelude.js';
-import { CommandType } from '@ocap/utils';
+import { CommandMethod } from '@ocap/utils';
 
 import {
   ExtensionMessageTarget,
@@ -12,16 +12,17 @@ import {
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
     value: async (method: string, params: Json[]) =>
-      sendMessage(CommandType.CapTpCall, { method, params }),
+      sendMessage(CommandMethod.CapTpCall, { method, params }),
   },
   capTpInit: {
-    value: async () => sendMessage(CommandType.CapTpInit),
+    value: async () => sendMessage(CommandMethod.CapTpInit),
   },
   evaluate: {
-    value: async (source: string) => sendMessage(CommandType.Evaluate, source),
+    value: async (source: string) =>
+      sendMessage(CommandMethod.Evaluate, source),
   },
   ping: {
-    value: async () => sendMessage(CommandType.Ping),
+    value: async () => sendMessage(CommandMethod.Ping),
   },
   sendMessage: {
     value: sendMessage,
@@ -33,7 +34,7 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage(CommandType.Ping).catch(console.error);
+  sendMessage(CommandMethod.Ping).catch(console.error);
 });
 
 /**
@@ -85,10 +86,10 @@ chrome.runtime.onMessage.addListener(
     const { payload } = message;
 
     switch (payload.type) {
-      case CommandType.Evaluate:
-      case CommandType.CapTpCall:
-      case CommandType.CapTpInit:
-      case CommandType.Ping:
+      case CommandMethod.Evaluate:
+      case CommandMethod.CapTpCall:
+      case CommandMethod.CapTpInit:
+      case CommandMethod.Ping:
         console.log(payload.data);
         break;
       default:

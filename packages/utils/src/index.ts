@@ -4,7 +4,7 @@ export type {
   Command,
   VatMessage,
 } from './types.js';
-export { CommandType } from './types.js';
+export { CommandMethod } from './types.js';
 export { isCommand } from './type-guards.js';
 export {
   wrapStreamCommand,

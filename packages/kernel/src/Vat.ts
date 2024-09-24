@@ -13,7 +13,7 @@ import {
   wrapCapTp,
   wrapStreamCommand,
   makeStreamEnvelopeHandler,
-  CommandType,
+  CommandMethod,
 } from '@ocap/utils';
 
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
@@ -75,7 +75,7 @@ export class Vat {
       throw error;
     });
 
-    await this.sendMessage({ type: CommandType.Ping, data: null });
+    await this.sendMessage({ type: CommandMethod.Ping, data: null });
     console.debug(`Created vat with id "${this.id}"`);
 
     return await this.makeCapTp();
@@ -120,7 +120,7 @@ export class Vat {
       ctp.dispatch(content);
     };
 
-    return this.sendMessage({ type: CommandType.CapTpInit, data: null });
+    return this.sendMessage({ type: CommandMethod.CapTpInit, data: null });
   }
 
   /**
