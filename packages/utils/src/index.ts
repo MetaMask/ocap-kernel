@@ -1,12 +1,11 @@
 export type {
   CapTpMessage,
   CapTpPayload,
-  MessageId,
+  Command,
   VatMessage,
-  KernelMessage,
-  WrappedVatMessage,
 } from './types.js';
-export { KernelMessageTarget, Command } from './types.js';
+export { CommandType } from './types.js';
+export { isCommand } from './type-guards.js';
 export {
   wrapStreamCommand,
   wrapCapTp,

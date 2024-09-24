@@ -1,15 +1,26 @@
 import { isObject } from '@metamask/utils';
 
-import type { CapTpMessage, WrappedVatMessage } from './types.js';
+import type {
+  Command,
+  CapTpMessage,
+  VatMessage,
+  CapTpPayload,
+} from './types.js';
 
-export const isWrappedVatMessage = (
-  value: unknown,
-): value is WrappedVatMessage =>
+export const isCapTpPayload = (value: unknown): value is CapTpPayload =>
   isObject(value) &&
-  typeof value.id === 'string' &&
-  isObject(value.message) &&
-  typeof value.message.type === 'string' &&
-  (typeof value.message.data === 'string' || value.message.data === null);
+  typeof value.method === 'string' &&
+  Array.isArray(value.params);
+
+export const isCommand = (value: unknown): value is Command =>
+  isObject(value) &&
+  typeof value.type === 'string' &&
+  (typeof value.data === 'string' ||
+    value.data === null ||
+    isCapTpPayload(value.data));
+
+export const isVatMessage = (value: unknown): value is VatMessage =>
+  isObject(value) && typeof value.id === 'string' && isCommand(value.payload);
 
 export const isCapTpMessage = (value: unknown): value is CapTpMessage =>
   isObject(value) &&

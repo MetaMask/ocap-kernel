@@ -2,10 +2,10 @@ import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair } from '@ocap/streams';
 import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
 import {
+  CommandType,
   makeStreamEnvelopeHandler,
-  Command,
+  type Command,
   type StreamEnvelope,
-  type VatMessage,
 } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -43,7 +43,7 @@ describe('Vat', () => {
       await vat.init();
 
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: Command.Ping,
+        type: CommandType.Ping,
         data: null,
       });
       expect(capTpMock).toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe('Vat', () => {
 
   describe('sendMessage', () => {
     it('sends a message and resolves the promise', async () => {
-      const mockMessage = { type: 'makeCapTp', data: null } as VatMessage;
+      const mockMessage = { type: 'makeCapTp', data: null } as Command;
       const sendMessagePromise = vat.sendMessage(mockMessage);
       vat.unresolvedMessages.get('test-vat-1')?.resolve('test-response');
       const result = await sendMessagePromise;
@@ -88,7 +88,7 @@ describe('Vat', () => {
       await vat.makeCapTp();
       expect(vat.streamEnvelopeHandler.contentHandlers.capTp).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: Command.CapTpInit,
+        type: CommandType.CapTpInit,
         data: null,
       });
     });

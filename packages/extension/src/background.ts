@@ -1,24 +1,27 @@
 import type { Json } from '@metamask/utils';
 import './background-trusted-prelude.js';
-import type { KernelMessage } from '@ocap/utils';
-import { Command, KernelMessageTarget } from '@ocap/utils';
+import { CommandType } from '@ocap/utils';
 
-import { makeHandledCallback } from './shared.js';
+import {
+  ExtensionMessageTarget,
+  isExtensionRuntimeMessage,
+  makeHandledCallback,
+} from './shared.js';
 
 // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
     value: async (method: string, params: Json[]) =>
-      sendMessage(Command.CapTpCall, { method, params }),
+      sendMessage(CommandType.CapTpCall, { method, params }),
   },
   capTpInit: {
-    value: async () => sendMessage(Command.CapTpInit),
+    value: async () => sendMessage(CommandType.CapTpInit),
   },
   evaluate: {
-    value: async (source: string) => sendMessage(Command.Evaluate, source),
+    value: async (source: string) => sendMessage(CommandType.Evaluate, source),
   },
   ping: {
-    value: async () => sendMessage(Command.Ping),
+    value: async () => sendMessage(CommandType.Ping),
   },
   sendMessage: {
     value: sendMessage,
@@ -30,7 +33,7 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage(Command.Ping).catch(console.error);
+  sendMessage(CommandType.Ping).catch(console.error);
 });
 
 /**
@@ -44,9 +47,11 @@ async function sendMessage(type: string, data?: Json): Promise<void> {
   await provideOffScreenDocument();
 
   await chrome.runtime.sendMessage({
-    type,
-    target: KernelMessageTarget.Offscreen,
-    data: data ?? null,
+    target: ExtensionMessageTarget.Offscreen,
+    payload: {
+      data: data ?? null,
+      type,
+    },
   });
 }
 
@@ -65,20 +70,26 @@ async function provideOffScreenDocument(): Promise<void> {
 
 // Handle replies from the offscreen document
 chrome.runtime.onMessage.addListener(
-  makeHandledCallback(async (message: KernelMessage) => {
-    if (message.target !== KernelMessageTarget.Background) {
+  makeHandledCallback(async (message: unknown) => {
+    if (!isExtensionRuntimeMessage(message)) {
+      console.error('Background received unexpected message', message);
+      return;
+    }
+    if (message.target !== ExtensionMessageTarget.Background) {
       console.warn(
         `Background received message with unexpected target: "${message.target}"`,
       );
       return;
     }
 
-    switch (message.type) {
-      case Command.Evaluate:
-      case Command.CapTpCall:
-      case Command.CapTpInit:
-      case Command.Ping:
-        console.log(message.data);
+    const { payload } = message;
+
+    switch (payload.type) {
+      case CommandType.Evaluate:
+      case CommandType.CapTpCall:
+      case CommandType.CapTpInit:
+      case CommandType.Ping:
+        console.log(payload.data);
         break;
       default:
         console.error(

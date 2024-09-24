@@ -1,24 +1,67 @@
 import { describe, it, expect } from 'vitest';
 
-import { isWrappedVatMessage, isCapTpMessage } from './type-guards.js';
-import { Command } from './types.js';
+import {
+  isVatMessage,
+  isCapTpMessage,
+  isCommand,
+  isCapTpPayload,
+} from './type-guards.js';
+import { CommandType } from './types.js';
 
 describe('type-guards', () => {
-  describe('isWrappedVatMessage', () => {
+  describe('isCapTpPayload', () => {
     it.each`
-      value                                                             | expectedResult | description
-      ${{ id: 'some-id', message: { type: Command.Ping, data: null } }} | ${true}        | ${'valid wrapped vat message'}
-      ${123}                                                            | ${false}       | ${'invalid wrapped vat message: primitive number'}
-      ${{ id: true, message: {} }}                                      | ${false}       | ${'invalid wrapped vat message: invalid id and empty message'}
-      ${{ id: 'some-id', message: null }}                               | ${false}       | ${'invalid wrapped vat message: message is null'}
-      ${{ id: 123, message: { type: Command.Ping, data: null } }}       | ${false}       | ${'invalid wrapped vat message: invalid id type'}
-      ${{ id: 'some-id' }}                                              | ${false}       | ${'invalid wrapped vat message: missing message'}
-      ${{ id: 'some-id', message: 123 }}                                | ${false}       | ${'invalid wrapped vat message: message is a primitive number'}
-      ${{ id: 'some-id', message: { type: 123, data: null } }}          | ${false}       | ${'invalid wrapped vat message: invalid type in message'}
+      value                                           | expectedResult | description
+      ${{ method: 'someMethod', params: [] }}         | ${true}        | ${'valid cap tp payload with empty params'}
+      ${{ method: 'someMethod', params: ['param1'] }} | ${true}        | ${'valid cap tp payload with non-empty params'}
+      ${123}                                          | ${false}       | ${'invalid cap tp payload: primitive number'}
+      ${{ method: true, params: [] }}                 | ${false}       | ${'invalid cap tp payload: invalid method type'}
+      ${{ method: 'someMethod' }}                     | ${false}       | ${'invalid cap tp payload: missing params'}
+      ${{ method: 'someMethod', params: 'param1' }}   | ${false}       | ${'invalid cap tp payload: params is a primitive string'}
+      ${{ method: 123, params: [] }}                  | ${false}       | ${'invalid cap tp payload: invalid method type and valid params'}
+      ${{ method: 'someMethod', params: true }}       | ${false}       | ${'invalid cap tp payload: valid method and invalid params'}
     `(
       'returns $expectedResult for $description',
       ({ value, expectedResult }) => {
-        expect(isWrappedVatMessage(value)).toBe(expectedResult);
+        expect(isCapTpPayload(value)).toBe(expectedResult);
+      },
+    );
+  });
+
+  describe('isCommand', () => {
+    it.each`
+      value                                       | expectedResult | description
+      ${{ type: CommandType.Ping, data: null }}   | ${true}        | ${'valid command with null data'}
+      ${{ type: CommandType.Ping, data: 'data' }} | ${true}        | ${'valid command with string data'}
+      ${123}                                      | ${false}       | ${'invalid command: primitive number'}
+      ${{ type: true, data: 'data' }}             | ${false}       | ${'invalid command: invalid type'}
+      ${{ type: CommandType.Ping }}               | ${false}       | ${'invalid command: missing data'}
+      ${{ type: CommandType.Ping, data: 123 }}    | ${false}       | ${'invalid command: data is a primitive number'}
+      ${{ type: 123, data: null }}                | ${false}       | ${'invalid command: invalid type and valid data'}
+      ${{ type: 'some-type', data: true }}        | ${false}       | ${'invalid command: valid type and invalid data'}
+    `(
+      'returns $expectedResult for $description',
+      ({ value, expectedResult }) => {
+        expect(isCommand(value)).toBe(expectedResult);
+      },
+    );
+  });
+
+  describe('isVatMessage', () => {
+    it.each`
+      value                                                                 | expectedResult | description
+      ${{ id: 'some-id', payload: { type: CommandType.Ping, data: null } }} | ${true}        | ${'valid vat message'}
+      ${123}                                                                | ${false}       | ${'invalid vat message: primitive number'}
+      ${{ id: true, payload: {} }}                                          | ${false}       | ${'invalid vat message: invalid id and empty payload'}
+      ${{ id: 'some-id', payload: null }}                                   | ${false}       | ${'invalid vat message: payload is null'}
+      ${{ id: 123, payload: { type: CommandType.Ping, data: null } }}       | ${false}       | ${'invalid vat message: invalid id type'}
+      ${{ id: 'some-id' }}                                                  | ${false}       | ${'invalid vat message: missing payload'}
+      ${{ id: 'some-id', payload: 123 }}                                    | ${false}       | ${'invalid vat message: payload is a primitive number'}
+      ${{ id: 'some-id', payload: { type: 123, data: null } }}              | ${false}       | ${'invalid vat message: invalid type in payload'}
+    `(
+      'returns $expectedResult for $description',
+      ({ value, expectedResult }) => {
+        expect(isVatMessage(value)).toBe(expectedResult);
       },
     );
   });

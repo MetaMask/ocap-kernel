@@ -6,11 +6,11 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
       expect.arrayContaining([
-        'KernelMessageTarget',
-        'Command',
+        'CommandType',
+        'isCommand',
+        'makeStreamEnvelopeHandler',
         'wrapStreamCommand',
         'wrapCapTp',
-        'makeStreamEnvelopeHandler',
       ]),
     );
   });

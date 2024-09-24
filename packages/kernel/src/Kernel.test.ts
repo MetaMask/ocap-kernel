@@ -1,4 +1,4 @@
-import type { VatMessage } from '@ocap/utils';
+import type { Command } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';
@@ -102,14 +102,14 @@ describe('Kernel', () => {
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
       vi.spyOn(Vat.prototype, 'sendMessage').mockResolvedValueOnce('test');
       expect(
-        await kernel.sendMessage('vat-id', 'test' as unknown as VatMessage),
+        await kernel.sendMessage('vat-id', 'test' as unknown as Command),
       ).toBe('test');
     });
 
     it('throws an error when sending a message to the vat that does not exist in the kernel', async () => {
       const kernel = new Kernel();
       await expect(async () =>
-        kernel.sendMessage('non-existent-vat-id', {} as VatMessage),
+        kernel.sendMessage('non-existent-vat-id', {} as Command),
       ).rejects.toThrow('Vat with ID non-existent-vat-id does not exist.');
     });
 
@@ -118,7 +118,7 @@ describe('Kernel', () => {
       await kernel.launchVat({ id: 'vat-id', worker: mockWorker });
       vi.spyOn(Vat.prototype, 'sendMessage').mockRejectedValueOnce('error');
       await expect(async () =>
-        kernel.sendMessage('vat-id', {} as VatMessage),
+        kernel.sendMessage('vat-id', {} as Command),
       ).rejects.toThrow('error');
     });
   });

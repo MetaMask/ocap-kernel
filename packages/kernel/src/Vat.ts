@@ -7,17 +7,16 @@ import type {
   StreamEnvelopeHandler,
   CapTpMessage,
   CapTpPayload,
-  VatMessage,
-  MessageId,
+  Command,
 } from '@ocap/utils';
 import {
   wrapCapTp,
   wrapStreamCommand,
-  Command,
   makeStreamEnvelopeHandler,
+  CommandType,
 } from '@ocap/utils';
 
-import type { UnresolvedMessages, VatId } from './types.js';
+import type { MessageId, UnresolvedMessages, VatId } from './types.js';
 import { makeCounter } from './utils/makeCounter.js';
 
 type VatConstructorProps = {
@@ -46,17 +45,17 @@ export class Vat {
       {
         command: async ({
           id: messageId,
-          message,
+          payload,
         }: {
           id: MessageId;
-          message: VatMessage;
+          payload: Command;
         }) => {
           const promiseCallbacks = this.unresolvedMessages.get(messageId);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${messageId}".`);
           } else {
             this.unresolvedMessages.delete(messageId);
-            promiseCallbacks.resolve(message.data);
+            promiseCallbacks.resolve(payload.data);
           }
         },
       },
@@ -76,7 +75,7 @@ export class Vat {
       throw error;
     });
 
-    await this.sendMessage({ type: Command.Ping, data: null });
+    await this.sendMessage({ type: CommandType.Ping, data: null });
     console.debug(`Created vat with id "${this.id}"`);
 
     return await this.makeCapTp();
@@ -121,7 +120,7 @@ export class Vat {
       ctp.dispatch(content);
     };
 
-    return this.sendMessage({ type: Command.CapTpInit, data: null });
+    return this.sendMessage({ type: CommandType.CapTpInit, data: null });
   }
 
   /**
@@ -155,16 +154,16 @@ export class Vat {
   /**
    * Send a message to a vat.
    *
-   * @param message - The message to send.
+   * @param payload - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(message: VatMessage): Promise<unknown> {
-    console.debug(`Sending message to vat "${this.id}"`, message);
+  async sendMessage(payload: Command): Promise<unknown> {
+    console.debug(`Sending message to vat "${this.id}"`, payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
     await this.streams.writer.next(
-      wrapStreamCommand({ id: messageId, message }),
+      wrapStreamCommand({ id: messageId, payload }),
     );
     return promise;
   }

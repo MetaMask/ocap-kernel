@@ -1,54 +1,37 @@
 import type { Primitive } from '@endo/captp';
 
-export type MessageId = string;
-
-export enum KernelMessageTarget {
-  Background = 'background',
-  Offscreen = 'offscreen',
-  WebWorker = 'webWorker',
-  Node = 'node',
-}
-
-export type DataObject =
-  | Primitive
-  | Promise<DataObject>
-  | DataObject[]
-  | { [key: string]: DataObject };
-
-type CommandLike<
-  CommandType extends Command,
-  Data extends DataObject,
-  TargetType extends KernelMessageTarget,
-> = {
-  type: CommandType;
-  target?: TargetType;
-  data: Data;
-};
-
-export enum Command {
+export enum CommandType {
   CapTpCall = 'callCapTp',
   CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
   Ping = 'ping',
 }
 
+type DataObject =
+  | Primitive
+  | Promise<DataObject>
+  | DataObject[]
+  | { [key: string]: DataObject };
+
 export type CapTpPayload = {
   method: string;
   params: DataObject[];
 };
 
-type CommandMessage<TargetType extends KernelMessageTarget> =
-  | CommandLike<Command.Ping, null | 'pong', TargetType>
-  | CommandLike<Command.Evaluate, string, TargetType>
-  | CommandLike<Command.CapTpInit, null, TargetType>
-  | CommandLike<Command.CapTpCall, CapTpPayload, TargetType>;
+type CommandLike<Type extends CommandType, Data extends DataObject> = {
+  type: Type;
+  data: Data;
+};
 
-export type KernelMessage = CommandMessage<KernelMessageTarget>;
-export type VatMessage = CommandMessage<never>;
+export type Command =
+  | CommandLike<CommandType.Ping, null | 'pong'>
+  | CommandLike<CommandType.Evaluate, string>
+  | CommandLike<CommandType.CapTpInit, null>
+  | CommandLike<CommandType.CapTpCall, CapTpPayload>;
 
-export type WrappedVatMessage = {
-  id: MessageId;
-  message: VatMessage;
+export type VatMessage = {
+  id: string;
+  payload: Command;
 };
 
 export type CapTpMessage<Type extends `CTP_${string}` = `CTP_${string}`> = {

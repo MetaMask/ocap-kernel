@@ -5,12 +5,12 @@ import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 import type {
   StreamEnvelope,
   CapTpMessage,
+  Command,
   VatMessage,
-  WrappedVatMessage,
 } from '@ocap/utils';
 import {
+  CommandType,
   makeStreamEnvelopeHandler,
-  Command,
   wrapCapTp,
   wrapStreamCommand,
 } from '@ocap/utils';
@@ -48,32 +48,29 @@ async function main(): Promise<void> {
   /**
    * Handle a message from the parent window.
    *
-   * @param wrappedMessage - The wrapped message to handle.
-   * @param wrappedMessage.id - The id of the message.
-   * @param wrappedMessage.message - The message to handle.
+   * @param vatMessage - The vat message to handle.
+   * @param vatMessage.id - The id of the message.
+   * @param vatMessage.payload - The payload to handle.
    */
-  async function handleMessage({
-    id,
-    message,
-  }: WrappedVatMessage): Promise<void> {
-    switch (message.type) {
-      case Command.Evaluate: {
-        if (typeof message.data !== 'string') {
+  async function handleMessage({ id, payload }: VatMessage): Promise<void> {
+    switch (payload.type) {
+      case CommandType.Evaluate: {
+        if (typeof payload.data !== 'string') {
           console.error(
             'iframe received message with unexpected data type',
             // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
-            stringifyResult(message.data),
+            stringifyResult(payload.data),
           );
           return;
         }
-        const result = safelyEvaluate(message.data);
+        const result = safelyEvaluate(payload.data);
         await replyToMessage(id, {
-          type: Command.Evaluate,
+          type: CommandType.Evaluate,
           data: stringifyResult(result),
         });
         break;
       }
-      case Command.CapTpInit: {
+      case CommandType.CapTpInit: {
         const bootstrap = makeExo(
           'TheGreatFrangooly',
           M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
@@ -86,16 +83,16 @@ async function main(): Promise<void> {
             streams.writer.next(wrapCapTp(content as CapTpMessage)),
           bootstrap,
         );
-        await replyToMessage(id, { type: Command.CapTpInit, data: null });
+        await replyToMessage(id, { type: CommandType.CapTpInit, data: null });
         break;
       }
-      case Command.Ping:
-        await replyToMessage(id, { type: Command.Ping, data: 'pong' });
+      case CommandType.Ping:
+        await replyToMessage(id, { type: CommandType.Ping, data: 'pong' });
         break;
       default:
         console.error(
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `iframe received unexpected message type: "${message.type}"`,
+          `iframe received unexpected message type: "${payload.type}"`,
         );
     }
   }
@@ -104,13 +101,10 @@ async function main(): Promise<void> {
    * Reply to a message from the parent window.
    *
    * @param id - The id of the message to reply to.
-   * @param message - The message to reply with.
+   * @param payload - The payload to reply with.
    */
-  async function replyToMessage(
-    id: string,
-    message: VatMessage,
-  ): Promise<void> {
-    await streams.writer.next(wrapStreamCommand({ id, message }));
+  async function replyToMessage(id: string, payload: Command): Promise<void> {
+    await streams.writer.next(wrapStreamCommand({ id, payload }));
   }
 
   /**

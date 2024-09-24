@@ -1,6 +1,8 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import type { StreamPair } from '@ocap/streams';
-import type { MessageId, StreamEnvelope } from '@ocap/utils';
+import type { StreamEnvelope } from '@ocap/utils';
+
+export type MessageId = string;
 
 export type VatId = string;
 

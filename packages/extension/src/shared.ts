@@ -1,4 +1,28 @@
+import { isObject } from '@metamask/utils';
+import type { Command } from '@ocap/utils';
+import { isCommand } from '@ocap/utils';
+
 export type VatId = string;
+
+export enum ExtensionMessageTarget {
+  Background = 'background',
+  Offscreen = 'offscreen',
+}
+
+export type ExtensionRuntimeMessage = {
+  payload: Command;
+  target: ExtensionMessageTarget;
+};
+
+export const isExtensionRuntimeMessage = (
+  message: unknown,
+): message is ExtensionRuntimeMessage =>
+  isObject(message) &&
+  typeof message.target === 'string' &&
+  Object.values(ExtensionMessageTarget).includes(
+    message.target as ExtensionMessageTarget,
+  ) &&
+  isCommand(message.payload);
 
 /**
  * Wrap an async callback to ensure any errors are at least logged.

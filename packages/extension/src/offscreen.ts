@@ -1,9 +1,13 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import { Command, KernelMessageTarget, type KernelMessage } from '@ocap/utils';
+import { CommandType } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
-import { makeHandledCallback } from './shared.js';
+import {
+  ExtensionMessageTarget,
+  isExtensionRuntimeMessage,
+  makeHandledCallback,
+} from './shared.js';
 
 main().catch(console.error);
 
@@ -19,9 +23,13 @@ async function main(): Promise<void> {
 
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: KernelMessage) => {
-      if (message.target !== KernelMessageTarget.Offscreen) {
-        console.warn(
+    makeHandledCallback(async (message: unknown) => {
+      if (!isExtensionRuntimeMessage(message)) {
+        console.error('Offscreen received unexpected message', message);
+        return;
+      }
+      if (message.target !== ExtensionMessageTarget.Offscreen) {
+        console.error(
           `Offscreen received message with unexpected target: "${message.target}"`,
         );
         return;
@@ -29,27 +37,32 @@ async function main(): Promise<void> {
 
       const vat = await iframeReadyP;
 
-      switch (message.type) {
-        case Command.Evaluate:
-          await reply(Command.Evaluate, await evaluate(vat.id, message.data));
+      const { payload } = message;
+
+      switch (payload.type) {
+        case CommandType.Evaluate:
+          await reply(
+            CommandType.Evaluate,
+            await evaluate(vat.id, payload.data),
+          );
           break;
-        case Command.CapTpCall: {
-          const result = await vat.callCapTp(message.data);
-          await reply(Command.CapTpCall, JSON.stringify(result, null, 2));
+        case CommandType.CapTpCall: {
+          const result = await vat.callCapTp(payload.data);
+          await reply(CommandType.CapTpCall, JSON.stringify(result, null, 2));
           break;
         }
-        case Command.CapTpInit:
+        case CommandType.CapTpInit:
           await vat.makeCapTp();
-          await reply(Command.CapTpInit, '~~~ CapTP Initialized ~~~');
+          await reply(CommandType.CapTpInit, '~~~ CapTP Initialized ~~~');
           break;
-        case Command.Ping:
-          await reply(Command.Ping, 'pong');
+        case CommandType.Ping:
+          await reply(CommandType.Ping, 'pong');
           break;
         default:
           console.error(
-            // @ts-expect-error The type of `message` is `never`, but this could happen at runtime.
+            // @ts-expect-error The type of `payload` is `never`, but this could happen at runtime.
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Offscreen received unexpected message type: "${message.type}"`,
+            `Offscreen received unexpected command type: "${payload.type}"`,
           );
       }
     }),
@@ -61,11 +74,13 @@ async function main(): Promise<void> {
    * @param type - The message type.
    * @param data - The message data.
    */
-  async function reply(type: Command, data?: string): Promise<void> {
+  async function reply(type: CommandType, data?: string): Promise<void> {
     await chrome.runtime.sendMessage({
-      data: data ?? null,
-      target: KernelMessageTarget.Background,
-      type,
+      target: ExtensionMessageTarget.Background,
+      payload: {
+        data: data ?? null,
+        type,
+      },
     });
   }
 
@@ -79,7 +94,7 @@ async function main(): Promise<void> {
   async function evaluate(vatId: string, source: string): Promise<string> {
     try {
       const result = await kernel.sendMessage(vatId, {
-        type: Command.Evaluate,
+        type: CommandType.Evaluate,
         data: source,
       });
       return String(result);
