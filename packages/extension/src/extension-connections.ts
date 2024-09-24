@@ -1,9 +1,32 @@
-import type { Json } from '@metamask/utils';
+import { isObject, type Json } from '@metamask/utils';
 import type { Connection, ReaderMessage, WriterMessage } from '@ocap/streams';
-import type { Command, CommandReply } from '@ocap/utils';
+import { isCommand, type Command, type CommandReply } from '@ocap/utils';
 
-import type { TargetedAt } from './shared.js';
-import { ExtensionMessageTarget } from './shared.js';
+// Extension types.
+
+export enum ExtensionMessageTarget {
+  Background = 'background',
+  Offscreen = 'offscreen',
+}
+
+export type ExtensionRuntimeMessage = {
+  payload: Command;
+  target: ExtensionMessageTarget;
+};
+
+export const isExtensionRuntimeMessage = (
+  message: unknown,
+): message is ExtensionRuntimeMessage =>
+  isObject(message) &&
+  typeof message.target === 'string' &&
+  Object.values(ExtensionMessageTarget).includes(
+    message.target as ExtensionMessageTarget,
+  ) &&
+  isCommand(message.payload);
+
+export type TargetedAt<Target extends ExtensionMessageTarget> = {
+  target: Target;
+};
 
 type SwapTarget<Target extends ExtensionMessageTarget> =
   Target extends ExtensionMessageTarget.Background
