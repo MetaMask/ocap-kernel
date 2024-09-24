@@ -1,21 +1,64 @@
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { isConnection } from './connection.js';
+import { makeDoneResult } from './done.js';
 import {
-  makeDoneResult,
   makeMessagePortStreamPair,
-  MessagePortReader,
-  MessagePortWriter,
-} from './streams.js';
+  makeMessagePortReader,
+  makeMessagePortWriter,
+  makeMessagePortConnection,
+} from './message-port.js';
+import { isStream } from './shared.js';
+import { isStreamPair } from './stream-pair.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
-describe.concurrent('MessagePortReader', () => {
-  it('constructs a MessagePortReader', () => {
+describe.concurrent('makeMessagePortConnection', () => {
+  it('makes a Connection', () => {
     const { port1 } = new MessageChannel();
-    const reader = new MessagePortReader(port1);
+    const connection = makeMessagePortConnection(port1);
+    expect(isConnection(connection)).toBe(true);
+  });
 
-    expect(reader).toBeInstanceOf(MessagePortReader);
+  it('sends messages over the port', async () => {
+    const { port1 } = new MessageChannel();
+    const postMessageSpy = vi.spyOn(port1, 'postMessage');
+    const connection = makeMessagePortConnection(port1);
+    await connection.sendMessage({ value: 'test' });
+    expect(postMessageSpy).toHaveBeenCalledWith({ value: 'test' });
+  });
+
+  it('handles messages from the port', async () => {
+    const { port1, port2 } = new MessageChannel();
+    const connection = makeMessagePortConnection(port1);
+    let recieved = null;
+    connection.setMessageHandler(async (message) => {
+      recieved = message.data.value;
+    });
+    port2.postMessage({ value: 'test' });
+
+    await delay(10);
+
+    expect(recieved).toBe('test');
+  });
+
+  it('closes the port when closing the connection', async () => {
+    const { port1 } = new MessageChannel();
+    const closeSpy = vi.spyOn(port1, 'close');
+    const connection = makeMessagePortConnection(port1);
+    await connection.close();
+    expect(closeSpy).toHaveBeenCalledOnce();
+    expect(port1.onmessage).toBeNull();
+  });
+});
+
+describe.concurrent('makeMessagePortReader', () => {
+  it('constructs a MessagePortReader', async () => {
+    const { port1 } = new MessageChannel();
+    const reader = makeMessagePortReader(port1);
+
+    expect(isStream(reader)).toBe(true);
     expect(reader[Symbol.asyncIterator]()).toBe(reader);
     expect(port1.onmessage).toBeInstanceOf(Function);
   });
@@ -23,7 +66,7 @@ describe.concurrent('MessagePortReader', () => {
   describe('next and iteration', () => {
     it('emits message port message received before next()', async () => {
       const { port1, port2 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const message = { foo: 'bar' };
       port2.postMessage({ done: false, value: message });
@@ -37,7 +80,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('emits message port message received after next()', async () => {
       const { port1, port2 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const nextP = reader.next();
       const message = { foo: 'bar' };
@@ -48,7 +91,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('iterates over multiple port messages', async () => {
       const { port1, port2 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const messages = [{ foo: 'bar' }, { bar: 'baz' }, { baz: 'qux' }];
       messages.forEach((message) =>
@@ -68,7 +111,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('throws when receiving unexpected message from port', async () => {
       const { port1, port2 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const nextP = reader.next();
       const unexpectedMessage = { foo: 'bar' };
@@ -81,7 +124,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('ends if receiving final iterator result from port', async () => {
       const { port1, port2 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const nextP = reader.next();
       port2.postMessage(makeDoneResult());
@@ -95,7 +138,7 @@ describe.concurrent('MessagePortReader', () => {
   describe('return', () => {
     it('ends the stream', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       expect(await reader.return()).toStrictEqual(makeDoneResult());
       expect(port1.onmessage).toBeNull();
@@ -104,7 +147,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('is idempotent', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       expect(await reader.return()).toStrictEqual(makeDoneResult());
       expect(await reader.return()).toStrictEqual(makeDoneResult());
@@ -112,7 +155,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('resolves pending read promises', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const nextP1 = reader.next();
       const nextP2 = reader.next();
@@ -127,7 +170,7 @@ describe.concurrent('MessagePortReader', () => {
   describe('throw', () => {
     it('ends the stream', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       expect(await reader.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(port1.onmessage).toBeNull();
@@ -136,7 +179,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('is idempotent', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       expect(await reader.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await reader.throw(new Error())).toStrictEqual(makeDoneResult());
@@ -144,7 +187,7 @@ describe.concurrent('MessagePortReader', () => {
 
     it('rejects pending read promises', async () => {
       const { port1 } = new MessageChannel();
-      const reader = new MessagePortReader(port1);
+      const reader = makeMessagePortReader(port1);
 
       const nextP1 = reader.next();
       const nextP2 = reader.next();
@@ -157,19 +200,19 @@ describe.concurrent('MessagePortReader', () => {
   });
 });
 
-describe.concurrent('MessagePortWriter', () => {
-  it('constructs a MessagePortWriter', () => {
+describe.concurrent('makeMessagePortWriter', () => {
+  it('constructs a MessagePortWriter', async () => {
     const { port1 } = new MessageChannel();
-    const writer = new MessagePortWriter(port1);
+    const writer = makeMessagePortWriter(port1);
 
-    expect(writer).toBeInstanceOf(MessagePortWriter);
+    expect(isStream(writer)).toBe(true);
     expect(writer[Symbol.asyncIterator]()).toBe(writer);
   });
 
   describe('next and sending messages', () => {
     it('posts messages to the port', async () => {
       const { port1, port2 } = new MessageChannel();
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       const message = { foo: 'bar' };
       const messageP = new Promise((resolve) => {
@@ -191,7 +234,7 @@ describe.concurrent('MessagePortWriter', () => {
         .mockImplementationOnce(() => {
           throw new Error('foo');
         });
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
       expect(postMessageSpy).toHaveBeenCalledTimes(2);
@@ -208,7 +251,7 @@ describe.concurrent('MessagePortWriter', () => {
         throw new Error('foo');
       });
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
@@ -228,7 +271,7 @@ describe.concurrent('MessagePortWriter', () => {
         .mockImplementationOnce(() => {
           throw new Error('foo');
         });
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       await expect(writer.next(null)).rejects.toThrow(
         'MessagePortWriter experienced repeated send failures.',
@@ -249,7 +292,7 @@ describe.concurrent('MessagePortWriter', () => {
   describe('return', () => {
     it('ends the stream', async () => {
       const { port1 } = new MessageChannel();
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.return()).toStrictEqual(makeDoneResult());
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
@@ -257,7 +300,7 @@ describe.concurrent('MessagePortWriter', () => {
 
     it('is idempotent', async () => {
       const { port1 } = new MessageChannel();
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.return()).toStrictEqual(makeDoneResult());
       expect(await writer.return()).toStrictEqual(makeDoneResult());
@@ -267,7 +310,7 @@ describe.concurrent('MessagePortWriter', () => {
   describe('throw', () => {
     it('ends the stream', async () => {
       const { port1 } = new MessageChannel();
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
@@ -275,7 +318,7 @@ describe.concurrent('MessagePortWriter', () => {
 
     it('is idempotent', async () => {
       const { port1 } = new MessageChannel();
-      const writer = new MessagePortWriter(port1);
+      const writer = makeMessagePortWriter(port1);
 
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
@@ -284,18 +327,24 @@ describe.concurrent('MessagePortWriter', () => {
 });
 
 describe('makeMessagePortStreamPair', () => {
-  it('returns a pair of message ports', () => {
+  it('makes a StreamPair', () => {
+    const { port1 } = new MessageChannel();
+    const streamPair = makeMessagePortStreamPair(port1);
+    expect(isStreamPair(streamPair)).toBe(true);
+  });
+
+  it('returns a pair of message ports', async () => {
     const { port1 } = new MessageChannel();
     const { reader, writer } = makeMessagePortStreamPair(port1);
 
-    expect(reader).toBeInstanceOf(MessagePortReader);
-    expect(writer).toBeInstanceOf(MessagePortWriter);
+    expect(isStream(reader)).toBe(true);
+    expect(isStream(writer)).toBe(true);
   });
 
   it('return() calls return() on both streams', async () => {
     const { port1, port2 } = new MessageChannel();
     const streamPair = makeMessagePortStreamPair(port1);
-    const remoteReader = new MessagePortReader(port2);
+    const remoteReader = makeMessagePortReader(port2);
     const remoteReadP = remoteReader.next();
 
     expect(port1.onmessage).toBeDefined();
@@ -312,8 +361,8 @@ describe('makeMessagePortStreamPair', () => {
   it('throw() calls throw() on the writer but return on the reader', async () => {
     const { port1, port2 } = new MessageChannel();
     const streamPair = makeMessagePortStreamPair(port1);
-    const remoteReader = new MessagePortReader(port2);
-    const localReadP = (streamPair.reader as MessagePortReader<unknown>).next();
+    const remoteReader = makeMessagePortReader(port2);
+    const localReadP = streamPair.reader.next();
     const remoteReadP = remoteReader.next();
 
     expect(port1.onmessage).toBeDefined();
