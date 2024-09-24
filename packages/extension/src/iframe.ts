@@ -5,8 +5,8 @@ import { receiveMessagePort, makeMessagePortStreamPair } from '@ocap/streams';
 import type {
   StreamEnvelope,
   CapTpMessage,
-  Command,
   VatMessage,
+  CommandReply,
 } from '@ocap/utils';
 import {
   CommandMethod,
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
         );
         await replyToMessage(id, {
           method: CommandMethod.CapTpInit,
-          params: null,
+          params: '~~~ CapTP Initialized ~~~',
         });
         break;
       }
@@ -109,7 +109,10 @@ async function main(): Promise<void> {
    * @param id - The id of the message to reply to.
    * @param payload - The payload to reply with.
    */
-  async function replyToMessage(id: string, payload: Command): Promise<void> {
+  async function replyToMessage(
+    id: string,
+    payload: CommandReply,
+  ): Promise<void> {
     await streams.writer.next(wrapStreamCommand({ id, payload }));
   }
 

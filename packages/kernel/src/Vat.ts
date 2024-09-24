@@ -43,13 +43,7 @@ export class Vat {
     this.#messageCounter = makeCounter();
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
-        command: async ({
-          id: messageId,
-          payload,
-        }: {
-          id: MessageId;
-          payload: Command;
-        }) => {
+        command: async ({ id: messageId, payload }) => {
           const promiseCallbacks = this.unresolvedMessages.get(messageId);
           if (promiseCallbacks === undefined) {
             console.error(`No unresolved message with id "${messageId}".`);

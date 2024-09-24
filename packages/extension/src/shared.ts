@@ -9,6 +9,10 @@ export enum ExtensionMessageTarget {
   Offscreen = 'offscreen',
 }
 
+export type TargetedAt<Target extends ExtensionMessageTarget> = {
+  target: Target;
+};
+
 export type ExtensionRuntimeMessage = {
   payload: Command;
   target: ExtensionMessageTarget;

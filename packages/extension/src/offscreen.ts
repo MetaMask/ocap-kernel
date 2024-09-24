@@ -1,13 +1,12 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
+import type { CommandReply } from '@ocap/utils';
 import { CommandMethod } from '@ocap/utils';
 
+import { makeOffscreenBackgroundStreamPair } from './extension-stream-pairs.js';
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
-import {
-  ExtensionMessageTarget,
-  isExtensionRuntimeMessage,
-  makeHandledCallback,
-} from './shared.js';
+
+const streams = makeOffscreenBackgroundStreamPair();
 
 main().catch(console.error);
 
@@ -16,81 +15,54 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const kernel = new Kernel();
-  const iframeReadyP = kernel.launchVat({
+  const vat = await kernel.launchVat({
     id: 'default',
     worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
 
-  // Handle messages from the background service worker
-  chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: unknown) => {
-      if (!isExtensionRuntimeMessage(message)) {
-        console.error('Offscreen received unexpected message', message);
-        return;
+  for await (const { method, params } of streams.reader) {
+    switch (method) {
+      case CommandMethod.Evaluate:
+        await reply({
+          method: CommandMethod.Evaluate,
+          params: await evaluate(vat.id, params),
+        });
+        break;
+      case CommandMethod.CapTpCall: {
+        const result = await vat.callCapTp(params);
+        await reply({
+          method: CommandMethod.CapTpCall,
+          params: JSON.stringify(result, null, 2),
+        });
+        break;
       }
-      if (message.target !== ExtensionMessageTarget.Offscreen) {
+      case CommandMethod.CapTpInit:
+        await vat.makeCapTp();
+        await reply({
+          method: CommandMethod.CapTpInit,
+          params: '~~~ CapTP Initialized ~~~',
+        });
+        break;
+      case CommandMethod.Ping:
+        await reply({ method: CommandMethod.Ping, params: 'pong' });
+        break;
+      default:
         console.error(
-          `Offscreen received message with unexpected target: "${message.target}"`,
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Offscreen received unexpected command method: "${method}"`,
         );
-        return;
-      }
-
-      const vat = await iframeReadyP;
-
-      const { payload } = message;
-
-      switch (payload.method) {
-        case CommandMethod.Evaluate:
-          await replyToCommand(
-            CommandMethod.Evaluate,
-            await evaluate(vat.id, payload.params),
-          );
-          break;
-        case CommandMethod.CapTpCall: {
-          const result = await vat.callCapTp(payload.params);
-          await replyToCommand(
-            CommandMethod.CapTpCall,
-            JSON.stringify(result, null, 2),
-          );
-          break;
-        }
-        case CommandMethod.CapTpInit:
-          await vat.makeCapTp();
-          await replyToCommand(
-            CommandMethod.CapTpInit,
-            '~~~ CapTP Initialized ~~~',
-          );
-          break;
-        case CommandMethod.Ping:
-          await replyToCommand(CommandMethod.Ping, 'pong');
-          break;
-        default:
-          console.error(
-            // @ts-expect-error The type of `payload` is `never`, but this could happen at runtime.
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Offscreen received unexpected command method: "${payload.method}"`,
-          );
-      }
-    }),
-  );
+    }
+  }
 
   /**
    * Reply to a command from the background script.
    *
-   * @param method - The command method.
-   * @param params - The command parameters.
+   * @param commandReply - The reply to the command.
+   * @param commandReply.type - The command type.
+   * @param commandReply.params - The reply's params.
    */
-  async function replyToCommand(
-    method: CommandMethod,
-    params?: string,
-  ): Promise<void> {
-    await chrome.runtime.sendMessage({
-      target: ExtensionMessageTarget.Background,
-      payload: {
-        method,
-        params: params ?? null,
-      },
-    });
+  async function reply(commandReply: CommandReply): Promise<void> {
+    await streams.writer.next(commandReply);
   }
 
   /**
