@@ -1,7 +1,8 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { Supervisor } from '@ocap/kernel';
-import { receiveMessagePort } from '@ocap/streams';
+import type { StreamEnvelope } from '@ocap/streams';
+import { makeMessagePortStreamPair, receiveMessagePort } from '@ocap/streams';
 
 main().catch(console.error);
 
@@ -10,6 +11,7 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
+  const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
 
   const bootstrap = makeExo(
     'TheGreatFrangooly',
@@ -17,7 +19,7 @@ async function main(): Promise<void> {
     { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
   );
 
-  const supervisor = new Supervisor('iframe', port, bootstrap);
+  const supervisor = new Supervisor({ id: 'iframe', streams, bootstrap });
 
-  supervisor.evaluate(`console.log('Hello, World!');`);
+  console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
 }

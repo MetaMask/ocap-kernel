@@ -9,7 +9,6 @@ import type {
   Reader,
 } from '@ocap/streams';
 import {
-  makeMessagePortStreamPair,
   Command,
   wrapCapTp,
   wrapStreamCommand,
@@ -17,6 +16,12 @@ import {
 } from '@ocap/streams';
 
 import { stringifyResult } from './utils/stringifyResult.js';
+
+type SupervisorConstructorProps = {
+  id: string;
+  streams: StreamPair<StreamEnvelope>;
+  bootstrap?: unknown;
+};
 
 export class Supervisor {
   readonly id: string;
@@ -31,17 +36,10 @@ export class Supervisor {
 
   #capTp?: ReturnType<typeof makeCapTP>;
 
-  /**
-   * Create a new Supervisor.
-   *
-   * @param id - The id of the Supervisor.
-   * @param port - The MessagePort to use for communication.
-   * @param bootstrap - The bootstrap object to use for CapTp initialization.
-   */
-  constructor(id: string, port: MessagePort, bootstrap?: unknown) {
+  constructor({ id, streams, bootstrap }: SupervisorConstructorProps) {
     this.id = id;
     this.#bootstrap = bootstrap;
-    this.streams = makeMessagePortStreamPair<StreamEnvelope>(port);
+    this.streams = streams;
 
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
