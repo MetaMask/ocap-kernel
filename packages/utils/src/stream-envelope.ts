@@ -25,15 +25,7 @@ enum EnvelopeLabel {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const envelopeLabels = Object.values(EnvelopeLabel);
 
-const envelopeKit: ReturnType<
-  typeof makeStreamEnvelopeKit<
-    typeof envelopeLabels,
-    {
-      command: VatMessage;
-      capTp: CapTpMessage;
-    }
-  >
-> = makeStreamEnvelopeKit<
+const envelopeKit = makeStreamEnvelopeKit<
   typeof envelopeLabels,
   {
     command: VatMessage;
