@@ -81,6 +81,7 @@ describe('Vat', () => {
     });
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
+      // @ts-expect-error - streamEnvelopeHandler is readonly
       vat.streamEnvelopeHandler = makeStreamEnvelopeHandler({}, console.warn);
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')

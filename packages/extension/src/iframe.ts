@@ -18,7 +18,6 @@ async function main(): Promise<void> {
   );
 
   const supervisor = new Supervisor('iframe', port, bootstrap);
-  await supervisor.init();
 
   supervisor.evaluate(`console.log('Hello, World!');`);
 }

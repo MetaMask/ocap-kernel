@@ -33,7 +33,7 @@ export class Vat {
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  streamEnvelopeHandler: StreamEnvelopeHandler;
+  readonly streamEnvelopeHandler: StreamEnvelopeHandler;
 
   capTp?: ReturnType<typeof makeCapTP>;
 

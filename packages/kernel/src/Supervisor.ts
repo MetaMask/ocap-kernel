@@ -6,6 +6,7 @@ import type {
   CapTpMessage,
   StreamEnvelopeHandler,
   WrappedVatMessage,
+  Reader,
 } from '@ocap/streams';
 import {
   makeMessagePortStreamPair,
@@ -22,9 +23,9 @@ export class Supervisor {
 
   readonly streams: StreamPair<StreamEnvelope>;
 
-  readonly #defaultCompartment = new Compartment({ URL });
+  readonly streamEnvelopeHandler: StreamEnvelopeHandler;
 
-  readonly #streamEnvelopeHandler: StreamEnvelopeHandler;
+  readonly #defaultCompartment = new Compartment({ URL });
 
   readonly #bootstrap: unknown;
 
@@ -42,27 +43,40 @@ export class Supervisor {
     this.#bootstrap = bootstrap;
     this.streams = makeMessagePortStreamPair<StreamEnvelope>(port);
 
-    this.#streamEnvelopeHandler = makeStreamEnvelopeHandler(
+    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       {
         command: this.handleMessage.bind(this),
         capTp: async (content) => this.#capTp?.dispatch(content),
       },
       (error) => console.error('Supervisor stream error:', error),
     );
+
+    this.#receiveMessages(this.streams.reader).catch((error) => {
+      console.error(
+        `Unexpected read error from Supervisor "${this.id}"`,
+        error,
+      );
+      throw error;
+    });
   }
 
   /**
-   * Initializes the Supervisor.
+   * Receives messages from a vat.
    *
+   * @param reader - The reader for the messages.
    */
-  async init(): Promise<void> {
-    for await (const rawMessage of this.streams.reader) {
-      console.debug('iframe received message', rawMessage);
-      await this.#streamEnvelopeHandler.handle(rawMessage);
+  async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
+    for await (const rawMessage of reader) {
+      console.debug('Supervisor received message', rawMessage);
+      await this.streamEnvelopeHandler.handle(rawMessage);
     }
+  }
 
+  /**
+   * Terminates the Supervisor.
+   */
+  async terminate(): Promise<void> {
     await this.streams.return();
-    throw new Error('MessagePortReader ended unexpectedly.');
   }
 
   /**
@@ -73,6 +87,7 @@ export class Supervisor {
    * @param wrappedMessage.message - The message to handle.
    */
   async handleMessage({ id, message }: WrappedVatMessage): Promise<void> {
+    console.debug('Supervisor received message', { id, message });
     switch (message.type) {
       case Command.Ping: {
         await this.replyToMessage(id, {
