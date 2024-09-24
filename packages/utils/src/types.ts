@@ -7,20 +7,20 @@ export enum CommandMethod {
   Ping = 'ping',
 }
 
-type DataObject =
+type CommandParams =
   | Primitive
-  | Promise<DataObject>
-  | DataObject[]
-  | { [key: string]: DataObject };
+  | Promise<CommandParams>
+  | CommandParams[]
+  | { [key: string]: CommandParams };
 
 export type CapTpPayload = {
   method: string;
-  params: DataObject[];
+  params: CommandParams[];
 };
 
-type CommandLike<Type extends CommandMethod, Data extends DataObject> = {
-  type: Type;
-  data: Data;
+type CommandLike<Method extends CommandMethod, Data extends CommandParams> = {
+  method: Method;
+  params: Data;
 };
 
 export type Command =

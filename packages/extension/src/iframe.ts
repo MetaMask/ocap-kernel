@@ -53,20 +53,20 @@ async function main(): Promise<void> {
    * @param vatMessage.payload - The payload to handle.
    */
   async function handleMessage({ id, payload }: VatMessage): Promise<void> {
-    switch (payload.type) {
+    switch (payload.method) {
       case CommandMethod.Evaluate: {
-        if (typeof payload.data !== 'string') {
+        if (typeof payload.params !== 'string') {
           console.error(
-            'iframe received message with unexpected data type',
+            'iframe received command with unexpected params',
             // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
-            stringifyResult(payload.data),
+            stringifyResult(payload.params),
           );
           return;
         }
-        const result = safelyEvaluate(payload.data);
+        const result = safelyEvaluate(payload.params);
         await replyToMessage(id, {
-          type: CommandMethod.Evaluate,
-          data: stringifyResult(result),
+          method: CommandMethod.Evaluate,
+          params: stringifyResult(result),
         });
         break;
       }
@@ -83,16 +83,22 @@ async function main(): Promise<void> {
             streams.writer.next(wrapCapTp(content as CapTpMessage)),
           bootstrap,
         );
-        await replyToMessage(id, { type: CommandMethod.CapTpInit, data: null });
+        await replyToMessage(id, {
+          method: CommandMethod.CapTpInit,
+          params: null,
+        });
         break;
       }
       case CommandMethod.Ping:
-        await replyToMessage(id, { type: CommandMethod.Ping, data: 'pong' });
+        await replyToMessage(id, {
+          method: CommandMethod.Ping,
+          params: 'pong',
+        });
         break;
       default:
         console.error(
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `iframe received unexpected message type: "${payload.type}"`,
+          `iframe received unexpected command method: "${payload.method}"`,
         );
     }
   }

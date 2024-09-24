@@ -12,20 +12,20 @@ import {
 Object.defineProperties(globalThis.kernel, {
   capTpCall: {
     value: async (method: string, params: Json[]) =>
-      sendMessage(CommandMethod.CapTpCall, { method, params }),
+      sendCommand(CommandMethod.CapTpCall, { method, params }),
   },
   capTpInit: {
-    value: async () => sendMessage(CommandMethod.CapTpInit),
+    value: async () => sendCommand(CommandMethod.CapTpInit),
   },
   evaluate: {
     value: async (source: string) =>
-      sendMessage(CommandMethod.Evaluate, source),
+      sendCommand(CommandMethod.Evaluate, source),
   },
   ping: {
-    value: async () => sendMessage(CommandMethod.Ping),
+    value: async () => sendCommand(CommandMethod.Ping),
   },
   sendMessage: {
-    value: sendMessage,
+    value: sendCommand,
   },
 });
 harden(globalThis.kernel);
@@ -34,24 +34,24 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  sendMessage(CommandMethod.Ping).catch(console.error);
+  sendCommand(CommandMethod.Ping).catch(console.error);
 });
 
 /**
  * Send a message to the offscreen document.
  *
- * @param type - The message type.
- * @param data - The message data.
- * @param data.name - The name to include in the message.
+ * @param method - The message type.
+ * @param params - The message data.
+ * @param params.name - The name to include in the message.
  */
-async function sendMessage(type: string, data?: Json): Promise<void> {
+async function sendCommand(method: string, params?: Json): Promise<void> {
   await provideOffScreenDocument();
 
   await chrome.runtime.sendMessage({
     target: ExtensionMessageTarget.Offscreen,
     payload: {
-      data: data ?? null,
-      type,
+      method,
+      params: params ?? null,
     },
   });
 }
@@ -85,18 +85,18 @@ chrome.runtime.onMessage.addListener(
 
     const { payload } = message;
 
-    switch (payload.type) {
+    switch (payload.method) {
       case CommandMethod.Evaluate:
       case CommandMethod.CapTpCall:
       case CommandMethod.CapTpInit:
       case CommandMethod.Ping:
-        console.log(payload.data);
+        console.log(payload.params);
         break;
       default:
         console.error(
           // @ts-expect-error The type of `message` is `never`, but this could happen at runtime.
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Background received unexpected message type: "${message.type}"`,
+          `Background received unexpected command method: "${payload.method}"`,
         );
     }
   }),

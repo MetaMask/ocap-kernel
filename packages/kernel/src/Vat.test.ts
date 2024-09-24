@@ -43,8 +43,8 @@ describe('Vat', () => {
       await vat.init();
 
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: CommandMethod.Ping,
-        data: null,
+        method: CommandMethod.Ping,
+        params: null,
       });
       expect(capTpMock).toHaveBeenCalled();
     });
@@ -52,7 +52,7 @@ describe('Vat', () => {
 
   describe('sendMessage', () => {
     it('sends a message and resolves the promise', async () => {
-      const mockMessage = { type: 'makeCapTp', data: null } as Command;
+      const mockMessage = { method: 'makeCapTp', params: null } as Command;
       const sendMessagePromise = vat.sendMessage(mockMessage);
       vat.unresolvedMessages.get('test-vat-1')?.resolve('test-response');
       const result = await sendMessagePromise;
@@ -88,8 +88,8 @@ describe('Vat', () => {
       await vat.makeCapTp();
       expect(vat.streamEnvelopeHandler.contentHandlers.capTp).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
-        type: CommandMethod.CapTpInit,
-        data: null,
+        method: CommandMethod.CapTpInit,
+        params: null,
       });
     });
   });

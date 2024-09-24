@@ -55,7 +55,7 @@ export class Vat {
             console.error(`No unresolved message with id "${messageId}".`);
           } else {
             this.unresolvedMessages.delete(messageId);
-            promiseCallbacks.resolve(payload.data);
+            promiseCallbacks.resolve(payload.params);
           }
         },
       },
@@ -75,7 +75,7 @@ export class Vat {
       throw error;
     });
 
-    await this.sendMessage({ type: CommandMethod.Ping, data: null });
+    await this.sendMessage({ method: CommandMethod.Ping, params: null });
     console.debug(`Created vat with id "${this.id}"`);
 
     return await this.makeCapTp();
@@ -120,7 +120,7 @@ export class Vat {
       ctp.dispatch(content);
     };
 
-    return this.sendMessage({ type: CommandMethod.CapTpInit, data: null });
+    return this.sendMessage({ method: CommandMethod.CapTpInit, params: null });
   }
 
   /**

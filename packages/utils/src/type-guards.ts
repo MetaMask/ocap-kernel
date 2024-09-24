@@ -14,10 +14,10 @@ export const isCapTpPayload = (value: unknown): value is CapTpPayload =>
 
 export const isCommand = (value: unknown): value is Command =>
   isObject(value) &&
-  typeof value.type === 'string' &&
-  (typeof value.data === 'string' ||
-    value.data === null ||
-    isCapTpPayload(value.data));
+  typeof value.method === 'string' &&
+  (typeof value.params === 'string' ||
+    value.params === null ||
+    isCapTpPayload(value.params));
 
 export const isVatMessage = (value: unknown): value is VatMessage =>
   isObject(value) && typeof value.id === 'string' && isCommand(value.payload);

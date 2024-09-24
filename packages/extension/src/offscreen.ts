@@ -39,47 +39,56 @@ async function main(): Promise<void> {
 
       const { payload } = message;
 
-      switch (payload.type) {
+      switch (payload.method) {
         case CommandMethod.Evaluate:
-          await reply(
+          await replyToCommand(
             CommandMethod.Evaluate,
-            await evaluate(vat.id, payload.data),
+            await evaluate(vat.id, payload.params),
           );
           break;
         case CommandMethod.CapTpCall: {
-          const result = await vat.callCapTp(payload.data);
-          await reply(CommandMethod.CapTpCall, JSON.stringify(result, null, 2));
+          const result = await vat.callCapTp(payload.params);
+          await replyToCommand(
+            CommandMethod.CapTpCall,
+            JSON.stringify(result, null, 2),
+          );
           break;
         }
         case CommandMethod.CapTpInit:
           await vat.makeCapTp();
-          await reply(CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~');
+          await replyToCommand(
+            CommandMethod.CapTpInit,
+            '~~~ CapTP Initialized ~~~',
+          );
           break;
         case CommandMethod.Ping:
-          await reply(CommandMethod.Ping, 'pong');
+          await replyToCommand(CommandMethod.Ping, 'pong');
           break;
         default:
           console.error(
             // @ts-expect-error The type of `payload` is `never`, but this could happen at runtime.
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Offscreen received unexpected command type: "${payload.type}"`,
+            `Offscreen received unexpected command method: "${payload.method}"`,
           );
       }
     }),
   );
 
   /**
-   * Reply to the background script.
+   * Reply to a command from the background script.
    *
-   * @param type - The message type.
-   * @param data - The message data.
+   * @param method - The command method.
+   * @param params - The command parameters.
    */
-  async function reply(type: CommandMethod, data?: string): Promise<void> {
+  async function replyToCommand(
+    method: CommandMethod,
+    params?: string,
+  ): Promise<void> {
     await chrome.runtime.sendMessage({
       target: ExtensionMessageTarget.Background,
       payload: {
-        data: data ?? null,
-        type,
+        method,
+        params: params ?? null,
       },
     });
   }
@@ -94,8 +103,8 @@ async function main(): Promise<void> {
   async function evaluate(vatId: string, source: string): Promise<string> {
     try {
       const result = await kernel.sendMessage(vatId, {
-        type: CommandMethod.Evaluate,
-        data: source,
+        method: CommandMethod.Evaluate,
+        params: source,
       });
       return String(result);
     } catch (error) {
