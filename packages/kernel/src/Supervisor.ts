@@ -147,7 +147,8 @@ export class Supervisor {
     try {
       return this.#defaultCompartment.evaluate(source);
     } catch (error) {
-      return `Error: ${error instanceof Error ? error.message : 'Unknown'}`;
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      return `Error: ${(error as { message?: string }).message || 'Unknown'}`;
     }
   }
 }

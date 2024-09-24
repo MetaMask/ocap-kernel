@@ -175,5 +175,10 @@ describe('Supervisor', () => {
       const result = supervisor.evaluate('invalidCode!');
       expect(result).toBe("Error: Unexpected token '!'");
     });
+
+    it('returns unknown no error message is given', () => {
+      const result = supervisor.evaluate('throw new Error("")');
+      expect(result).toBe('Error: Unknown');
+    });
   });
 });
