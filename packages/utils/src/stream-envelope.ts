@@ -49,10 +49,6 @@ export type StreamEnvelopeHandler = ReturnType<
   typeof envelopeKit.makeStreamEnvelopeHandler
 >;
 
-export const wrapStreamCommand: typeof envelopeKit.streamEnveloper.command.wrap =
-  envelopeKit.streamEnveloper.command.wrap;
-export const wrapCapTp: typeof envelopeKit.streamEnveloper.capTp.wrap =
-  envelopeKit.streamEnveloper.capTp.wrap;
-// eslint-disable-next-line prefer-destructuring
-export const makeStreamEnvelopeHandler: typeof envelopeKit.makeStreamEnvelopeHandler =
-  envelopeKit.makeStreamEnvelopeHandler;
+export const wrapStreamCommand = envelopeKit.streamEnveloper.command.wrap;
+export const wrapCapTp = envelopeKit.streamEnveloper.capTp.wrap;
+export const { makeStreamEnvelopeHandler } = envelopeKit;
