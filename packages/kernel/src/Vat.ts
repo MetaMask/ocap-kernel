@@ -9,14 +9,14 @@ import type {
   CapTpPayload,
   Command,
   VatMessage,
-  LabeledConsole,
+  Logger,
 } from '@ocap/utils';
 import {
   wrapCapTp,
   wrapStreamCommand,
   makeStreamEnvelopeHandler,
   CommandMethod,
-  makeLabeledConsole,
+  makeLogger,
 } from '@ocap/utils';
 
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
@@ -32,7 +32,7 @@ export class Vat {
 
   readonly streams: VatConstructorProps['streams'];
 
-  readonly logger: LabeledConsole;
+  readonly logger: Logger;
 
   readonly #messageCounter: () => number;
 
@@ -45,7 +45,7 @@ export class Vat {
   constructor({ id, streams }: VatConstructorProps) {
     this.id = id;
     this.streams = streams;
-    this.logger = makeLabeledConsole(`[vat ${id}]`);
+    this.logger = makeLogger(`[vat ${id}]`);
     this.#messageCounter = makeCounter();
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       { command: this.handleMessage.bind(this) },
