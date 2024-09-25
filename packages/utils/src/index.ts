@@ -3,10 +3,11 @@ export type {
   CapTpPayload,
   Command,
   CommandParams,
+  CommandReply,
   VatMessage,
 } from './types.js';
 export { CommandMethod } from './types.js';
-export { isCommand } from './type-guards.js';
+export { isCommand, isCommandReply } from './type-guards.js';
 export {
   wrapStreamCommand,
   wrapCapTp,

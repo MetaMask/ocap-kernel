@@ -26,16 +26,22 @@ type CommandLike<Method extends CommandMethod, Data extends CommandParams> = {
 };
 
 export type Command =
-  | CommandLike<CommandMethod.Ping, null | 'pong'>
+  | CommandLike<CommandMethod.Ping, null>
   | CommandLike<CommandMethod.Evaluate, string>
   | CommandLike<CommandMethod.CapTpInit, null>
   | CommandLike<CommandMethod.CapTpCall, CapTpPayload>
   | CommandLike<CommandMethod.KVGet, string>
   | CommandLike<CommandMethod.KVSet, { key: string; value: string }>;
 
+export type CommandReply =
+  | CommandLike<CommandMethod.Ping, 'pong'>
+  | CommandLike<CommandMethod.Evaluate, string>
+  | CommandLike<CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~'>
+  | CommandLike<CommandMethod.CapTpCall, string>;
+
 export type VatMessage = {
   id: string;
-  payload: Command;
+  payload: Command | CommandReply;
 };
 
 export type CapTpMessage<Type extends `CTP_${string}` = `CTP_${string}`> = {
