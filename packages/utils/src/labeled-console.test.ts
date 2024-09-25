@@ -16,7 +16,6 @@ describe('makeLabeledConsole', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const testConsole = makeLabeledConsole('test');
-      console.log(testConsole);
       testConsole[method]('foo');
       expect(methodSpy).toHaveBeenCalledWith('test', 'foo');
     },
@@ -27,7 +26,6 @@ describe('makeLabeledConsole', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const testConsole = makeLabeledConsole('test');
-      console.log(testConsole);
       testConsole[method]('foo', { bar: 'bar' });
       expect(methodSpy).toHaveBeenCalledWith('test', 'foo', { bar: 'bar' });
     },
@@ -38,7 +36,6 @@ describe('makeLabeledConsole', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const testConsole = makeLabeledConsole('test');
-      console.log(testConsole);
       testConsole[method]();
       expect(methodSpy).toHaveBeenCalledWith('test');
     },

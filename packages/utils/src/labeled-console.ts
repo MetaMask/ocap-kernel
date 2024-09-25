@@ -11,11 +11,11 @@ const consolePrototype = {
 
 type ConsolePrototype = typeof consolePrototype;
 
-type LabeledConsole<Label extends string> = {
+export type LabeledConsole<Label extends string = string> = {
   label: Label;
 } & ConsolePrototype;
 
-type LabeledConsoleKey = keyof Omit<LabeledConsole<string>, 'label'>;
+type LabeledConsoleKey = keyof Omit<LabeledConsole, 'label'>;
 
 /**
  * Make a proxy console which prepends the given label to its outputs.
@@ -35,7 +35,7 @@ export const makeLabeledConsole = <Label extends string>(
    * @returns The modified method.
    */
   const prefixed = (
-    methodName: keyof Omit<LabeledConsole<string>, 'label'>,
+    methodName: keyof Omit<LabeledConsole, 'label'>,
   ): [LabeledConsoleKey, LabeledConsole<Label>[typeof methodName]] => {
     const method = baseConsole[methodName];
     return [

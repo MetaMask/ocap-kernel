@@ -13,3 +13,5 @@ export {
   type StreamEnvelope,
   type StreamEnvelopeHandler,
 } from './stream-envelope.js';
+export type { LabeledConsole } from './labeled-console.js';
+export { makeLabeledConsole } from './labeled-console.js';
