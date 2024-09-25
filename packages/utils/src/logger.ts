@@ -15,7 +15,7 @@ export type Logger<Label extends string = string> = {
   label: Label;
 } & ConsolePrototype;
 
-type LoggerKey = keyof Omit<Logger, 'label'>;
+type LoggerMethod = keyof Omit<Logger, 'label'>;
 
 /**
  * Make a proxy console which prepends the given label to its outputs.
@@ -35,8 +35,8 @@ export const makeLogger = <Label extends string>(
    * @returns The modified method.
    */
   const prefixed = (
-    methodName: keyof Omit<Logger, 'label'>,
-  ): [LoggerKey, Logger<Label>[typeof methodName]] => {
+    methodName: LoggerMethod,
+  ): [LoggerMethod, Logger<Label>[typeof methodName]] => {
     const method = baseConsole[methodName];
     return [
       methodName,
@@ -48,7 +48,7 @@ export const makeLogger = <Label extends string>(
     ];
   };
 
-  const keys = Object.keys(consolePrototype) as LoggerKey[];
+  const keys = Object.keys(consolePrototype) as LoggerMethod[];
   return {
     label,
     ...(Object.fromEntries(keys.map(prefixed)) as ConsolePrototype),
