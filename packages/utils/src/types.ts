@@ -35,9 +35,14 @@ export type CommandReply =
   | CommandLike<CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~'>
   | CommandLike<CommandMethod.CapTpCall, string>;
 
-export type VatMessage = {
+export type VatCommand = {
   id: string;
-  payload: Command | CommandReply;
+  payload: Command;
+};
+
+export type VatCommandReply = {
+  id: string;
+  payload: CommandReply;
 };
 
 export type CapTpMessage<Type extends `CTP_${string}` = `CTP_${string}`> = {

@@ -1,6 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import { CommandMethod } from '@ocap/utils';
+import type { CommandReply } from '@ocap/utils';
+import { CommandMethod, isCommand } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -24,7 +25,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
-      if (!isExtensionRuntimeMessage(message)) {
+      if (!(isExtensionRuntimeMessage(message) && isCommand(message.payload))) {
         console.error('Offscreen received unexpected message', message);
         return;
       }
@@ -80,9 +81,9 @@ async function main(): Promise<void> {
    * @param method - The command method.
    * @param params - The command parameters.
    */
-  async function replyToCommand(
-    method: CommandMethod,
-    params?: string,
+  async function replyToCommand<Type extends CommandReply>(
+    method: Type['method'],
+    params?: Type['params'],
   ): Promise<void> {
     await chrome.runtime.sendMessage({
       target: ExtensionMessageTarget.Background,

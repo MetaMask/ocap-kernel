@@ -1,13 +1,15 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import type { StreamPair } from '@ocap/streams';
-import type { StreamEnvelope } from '@ocap/utils';
+import type { StreamEnvelopeReply, StreamEnvelope } from '@ocap/utils';
 
 export type MessageId = string;
 
 export type VatId = string;
 
 export type VatWorker = {
-  init: () => Promise<[StreamPair<StreamEnvelope>, unknown]>;
+  init: () => Promise<
+    [StreamPair<StreamEnvelopeReply, StreamEnvelope>, unknown]
+  >;
   delete: () => Promise<void>;
 };
 

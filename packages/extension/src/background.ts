@@ -1,6 +1,7 @@
 import type { Json } from '@metamask/utils';
 import './background-trusted-prelude.js';
-import { CommandMethod } from '@ocap/utils';
+import type { Command } from '@ocap/utils';
+import { CommandMethod, isCommandReply } from '@ocap/utils';
 
 import {
   ExtensionMessageTarget,
@@ -44,7 +45,10 @@ chrome.action.onClicked.addListener(() => {
  * @param params - The message data.
  * @param params.name - The name to include in the message.
  */
-async function sendCommand(method: string, params?: Json): Promise<void> {
+async function sendCommand<Type extends Command>(
+  method: Type['method'],
+  params?: Type['params'],
+): Promise<void> {
   await provideOffScreenDocument();
 
   await chrome.runtime.sendMessage({
@@ -72,7 +76,9 @@ async function provideOffScreenDocument(): Promise<void> {
 // Handle replies from the offscreen document
 chrome.runtime.onMessage.addListener(
   makeHandledCallback(async (message: unknown) => {
-    if (!isExtensionRuntimeMessage(message)) {
+    if (
+      !(isExtensionRuntimeMessage(message) && isCommandReply(message.payload))
+    ) {
       console.error('Background received unexpected message', message);
       return;
     }

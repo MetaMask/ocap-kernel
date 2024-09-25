@@ -4,17 +4,18 @@ import { makePromiseKit } from '@endo/promise-kit';
 import type { StreamPair, Reader } from '@ocap/streams';
 import type {
   StreamEnvelope,
-  StreamEnvelopeHandler,
   CapTpMessage,
   CapTpPayload,
   Command,
-  VatMessage,
+  StreamEnvelopeReply,
+  StreamEnvelopeReplyHandler,
+  VatCommandReply,
 } from '@ocap/utils';
 import {
   wrapCapTp,
-  wrapStreamCommand,
-  makeStreamEnvelopeHandler,
   CommandMethod,
+  makeStreamEnvelopeReplyHandler,
+  wrapStreamCommand,
 } from '@ocap/utils';
 
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
@@ -22,7 +23,7 @@ import { makeCounter } from './utils/makeCounter.js';
 
 type VatConstructorProps = {
   id: VatId;
-  streams: StreamPair<StreamEnvelope>;
+  streams: StreamPair<StreamEnvelopeReply, StreamEnvelope>;
 };
 
 export class Vat {
@@ -34,7 +35,7 @@ export class Vat {
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  readonly streamEnvelopeHandler: StreamEnvelopeHandler;
+  readonly replyStreamEnvelopeHandler: StreamEnvelopeReplyHandler;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -42,7 +43,7 @@ export class Vat {
     this.id = id;
     this.streams = streams;
     this.#messageCounter = makeCounter();
-    this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
+    this.replyStreamEnvelopeHandler = makeStreamEnvelopeReplyHandler(
       { command: this.handleMessage.bind(this) },
       (error) => console.error('Vat stream error:', error),
     );
@@ -55,7 +56,7 @@ export class Vat {
    * @param vatMessage.id - The id of the message.
    * @param vatMessage.payload - The payload to handle.
    */
-  async handleMessage({ id, payload }: VatMessage): Promise<void> {
+  async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
     const promiseCallbacks = this.unresolvedMessages.get(id);
     if (promiseCallbacks === undefined) {
       console.error(`No unresolved message with id "${id}".`);
@@ -88,10 +89,10 @@ export class Vat {
    *
    * @param reader - The reader for the messages.
    */
-  async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
+  async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Vat received message', rawMessage);
-      await this.streamEnvelopeHandler.handle(rawMessage);
+      await this.replyStreamEnvelopeHandler.handle(rawMessage);
     }
   }
 
@@ -115,7 +116,7 @@ export class Vat {
     });
 
     this.capTp = ctp;
-    this.streamEnvelopeHandler.contentHandlers.capTp = async (
+    this.replyStreamEnvelopeHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
       console.log('CapTP from vat', JSON.stringify(content, null, 2));

@@ -2,7 +2,7 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { Supervisor } from '@ocap/kernel';
 import { makeMessagePortStreamPair, receiveMessagePort } from '@ocap/streams';
-import type { StreamEnvelope } from '@ocap/utils';
+import type { StreamEnvelope, StreamEnvelopeReply } from '@ocap/utils';
 
 main().catch(console.error);
 
@@ -11,7 +11,10 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
+  const streams = makeMessagePortStreamPair<
+    StreamEnvelope,
+    StreamEnvelopeReply
+  >(port);
 
   const bootstrap = makeExo(
     'TheGreatFrangooly',

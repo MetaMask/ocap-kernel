@@ -320,9 +320,9 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
 }
 harden(MessagePortWriter);
 
-export type StreamPair<Value> = Readonly<{
-  reader: Reader<Value>;
-  writer: Writer<Value>;
+export type StreamPair<Read, Write> = Readonly<{
+  reader: Reader<Read>;
+  writer: Writer<Write>;
   /**
    * Calls `.return()` on both streams.
    */
@@ -343,11 +343,11 @@ export type StreamPair<Value> = Readonly<{
  * @param port - The message port to make the streams over.
  * @returns The reader and writer streams, and cleanup methods.
  */
-export const makeMessagePortStreamPair = <Value>(
+export const makeMessagePortStreamPair = <Read, Write>(
   port: MessagePort,
-): StreamPair<Value> => {
-  const reader = new MessagePortReader<Value>(port);
-  const writer = new MessagePortWriter<Value>(port);
+): StreamPair<Read, Write> => {
+  const reader = new MessagePortReader<Read>(port);
+  const writer = new MessagePortWriter<Write>(port);
 
   return harden({
     reader,

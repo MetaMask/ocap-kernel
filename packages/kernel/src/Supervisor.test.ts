@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
-import type { StreamEnvelope } from '@ocap/utils';
+import type { StreamEnvelope, StreamEnvelopeReply } from '@ocap/utils';
 import * as ocapUtils from '@ocap/utils';
 import { CommandMethod } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -17,9 +17,10 @@ describe('Supervisor', () => {
 
     messageChannel = new MessageChannel();
 
-    const streams = makeMessagePortStreamPair<StreamEnvelope>(
-      messageChannel.port1,
-    );
+    const streams = makeMessagePortStreamPair<
+      StreamEnvelope,
+      StreamEnvelopeReply
+    >(messageChannel.port1);
     supervisor = new Supervisor({ id: 'test-id', streams });
   });
 
@@ -78,7 +79,7 @@ describe('Supervisor', () => {
 
       expect(replySpy).toHaveBeenCalledWith('message-id', {
         method: CommandMethod.CapTpInit,
-        params: null,
+        params: '~~~ CapTP Initialized ~~~',
       });
     });
 
