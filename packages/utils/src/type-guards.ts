@@ -16,6 +16,7 @@ export const isCommand = (value: unknown): value is Command =>
   isObject(value) &&
   typeof value.method === 'string' &&
   (typeof value.params === 'string' ||
+    Array.isArray(value.params) ||
     value.params === null ||
     isCapTpPayload(value.params));
 

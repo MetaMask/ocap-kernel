@@ -86,6 +86,9 @@ module.exports = {
           },
         ],
 
+        // This rule complains about hygienically necessary `await null`
+        '@typescript-eslint/await-thenable': 'off',
+
         '@typescript-eslint/no-explicit-any': 'error',
 
         // This rule is broken, and without the `allowAny` option, it reports a lot
