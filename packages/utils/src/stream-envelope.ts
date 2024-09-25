@@ -53,7 +53,7 @@ export const { makeStreamEnvelopeHandler } = envelopeKit;
 
 // For now, a separate envelope kit for replies only
 
-const replyEnvelopeKit = makeStreamEnvelopeKit<
+const streamEnvelopeReplyKit = makeStreamEnvelopeKit<
   typeof envelopeLabels,
   {
     command: VatCommandReply;
@@ -65,14 +65,14 @@ const replyEnvelopeKit = makeStreamEnvelopeKit<
 });
 
 export type StreamEnvelopeReply = GuardType<
-  typeof replyEnvelopeKit.isStreamEnvelope
+  typeof streamEnvelopeReplyKit.isStreamEnvelope
 >;
 export type StreamEnvelopeReplyHandler = ReturnType<
-  typeof replyEnvelopeKit.makeStreamEnvelopeHandler
+  typeof streamEnvelopeReplyKit.makeStreamEnvelopeHandler
 >;
 
 export const wrapStreamCommandReply =
-  replyEnvelopeKit.streamEnveloper.command.wrap;
+  streamEnvelopeReplyKit.streamEnveloper.command.wrap;
 // Note: We don't differentiate between wrapCapTp and wrapCapTpReply
 export const { makeStreamEnvelopeHandler: makeStreamEnvelopeReplyHandler } =
-  replyEnvelopeKit;
+  streamEnvelopeReplyKit;

@@ -35,7 +35,7 @@ export class Vat {
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
 
-  readonly replyStreamEnvelopeHandler: StreamEnvelopeReplyHandler;
+  readonly streamEnvelopeReplyHandler: StreamEnvelopeReplyHandler;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -43,7 +43,7 @@ export class Vat {
     this.id = id;
     this.streams = streams;
     this.#messageCounter = makeCounter();
-    this.replyStreamEnvelopeHandler = makeStreamEnvelopeReplyHandler(
+    this.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
       { command: this.handleMessage.bind(this) },
       (error) => console.error('Vat stream error:', error),
     );
@@ -92,7 +92,7 @@ export class Vat {
   async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
     for await (const rawMessage of reader) {
       console.debug('Vat received message', rawMessage);
-      await this.replyStreamEnvelopeHandler.handle(rawMessage);
+      await this.streamEnvelopeReplyHandler.handle(rawMessage);
     }
   }
 
@@ -116,7 +116,7 @@ export class Vat {
     });
 
     this.capTp = ctp;
-    this.replyStreamEnvelopeHandler.contentHandlers.capTp = async (
+    this.streamEnvelopeReplyHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
       console.log('CapTP from vat', JSON.stringify(content, null, 2));
