@@ -1,12 +1,8 @@
 import '@ocap/shims/endoify';
-import { makeMessagePortStreamPair } from '@ocap/streams';
-import { makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
-import {
-  CommandMethod,
-  makeStreamEnvelopeHandler,
-  type Command,
-  type StreamEnvelope,
-} from '@ocap/utils';
+import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
+import { delay, makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
+import type { Command, StreamEnvelope } from '@ocap/utils';
+import { CommandMethod, makeStreamEnvelopeHandler } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Vat } from './Vat.js';
@@ -15,15 +11,16 @@ vi.mock('@endo/captp', () => makeCapTpMock());
 
 describe('Vat', () => {
   let vat: Vat;
-  let port1: MessagePort;
+  let messageChannel: MessageChannel;
 
   beforeEach(() => {
     vi.resetAllMocks();
 
-    const messageChannel = new MessageChannel();
-    port1 = messageChannel.port1;
+    messageChannel = new MessageChannel();
 
-    const streams = makeMessagePortStreamPair<StreamEnvelope>(port1);
+    const streams = makeMessagePortStreamPair<StreamEnvelope>(
+      messageChannel.port1,
+    );
 
     vat = new Vat({
       id: 'test-vat',
@@ -60,13 +57,61 @@ describe('Vat', () => {
     });
   });
 
+  describe('#receiveMessages', () => {
+    it('receives messages correctly', async () => {
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
+      const handleSpy = vi.spyOn(vat.streamEnvelopeHandler, 'handle');
+      await vat.init();
+      const writer = new MessagePortWriter(messageChannel.port2);
+      const rawMessage = { type: 'command', payload: { method: 'test' } };
+      await writer.next(rawMessage);
+      await delay(10);
+      expect(handleSpy).toHaveBeenCalledWith(rawMessage);
+    });
+  });
+
+  describe('handleMessage', () => {
+    it('resolves the payload when the message id exists in unresolvedMessages', async () => {
+      const mockMessageId = 'test-vat-1';
+      const mockPayload: Command = {
+        method: CommandMethod.Evaluate,
+        params: 'test-response',
+      };
+      const mockPromiseKit = { resolve: vi.fn(), reject: vi.fn() };
+      vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
+      await vat.handleMessage({ id: mockMessageId, payload: mockPayload });
+      expect(mockPromiseKit.resolve).toHaveBeenCalledWith('test-response');
+      expect(vat.unresolvedMessages.has(mockMessageId)).toBe(false);
+    });
+
+    it('logs an error when the message id does not exist in unresolvedMessages', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error');
+
+      const nonExistentMessageId = 'non-existent-id';
+      const mockPayload: Command = { method: CommandMethod.Ping, params: null };
+
+      await vat.handleMessage({
+        id: nonExistentMessageId,
+        payload: mockPayload,
+      });
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        `No unresolved message with id "${nonExistentMessageId}".`,
+      );
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
   describe('terminate', () => {
     it('terminates the vat and resolves/rejects unresolved messages', async () => {
       const mockMessageId = 'test-vat-1';
       const mockPromiseKit = makePromiseKitMock().makePromiseKit();
       const mockSpy = vi.spyOn(mockPromiseKit, 'reject');
       vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
+      expect(messageChannel.port1.onmessage).not.toBeNull();
       await vat.terminate();
+      expect(messageChannel.port1.onmessage).toBeNull();
       expect(mockSpy).toHaveBeenCalledWith(expect.any(Error));
     });
   });

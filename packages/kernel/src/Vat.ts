@@ -8,6 +8,7 @@ import type {
   CapTpMessage,
   CapTpPayload,
   Command,
+  VatMessage,
 } from '@ocap/utils';
 import {
   wrapCapTp,
@@ -42,25 +43,26 @@ export class Vat {
     this.streams = streams;
     this.#messageCounter = makeCounter();
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
-      {
-        command: async ({
-          id: messageId,
-          payload,
-        }: {
-          id: MessageId;
-          payload: Command;
-        }) => {
-          const promiseCallbacks = this.unresolvedMessages.get(messageId);
-          if (promiseCallbacks === undefined) {
-            console.error(`No unresolved message with id "${messageId}".`);
-          } else {
-            this.unresolvedMessages.delete(messageId);
-            promiseCallbacks.resolve(payload.params);
-          }
-        },
-      },
+      { command: this.handleMessage.bind(this) },
       (error) => console.error('Vat stream error:', error),
     );
+  }
+
+  /**
+   * Handle a message from the parent window.
+   *
+   * @param vatMessage - The vat message to handle.
+   * @param vatMessage.id - The id of the message.
+   * @param vatMessage.payload - The payload to handle.
+   */
+  async handleMessage({ id, payload }: VatMessage): Promise<void> {
+    const promiseCallbacks = this.unresolvedMessages.get(id);
+    if (promiseCallbacks === undefined) {
+      console.error(`No unresolved message with id "${id}".`);
+    } else {
+      this.unresolvedMessages.delete(id);
+      promiseCallbacks.resolve(payload.params);
+    }
   }
 
   /**
