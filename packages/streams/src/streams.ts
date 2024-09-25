@@ -342,7 +342,7 @@ export type StreamPair<Read, Write> = Readonly<{
  * @param port - The message port to make the streams over.
  * @returns The reader and writer streams, and cleanup methods.
  */
-export const makeMessagePortStreamPair = <Read, Write>(
+export const makeMessagePortStreamPair = <Read, Write = Read>(
   port: MessagePort,
 ): StreamPair<Read, Write> => {
   const reader = new MessagePortReader<Read>(port);
