@@ -20,27 +20,10 @@
 
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
-import { hasProperty, isObject } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
-export type { Reader, Writer };
-
-type PromiseCallbacks = {
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-};
-
-const isIteratorResult = (
-  value: unknown,
-): value is IteratorResult<unknown, unknown> =>
-  isObject(value) &&
-  (!hasProperty(value, 'done') || typeof value.done === 'boolean') &&
-  hasProperty(value, 'value');
-
-export const makeDoneResult = (): { done: true; value: undefined } => ({
-  done: true,
-  value: undefined,
-});
+import type { PromiseCallbacks, StreamPair } from './shared.js';
+import { isIteratorResult, makeDoneResult } from './shared.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -318,22 +301,6 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
   }
 }
 harden(MessagePortWriter);
-
-export type StreamPair<Read, Write> = Readonly<{
-  reader: Reader<Read>;
-  writer: Writer<Write>;
-  /**
-   * Calls `.return()` on both streams.
-   */
-  return: () => Promise<void>;
-  /**
-   * Calls `.throw()` on the writer, forwarding the error to the other side. Returns
-   * the reader.
-   *
-   * @param error - The error to forward.
-   */
-  throw: (error: Error) => Promise<void>;
-}>;
 
 /**
  * Makes a reader / writer pair over the same port, and provides convenience methods

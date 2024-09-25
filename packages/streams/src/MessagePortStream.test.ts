@@ -2,11 +2,11 @@ import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  makeDoneResult,
   makeMessagePortStreamPair,
   MessagePortReader,
   MessagePortWriter,
-} from './streams.js';
+} from './MessagePortStream.js';
+import { makeDoneResult } from './shared.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
