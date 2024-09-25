@@ -2,12 +2,12 @@ export {
   initializeMessageChannel,
   receiveMessagePort,
 } from './message-channel.js';
-export type { StreamPair, Reader, Writer } from './streams.js';
+export type { StreamPair, Reader, Writer } from './shared.js';
 export {
   makeMessagePortStreamPair,
-  MessagePortWriter,
   MessagePortReader,
-} from './streams.js';
+  MessagePortWriter,
+} from './MessagePortStream.js';
 export { makeStreamEnvelopeKit } from './envelope-kit.js';
 export type { StreamEnveloper } from './enveloper.js';
 export type { Envelope } from './envelope.js';
