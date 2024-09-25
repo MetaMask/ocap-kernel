@@ -2,7 +2,7 @@ import { createWindow } from '@metamask/snaps-utils';
 import type { VatId, VatWorker } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams';
 import { makeMessagePortStreamPair } from '@ocap/streams';
-import type { StreamEnvelope } from '@ocap/utils';
+import type { StreamEnvelopeReply, StreamEnvelope } from '@ocap/utils';
 
 const IFRAME_URI = 'iframe.html';
 
@@ -22,7 +22,10 @@ export const makeIframeVatWorker = (
     init: async () => {
       const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
       const port = await getPort(newWindow);
-      const streams = makeMessagePortStreamPair<StreamEnvelope>(port);
+      const streams = makeMessagePortStreamPair<
+        StreamEnvelopeReply,
+        StreamEnvelope
+      >(port);
 
       return [streams, newWindow];
     },

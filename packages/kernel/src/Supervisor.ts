@@ -2,29 +2,30 @@ import { makeCapTP } from '@endo/captp';
 import type { StreamPair, Reader } from '@ocap/streams';
 import type {
   CapTpMessage,
-  Command,
   StreamEnvelope,
-  VatMessage,
   StreamEnvelopeHandler,
+  StreamEnvelopeReply,
+  CommandReply,
+  VatCommand,
 } from '@ocap/utils';
 import {
   CommandMethod,
   makeStreamEnvelopeHandler,
   wrapCapTp,
-  wrapStreamCommand,
   stringify,
+  wrapStreamCommandReply,
 } from '@ocap/utils';
 
 type SupervisorConstructorProps = {
   id: string;
-  streams: StreamPair<StreamEnvelope>;
+  streams: StreamPair<StreamEnvelope, StreamEnvelopeReply>;
   bootstrap?: unknown;
 };
 
 export class Supervisor {
   readonly id: string;
 
-  readonly streams: StreamPair<StreamEnvelope>;
+  readonly streams: StreamPair<StreamEnvelope, StreamEnvelopeReply>;
 
   readonly streamEnvelopeHandler: StreamEnvelopeHandler;
 
@@ -82,7 +83,7 @@ export class Supervisor {
    * @param vatMessage.id - The id of the message.
    * @param vatMessage.payload - The payload to handle.
    */
-  async handleMessage({ id, payload }: VatMessage): Promise<void> {
+  async handleMessage({ id, payload }: VatCommand): Promise<void> {
     switch (payload.method) {
       case CommandMethod.Evaluate: {
         if (typeof payload.params !== 'string') {
@@ -109,7 +110,7 @@ export class Supervisor {
         );
         await this.replyToMessage(id, {
           method: CommandMethod.CapTpInit,
-          params: null,
+          params: '~~~ CapTP Initialized ~~~',
         });
         break;
       }
@@ -132,8 +133,8 @@ export class Supervisor {
    * @param id - The id of the message to reply to.
    * @param payload - The payload to reply with.
    */
-  async replyToMessage(id: string, payload: Command): Promise<void> {
-    await this.streams.writer.next(wrapStreamCommand({ id, payload }));
+  async replyToMessage(id: string, payload: CommandReply): Promise<void> {
+    await this.streams.writer.next(wrapStreamCommandReply({ id, payload }));
   }
 
   /**

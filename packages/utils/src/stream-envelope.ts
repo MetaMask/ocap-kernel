@@ -1,7 +1,11 @@
 import { makeStreamEnvelopeKit } from '@ocap/streams';
 
-import { isCapTpMessage, isVatMessage } from './type-guards.js';
-import type { CapTpMessage, VatMessage } from './types.js';
+import {
+  isCapTpMessage,
+  isVatCommand,
+  isVatCommandReply,
+} from './type-guards.js';
+import type { CapTpMessage, VatCommand, VatCommandReply } from './types.js';
 
 type GuardType<TypeGuard> = TypeGuard extends (
   value: unknown,
@@ -25,14 +29,16 @@ enum EnvelopeLabel {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const envelopeLabels = Object.values(EnvelopeLabel);
 
+// For now, this envelope kit is for intial sends only
+
 const envelopeKit = makeStreamEnvelopeKit<
   typeof envelopeLabels,
   {
-    command: VatMessage;
+    command: VatCommand;
     capTp: CapTpMessage;
   }
 >({
-  command: isVatMessage,
+  command: (value) => isVatCommand(value),
   capTp: isCapTpMessage,
 });
 
@@ -44,3 +50,29 @@ export type StreamEnvelopeHandler = ReturnType<
 export const wrapStreamCommand = envelopeKit.streamEnveloper.command.wrap;
 export const wrapCapTp = envelopeKit.streamEnveloper.capTp.wrap;
 export const { makeStreamEnvelopeHandler } = envelopeKit;
+
+// For now, a separate envelope kit for replies only
+
+const replyEnvelopeKit = makeStreamEnvelopeKit<
+  typeof envelopeLabels,
+  {
+    command: VatCommandReply;
+    capTp: CapTpMessage;
+  }
+>({
+  command: (value) => isVatCommandReply(value),
+  capTp: isCapTpMessage,
+});
+
+export type StreamEnvelopeReply = GuardType<
+  typeof replyEnvelopeKit.isStreamEnvelope
+>;
+export type StreamEnvelopeReplyHandler = ReturnType<
+  typeof replyEnvelopeKit.makeStreamEnvelopeHandler
+>;
+
+export const wrapStreamCommandReply =
+  replyEnvelopeKit.streamEnveloper.command.wrap;
+// Note: We don't differentiate between wrapCapTp and wrapCapTpReply
+export const { makeStreamEnvelopeHandler: makeStreamEnvelopeReplyHandler } =
+  replyEnvelopeKit;

@@ -4,7 +4,8 @@ export type {
   Command,
   CommandParams,
   CommandReply,
-  VatMessage,
+  VatCommand,
+  VatCommandReply,
 } from './types.js';
 export { CommandMethod } from './types.js';
 export { isCommand, isCommandReply } from './type-guards.js';
@@ -14,6 +15,10 @@ export {
   makeStreamEnvelopeHandler,
   type StreamEnvelope,
   type StreamEnvelopeHandler,
+  wrapStreamCommandReply,
+  makeStreamEnvelopeReplyHandler,
+  type StreamEnvelopeReply,
+  type StreamEnvelopeReplyHandler,
 } from './stream-envelope.js';
 export type { Logger } from './logger.js';
 export { makeLogger } from './logger.js';

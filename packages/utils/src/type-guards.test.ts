@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  isVatMessage,
   isCapTpMessage,
   isCommand,
   isCapTpPayload,
   isCommandReply,
+  isVatCommand,
+  isVatCommandReply,
 } from './type-guards.js';
 import { CommandMethod } from './types.js';
 
@@ -67,21 +68,40 @@ describe('type-guards', () => {
     );
   });
 
-  describe('isVatMessage', () => {
+  describe('isVatCommand', () => {
     it.each`
       value                                                                       | expectedResult | description
-      ${{ id: 'some-id', payload: { method: CommandMethod.Ping, params: null } }} | ${true}        | ${'valid vat message'}
-      ${123}                                                                      | ${false}       | ${'invalid vat message: primitive number'}
-      ${{ id: true, payload: {} }}                                                | ${false}       | ${'invalid vat message: invalid id and empty payload'}
-      ${{ id: 'some-id', payload: null }}                                         | ${false}       | ${'invalid vat message: payload is null'}
-      ${{ id: 123, payload: { method: CommandMethod.Ping, params: null } }}       | ${false}       | ${'invalid vat message: invalid id type'}
-      ${{ id: 'some-id' }}                                                        | ${false}       | ${'invalid vat message: missing payload'}
-      ${{ id: 'some-id', payload: 123 }}                                          | ${false}       | ${'invalid vat message: payload is a primitive number'}
-      ${{ id: 'some-id', payload: { method: 123, params: null } }}                | ${false}       | ${'invalid vat message: invalid type in payload'}
+      ${{ id: 'some-id', payload: { method: CommandMethod.Ping, params: null } }} | ${true}        | ${'valid vat command'}
+      ${123}                                                                      | ${false}       | ${'invalid vat command: primitive number'}
+      ${{ id: true, payload: {} }}                                                | ${false}       | ${'invalid vat command: invalid id and empty payload'}
+      ${{ id: 'some-id', payload: null }}                                         | ${false}       | ${'invalid vat command: payload is null'}
+      ${{ id: 123, payload: { method: CommandMethod.Ping, params: null } }}       | ${false}       | ${'invalid vat command: invalid id type'}
+      ${{ id: 'some-id' }}                                                        | ${false}       | ${'invalid vat command: missing payload'}
+      ${{ id: 'some-id', payload: 123 }}                                          | ${false}       | ${'invalid vat command: payload is a primitive number'}
+      ${{ id: 'some-id', payload: { method: 123, params: null } }}                | ${false}       | ${'invalid vat command: invalid type in payload'}
     `(
       'returns $expectedResult for $description',
       ({ value, expectedResult }) => {
-        expect(isVatMessage(value)).toBe(expectedResult);
+        expect(isVatCommand(value)).toBe(expectedResult);
+      },
+    );
+  });
+
+  describe('isVatCommandReply', () => {
+    it.each`
+      value                                                                         | expectedResult | description
+      ${{ id: 'some-id', payload: { method: CommandMethod.Ping, params: 'pong' } }} | ${true}        | ${'valid vat command'}
+      ${123}                                                                        | ${false}       | ${'invalid vat command reply: primitive number'}
+      ${{ id: true, payload: {} }}                                                  | ${false}       | ${'invalid vat command reply: invalid id and empty payload'}
+      ${{ id: 'some-id', payload: null }}                                           | ${false}       | ${'invalid vat command reply: payload is null'}
+      ${{ id: 123, payload: { method: CommandMethod.Ping, params: null } }}         | ${false}       | ${'invalid vat command reply: invalid id type'}
+      ${{ id: 'some-id' }}                                                          | ${false}       | ${'invalid vat command reply: missing payload'}
+      ${{ id: 'some-id', payload: 123 }}                                            | ${false}       | ${'invalid vat command reply: payload is a primitive number'}
+      ${{ id: 'some-id', payload: { method: 123, params: null } }}                  | ${false}       | ${'invalid vat command reply: invalid type in payload'}
+    `(
+      'returns $expectedResult for $description',
+      ({ value, expectedResult }) => {
+        expect(isVatCommandReply(value)).toBe(expectedResult);
       },
     );
   });

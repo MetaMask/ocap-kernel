@@ -1,8 +1,14 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
-import type { CapTpMessage, Command, StreamEnvelope } from '@ocap/utils';
 import * as ocapUtils from '@ocap/utils';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import type {
+  CapTpMessage,
+  Command,
+  CommandReply,
+  StreamEnvelope,
+  StreamEnvelopeReply,
+} from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Vat } from './Vat.js';
@@ -15,7 +21,7 @@ vi.mock('@endo/eventual-send', () => ({
   }),
 }));
 
-const { CommandMethod, makeStreamEnvelopeHandler } = ocapUtils;
+const { CommandMethod, makeStreamEnvelopeReplyHandler } = ocapUtils;
 
 describe('Vat', () => {
   let vat: Vat;
@@ -26,9 +32,10 @@ describe('Vat', () => {
 
     messageChannel = new MessageChannel();
 
-    const streams = makeMessagePortStreamPair<StreamEnvelope>(
-      messageChannel.port1,
-    );
+    const streams = makeMessagePortStreamPair<
+      StreamEnvelopeReply,
+      StreamEnvelope
+    >(messageChannel.port1);
 
     vat = new Vat({
       id: 'test-vat',
@@ -83,7 +90,7 @@ describe('Vat', () => {
     it('receives messages correctly', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
-      const handleSpy = vi.spyOn(vat.streamEnvelopeHandler, 'handle');
+      const handleSpy = vi.spyOn(vat.replyStreamEnvelopeHandler, 'handle');
       await vat.init();
       const writer = new MessagePortWriter(messageChannel.port2);
       const rawMessage = { type: 'command', payload: { method: 'test' } };
@@ -96,7 +103,7 @@ describe('Vat', () => {
   describe('handleMessage', () => {
     it('resolves the payload when the message id exists in unresolvedMessages', async () => {
       const mockMessageId = 'test-vat-1';
-      const mockPayload: Command = {
+      const mockPayload: CommandReply = {
         method: CommandMethod.Evaluate,
         params: 'test-response',
       };
@@ -111,7 +118,10 @@ describe('Vat', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       const nonExistentMessageId = 'non-existent-id';
-      const mockPayload: Command = { method: CommandMethod.Ping, params: null };
+      const mockPayload: CommandReply = {
+        method: CommandMethod.Ping,
+        params: 'pong',
+      };
 
       await vat.handleMessage({
         id: nonExistentMessageId,
@@ -149,12 +159,17 @@ describe('Vat', () => {
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
       // @ts-expect-error - streamEnvelopeHandler is readonly
-      vat.streamEnvelopeHandler = makeStreamEnvelopeHandler({}, console.warn);
+      vat.replyStreamEnvelopeHandler = makeStreamEnvelopeReplyHandler(
+        {},
+        console.warn,
+      );
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
         .mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
-      expect(vat.streamEnvelopeHandler.contentHandlers.capTp).toBeDefined();
+      expect(
+        vat.replyStreamEnvelopeHandler.contentHandlers.capTp,
+      ).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
         method: CommandMethod.CapTpInit,
         params: null,
@@ -173,7 +188,7 @@ describe('Vat', () => {
         epoch: 0,
         questionID: 'q-1',
       };
-      await vat.streamEnvelopeHandler.contentHandlers.capTp?.(
+      await vat.replyStreamEnvelopeHandler.contentHandlers.capTp?.(
         capTpQuestion as CapTpMessage,
       );
 

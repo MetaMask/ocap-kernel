@@ -1,7 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import { CommandMethod } from '@ocap/utils';
-import type { Command, CapTpPayload } from '@ocap/utils';
+import type { CommandReply, Command } from '@ocap/utils';
+import { CommandMethod, isCommand } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -32,8 +32,10 @@ async function main(): Promise<void> {
     // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
     // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
     // awfully wrong.  Need to add types to account for the replies.
-    const message = event.data as Command;
-    const { method, params } = message;
+    if (!isCommand(event.data)) {
+      console.error('kernel received unexpected message', event.data);
+    }
+    const { method, params } = event.data;
     let result: string;
     const possibleError = params as unknown as Error;
     if (possibleError?.message && possibleError?.stack) {
@@ -59,7 +61,7 @@ async function main(): Promise<void> {
   // user console.
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
-      if (!isExtensionRuntimeMessage(message)) {
+      if (!(isExtensionRuntimeMessage(message) && isCommand(message.payload))) {
         console.error('Offscreen received unexpected message', message);
         return;
       }
@@ -101,7 +103,7 @@ async function main(): Promise<void> {
           break;
         case CommandMethod.KVGet:
         case CommandMethod.KVSet:
-          sendKernelMessage(payload as unknown as CapTpPayload);
+          sendKernelMessage(payload);
           break;
         default:
           console.error(
@@ -119,9 +121,9 @@ async function main(): Promise<void> {
    * @param method - The command method.
    * @param params - The command parameters.
    */
-  async function replyToCommand(
-    method: CommandMethod,
-    params?: string,
+  async function replyToCommand<Type extends CommandReply>(
+    method: Type['method'],
+    params?: Type['params'],
   ): Promise<void> {
     await chrome.runtime.sendMessage({
       target: ExtensionMessageTarget.Background,
@@ -159,7 +161,7 @@ async function main(): Promise<void> {
    *
    * @param payload - The message to send.
    */
-  function sendKernelMessage(payload: CapTpPayload): void {
+  function sendKernelMessage(payload: Command): void {
     kernelWorker.postMessage(payload);
   }
 }
