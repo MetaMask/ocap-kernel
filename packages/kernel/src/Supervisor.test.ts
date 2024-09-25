@@ -30,7 +30,7 @@ describe('Supervisor', () => {
       expect(supervisor.streamEnvelopeHandler).toBeDefined();
     });
 
-    it('throws an error the Supervisor correctly', async () => {
+    it('throws an error if the stream is invalid', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const error = new Error('test-error');
       await supervisor.streams.reader.throw(error);
