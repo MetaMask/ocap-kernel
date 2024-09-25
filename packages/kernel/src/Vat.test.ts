@@ -90,7 +90,7 @@ describe('Vat', () => {
     it('receives messages correctly', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
-      const handleSpy = vi.spyOn(vat.replyStreamEnvelopeHandler, 'handle');
+      const handleSpy = vi.spyOn(vat.streamEnvelopeReplyHandler, 'handle');
       await vat.init();
       const writer = new MessagePortWriter(messageChannel.port2);
       const rawMessage = { type: 'command', payload: { method: 'test' } };
@@ -158,8 +158,8 @@ describe('Vat', () => {
     });
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
-      // @ts-expect-error - streamEnvelopeHandler is readonly
-      vat.replyStreamEnvelopeHandler = makeStreamEnvelopeReplyHandler(
+      // @ts-expect-error - streamEnvelopeReplyHandler is readonly
+      vat.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
         {},
         console.warn,
       );
@@ -168,7 +168,7 @@ describe('Vat', () => {
         .mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
       expect(
-        vat.replyStreamEnvelopeHandler.contentHandlers.capTp,
+        vat.streamEnvelopeReplyHandler.contentHandlers.capTp,
       ).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
         method: CommandMethod.CapTpInit,
@@ -188,7 +188,7 @@ describe('Vat', () => {
         epoch: 0,
         questionID: 'q-1',
       };
-      await vat.replyStreamEnvelopeHandler.contentHandlers.capTp?.(
+      await vat.streamEnvelopeReplyHandler.contentHandlers.capTp?.(
         capTpQuestion as CapTpMessage,
       );
 
