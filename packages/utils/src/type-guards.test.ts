@@ -5,6 +5,7 @@ import {
   isCapTpMessage,
   isCommand,
   isCapTpPayload,
+  isCommandReply,
 } from './type-guards.js';
 import { CommandMethod } from './types.js';
 
@@ -43,6 +44,25 @@ describe('type-guards', () => {
       'returns $expectedResult for $description',
       ({ value, expectedResult }) => {
         expect(isCommand(value)).toBe(expectedResult);
+      },
+    );
+  });
+
+  describe('isCommandReply', () => {
+    it.each`
+      value                                             | expectedResult | description
+      ${{ method: CommandMethod.Ping, params: 'data' }} | ${true}        | ${'valid command reply with string data'}
+      ${{ method: CommandMethod.Ping, params: null }}   | ${false}       | ${'invalid command reply: with null data'}
+      ${123}                                            | ${false}       | ${'invalid command reply: primitive number'}
+      ${{ method: true, params: 'data' }}               | ${false}       | ${'invalid command reply: invalid type'}
+      ${{ method: CommandMethod.Ping }}                 | ${false}       | ${'invalid command reply: missing data'}
+      ${{ method: CommandMethod.Ping, params: 123 }}    | ${false}       | ${'invalid command reply: data is a primitive number'}
+      ${{ method: 123, params: null }}                  | ${false}       | ${'invalid command reply: invalid type and valid data'}
+      ${{ method: 'some-type', params: true }}          | ${false}       | ${'invalid command reply: valid type and invalid data'}
+    `(
+      'returns $expectedResult for $description',
+      ({ value, expectedResult }) => {
+        expect(isCommandReply(value)).toBe(expectedResult);
       },
     );
   });
