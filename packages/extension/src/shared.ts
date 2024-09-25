@@ -1,10 +1,6 @@
 import { isObject } from '@metamask/utils';
-import {
-  isCommand,
-  isCommandReply,
-  type Command,
-  type CommandReply,
-} from '@ocap/utils';
+import type { Command, CommandReply } from '@ocap/utils';
+import { isCommand, isCommandReply } from '@ocap/utils';
 
 export type VatId = string;
 
@@ -14,6 +10,8 @@ export enum ExtensionMessageTarget {
 }
 
 export type ExtensionRuntimeMessage = {
+  // There is overlap between the Evaluate type of Command and CommandReply.
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   payload: Command | CommandReply;
   target: ExtensionMessageTarget;
 };
