@@ -9,12 +9,14 @@ import type {
   CapTpPayload,
   Command,
   VatMessage,
+  LabeledConsole,
 } from '@ocap/utils';
 import {
   wrapCapTp,
   wrapStreamCommand,
   makeStreamEnvelopeHandler,
   CommandMethod,
+  makeLabeledConsole,
 } from '@ocap/utils';
 
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
@@ -30,6 +32,8 @@ export class Vat {
 
   readonly streams: VatConstructorProps['streams'];
 
+  readonly console: LabeledConsole;
+
   readonly #messageCounter: () => number;
 
   readonly unresolvedMessages: UnresolvedMessages = new Map();
@@ -41,6 +45,7 @@ export class Vat {
   constructor({ id, streams }: VatConstructorProps) {
     this.id = id;
     this.streams = streams;
+    this.console = makeLabeledConsole(`[vat ${id}]`);
     this.#messageCounter = makeCounter();
     this.streamEnvelopeHandler = makeStreamEnvelopeHandler(
       { command: this.handleMessage.bind(this) },
@@ -73,12 +78,12 @@ export class Vat {
   async init(): Promise<unknown> {
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(this.streams.reader).catch((error) => {
-      console.error(`Unexpected read error from vat "${this.id}"`, error);
+      this.console.error(`Unexpected read error`, error);
       throw error;
     });
 
     await this.sendMessage({ method: CommandMethod.Ping, params: null });
-    console.debug(`Created vat with id "${this.id}"`);
+    this.console.debug('Created');
 
     return await this.makeCapTp();
   }
@@ -90,7 +95,7 @@ export class Vat {
    */
   async #receiveMessages(reader: Reader<StreamEnvelope>): Promise<void> {
     for await (const rawMessage of reader) {
-      console.debug('Vat received message', rawMessage);
+      this.console.debug('Vat received message', rawMessage);
       await this.streamEnvelopeHandler.handle(rawMessage);
     }
   }
@@ -110,7 +115,7 @@ export class Vat {
     // Handle writes here. #receiveMessages() handles reads.
     const { writer } = this.streams;
     const ctp = makeCapTP(this.id, async (content: unknown) => {
-      console.log('CapTP to vat', JSON.stringify(content, null, 2));
+      this.console.log('CapTP to vat', JSON.stringify(content, null, 2));
       await writer.next(wrapCapTp(content as CapTpMessage));
     });
 
@@ -118,7 +123,7 @@ export class Vat {
     this.streamEnvelopeHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
-      console.log('CapTP from vat', JSON.stringify(content, null, 2));
+      this.console.log('CapTP from vat', JSON.stringify(content, null, 2));
       ctp.dispatch(content);
     };
 
@@ -160,7 +165,7 @@ export class Vat {
    * @returns A promise that resolves the response to the message.
    */
   async sendMessage(payload: Command): Promise<unknown> {
-    console.debug(`Sending message to vat "${this.id}"`, payload);
+    this.console.debug('Sending message to vat', payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
