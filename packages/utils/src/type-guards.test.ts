@@ -94,6 +94,7 @@ describe('type-guards', () => {
       ${123}                                                                        | ${false}       | ${'invalid vat command reply: primitive number'}
       ${{ id: true, payload: {} }}                                                  | ${false}       | ${'invalid vat command reply: invalid id and empty payload'}
       ${{ id: 'some-id', payload: null }}                                           | ${false}       | ${'invalid vat command reply: payload is null'}
+      ${{ id: 'some-id', payload: { method: CommandMethod.Ping, params: null } }}   | ${false}       | ${'invalid vat command reply: payload.params is null'}
       ${{ id: 123, payload: { method: CommandMethod.Ping, params: null } }}         | ${false}       | ${'invalid vat command reply: invalid id type'}
       ${{ id: 'some-id' }}                                                          | ${false}       | ${'invalid vat command reply: missing payload'}
       ${{ id: 'some-id', payload: 123 }}                                            | ${false}       | ${'invalid vat command reply: payload is a primitive number'}

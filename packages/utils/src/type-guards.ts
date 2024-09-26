@@ -38,7 +38,9 @@ export const isVatCommand = (value: unknown): value is VatCommand =>
   isObject(value) && typeof value.id === 'string' && isCommand(value.payload);
 
 export const isVatCommandReply = (value: unknown): value is VatCommandReply =>
-  isObject(value) && typeof value.id === 'string' && isCommand(value.payload);
+  isObject(value) &&
+  typeof value.id === 'string' &&
+  isCommandReply(value.payload);
 
 export const isCapTpMessage = (value: unknown): value is CapTpMessage =>
   isObject(value) &&
