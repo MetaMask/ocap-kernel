@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   // user console.
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
-      if (!(isExtensionRuntimeMessage(message) && isCommand(message.payload))) {
+      if (!isExtensionRuntimeMessage(message) || !isCommand(message.payload)) {
         console.error('Offscreen received unexpected message', message);
         return;
       }
