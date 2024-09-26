@@ -56,12 +56,12 @@ describe('Vat', () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
       const error = new Error('test-error');
       await vat.streams.reader.throw(error);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from vat "${vat.id}"`,
+        'Unexpected read error',
         error,
       );
     });
@@ -162,7 +162,7 @@ describe('Vat', () => {
     it('handles CapTp messages', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       const wrapCapTpSpy = vi.spyOn(ocapUtils, 'wrapCapTp');
-      const consoleLogSpy = vi.spyOn(console, 'log');
+      const consoleLogSpy = vi.spyOn(vat.logger, 'log');
 
       await vat.makeCapTp();
 
