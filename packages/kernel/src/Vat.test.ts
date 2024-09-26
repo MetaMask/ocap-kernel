@@ -1,13 +1,19 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
-import { delay, makeCapTpMock, makePromiseKitMock } from '@ocap/test-utils';
-import type { Command, StreamEnvelope } from '@ocap/utils';
-import { CommandMethod, makeStreamEnvelopeHandler } from '@ocap/utils';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import type { CapTpMessage, Command, StreamEnvelope } from '@ocap/utils';
+import * as ocapUtils from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Vat } from './Vat.js';
 
-vi.mock('@endo/captp', () => makeCapTpMock());
+vi.mock('@endo/eventual-send', () => ({
+  E: () => ({
+    testMethod: vi.fn().mockResolvedValue('mocked response'),
+  }),
+}));
+
+const { CommandMethod, makeStreamEnvelopeHandler } = ocapUtils;
 
 describe('Vat', () => {
   let vat: Vat;
@@ -44,6 +50,20 @@ describe('Vat', () => {
         params: null,
       });
       expect(capTpMock).toHaveBeenCalled();
+    });
+
+    it('throws an error if the stream is invalid', async () => {
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
+      await vat.init();
+      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const error = new Error('test-error');
+      await vat.streams.reader.throw(error);
+      await delay(10);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        `Unexpected read error from vat "${vat.id}"`,
+        error,
+      );
     });
   });
 
@@ -138,6 +158,39 @@ describe('Vat', () => {
         params: null,
       });
     });
+
+    it('handles CapTp messages', async () => {
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      const wrapCapTpSpy = vi.spyOn(ocapUtils, 'wrapCapTp');
+      const consoleLogSpy = vi.spyOn(console, 'log');
+
+      await vat.makeCapTp();
+
+      const capTpQuestion = {
+        type: 'CTP_BOOTSTRAP',
+        epoch: 0,
+        questionID: 'q-1',
+      };
+      await vat.streamEnvelopeHandler.contentHandlers.capTp?.(
+        capTpQuestion as CapTpMessage,
+      );
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        'CapTP from vat',
+        JSON.stringify(capTpQuestion, null, 2),
+      );
+
+      const capTpAnswer = {
+        type: 'CTP_RETURN',
+        epoch: 0,
+        answerID: 'q-1',
+        result: {
+          body: '{"@qclass":"undefined"}',
+          slots: [],
+        },
+      };
+      expect(wrapCapTpSpy).toHaveBeenCalledWith(capTpAnswer);
+    });
   });
 
   describe('callCapTp', () => {
@@ -147,6 +200,19 @@ describe('Vat', () => {
       ).rejects.toThrow(
         `Vat with id "test-vat" does not have a CapTP connection.`,
       );
+    });
+
+    it('calls CapTP method with parameters using eventual send', async () => {
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      await vat.makeCapTp();
+
+      const eventualSend = await import('@endo/eventual-send');
+      const eSpy = vi.spyOn(eventualSend, 'E');
+
+      await vat.callCapTp({ method: 'testMethod', params: ['test-param'] });
+
+      expect(eSpy).toHaveBeenCalledOnce();
+      expect(eSpy).toHaveBeenCalledWith(expect.anything());
     });
   });
 });
