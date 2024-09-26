@@ -1399,6 +1399,7 @@ __metadata:
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
+    "@sqlite.org/sqlite-wasm": "npm:3.46.1-build3"
     "@types/chrome": "npm:^0.0.268"
     "@typescript-eslint/eslint-plugin": "npm:^8.1.0"
     "@typescript-eslint/parser": "npm:^8.1.0"
