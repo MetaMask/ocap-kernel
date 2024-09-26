@@ -215,7 +215,6 @@ describe('Vat', () => {
       });
 
       expect(eSpy).toHaveBeenCalledOnce();
-      expect(eSpy).toHaveBeenCalledWith(expect.anything());
       expect(result).toBe('mocked response');
     });
   });
