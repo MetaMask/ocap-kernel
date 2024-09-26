@@ -209,10 +209,14 @@ describe('Vat', () => {
       const eventualSend = await import('@endo/eventual-send');
       const eSpy = vi.spyOn(eventualSend, 'E');
 
-      await vat.callCapTp({ method: 'testMethod', params: ['test-param'] });
+      const result = await vat.callCapTp({
+        method: 'testMethod',
+        params: ['test-param'],
+      });
 
       expect(eSpy).toHaveBeenCalledOnce();
       expect(eSpy).toHaveBeenCalledWith(expect.anything());
+      expect(result).toBe('mocked response');
     });
   });
 });
