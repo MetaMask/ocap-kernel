@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
-
 import { stringify } from './stringify.js';
 
 describe('stringify', () => {
-  it('stringifies a simple object', () => {
+  it('stringifies a simple object with default indent', () => {
     const input = { key: 'value' };
     const result = stringify(input);
     expect(result).toBe(`{\n  "key": "value"\n}`);
+  });
+
+  it('stringifies a simple object with custom indent', () => {
+    const input = { key: 'value' };
+    const result = stringify(input, 4);
+    expect(result).toBe(`{\n    "key": "value"\n}`);
   });
 
   it('stringifies an array', () => {
@@ -44,9 +49,21 @@ describe('stringify', () => {
     ).toBe('function example() {\n        return "hello";\n      }');
   });
 
-  it('handles error objects gracefully', () => {
+  it('handles error objects with default indent', () => {
     const error = new Error('An error occurred');
     const result = stringify(error);
-    expect(result).toBe('{}');
+    const stackNewlines = error.stack?.replace(/\n/gu, '\\n');
+    expect(result).toBe(
+      `{\n  "name": "Error",\n  "message": "An error occurred",\n  "stack": "${stackNewlines}"\n}`,
+    );
+  });
+
+  it('handles error objects with custom indent', () => {
+    const error = new Error('Another error occurred');
+    const result = stringify(error, 4);
+    const stackNewlines = error.stack?.replace(/\n/gu, '\\n');
+    expect(result).toBe(
+      `{\n    "name": "Error",\n    "message": "Another error occurred",\n    "stack": "${stackNewlines}"\n}`,
+    );
   });
 });
