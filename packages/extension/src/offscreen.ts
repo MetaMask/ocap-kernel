@@ -81,9 +81,9 @@ async function main(): Promise<void> {
    * @param method - The command method.
    * @param params - The command parameters.
    */
-  async function replyToCommand<Type extends CommandReply>(
-    method: Type['method'],
-    params?: Type['params'],
+  async function replyToCommand(
+    method: CommandReply['method'],
+    params?: CommandReply['params'],
   ): Promise<void> {
     await chrome.runtime.sendMessage({
       target: ExtensionMessageTarget.Background,
