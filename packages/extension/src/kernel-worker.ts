@@ -215,7 +215,6 @@ async function main(): Promise<void> {
       }
       default:
         console.error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `kernel received unexpected method in message: "${method}"`,
         );
     }
