@@ -1,4 +1,4 @@
-import './endoify.js';
+import './kernel-worker-trusted-prelude.js';
 import type { Command } from '@ocap/utils';
 import { CommandMethod } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';

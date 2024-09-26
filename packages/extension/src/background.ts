@@ -1,5 +1,5 @@
-import type { Json } from '@metamask/utils';
 import './background-trusted-prelude.js';
+import type { Json } from '@metamask/utils';
 import { CommandMethod } from '@ocap/utils';
 
 import {

@@ -13,6 +13,10 @@ const projectRoot = './src';
 
 const jsTrustedPreludes = {
   background: path.resolve(projectRoot, 'background-trusted-prelude.js'),
+  'kernel-worker': path.resolve(
+    projectRoot,
+    'kernel-worker-trusted-prelude.js',
+  ),
 };
 
 /**
