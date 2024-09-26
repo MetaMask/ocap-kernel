@@ -1,28 +1,72 @@
-import { Kernel } from '@ocap/kernel';
-import { initializeMessageChannel } from '@ocap/streams';
-import type { CommandReply } from '@ocap/utils';
+import { createWindow } from '@metamask/snaps-utils';
+import { initializeMessageChannel, makeMessagePortStreamPair, StreamPair } from '@ocap/streams';
+import type { Command, CommandReply } from '@ocap/utils';
 import { CommandMethod, isCommand } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
   ExtensionMessageTarget,
   isExtensionRuntimeMessage,
   makeHandledCallback,
 } from './shared.js';
 
-main().catch(console.error);
+const kernelStreams = startKernel({
+  uri: 'kernel.html',
+  id: 'ocap-kernel'
+});
+
+Promise.race([
+  receiveMessagesFromKernel(),
+  receiveMessagesFromBackground(),
+]).catch(console.error).finally();
+
+type StartKernelArgs = {
+  uri: string;
+  id: string;
+}
+
+async function startKernel({ uri, id }: StartKernelArgs): Promise<StreamPair<CommandReply, Command>> {
+  console.debug('starting kernel');
+  const targetWindow = await createWindow(uri, id);
+  const port = await initializeMessageChannel(targetWindow);
+  console.debug('kernel connected');
+  return makeMessagePortStreamPair(port);
+}
 
 /**
- * The main function for the offscreen script.
+ * Listen to messages from the kernel.
  */
-async function main(): Promise<void> {
-  const kernel = new Kernel();
-  const iframeReadyP = kernel.launchVat({
-    id: 'default',
-    worker: makeIframeVatWorker('default', initializeMessageChannel),
-  });
+async function receiveMessagesFromKernel(): Promise<void> {
+  const streams = await kernelStreams;
 
-  // Handle messages from the background service worker
+  for await(const payload of streams.reader) {
+
+    switch (payload.method) {
+      case CommandMethod.Evaluate:
+      case CommandMethod.CapTpCall:
+      case CommandMethod.CapTpInit:
+      case CommandMethod.Ping:
+        // For now, we only receive command replies,
+        // and we simply forward them to the background service worker.
+        await chrome.runtime.sendMessage({
+          target: ExtensionMessageTarget.Background,
+          payload,
+        });
+        break;
+      default:
+        console.error(
+          // @ts-expect-error The type of `payload` is `never`, but this could happen at runtime.
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Offscreen received unexpected command reply method: "${payload.method}"`,
+        );
+    }
+  }
+}
+
+/**
+ * Listen to messages from the background service worker.
+ */
+async function receiveMessagesFromBackground(): Promise<void> {
+  console.debug('starting background listener');
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
       if (!isExtensionRuntimeMessage(message) || !isCommand(message.payload)) {
@@ -36,34 +80,21 @@ async function main(): Promise<void> {
         return;
       }
 
-      const vat = await iframeReadyP;
+      console.debug('offscreen received message', message);
+
+      const streams = await kernelStreams;
 
       const { payload } = message;
 
       switch (payload.method) {
         case CommandMethod.Evaluate:
-          await replyToCommand(
-            CommandMethod.Evaluate,
-            await evaluate(vat.id, payload.params),
-          );
-          break;
-        case CommandMethod.CapTpCall: {
-          const result = await vat.callCapTp(payload.params);
-          await replyToCommand(
-            CommandMethod.CapTpCall,
-            JSON.stringify(result, null, 2),
-          );
-          break;
-        }
+        case CommandMethod.CapTpCall:
         case CommandMethod.CapTpInit:
-          await vat.makeCapTp();
-          await replyToCommand(
-            CommandMethod.CapTpInit,
-            '~~~ CapTP Initialized ~~~',
-          );
-          break;
         case CommandMethod.Ping:
-          await replyToCommand(CommandMethod.Ping, 'pong');
+          // For now, we only recieve kernel commands,
+          // and we simply forward them to the kernel.
+          console.debug('forwarding message to kernel');
+          await streams.writer.next(payload);
           break;
         default:
           console.error(
@@ -74,45 +105,4 @@ async function main(): Promise<void> {
       }
     }),
   );
-
-  /**
-   * Reply to a command from the background script.
-   *
-   * @param method - The command method.
-   * @param params - The command parameters.
-   */
-  async function replyToCommand(
-    method: CommandReply['method'],
-    params?: CommandReply['params'],
-  ): Promise<void> {
-    await chrome.runtime.sendMessage({
-      target: ExtensionMessageTarget.Background,
-      payload: {
-        method,
-        params: params ?? null,
-      },
-    });
-  }
-
-  /**
-   * Evaluate a string in the default iframe.
-   *
-   * @param vatId - The ID of the vat to send the message to.
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  async function evaluate(vatId: string, source: string): Promise<string> {
-    try {
-      const result = await kernel.sendMessage(vatId, {
-        method: CommandMethod.Evaluate,
-        params: source,
-      });
-      return String(result);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
-  }
 }

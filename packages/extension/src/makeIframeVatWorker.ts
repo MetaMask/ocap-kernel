@@ -20,8 +20,11 @@ export const makeIframeVatWorker = (
 ): VatWorker => {
   return {
     init: async () => {
+      console.debug('creating new vat worker');
       const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
+      console.debug('waiting for vat worker connection');
       const port = await getPort(newWindow);
+      console.debug('vat worker connected');
       const streams = makeMessagePortStreamPair<
         StreamEnvelopeReply,
         StreamEnvelope
