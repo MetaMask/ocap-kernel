@@ -92,27 +92,17 @@ export type KernelState = {
  */
 async function initDB(): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
-  const oo = sqlite3.oo1;
-  if (oo.OpfsDb) {
-    return new oo.OpfsDb('/testdb.sqlite', 'cwt');
+  if (sqlite3.oo1.OpfsDb) {
+    return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cwt');
   }
   console.warn(`OPFS not enabled, database will be ephemeral`);
-  return new oo.DB('/testdb.sqlite', 'cwt');
+  return new sqlite3.oo1.DB('/testdb.sqlite', 'cwt');
 }
 
 /**
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  // Hard-code a single iframe for now.
-  /*
-  const IFRAME_ID = 'default';
-  const iframeManager = new IframeManager();
-  const iframeReadyP = iframeManager
-    .create({ id: IFRAME_ID })
-    .then(async () => iframeManager.makeCapTp(IFRAME_ID));
-  */
-
   const db = await initDB();
   db.exec(`
     CREATE TABLE IF NOT EXISTS kv (
@@ -177,23 +167,17 @@ async function main(): Promise<void> {
         reply(CommandMethod.Evaluate, await evaluate(params[0] as string));
         break;
       case CommandMethod.CapTpCall: {
-        /*
-        const result = await iframeManager.callCapTp(
-          IFRAME_ID,
-          // @ts-expect-error TODO: Type assertions
-          method,
-          // @ts-expect-error TODO: Type assertions
-          ...params,
+        reply(
+          CommandMethod.CapTpCall,
+          'Error: CapTpCall not implemented here (yet)',
         );
-        reply(CommandMethod.CapTpCall, JSON.stringify(result, null, 2));
-        */
         break;
       }
       case CommandMethod.CapTpInit:
-        /*
-        await iframeManager.makeCapTp(IFRAME_ID);
-        reply(CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~');
-        */
+        reply(
+          CommandMethod.CapTpInit,
+          'Error: CapTpInit not implemented here (yet)',
+        );
         break;
       case CommandMethod.Ping:
         reply(CommandMethod.Ping, 'pong');
@@ -240,20 +224,6 @@ async function main(): Promise<void> {
    * @returns The result of the evaluation, or an error message.
    */
   async function evaluate(_source: string): Promise<string> {
-    return `Error: evaluate not yet implemented`;
-    /*
-    try {
-      const result = await iframeManager.sendMessage(IFRAME_ID, {
-        method: CommandMethod.Evaluate,
-        data: source,
-      });
-      return String(result);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
-    */
+    return `Error: evaluate not implemented here (yet)`;
   }
 }
