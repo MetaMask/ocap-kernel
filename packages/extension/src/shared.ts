@@ -10,7 +10,7 @@ export enum ExtensionMessageTarget {
 }
 
 export type ExtensionRuntimeMessage = {
-  // There is overlap between the Evaluate type of Command and CommandReply.
+  // On some systems, including CI, ESLint complains of overlap between the union operands.
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   payload: Command | CommandReply;
   target: ExtensionMessageTarget;
