@@ -12,9 +12,8 @@ import {
   makeStreamEnvelopeHandler,
   wrapCapTp,
   wrapStreamCommand,
+  stringifyResult,
 } from '@ocap/utils';
-
-import { stringifyResult } from './utils/stringifyResult.js';
 
 type SupervisorConstructorProps = {
   id: string;
