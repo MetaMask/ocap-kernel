@@ -12,9 +12,8 @@ import {
   makeStreamEnvelopeHandler,
   wrapCapTp,
   wrapStreamCommand,
+  stringify,
 } from '@ocap/utils';
-
-import { stringifyResult } from './utils/stringifyResult.js';
 
 type SupervisorConstructorProps = {
   id: string;
@@ -90,14 +89,14 @@ export class Supervisor {
           console.error(
             'Supervisor received command with unexpected params',
             // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
-            stringifyResult(payload.params),
+            stringify(payload.params),
           );
           return;
         }
         const result = this.evaluate(payload.params);
         await this.replyToMessage(id, {
           method: CommandMethod.Evaluate,
-          params: stringifyResult(result),
+          params: stringify(result),
         });
         break;
       }
