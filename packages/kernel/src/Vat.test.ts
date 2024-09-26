@@ -9,7 +9,9 @@ import { Vat } from './Vat.js';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({
-    testMethod: vi.fn().mockResolvedValue('mocked response'),
+    testMethod: vi
+      .fn()
+      .mockImplementation((param: string) => `param is: ${param}`),
   }),
 }));
 
@@ -215,7 +217,7 @@ describe('Vat', () => {
       });
 
       expect(eSpy).toHaveBeenCalledOnce();
-      expect(result).toBe('mocked response');
+      expect(result).toBe('param is: test-param');
     });
   });
 });
