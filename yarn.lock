@@ -1441,7 +1441,6 @@ __metadata:
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
-    "@sqlite.org/sqlite-wasm": "npm:3.46.1-build3"
     "@ts-bridge/cli": "npm:^0.5.1"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.1.0"
