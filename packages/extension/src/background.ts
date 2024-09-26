@@ -77,7 +77,8 @@ async function provideOffScreenDocument(): Promise<void> {
 chrome.runtime.onMessage.addListener(
   makeHandledCallback(async (message: unknown) => {
     if (
-      !(isExtensionRuntimeMessage(message) && isCommandReply(message.payload))
+      !isExtensionRuntimeMessage(message) ||
+      !isCommandReply(message.payload)
     ) {
       console.error('Background received unexpected message', message);
       return;

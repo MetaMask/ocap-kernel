@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
-      if (!(isExtensionRuntimeMessage(message) && isCommand(message.payload))) {
+      if (!isExtensionRuntimeMessage(message) || !isCommand(message.payload)) {
         console.error('Offscreen received unexpected message', message);
         return;
       }
