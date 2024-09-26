@@ -36,7 +36,7 @@ export type Command =
 export type CommandReply =
   | CommandLike<CommandMethod.Ping, 'pong'>
   | CommandLike<CommandMethod.Evaluate, string>
-  | CommandLike<CommandMethod.CapTpInit, '~~~ CapTP Initialized ~~~'>
+  | CommandLike<CommandMethod.CapTpInit, string>
   | CommandLike<CommandMethod.CapTpCall, string>;
 
 export type VatCommand = {
