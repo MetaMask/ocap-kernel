@@ -1,21 +1,24 @@
+import './endoify.js';
+import { CommandMethod } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
-import './endoify.js';
-// eslint-disable-next-line import-x/order
-import { CommandMethod } from '@ocap/utils';
 
 main().catch(console.error);
 
-/*
-type Queue<Type> = Array<Type>;
+type Queue<Type> = Type[];
 
-type VatId = string;
-type RemoteId = string;
+type VatId = `v${number}`;
+type RemoteId = `r${number}`;
 type EndpointId = VatId | RemoteId;
 
-type KRef = string;
-type VRef = string;
-type RRef = string;
+type RefTypeTag = 'o' | 'p';
+type RefDirectionTag = '+' | '-';
+type InnerKRef = `${RefTypeTag}${number}`;
+type InnerERef = `${RefTypeTag}${RefDirectionTag}${number}`;
+
+type KRef = `k${InnerKRef}`;
+type VRef = `v${InnerERef}`;
+type RRef = `r${InnerERef}`;
 type ERef = VRef | RRef;
 
 type CapData = {
@@ -69,7 +72,8 @@ type KernelPromise = {
   value: undefined | CapData;
 };
 
-type KernelState = {
+// export temporarily to shut up lint whinges about unusedness
+export type KernelState = {
   runQueue: Queue<Message>;
   nextVatIdCounter: number;
   vats: Map<VatId, VatState>;
@@ -80,7 +84,6 @@ type KernelState = {
   nextKernePromiseIdCounter: number;
   kernelPromises: Map<KRef, KernelPromise>;
 };
-*/
 
 /**
  * Ensure that SQLite is initialized.
