@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { makeCounter } from './makeCounter.js';
+import { makeCounter } from './counter.js';
 
 describe('makeCounter', () => {
   it('starts at 1 by default', () => {

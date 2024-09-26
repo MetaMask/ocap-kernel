@@ -15,3 +15,4 @@ export {
 } from './stream-envelope.js';
 export type { Logger } from './logger.js';
 export { makeLogger } from './logger.js';
+export { makeCounter } from './counter.js';

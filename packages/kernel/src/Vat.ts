@@ -17,10 +17,10 @@ import {
   makeStreamEnvelopeHandler,
   CommandMethod,
   makeLogger,
+  makeCounter,
 } from '@ocap/utils';
 
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
-import { makeCounter } from './utils/makeCounter.js';
 
 type VatConstructorProps = {
   id: VatId;
