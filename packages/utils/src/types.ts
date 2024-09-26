@@ -31,8 +31,7 @@ export type Command =
   | CommandLike<CommandMethod.CapTpInit, null>
   | CommandLike<CommandMethod.CapTpCall, CapTpPayload>
   | CommandLike<CommandMethod.KVGet, string>
-  | CommandLike<CommandMethod.KVSet, { key: string, value: string }>
-  ;
+  | CommandLike<CommandMethod.KVSet, { key: string; value: string }>;
 
 export type VatMessage = {
   id: string;

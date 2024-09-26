@@ -1,7 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
 import { CommandMethod } from '@ocap/utils';
-import type { Command, CommandParams, CapTpPayload } from '@ocap/utils';
+import type { Command, CapTpPayload } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
 
-  const receiveFromKernel = async (event: MessageEvent) => {
+  const receiveFromKernel = async (event: MessageEvent): Promise<void> => {
     // For the time being, the only messages that come from the kernel worker are replies to actions
     // initiated from the console, so just forward these replies to the console.  This will need to
     // change once this offscreen script is providing services to the kernel worker that don't
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     const { method, params } = message;
     let result: string;
     const possibleError = params as unknown as Error;
-    if (possibleError && possibleError.message && possibleError.stack) {
+    if (possibleError?.message && possibleError?.stack) {
       // XXX TODO: The following is an egregious hack which is barely good enough for manual testing
       // but not acceptable for serious use.  We should be passing some kind of proper error
       // indication back so that the recipient will experience a thrown exception or rejected
@@ -50,7 +50,10 @@ async function main(): Promise<void> {
   };
 
   const kernelWorker = new Worker('kernel-worker.js', { type: 'module' });
-  kernelWorker.addEventListener('message', makeHandledCallback(receiveFromKernel));
+  kernelWorker.addEventListener(
+    'message',
+    makeHandledCallback(receiveFromKernel),
+  );
 
   // Handle messages from the background service worker, which for the time being stands in for the
   // user console.
@@ -151,7 +154,12 @@ async function main(): Promise<void> {
     }
   }
 
+  /**
+   * Send a message to the kernel worker.
+   *
+   * @param payload - The message to send.
+   */
   function sendKernelMessage(payload: CapTpPayload): void {
     kernelWorker.postMessage(payload);
-  };
+  }
 }

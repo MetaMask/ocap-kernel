@@ -1,13 +1,12 @@
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import './endoify.js';
-
-//import { IframeManager } from './iframe-manager.js';
+// eslint-disable-next-line import-x/order
 import { CommandMethod } from '@ocap/utils';
-import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
 
+/*
 type Queue<Type> = Array<Type>;
 
 type VatId = string;
@@ -81,6 +80,7 @@ type KernelState = {
   nextKernePromiseIdCounter: number;
   kernelPromises: Map<KRef, KernelPromise>;
 };
+*/
 
 /**
  * Ensure that SQLite is initialized.
@@ -92,10 +92,9 @@ async function initDB(): Promise<Database> {
   const oo = sqlite3.oo1;
   if (oo.OpfsDb) {
     return new oo.OpfsDb('/testdb.sqlite', 'cwt');
-  } else {
-    console.warn(`OPFS not enabled, database will be ephemeral`);
-    return new oo.DB('/testdb.sqlite', 'cwt');
   }
+  console.warn(`OPFS not enabled, database will be ephemeral`);
+  return new oo.DB('/testdb.sqlite', 'cwt');
 }
 
 /**
@@ -164,8 +163,6 @@ async function main(): Promise<void> {
     sqlKVSet.step();
     sqlKVSet.reset();
   }
-
-  //await iframeReadyP;
 
   // Handle messages from the console service worker
   onmessage = async (event) => {
@@ -237,10 +234,10 @@ async function main(): Promise<void> {
   /**
    * Evaluate a string in the default iframe.
    *
-   * @param source - The source string to evaluate.
+   * @param _source - The source string to evaluate.
    * @returns The result of the evaluation, or an error message.
    */
-  async function evaluate(source: string): Promise<string> {
+  async function evaluate(_source: string): Promise<string> {
     return `Error: evaluate not yet implemented`;
     /*
     try {
