@@ -1,7 +1,7 @@
 import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
 import { CommandMethod, isCommandReply } from '@ocap/utils';
-import type { Command, CommandInterface } from '@ocap/utils';
+import type { Command, CommandFunction } from '@ocap/utils';
 
 import {
   ExtensionMessageTarget,
@@ -16,7 +16,7 @@ import {
  * @param params - The message data.
  * @param params.name - The name to include in the message.
  */
-const sendCommand: CommandInterface<Promise<void>> = async (
+const sendCommand: CommandFunction<Promise<void>> = async (
   method: CommandMethod,
   params?: Command['params'],
 ) => {

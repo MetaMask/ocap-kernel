@@ -1,7 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
 import { CommandMethod, isCommand } from '@ocap/utils';
-import type { CommandReply, Command, CommandReplyInterface } from '@ocap/utils';
+import type { CommandReply, Command, CommandReplyFunction } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
    * @param method - The command method.
    * @param params - The command parameters.
    */
-  const replyToCommand: CommandReplyInterface<Promise<void>> = async (
+  const replyToCommand: CommandReplyFunction<Promise<void>> = async (
     method: CommandMethod,
     params?: CommandReply['params'],
   ) => {

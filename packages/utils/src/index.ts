@@ -2,10 +2,10 @@ export type {
   CapTpMessage,
   CapTpPayload,
   Command,
-  CommandInterface,
+  CommandFunction,
   CommandParams,
   CommandReply,
-  CommandReplyInterface,
+  CommandReplyFunction,
   VatCommand,
   VatCommandReply,
 } from './types.js';

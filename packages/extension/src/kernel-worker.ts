@@ -1,6 +1,6 @@
 import './kernel-worker-trusted-prelude.js';
 import { CommandMethod, isCommand } from '@ocap/utils';
-import type { CommandReply, CommandReplyInterface } from '@ocap/utils';
+import type { CommandReply, CommandReplyFunction } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
    * @param method - The message method.
    * @param params - The message params.
    */
-  const reply: CommandReplyInterface = (
+  const reply: CommandReplyFunction = (
     method: CommandMethod,
     params?: CommandReply['params'],
   ) => {
