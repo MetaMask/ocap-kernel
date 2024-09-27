@@ -8,7 +8,7 @@ import {
   CommandMethod,
   type VatCommand,
   type VatCommandReply,
-} from './types.js';
+} from './command-types.js';
 
 export const isCapTpPayload = (value: unknown): value is CapTpPayload =>
   isObject(value) &&

@@ -1,7 +1,10 @@
-import { Kernel } from '@ocap/kernel';
+import { Kernel, CommandMethod, isCommand } from '@ocap/kernel';
+import type {
+  CommandReply,
+  Command,
+  CommandReplyFunction,
+} from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import { CommandMethod, isCommand } from '@ocap/utils';
-import type { CommandReply, Command, CommandReplyFunction } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {

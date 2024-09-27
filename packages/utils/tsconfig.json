@@ -5,6 +5,6 @@
     "lib": ["DOM", "ES2022"],
     "types": ["ses", "vitest", "vitest/jsdom"]
   },
-  "references": [{ "path": "../streams" }],
+  "references": [],
   "include": ["./src"]
 }

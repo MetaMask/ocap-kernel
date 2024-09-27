@@ -1,16 +1,13 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
-import * as ocapUtils from '@ocap/utils';
-import type {
-  CapTpMessage,
-  Command,
-  CommandReply,
-  StreamEnvelope,
-  StreamEnvelopeReply,
-} from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import type { CapTpMessage, Command, CommandReply } from './command-types.js';
+import { CommandMethod } from './command-types.js';
+import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
+import * as streamEnvelope from './stream-envelope.js';
+import { makeStreamEnvelopeReplyHandler } from './stream-envelope.js';
 import { Vat } from './Vat.js';
 
 vi.mock('@endo/eventual-send', () => ({
@@ -20,8 +17,6 @@ vi.mock('@endo/eventual-send', () => ({
       .mockImplementation((param: string) => `param is: ${param}`),
   }),
 }));
-
-const { CommandMethod, makeStreamEnvelopeReplyHandler } = ocapUtils;
 
 describe('Vat', () => {
   let vat: Vat;
@@ -178,7 +173,7 @@ describe('Vat', () => {
 
     it('handles CapTp messages', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
-      const wrapCapTpSpy = vi.spyOn(ocapUtils, 'wrapCapTp');
+      const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
       const consoleLogSpy = vi.spyOn(vat.logger, 'log');
 
       await vat.makeCapTp();

@@ -1,7 +1,7 @@
 import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
-import { CommandMethod, isCommandReply } from '@ocap/utils';
-import type { Command, CommandFunction } from '@ocap/utils';
+import { CommandMethod, isCommandReply } from '@ocap/kernel';
+import type { Command, CommandFunction } from '@ocap/kernel';
 
 import {
   ExtensionMessageTarget,

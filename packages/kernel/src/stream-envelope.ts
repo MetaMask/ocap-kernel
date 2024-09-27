@@ -4,8 +4,12 @@ import {
   isCapTpMessage,
   isVatCommand,
   isVatCommandReply,
-} from './type-guards.js';
-import type { CapTpMessage, VatCommand, VatCommandReply } from './types.js';
+} from './command-type-guards.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+} from './command-types.js';
 
 type GuardType<TypeGuard> = TypeGuard extends (
   value: unknown,

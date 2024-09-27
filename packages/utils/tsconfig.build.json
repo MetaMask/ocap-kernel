@@ -7,6 +7,6 @@
     "rootDir": "./src",
     "types": ["ses"]
   },
-  "references": [{ "path": "../streams/tsconfig.build.json" }],
+  "references": [],
   "include": ["./src"]
 }

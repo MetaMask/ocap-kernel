@@ -1,11 +1,11 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
-import type { StreamEnvelope, StreamEnvelopeReply } from '@ocap/utils';
-import * as ocapUtils from '@ocap/utils';
-import { CommandMethod } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { CommandMethod } from './command-types.js';
+import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
+import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
 
 describe('Supervisor', () => {
@@ -84,7 +84,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTp messages', async () => {
-      const wrapCapTpSpy = vi.spyOn(ocapUtils, 'wrapCapTp');
+      const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({
         id: 'message-id',

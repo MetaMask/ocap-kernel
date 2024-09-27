@@ -1,6 +1,6 @@
 import { isObject } from '@metamask/utils';
-import type { Command, CommandReply } from '@ocap/utils';
-import { isCommand, isCommandReply } from '@ocap/utils';
+import type { Command, CommandReply } from '@ocap/kernel';
+import { isCommand, isCommandReply } from '@ocap/kernel';
 
 export type VatId = string;
 

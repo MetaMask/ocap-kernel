@@ -1,20 +1,23 @@
 import { makeCapTP } from '@endo/captp';
 import type { StreamPair, Reader } from '@ocap/streams';
+import { stringify } from '@ocap/utils';
+
 import type {
   CapTpMessage,
+  CommandReply,
+  VatCommand,
+} from './command-types.js';
+import { CommandMethod } from './command-types.js';
+import type {
   StreamEnvelope,
   StreamEnvelopeHandler,
   StreamEnvelopeReply,
-  CommandReply,
-  VatCommand,
-} from '@ocap/utils';
+} from './stream-envelope.js';
 import {
-  CommandMethod,
   makeStreamEnvelopeHandler,
   wrapCapTp,
-  stringify,
   wrapStreamCommandReply,
-} from '@ocap/utils';
+} from './stream-envelope.js';
 
 type SupervisorConstructorProps = {
   id: string;

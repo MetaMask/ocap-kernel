@@ -1,6 +1,6 @@
 import './kernel-worker-trusted-prelude.js';
-import { CommandMethod, isCommand } from '@ocap/utils';
-import type { CommandReply, CommandReplyFunction } from '@ocap/utils';
+import { CommandMethod, isCommand } from '@ocap/kernel';
+import type { CommandReply, CommandReplyFunction } from '@ocap/kernel';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 

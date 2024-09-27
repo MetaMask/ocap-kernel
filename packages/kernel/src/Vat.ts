@@ -2,25 +2,26 @@ import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { StreamPair, Reader } from '@ocap/streams';
+import type { Logger } from '@ocap/utils';
+import { makeLogger, makeCounter } from '@ocap/utils';
+
 import type {
-  StreamEnvelope,
   CapTpMessage,
   CapTpPayload,
   Command,
-  Logger,
+  VatCommandReply,
+} from './command-types.js';
+import { CommandMethod } from './command-types.js';
+import type {
+  StreamEnvelope,
   StreamEnvelopeReply,
   StreamEnvelopeReplyHandler,
-  VatCommandReply,
-} from '@ocap/utils';
+} from './stream-envelope.js';
 import {
-  wrapCapTp,
-  CommandMethod,
-  makeLogger,
-  makeCounter,
   makeStreamEnvelopeReplyHandler,
+  wrapCapTp,
   wrapStreamCommand,
-} from '@ocap/utils';
-
+} from './stream-envelope.js';
 import type { MessageId, UnresolvedMessages, VatId } from './types.js';
 
 type VatConstructorProps = {
