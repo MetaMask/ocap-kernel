@@ -1,5 +1,5 @@
 import '@ocap/shims/endoify';
-import type { Command } from './command-types.js';
+import type { Command } from './command.js';
 import type { VatId, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
 

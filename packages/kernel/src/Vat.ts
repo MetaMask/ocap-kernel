@@ -10,8 +10,8 @@ import type {
   CapTpPayload,
   Command,
   VatCommandReply,
-} from './command-types.js';
-import { CommandMethod } from './command-types.js';
+} from './command.js';
+import { CommandMethod } from './command.js';
 import type {
   StreamEnvelope,
   StreamEnvelopeReply,

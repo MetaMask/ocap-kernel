@@ -3,8 +3,8 @@ import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { CapTpMessage, Command, CommandReply } from './command-types.js';
-import { CommandMethod } from './command-types.js';
+import type { CapTpMessage, Command, CommandReply } from './command.js';
+import { CommandMethod } from './command.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { makeStreamEnvelopeReplyHandler } from './stream-envelope.js';

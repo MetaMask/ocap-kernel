@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Command } from './command-types.js';
+import type { Command } from './command.js';
 import { Kernel } from './Kernel.js';
 import type { VatWorker } from './types.js';
 import { Vat } from './Vat.js';

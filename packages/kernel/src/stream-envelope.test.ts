@@ -2,12 +2,8 @@ import '@ocap/shims/endoify';
 
 import { describe, it, expect } from 'vitest';
 
-import type {
-  CapTpMessage,
-  VatCommand,
-  VatCommandReply,
-} from './command-types.js';
-import { CommandMethod } from './command-types.js';
+import type { CapTpMessage, VatCommand, VatCommandReply } from './command.js';
+import { CommandMethod } from './command.js';
 import {
   wrapCapTp,
   wrapStreamCommand,
