@@ -12,3 +12,4 @@ ignores:
   - 'rimraf'
   - 'typedoc'
   - '@types/lodash'
+  - 'simple-git-hooks'
