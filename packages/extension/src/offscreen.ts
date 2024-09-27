@@ -1,9 +1,5 @@
 import { Kernel, CommandMethod, isCommand } from '@ocap/kernel';
-import type {
-  CommandReply,
-  Command,
-  CommandReplyFunction,
-} from '@ocap/kernel';
+import type { CommandReply, Command, CommandReplyFunction } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
