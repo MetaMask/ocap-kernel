@@ -3,7 +3,7 @@ import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { StreamPair, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger, makeCounter } from '@ocap/utils';
+import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
 import type {
   CapTpMessage,
@@ -117,7 +117,7 @@ export class Vat {
     // Handle writes here. #receiveMessages() handles reads.
     const { writer } = this.streams;
     const ctp = makeCapTP(this.id, async (content: unknown) => {
-      this.logger.log('CapTP to vat', JSON.stringify(content, null, 2));
+      this.logger.log('CapTP to vat', stringify(content));
       await writer.next(wrapCapTp(content as CapTpMessage));
     });
 
@@ -125,7 +125,7 @@ export class Vat {
     this.streamEnvelopeReplyHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
-      this.logger.log('CapTP from vat', JSON.stringify(content, null, 2));
+      this.logger.log('CapTP from vat', stringify(content));
       ctp.dispatch(content);
     };
 

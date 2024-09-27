@@ -48,7 +48,8 @@
   "dependencies": {
     "@endo/promise-kit": "^1.1.4",
     "@endo/stream": "^1.2.2",
-    "@metamask/utils": "^9.1.0"
+    "@metamask/utils": "^9.1.0",
+    "@ocap/utils": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",

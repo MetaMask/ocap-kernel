@@ -1,3 +1,5 @@
+import { stringify } from '@ocap/utils';
+
 import type { StreamEnvelope } from './envelope.js';
 import type { StreamEnveloper } from './enveloper.js';
 import type { TypeMap } from './utils/generics.js';
@@ -72,7 +74,7 @@ const defaultStreamEnvelopeErrorHandler: StreamEnvelopeErrorHandler = (
   reason,
   value,
 ) => {
-  throw new Error(`${reason} ${JSON.stringify(value, null, 2)}`);
+  throw new Error(`${reason} ${stringify(value)}`);
 };
 
 /**
@@ -124,8 +126,8 @@ export const makeStreamEnvelopeHandler = <
         | undefined;
       const enveloper = streamEnveloper[envelope.label];
       if (!handler || !enveloper) {
-        console.debug(`handler: ${JSON.stringify(handler)}`);
-        console.debug(`enveloper: ${JSON.stringify(enveloper)}`);
+        console.debug(`handler: ${stringify(handler)}`);
+        console.debug(`enveloper: ${stringify(enveloper)}`);
         return errorHandler(
           'Stream envelope handler received an envelope with known but unexpected label',
           envelope,

@@ -8,5 +8,6 @@
     "types": ["ses"]
   },
   "references": [],
+  "files": [],
   "include": ["./src"]
 }

@@ -1,6 +1,7 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { CapTpMessage, Command, CommandReply } from './command.js';
@@ -189,7 +190,7 @@ describe('Vat', () => {
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         'CapTP from vat',
-        JSON.stringify(capTpQuestion, null, 2),
+        stringify(capTpQuestion),
       );
 
       const capTpAnswer = {

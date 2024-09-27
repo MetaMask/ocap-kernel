@@ -14,6 +14,7 @@
 
 import { makePromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 
 export enum MessageType {
   Initialize = 'INIT_MESSAGE_CHANNEL',
@@ -34,8 +35,6 @@ const isInitMessage = (
 
 const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
   isObject(value) && value.type === MessageType.Acknowledge;
-
-const stringify = (value: unknown): string => JSON.stringify(value, null, 2);
 
 /**
  * Creates a message channel and sends one of the ports to the target window. The iframe

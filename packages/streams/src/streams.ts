@@ -21,6 +21,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { hasProperty, isObject } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 
 export type { Reader, Writer };
 
@@ -92,10 +93,8 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
     if (!isIteratorResult(message.data)) {
       this.#throw(
         new Error(
-          `Received unexpected message via message port:\n${JSON.stringify(
+          `Received unexpected message via message port:\n${stringify(
             message.data,
-            null,
-            2,
           )}`,
         ),
       );
