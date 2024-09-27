@@ -8,15 +8,20 @@
 export const stringify = (value: unknown, indent: number = 2): string => {
   try {
     if (value instanceof Error) {
-      return JSON.stringify(
-        {
-          name: value.name,
-          message: value.message,
-          stack: value.stack,
-        },
-        null,
-        indent,
-      );
+      const errorObject: Record<string, unknown> = {
+        name: value.name,
+        message: value.message,
+        stack: value.stack,
+      };
+
+      if (value.cause instanceof Error) {
+        errorObject.cause = {
+          name: value.cause.name,
+          message: value.cause.message,
+        };
+      }
+
+      return JSON.stringify(errorObject, null, indent);
     }
 
     const result = JSON.stringify(value, null, indent);

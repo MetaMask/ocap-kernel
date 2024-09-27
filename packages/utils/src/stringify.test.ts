@@ -67,4 +67,14 @@ describe('stringify', () => {
       `{\n    "name": "Error",\n    "message": "Another error occurred",\n    "stack": "${stackNewlines}"\n}`,
     );
   });
+
+  it('handles error objects with a cause', () => {
+    const rootCause = new Error('Root cause error');
+    const error = new Error('Caused error', { cause: rootCause });
+    const result = stringify(error, 2);
+    const stackNewlines = error.stack?.replace(/\n/gu, '\\n');
+    expect(result).toBe(
+      `{\n  "name": "Error",\n  "message": "Caused error",\n  "stack": "${stackNewlines}",\n  "cause": {\n    "name": "Error",\n    "message": "Root cause error"\n  }\n}`,
+    );
+  });
 });
