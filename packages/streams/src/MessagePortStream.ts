@@ -18,11 +18,10 @@
  * @module MessagePort streams
  */
 
-import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 
-import type { PromiseCallbacks, StreamPair } from './shared.js';
-import { isIteratorResult, makeDoneResult } from './shared.js';
+import type { StreamPair } from './shared.js';
+import { ReaderCore, WriterCore } from './StreamCore.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -35,67 +34,35 @@ import { isIteratorResult, makeDoneResult } from './shared.js';
  * - The module-level documentation for more details.
  */
 export class MessagePortReader<Yield> implements Reader<Yield> {
-  #isDone: boolean;
+  readonly #core: ReaderCore<Yield>;
 
   readonly #port: MessagePort;
 
-  /**
-   * For buffering messages to manage backpressure, i.e. the input rate exceeding the
-   * read rate.
-   */
-  #messageQueue: MessageEvent<IteratorResult<unknown, unknown>>[];
-
-  /**
-   * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
-   */
-  readonly #readQueue: PromiseCallbacks[];
-
   constructor(port: MessagePort) {
-    this.#isDone = false;
+    this.#core = new ReaderCore(this.#end.bind(this));
     this.#port = port;
-    this.#messageQueue = [];
-    this.#readQueue = [];
-
     // Assigning to the `onmessage` property initializes the port's message queue.
     // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
     this.#port.onmessage = this.#handleMessage.bind(this);
     harden(this);
   }
 
-  [Symbol.asyncIterator](): MessagePortReader<Yield> {
-    return this;
+  #end(): void {
+    this.#port.close();
+    this.#port.onmessage = null;
   }
 
-  #handleMessage(message: MessageEvent): void {
-    if (message.data instanceof Error) {
-      this.#throw(message.data);
+  #handleMessage(messageEvent: MessageEvent): void {
+    if (messageEvent.data instanceof Error) {
+      this.#core.throw(messageEvent.data);
       return;
     }
 
-    if (!isIteratorResult(message.data)) {
-      this.#throw(
-        new Error(
-          `Received unexpected message via message port:\n${JSON.stringify(
-            message.data,
-            null,
-            2,
-          )}`,
-        ),
-      );
-      return;
-    }
+    this.#core.receiveInput(messageEvent.data);
+  }
 
-    if (message.data.done === true) {
-      this.#return();
-      return;
-    }
-
-    if (this.#readQueue.length > 0) {
-      const { resolve } = this.#readQueue.shift() as PromiseCallbacks;
-      resolve({ ...message.data });
-    } else {
-      this.#messageQueue.push(message);
-    }
+  [Symbol.asyncIterator](): MessagePortReader<Yield> {
+    return this;
   }
 
   /**
@@ -104,20 +71,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
    * @returns The next message from the port.
    */
   async next(): Promise<IteratorResult<Yield, undefined>> {
-    if (this.#isDone) {
-      return makeDoneResult();
-    }
-
-    const { promise, resolve, reject } = makePromiseKit();
-    if (this.#messageQueue.length > 0) {
-      const message = this.#messageQueue.shift() as MessageEvent<
-        IteratorResult<unknown, unknown>
-      >;
-      resolve({ ...message.data });
-    } else {
-      this.#readQueue.push({ resolve, reject });
-    }
-    return promise as Promise<IteratorResult<Yield, undefined>>;
+    return this.#core.next();
   }
 
   /**
@@ -126,18 +80,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Yield, undefined>> {
-    if (!this.#isDone) {
-      this.#return();
-    }
-    return makeDoneResult();
-  }
-
-  #return(): void {
-    while (this.#readQueue.length > 0) {
-      const { resolve } = this.#readQueue.shift() as PromiseCallbacks;
-      resolve(makeDoneResult());
-    }
-    this.#end();
+    return this.#core.return();
   }
 
   /**
@@ -148,25 +91,7 @@ export class MessagePortReader<Yield> implements Reader<Yield> {
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<Yield, undefined>> {
-    if (!this.#isDone) {
-      this.#throw(error);
-    }
-    return makeDoneResult();
-  }
-
-  #throw(error: Error): void {
-    while (this.#readQueue.length > 0) {
-      const { reject } = this.#readQueue.shift() as PromiseCallbacks;
-      reject(error);
-    }
-    this.#end();
-  }
-
-  #end(): void {
-    this.#isDone = true;
-    this.#messageQueue = [];
-    this.#port.close();
-    this.#port.onmessage = null;
+    return this.#core.throw(error);
   }
 }
 harden(MessagePortReader);
@@ -184,14 +109,26 @@ harden(MessagePortReader);
  * - The module-level documentation for more details.
  */
 export class MessagePortWriter<Yield> implements Writer<Yield> {
-  #isDone: boolean;
+  readonly #core: WriterCore<Yield>;
 
   readonly #port: MessagePort;
 
   constructor(port: MessagePort) {
-    this.#isDone = false;
+    this.#core = new WriterCore(
+      'MessagePortWriter',
+      this.#dispatch.bind(this),
+      this.#end.bind(this),
+    );
     this.#port = port;
     harden(this);
+  }
+
+  #end(): void {
+    this.#port.close();
+  }
+
+  #dispatch(value: IteratorResult<Yield, undefined> | Error): void {
+    this.#port.postMessage(value);
   }
 
   [Symbol.asyncIterator](): MessagePortWriter<Yield> {
@@ -205,10 +142,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * @returns The result of writing the message.
    */
   async next(value: Yield): Promise<IteratorResult<undefined, undefined>> {
-    if (this.#isDone) {
-      return makeDoneResult();
-    }
-    return this.#send({ done: false, value });
+    return this.#core.next(value);
   }
 
   /**
@@ -217,11 +151,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<undefined, undefined>> {
-    if (!this.#isDone) {
-      this.#send(makeDoneResult());
-      this.#end();
-    }
-    return makeDoneResult();
+    return this.#core.return();
   }
 
   /**
@@ -231,74 +161,7 @@ export class MessagePortWriter<Yield> implements Writer<Yield> {
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<undefined, undefined>> {
-    if (!this.#isDone) {
-      this.#throw(error);
-    }
-    return makeDoneResult();
-  }
-
-  /**
-   * Forwards the error the port and calls `#finish()`. Mutually recursive with `#send()`.
-   * For this reason, includes a flag indicating past failure, so that `#send()` can avoid
-   * infinite recursion. See `#send()` for more details.
-   *
-   * @param error - The error to forward.
-   * @param hasFailed - Whether sending has failed previously.
-   * @returns The final result for this stream.
-   */
-  #throw(
-    error: Error,
-    hasFailed = false,
-  ): IteratorResult<undefined, undefined> {
-    const result = this.#send(error, hasFailed);
-    !this.#isDone && this.#end();
-    return result;
-  }
-
-  /**
-   * Sends the value over the port. If sending the value fails, calls `#throw()`, and is
-   * therefore mutually recursive with this method. For this reason, includes a flag
-   * indicating past failure to send a value, which is used to avoid infinite recursion.
-   * If sending the value succeeds, returns a finished result (`{ done: true }`) if the
-   * value was an {@link Error} or itself a finished result, otherwise returns an
-   * unfinished result (`{ done: false }`).
-   *
-   * @param value - The value to send over the port.
-   * @param hasFailed - Whether sending has failed previously.
-   * @returns The result of sending the value.
-   */
-  #send(
-    value: IteratorResult<Yield, undefined> | Error,
-    hasFailed = false,
-  ): IteratorResult<undefined, undefined> {
-    try {
-      this.#port.postMessage(value);
-      return value instanceof Error || value.done === true
-        ? makeDoneResult()
-        : { done: false, value: undefined };
-    } catch (error) {
-      console.error('MessagePortWriter experienced a send failure:', error);
-
-      if (hasFailed) {
-        // Break out of repeated failure to send an error. It is unclear how this would occur
-        // in practice, but it's the kind of failure mode where it's better to be sure.
-        const repeatedFailureError = new Error(
-          'MessagePortWriter experienced repeated send failures.',
-          { cause: error },
-        );
-        this.#port.postMessage(repeatedFailureError);
-        throw repeatedFailureError;
-      } else {
-        // postMessage throws only DOMExceptions, which inherit from Error
-        this.#throw(error as Error, true);
-      }
-      return makeDoneResult();
-    }
-  }
-
-  #end(): void {
-    this.#isDone = true;
-    this.#port.close();
+    return this.#core.throw(error);
   }
 }
 harden(MessagePortWriter);

@@ -213,7 +213,7 @@ describe.concurrent('MessagePortWriter', () => {
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'MessagePortWriter experienced a send failure:',
+        'MessagePortWriter experienced a dispatch failure:',
         new Error('foo'),
       );
     });
@@ -231,7 +231,7 @@ describe.concurrent('MessagePortWriter', () => {
       const writer = new MessagePortWriter(port1);
 
       await expect(writer.next(null)).rejects.toThrow(
-        'MessagePortWriter experienced repeated send failures.',
+        'MessagePortWriter experienced repeated dispatch failures.',
       );
       expect(postMessageSpy).toHaveBeenCalledTimes(3);
       expect(postMessageSpy).toHaveBeenNthCalledWith(1, {
@@ -241,7 +241,7 @@ describe.concurrent('MessagePortWriter', () => {
       expect(postMessageSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
       expect(postMessageSpy).toHaveBeenNthCalledWith(
         3,
-        new Error('MessagePortWriter experienced repeated send failures.'),
+        new Error('MessagePortWriter experienced repeated dispatch failures.'),
       );
     });
   });
