@@ -37,7 +37,9 @@ export type CommandReply =
   | CommandLike<CommandMethod.Ping, 'pong'>
   | CommandLike<CommandMethod.Evaluate, string>
   | CommandLike<CommandMethod.CapTpInit, string>
-  | CommandLike<CommandMethod.CapTpCall, string>;
+  | CommandLike<CommandMethod.CapTpCall, string>
+  | CommandLike<CommandMethod.KVGet, string>
+  | CommandLike<CommandMethod.KVSet, string>;
 
 export type VatCommand = {
   id: string;
