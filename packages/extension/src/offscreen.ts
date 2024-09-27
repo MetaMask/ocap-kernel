@@ -5,6 +5,7 @@ import type {
   CommandReplyFunction,
 } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
+import { stringify } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -107,10 +108,7 @@ async function main(): Promise<void> {
           break;
         case CommandMethod.CapTpCall: {
           const result = await vat.callCapTp(payload.params);
-          await replyToCommand(
-            CommandMethod.CapTpCall,
-            JSON.stringify(result, null, 2),
-          );
+          await replyToCommand(CommandMethod.CapTpCall, stringify(result));
           break;
         }
         case CommandMethod.CapTpInit:
