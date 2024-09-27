@@ -5,9 +5,11 @@ export enum CommandMethod {
   CapTpInit = 'makeCapTp',
   Evaluate = 'evaluate',
   Ping = 'ping',
+  KVSet = 'kvSet',
+  KVGet = 'kvGet',
 }
 
-type CommandParams =
+export type CommandParams =
   | Primitive
   | Promise<CommandParams>
   | CommandParams[]
@@ -27,7 +29,9 @@ export type Command =
   | CommandLike<CommandMethod.Ping, null | 'pong'>
   | CommandLike<CommandMethod.Evaluate, string>
   | CommandLike<CommandMethod.CapTpInit, null>
-  | CommandLike<CommandMethod.CapTpCall, CapTpPayload>;
+  | CommandLike<CommandMethod.CapTpCall, CapTpPayload>
+  | CommandLike<CommandMethod.KVGet, string>
+  | CommandLike<CommandMethod.KVSet, { key: string; value: string }>;
 
 export type VatMessage = {
   id: string;

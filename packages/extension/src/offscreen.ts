@@ -1,6 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
 import { CommandMethod } from '@ocap/utils';
+import type { Command, CapTpPayload } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -21,7 +22,41 @@ async function main(): Promise<void> {
     worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
 
-  // Handle messages from the background service worker
+  const receiveFromKernel = async (event: MessageEvent): Promise<void> => {
+    // For the time being, the only messages that come from the kernel worker are replies to actions
+    // initiated from the console, so just forward these replies to the console.  This will need to
+    // change once this offscreen script is providing services to the kernel worker that don't
+    // involve the user (e.g., for things the worker can't do for itself, such as create an
+    // offscreen iframe).
+
+    // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
+    // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
+    // awfully wrong.  Need to add types to account for the replies.
+    const message = event.data as Command;
+    const { method, params } = message;
+    let result: string;
+    const possibleError = params as unknown as Error;
+    if (possibleError?.message && possibleError?.stack) {
+      // XXX TODO: The following is an egregious hack which is barely good enough for manual testing
+      // but not acceptable for serious use.  We should be passing some kind of proper error
+      // indication back so that the recipient will experience a thrown exception or rejected
+      // promise, instead of having to look for a magic string.  This is tolerable only so long as
+      // the sole eventual recipient is a human eyeball, and even then it's questionable.
+      result = `ERROR: ${possibleError.message}`;
+    } else {
+      result = params as string;
+    }
+    await replyToCommand(method, result);
+  };
+
+  const kernelWorker = new Worker('kernel-worker.js', { type: 'module' });
+  kernelWorker.addEventListener(
+    'message',
+    makeHandledCallback(receiveFromKernel),
+  );
+
+  // Handle messages from the background service worker, which for the time being stands in for the
+  // user console.
   chrome.runtime.onMessage.addListener(
     makeHandledCallback(async (message: unknown) => {
       if (!isExtensionRuntimeMessage(message)) {
@@ -63,6 +98,10 @@ async function main(): Promise<void> {
           break;
         case CommandMethod.Ping:
           await replyToCommand(CommandMethod.Ping, 'pong');
+          break;
+        case CommandMethod.KVGet:
+        case CommandMethod.KVSet:
+          sendKernelMessage(payload as unknown as CapTpPayload);
           break;
         default:
           console.error(
@@ -113,5 +152,14 @@ async function main(): Promise<void> {
       }
       return `Error: Unknown error during evaluation.`;
     }
+  }
+
+  /**
+   * Send a message to the kernel worker.
+   *
+   * @param payload - The message to send.
+   */
+  function sendKernelMessage(payload: CapTpPayload): void {
+    kernelWorker.postMessage(payload);
   }
 }
