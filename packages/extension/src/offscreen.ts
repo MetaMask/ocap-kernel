@@ -1,7 +1,7 @@
 import { Kernel } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
-import type { CommandReply, Command } from '@ocap/utils';
 import { CommandMethod, isCommand } from '@ocap/utils';
+import type { CommandReply, Command, CommandReplyInterface } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './makeIframeVatWorker.js';
 import {
@@ -21,6 +21,25 @@ async function main(): Promise<void> {
     id: 'default',
     worker: makeIframeVatWorker('default', initializeMessageChannel),
   });
+
+  /**
+   * Reply to a command from the background script.
+   *
+   * @param method - The command method.
+   * @param params - The command parameters.
+   */
+  const replyToCommand: CommandReplyInterface<Promise<void>> = async (
+    method: CommandMethod,
+    params?: CommandReply['params'],
+  ) => {
+    await chrome.runtime.sendMessage({
+      target: ExtensionMessageTarget.Background,
+      payload: {
+        method,
+        params: params ?? null,
+      },
+    });
+  };
 
   const receiveFromKernel = async (event: MessageEvent): Promise<void> => {
     // For the time being, the only messages that come from the kernel worker are replies to actions
@@ -114,25 +133,6 @@ async function main(): Promise<void> {
       }
     }),
   );
-
-  /**
-   * Reply to a command from the background script.
-   *
-   * @param method - The command method.
-   * @param params - The command parameters.
-   */
-  async function replyToCommand(
-    method: CommandReply['method'],
-    params?: CommandReply['params'],
-  ): Promise<void> {
-    await chrome.runtime.sendMessage({
-      target: ExtensionMessageTarget.Background,
-      payload: {
-        method,
-        params: params ?? null,
-      },
-    });
-  }
 
   /**
    * Evaluate a string in the default iframe.

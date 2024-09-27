@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
-import * as ocapUtils from '@ocap/utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import * as ocapUtils from '@ocap/utils';
 import type {
   CapTpMessage,
   Command,

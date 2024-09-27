@@ -33,6 +33,16 @@ export type Command =
   | CommandLike<CommandMethod.KVGet, string>
   | CommandLike<CommandMethod.KVSet, { key: string; value: string }>;
 
+export type CommandInterface<Return = void | Promise<void>> = {
+  (method: CommandMethod.Ping | CommandMethod.CapTpInit, params?: null): Return;
+  (
+    method: CommandMethod.Evaluate | CommandMethod.KVGet,
+    params: string,
+  ): Return;
+  (method: CommandMethod.CapTpCall, params: CapTpPayload): Return;
+  (method: CommandMethod.KVSet, params: { key: string; value: string }): Return;
+};
+
 export type CommandReply =
   | CommandLike<CommandMethod.Ping, 'pong'>
   | CommandLike<CommandMethod.Evaluate, string>
@@ -40,6 +50,16 @@ export type CommandReply =
   | CommandLike<CommandMethod.CapTpCall, string>
   | CommandLike<CommandMethod.KVGet, string>
   | CommandLike<CommandMethod.KVSet, string>;
+
+type UnionMinus<Union, Minus> = Union extends Minus ? never : Union;
+
+export type CommandReplyInterface<Return = void> = {
+  (method: CommandMethod.Ping, params: 'pong'): Return;
+  (
+    method: UnionMinus<CommandMethod, CommandMethod.Ping>,
+    params: string,
+  ): Return;
+};
 
 export type VatCommand = {
   id: string;

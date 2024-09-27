@@ -1,13 +1,35 @@
 import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
-import type { Command } from '@ocap/utils';
 import { CommandMethod, isCommandReply } from '@ocap/utils';
+import type { Command, CommandInterface } from '@ocap/utils';
 
 import {
   ExtensionMessageTarget,
   isExtensionRuntimeMessage,
   makeHandledCallback,
 } from './shared.js';
+
+/**
+ * Send a message to the offscreen document.
+ *
+ * @param method - The message type.
+ * @param params - The message data.
+ * @param params.name - The name to include in the message.
+ */
+const sendCommand: CommandInterface<Promise<void>> = async (
+  method: CommandMethod,
+  params?: Command['params'],
+) => {
+  await provideOffScreenDocument();
+
+  await chrome.runtime.sendMessage({
+    target: ExtensionMessageTarget.Offscreen,
+    payload: {
+      method,
+      params: params ?? null,
+    },
+  });
+};
 
 // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
 Object.defineProperties(globalThis.kernel, {
@@ -44,28 +66,6 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 chrome.action.onClicked.addListener(() => {
   sendCommand(CommandMethod.Ping).catch(console.error);
 });
-
-/**
- * Send a message to the offscreen document.
- *
- * @param method - The message type.
- * @param params - The message data.
- * @param params.name - The name to include in the message.
- */
-async function sendCommand<Type extends Command>(
-  method: Type['method'],
-  params?: Type['params'],
-): Promise<void> {
-  await provideOffScreenDocument();
-
-  await chrome.runtime.sendMessage({
-    target: ExtensionMessageTarget.Offscreen,
-    payload: {
-      method,
-      params: params ?? null,
-    },
-  });
-}
 
 /**
  * Create the offscreen document if it doesn't already exist.

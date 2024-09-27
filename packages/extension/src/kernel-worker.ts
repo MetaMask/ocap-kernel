@@ -1,6 +1,6 @@
 import './kernel-worker-trusted-prelude.js';
-import type { Command } from '@ocap/utils';
-import { CommandMethod } from '@ocap/utils';
+import { CommandMethod, isCommand } from '@ocap/utils';
+import type { CommandReply, CommandReplyInterface } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -158,11 +158,27 @@ async function main(): Promise<void> {
     sqlKVSet.reset();
   }
 
+  /**
+   * Reply to the background script.
+   *
+   * @param method - The message method.
+   * @param params - The message params.
+   */
+  const reply: CommandReplyInterface = (
+    method: CommandMethod,
+    params?: CommandReply['params'],
+  ) => {
+    postMessage({ method, params });
+  };
+
   // Handle messages from the console service worker
   onmessage = async (event) => {
-    const message = event.data;
-    const { method, params } = message as Command;
+    if (!isCommand(event.data)) {
+      console.log('received unexpected message', event.data);
+    }
+    const { method, params } = event.data;
     console.log('received message: ', method, params);
+
     switch (method) {
       case CommandMethod.Evaluate:
         reply(CommandMethod.Evaluate, await evaluate(params));
@@ -205,16 +221,6 @@ async function main(): Promise<void> {
         );
     }
   };
-
-  /**
-   * Reply to the background script.
-   *
-   * @param method - The message method.
-   * @param params - The message params.
-   */
-  function reply(method: CommandMethod, params?: string): void {
-    postMessage({ method, params });
-  }
 
   /**
    * Evaluate a string in the default iframe.
