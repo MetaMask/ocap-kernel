@@ -28,11 +28,11 @@ Object.defineProperties(globalThis.kernel, {
     value: sendCommand,
   },
   kvGet: {
-    value: async (key: string) => sendCommand(CommandMethod.KVGet, [key]),
+    value: async (key: string) => sendCommand(CommandMethod.KVGet, key),
   },
   kvSet: {
     value: async (key: string, value: string) =>
-      sendCommand(CommandMethod.KVSet, [key, value]),
+      sendCommand(CommandMethod.KVSet, { key, value }),
   },
 });
 harden(globalThis.kernel);

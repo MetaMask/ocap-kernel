@@ -16,8 +16,8 @@ export const isCommand = (value: unknown): value is Command =>
   isObject(value) &&
   typeof value.method === 'string' &&
   (typeof value.params === 'string' ||
-    Array.isArray(value.params) ||
     value.params === null ||
+    isObject(value.params) || // XXX certainly wrong, needs better TypeScript magic
     isCapTpPayload(value.params));
 
 export const isVatMessage = (value: unknown): value is VatMessage =>

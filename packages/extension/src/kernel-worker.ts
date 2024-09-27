@@ -1,4 +1,5 @@
 import './endoify.js';
+import type { Command } from '@ocap/utils';
 import { CommandMethod } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
@@ -160,11 +161,11 @@ async function main(): Promise<void> {
   // Handle messages from the console service worker
   onmessage = async (event) => {
     const message = event.data;
-    const { method, params } = message;
+    const { method, params } = message as Command;
     console.log('received message: ', method, params);
     switch (method) {
       case CommandMethod.Evaluate:
-        reply(CommandMethod.Evaluate, await evaluate(params[0] as string));
+        reply(CommandMethod.Evaluate, await evaluate(params));
         break;
       case CommandMethod.CapTpCall: {
         reply(
@@ -183,17 +184,14 @@ async function main(): Promise<void> {
         reply(CommandMethod.Ping, 'pong');
         break;
       case CommandMethod.KVSet: {
-        // TODO all this goofing around with type casts could be avoided by giving each CommandMethod value
-        // a type def for its params
-        const key = params[0] as string;
-        const value = params[1] as string;
+        const { key, value } = params;
         kvSet(key, value);
         reply(CommandMethod.KVSet, `~~~ set "${key}" to "${value}" ~~~`);
         break;
       }
       case CommandMethod.KVGet: {
         try {
-          const result = kvGet(params[0] as string);
+          const result = kvGet(params);
           reply(CommandMethod.KVGet, result);
         } catch (problem) {
           reply(CommandMethod.KVGet, problem as string); // cast is a lie, it really is an Error
@@ -202,6 +200,7 @@ async function main(): Promise<void> {
       }
       default:
         console.error(
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `kernel received unexpected method in message: "${method}"`,
         );
     }
