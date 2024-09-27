@@ -87,7 +87,8 @@
   "lavamoat": {
     "allowScripts": {
       "@lavamoat/preinstall-always-fail": false,
-      "vite>esbuild": false
+      "vite>esbuild": false,
+      "simple-git-hooks": false
     }
   }
 }
