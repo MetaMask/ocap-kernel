@@ -31,6 +31,15 @@ type CommandLike<Method extends CommandMethod, Data extends CommandParams> = {
   params: Data;
 };
 
+type CommandReplyLike<
+  Method extends CommandMethod,
+  Data extends CommandParams,
+  ErrorType extends Error = never,
+> = {
+  method: Method;
+  params: Data | ErrorType;
+};
+
 const isCommandLike = (
   value: unknown,
 ): value is {
@@ -67,22 +76,24 @@ export type CommandFunction<Return = void | Promise<void>> = {
 };
 
 export type CommandReply =
-  | CommandLike<CommandMethod.Ping, 'pong'>
-  | CommandLike<CommandMethod.Evaluate, string>
-  | CommandLike<CommandMethod.CapTpInit, string>
-  | CommandLike<CommandMethod.CapTpCall, string>
-  | CommandLike<CommandMethod.KVGet, string>
-  | CommandLike<CommandMethod.KVSet, string>;
+  | CommandReplyLike<CommandMethod.Ping, 'pong'>
+  | CommandReplyLike<CommandMethod.Evaluate, string>
+  | CommandReplyLike<CommandMethod.CapTpInit, string>
+  | CommandReplyLike<CommandMethod.CapTpCall, string>
+  | CommandReplyLike<CommandMethod.KVGet, string, Error>
+  | CommandReplyLike<CommandMethod.KVSet, string>;
 
 export const isCommandReply = (value: unknown): value is CommandReply =>
-  isCommandLike(value) && typeof value.params === 'string';
+  isCommandLike(value) &&
+  (typeof value.params === 'string' || value.params instanceof Error);
 
 type UnionMinus<Union, Minus> = Union extends Minus ? never : Union;
 
 export type CommandReplyFunction<Return = void> = {
   (method: CommandMethod.Ping, params: 'pong'): Return;
+  (method: CommandMethod.KVGet, params: string | Error): Return;
   (
-    method: UnionMinus<CommandMethod, CommandMethod.Ping>,
+    method: UnionMinus<CommandMethod, CommandMethod.Ping | CommandMethod.KVGet>,
     params: string,
   ): Return;
 };

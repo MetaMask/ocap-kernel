@@ -172,6 +172,17 @@ async function main(): Promise<void> {
     postMessage({ method, params });
   };
 
+  /**
+   * Cast an unknown problem to an Error object.
+   *
+   * @param problem - Whatever was caught.
+   * @returns The problem if it is an Error, or a new Error with the problem as the cause.
+   */
+  const asError = (problem: unknown): Error =>
+    problem instanceof Error
+      ? problem
+      : new Error('Unknown', { cause: problem });
+
   // Handle messages from the console service worker
   globalThis.onmessage = async (event: MessageEvent<unknown>) => {
     if (!isCommand(event.data)) {
@@ -213,7 +224,7 @@ async function main(): Promise<void> {
           const result = kvGet(params);
           reply(CommandMethod.KVGet, result);
         } catch (problem) {
-          reply(CommandMethod.KVGet, problem as string); // cast is a lie, it really is an Error
+          reply(CommandMethod.KVGet, asError(problem));
         }
         break;
       }
