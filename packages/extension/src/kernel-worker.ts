@@ -179,12 +179,12 @@ async function main(): Promise<void> {
       return;
     }
 
-    const payload = event.data;
-    console.log('received message: ', payload.method, payload.params);
+    const { method, params } = event.data;
+    console.log('received message: ', method, params);
 
-    switch (payload.method) {
+    switch (method) {
       case CommandMethod.Evaluate:
-        reply(CommandMethod.Evaluate, await evaluate(payload.params));
+        reply(CommandMethod.Evaluate, await evaluate(params));
         break;
       case CommandMethod.CapTpCall: {
         reply(
@@ -203,14 +203,14 @@ async function main(): Promise<void> {
         reply(CommandMethod.Ping, 'pong');
         break;
       case CommandMethod.KVSet: {
-        const { key, value } = payload.params;
+        const { key, value } = params;
         kvSet(key, value);
         reply(CommandMethod.KVSet, `~~~ set "${key}" to "${value}" ~~~`);
         break;
       }
       case CommandMethod.KVGet: {
         try {
-          const result = kvGet(payload.params);
+          const result = kvGet(params);
           reply(CommandMethod.KVGet, result);
         } catch (problem) {
           reply(CommandMethod.KVGet, problem as string); // cast is a lie, it really is an Error
@@ -221,7 +221,7 @@ async function main(): Promise<void> {
         console.error(
           `Kernel received unexpected method in message: "${stringify(
             // @ts-expect-error Runtime does not respect "never".
-            payload.method,
+            method.valueOf(),
           )}"`,
         );
     }
