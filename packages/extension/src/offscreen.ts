@@ -123,7 +123,7 @@ async function main(): Promise<void> {
           break;
         default:
           console.error(
-            // @ts-expect-error The type of `payload` is `never`, but this could happen at runtime.
+            // @ts-expect-error Runtime does not respect "never".
             // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `Offscreen received unexpected command method: "${payload.method}"`,
           );

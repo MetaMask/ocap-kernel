@@ -88,7 +88,7 @@ export class Supervisor {
         if (typeof payload.params !== 'string') {
           console.error(
             'Supervisor received command with unexpected params',
-            // @ts-expect-error The type of `message.data` is `never`, but this could happen at runtime.
+            // @ts-expect-error Runtime does not respect "never".
             stringify(payload.params),
           );
           return;
