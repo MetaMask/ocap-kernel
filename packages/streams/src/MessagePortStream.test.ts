@@ -75,7 +75,7 @@ describe.concurrent('MessagePortReader', () => {
       port2.postMessage(unexpectedMessage);
 
       await expect(nextP).rejects.toThrow(
-        'Received unexpected message via message port',
+        'Received unexpected message from transport',
       );
     });
 

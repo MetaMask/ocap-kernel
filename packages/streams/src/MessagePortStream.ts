@@ -9,7 +9,9 @@
  * this reason, ports have to be ended manually via `.return()` or `.throw()`. Ending a
  * {@link MessagePortWriter} will end any {@link MessagePortReader} reading from the
  * remote port and close the entangled ports, but it will not affect any other streams
- * connected to the remote or local port, which must also be ended manually.
+ * connected to the remote or local port, which must also be ended manually. Use
+ * {@link makeMessagePortStreamPair} to make a pair of streams that share a local port
+ * and can be ended together.
  *
  * Regarding limitations around detecting `MessagePort` closure, see:
  * - https://github.com/fergald/explainer-messageport-close
@@ -18,80 +20,48 @@
  * @module MessagePort streams
  */
 
-import type { Reader, Writer } from '@endo/stream';
-
+import type { ReceiveInput } from './BaseStream.js';
+import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { StreamPair } from './shared.js';
-import { ReaderCore, WriterCore } from './StreamCore.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
  *
  * This class is a naive passthrough mechanism for data over a pair of linked message
- * ports. Expects exclusive access to its port.
+ * ports. Expects exclusive read access to its port.
  *
  * @see
  * - {@link MessagePortWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortReader<Yield> implements Reader<Yield> {
-  readonly #core: ReaderCore<Yield>;
-
+export class MessagePortReader<Yield> extends BaseReader<Yield> {
   readonly #port: MessagePort;
 
+  readonly #receiveInput: ReceiveInput<Yield>;
+
   constructor(port: MessagePort) {
-    this.#core = new ReaderCore(this.#end.bind(this));
+    super();
+    super.setOnEnd(this.#closePort.bind(this));
+    this.#receiveInput = super.getReceiveInput();
     this.#port = port;
     // Assigning to the `onmessage` property initializes the port's message queue.
     // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
-    this.#port.onmessage = this.#handleMessage.bind(this);
+    this.#port.onmessage = this.#onMessage.bind(this);
     harden(this);
   }
 
-  #end(): void {
+  #closePort(): void {
     this.#port.close();
     this.#port.onmessage = null;
   }
 
-  #handleMessage(messageEvent: MessageEvent): void {
+  #onMessage(messageEvent: MessageEvent): void {
     if (messageEvent.data instanceof Error) {
-      this.#core.throw(messageEvent.data);
+      this.throwSync(messageEvent.data);
       return;
     }
 
-    this.#core.receiveInput(messageEvent.data);
-  }
-
-  [Symbol.asyncIterator](): MessagePortReader<Yield> {
-    return this;
-  }
-
-  /**
-   * Reads the next message from the port.
-   *
-   * @returns The next message from the port.
-   */
-  async next(): Promise<IteratorResult<Yield, undefined>> {
-    return this.#core.next();
-  }
-
-  /**
-   * Closes the underlying port and returns. Any unread messages will be lost.
-   *
-   * @returns The final result for this stream.
-   */
-  async return(): Promise<IteratorResult<Yield, undefined>> {
-    return this.#core.return();
-  }
-
-  /**
-   * Rejects all pending reads with the specified error, closes the underlying port,
-   * and returns.
-   *
-   * @param error - The error to reject pending reads with.
-   * @returns The final result for this stream.
-   */
-  async throw(error: Error): Promise<IteratorResult<Yield, undefined>> {
-    return this.#core.throw(error);
+    this.#receiveInput(messageEvent.data);
   }
 }
 harden(MessagePortReader);
@@ -99,69 +69,27 @@ harden(MessagePortReader);
 /**
  * A writable stream over a {@link MessagePort}.
  *
- * This class is a naive passthrough mechanism for data over a pair of linked message
- * ports. The message port mechanism is assumed to be completely reliable, and this
- * class therefore has no concept of errors or error handling. Errors and closure
- * are expected to be handled at a higher level of abstraction.
- *
  * @see
  * - {@link MessagePortReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortWriter<Yield> implements Writer<Yield> {
-  readonly #core: WriterCore<Yield>;
-
+export class MessagePortWriter<Yield> extends BaseWriter<Yield> {
   readonly #port: MessagePort;
 
   constructor(port: MessagePort) {
-    this.#core = new WriterCore(
-      'MessagePortWriter',
-      this.#dispatch.bind(this),
-      this.#end.bind(this),
-    );
+    super('MessagePortWriter');
+    super.setOnDispatch(this.#postMessage.bind(this));
+    super.setOnEnd(this.#closePort.bind(this));
     this.#port = port;
     harden(this);
   }
 
-  #end(): void {
+  #closePort(): void {
     this.#port.close();
   }
 
-  #dispatch(value: IteratorResult<Yield, undefined> | Error): void {
+  #postMessage(value: IteratorResult<Yield, undefined> | Error): void {
     this.#port.postMessage(value);
-  }
-
-  [Symbol.asyncIterator](): MessagePortWriter<Yield> {
-    return this;
-  }
-
-  /**
-   * Writes the next message to the port.
-   *
-   * @param value - The next message to write to the port.
-   * @returns The result of writing the message.
-   */
-  async next(value: Yield): Promise<IteratorResult<undefined, undefined>> {
-    return this.#core.next(value);
-  }
-
-  /**
-   * Closes the underlying port and returns. Idempotent.
-   *
-   * @returns The final result for this stream.
-   */
-  async return(): Promise<IteratorResult<undefined, undefined>> {
-    return this.#core.return();
-  }
-
-  /**
-   * Forwards the error to the port and closes this stream. Idempotent.
-   *
-   * @param error - The error to forward to the port.
-   * @returns The final result for this stream.
-   */
-  async throw(error: Error): Promise<IteratorResult<undefined, undefined>> {
-    return this.#core.throw(error);
   }
 }
 harden(MessagePortWriter);
