@@ -1,9 +1,10 @@
 import '@ocap/shims/endoify';
 
+import { stringify } from '@ocap/utils';
 import { describe, it, expect } from 'vitest';
 
-import type { CapTpMessage, VatCommand, VatCommandReply } from './command.js';
-import { CommandMethod } from './command.js';
+import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
+import { VatCommandMethod } from './messages.js';
 import {
   wrapCapTp,
   wrapStreamCommand,
@@ -14,8 +15,8 @@ import {
 
 describe('StreamEnvelopeHandler', () => {
   const commandContent: VatCommand = {
-    id: '1',
-    payload: { method: CommandMethod.Evaluate, params: '1 + 1' },
+    id: 'v0:0',
+    payload: { method: VatCommandMethod.Evaluate, params: '1 + 1' },
   };
   const capTpContent: CapTpMessage = {
     type: 'CTP_CALL',
@@ -32,21 +33,24 @@ describe('StreamEnvelopeHandler', () => {
     capTp: async () => capTpLabel,
   };
 
-  const testErrorHandler = (problem: unknown): never => {
-    throw new Error(`TEST ${String(problem)}`);
+  const testErrorHandler = (problem: unknown, value: unknown): never => {
+    throw new Error(`TEST ${String(problem)} ${stringify(value)}`);
   };
 
   it.each`
     wrapper              | content           | label
     ${wrapStreamCommand} | ${commandContent} | ${commandLabel}
     ${wrapCapTp}         | ${capTpContent}   | ${capTpLabel}
-  `('handles valid StreamEnvelopes', async ({ wrapper, content, label }) => {
-    const handler = makeStreamEnvelopeHandler(
-      testEnvelopeHandlers,
-      testErrorHandler,
-    );
-    expect(await handler.handle(wrapper(content))).toStrictEqual(label);
-  });
+  `(
+    'handles valid StreamEnvelope $content',
+    async ({ wrapper, content, label }) => {
+      const handler = makeStreamEnvelopeHandler(
+        testEnvelopeHandlers,
+        testErrorHandler,
+      );
+      expect(await handler.handle(wrapper(content))).toStrictEqual(label);
+    },
+  );
 
   it('routes invalid envelopes to default error handler', async () => {
     const handler = makeStreamEnvelopeHandler(testEnvelopeHandlers);
@@ -82,8 +86,8 @@ describe('StreamEnvelopeHandler', () => {
 
 describe('StreamEnvelopeReplyHandler', () => {
   const commandContent: VatCommandReply = {
-    id: '1',
-    payload: { method: CommandMethod.Evaluate, params: '2' },
+    id: 'v0:0',
+    payload: { method: VatCommandMethod.Evaluate, params: '2' },
   };
   const capTpContent: CapTpMessage = {
     type: 'CTP_CALL',
@@ -100,21 +104,24 @@ describe('StreamEnvelopeReplyHandler', () => {
     capTp: async () => capTpLabel,
   };
 
-  const testErrorHandler = (problem: unknown): never => {
-    throw new Error(`TEST ${String(problem)}`);
+  const testErrorHandler = (problem: unknown, value: unknown): never => {
+    throw new Error(`TEST ${String(problem)} ${stringify(value)}`);
   };
 
   it.each`
     wrapper                   | content           | label
     ${wrapStreamCommandReply} | ${commandContent} | ${commandLabel}
     ${wrapCapTp}              | ${capTpContent}   | ${capTpLabel}
-  `('handles valid StreamEnvelopes', async ({ wrapper, content, label }) => {
-    const handler = makeStreamEnvelopeReplyHandler(
-      testEnvelopeHandlers,
-      testErrorHandler,
-    );
-    expect(await handler.handle(wrapper(content))).toStrictEqual(label);
-  });
+  `(
+    'handles valid StreamEnvelopeReply $content',
+    async ({ wrapper, content, label }) => {
+      const handler = makeStreamEnvelopeReplyHandler(
+        testEnvelopeHandlers,
+        testErrorHandler,
+      );
+      expect(await handler.handle(wrapper(content))).toStrictEqual(label);
+    },
+  );
 
   it('routes invalid envelopes to default error handler', async () => {
     const handler = makeStreamEnvelopeReplyHandler(testEnvelopeHandlers);

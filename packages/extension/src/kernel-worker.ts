@@ -1,11 +1,22 @@
 import './kernel-worker-trusted-prelude.js';
-import { CommandMethod, isCommand } from '@ocap/kernel';
-import type { CommandReply, CommandReplyFunction } from '@ocap/kernel';
-import { stringify } from '@ocap/utils';
+import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
+import { isKernelCommand, KernelCommandMethod } from '@ocap/kernel';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 main().catch(console.error);
+
+// We temporarily have the kernel commands split between offscreen and kernel-worker
+type KernelWorkerCommand = Extract<
+  KernelCommand,
+  | { method: typeof KernelCommandMethod.KVSet }
+  | { method: typeof KernelCommandMethod.KVGet }
+>;
+
+const isKernelWorkerCommand = (value: unknown): value is KernelWorkerCommand =>
+  isKernelCommand(value) &&
+  (value.method === KernelCommandMethod.KVSet ||
+    value.method === KernelCommandMethod.KVGet);
 
 type Queue<Type> = Type[];
 
@@ -165,10 +176,10 @@ async function main(): Promise<void> {
    * @param method - The message method.
    * @param params - The message params.
    */
-  const reply: CommandReplyFunction = (
-    method: CommandMethod,
-    params?: CommandReply['params'],
-  ) => {
+  const reply = (
+    method: KernelCommandReply['method'],
+    params?: KernelCommandReply['params'],
+  ): void => {
     postMessage({ method, params });
   };
 
@@ -183,71 +194,49 @@ async function main(): Promise<void> {
       ? problem
       : new Error('Unknown', { cause: problem });
 
-  // Handle messages from the console service worker
-  globalThis.onmessage = async (event: MessageEvent<unknown>) => {
-    if (!isCommand(event.data)) {
-      console.error('Received unexpected message', event.data);
-      return;
-    }
-
-    const { method, params } = event.data;
-    console.log('received message: ', method, params);
-
+  /**
+   * Handle a KernelCommand sent from the offscreen.
+   *
+   * @param command - The KernelCommand to handle.
+   * @param command.method - The command method.
+   * @param command.params - The command params.
+   */
+  const handleKernelCommand = ({
+    method,
+    params,
+  }: KernelWorkerCommand): void => {
     switch (method) {
-      case CommandMethod.Evaluate:
-        reply(CommandMethod.Evaluate, await evaluate(params));
+      case KernelCommandMethod.KVSet:
+        kvSet(params.key, params.value);
+        reply(method, `~~~ set "${params.key}" to "${params.value}" ~~~`);
         break;
-      case CommandMethod.CapTpCall: {
-        reply(
-          CommandMethod.CapTpCall,
-          'Error: CapTpCall not implemented here (yet)',
-        );
-        break;
-      }
-      case CommandMethod.CapTpInit:
-        reply(
-          CommandMethod.CapTpInit,
-          'Error: CapTpInit not implemented here (yet)',
-        );
-        break;
-      case CommandMethod.Ping:
-        reply(CommandMethod.Ping, 'pong');
-        break;
-      case CommandMethod.KVSet: {
-        const { key, value } = params;
-        kvSet(key, value);
-        reply(CommandMethod.KVSet, `~~~ set "${key}" to "${value}" ~~~`);
-        break;
-      }
-      case CommandMethod.KVGet: {
+      case KernelCommandMethod.KVGet: {
         try {
           const result = kvGet(params);
-          reply(CommandMethod.KVGet, result);
+          reply(method, result);
         } catch (problem) {
-          // The below will work because we call into globalThis.postMessage() directly,
-          // which can handle errors. This will need to be addressed once we use streams here.
-          // @ts-expect-error TODO: Fix when we have streams.
-          reply(CommandMethod.KVGet, asError(problem));
+          // TODO: marshal
+          reply(method, String(asError(problem)));
         }
         break;
       }
       default:
         console.error(
-          `Kernel received unexpected method in message: "${stringify(
-            // @ts-expect-error Runtime does not respect "never".
-            method.valueOf(),
-          )}"`,
+          'kernel worker received unexpected command',
+          // @ts-expect-error Runtime does not respect "never".
+          { method: method.valueOf(), params },
         );
     }
   };
 
-  /**
-   * Evaluate a string in the default iframe.
-   *
-   * @param _source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  async function evaluate(_source: string): Promise<string> {
-    return `Error: evaluate not implemented here (yet)`;
-  }
+  // Handle messages from the console service worker
+  globalThis.onmessage = async (
+    event: MessageEvent<unknown>,
+  ): Promise<void> => {
+    if (isKernelWorkerCommand(event.data)) {
+      handleKernelCommand(event.data);
+    } else {
+      console.error('Received unexpected message', event.data);
+    }
+  };
 }

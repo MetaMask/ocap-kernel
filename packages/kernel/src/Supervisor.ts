@@ -2,8 +2,13 @@ import { makeCapTP } from '@endo/captp';
 import type { StreamPair, Reader } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
-import type { CapTpMessage, CommandReply, VatCommand } from './command.js';
-import { CommandMethod } from './command.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+  VatMessageId,
+} from './messages.js';
+import { VatCommandMethod } from './messages.js';
 import type {
   StreamEnvelope,
   StreamEnvelopeHandler,
@@ -84,7 +89,7 @@ export class Supervisor {
    */
   async handleMessage({ id, payload }: VatCommand): Promise<void> {
     switch (payload.method) {
-      case CommandMethod.Evaluate: {
+      case VatCommandMethod.Evaluate: {
         if (typeof payload.params !== 'string') {
           console.error(
             'Supervisor received command with unexpected params',
@@ -95,12 +100,12 @@ export class Supervisor {
         }
         const result = this.evaluate(payload.params);
         await this.replyToMessage(id, {
-          method: CommandMethod.Evaluate,
+          method: VatCommandMethod.Evaluate,
           params: stringify(result),
         });
         break;
       }
-      case CommandMethod.CapTpInit: {
+      case VatCommandMethod.CapTpInit: {
         this.capTp = makeCapTP(
           'iframe',
           async (content: unknown) =>
@@ -108,20 +113,22 @@ export class Supervisor {
           this.#bootstrap,
         );
         await this.replyToMessage(id, {
-          method: CommandMethod.CapTpInit,
+          method: VatCommandMethod.CapTpInit,
           params: '~~~ CapTP Initialized ~~~',
         });
         break;
       }
-      case CommandMethod.Ping:
+      case VatCommandMethod.Ping:
         await this.replyToMessage(id, {
-          method: CommandMethod.Ping,
+          method: VatCommandMethod.Ping,
           params: 'pong',
         });
         break;
       default:
         console.error(
-          `Supervisor received unexpected command method: "${payload.method}"`,
+          'Supervisor received unexpected command method:',
+          // @ts-expect-error Runtime does not respect "never".
+          payload.method,
         );
     }
   }
@@ -132,7 +139,10 @@ export class Supervisor {
    * @param id - The id of the message to reply to.
    * @param payload - The payload to reply with.
    */
-  async replyToMessage(id: string, payload: CommandReply): Promise<void> {
+  async replyToMessage(
+    id: VatMessageId,
+    payload: VatCommandReply['payload'],
+  ): Promise<void> {
     await this.streams.writer.next(wrapStreamCommandReply({ id, payload }));
   }
 

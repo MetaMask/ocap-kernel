@@ -1,13 +1,8 @@
 import { makeStreamEnvelopeKit } from '@ocap/streams';
+import type { GuardType } from '@ocap/utils';
 
-import { isCapTpMessage, isVatCommand, isVatCommandReply } from './command.js';
-import type { CapTpMessage, VatCommand, VatCommandReply } from './command.js';
-
-type GuardType<TypeGuard> = TypeGuard extends (
-  value: unknown,
-) => value is infer Type
-  ? Type
-  : never;
+import { isCapTpMessage, isVatCommand, isVatCommandReply } from './messages.js';
+import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
 
 // Declare and destructure the envelope kit.
 
@@ -34,7 +29,7 @@ const envelopeKit = makeStreamEnvelopeKit<
     capTp: CapTpMessage;
   }
 >({
-  command: (value) => isVatCommand(value),
+  command: isVatCommand,
   capTp: isCapTpMessage,
 });
 
@@ -56,7 +51,7 @@ const streamEnvelopeReplyKit = makeStreamEnvelopeKit<
     capTp: CapTpMessage;
   }
 >({
-  command: (value) => isVatCommandReply(value),
+  command: isVatCommandReply,
   capTp: isCapTpMessage,
 });
 

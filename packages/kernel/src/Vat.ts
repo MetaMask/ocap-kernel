@@ -5,13 +5,14 @@ import type { StreamPair, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
+import { VatCommandMethod } from './messages.js';
 import type {
   CapTpMessage,
   CapTpPayload,
-  Command,
   VatCommandReply,
-} from './command.js';
-import { CommandMethod } from './command.js';
+  VatCommand,
+  VatMessageId,
+} from './messages.js';
 import type {
   StreamEnvelope,
   StreamEnvelopeReply,
@@ -22,7 +23,7 @@ import {
   wrapCapTp,
   wrapStreamCommand,
 } from './stream-envelope.js';
-import type { MessageId, UnresolvedMessages, VatId } from './types.js';
+import type { PromiseCallbacks, VatId } from './types.js';
 
 type VatConstructorProps = {
   id: VatId;
@@ -38,7 +39,7 @@ export class Vat {
 
   readonly #messageCounter: () => number;
 
-  readonly unresolvedMessages: UnresolvedMessages = new Map();
+  readonly unresolvedMessages: Map<VatMessageId, PromiseCallbacks> = new Map();
 
   readonly streamEnvelopeReplyHandler: StreamEnvelopeReplyHandler;
 
@@ -84,7 +85,7 @@ export class Vat {
       throw error;
     });
 
-    await this.sendMessage({ method: CommandMethod.Ping, params: null });
+    await this.sendMessage({ method: VatCommandMethod.Ping, params: null });
     this.logger.debug('Created');
 
     return await this.makeCapTp();
@@ -129,7 +130,10 @@ export class Vat {
       ctp.dispatch(content);
     };
 
-    return this.sendMessage({ method: CommandMethod.CapTpInit, params: null });
+    return this.sendMessage({
+      method: VatCommandMethod.CapTpInit,
+      params: null,
+    });
   }
 
   /**
@@ -166,7 +170,7 @@ export class Vat {
    * @param payload - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(payload: Command): Promise<unknown> {
+  async sendMessage(payload: VatCommand['payload']): Promise<unknown> {
     this.logger.debug('Sending message to vat', payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
@@ -182,7 +186,7 @@ export class Vat {
    *
    * @returns The message ID.
    */
-  readonly #nextMessageId = (): MessageId => {
-    return `${this.id}-${this.#messageCounter()}`;
+  readonly #nextMessageId = (): VatMessageId => {
+    return `${this.id}:${this.#messageCounter()}`;
   };
 }

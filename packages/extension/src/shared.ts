@@ -1,5 +1,3 @@
-export type VatId = string;
-
 /**
  * Wrap an async callback to ensure any errors are at least logged.
  *

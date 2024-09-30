@@ -1,5 +1,15 @@
-import { Kernel, CommandMethod, isCommand } from '@ocap/kernel';
-import type { CommandReply, Command, CommandReplyFunction } from '@ocap/kernel';
+import {
+  Kernel,
+  KernelCommandMethod,
+  isKernelCommand,
+  isKernelCommandReply,
+} from '@ocap/kernel';
+import type {
+  KernelCommandReply,
+  KernelCommand,
+  KernelCommandReplyFunction,
+  VatId,
+} from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
@@ -24,8 +34,8 @@ async function main(): Promise<void> {
 
   const kernel = new Kernel();
   const iframeReadyP = kernel.launchVat({
-    id: 'default',
-    worker: makeIframeVatWorker('default', initializeMessageChannel),
+    id: 'v0',
+    worker: makeIframeVatWorker('v0', initializeMessageChannel),
   });
 
   /**
@@ -34,9 +44,9 @@ async function main(): Promise<void> {
    * @param method - The command method.
    * @param params - The command parameters.
    */
-  const replyToCommand: CommandReplyFunction<Promise<void>> = async (
-    method: CommandMethod,
-    params?: CommandReply['params'],
+  const replyToBackground: KernelCommandReplyFunction<Promise<void>> = async (
+    method: KernelCommand['method'],
+    params?: KernelCommandReply['params'],
   ) => {
     await backgroundStreams.writer.next({
       method,
@@ -54,8 +64,9 @@ async function main(): Promise<void> {
     // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
     // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
     // awfully wrong.  Need to add types to account for the replies.
-    if (!isCommand(event.data)) {
+    if (!isKernelCommandReply(event.data)) {
       console.error('kernel received unexpected message', event.data);
+      return;
     }
     const { method, params } = event.data;
     let result: string;
@@ -68,9 +79,10 @@ async function main(): Promise<void> {
       // the sole eventual recipient is a human eyeball, and even then it's questionable.
       result = `ERROR: ${possibleError.message}`;
     } else {
-      result = params as string;
+      result = params;
     }
-    await replyToCommand(method, result);
+    // @ts-expect-error TODO: resolve method types.
+    await replyToBackground(method, result);
   };
 
   const kernelWorker = new Worker('kernel-worker.js', { type: 'module' });
@@ -79,49 +91,70 @@ async function main(): Promise<void> {
     makeHandledCallback(receiveFromKernel),
   );
 
+  const handleVatTestCommand = async ({
+    method,
+    params,
+  }: Extract<
+    KernelCommand,
+    | { method: typeof KernelCommandMethod.Evaluate }
+    | { method: typeof KernelCommandMethod.CapTpCall }
+  >): Promise<void> => {
+    const vat = await iframeReadyP;
+    switch (method) {
+      case KernelCommandMethod.Evaluate:
+        await replyToBackground(method, await evaluate(vat.id, params));
+        break;
+      case KernelCommandMethod.CapTpCall:
+        await replyToBackground(method, stringify(await vat.callCapTp(params)));
+        break;
+      default:
+        console.error(
+          'Offscreen received unexpected vat command',
+          // @ts-expect-error Runtime does not respect "never".
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          { method: method.valueOf(), params },
+        );
+    }
+  };
+
+  const handleKernelCommand = async ({
+    method,
+    params,
+  }: KernelCommand): Promise<void> => {
+    switch (method) {
+      case KernelCommandMethod.Ping:
+        await replyToBackground(method, 'pong');
+        break;
+      case KernelCommandMethod.Evaluate:
+        await handleVatTestCommand({ method, params });
+        break;
+      case KernelCommandMethod.CapTpCall:
+        await handleVatTestCommand({ method, params });
+        break;
+      case KernelCommandMethod.KVGet:
+        sendKernelMessage({ method, params });
+        break;
+      case KernelCommandMethod.KVSet:
+        sendKernelMessage({ method, params });
+        break;
+      default:
+        console.error(
+          'Offscreen received unexpected kernel command',
+          // @ts-expect-error Runtime does not respect "never".
+          { method: method.valueOf(), params },
+        );
+    }
+  };
+
   // Handle messages from the background service worker, which for the time being stands in for the
   // user console.
   for await (const message of backgroundStreams.reader) {
-    if (!isCommand(message)) {
+    if (!isKernelCommand(message)) {
       console.error('Offscreen received unexpected message', message);
       continue;
     }
 
-    const vat = await iframeReadyP;
-
-    switch (message.method) {
-      case CommandMethod.Evaluate:
-        await replyToCommand(
-          CommandMethod.Evaluate,
-          await evaluate(vat.id, message.params),
-        );
-        break;
-      case CommandMethod.CapTpCall: {
-        const result = await vat.callCapTp(message.params);
-        await replyToCommand(CommandMethod.CapTpCall, stringify(result));
-        break;
-      }
-      case CommandMethod.CapTpInit:
-        await vat.makeCapTp();
-        await replyToCommand(
-          CommandMethod.CapTpInit,
-          '~~~ CapTP Initialized ~~~',
-        );
-        break;
-      case CommandMethod.Ping:
-        await replyToCommand(CommandMethod.Ping, 'pong');
-        break;
-      case CommandMethod.KVGet:
-      case CommandMethod.KVSet:
-        sendKernelMessage(message);
-        break;
-      default:
-        console.error(
-          // @ts-expect-error Runtime does not respect "never".
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Offscreen received unexpected command method: "${message.method}"`,
-        );
-    }
+    await handleKernelCommand(message);
   }
 
   /**
@@ -131,10 +164,10 @@ async function main(): Promise<void> {
    * @param source - The source string to evaluate.
    * @returns The result of the evaluation, or an error message.
    */
-  async function evaluate(vatId: string, source: string): Promise<string> {
+  async function evaluate(vatId: VatId, source: string): Promise<string> {
     try {
       const result = await kernel.sendMessage(vatId, {
-        method: CommandMethod.Evaluate,
+        method: KernelCommandMethod.Evaluate,
         params: source,
       });
       return String(result);
@@ -151,7 +184,7 @@ async function main(): Promise<void> {
    *
    * @param payload - The message to send.
    */
-  function sendKernelMessage(payload: Command): void {
+  function sendKernelMessage(payload: KernelCommand): void {
     kernelWorker.postMessage(payload);
   }
 }

@@ -3,9 +3,12 @@ import type { StreamPair } from '@ocap/streams';
 
 import type { StreamEnvelopeReply, StreamEnvelope } from './stream-envelope.js';
 
-export type MessageId = string;
+export type VatId = `v${number}`;
 
-export type VatId = string;
+export const isVatId = (value: unknown): value is VatId =>
+  typeof value === 'string' &&
+  value.at(0) === 'v' &&
+  value.slice(1) === String(Number(value.slice(1)));
 
 export type VatWorker = {
   init: () => Promise<
@@ -15,5 +18,3 @@ export type VatWorker = {
 };
 
 export type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
-
-export type UnresolvedMessages = Map<MessageId, PromiseCallbacks>;

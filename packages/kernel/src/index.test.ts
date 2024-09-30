@@ -5,13 +5,14 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
-      expect.arrayContaining([
-        'Kernel',
-        'Vat',
-        'isCommand',
-        'isCommandReply',
-        'CommandMethod',
-      ]),
+      expect.arrayContaining(
+        ['Kernel', 'Vat'].concat(
+          ['Cluster', 'Kernel', 'Vat'].flatMap((value) => [
+            `is${value}Command`,
+            `is${value}CommandReply`,
+          ]),
+        ),
+      ),
     );
   });
 });

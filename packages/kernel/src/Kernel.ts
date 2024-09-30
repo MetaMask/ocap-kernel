@@ -1,5 +1,5 @@
 import '@ocap/shims/endoify';
-import type { Command } from './command.js';
+import type { VatCommand } from './messages.js';
 import type { VatId, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
 
@@ -64,7 +64,10 @@ export class Kernel {
    * @param command - The command to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(id: VatId, command: Command): Promise<unknown> {
+  async sendMessage(
+    id: VatId,
+    command: VatCommand['payload'],
+  ): Promise<unknown> {
     const { vat } = this.#getVatRecord(id);
     return vat.sendMessage(command);
   }

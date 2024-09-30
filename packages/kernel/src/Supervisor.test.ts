@@ -3,7 +3,7 @@ import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { CommandMethod } from './command.js';
+import { VatCommandMethod } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
@@ -59,12 +59,12 @@ describe('Supervisor', () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
-        id: 'message-id',
-        payload: { method: CommandMethod.Ping, params: null },
+        id: 'v0:0',
+        payload: { method: VatCommandMethod.Ping, params: null },
       });
 
-      expect(replySpy).toHaveBeenCalledWith('message-id', {
-        method: CommandMethod.Ping,
+      expect(replySpy).toHaveBeenCalledWith('v0:0', {
+        method: VatCommandMethod.Ping,
         params: 'pong',
       });
     });
@@ -73,12 +73,12 @@ describe('Supervisor', () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
-        id: 'message-id',
-        payload: { method: CommandMethod.CapTpInit, params: null },
+        id: 'v0:0',
+        payload: { method: VatCommandMethod.CapTpInit, params: null },
       });
 
-      expect(replySpy).toHaveBeenCalledWith('message-id', {
-        method: CommandMethod.CapTpInit,
+      expect(replySpy).toHaveBeenCalledWith('v0:0', {
+        method: VatCommandMethod.CapTpInit,
         params: '~~~ CapTP Initialized ~~~',
       });
     });
@@ -87,8 +87,8 @@ describe('Supervisor', () => {
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({
-        id: 'message-id',
-        payload: { method: CommandMethod.CapTpInit, params: null },
+        id: 'v0:0',
+        payload: { method: VatCommandMethod.CapTpInit, params: null },
       });
 
       const capTpQuestion = {
@@ -116,12 +116,12 @@ describe('Supervisor', () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
-        id: 'message-id',
-        payload: { method: CommandMethod.Evaluate, params: '2 + 2' },
+        id: 'v0:0',
+        payload: { method: VatCommandMethod.Evaluate, params: '2 + 2' },
       });
 
-      expect(replySpy).toHaveBeenCalledWith('message-id', {
-        method: CommandMethod.Evaluate,
+      expect(replySpy).toHaveBeenCalledWith('v0:0', {
+        method: VatCommandMethod.Evaluate,
         params: '4',
       });
     });
@@ -131,9 +131,9 @@ describe('Supervisor', () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
-        id: 'message-id',
+        id: 'v0:0',
         // @ts-expect-error - invalid params type.
-        payload: { method: CommandMethod.Evaluate, params: null },
+        payload: { method: VatCommandMethod.Evaluate, params: null },
       });
 
       expect(replySpy).not.toHaveBeenCalled();
@@ -147,13 +147,14 @@ describe('Supervisor', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       await supervisor.handleMessage({
-        id: 'message-id',
+        id: 'v0:0',
         // @ts-expect-error - unknown message type.
         payload: { method: 'UnknownType' },
       });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Supervisor received unexpected command method: "UnknownType"',
+        'Supervisor received unexpected command method:',
+        'UnknownType',
       );
     });
   });
