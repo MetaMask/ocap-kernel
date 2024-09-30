@@ -219,9 +219,12 @@ export function jsTrustedPrelude(pluginConfig: {
               `Module "${chunk.name}" was declared as a trusted prelude importer but its first import was not the declared trusted prelude.`,
             );
             const trustedPreludeImportStatement = `import"./${declaredPrelude}";`;
-            // Due to idempotency of ESM import statements, it is not necessary to remove duplicate imports.
-            // It is only necessary to ensure the trusted prelude import is the first.
-            chunk.code = trustedPreludeImportStatement + chunk.code;
+
+            // ensure the trusted prelude import is the first and remove duplicate imports.
+            chunk.code =
+              trustedPreludeImportStatement +
+              chunk.code.replace(trustedPreludeImportStatement, '');
+
             this.warn(
               `Automatically prepended prefix "${trustedPreludeImportStatement}" to code for module "${chunk.name}".`,
             );
