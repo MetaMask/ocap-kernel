@@ -11,7 +11,7 @@ export default mergeConfig(
   defaultConfig,
   defineConfig({
     test: {
-      // restoreMocks: false, // TODO:vitest-bug disabling restoreMocks fixes the issue
+      restoreMocks: false, // TODO:vitest-bug disabling restoreMocks fixes the issue
       // mockReset: true,
       // clearMocks: true,
       setupFiles: '../test-utils/src/env/mock-endo.ts',

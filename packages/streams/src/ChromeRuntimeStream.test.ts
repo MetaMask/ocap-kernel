@@ -168,13 +168,13 @@ describe.concurrent('ChromeRuntimeReader', () => {
       // TODO:vitest-bug This succeeds
       expect(removeListenerCallCount).toBe(1);
       // TODO:vitest-bug This fails with: expected "spy" to be called 1 times, but got 0 times
-      // expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
+      expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
       expect(listeners).toHaveLength(0);
 
       // Ending is a terminal state.
       expect(await reader.next()).toStrictEqual(makeDoneResult());
       expect(removeListenerCallCount).toBe(1);
-      // expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
+      expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
       expect(listeners).toHaveLength(0);
     });
   });
