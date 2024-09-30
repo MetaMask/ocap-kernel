@@ -11,7 +11,7 @@ import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude';
 
 const projectRoot = './src';
 
-const jsTrustedPreludes = {
+export const jsTrustedPreludes = {
   background: path.resolve(projectRoot, 'background-trusted-prelude.js'),
   'kernel-worker': path.resolve(
     projectRoot,
