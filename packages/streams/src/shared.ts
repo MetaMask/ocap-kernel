@@ -10,7 +10,8 @@ export const isIteratorResult = (
   value: unknown,
 ): value is IteratorResult<unknown, unknown> =>
   isObject(value) &&
-  (!hasProperty(value, 'done') || typeof value.done === 'boolean') &&
+  hasProperty(value, 'done') &&
+  typeof value.done === 'boolean' &&
   hasProperty(value, 'value');
 
 export const makeDoneResult = (): { done: true; value: undefined } =>

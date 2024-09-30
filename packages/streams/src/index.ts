@@ -16,3 +16,4 @@ export type {
   MakeStreamEnvelopeHandler,
   StreamEnvelopeKit,
 } from './envelope-kit.js';
+export type { ChromeRuntime } from './chrome.d.ts';

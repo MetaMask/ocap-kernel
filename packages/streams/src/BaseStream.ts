@@ -6,10 +6,9 @@ import { isIteratorResult, makeDoneResult } from './shared.js';
 
 /**
  * A function that receives input from a transport mechanism to a readable stream.
+ * Validates that the input is an {@link IteratorResult}, and throws if it is not.
  */
-export type ReceiveInput<Yield> = (
-  input: IteratorResult<Yield, undefined>,
-) => void;
+export type ReceiveInput = (input: unknown) => void;
 
 /**
  * The base of a readable async iterator stream.
@@ -54,7 +53,7 @@ export class BaseReader<Yield> implements Reader<Yield> {
    *
    * @returns The `receiveInput()` method.
    */
-  protected getReceiveInput(): ReceiveInput<Yield> {
+  protected getReceiveInput(): ReceiveInput {
     if (this.#didExposeReceiveInput) {
       throw new Error('receiveInput has already been accessed');
     }
@@ -62,7 +61,7 @@ export class BaseReader<Yield> implements Reader<Yield> {
     return this.#receiveInput.bind(this);
   }
 
-  readonly #receiveInput: ReceiveInput<Yield> = (input) => {
+  readonly #receiveInput: ReceiveInput = (input) => {
     if (!isIteratorResult(input)) {
       this.#throw(
         new Error(

@@ -8,7 +8,7 @@ import { makeDoneResult } from './shared.js';
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 class TestReader extends BaseReader<number> {
-  receiveInput: ReceiveInput<number>;
+  receiveInput: ReceiveInput;
 
   constructor(onEnd?: () => void) {
     super();
@@ -16,7 +16,7 @@ class TestReader extends BaseReader<number> {
     onEnd && super.setOnEnd(onEnd);
   }
 
-  getReceiveInput(): ReceiveInput<number> {
+  getReceiveInput(): ReceiveInput {
     return super.getReceiveInput();
   }
 
@@ -108,18 +108,31 @@ describe('BaseReader', () => {
         expect(message).toStrictEqual(messages[index]);
 
         index += 1;
-        if (index >= messages.length) {
+        if (index === messages.length) {
           break;
         }
       }
     });
 
-    it('throws when receiving unexpected message', async () => {
+    it.fails(
+      'throws after receiving unexpected message, before read is enqueued',
+      async () => {
+        const reader = new TestReader();
+
+        const unexpectedMessage = { foo: 'bar' };
+        reader.receiveInput(unexpectedMessage);
+
+        await expect(reader.next()).rejects.toThrow(
+          'Received unexpected message from transport',
+        );
+      },
+    );
+
+    it('throws after receiving unexpected message, after read is enqueued', async () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
       const unexpectedMessage = { foo: 'bar' };
-      // @ts-expect-error Intentional destructive testing
       reader.receiveInput(unexpectedMessage);
 
       await expect(nextP).rejects.toThrow(
@@ -127,7 +140,16 @@ describe('BaseReader', () => {
       );
     });
 
-    it('ends if receiving final iterator result', async () => {
+    it('ends after receiving final iterator result, before read is enqueued', async () => {
+      const reader = new TestReader();
+
+      reader.receiveInput(makeDoneResult());
+
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('ends after receiving final iterator result, after read is enqueued', async () => {
       const reader = new TestReader();
 
       const nextP = reader.next();

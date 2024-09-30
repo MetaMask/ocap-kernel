@@ -60,13 +60,29 @@ describe.concurrent('MessagePortReader', () => {
         expect(message).toStrictEqual(messages[index]);
 
         index += 1;
-        if (index >= messages.length) {
+        if (index === messages.length) {
           break;
         }
       }
     });
 
-    it('throws when receiving unexpected message from port', async () => {
+    it.fails(
+      'throws after receiving unexpected message from port, before read is enqueued',
+      async () => {
+        const { port1, port2 } = new MessageChannel();
+        const reader = new MessagePortReader(port1);
+
+        const unexpectedMessage = { foo: 'bar' };
+        port2.postMessage(unexpectedMessage);
+        await delay(100);
+
+        await expect(reader.next()).rejects.toThrow(
+          'Received unexpected message from transport',
+        );
+      },
+    );
+
+    it('throws after receiving unexpected message from port, after read is enqueued', async () => {
       const { port1, port2 } = new MessageChannel();
       const reader = new MessagePortReader(port1);
 
@@ -79,7 +95,21 @@ describe.concurrent('MessagePortReader', () => {
       );
     });
 
-    it('ends if receiving final iterator result from port', async () => {
+    it('ends after receiving final iterator result from port, before read is enqueued', async () => {
+      const { port1, port2 } = new MessageChannel();
+      const reader = new MessagePortReader(port1);
+
+      port2.postMessage(makeDoneResult());
+      await delay(100);
+
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+      expect(port1.onmessage).toBeNull();
+
+      // Ending is a terminal state.
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('ends after receiving final iterator result from port, after read is enqueued', async () => {
       const { port1, port2 } = new MessageChannel();
       const reader = new MessagePortReader(port1);
 
@@ -88,6 +118,8 @@ describe.concurrent('MessagePortReader', () => {
 
       expect(await nextP).toStrictEqual(makeDoneResult());
       expect(port1.onmessage).toBeNull();
+
+      // Ending is a terminal state.
       expect(await reader.next()).toStrictEqual(makeDoneResult());
     });
   });

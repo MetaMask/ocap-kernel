@@ -3,7 +3,11 @@ module.exports = {
 
   overrides: [
     {
-      files: ['src/BaseStream.ts', 'src/MessagePortStream.ts'],
+      files: [
+        'src/BaseStream.ts',
+        'src/MessagePortStream.ts',
+        'src/ChromeRuntimeStream.ts',
+      ],
       rules: {
         // This naive, Node-specific rule does not apply to these files.
         'n/no-sync': 'off',
