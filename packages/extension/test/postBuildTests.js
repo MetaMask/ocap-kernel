@@ -48,10 +48,10 @@ async function checkTrustedPreludes() {
     const expectedImport = path.basename(preludePath);
     const builtFilePath = path.join(buildDir, `${key}.js`);
     const content = await fs.readFile(builtFilePath, 'utf8');
-    const imports = content.match(/import\s*["'][^"']+["'];/gu);
+    const firstImport = content.match(/import\s*["'][^"']+["'];/u)?.[0];
     if (
       !content.startsWith('import') ||
-      !imports?.[0]?.includes(expectedImport)
+      !firstImport.includes(expectedImport)
     ) {
       throw new Error(
         `The trusted prelude ${expectedImport} is not imported in the first position in ${key}.js`,
