@@ -37,16 +37,19 @@ import type { StreamPair } from './shared.js';
 export class MessagePortReader<Yield> extends BaseReader<Yield> {
   readonly #port: MessagePort;
 
-  readonly #receiveInput: ReceiveInput<Yield>;
+  readonly #receiveInput: ReceiveInput;
 
   constructor(port: MessagePort) {
     super();
     super.setOnEnd(this.#closePort.bind(this));
+
     this.#receiveInput = super.getReceiveInput();
     this.#port = port;
+
     // Assigning to the `onmessage` property initializes the port's message queue.
     // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
     this.#port.onmessage = this.#onMessage.bind(this);
+
     harden(this);
   }
 
@@ -55,7 +58,7 @@ export class MessagePortReader<Yield> extends BaseReader<Yield> {
     this.#port.onmessage = null;
   }
 
-  #onMessage(messageEvent: MessageEvent): void {
+  #onMessage(messageEvent: MessageEvent<unknown>): void {
     if (messageEvent.data instanceof Error) {
       this.throwSync(messageEvent.data);
       return;

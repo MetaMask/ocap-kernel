@@ -3,7 +3,8 @@
   "compilerOptions": {
     "allowJs": true,
     "baseUrl": "./",
-    "checkJs": true
+    "checkJs": true,
+    "outDir": "./dist"
   },
   "references": [],
   "include": ["./src"]

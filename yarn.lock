@@ -1554,6 +1554,7 @@ __metadata:
     "@ocap/utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.5.1"
     "@ts-bridge/shims": "npm:^0.1.1"
+    "@types/chrome": "npm:^0.0.268"
     "@types/jsdom": "npm:^21.1.7"
     "@typescript-eslint/eslint-plugin": "npm:^8.1.0"
     "@typescript-eslint/parser": "npm:^8.1.0"

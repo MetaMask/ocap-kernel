@@ -6,10 +6,11 @@ ignores:
   - '@metamask/auto-changelog'
   - '@ts-bridge/cli'
   - '@ts-bridge/shims'
+  - '@types/chrome'
+  - '@types/lodash'
   - '@vitest/coverage-v8'
   - 'depcheck' # ._.
   - 'prettier-plugin-packagejson'
   - 'rimraf'
-  - 'typedoc'
-  - '@types/lodash'
   - 'simple-git-hooks'
+  - 'typedoc'
