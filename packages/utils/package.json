@@ -41,6 +41,10 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
+  "dependencies": {
+    "@endo/captp": "^4.2.2",
+    "@metamask/utils": "^9.1.0"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@metamask/auto-changelog": "^3.4.4",

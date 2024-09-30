@@ -5,7 +5,14 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
-      expect.arrayContaining(['makeCounter', 'makeLogger', 'stringify']),
+      expect.arrayContaining([
+        'makeCounter',
+        'makeLogger',
+        'stringify',
+        'isPrimitive',
+        'isTypedArray',
+        'isTypedObject',
+      ]),
     );
   });
 });
