@@ -51,7 +51,7 @@ async function checkTrustedPreludes() {
     const firstImport = content.match(/import\s*["'][^"']+["'];/u)?.[0];
     if (
       !content.startsWith('import') ||
-      !firstImport.includes(expectedImport)
+      !firstImport?.includes(expectedImport)
     ) {
       throw new Error(
         `The trusted prelude ${expectedImport} is not imported in the first position in ${key}.js`,
