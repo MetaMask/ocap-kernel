@@ -6,18 +6,9 @@ import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
+import { sourceDir, buildDir, jsTrustedPreludes } from './constants';
 import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude';
 import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude';
-
-const projectRoot = './src';
-
-export const jsTrustedPreludes = {
-  background: path.resolve(projectRoot, 'background-trusted-prelude.js'),
-  'kernel-worker': path.resolve(
-    projectRoot,
-    'kernel-worker-trusted-prelude.js',
-  ),
-};
 
 /**
  * Files that need to be statically copied to the destination directory.
@@ -35,17 +26,17 @@ const staticCopyTargets: readonly string[] = [
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  root: projectRoot,
+  root: sourceDir,
 
   build: {
     emptyOutDir: true,
-    outDir: path.resolve(projectRoot, '../dist'),
+    outDir: buildDir,
     rollupOptions: {
       input: {
-        background: path.resolve(projectRoot, 'background.ts'),
-        'kernel-worker': path.resolve(projectRoot, 'kernel-worker.ts'),
-        offscreen: path.resolve(projectRoot, 'offscreen.html'),
-        iframe: path.resolve(projectRoot, 'iframe.html'),
+        background: path.resolve(sourceDir, 'background.ts'),
+        'kernel-worker': path.resolve(sourceDir, 'kernel-worker.ts'),
+        offscreen: path.resolve(sourceDir, 'offscreen.html'),
+        iframe: path.resolve(sourceDir, 'iframe.html'),
       },
       output: {
         entryFileNames: '[name].js',

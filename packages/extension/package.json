@@ -14,8 +14,8 @@
   "scripts": {
     "build": "yarn build:vite",
     "build:dev": "yarn build:vite:dev",
-    "build:vite": "vite build --config vite.config.ts",
-    "build:vite:dev": "yarn build:vite --mode development",
+    "build:vite": "vite build --config vite.config.ts && yarn test:build",
+    "build:vite:dev": "yarn build:vite --mode development && yarn test:build",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
@@ -26,6 +26,7 @@
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
     "test": "vitest run --config vitest.config.ts",
+    "test:build": "node ./test/postBuildTests.js",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
