@@ -78,7 +78,7 @@
     "typescript": "~5.5.4",
     "vite": "^5.3.5",
     "vite-tsconfig-paths": "^4.3.2",
-    "vitest": "^2.0.5"
+    "vitest": "^2.1.1"
   },
   "packageManager": "yarn@4.2.2",
   "engines": {
