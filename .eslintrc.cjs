@@ -58,7 +58,8 @@ module.exports = {
     },
 
     {
-      files: ['**/scripts/*.+(js|mjs)', '*.ts'],
+      files: ['**/scripts/*.+(js|mjs)', '**/test/*.+(js|mjs)', '*.ts'],
+      excludedFiles: ['**/src/**/*.+(js|mjs)'],
       parserOptions: {
         ecmaVersion: '2022',
       },

@@ -6,7 +6,11 @@ import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-import { sourceDir, buildDir, jsTrustedPreludes } from './constants';
+import {
+  sourceDir,
+  buildDir,
+  jsTrustedPreludes,
+} from './scripts/build-constants.mjs';
 import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude';
 import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude';
 

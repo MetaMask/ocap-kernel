@@ -1,8 +1,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// eslint-disable-next-line import-x/extensions
-import { buildDir, sourceDir, jsTrustedPreludes } from '../constants.js';
+import {
+  buildDir,
+  sourceDir,
+  jsTrustedPreludes,
+} from '../scripts/build-constants.mjs';
 
 const untransformedFiles = [
   {
@@ -18,6 +21,22 @@ const untransformedFiles = [
     builtPath: path.join(buildDir, path.basename(preludePath)),
   })),
 ];
+
+await runTests();
+
+/**
+ * Runs all build tests.
+ */
+async function runTests() {
+  try {
+    await checkUntransformed();
+    await checkTrustedPreludes();
+    console.log('✅ Build tests passed successfully!');
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
+    throw error;
+  }
+}
 
 /**
  * Test that shims and preludes are packaged untransformed.
@@ -44,9 +63,9 @@ async function checkUntransformed() {
 async function checkTrustedPreludes() {
   console.log('Checking that trusted preludes are loaded at the top...');
 
-  for (const [key, preludePath] of Object.entries(jsTrustedPreludes)) {
+  for (const [preludeName, preludePath] of Object.entries(jsTrustedPreludes)) {
     const expectedImport = path.basename(preludePath);
-    const builtFilePath = path.join(buildDir, `${key}.js`);
+    const builtFilePath = path.join(buildDir, `${preludeName}.js`);
     const content = await fs.readFile(builtFilePath, 'utf8');
     const firstImport = content.match(/import\s*["'][^"']+["'];/u)?.[0];
     if (
@@ -54,22 +73,8 @@ async function checkTrustedPreludes() {
       !firstImport?.includes(expectedImport)
     ) {
       throw new Error(
-        `The trusted prelude ${expectedImport} is not imported in the first position in ${key}.js`,
+        `The trusted prelude ${expectedImport} is not imported in the first position in ${preludeName}.js`,
       );
     }
   }
 }
-
-/**
- * Runs all the build tests.
- */
-async function runTests() {
-  await checkUntransformed();
-  await checkTrustedPreludes();
-  console.log('✅ Build tests passed successfully!');
-}
-
-runTests().catch((error) => {
-  console.error(`❌ ${error.message}`);
-  throw error;
-});
