@@ -3,7 +3,7 @@ import type { CommandReply, Command, CommandReplyFunction } from '@ocap/kernel';
 import { initializeMessageChannel } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './makeIframeVatWorker.js';
+import { makeIframeVatWorker } from './iframe-vat-worker.js';
 import {
   ExtensionMessageTarget,
   isExtensionRuntimeMessage,

@@ -10,21 +10,18 @@ import { makeMessagePortStreamPair } from '@ocap/streams';
 
 const IFRAME_URI = 'iframe.html';
 
-/**
- * Get a DOM id for our iframes, for greater collision resistance.
- *
- * @param id - The vat id to base the DOM id on.
- * @returns The DOM id.
- */
-const getHtmlId = (id: VatId): string => `ocap-iframe-${id}`;
-
 export const makeIframeVatWorker = (
   id: VatId,
   getPort: typeof initializeMessageChannel,
 ): VatWorker => {
+  const vatHtmlId = `ocap-iframe-${id}`;
   return {
     init: async () => {
-      const newWindow = await createWindow(IFRAME_URI, getHtmlId(id));
+      const newWindow = await createWindow({
+        uri: IFRAME_URI,
+        id: vatHtmlId,
+        testId: vatHtmlId,
+      });
       const port = await getPort(newWindow);
       const streams = makeMessagePortStreamPair<
         StreamEnvelopeReply,
@@ -34,10 +31,12 @@ export const makeIframeVatWorker = (
       return [streams, newWindow];
     },
     delete: async (): Promise<void> => {
-      const iframe = document.getElementById(getHtmlId(id));
+      const iframe = document.getElementById(vatHtmlId);
       /* v8 ignore next 6: Not known to be possible. */
       if (iframe === null) {
-        console.error(`iframe of vat with id "${id}" already removed from DOM`);
+        console.error(
+          `iframe of vat with id "${id}" already removed from DOM (#${vatHtmlId})`,
+        );
         return undefined;
       }
       iframe.remove();
