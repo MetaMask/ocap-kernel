@@ -20,7 +20,7 @@ export const makeIframeVatWorker = (
       const newWindow = await createWindow({
         uri: IFRAME_URI,
         id: vatHtmlId,
-        testId: vatHtmlId,
+        testId: 'ocap-iframe',
       });
       const port = await getPort(newWindow);
       const streams = makeMessagePortStreamPair<
