@@ -1,5 +1,6 @@
 import type { Primitive } from '@endo/captp';
 import { hasProperty, isObject } from '@metamask/utils';
+import { isPrimitive, isTypedArray, isTypedObject } from '@ocap/utils';
 
 export enum CommandMethod {
   CapTpCall = 'callCapTp',
@@ -15,6 +16,12 @@ export type CommandParams =
   | Promise<CommandParams>
   | CommandParams[]
   | { [key: string]: CommandParams };
+
+const isCommandParams = (value: unknown): value is CommandParams =>
+  isPrimitive(value) ||
+  value instanceof Promise ||
+  isTypedArray(value, isCommandParams) ||
+  isTypedObject(value, isCommandParams);
 
 export type CapTpPayload = {
   method: string;
@@ -48,7 +55,8 @@ const isCommandLike = (
 } =>
   isObject(value) &&
   Object.values(CommandMethod).includes(value.method as CommandMethod) &&
-  hasProperty(value, 'params');
+  hasProperty(value, 'params') &&
+  isCommandParams(value.params);
 
 export type Command =
   | CommandLike<CommandMethod.Ping, null>
