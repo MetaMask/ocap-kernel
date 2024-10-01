@@ -1,14 +1,14 @@
 import { Kernel, CommandMethod, isCommand } from '@ocap/kernel';
 import type { CommandReply, Command, CommandReplyFunction } from '@ocap/kernel';
-import { initializeMessageChannel } from '@ocap/streams';
+import {
+  ChromeRuntimeTarget,
+  initializeMessageChannel,
+  makeChromeRuntimeStreamPair,
+} from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './iframe-vat-worker.js';
-import {
-  ExtensionMessageTarget,
-  isExtensionRuntimeMessage,
-  makeHandledCallback,
-} from './shared.js';
+import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
 
@@ -16,6 +16,12 @@ main().catch(console.error);
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
+  const backgroundStreams = makeChromeRuntimeStreamPair(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Background,
+  );
+
   const kernel = new Kernel();
   const iframeReadyP = kernel.launchVat({
     id: 'default',
@@ -32,12 +38,9 @@ async function main(): Promise<void> {
     method: CommandMethod,
     params?: CommandReply['params'],
   ) => {
-    await chrome.runtime.sendMessage({
-      target: ExtensionMessageTarget.Background,
-      payload: {
-        method,
-        params: params ?? null,
-      },
+    await backgroundStreams.writer.next({
+      method,
+      params: params ?? null,
     });
   };
 
@@ -78,58 +81,48 @@ async function main(): Promise<void> {
 
   // Handle messages from the background service worker, which for the time being stands in for the
   // user console.
-  chrome.runtime.onMessage.addListener(
-    makeHandledCallback(async (message: unknown) => {
-      if (!isExtensionRuntimeMessage(message) || !isCommand(message.payload)) {
-        console.error('Offscreen received unexpected message', message);
-        return;
-      }
-      if (message.target !== ExtensionMessageTarget.Offscreen) {
-        console.error(
-          `Offscreen received message with unexpected target: "${message.target}"`,
+  for await (const message of backgroundStreams.reader) {
+    if (!isCommand(message)) {
+      console.error('Offscreen received unexpected message', message);
+      continue;
+    }
+
+    const vat = await iframeReadyP;
+
+    switch (message.method) {
+      case CommandMethod.Evaluate:
+        await replyToCommand(
+          CommandMethod.Evaluate,
+          await evaluate(vat.id, message.params),
         );
-        return;
+        break;
+      case CommandMethod.CapTpCall: {
+        const result = await vat.callCapTp(message.params);
+        await replyToCommand(CommandMethod.CapTpCall, stringify(result));
+        break;
       }
-
-      const vat = await iframeReadyP;
-
-      const { payload } = message;
-
-      switch (payload.method) {
-        case CommandMethod.Evaluate:
-          await replyToCommand(
-            CommandMethod.Evaluate,
-            await evaluate(vat.id, payload.params),
-          );
-          break;
-        case CommandMethod.CapTpCall: {
-          const result = await vat.callCapTp(payload.params);
-          await replyToCommand(CommandMethod.CapTpCall, stringify(result));
-          break;
-        }
-        case CommandMethod.CapTpInit:
-          await vat.makeCapTp();
-          await replyToCommand(
-            CommandMethod.CapTpInit,
-            '~~~ CapTP Initialized ~~~',
-          );
-          break;
-        case CommandMethod.Ping:
-          await replyToCommand(CommandMethod.Ping, 'pong');
-          break;
-        case CommandMethod.KVGet:
-        case CommandMethod.KVSet:
-          sendKernelMessage(payload);
-          break;
-        default:
-          console.error(
-            // @ts-expect-error Runtime does not respect "never".
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Offscreen received unexpected command method: "${payload.method}"`,
-          );
-      }
-    }),
-  );
+      case CommandMethod.CapTpInit:
+        await vat.makeCapTp();
+        await replyToCommand(
+          CommandMethod.CapTpInit,
+          '~~~ CapTP Initialized ~~~',
+        );
+        break;
+      case CommandMethod.Ping:
+        await replyToCommand(CommandMethod.Ping, 'pong');
+        break;
+      case CommandMethod.KVGet:
+      case CommandMethod.KVSet:
+        sendKernelMessage(message);
+        break;
+      default:
+        console.error(
+          // @ts-expect-error Runtime does not respect "never".
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          `Offscreen received unexpected command method: "${message.method}"`,
+        );
+    }
+  }
 
   /**
    * Evaluate a string in the default iframe.

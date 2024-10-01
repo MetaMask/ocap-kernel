@@ -19,8 +19,26 @@
 
 import type { ReceiveInput } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import type { ChromeRuntime } from './chrome.js';
+import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
 import type { StreamPair } from './shared.js';
+
+export enum ChromeRuntimeStreamTarget {
+  Background = 'background',
+  Offscreen = 'offscreen',
+}
+
+export type MessageEnvelope<Payload> = {
+  target: ChromeRuntimeStreamTarget;
+  payload: Payload;
+};
+
+const isMessageEnvelope = (
+  message: unknown,
+): message is MessageEnvelope<unknown> =>
+  typeof message === 'object' &&
+  message !== null &&
+  'target' in message &&
+  'payload' in message;
 
 /**
  * A readable stream over the Chrome Extension Runtime messaging API.
@@ -35,35 +53,61 @@ import type { StreamPair } from './shared.js';
 export class ChromeRuntimeReader<Yield> extends BaseReader<Yield> {
   readonly #receiveInput: ReceiveInput;
 
-  readonly #runtime: ChromeRuntime;
+  readonly #target: ChromeRuntimeStreamTarget;
 
-  readonly #messageListener: (message: unknown) => void;
+  readonly #extensionId: string;
 
-  constructor(runtime: ChromeRuntime) {
+  constructor(runtime: ChromeRuntime, target: ChromeRuntimeStreamTarget) {
     super();
-    super.setOnEnd(this.#removeListener.bind(this));
 
     this.#receiveInput = super.getReceiveInput();
-    this.#runtime = runtime;
-    this.#messageListener = this.#onMessage.bind(this);
+    this.#target = target;
+    this.#extensionId = runtime.id;
+    const messageListener = this.#onMessage.bind(this);
+
+    const removeListener = (): void =>
+      runtime.onMessage.removeListener(messageListener);
+    super.setOnEnd(removeListener);
 
     // Begin listening for messages from the Chrome runtime.
-    this.#runtime.onMessage.addListener(this.#messageListener);
+    runtime.onMessage.addListener(messageListener);
 
     harden(this);
   }
 
-  #removeListener(): void {
-    this.#runtime.onMessage.removeListener(this.#messageListener);
-  }
-
-  #onMessage(message: unknown): void {
-    if (message instanceof Error) {
-      this.throwSync(message);
+  #onMessage(message: unknown, sender: ChromeMessageSender): void {
+    if (sender.id !== this.#extensionId) {
       return;
     }
 
-    this.#receiveInput(message);
+    if (!isMessageEnvelope(message)) {
+      console.debug(
+        `ChromeRuntimeReader received unexpected message: ${JSON.stringify(
+          message,
+          null,
+          2,
+        )}`,
+      );
+      return;
+    }
+
+    if (message.target !== this.#target) {
+      console.warn(
+        `ChromeRuntimeReader received message for unexpected target: ${JSON.stringify(
+          message,
+          null,
+          2,
+        )}`,
+      );
+      return;
+    }
+
+    if (message.payload instanceof Error) {
+      this.throwSync(message.payload);
+      return;
+    }
+
+    this.#receiveInput(message.payload);
   }
 }
 harden(ChromeRuntimeReader);
@@ -78,19 +122,17 @@ harden(ChromeRuntimeReader);
  * - The module-level documentation for more details.
  */
 export class ChromeRuntimeWriter<Yield> extends BaseWriter<Yield> {
-  readonly #runtime: ChromeRuntime;
-
-  constructor(runtime: ChromeRuntime) {
+  constructor(runtime: ChromeRuntime, target: ChromeRuntimeStreamTarget) {
     super('ChromeRuntimeWriter');
-    super.setOnDispatch(this.#sendMessage.bind(this));
-    this.#runtime = runtime;
+    super.setOnDispatch(
+      async (value: IteratorResult<Yield, undefined> | Error) => {
+        await runtime.sendMessage({
+          target,
+          payload: value,
+        });
+      },
+    );
     harden(this);
-  }
-
-  async #sendMessage(
-    value: IteratorResult<Yield, undefined> | Error,
-  ): Promise<void> {
-    await this.#runtime.sendMessage(value);
   }
 }
 harden(ChromeRuntimeWriter);
@@ -100,13 +142,22 @@ harden(ChromeRuntimeWriter);
  * for cleaning them up.
  *
  * @param runtime - The Chrome runtime instance to use for messaging.
+ * @param localTarget - The local target of the stream pair, i.e. how the remote side
+ * addresses messages to this side.
+ * @param remoteTarget - The remote target of the stream pair, i.e. how this side
+ * addresses messages to the remote side.
  * @returns The reader and writer streams, and cleanup methods.
  */
 export const makeChromeRuntimeStreamPair = <Read, Write = Read>(
   runtime: ChromeRuntime,
+  localTarget: ChromeRuntimeStreamTarget,
+  remoteTarget: ChromeRuntimeStreamTarget,
 ): StreamPair<Read, Write> => {
-  const reader = new ChromeRuntimeReader<Read>(runtime);
-  const writer = new ChromeRuntimeWriter<Write>(runtime);
+  if (localTarget === remoteTarget) {
+    throw new Error('localTarget and remoteTarget must be different');
+  }
+  const reader = new ChromeRuntimeReader<Read>(runtime, localTarget);
+  const writer = new ChromeRuntimeWriter<Write>(runtime, remoteTarget);
 
   return harden({
     reader,

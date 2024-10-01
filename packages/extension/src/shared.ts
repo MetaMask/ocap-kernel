@@ -1,30 +1,4 @@
-import { isObject } from '@metamask/utils';
-import type { Command, CommandReply } from '@ocap/kernel';
-import { isCommand, isCommandReply } from '@ocap/kernel';
-
 export type VatId = string;
-
-export enum ExtensionMessageTarget {
-  Background = 'background',
-  Offscreen = 'offscreen',
-}
-
-export type ExtensionRuntimeMessage = {
-  // On some systems, including CI, ESLint complains of overlap between the union operands.
-  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-  payload: Command | CommandReply;
-  target: ExtensionMessageTarget;
-};
-
-export const isExtensionRuntimeMessage = (
-  message: unknown,
-): message is ExtensionRuntimeMessage =>
-  isObject(message) &&
-  typeof message.target === 'string' &&
-  Object.values(ExtensionMessageTarget).includes(
-    message.target as ExtensionMessageTarget,
-  ) &&
-  (isCommand(message.payload) || isCommandReply(message.payload));
 
 /**
  * Wrap an async callback to ensure any errors are at least logged.

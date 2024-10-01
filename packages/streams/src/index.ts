@@ -16,4 +16,10 @@ export type {
   MakeStreamEnvelopeHandler,
   StreamEnvelopeKit,
 } from './envelope-kit.js';
-export type { ChromeRuntime } from './chrome.d.ts';
+export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
+export {
+  ChromeRuntimeReader,
+  ChromeRuntimeWriter,
+  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
+  makeChromeRuntimeStreamPair,
+} from './ChromeRuntimeStream.js';
