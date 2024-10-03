@@ -104,11 +104,6 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
       return;
     }
 
-    if (message.payload instanceof Error) {
-      this.throwSync(message.payload);
-      return;
-    }
-
     this.#receiveInput(message.payload);
   }
 }
