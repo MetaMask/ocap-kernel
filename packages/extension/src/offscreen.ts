@@ -9,11 +9,11 @@ import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
   makeChromeRuntimeStreamPair,
+  makePostMessageStreamPair,
 } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './iframe-vat-worker.js';
-import { makeHandledCallback } from './shared.js';
 
 main().catch(console.error);
 
@@ -44,56 +44,68 @@ async function main(): Promise<void> {
     await backgroundStreams.writer.next(commandReply);
   };
 
-  const receiveFromKernel = async (event: MessageEvent): Promise<void> => {
-    // For the time being, the only messages that come from the kernel worker are replies to actions
-    // initiated from the console, so just forward these replies to the console.  This will need to
-    // change once this offscreen script is providing services to the kernel worker that don't
-    // involve the user (e.g., for things the worker can't do for itself, such as create an
-    // offscreen iframe).
+  const kernelWorker = makeKernelWorker();
 
-    // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
-    // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
-    // awfully wrong.  Need to add types to account for the replies.
-    if (!isKernelCommandReply(event.data)) {
-      console.error('kernel received unexpected message', event.data);
-      return;
-    }
-    const { method, params } = event.data;
-    let result: string;
-    const possibleError = params as unknown as Error;
-    if (possibleError?.message && possibleError?.stack) {
-      // XXX TODO: The following is an egregious hack which is barely good enough for manual testing
-      // but not acceptable for serious use.  We should be passing some kind of proper error
-      // indication back so that the recipient will experience a thrown exception or rejected
-      // promise, instead of having to look for a magic string.  This is tolerable only so long as
-      // the sole eventual recipient is a human eyeball, and even then it's questionable.
-      result = `ERROR: ${possibleError.message}`;
-    } else {
-      result = params;
-    }
-    const reply = { method, params: result ?? null };
-    if (!isKernelCommandReply(reply)) {
-      // Internal error.
-      console.error('Malformed command reply', reply);
-      return;
-    }
-    await replyToBackground(reply);
-  };
+  // Handle messages from the background service worker and the kernel SQLite worker.
+  await Promise.all([
+    (async () => {
+      for await (const message of backgroundStreams.reader) {
+        if (!isKernelCommand(message)) {
+          console.error('Offscreen received unexpected message', message);
+          continue;
+        }
 
-  const kernelWorker = new Worker('kernel-worker.js', { type: 'module' });
-  kernelWorker.addEventListener(
-    'message',
-    makeHandledCallback(receiveFromKernel),
-  );
+        await handleKernelCommand(message);
+      }
+    })(),
+    kernelWorker.receiveMessages(),
+  ]);
 
-  const handleVatTestCommand = async ({
-    method,
-    params,
-  }: Extract<
-    KernelCommand,
-    | { method: typeof KernelCommandMethod.Evaluate }
-    | { method: typeof KernelCommandMethod.CapTpCall }
-  >): Promise<void> => {
+  /**
+   * Handle a KernelCommand received from the background script.
+   *
+   * @param command - The command to handle.
+   */
+  async function handleKernelCommand(command: KernelCommand): Promise<void> {
+    const { method, params } = command;
+    switch (method) {
+      case KernelCommandMethod.Ping:
+        await replyToBackground({ method, params: 'pong' });
+        break;
+      case KernelCommandMethod.Evaluate:
+        await handleVatTestCommand({ method, params });
+        break;
+      case KernelCommandMethod.CapTpCall:
+        await handleVatTestCommand({ method, params });
+        break;
+      case KernelCommandMethod.KVGet:
+        await kernelWorker.sendMessage({ method, params });
+        break;
+      case KernelCommandMethod.KVSet:
+        await kernelWorker.sendMessage({ method, params });
+        break;
+      default:
+        console.error(
+          'Offscreen received unexpected kernel command',
+          // @ts-expect-error Runtime does not respect "never".
+          { method: method.valueOf(), params },
+        );
+    }
+  }
+
+  /**
+   * Handle a command implemented by the test vat.
+   *
+   * @param command - The command to handle.
+   */
+  async function handleVatTestCommand(
+    command: Extract<
+      KernelCommand,
+      | { method: typeof KernelCommandMethod.Evaluate }
+      | { method: typeof KernelCommandMethod.CapTpCall }
+    >,
+  ): Promise<void> {
+    const { method, params } = command;
     const vat = await iframeReadyP;
     switch (method) {
       case KernelCommandMethod.Evaluate:
@@ -116,46 +128,6 @@ async function main(): Promise<void> {
           { method: method.valueOf(), params },
         );
     }
-  };
-
-  const handleKernelCommand = async ({
-    method,
-    params,
-  }: KernelCommand): Promise<void> => {
-    switch (method) {
-      case KernelCommandMethod.Ping:
-        await replyToBackground({ method, params: 'pong' });
-        break;
-      case KernelCommandMethod.Evaluate:
-        await handleVatTestCommand({ method, params });
-        break;
-      case KernelCommandMethod.CapTpCall:
-        await handleVatTestCommand({ method, params });
-        break;
-      case KernelCommandMethod.KVGet:
-        sendKernelMessage({ method, params });
-        break;
-      case KernelCommandMethod.KVSet:
-        sendKernelMessage({ method, params });
-        break;
-      default:
-        console.error(
-          'Offscreen received unexpected kernel command',
-          // @ts-expect-error Runtime does not respect "never".
-          { method: method.valueOf(), params },
-        );
-    }
-  };
-
-  // Handle messages from the background service worker, which for the time being stands in for the
-  // user console.
-  for await (const message of backgroundStreams.reader) {
-    if (!isKernelCommand(message)) {
-      console.error('Offscreen received unexpected message', message);
-      continue;
-    }
-
-    await handleKernelCommand(message);
   }
 
   /**
@@ -181,11 +153,69 @@ async function main(): Promise<void> {
   }
 
   /**
-   * Send a message to the kernel worker.
+   * Make the SQLite kernel worker.
    *
-   * @param payload - The message to send.
+   * @returns An object with methods to send and receive messages from the kernel worker.
    */
-  function sendKernelMessage(payload: KernelCommand): void {
-    kernelWorker.postMessage(payload);
+  function makeKernelWorker(): {
+    sendMessage: (message: KernelCommand) => Promise<void>;
+    receiveMessages: () => Promise<void>;
+  } {
+    const worker = new Worker('kernel-worker.js', { type: 'module' });
+    const streamPair = makePostMessageStreamPair<
+      KernelCommandReply,
+      KernelCommand
+    >(
+      (message) => worker.postMessage(message),
+      (listener) => worker.addEventListener('message', listener),
+      (listener) => worker.removeEventListener('message', listener),
+    );
+
+    const receiveMessages = async (): Promise<void> => {
+      // For the time being, the only messages that come from the kernel worker are replies to actions
+      // initiated from the console, so just forward these replies to the console.  This will need to
+      // change once this offscreen script is providing services to the kernel worker that don't
+      // involve the user (e.g., for things the worker can't do for itself, such as create an
+      // offscreen iframe).
+
+      // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
+      // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
+      // awfully wrong.  Need to add types to account for the replies.
+      for await (const message of streamPair.reader) {
+        if (!isKernelCommandReply(message)) {
+          console.error('kernel received unexpected message', message);
+          return;
+        }
+        const { method, params } = message;
+        let result: string;
+        const possibleError = params as unknown as Error;
+        if (possibleError?.message && possibleError?.stack) {
+          // XXX TODO: The following is an egregious hack which is barely good enough for manual testing
+          // but not acceptable for serious use.  We should be passing some kind of proper error
+          // indication back so that the recipient will experience a thrown exception or rejected
+          // promise, instead of having to look for a magic string.  This is tolerable only so long as
+          // the sole eventual recipient is a human eyeball, and even then it's questionable.
+          result = `ERROR: ${possibleError.message}`;
+        } else {
+          result = params;
+        }
+        const reply = { method, params: result ?? null };
+        if (!isKernelCommandReply(reply)) {
+          // Internal error.
+          console.error('Malformed command reply', reply);
+          return;
+        }
+        await replyToBackground(reply);
+      }
+    };
+
+    const sendMessage = async (message: KernelCommand): Promise<void> => {
+      await streamPair.writer.next(message);
+    };
+
+    return {
+      sendMessage,
+      receiveMessages,
+    };
   }
 }
