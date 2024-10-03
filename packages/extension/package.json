@@ -12,10 +12,10 @@
     "dist/"
   ],
   "scripts": {
-    "build": "yarn build:vite",
-    "build:dev": "yarn build:vite:dev",
-    "build:vite": "vite build --config vite.config.ts && yarn test:build",
-    "build:vite:dev": "yarn build:vite --mode development && yarn test:build",
+    "build": "yarn build:vite && yarn test:build",
+    "build:dev": "yarn build:vite:dev && yarn test:build",
+    "build:vite": "vite build --config vite.config.ts",
+    "build:vite:dev": "yarn build:vite --mode development",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
