@@ -1,5 +1,9 @@
 import type { Json } from '@metamask/utils';
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import {
+  delay,
+  makeErrorMatcherFactory,
+  makePromiseKitMock,
+} from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -10,6 +14,8 @@ import {
 import { makeDoneResult, makePendingResult } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+
+const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {
@@ -121,12 +127,7 @@ describe('makeMessagePortStreamPair', () => {
     expect(await localReadP).toStrictEqual(makeDoneResult());
     expect(port1.onmessage).toBeNull();
 
-    await expect(remoteReadP).rejects.toThrow(
-      expect.objectContaining({
-        message: 'foo',
-        stack: expect.any(String),
-      }),
-    );
+    await expect(remoteReadP).rejects.toThrow(makeErrorMatcher('foo'));
     expect(port2.onmessage).toBeNull();
   });
 });

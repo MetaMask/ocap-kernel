@@ -1,7 +1,9 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="ses"/>
 
+import { vi } from 'vitest';
+
 globalThis.lockdown = (): void => undefined;
-globalThis.harden = <Value>(value: Value): Readonly<Value> => value;
+globalThis.harden = vi.fn(<Value>(value: Value): Readonly<Value> => value);
 
 export {};

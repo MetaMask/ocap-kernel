@@ -85,31 +85,6 @@ export const makePendingResult = <Yield extends Json | undefined>(
   });
 
 /**
- * A pair of intertwined streams.
- *
- * @template Read - The type of the values read from the reader.
- * @template Write - The type of the values written to the writer.
- */
-export type StreamPair<
-  Read extends Json,
-  Write extends Json = Read,
-> = Readonly<{
-  reader: Reader<Read>;
-  writer: Writer<Write>;
-  /**
-   * Calls `.return()` on both streams.
-   */
-  return: () => Promise<void>;
-  /**
-   * Calls `.throw()` on the writer, forwarding the error to the other side. Returns
-   * the reader.
-   *
-   * @param error - The error to forward.
-   */
-  throw: (error: Error) => Promise<void>;
-}>;
-
-/**
  * A sentinel value to detect marshaled errors.
  */
 export const ErrorSentinel = '@@MARSHALED_ERROR';
@@ -231,3 +206,28 @@ export function unmarshal<Yield extends Json>(
   }
   return value;
 }
+
+/**
+ * A pair of intertwined streams.
+ *
+ * @template Read - The type of the values read from the reader.
+ * @template Write - The type of the values written to the writer.
+ */
+export type StreamPair<
+  Read extends Json,
+  Write extends Json = Read,
+> = Readonly<{
+  reader: Reader<Read>;
+  writer: Writer<Write>;
+  /**
+   * Calls `.return()` on both streams.
+   */
+  return: () => Promise<void>;
+  /**
+   * Calls `.throw()` on the writer, forwarding the error to the other side. Returns
+   * the reader.
+   *
+   * @param error - The error to forward.
+   */
+  throw: (error: Error) => Promise<void>;
+}>;

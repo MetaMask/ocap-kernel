@@ -1,4 +1,4 @@
-import { makePromiseKitMock } from '@ocap/test-utils';
+import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ChromeRuntime } from './chrome.js';
@@ -17,6 +17,8 @@ import { makeDoneResult, makePendingResult } from './utils.js';
 // can be run concurrently.
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+
+const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 const makeEnvelope = (
   value: unknown,
@@ -275,10 +277,7 @@ describe('makeChromeRuntimeStreamPair', () => {
     expect(await localReadP).toStrictEqual(makeDoneResult());
     expect(runtime.sendMessage).toHaveBeenCalledWith(
       makeEnvelope(
-        expect.objectContaining({
-          message: error.message,
-          stack: expect.any(String),
-        }),
+        makeErrorMatcher(error),
         ChromeRuntimeStreamTarget.Offscreen,
       ),
     );

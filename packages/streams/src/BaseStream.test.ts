@@ -1,4 +1,4 @@
-import { makePromiseKitMock } from '@ocap/test-utils';
+import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Dispatch, ReceiveInput } from './BaseStream.js';
@@ -6,6 +6,8 @@ import { BaseReader, BaseWriter } from './BaseStream.js';
 import { makeDoneResult, makePendingResult } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+
+const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 class TestReader extends BaseReader<number> {
   receiveInput: ReceiveInput;
@@ -275,13 +277,7 @@ describe('BaseWriter', () => {
       expect(await writer.next(42)).toStrictEqual(makeDoneResult());
       expect(dispatchSpy).toHaveBeenCalledTimes(2);
       expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
-      expect(dispatchSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          message: 'foo',
-          stack: expect.any(String),
-        }),
-      );
+      expect(dispatchSpy).toHaveBeenNthCalledWith(2, makeErrorMatcher('foo'));
     });
 
     it('failing to dispatch a message logs the error', async () => {
@@ -315,19 +311,10 @@ describe('BaseWriter', () => {
       );
       expect(dispatchSpy).toHaveBeenCalledTimes(3);
       expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
-      expect(dispatchSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          message: 'foo',
-          stack: expect.any(String),
-        }),
-      );
+      expect(dispatchSpy).toHaveBeenNthCalledWith(2, makeErrorMatcher('foo'));
       expect(dispatchSpy).toHaveBeenNthCalledWith(
         3,
-        expect.objectContaining({
-          message: 'TestWriter experienced repeated dispatch failures.',
-          stack: expect.any(String),
-        }),
+        makeErrorMatcher('TestWriter experienced repeated dispatch failures.'),
       );
     });
   });
