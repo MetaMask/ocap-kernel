@@ -1,6 +1,7 @@
 import './kernel-worker-trusted-prelude.js';
 import { CommandMethod, isCommand } from '@ocap/kernel';
-import type { CommandReply, CommandReplyFunction } from '@ocap/kernel';
+import type { Command, CommandReply } from '@ocap/kernel';
+import { makePostMessageStreamPair } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
@@ -105,6 +106,12 @@ async function initDB(): Promise<Database> {
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
+  const streamPair = makePostMessageStreamPair<Command, CommandReply>(
+    (message) => globalThis.postMessage(message),
+    (listener) => globalThis.addEventListener('message', listener),
+    (listener) => globalThis.removeEventListener('message', listener),
+  );
+
   const db = await initDB();
   db.exec(`
     CREATE TABLE IF NOT EXISTS kv (
@@ -165,69 +172,58 @@ async function main(): Promise<void> {
    * @param method - The message method.
    * @param params - The message params.
    */
-  const reply: CommandReplyFunction = (
+  const reply = async (
     method: CommandMethod,
     params?: CommandReply['params'],
-  ) => {
-    postMessage({ method, params });
+  ): Promise<void> => {
+    await streamPair.writer.next({
+      method,
+      params: params ?? null,
+    } as CommandReply); // TODO: This is a provisional hack.
   };
 
-  /**
-   * Cast an unknown problem to an Error object.
-   *
-   * @param problem - Whatever was caught.
-   * @returns The problem if it is an Error, or a new Error with the problem as the cause.
-   */
-  const asError = (problem: unknown): Error =>
-    problem instanceof Error
-      ? problem
-      : new Error('Unknown', { cause: problem });
-
   // Handle messages from the console service worker
-  globalThis.onmessage = async (event: MessageEvent<unknown>) => {
-    if (!isCommand(event.data)) {
-      console.error('Received unexpected message', event.data);
+  for await (const message of streamPair.reader) {
+    if (!isCommand(message)) {
+      console.error('Received unexpected message', message);
       return;
     }
 
-    const { method, params } = event.data;
+    const { method, params } = message;
     console.log('received message: ', method, params);
 
     switch (method) {
       case CommandMethod.Evaluate:
-        reply(CommandMethod.Evaluate, await evaluate(params));
+        await reply(CommandMethod.Evaluate, await evaluate(params));
         break;
       case CommandMethod.CapTpCall: {
-        reply(
+        await reply(
           CommandMethod.CapTpCall,
           'Error: CapTpCall not implemented here (yet)',
         );
         break;
       }
       case CommandMethod.CapTpInit:
-        reply(
+        await reply(
           CommandMethod.CapTpInit,
           'Error: CapTpInit not implemented here (yet)',
         );
         break;
       case CommandMethod.Ping:
-        reply(CommandMethod.Ping, 'pong');
+        await reply(CommandMethod.Ping, 'pong');
         break;
       case CommandMethod.KVSet: {
         const { key, value } = params;
         kvSet(key, value);
-        reply(CommandMethod.KVSet, `~~~ set "${key}" to "${value}" ~~~`);
+        await reply(CommandMethod.KVSet, `~~~ set "${key}" to "${value}" ~~~`);
         break;
       }
       case CommandMethod.KVGet: {
         try {
           const result = kvGet(params);
-          reply(CommandMethod.KVGet, result);
+          await reply(CommandMethod.KVGet, result);
         } catch (problem) {
-          // The below will work because we call into globalThis.postMessage() directly,
-          // which can handle errors. This will need to be addressed once we use streams here.
-          // @ts-expect-error TODO: Fix when we have streams.
-          reply(CommandMethod.KVGet, asError(problem));
+          await reply(CommandMethod.KVGet, `Error: ${String(problem)}`);
         }
         break;
       }
@@ -239,7 +235,7 @@ async function main(): Promise<void> {
           )}"`,
         );
     }
-  };
+  }
 
   /**
    * Evaluate a string in the default iframe.

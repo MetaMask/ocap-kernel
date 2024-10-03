@@ -23,3 +23,8 @@ export {
   ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
   makeChromeRuntimeStreamPair,
 } from './ChromeRuntimeStream.js';
+export {
+  PostMessageReader,
+  PostMessageWriter,
+  makePostMessageStreamPair,
+} from './PostMessageStream.js';
