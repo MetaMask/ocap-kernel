@@ -6,7 +6,7 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
       expect.arrayContaining(
-        ['Kernel', 'Vat'].concat(
+        ['Kernel', 'Vat', 'VatWorkerServer', 'VatWorkerClient'].concat(
           ['Cluster', 'Kernel', 'Vat'].flatMap((value) => [
             `is${value}Command`,
             `is${value}CommandReply`,

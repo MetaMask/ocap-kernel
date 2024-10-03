@@ -3,6 +3,8 @@ import {
   KernelCommandMethod,
   isKernelCommand,
   isKernelCommandReply,
+  VatWorkerServer,
+  VatWorkerClient,
 } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand, VatId } from '@ocap/kernel';
 import {
@@ -11,7 +13,7 @@ import {
   ChromeRuntimeDuplexStream,
   PostMessageDuplexStream,
 } from '@ocap/streams';
-import { stringify, makeHandledCallback } from '@ocap/utils';
+import { stringify } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './iframe-vat-worker.js';
 
@@ -27,11 +29,38 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
-  const kernel = new Kernel();
-  const iframeReadyP = kernel.launchVat({
-    id: 'v0',
-    worker: makeIframeVatWorker('v0', initializeMessageChannel),
-  });
+  const kernelWorker = makeKernelWorker();
+
+  // Setup mock VatWorker service.
+
+  const { port1: serverPort, port2: clientPort } = new MessageChannel();
+
+  const vatWorkerServer = new VatWorkerServer(
+    (message: unknown, transfer?: Transferable[]) =>
+      transfer
+        ? serverPort.postMessage(message, transfer)
+        : serverPort.postMessage(message),
+    (listener) => {
+      serverPort.onmessage = listener;
+    },
+    (vatId: VatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
+  );
+
+  vatWorkerServer.start();
+
+  const vatWorkerClient = new VatWorkerClient(
+    (message: unknown) => clientPort.postMessage(message),
+    (listener) => {
+      clientPort.onmessage = listener;
+    },
+  );
+
+  // Create kernel.
+
+  const kernel = new Kernel(vatWorkerClient);
+  const iframeReadyP = kernel.launchVat({ id: 'v0' });
+
+  // Setup glue.
 
   /**
    * Reply to a command from the background script.
@@ -43,8 +72,6 @@ async function main(): Promise<void> {
   ): Promise<void> => {
     await backgroundStream.write(commandReply);
   };
-
-  const kernelWorker = makeKernelWorker();
 
   // Handle messages from the background service worker and the kernel SQLite worker.
   await Promise.all([

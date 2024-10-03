@@ -17,4 +17,7 @@ export type VatWorker = {
   delete: () => Promise<void>;
 };
 
-export type PromiseCallbacks = Omit<PromiseKit<unknown>, 'promise'>;
+export type PromiseCallbacks<Resolve = unknown> = Omit<
+  PromiseKit<Resolve>,
+  'promise'
+>;

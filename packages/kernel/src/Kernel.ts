@@ -1,13 +1,17 @@
 import '@ocap/shims/endoify';
 import type { VatCommand } from './messages.js';
-import type { VatId, VatWorker } from './types.js';
+import type { VatId } from './types.js';
+import type { VatWorkerClient } from './vat-worker-service.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
-  readonly #vats: Map<VatId, { vat: Vat; worker: VatWorker }>;
+  readonly #vats: Map<VatId, Vat>;
 
-  constructor() {
+  readonly #vatWorkerService: VatWorkerClient;
+
+  constructor(vatWorkerService: VatWorkerClient) {
     this.#vats = new Map();
+    this.#vatWorkerService = vatWorkerService;
   }
 
   /**
@@ -24,22 +28,15 @@ export class Kernel {
    *
    * @param options - The options for launching the vat.
    * @param options.id - The ID of the vat.
-   * @param options.worker - The worker to use for the vat.
    * @returns A promise that resolves the vat.
    */
-  async launchVat({
-    id,
-    worker,
-  }: {
-    id: VatId;
-    worker: VatWorker;
-  }): Promise<Vat> {
+  async launchVat({ id }: { id: VatId }): Promise<Vat> {
     if (this.#vats.has(id)) {
       throw new Error(`Vat with ID ${id} already exists.`);
     }
-    const [stream] = await worker.init();
+    const stream = await this.#vatWorkerService.initWorker(id);
     const vat = new Vat({ id, stream });
-    this.#vats.set(vat.id, { vat, worker });
+    this.#vats.set(vat.id, vat);
     await vat.init();
     return vat;
   }
@@ -50,10 +47,9 @@ export class Kernel {
    * @param id - The ID of the vat.
    */
   async deleteVat(id: VatId): Promise<void> {
-    const vatRecord = this.#getVatRecord(id);
-    const { vat, worker } = vatRecord;
+    const vat = this.#getVat(id);
     await vat.terminate();
-    await worker.delete();
+    await this.#vatWorkerService.deleteWorker(id).catch(console.error);
     this.#vats.delete(id);
   }
 
@@ -68,21 +64,21 @@ export class Kernel {
     id: VatId,
     command: VatCommand['payload'],
   ): Promise<unknown> {
-    const { vat } = this.#getVatRecord(id);
+    const vat = this.#getVat(id);
     return vat.sendMessage(command);
   }
 
   /**
-   * Gets a vat record from the kernel.
+   * Gets a vat from the kernel.
    *
    * @param id - The ID of the vat.
-   * @returns The vat record (vat and worker).
+   * @returns The vat.
    */
-  #getVatRecord(id: VatId): { vat: Vat; worker: VatWorker } {
-    const vatRecord = this.#vats.get(id);
-    if (vatRecord === undefined) {
+  #getVat(id: VatId): Vat {
+    const vat = this.#vats.get(id);
+    if (vat === undefined) {
       throw new Error(`Vat with ID ${id} does not exist.`);
     }
-    return vatRecord;
+    return vat;
   }
 }
