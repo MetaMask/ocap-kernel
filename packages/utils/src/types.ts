@@ -18,10 +18,11 @@ export const isPrimitive = (value: unknown): value is Primitive =>
 export const isTypedArray = <ElementType>(
   value: unknown,
   isElement: TypeGuard<ElementType>,
-): value is ElementType[] => Array.isArray(value) && value.every(isElement);
+): value is ElementType[] =>
+  Array.isArray(value) && !value.some((ele) => !isElement(ele));
 
 export const isTypedObject = <ValueType>(
   value: unknown,
   isValue: TypeGuard<ValueType>,
 ): value is { [Key in keyof object]: ValueType } =>
-  isObject(value) && Object.values(value).every(isValue);
+  isObject(value) && !Object.values(value).some((val) => !isValue(val));
