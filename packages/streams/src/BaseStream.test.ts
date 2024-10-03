@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Dispatch, ReceiveInput } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import { makeDoneResult, makePendingResult, marshalError } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -64,11 +64,13 @@ describe('BaseReader', () => {
       );
     });
 
-    it('calls onEnd when ending', async () => {
+    it('calls onEnd once when ending', async () => {
       const onEnd = vi.fn();
       const reader = new TestReader(onEnd);
       expect(onEnd).not.toHaveBeenCalled();
 
+      await reader.return();
+      expect(onEnd).toHaveBeenCalledOnce();
       await reader.return();
       expect(onEnd).toHaveBeenCalledOnce();
     });
@@ -113,19 +115,16 @@ describe('BaseReader', () => {
       }
     });
 
-    it.fails(
-      'throws after receiving unexpected message, before read is enqueued',
-      async () => {
-        const reader = new TestReader();
+    it('throws after receiving unexpected message, before read is enqueued', async () => {
+      const reader = new TestReader();
 
-        const unexpectedMessage = { foo: 'bar' };
-        reader.receiveInput(unexpectedMessage);
+      const unexpectedMessage = { foo: 'bar' };
+      reader.receiveInput(unexpectedMessage);
 
-        await expect(reader.next()).rejects.toThrow(
-          'Received unexpected message from transport',
-        );
-      },
-    );
+      await expect(reader.next()).rejects.toThrow(
+        'Received invalid message from transport',
+      );
+    });
 
     it('throws after receiving unexpected message, after read is enqueued', async () => {
       const reader = new TestReader();
@@ -135,8 +134,25 @@ describe('BaseReader', () => {
       reader.receiveInput(unexpectedMessage);
 
       await expect(nextP).rejects.toThrow(
-        'Received unexpected message from transport',
+        'Received invalid message from transport',
       );
+    });
+
+    it('throws after receiving marshaled error, before read is enqueued', async () => {
+      const reader = new TestReader();
+
+      reader.receiveInput(marshalError(new Error('foo')));
+
+      await expect(reader.next()).rejects.toThrow('foo');
+    });
+
+    it('throws after receiving marshaled error, after read is enqueued', async () => {
+      const reader = new TestReader();
+
+      const nextP = reader.next();
+      reader.receiveInput(marshalError(new Error('foo')));
+
+      await expect(nextP).rejects.toThrow('foo');
     });
 
     it('ends after receiving final iterator result, before read is enqueued', async () => {
@@ -155,6 +171,47 @@ describe('BaseReader', () => {
       reader.receiveInput(makeDoneResult());
 
       expect(await nextP).toStrictEqual(makeDoneResult());
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('enqueues input before returning', async () => {
+      const reader = new TestReader();
+
+      reader.receiveInput(makePendingResult(1));
+      await reader.return();
+
+      expect(await reader.next()).toStrictEqual(makePendingResult(1));
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('ignores input after returning', async () => {
+      const reader = new TestReader();
+
+      await reader.return();
+      reader.receiveInput(makePendingResult(1));
+
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('enqueues input before throwing', async () => {
+      const reader = new TestReader();
+
+      reader.receiveInput(makePendingResult(1));
+      reader.receiveInput(marshalError(new Error('foo')));
+
+      expect(await reader.next()).toStrictEqual(makePendingResult(1));
+      await expect(reader.next()).rejects.toThrow('foo');
+      expect(await reader.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('ignores input after throwing', async () => {
+      const reader = new TestReader();
+
+      reader.receiveInput(marshalError(new Error('foo')));
+      reader.receiveInput(makePendingResult(1));
+
+      await expect(reader.next()).rejects.toThrow('foo');
       expect(await reader.next()).toStrictEqual(makeDoneResult());
     });
   });
@@ -191,7 +248,9 @@ describe('BaseReader', () => {
     it('ends the stream', async () => {
       const reader = new TestReader();
 
-      expect(await reader.throw(new Error())).toStrictEqual(makeDoneResult());
+      expect(await reader.throw(new Error('foo'))).toStrictEqual(
+        makeDoneResult(),
+      );
       expect(await reader.next()).toStrictEqual(makeDoneResult());
     });
 
