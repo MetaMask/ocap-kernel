@@ -14,6 +14,108 @@ import {
 } from './utils.js';
 
 /**
+ * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
+ * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
+ */
+type StreamBuffer<Value extends IteratorResult<Json, undefined>> = {
+  /**
+   * Flushes pending reads with a value or error, and causes subsequent writes to be ignored.
+   * Subsequent reads will exhaust any puts, then return the error (if any), and finally a `done` result.
+   * Idempotent.
+   *
+   * @param error - The error to end the stream with. A `done` result is used if not provided.
+   */
+  end: (error?: Error) => void;
+
+  /**
+   * Checks if there are pending reads.
+   *
+   * @returns Whether there are pending reads.
+   */
+  hasPendingReads: () => boolean;
+
+  /**
+   * Puts a value or error into the buffer.
+   *
+   * @see `end()` for behavior when the stream ends.
+   * @param value - The value or error to put.
+   */
+  put: (value: Value | Error) => void;
+
+  /**
+   * Gets a value from the buffer.
+   *
+   * @see `end()` for behavior when the stream ends.
+   * @returns The value from the buffer.
+   */
+  get: () => Promise<Value>;
+};
+
+const makeStreamBuffer = <
+  Value extends IteratorResult<Json, undefined>,
+>(): StreamBuffer<Value> => {
+  const inputBuffer: (Value | Error)[] = [];
+  const outputBuffer: PromiseCallbacks[] = [];
+  let done = false;
+
+  const end = (error?: Error): void => {
+    if (done) {
+      return;
+    }
+
+    done = true;
+    if (outputBuffer.length > 0) {
+      while (outputBuffer.length > 0) {
+        const { resolve, reject } = outputBuffer.shift() as PromiseCallbacks;
+        error ? reject(error) : resolve(makeDoneResult() as Value);
+      }
+    }
+  };
+
+  return {
+    end,
+
+    hasPendingReads() {
+      return outputBuffer.length > 0;
+    },
+
+    put(value: Value | Error) {
+      if (done) {
+        return;
+      }
+
+      if (outputBuffer.length > 0) {
+        const { resolve } = outputBuffer.shift() as PromiseCallbacks;
+        resolve(value);
+        return;
+      }
+      inputBuffer.push(value);
+    },
+
+    async get() {
+      if (inputBuffer.length > 0) {
+        const value = inputBuffer.shift() as Value;
+        return value instanceof Error
+          ? Promise.reject(value)
+          : Promise.resolve(value);
+      }
+
+      if (done) {
+        return makeDoneResult() as Value;
+      }
+
+      const { promise, resolve, reject } = makePromiseKit<Value>();
+      outputBuffer.push({
+        resolve: resolve as (value: unknown) => void,
+        reject,
+      });
+      return promise;
+    },
+  };
+};
+harden(makeStreamBuffer);
+
+/**
  * A function that receives input from a transport mechanism to a readable stream.
  * Validates that the input is an {@link IteratorResult}, and throws if it is not.
  */
@@ -25,20 +127,13 @@ export type ReceiveInput = (input: unknown) => void;
  * Subclasses must forward input received from the transport mechanism via the function
  * returned by `getReceiveInput()`. Any cleanup required by subclasses should be performed
  * in a callback passed to `setOnEnd()`.
+ *
+ * The result of any value received before the stream ends is guaranteed to be observable
+ * by the consumer.
  */
 export class BaseReader<Read extends Json> implements Reader<Read> {
-  #isDone: boolean = false;
-
-  /**
-   * For buffering messages to manage backpressure, i.e. the input rate exceeding the
-   * read rate.
-   */
-  readonly #inputBuffer: IteratorResult<unknown, unknown>[] = [];
-
-  /**
-   * For buffering reads to manage "suction", i.e. the read rate exceeding the input rate.
-   */
-  readonly #outputBuffer: PromiseCallbacks[] = [];
+  readonly #buffer: StreamBuffer<IteratorResult<Read, undefined>> =
+    makeStreamBuffer();
 
   #didSetOnEnd: boolean = false;
 
@@ -72,31 +167,31 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
 
   readonly #receiveInput: ReceiveInput = (input) => {
     if (!isDispatchable(input)) {
-      this.#throw(
-        new Error(
-          `Received unexpected message from transport:\n${stringify(input)}`,
-        ),
+      const error = new Error(
+        `Received invalid message from transport:\n${stringify(input)}`,
       );
+      if (!this.#buffer.hasPendingReads()) {
+        this.#buffer.put(error);
+      }
+      this.#end(error);
       return;
     }
 
     const unmarshaled = unmarshal(input);
     if (unmarshaled instanceof Error) {
-      this.throwSync(unmarshaled);
+      if (!this.#buffer.hasPendingReads()) {
+        this.#buffer.put(unmarshaled);
+      }
+      this.#end(unmarshaled);
       return;
     }
 
     if (unmarshaled.done === true) {
-      this.#return();
+      this.#end();
       return;
     }
 
-    if (this.#outputBuffer.length > 0) {
-      const { resolve } = this.#outputBuffer.shift() as PromiseCallbacks;
-      resolve({ ...unmarshaled });
-    } else {
-      this.#inputBuffer.push(unmarshaled);
-    }
+    this.#buffer.put(unmarshaled as IteratorResult<Read, undefined>);
   };
 
   /**
@@ -114,11 +209,16 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
     this.#onEnd = onEnd;
   }
 
-  #end(): void {
-    this.#isDone = true;
-    // Drop all pending messages by clearing the input buffer
-    this.#inputBuffer.length = 0;
+  /**
+   * Ends the stream. Calls and then unsets the `#onEnd` method.
+   * Idempotent.
+   *
+   * @param error - The error to end the stream with. A `done` result is used if not provided.
+   */
+  #end(error?: Error): void {
+    this.#buffer.end(error);
     this.#onEnd?.();
+    this.#onEnd = undefined;
   }
 
   [Symbol.asyncIterator](): Reader<Read> {
@@ -131,21 +231,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * @returns The next message from the transport.
    */
   async next(): Promise<IteratorResult<Read, undefined>> {
-    if (this.#isDone) {
-      return makeDoneResult();
-    }
-
-    const { promise, resolve, reject } = makePromiseKit();
-    if (this.#inputBuffer.length > 0) {
-      const message = this.#inputBuffer.shift() as IteratorResult<
-        unknown,
-        unknown
-      >;
-      resolve({ ...message });
-    } else {
-      this.#outputBuffer.push({ resolve, reject });
-    }
-    return promise as Promise<IteratorResult<Read, undefined>>;
+    return this.#buffer.get();
   }
 
   /**
@@ -154,18 +240,8 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Read, undefined>> {
-    if (!this.#isDone) {
-      this.#return();
-    }
-    return makeDoneResult();
-  }
-
-  #return(): void {
-    while (this.#outputBuffer.length > 0) {
-      const { resolve } = this.#outputBuffer.shift() as PromiseCallbacks;
-      resolve(makeDoneResult());
-    }
     this.#end();
+    return makeDoneResult();
   }
 
   /**
@@ -176,29 +252,8 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
-    return this.throwSync(error);
-  }
-
-  /**
-   * As {@link throw()}, but synchronous. For the purpose of avoiding Promise handling
-   * in subclasses.
-   *
-   * @param error - The error to reject pending reads with.
-   * @returns The final result for this stream.
-   */
-  protected throwSync(error: Error): IteratorResult<Read, undefined> {
-    if (!this.#isDone) {
-      this.#throw(error);
-    }
+    this.#end(error);
     return makeDoneResult();
-  }
-
-  #throw(error: Error): void {
-    while (this.#outputBuffer.length > 0) {
-      const { reject } = this.#outputBuffer.shift() as PromiseCallbacks;
-      reject(error);
-    }
-    this.#end();
   }
 }
 harden(BaseReader);
@@ -264,7 +319,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
    * If dispatching fails, calls `#throw()`, and is therefore mutually recursive with
    * that method. For this reason, includes a flag indicating past failure to dispatch
    * a value, which is used to avoid infinite recursion. If dispatching succeeds, returns a
-   * `{ done: true }` result if the value was an {@link Error} or itself a "done" result,
+   * `{ done: true }` result if the value was an {@link Error} or itself a `done` result,
    * otherwise returns `{ done: false }`.
    *
    * @param value - The value to dispatch.

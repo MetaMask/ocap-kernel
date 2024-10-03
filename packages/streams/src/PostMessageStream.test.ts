@@ -80,8 +80,8 @@ describe('PostMessageWriter', () => {
 
 describe('makePostMessageStreamPair', () => {
   it('returns a pair of PostMessage streams', () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
+    const { setListener, removeListener } = makePostMessageMock();
+    const postMessageFn = vi.fn();
     const { reader, writer } = makePostMessageStreamPair(
       postMessageFn,
       setListener,
@@ -93,8 +93,8 @@ describe('makePostMessageStreamPair', () => {
   });
 
   it('return() calls return() on both streams', async () => {
-    const { postMessageFn, setListener, removeListener, listeners } =
-      makePostMessageMock();
+    const { setListener, removeListener, listeners } = makePostMessageMock();
+    const postMessageFn = vi.fn();
     const streamPair = makePostMessageStreamPair<string>(
       postMessageFn,
       setListener,
@@ -114,8 +114,8 @@ describe('makePostMessageStreamPair', () => {
   });
 
   it('throw() calls throw() on the writer but return on the reader', async () => {
-    const { postMessageFn, setListener, removeListener, listeners } =
-      makePostMessageMock();
+    const { setListener, removeListener, listeners } = makePostMessageMock();
+    const postMessageFn = vi.fn();
     const streamPair = makePostMessageStreamPair(
       postMessageFn,
       setListener,
