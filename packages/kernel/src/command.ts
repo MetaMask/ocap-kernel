@@ -1,4 +1,4 @@
-import type { Primitive } from '@endo/captp';
+import type { Json } from '@metamask/utils';
 import { hasProperty, isObject } from '@metamask/utils';
 import { isPrimitive, isTypedArray, isTypedObject } from '@ocap/utils';
 
@@ -12,8 +12,7 @@ export enum CommandMethod {
 }
 
 export type CommandParams =
-  | Primitive
-  | Promise<CommandParams>
+  | Json
   | CommandParams[]
   | { [key: string]: CommandParams };
 
@@ -41,10 +40,9 @@ type CommandLike<Method extends CommandMethod, Data extends CommandParams> = {
 type CommandReplyLike<
   Method extends CommandMethod,
   Data extends CommandParams,
-  ErrorType extends Error = never,
 > = {
   method: Method;
-  params: Data | ErrorType;
+  params: Data;
 };
 
 const isCommandLike = (
@@ -88,22 +86,15 @@ export type CommandReply =
   | CommandReplyLike<CommandMethod.Evaluate, string>
   | CommandReplyLike<CommandMethod.CapTpInit, string>
   | CommandReplyLike<CommandMethod.CapTpCall, string>
-  | CommandReplyLike<CommandMethod.KVGet, string, Error>
+  | CommandReplyLike<CommandMethod.KVGet, string>
   | CommandReplyLike<CommandMethod.KVSet, string>;
 
 export const isCommandReply = (value: unknown): value is CommandReply =>
-  isCommandLike(value) &&
-  (typeof value.params === 'string' || value.params instanceof Error);
-
-type UnionMinus<Union, Minus> = Union extends Minus ? never : Union;
+  isCommandLike(value) && typeof value.params === 'string';
 
 export type CommandReplyFunction<Return = void> = {
   (method: CommandMethod.Ping, params: 'pong'): Return;
-  (method: CommandMethod.KVGet, params: string | Error): Return;
-  (
-    method: UnionMinus<CommandMethod, CommandMethod.Ping | CommandMethod.KVGet>,
-    params: string,
-  ): Return;
+  (method: Exclude<CommandMethod, CommandMethod.Ping>, params: string): Return;
 };
 
 export type VatCommand = {
@@ -127,7 +118,7 @@ export const isVatCommandReply = (value: unknown): value is VatCommandReply =>
 export type CapTpMessage<Type extends `CTP_${string}` = `CTP_${string}`> = {
   type: Type;
   epoch: number;
-  [key: string]: unknown;
+  [key: string]: Json;
 };
 
 export const isCapTpMessage = (value: unknown): value is CapTpMessage =>

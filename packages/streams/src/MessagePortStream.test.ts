@@ -1,3 +1,4 @@
+import type { Json } from '@metamask/utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,7 +7,7 @@ import {
   MessagePortReader,
   MessagePortWriter,
 } from './MessagePortStream.js';
-import { makeDoneResult } from './shared.js';
+import { makeDoneResult, makePendingResult } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -26,13 +27,10 @@ describe.concurrent('MessagePortReader', () => {
       const reader = new MessagePortReader(port1);
 
       const message = { foo: 'bar' };
-      port2.postMessage({ done: false, value: message });
+      port2.postMessage(makePendingResult(message));
       await delay(100);
 
-      expect(await reader.next()).toStrictEqual({
-        done: false,
-        value: message,
-      });
+      expect(await reader.next()).toStrictEqual(makePendingResult(message));
     });
 
     it('emits message port message received after next()', async () => {
@@ -41,9 +39,9 @@ describe.concurrent('MessagePortReader', () => {
 
       const nextP = reader.next();
       const message = { foo: 'bar' };
-      port2.postMessage({ done: false, value: message });
+      port2.postMessage(makePendingResult(message));
 
-      expect(await nextP).toStrictEqual({ done: false, value: message });
+      expect(await nextP).toStrictEqual(makePendingResult(message));
     });
 
     it('iterates over multiple port messages', async () => {
@@ -52,7 +50,7 @@ describe.concurrent('MessagePortReader', () => {
 
       const messages = [{ foo: 'bar' }, { bar: 'baz' }, { baz: 'qux' }];
       messages.forEach((message) =>
-        port2.postMessage({ done: false, value: message }),
+        port2.postMessage(makePendingResult(message)),
       );
 
       let index = 0;
@@ -209,11 +207,8 @@ describe.concurrent('MessagePortWriter', () => {
       });
       const nextP = writer.next(message);
 
-      expect(await nextP).toStrictEqual({
-        done: false,
-        value: undefined,
-      });
-      expect(await messageP).toStrictEqual({ done: false, value: message });
+      expect(await nextP).toStrictEqual(makePendingResult(undefined));
+      expect(await messageP).toStrictEqual(makePendingResult(message));
     });
 
     it('throws if failing to send a message', async () => {
@@ -227,11 +222,17 @@ describe.concurrent('MessagePortWriter', () => {
 
       expect(await writer.next(null)).toStrictEqual(makeDoneResult());
       expect(postMessageSpy).toHaveBeenCalledTimes(2);
-      expect(postMessageSpy).toHaveBeenNthCalledWith(1, {
-        done: false,
-        value: null,
-      });
-      expect(postMessageSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
+      expect(postMessageSpy).toHaveBeenNthCalledWith(
+        1,
+        makePendingResult(null),
+      );
+      expect(postMessageSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          message: 'foo',
+          stack: expect.any(String),
+        }),
+      );
     });
 
     it('failing to send a message logs the error', async () => {
@@ -266,14 +267,23 @@ describe.concurrent('MessagePortWriter', () => {
         'MessagePortWriter experienced repeated dispatch failures.',
       );
       expect(postMessageSpy).toHaveBeenCalledTimes(3);
-      expect(postMessageSpy).toHaveBeenNthCalledWith(1, {
-        done: false,
-        value: null,
-      });
-      expect(postMessageSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
+      expect(postMessageSpy).toHaveBeenNthCalledWith(
+        1,
+        makePendingResult(null),
+      );
+      expect(postMessageSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          message: 'foo',
+          stack: expect.any(String),
+        }),
+      );
       expect(postMessageSpy).toHaveBeenNthCalledWith(
         3,
-        new Error('MessagePortWriter experienced repeated dispatch failures.'),
+        expect.objectContaining({
+          message: 'MessagePortWriter experienced repeated dispatch failures.',
+          stack: expect.any(String),
+        }),
       );
     });
   });
@@ -345,7 +355,7 @@ describe('makeMessagePortStreamPair', () => {
     const { port1, port2 } = new MessageChannel();
     const streamPair = makeMessagePortStreamPair(port1);
     const remoteReader = new MessagePortReader(port2);
-    const localReadP = (streamPair.reader as MessagePortReader<unknown>).next();
+    const localReadP = (streamPair.reader as MessagePortReader<Json>).next();
     const remoteReadP = remoteReader.next();
 
     expect(port1.onmessage).toBeDefined();
@@ -356,7 +366,12 @@ describe('makeMessagePortStreamPair', () => {
     expect(await localReadP).toStrictEqual(makeDoneResult());
     expect(port1.onmessage).toBeNull();
 
-    await expect(remoteReadP).rejects.toThrow(new Error('foo'));
+    await expect(remoteReadP).rejects.toThrow(
+      expect.objectContaining({
+        message: 'foo',
+        stack: expect.any(String),
+      }),
+    );
     expect(port2.onmessage).toBeNull();
   });
 });

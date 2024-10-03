@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Dispatch, ReceiveInput } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import { makeDoneResult } from './shared.js';
+import { makeDoneResult, makePendingResult } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -77,12 +77,9 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const message = 42;
-      reader.receiveInput({ done: false, value: message });
+      reader.receiveInput(makePendingResult(message));
 
-      expect(await reader.next()).toStrictEqual({
-        done: false,
-        value: message,
-      });
+      expect(await reader.next()).toStrictEqual(makePendingResult(message));
     });
 
     it('emits message received after next()', async () => {
@@ -90,9 +87,9 @@ describe('BaseReader', () => {
 
       const nextP = reader.next();
       const message = 42;
-      reader.receiveInput({ done: false, value: message });
+      reader.receiveInput(makePendingResult(message));
 
-      expect(await nextP).toStrictEqual({ done: false, value: message });
+      expect(await nextP).toStrictEqual(makePendingResult(message));
     });
 
     it('iterates over multiple messages', async () => {
@@ -100,7 +97,7 @@ describe('BaseReader', () => {
 
       const messages = [1, 2, 3];
       messages.forEach((message) =>
-        reader.receiveInput({ done: false, value: message }),
+        reader.receiveInput(makePendingResult(message)),
       );
 
       let index = 0;
@@ -265,11 +262,8 @@ describe('BaseWriter', () => {
       const message = 42;
       const nextP = writer.next(message);
 
-      expect(await nextP).toStrictEqual({
-        done: false,
-        value: undefined,
-      });
-      expect(dispatchSpy).toHaveBeenCalledWith({ done: false, value: message });
+      expect(await nextP).toStrictEqual(makePendingResult(undefined));
+      expect(dispatchSpy).toHaveBeenCalledWith(makePendingResult(message));
     });
 
     it('throws if failing to dispatch a message', async () => {
@@ -280,11 +274,14 @@ describe('BaseWriter', () => {
 
       expect(await writer.next(42)).toStrictEqual(makeDoneResult());
       expect(dispatchSpy).toHaveBeenCalledTimes(2);
-      expect(dispatchSpy).toHaveBeenNthCalledWith(1, {
-        done: false,
-        value: 42,
-      });
-      expect(dispatchSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
+      expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
+      expect(dispatchSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          message: 'foo',
+          stack: expect.any(String),
+        }),
+      );
     });
 
     it('failing to dispatch a message logs the error', async () => {
@@ -317,14 +314,20 @@ describe('BaseWriter', () => {
         'TestWriter experienced repeated dispatch failures.',
       );
       expect(dispatchSpy).toHaveBeenCalledTimes(3);
-      expect(dispatchSpy).toHaveBeenNthCalledWith(1, {
-        done: false,
-        value: 42,
-      });
-      expect(dispatchSpy).toHaveBeenNthCalledWith(2, new Error('foo'));
+      expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
+      expect(dispatchSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          message: 'foo',
+          stack: expect.any(String),
+        }),
+      );
       expect(dispatchSpy).toHaveBeenNthCalledWith(
         3,
-        new Error('TestWriter experienced repeated dispatch failures.'),
+        expect.objectContaining({
+          message: 'TestWriter experienced repeated dispatch failures.',
+          stack: expect.any(String),
+        }),
       );
     });
   });

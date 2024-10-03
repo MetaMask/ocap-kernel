@@ -20,9 +20,10 @@
  * @module MessagePort streams
  */
 
-import type { ReceiveInput } from './BaseStream.js';
+import type { Json } from '@metamask/utils';
+
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import type { StreamPair } from './shared.js';
+import type { Dispatchable, StreamPair } from './utils.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -34,21 +35,19 @@ import type { StreamPair } from './shared.js';
  * - {@link MessagePortWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortReader<Yield> extends BaseReader<Yield> {
+export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
   readonly #port: MessagePort;
-
-  readonly #receiveInput: ReceiveInput;
 
   constructor(port: MessagePort) {
     super();
     super.setOnEnd(this.#closePort.bind(this));
 
-    this.#receiveInput = super.getReceiveInput();
+    const receiveInput = super.getReceiveInput();
     this.#port = port;
 
     // Assigning to the `onmessage` property initializes the port's message queue.
     // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
-    this.#port.onmessage = this.#onMessage.bind(this);
+    this.#port.onmessage = (messageEvent) => receiveInput(messageEvent.data);
 
     harden(this);
   }
@@ -56,15 +55,6 @@ export class MessagePortReader<Yield> extends BaseReader<Yield> {
   #closePort(): void {
     this.#port.close();
     this.#port.onmessage = null;
-  }
-
-  #onMessage(messageEvent: MessageEvent<unknown>): void {
-    if (messageEvent.data instanceof Error) {
-      this.throwSync(messageEvent.data);
-      return;
-    }
-
-    this.#receiveInput(messageEvent.data);
   }
 }
 harden(MessagePortReader);
@@ -76,7 +66,7 @@ harden(MessagePortReader);
  * - {@link MessagePortReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortWriter<Yield> extends BaseWriter<Yield> {
+export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
   readonly #port: MessagePort;
 
   constructor(port: MessagePort) {
@@ -91,7 +81,7 @@ export class MessagePortWriter<Yield> extends BaseWriter<Yield> {
     this.#port.close();
   }
 
-  #postMessage(value: IteratorResult<Yield, undefined> | Error): void {
+  #postMessage(value: Dispatchable<Write>): void {
     this.#port.postMessage(value);
   }
 }
@@ -104,7 +94,10 @@ harden(MessagePortWriter);
  * @param port - The message port to make the streams over.
  * @returns The reader and writer streams, and cleanup methods.
  */
-export const makeMessagePortStreamPair = <Read, Write = Read>(
+export const makeMessagePortStreamPair = <
+  Read extends Json,
+  Write extends Json = Read,
+>(
   port: MessagePort,
 ): StreamPair<Read, Write> => {
   const reader = new MessagePortReader<Read>(port);

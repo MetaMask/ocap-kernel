@@ -224,6 +224,9 @@ async function main(): Promise<void> {
           const result = kvGet(params);
           reply(CommandMethod.KVGet, result);
         } catch (problem) {
+          // The below will work because we call into globalThis.postMessage() directly,
+          // which can handle errors. This will need to be addressed once we use streams here.
+          // @ts-expect-error TODO: Fix when we have streams.
           reply(CommandMethod.KVGet, asError(problem));
         }
         break;

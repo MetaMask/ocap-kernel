@@ -17,10 +17,12 @@
  * @module ChromeRuntime streams
  */
 
+import type { Json } from '@metamask/utils';
+
 import type { ReceiveInput } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
-import type { StreamPair } from './shared.js';
+import type { Dispatchable, StreamPair } from './utils.js';
 
 export enum ChromeRuntimeStreamTarget {
   Background = 'background',
@@ -50,7 +52,7 @@ const isMessageEnvelope = (
  * - {@link ChromeRuntimeWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class ChromeRuntimeReader<Yield> extends BaseReader<Yield> {
+export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
 
   readonly #target: ChromeRuntimeStreamTarget;
@@ -121,17 +123,15 @@ harden(ChromeRuntimeReader);
  * - {@link ChromeRuntimeReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class ChromeRuntimeWriter<Yield> extends BaseWriter<Yield> {
+export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
   constructor(runtime: ChromeRuntime, target: ChromeRuntimeStreamTarget) {
     super('ChromeRuntimeWriter');
-    super.setOnDispatch(
-      async (value: IteratorResult<Yield, undefined> | Error) => {
-        await runtime.sendMessage({
-          target,
-          payload: value,
-        });
-      },
-    );
+    super.setOnDispatch(async (value: Dispatchable<Write>) => {
+      await runtime.sendMessage({
+        target,
+        payload: value,
+      });
+    });
     harden(this);
   }
 }
@@ -148,7 +148,10 @@ harden(ChromeRuntimeWriter);
  * addresses messages to the remote side.
  * @returns The reader and writer streams, and cleanup methods.
  */
-export const makeChromeRuntimeStreamPair = <Read, Write = Read>(
+export const makeChromeRuntimeStreamPair = <
+  Read extends Json,
+  Write extends Json = Read,
+>(
   runtime: ChromeRuntime,
   localTarget: ChromeRuntimeStreamTarget,
   remoteTarget: ChromeRuntimeStreamTarget,

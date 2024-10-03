@@ -9,7 +9,7 @@ import {
   ChromeRuntimeWriter,
   ChromeRuntimeStreamTarget,
 } from './ChromeRuntimeStream.js';
-import { makeDoneResult } from './shared.js';
+import { makeDoneResult, makePendingResult } from './utils.js';
 
 // TODO: Something about the runtime mock prevents this test suite from being run
 // concurrently. Even following the advice of using the test context `expect`
@@ -83,7 +83,7 @@ describe('ChromeRuntimeReader', () => {
         ChromeRuntimeStreamTarget.Background,
       );
 
-      const message = { done: false, value: { foo: 'bar' } };
+      const message = makePendingResult({ foo: 'bar' });
       dispatchRuntimeMessage(message);
 
       expect(await reader.next()).toStrictEqual({
@@ -99,7 +99,7 @@ describe('ChromeRuntimeReader', () => {
       );
 
       const nextP = reader.next();
-      const message = { done: false, value: { foo: 'bar' } };
+      const message = makePendingResult({ foo: 'bar' });
       dispatchRuntimeMessage(message);
 
       expect(await nextP).toStrictEqual({
@@ -116,7 +116,7 @@ describe('ChromeRuntimeReader', () => {
 
       const messages = [{ foo: 'bar' }, { bar: 'baz' }, { baz: 'qux' }];
       messages.forEach((value) =>
-        dispatchRuntimeMessage({ done: false, value }),
+        dispatchRuntimeMessage(makePendingResult(value)),
       );
 
       let index = 0;
@@ -164,7 +164,6 @@ describe('ChromeRuntimeReader', () => {
       );
     });
 
-    // TODO:errors chrome.runtime.sendMessage cannot serialize Error values.
     it('throws after receiving error from runtime, after read is enqueued', async () => {
       const { runtime, dispatchRuntimeMessage } = makeRuntime();
       const reader = new ChromeRuntimeReader(
@@ -226,8 +225,8 @@ describe('ChromeRuntimeReader', () => {
       );
 
       const nextP = reader.next();
-      const message1 = { done: false, value: { foo: 'bar' } };
-      const message2 = { done: false, value: { fizz: 'buzz' } };
+      const message1 = makePendingResult({ foo: 'bar' });
+      const message2 = makePendingResult({ fizz: 'buzz' });
       dispatchRuntimeMessage(message1, undefined, 'other-extension-id');
       dispatchRuntimeMessage(message2);
 
@@ -254,7 +253,7 @@ describe('ChromeRuntimeReader', () => {
         )}`,
       );
 
-      const message = { done: false, value: { foo: 'bar' } };
+      const message = makePendingResult({ foo: 'bar' });
       dispatchRuntimeMessage(message);
       expect(await nextP).toStrictEqual({ ...message });
     });
@@ -269,7 +268,7 @@ describe('ChromeRuntimeReader', () => {
       const nextP = reader.next();
 
       vi.spyOn(console, 'warn');
-      const message1 = { done: false, value: { foo: 'bar' } };
+      const message1 = makePendingResult({ foo: 'bar' });
       // @ts-expect-error Intentional destructive testing
       dispatchRuntimeMessage(message1, 'foo');
 
@@ -284,7 +283,7 @@ describe('ChromeRuntimeReader', () => {
         )}`,
       );
 
-      const message2 = { done: false, value: { fizz: 'buzz' } };
+      const message2 = makePendingResult({ fizz: 'buzz' });
       dispatchRuntimeMessage(message2);
       expect(await nextP).toStrictEqual({ ...message2 });
     });
@@ -399,16 +398,10 @@ describe('ChromeRuntimeWriter', () => {
       const message = { foo: 'bar' };
       const nextP = writer.next(message);
 
-      expect(await nextP).toStrictEqual({
-        done: false,
-        value: undefined,
-      });
+      expect(await nextP).toStrictEqual(makePendingResult(undefined));
       expect(runtime.sendMessage).toHaveBeenCalledWith(
         makeEnvelope(
-          {
-            done: false,
-            value: message,
-          },
+          makePendingResult(message),
           ChromeRuntimeStreamTarget.Background,
         ),
       );
@@ -431,16 +424,19 @@ describe('ChromeRuntimeWriter', () => {
       expect(sendMessageSpy).toHaveBeenNthCalledWith(
         1,
         makeEnvelope(
-          {
-            done: false,
-            value: null,
-          },
+          makePendingResult(null),
           ChromeRuntimeStreamTarget.Background,
         ),
       );
       expect(sendMessageSpy).toHaveBeenNthCalledWith(
         2,
-        makeEnvelope(new Error('foo'), ChromeRuntimeStreamTarget.Background),
+        makeEnvelope(
+          expect.objectContaining({
+            message: 'foo',
+            stack: expect.any(String),
+          }),
+          ChromeRuntimeStreamTarget.Background,
+        ),
       );
     });
 
@@ -485,24 +481,29 @@ describe('ChromeRuntimeWriter', () => {
       expect(sendMessageSpy).toHaveBeenNthCalledWith(
         1,
         makeEnvelope(
-          {
-            done: false,
-            value: null,
-          },
+          makePendingResult(null),
           ChromeRuntimeStreamTarget.Background,
         ),
       );
 
       expect(sendMessageSpy).toHaveBeenNthCalledWith(
         2,
-        makeEnvelope(new Error('foo'), ChromeRuntimeStreamTarget.Background),
+        makeEnvelope(
+          expect.objectContaining({
+            message: 'foo',
+            stack: expect.any(String),
+          }),
+          ChromeRuntimeStreamTarget.Background,
+        ),
       );
       expect(sendMessageSpy).toHaveBeenNthCalledWith(
         3,
         makeEnvelope(
-          new Error(
-            'ChromeRuntimeWriter experienced repeated dispatch failures.',
-          ),
+          expect.objectContaining({
+            message:
+              'ChromeRuntimeWriter experienced repeated dispatch failures.',
+            stack: expect.any(String),
+          }),
           ChromeRuntimeStreamTarget.Background,
         ),
       );
@@ -623,7 +624,13 @@ describe('makeChromeRuntimeStreamPair', () => {
     dispatchRuntimeMessage(makeDoneResult());
     expect(await localReadP).toStrictEqual(makeDoneResult());
     expect(runtime.sendMessage).toHaveBeenCalledWith(
-      makeEnvelope(error, ChromeRuntimeStreamTarget.Offscreen),
+      makeEnvelope(
+        expect.objectContaining({
+          message: error.message,
+          stack: expect.any(String),
+        }),
+        ChromeRuntimeStreamTarget.Offscreen,
+      ),
     );
   });
 });

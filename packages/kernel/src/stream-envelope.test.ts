@@ -21,7 +21,7 @@ describe('StreamEnvelopeHandler', () => {
     type: 'CTP_CALL',
     epoch: 0,
     // Our assumptions about the form of a CapTpMessage are weak.
-    unreliableKey: Symbol('unreliableValue'),
+    foo: 'bar',
   };
 
   const commandLabel = wrapStreamCommand(commandContent).label;
@@ -89,7 +89,7 @@ describe('StreamEnvelopeReplyHandler', () => {
     type: 'CTP_CALL',
     epoch: 0,
     // Our assumptions about the form of a CapTpMessage are weak.
-    unreliableKey: Symbol('unreliableValue'),
+    foo: 'bar',
   };
 
   const commandLabel = wrapStreamCommandReply(commandContent).label;
