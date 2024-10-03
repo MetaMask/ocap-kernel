@@ -2,7 +2,7 @@ import type { expect as Expect } from 'vitest';
 
 /**
  * Creates a function that can be used to match errors in tests. Assumes that
- * the error will have a message, and optionally:
+ * the error will have a `message`, and optionally:
  * - a `string` stack
  * - an `Error` cause
  *
