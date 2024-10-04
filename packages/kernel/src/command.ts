@@ -1,6 +1,6 @@
+import { is } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import { hasProperty, isObject } from '@metamask/utils';
-import { isPrimitive, isTypedArray, isTypedObject } from '@ocap/utils';
+import { hasProperty, isObject, UnsafeJsonStruct } from '@metamask/utils';
 
 export enum CommandMethod {
   CapTpCall = 'callCapTp',
@@ -11,20 +11,14 @@ export enum CommandMethod {
   KVGet = 'kvGet',
 }
 
-export type CommandParams =
-  | Json
-  | CommandParams[]
-  | { [key: string]: CommandParams };
-
-const isCommandParams = (value: unknown): value is CommandParams =>
-  isPrimitive(value) ||
-  value instanceof Promise ||
-  isTypedArray(value, isCommandParams) ||
-  isTypedObject(value, isCommandParams);
+// The "Unsafe" here is because this guard can actually be cheated at runtime,
+// but so long as we're only using it within our type boundaries, it should be fine.
+const isJsonUnsafe = (value: unknown): value is Json =>
+  is(value, UnsafeJsonStruct);
 
 export type CapTpPayload = {
   method: string;
-  params: CommandParams[];
+  params: Json[];
 };
 
 export const isCapTpPayload = (value: unknown): value is CapTpPayload =>
@@ -32,15 +26,12 @@ export const isCapTpPayload = (value: unknown): value is CapTpPayload =>
   typeof value.method === 'string' &&
   Array.isArray(value.params);
 
-type CommandLike<Method extends CommandMethod, Data extends CommandParams> = {
+type CommandLike<Method extends CommandMethod, Data extends Json> = {
   method: Method;
   params: Data;
 };
 
-type CommandReplyLike<
-  Method extends CommandMethod,
-  Data extends CommandParams,
-> = {
+type CommandReplyLike<Method extends CommandMethod, Data extends Json> = {
   method: Method;
   params: Data;
 };
@@ -54,7 +45,7 @@ const isCommandLike = (
   isObject(value) &&
   Object.values(CommandMethod).includes(value.method as CommandMethod) &&
   hasProperty(value, 'params') &&
-  isCommandParams(value.params);
+  isJsonUnsafe(value.params);
 
 export type Command =
   | CommandLike<CommandMethod.Ping, null>
