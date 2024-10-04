@@ -65,22 +65,16 @@ harden(MessagePortReader);
  * - The module-level documentation for more details.
  */
 export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
-  readonly #port: MessagePort;
-
-  constructor(port: MessagePort) {
-    super('MessagePortWriter');
-    super.setOnDispatch(this.#postMessage.bind(this));
-    super.setOnEnd(this.#closePort.bind(this));
-    this.#port = port;
+  constructor(port: MessagePort, onEnd?: () => void) {
+    super(
+      'MessagePortWriter',
+      (value: Dispatchable<Write>) => port.postMessage(value),
+      () => {
+        port.close();
+        onEnd?.();
+      },
+    );
     harden(this);
-  }
-
-  #closePort(): void {
-    this.#port.close();
-  }
-
-  #postMessage(value: Dispatchable<Write>): void {
-    this.#port.postMessage(value);
   }
 }
 harden(MessagePortWriter);

@@ -220,6 +220,21 @@ describe('ChromeRuntimeWriter', () => {
       ),
     );
   });
+
+  it('calls onEnd once when ending', async () => {
+    const { runtime } = makeRuntime();
+    const onEnd = vi.fn();
+    const writer = new ChromeRuntimeWriter(
+      asChromeRuntime(runtime),
+      ChromeRuntimeStreamTarget.Background,
+      onEnd,
+    );
+
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('makeChromeRuntimeStreamPair', () => {

@@ -252,50 +252,29 @@ export type Dispatch<Yield extends Json> = (
 export class BaseWriter<Write extends Json> implements Writer<Write> {
   #isDone: boolean = false;
 
-  /**
-   * The name of the stream, for logging purposes.
-   */
   readonly #logName: string = 'BaseWriter';
 
-  /**
-   * A function that is called when the stream ends. For any cleanup that should happen
-   * when the stream ends, such as closing a message port.
-   */
+  readonly #onDispatch: Dispatch<Write>;
+
   #onEnd: (() => void) | undefined;
-
-  #didSetOnEnd: boolean = false;
-
-  /**
-   * A function that dispatches messages over the underlying transport mechanism.
-   */
-  #onDispatch: Dispatch<Write> = () => {
-    throw new Error('onDispatch has not been set');
-  };
-
-  #didSetOnDispatch: boolean = false;
 
   /**
    * Constructs a {@link BaseWriter}.
    *
    * @param logName - The name of the stream, for logging purposes.
-   */
-  constructor(logName: string) {
-    this.#logName = logName;
-    harden(this);
-  }
-
-  /**
-   * Sets the `onDispatch` method, which is called when a message is received from the
-   * transport mechanism. Attempting to call this method more than once will throw an error.
-   *
    * @param onDispatch - A function that dispatches messages over the underlying transport mechanism.
+   * @param onEnd - A function that is called when the stream ends. For any cleanup that
+   * should happen when the stream ends, such as closing a message port.
    */
-  protected setOnDispatch(onDispatch: Dispatch<Write>): void {
-    if (this.#didSetOnDispatch) {
-      throw new Error('onDispatch has already been set');
-    }
-    this.#didSetOnDispatch = true;
+  constructor(
+    logName: string,
+    onDispatch: Dispatch<Write>,
+    onEnd?: () => void,
+  ) {
+    this.#logName = logName;
     this.#onDispatch = onDispatch;
+    this.#onEnd = onEnd;
+    harden(this);
   }
 
   /**
@@ -343,24 +322,10 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
     }
   }
 
-  /**
-   * Sets the `onEnd` method, which is called when the stream ends. Attempting to call
-   * this method more than once will throw an error.
-   *
-   * @param onEnd - A function that is called when the stream ends. For any cleanup that
-   * should happen when the stream ends, such as closing a message port.
-   */
-  protected setOnEnd(onEnd: () => void): void {
-    if (this.#didSetOnEnd) {
-      throw new Error('onEnd has already been set');
-    }
-    this.#didSetOnEnd = true;
-    this.#onEnd = onEnd;
-  }
-
   #end(): void {
     this.#isDone = true;
     this.#onEnd?.();
+    this.#onEnd = undefined;
   }
 
   [Symbol.asyncIterator](): Writer<Write> {

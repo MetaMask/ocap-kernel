@@ -63,7 +63,8 @@ describe('PostMessageReader', () => {
   });
 
   it('calls onEnd once when ending', async () => {
-    const { postMessageFn, setListener, removeListener } = makePostMessageMock();
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
     const onEnd = vi.fn();
     const reader = new PostMessageReader(setListener, removeListener, onEnd);
 
@@ -88,6 +89,17 @@ describe('PostMessageWriter', () => {
     const message = { foo: 'bar' };
     await writer.next(message);
     expect(postMessageFn).toHaveBeenCalledWith(makePendingResult(message));
+  });
+
+  it('calls onEnd once when ending', async () => {
+    const { postMessageFn } = makePostMessageMock();
+    const onEnd = vi.fn();
+    const writer = new PostMessageWriter(postMessageFn, onEnd);
+
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
   });
 });
 
