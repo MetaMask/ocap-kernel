@@ -1,9 +1,20 @@
+import { isObject } from '@metamask/utils';
 import type { TypeGuard } from '@ocap/utils';
 
 import { kernelTestCommand } from './kernel-test.js';
-import { makeMessageKit } from './message-kit.js';
+import { makeMessageKit, messageType } from './message-kit.js';
+import type { VatId } from '../types.js';
+import { isVatId } from '../types.js';
 
 export const kernelCommand = {
+  InitKernel: messageType<null, { initTime: number; defaultVat: VatId }>(
+    (send) => send === null,
+    (reply) =>
+      isObject(reply) &&
+      typeof reply.initTime === 'number' &&
+      isVatId(reply.defaultVat),
+  ),
+
   ...kernelTestCommand,
 };
 
