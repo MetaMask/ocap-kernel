@@ -42,11 +42,11 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
 
   // Initialize kernel store.
 
-  const { kvGet, kvSet } = await makeKernelStore();
+  const kernelStore = await makeKernelStore();
 
   // Create kernel.
 
-  const kernel = new Kernel(vatWorkerClient);
+  const kernel = new Kernel(vatWorkerClient, kernelStore);
   const iframeReadyP = kernel.launchVat({ id: defaultVatId });
 
   await reply({
@@ -87,7 +87,7 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
         await handleVatTestCommand({ method, params });
         break;
       case KernelCommandMethod.KVSet:
-        kvSet(params.key, params.value);
+        kernel.kvSet(params.key, params.value);
         await reply({
           method,
           params: `~~~ set "${params.key}" to "${params.value}" ~~~`,
@@ -95,7 +95,7 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
         break;
       case KernelCommandMethod.KVGet: {
         try {
-          const result = kvGet(params);
+          const result = kernel.kvGet(params);
           await reply({
             method,
             params: result,

@@ -1,3 +1,4 @@
+import type { KernelStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
@@ -15,11 +16,6 @@ async function initDB(): Promise<Database> {
   console.warn(`OPFS not enabled, database will be ephemeral`);
   return new sqlite3.oo1.DB('/testdb.sqlite', 'cwt');
 }
-
-export type KernelStore = {
-  kvGet: (key: string) => string;
-  kvSet: (key: string, value: string) => void;
-};
 
 /**
  * Makes a {@link KernelStore} for persistent storage.
