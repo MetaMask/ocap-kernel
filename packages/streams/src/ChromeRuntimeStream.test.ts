@@ -172,6 +172,22 @@ describe('ChromeRuntimeReader', () => {
     expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
     expect(listeners).toHaveLength(0);
   });
+
+  it('calls onEnd once when ending', async () => {
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
+    const onEnd = vi.fn();
+    const reader = new ChromeRuntimeReader(
+      asChromeRuntime(runtime),
+      ChromeRuntimeStreamTarget.Background,
+      onEnd,
+    );
+
+    dispatchRuntimeMessage(makeDoneResult());
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ChromeRuntimeWriter', () => {
