@@ -61,6 +61,19 @@ describe('PostMessageReader', () => {
     expect(removeListener).toHaveBeenCalled();
     expect(listeners).toHaveLength(0);
   });
+
+  it('calls onEnd once when ending', async () => {
+    const { postMessageFn, setListener, removeListener } = makePostMessageMock();
+    const onEnd = vi.fn();
+    const reader = new PostMessageReader(setListener, removeListener, onEnd);
+
+    postMessageFn(makeDoneResult());
+
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('PostMessageWriter', () => {

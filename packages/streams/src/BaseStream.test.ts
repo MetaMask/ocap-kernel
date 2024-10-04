@@ -13,17 +13,12 @@ class TestReader extends BaseReader<number> {
   receiveInput: ReceiveInput;
 
   constructor(onEnd?: () => void) {
-    super();
+    super(onEnd);
     this.receiveInput = super.getReceiveInput();
-    onEnd && super.setOnEnd(onEnd);
   }
 
   getReceiveInput(): ReceiveInput {
     return super.getReceiveInput();
-  }
-
-  setOnEnd(onEnd: () => void): void {
-    super.setOnEnd(onEnd);
   }
 }
 
@@ -54,13 +49,6 @@ describe('BaseReader', () => {
       const reader = new TestReader();
       expect(() => reader.getReceiveInput()).toThrow(
         'receiveInput has already been accessed',
-      );
-    });
-
-    it('throws if setOnEnd is called more than once', () => {
-      const reader = new TestReader(() => undefined);
-      expect(() => reader.setOnEnd(() => undefined)).toThrow(
-        'onEnd has already been set',
       );
     });
 

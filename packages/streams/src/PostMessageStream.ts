@@ -23,14 +23,22 @@ type RemoveListener = (onMessage: OnMessage) => void;
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
 export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
-  constructor(setListener: SetListener, removeListener: RemoveListener) {
-    super();
+  constructor(
+    setListener: SetListener,
+    removeListener: RemoveListener,
+    onEnd?: () => void,
+  ) {
+    // eslint-disable-next-line prefer-const
+    let onMessage: OnMessage;
+
+    super(() => {
+      removeListener(onMessage);
+      onEnd?.();
+    });
 
     const receiveInput = super.getReceiveInput();
-    const onMessage: OnMessage = (messageEvent) =>
-      receiveInput(messageEvent.data);
+    onMessage = (messageEvent) => receiveInput(messageEvent.data);
     setListener(onMessage);
-    super.setOnEnd(() => removeListener(onMessage));
 
     harden(this);
   }

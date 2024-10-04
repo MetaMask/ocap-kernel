@@ -60,18 +60,27 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
   readonly #extensionId: string;
 
-  constructor(runtime: ChromeRuntime, target: ChromeRuntimeStreamTarget) {
-    super();
+  constructor(
+    runtime: ChromeRuntime,
+    target: ChromeRuntimeStreamTarget,
+    onEnd?: () => void,
+  ) {
+    // eslint-disable-next-line prefer-const
+    let messageListener: (
+      message: unknown,
+      sender: ChromeMessageSender,
+    ) => void;
+
+    super(() => {
+      runtime.onMessage.removeListener(messageListener);
+      onEnd?.();
+    });
 
     this.#receiveInput = super.getReceiveInput();
     this.#target = target;
     this.#extensionId = runtime.id;
-    const messageListener = this.#onMessage.bind(this);
 
-    const removeListener = (): void =>
-      runtime.onMessage.removeListener(messageListener);
-    super.setOnEnd(removeListener);
-
+    messageListener = this.#onMessage.bind(this);
     // Begin listening for messages from the Chrome runtime.
     runtime.onMessage.addListener(messageListener);
 

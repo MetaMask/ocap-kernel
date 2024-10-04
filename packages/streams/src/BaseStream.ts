@@ -135,19 +135,18 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
   readonly #buffer: StreamBuffer<IteratorResult<Read, undefined>> =
     makeStreamBuffer();
 
-  #didSetOnEnd: boolean = false;
-
-  /**
-   * A function that is called when the stream ends.
-   */
-  #onEnd: (() => void) | undefined;
+  #onEnd?: (() => void) | undefined;
 
   #didExposeReceiveInput: boolean = false;
 
   /**
    * Constructs a {@link BaseReader}.
+   *
+   * @param onEnd - A function that is called when the stream ends. For any cleanup that
+   * should happen when the stream ends, such as closing a message port.
    */
-  constructor() {
+  constructor(onEnd?: () => void) {
+    this.#onEnd = onEnd;
     harden(this);
   }
 
@@ -193,21 +192,6 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
 
     this.#buffer.put(unmarshaled as IteratorResult<Read, undefined>);
   };
-
-  /**
-   * Sets the `onEnd` method, which is called when the stream ends. Attempting to call
-   * this method more than once will throw an error.
-   *
-   * @param onEnd - A function that is called when the stream ends. For any cleanup that
-   * should happen when the stream ends, such as closing a message port.
-   */
-  protected setOnEnd(onEnd: () => void): void {
-    if (this.#didSetOnEnd) {
-      throw new Error('onEnd has already been set');
-    }
-    this.#didSetOnEnd = true;
-    this.#onEnd = onEnd;
-  }
 
   /**
    * Ends the stream. Calls and then unsets the `#onEnd` method.

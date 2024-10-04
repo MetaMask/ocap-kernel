@@ -38,9 +38,12 @@ import type { Dispatchable, StreamPair } from './utils.js';
 export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
   readonly #port: MessagePort;
 
-  constructor(port: MessagePort) {
-    super();
-    super.setOnEnd(this.#closePort.bind(this));
+  constructor(port: MessagePort, onEnd?: () => void) {
+    super(() => {
+      port.close();
+      port.onmessage = null;
+      onEnd?.();
+    });
 
     const receiveInput = super.getReceiveInput();
     this.#port = port;
@@ -50,11 +53,6 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
     this.#port.onmessage = (messageEvent) => receiveInput(messageEvent.data);
 
     harden(this);
-  }
-
-  #closePort(): void {
-    this.#port.close();
-    this.#port.onmessage = null;
   }
 }
 harden(MessagePortReader);

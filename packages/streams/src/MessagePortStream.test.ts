@@ -51,6 +51,20 @@ describe('MessagePortReader', () => {
     expect(closeSpy).toHaveBeenCalledOnce();
     expect(port1.onmessage).toBeNull();
   });
+
+  it('calls onEnd once when ending', async () => {
+    const { port1, port2 } = new MessageChannel();
+    const onEnd = vi.fn();
+    const reader = new MessagePortReader(port1, onEnd);
+
+    port2.postMessage(makeDoneResult());
+    await delay(100);
+
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('MessagePortWriter', () => {
