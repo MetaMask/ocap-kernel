@@ -29,6 +29,9 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
+  const startTime = performance.now();
+  const defaultVatId = 'v0';
+
   const kernelWorker = makeKernelWorker();
 
   // Setup mock VatWorker service.
@@ -58,7 +61,7 @@ async function main(): Promise<void> {
   // Create kernel.
 
   const kernel = new Kernel(vatWorkerClient);
-  const iframeReadyP = kernel.launchVat({ id: 'v0' });
+  const iframeReadyP = kernel.launchVat({ id: defaultVatId });
 
   // Setup glue.
 
@@ -96,6 +99,8 @@ async function main(): Promise<void> {
   async function handleKernelCommand(command: KernelCommand): Promise<void> {
     const { method, params } = command;
     switch (method) {
+      case KernelCommandMethod.InitKernel:
+        throw new Error('background should not call init kernel');
       case KernelCommandMethod.Ping:
         await replyToBackground({ method, params: 'pong' });
         break;
@@ -223,7 +228,8 @@ async function main(): Promise<void> {
           // the sole eventual recipient is a human eyeball, and even then it's questionable.
           result = `ERROR: ${possibleError.message}`;
         } else {
-          result = params;
+          // The InitKernel reply has an object params.
+          result = String(params);
         }
         const reply = { method, params: result ?? null };
         if (!isKernelCommandReply(reply)) {
@@ -238,6 +244,13 @@ async function main(): Promise<void> {
     const sendMessage = async (message: KernelCommand): Promise<void> => {
       await workerStream.write(message);
     };
+
+    iframeReadyP.then(async () => {
+      await replyToBackground({
+        method: KernelCommandMethod.InitKernel,
+        params: { initTime: performance.now() - startTime, defaultVat: defaultVatId },
+      })
+    });
 
     return {
       sendMessage,
