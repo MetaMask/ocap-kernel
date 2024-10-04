@@ -1,10 +1,10 @@
 import type { TypeGuard } from '@ocap/utils';
 
-import { kernelTestCommand } from './kernel-test.js';
+import { kernelCommand } from './kernel.js';
 import { makeMessageKit } from './message-kit.js';
 
 const clusterCommand = {
-  ...kernelTestCommand,
+  ...kernelCommand,
 };
 
 const clusterCommandKit = makeMessageKit(clusterCommand);

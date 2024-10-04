@@ -81,6 +81,7 @@ async function main(): Promise<void> {
     }
 
     switch (message.method) {
+      case ClusterCommandMethod.InitKernel:
       case ClusterCommandMethod.Evaluate:
       case ClusterCommandMethod.CapTpCall:
       case ClusterCommandMethod.Ping:
