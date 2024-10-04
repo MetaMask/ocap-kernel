@@ -24,15 +24,14 @@ export const makeErrorMatcherFactory = (expect: typeof Expect) => {
       });
     }
 
-    if (error.cause !== undefined && !(error.cause instanceof Error)) {
-      throw new Error('cause must be an error');
-    }
-
     return expect.objectContaining({
       message: error.message,
       ...(error.stack !== undefined && { stack: expect.any(String) }),
       ...(error.cause !== undefined && {
-        cause: makeErrorMatcher(error.cause),
+        cause:
+          error.cause instanceof Error
+            ? makeErrorMatcher(error.cause)
+            : error.cause,
       }),
     });
   };

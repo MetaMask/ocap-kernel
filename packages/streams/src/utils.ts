@@ -7,8 +7,10 @@ import {
   literal,
   optional,
   string,
+  union,
 } from '@metamask/superstruct';
 import { type Json, UnsafeJsonStruct, object } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 
 export type { Reader, Writer };
 
@@ -96,14 +98,14 @@ type MarshaledError = {
   [ErrorSentinel]: true;
   message: string;
   stack?: string;
-  cause?: MarshaledError;
+  cause?: MarshaledError | string;
 };
 
 const MarshaledErrorStruct: Struct<MarshaledError> = object({
   [ErrorSentinel]: literal(true),
   message: string(),
   stack: optional(string()),
-  cause: optional(lazy(() => MarshaledErrorStruct)),
+  cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
 }) as Struct<MarshaledError>;
 
 /**
@@ -124,11 +126,14 @@ function isMarshaledError(value: unknown): value is MarshaledError {
  */
 export function marshalError(error: Error): MarshaledError {
   const output: MarshaledError = {
-    message: error.message,
     [ErrorSentinel]: true,
+    message: error.message,
   };
-  if (error.cause && error.cause instanceof Error) {
-    output.cause = marshalError(error.cause);
+  if (error.cause) {
+    output.cause =
+      error.cause instanceof Error
+        ? marshalError(error.cause)
+        : stringify(error.cause);
   }
   if (error.stack) {
     output.stack = error.stack;
@@ -146,7 +151,10 @@ export function unmarshalError(marshaledError: MarshaledError): Error {
   let output: Error;
   if (marshaledError.cause) {
     output = new Error(marshaledError.message, {
-      cause: unmarshalError(marshaledError.cause),
+      cause:
+        typeof marshaledError.cause === 'string'
+          ? marshaledError.cause
+          : unmarshalError(marshaledError.cause),
     });
   } else {
     output = new Error(marshaledError.message);

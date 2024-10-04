@@ -14,6 +14,7 @@ import {
   unmarshal,
   unmarshalError,
 } from './utils.js';
+import { stringify } from '@ocap/utils';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
@@ -118,6 +119,20 @@ describe('marshalError', () => {
       }),
     );
   });
+
+  it('should marshal an error with a non-error cause', () => {
+    const cause = { bar: 'baz' };
+    const error = new Error('foo', { cause });
+    const marshaledError = marshalError(error);
+    expect(marshaledError).toStrictEqual(
+      expect.objectContaining({
+        [ErrorSentinel]: true,
+        message: 'foo',
+        stack: expect.any(String),
+        cause: stringify(cause),
+      }),
+    );
+  });
 });
 
 describe('unmarshalError', () => {
@@ -145,6 +160,18 @@ describe('unmarshalError', () => {
     } as const;
     expect(unmarshalError(marshaledError)).toStrictEqual(
       makeErrorMatcher(new Error('foo', { cause: new Error('baz') })),
+    );
+  });
+
+  it('should unmarshal a marshaled error with a string cause', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'foo',
+      stack: 'bar',
+      cause: 'baz',
+    } as const;
+    expect(unmarshalError(marshaledError)).toStrictEqual(
+      makeErrorMatcher(new Error('foo', { cause: 'baz' })),
     );
   });
 });
