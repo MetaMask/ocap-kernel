@@ -1,3 +1,4 @@
+export { makeHandledCallback } from './handled-callback.js';
 export type { Logger } from './logger.js';
 export { makeLogger } from './logger.js';
 export { makeCounter } from './counter.js';

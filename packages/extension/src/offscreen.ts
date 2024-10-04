@@ -11,7 +11,7 @@ import {
   ChromeRuntimeDuplexStream,
   PostMessageDuplexStream,
 } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
+import { stringify, makeHandledCallback } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './iframe-vat-worker.js';
 

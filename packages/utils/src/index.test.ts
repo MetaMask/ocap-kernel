@@ -8,6 +8,7 @@ describe('index', () => {
       expect.arrayContaining([
         'makeCounter',
         'makeLogger',
+        'makeHandledCallback',
         'stringify',
         'isPrimitive',
         'isTypedArray',

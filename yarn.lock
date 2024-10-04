@@ -1615,6 +1615,7 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^13.0.0"
     "@metamask/eslint-config-typescript": "npm:^13.0.0"
     "@metamask/utils": "npm:^9.1.0"
+    "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.5.1"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.1.0"
