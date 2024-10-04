@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+import type { KernelStore } from './kernel-store.js';
 import type { VatCommand } from './messages.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
@@ -8,9 +9,20 @@ export class Kernel {
 
   readonly #vatWorkerService: VatWorkerService;
 
-  constructor(vatWorkerService: VatWorkerService) {
+  readonly #storage: KernelStore;
+
+  constructor(vatWorkerService: VatWorkerService, storage: KernelStore) {
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
+    this.#storage = storage;
+  }
+
+  kvGet(key: string): string {
+    return this.#storage.kvGet(key);
+  }
+
+  kvSet(key: string, value: string): void {
+    this.#storage.kvSet(key, value);
   }
 
   /**
@@ -81,3 +93,4 @@ export class Kernel {
     return vat;
   }
 }
+harden(Kernel);

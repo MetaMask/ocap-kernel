@@ -1,5 +1,6 @@
 export * from './messages.js';
 export { Kernel } from './Kernel.js';
+export type { KernelStore } from './kernel-store.js';
 export { Vat } from './Vat.js';
 export { Supervisor } from './Supervisor.js';
 export type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
