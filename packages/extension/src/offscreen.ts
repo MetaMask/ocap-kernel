@@ -104,7 +104,7 @@ async function main(): Promise<void> {
       // involve the user.
       for await (const message of workerStream) {
         if (!isKernelCommandReply(message)) {
-          logger.error('Kernel received unexpected message', message);
+          logger.error('Kernel sent unexpected reply', message);
           continue;
         }
 

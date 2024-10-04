@@ -3,9 +3,8 @@ import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { isKernelCommand, Kernel, KernelCommandMethod } from '@ocap/kernel';
 import { PostMessageDuplexStream, receiveMessagePort } from '@ocap/streams';
 import { makeLogger, stringify } from '@ocap/utils';
-import type { Database } from '@sqlite.org/sqlite-wasm';
-import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
+import { makeKernelStore } from './sqlite-kernel-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 type MainArgs = { defaultVatId: VatId };
@@ -13,20 +12,6 @@ type MainArgs = { defaultVatId: VatId };
 const logger = makeLogger('[kernel worker]');
 
 main({ defaultVatId: 'v0' }).catch(console.error);
-
-/**
- * Ensure that SQLite is initialized.
- *
- * @returns The SQLite database object.
- */
-async function initDB(): Promise<Database> {
-  const sqlite3 = await sqlite3InitModule();
-  if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cwt');
-  }
-  console.warn(`OPFS not enabled, database will be ephemeral`);
-  return new sqlite3.oo1.DB('/testdb.sqlite', 'cwt');
-}
 
 /**
  * The main function for the offscreen script.
@@ -62,7 +47,7 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
 
   // Initialize kernel store.
 
-  const { sqlKVGet, sqlKVSet } = await initDb();
+  const { kvGet, kvSet } = await makeKernelStore();
 
   // Create kernel.
 
@@ -214,70 +199,5 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
     return problem instanceof Error
       ? problem
       : new Error('Unknown', { cause: problem });
-  }
-
-  /**
-   * Initialize the database and some prepared statements.
-   *
-   * @returns The prepared database statements.
-   */
-  async function initDb(): Promise<{
-    sqlKVGet: ReturnType<typeof db.prepare>;
-    sqlKVSet: ReturnType<typeof db.prepare>;
-  }> {
-    const db = await initDB();
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS kv (
-        key TEXT,
-        value TEXT,
-        PRIMARY KEY(key)
-      )
-    `);
-
-    return {
-      sqlKVGet: db.prepare(`
-      SELECT value
-      FROM kv
-      WHERE key = ?
-    `),
-      sqlKVSet: db.prepare(`
-      INSERT INTO kv (key, value)
-      VALUES (?, ?)
-      ON CONFLICT DO UPDATE SET value = excluded.value
-    `),
-    };
-  }
-
-  /**
-   * Exercise reading from the database.
-   *
-   * @param key - A key to fetch.
-   * @returns The value at that key.
-   */
-  function kvGet(key: string): string {
-    sqlKVGet.bind([key]);
-    if (sqlKVGet.step()) {
-      const result = sqlKVGet.getString(0);
-      if (result) {
-        sqlKVGet.reset();
-        console.log(`kernel get '${key}' as '${result}'`);
-        return result;
-      }
-    }
-    sqlKVGet.reset();
-    throw Error(`no record matching key '${key}'`);
-  }
-
-  /**
-   * Exercise writing to the database.
-   *
-   * @param key - A key to assign.
-   * @param value - The value to assign to it.
-   */
-  function kvSet(key: string, value: string): void {
-    console.log(`kernel set '${key}' to '${value}'`);
-    sqlKVSet.bind([key, value]);
-    sqlKVSet.step();
-    sqlKVSet.reset();
   }
 }
