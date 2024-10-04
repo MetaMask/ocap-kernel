@@ -18,6 +18,7 @@
  */
 
 import type { Json } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 
 import type { ReceiveInput } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
@@ -84,10 +85,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
     if (!isMessageEnvelope(message)) {
       console.debug(
-        `ChromeRuntimeReader received unexpected message: ${JSON.stringify(
+        `ChromeRuntimeReader received unexpected message: ${stringify(
           message,
-          null,
-          2,
         )}`,
       );
       return;
@@ -95,10 +94,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
     if (message.target !== this.#target) {
       console.warn(
-        `ChromeRuntimeReader received message for unexpected target: ${JSON.stringify(
+        `ChromeRuntimeReader received message for unexpected target: ${stringify(
           message,
-          null,
-          2,
         )}`,
       );
       return;

@@ -1,4 +1,5 @@
 import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
+import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ChromeRuntime } from './chrome.js';
@@ -121,11 +122,9 @@ describe('ChromeRuntimeReader', () => {
     listeners[0]?.({ not: 'an envelope' }, { id: EXTENSION_ID });
 
     expect(console.debug).toHaveBeenCalledWith(
-      `ChromeRuntimeReader received unexpected message: ${JSON.stringify(
-        { not: 'an envelope' },
-        null,
-        2,
-      )}`,
+      `ChromeRuntimeReader received unexpected message: ${stringify({
+        not: 'an envelope',
+      })}`,
     );
 
     const message = makePendingResult({ foo: 'bar' });
@@ -148,14 +147,10 @@ describe('ChromeRuntimeReader', () => {
     dispatchRuntimeMessage(message1, 'foo');
 
     expect(console.warn).toHaveBeenCalledWith(
-      `ChromeRuntimeReader received message for unexpected target: ${JSON.stringify(
-        {
-          target: 'foo',
-          payload: message1,
-        },
-        null,
-        2,
-      )}`,
+      `ChromeRuntimeReader received message for unexpected target: ${stringify({
+        target: 'foo',
+        payload: message1,
+      })}`,
     );
 
     const message2 = makePendingResult({ fizz: 'buzz' });

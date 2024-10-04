@@ -1,5 +1,6 @@
 import type { Json } from '@metamask/utils';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { stringify } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 
 import type { Dispatchable } from './utils.js';
@@ -14,7 +15,6 @@ import {
   unmarshal,
   unmarshalError,
 } from './utils.js';
-import { stringify } from '@ocap/utils';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 

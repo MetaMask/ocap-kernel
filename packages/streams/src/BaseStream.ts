@@ -1,6 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { type Json } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 
 import type { Dispatchable, PromiseCallbacks, Writable } from './utils.js';
 import {
@@ -73,11 +74,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
     if (!isDispatchable(input)) {
       this.#throw(
         new Error(
-          `Received unexpected message from transport:\n${JSON.stringify(
-            input,
-            null,
-            2,
-          )}`,
+          `Received unexpected message from transport:\n${stringify(input)}`,
         ),
       );
       return;
