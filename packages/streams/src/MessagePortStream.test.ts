@@ -98,6 +98,17 @@ describe('MessagePortWriter', () => {
     expect(await writer.return()).toStrictEqual(makeDoneResult());
     expect(closeSpy).toHaveBeenCalledOnce();
   });
+
+  it('calls onEnd once when ending', async () => {
+    const { port1 } = new MessageChannel();
+    const onEnd = vi.fn();
+    const writer = new MessagePortWriter(port1, onEnd);
+
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await writer.return()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('makeMessagePortStreamPair', () => {

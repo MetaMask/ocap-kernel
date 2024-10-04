@@ -23,18 +23,8 @@ class TestReader extends BaseReader<number> {
 }
 
 class TestWriter extends BaseWriter<number> {
-  constructor(onDispatch?: Dispatch<number>, onEnd?: () => void) {
-    super('TestWriter');
-    onDispatch && super.setOnDispatch(onDispatch);
-    onEnd && super.setOnEnd(onEnd);
-  }
-
-  setOnDispatch(onDispatch: Dispatch<number>): void {
-    super.setOnDispatch(onDispatch);
-  }
-
-  setOnEnd(onEnd: () => void): void {
-    super.setOnEnd(onEnd);
+  constructor(onDispatch: Dispatch<number>, onEnd?: () => void) {
+    super('TestWriter', onDispatch, onEnd);
   }
 }
 
@@ -43,6 +33,7 @@ describe('BaseReader', () => {
     it('constructs a BaseReader', () => {
       const reader = new TestReader();
       expect(reader).toBeInstanceOf(BaseReader);
+      expect(reader[Symbol.asyncIterator]()).toBe(reader);
     });
 
     it('throws if getReceiveInput is called more than once', () => {
@@ -268,36 +259,16 @@ describe('BaseWriter', () => {
     it('constructs a BaseWriter', () => {
       const writer = new TestWriter(() => undefined);
       expect(writer).toBeInstanceOf(BaseWriter);
+      expect(writer[Symbol.asyncIterator]()).toBe(writer);
     });
 
-    it('throws if setOnDispatch is called more than once', () => {
-      const writer = new TestWriter(() => undefined);
-      expect(() => writer.setOnDispatch(() => undefined)).toThrow(
-        'onDispatch has already been set',
-      );
-    });
-
-    it('throws if setOnEnd is called more than once', () => {
-      const writer = new TestWriter(
-        () => undefined,
-        () => undefined,
-      );
-      expect(() => writer.setOnEnd(() => undefined)).toThrow(
-        'onEnd has already been set',
-      );
-    });
-
-    it('throws if setOnDispatch was not set by subclass constructor', async () => {
-      await expect(new TestWriter().next(42)).rejects.toThrow(
-        'onDispatch has not been set',
-      );
-    });
-
-    it('calls onEnd when ending', async () => {
+    it('calls onEnd once when ending', async () => {
       const onEnd = vi.fn();
       const writer = new TestWriter(() => undefined, onEnd);
       expect(onEnd).not.toHaveBeenCalled();
 
+      await writer.return();
+      expect(onEnd).toHaveBeenCalledOnce();
       await writer.return();
       expect(onEnd).toHaveBeenCalledOnce();
     });

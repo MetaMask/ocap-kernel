@@ -125,14 +125,21 @@ harden(ChromeRuntimeReader);
  * - The module-level documentation for more details.
  */
 export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
-  constructor(runtime: ChromeRuntime, target: ChromeRuntimeStreamTarget) {
-    super('ChromeRuntimeWriter');
-    super.setOnDispatch(async (value: Dispatchable<Write>) => {
-      await runtime.sendMessage({
-        target,
-        payload: value,
-      });
-    });
+  constructor(
+    runtime: ChromeRuntime,
+    target: ChromeRuntimeStreamTarget,
+    onEnd?: () => void,
+  ) {
+    super(
+      'ChromeRuntimeWriter',
+      async (value: Dispatchable<Write>) => {
+        await runtime.sendMessage({
+          target,
+          payload: value,
+        });
+      },
+      onEnd,
+    );
     harden(this);
   }
 }

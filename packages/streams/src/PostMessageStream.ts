@@ -51,9 +51,8 @@ harden(PostMessageReader);
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
 export class PostMessageWriter<Write extends Json> extends BaseWriter<Write> {
-  constructor(postMessageFn: PostMessage) {
-    super('PostMessageWriter');
-    super.setOnDispatch(postMessageFn);
+  constructor(postMessageFn: PostMessage, onEnd?: () => void) {
+    super('PostMessageWriter', postMessageFn, onEnd);
     harden(this);
   }
 }
