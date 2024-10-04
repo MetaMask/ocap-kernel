@@ -1,8 +1,8 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import {
-  isKernelCommand,
-  isKernelCommandReply,
   KernelCommandMethod,
+  isKernelCommandReply,
+  isClusterCommand,
 } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand, VatId } from '@ocap/kernel';
 import {
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     (async () => {
       for await (const message of backgroundStream) {
         await kernelInit.promise;
-        isKernelCommand(message)
+        isClusterCommand(message)
           ? await kernelWorker.sendMessage(message)
           : logger.debug('Received unexpected message', message);
       }
