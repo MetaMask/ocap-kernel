@@ -2,7 +2,7 @@ import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Dispatch, ReceiveInput } from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
+import { BaseDuplexStream, BaseReader, BaseWriter } from './BaseStream.js';
 import { makeDoneResult, makePendingResult, marshalError } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
@@ -25,6 +25,23 @@ class TestReader extends BaseReader<number> {
 class TestWriter extends BaseWriter<number> {
   constructor(onDispatch: Dispatch<number>, onEnd?: () => void) {
     super('TestWriter', onDispatch, onEnd);
+  }
+}
+
+class TestDuplexStream extends BaseDuplexStream<
+  number,
+  TestReader,
+  number,
+  TestWriter
+> {
+  constructor(
+    onDispatch: Dispatch<number>,
+    {
+      readerOnEnd,
+      writerOnEnd,
+    }: { readerOnEnd?: () => void; writerOnEnd?: () => void } = {},
+  ) {
+    super(new TestReader(readerOnEnd), new TestWriter(onDispatch, writerOnEnd));
   }
 }
 
@@ -367,5 +384,89 @@ describe('BaseWriter', () => {
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
     });
+  });
+});
+
+describe('BaseDuplexStream', () => {
+  it('constructs a BaseDuplexStream', () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    expect(duplexStream).toBeInstanceOf(BaseDuplexStream);
+    expect(duplexStream.reader).toBeInstanceOf(BaseReader);
+    expect(duplexStream.writer).toBeInstanceOf(BaseWriter);
+  });
+
+  it('reads from the reader', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+
+    const message = 42;
+    duplexStream.reader.receiveInput(makePendingResult(message));
+
+    expect(await duplexStream.read()).toStrictEqual(makePendingResult(message));
+  });
+
+  it('drains the reader', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    const readerSpy = vi.spyOn(duplexStream.reader, 'next');
+
+    const messages = [1, 2, 3];
+    messages.forEach((message) =>
+      duplexStream.reader.receiveInput(makePendingResult(message)),
+    );
+    await duplexStream.reader.return();
+
+    let index = 0;
+    const drainFn = vi.fn((value: number) => {
+      expect(value).toStrictEqual(messages[index]);
+      index += 1;
+    });
+
+    await duplexStream.drain(drainFn);
+    expect(drainFn).toHaveBeenCalledTimes(messages.length);
+    expect(readerSpy).toHaveBeenCalledTimes(messages.length + 1);
+  });
+
+  it('writes to the writer', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    const writerSpy = vi.spyOn(duplexStream.writer, 'next');
+
+    const message = 42;
+    await duplexStream.write(message);
+    expect(writerSpy).toHaveBeenCalledWith(message);
+  });
+
+  it('return calls return on both reader and writer', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    const readerSpy = vi.spyOn(duplexStream.reader, 'return');
+    const writerSpy = vi.spyOn(duplexStream.writer, 'return');
+
+    await duplexStream.return();
+    expect(readerSpy).toHaveBeenCalledOnce();
+    expect(writerSpy).toHaveBeenCalledOnce();
+  });
+
+  it('throw calls throw on the writer but return on the reader', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    const readerReturnSpy = vi.spyOn(duplexStream.reader, 'return');
+    const writerThrowSpy = vi.spyOn(duplexStream.writer, 'throw');
+
+    await duplexStream.throw(new Error('foo'));
+    expect(readerReturnSpy).toHaveBeenCalledOnce();
+    expect(writerThrowSpy).toHaveBeenCalledWith(new Error('foo'));
+  });
+
+  it('ending the reader calls reader onEnd function', async () => {
+    const readerOnEnd = vi.fn();
+    const duplexStream = new TestDuplexStream(() => undefined, { readerOnEnd });
+
+    await duplexStream.reader.return();
+    expect(readerOnEnd).toHaveBeenCalledOnce();
+  });
+
+  it('ending the writer calls writer onEnd function', async () => {
+    const writerOnEnd = vi.fn();
+    const duplexStream = new TestDuplexStream(() => undefined, { writerOnEnd });
+
+    await duplexStream.writer.return();
+    expect(writerOnEnd).toHaveBeenCalledOnce();
   });
 });

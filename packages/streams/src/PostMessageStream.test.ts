@@ -1,16 +1,14 @@
-import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
+import { makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
-  makePostMessageStreamPair,
+  PostMessageDuplexStream,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
 import { makeDoneResult, makePendingResult } from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
-
-const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 // This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -103,59 +101,43 @@ describe('PostMessageWriter', () => {
   });
 });
 
-describe('makePostMessageStreamPair', () => {
-  it('returns a pair of PostMessage streams', () => {
+describe('PostMessageDuplexStream', () => {
+  it('constructs a PostMessageDuplexStream', () => {
     const { setListener, removeListener } = makePostMessageMock();
-    const postMessageFn = vi.fn();
-    const { reader, writer } = makePostMessageStreamPair(
-      postMessageFn,
+    const duplexStream = new PostMessageDuplexStream(
+      vi.fn(),
       setListener,
       removeListener,
     );
 
-    expect(reader).toBeInstanceOf(PostMessageReader);
-    expect(writer).toBeInstanceOf(PostMessageWriter);
+    expect(duplexStream).toBeInstanceOf(PostMessageDuplexStream);
+    expect(duplexStream.reader).toBeInstanceOf(PostMessageReader);
+    expect(duplexStream.writer).toBeInstanceOf(PostMessageWriter);
   });
 
-  it('return() calls return() on both streams', async () => {
-    const { setListener, removeListener, listeners } = makePostMessageMock();
-    const postMessageFn = vi.fn();
-    const streamPair = makePostMessageStreamPair<string>(
-      postMessageFn,
+  it('ends the reader when the writer ends', async () => {
+    const { setListener, removeListener } = makePostMessageMock();
+    const duplexStream = new PostMessageDuplexStream(
+      vi.fn(),
       setListener,
       removeListener,
     );
-    expect(listeners).toHaveLength(1);
 
-    await streamPair.return();
-
-    expect(await streamPair.writer.next('foo')).toStrictEqual(makeDoneResult());
-    expect(await streamPair.reader.next(undefined)).toStrictEqual(
-      makeDoneResult(),
-    );
-    expect(postMessageFn).toHaveBeenCalledTimes(1);
-    expect(postMessageFn).toHaveBeenCalledWith(makeDoneResult());
-    expect(listeners).toHaveLength(0);
+    await duplexStream.writer.return();
+    expect(await duplexStream.reader.next()).toStrictEqual(makeDoneResult());
   });
 
-  it('throw() calls throw() on the writer but return on the reader', async () => {
-    const { setListener, removeListener, listeners } = makePostMessageMock();
-    const postMessageFn = vi.fn();
-    const streamPair = makePostMessageStreamPair(
-      postMessageFn,
+  it('ends the writer when the reader ends', async () => {
+    const { setListener, removeListener } = makePostMessageMock();
+    const duplexStream = new PostMessageDuplexStream(
+      vi.fn(),
       setListener,
       removeListener,
     );
-    expect(listeners).toHaveLength(1);
 
-    await streamPair.throw(new Error('foo'));
-
-    expect(await streamPair.writer.next('foo')).toStrictEqual(makeDoneResult());
-    expect(await streamPair.reader.next(undefined)).toStrictEqual(
+    await duplexStream.reader.return();
+    expect(await duplexStream.writer.next(null)).toStrictEqual(
       makeDoneResult(),
     );
-    expect(postMessageFn).toHaveBeenCalledTimes(1);
-    expect(postMessageFn).toHaveBeenCalledWith(makeErrorMatcher('foo'));
-    expect(listeners).toHaveLength(0);
   });
 });

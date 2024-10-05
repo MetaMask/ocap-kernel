@@ -1,9 +1,6 @@
 /**
  * This module provides a pair of classes for creating readable and writable streams
  * over the Chrome Extension Runtime messaging API.
- * The classes are naive passthrough mechanisms for data that assume exclusive access
- * to the messaging API. The lifetime of the underlying messaging connection is expected to be
- * coextensive with the extension's runtime.
  *
  * These streams utilize `chrome.runtime.sendMessage` for sending data and
  * `chrome.runtime.onMessage.addListener` for receiving data. This allows for
@@ -20,10 +17,10 @@
 import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
-import type { ReceiveInput } from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
+import type { OnEnd, ReceiveInput } from './BaseStream.js';
+import { BaseDuplexStream, BaseReader, BaseWriter } from './BaseStream.js';
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
-import type { Dispatchable, StreamPair } from './utils.js';
+import type { Dispatchable } from './utils.js';
 
 export enum ChromeRuntimeStreamTarget {
   Background = 'background',
@@ -46,7 +43,7 @@ const isMessageEnvelope = (
 /**
  * A readable stream over the Chrome Extension Runtime messaging API.
  *
- * This class is a naive passthrough mechanism for data using chrome.runtime.onMessage.
+ * This class is a naive passthrough mechanism for data using `chrome.runtime.onMessage`.
  * Expects exclusive read access to the messaging API.
  *
  * @see
@@ -63,7 +60,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
-    onEnd?: () => void,
+    onEnd?: OnEnd,
   ) {
     // eslint-disable-next-line prefer-const
     let messageListener: (
@@ -71,9 +68,9 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
       sender: ChromeMessageSender,
     ) => void;
 
-    super(() => {
+    super(async () => {
       runtime.onMessage.removeListener(messageListener);
-      onEnd?.();
+      await onEnd?.();
     });
 
     this.#receiveInput = super.getReceiveInput();
@@ -128,7 +125,7 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
-    onEnd?: () => void,
+    onEnd?: OnEnd,
   ) {
     super(
       'ChromeRuntimeWriter',
@@ -146,36 +143,41 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
 harden(ChromeRuntimeWriter);
 
 /**
- * Makes a reader / writer pair over the Chrome Extension Runtime messaging API, and provides convenience methods
- * for cleaning them up.
+ * A duplex stream over the Chrome Extension Runtime messaging API.
  *
- * @param runtime - The Chrome runtime instance to use for messaging.
- * @param localTarget - The local target of the stream pair, i.e. how the remote side
- * addresses messages to this side.
- * @param remoteTarget - The remote target of the stream pair, i.e. how this side
- * addresses messages to the remote side.
- * @returns The reader and writer streams, and cleanup methods.
+ * This class is a naive passthrough mechanism for data using `chrome.runtime.onMessage`.
+ *
+ * @see
+ * - {@link ChromeRuntimeReader} for the corresponding readable stream.
+ * - {@link ChromeRuntimeWriter} for the corresponding writable stream.
  */
-export const makeChromeRuntimeStreamPair = <
+export class ChromeRuntimeDuplexStream<
   Read extends Json,
   Write extends Json = Read,
->(
-  runtime: ChromeRuntime,
-  localTarget: ChromeRuntimeStreamTarget,
-  remoteTarget: ChromeRuntimeStreamTarget,
-): StreamPair<Read, Write> => {
-  if (localTarget === remoteTarget) {
-    throw new Error('localTarget and remoteTarget must be different');
+> extends BaseDuplexStream<
+  Read,
+  ChromeRuntimeReader<Read>,
+  Write,
+  ChromeRuntimeWriter<Write>
+> {
+  constructor(
+    runtime: ChromeRuntime,
+    localTarget: ChromeRuntimeStreamTarget,
+    remoteTarget: ChromeRuntimeStreamTarget,
+  ) {
+    let writer: ChromeRuntimeWriter<Write>; // eslint-disable-line prefer-const
+    const reader = new ChromeRuntimeReader<Read>(
+      runtime,
+      localTarget,
+      async () => {
+        await writer.return();
+      },
+    );
+    writer = new ChromeRuntimeWriter<Write>(runtime, remoteTarget, async () => {
+      await reader.return();
+    });
+    super(reader, writer);
+    harden(this);
   }
-  const reader = new ChromeRuntimeReader<Read>(runtime, localTarget);
-  const writer = new ChromeRuntimeWriter<Write>(runtime, remoteTarget);
-
-  return harden({
-    reader,
-    writer,
-    return: async () =>
-      Promise.all([writer.return(), reader.return()]).then(() => undefined),
-    throw: async (error: Error) =>
-      Promise.all([writer.throw(error), reader.return()]).then(() => undefined),
-  });
-};
+}
+harden(ChromeRuntimeDuplexStream);

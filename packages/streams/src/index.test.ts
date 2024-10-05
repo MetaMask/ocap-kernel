@@ -4,12 +4,20 @@ import * as indexModule from './index.js';
 
 describe('index', () => {
   it('has the expected exports', () => {
-    expect(Object.keys(indexModule)).toStrictEqual(
-      expect.arrayContaining([
-        'initializeMessageChannel',
-        'receiveMessagePort',
-        'makeMessagePortStreamPair',
-      ]),
-    );
+    expect(Object.keys(indexModule).sort()).toStrictEqual([
+      'ChromeRuntimeDuplexStream',
+      'ChromeRuntimeReader',
+      'ChromeRuntimeTarget',
+      'ChromeRuntimeWriter',
+      'MessagePortDuplexStream',
+      'MessagePortReader',
+      'MessagePortWriter',
+      'PostMessageDuplexStream',
+      'PostMessageReader',
+      'PostMessageWriter',
+      'initializeMessageChannel',
+      'makeStreamEnvelopeKit',
+      'receiveMessagePort',
+    ]);
   });
 });
