@@ -1,14 +1,14 @@
-import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
+import { makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ChromeRuntime } from './chrome.js';
 import type { MessageEnvelope } from './ChromeRuntimeStream.js';
 import {
-  makeChromeRuntimeStreamPair,
   ChromeRuntimeReader,
   ChromeRuntimeWriter,
   ChromeRuntimeStreamTarget,
+  ChromeRuntimeDuplexStream,
 } from './ChromeRuntimeStream.js';
 import { makeDoneResult, makePendingResult } from './utils.js';
 
@@ -18,8 +18,6 @@ import { makeDoneResult, makePendingResult } from './utils.js';
 // can be run concurrently.
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
-
-const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 const makeEnvelope = (
   value: unknown,
@@ -237,75 +235,43 @@ describe('ChromeRuntimeWriter', () => {
   });
 });
 
-describe('makeChromeRuntimeStreamPair', () => {
-  it('returns a pair of chrome runtime streams', () => {
+describe('ChromeRuntimeDuplexStream', () => {
+  it('constructs a ChromeRuntimeDuplexStream', () => {
     const { runtime } = makeRuntime();
-    const { reader, writer } = makeChromeRuntimeStreamPair(
+    const duplexStream = new ChromeRuntimeDuplexStream(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Offscreen,
+      ChromeRuntimeStreamTarget.Background,
     );
 
-    expect(reader).toBeInstanceOf(ChromeRuntimeReader);
-    expect(writer).toBeInstanceOf(ChromeRuntimeWriter);
+    expect(duplexStream).toBeInstanceOf(ChromeRuntimeDuplexStream);
+    expect(duplexStream.reader).toBeInstanceOf(ChromeRuntimeReader);
+    expect(duplexStream.writer).toBeInstanceOf(ChromeRuntimeWriter);
   });
 
-  it('throws if localTarget and remoteTarget are the same', () => {
+  it('ends the reader when the writer ends', async () => {
     const { runtime } = makeRuntime();
-    expect(() =>
-      makeChromeRuntimeStreamPair(
-        asChromeRuntime(runtime),
-        ChromeRuntimeStreamTarget.Background,
-        ChromeRuntimeStreamTarget.Background,
-      ),
-    ).toThrow('localTarget and remoteTarget must be different');
-  });
-
-  it('return() calls return() on both streams', async () => {
-    const { runtime, listeners, dispatchRuntimeMessage } = makeRuntime();
-    const streamPair = makeChromeRuntimeStreamPair(
+    const duplexStream = new ChromeRuntimeDuplexStream(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Offscreen,
+      ChromeRuntimeStreamTarget.Background,
     );
-    const localReadP = streamPair.reader.next(undefined);
 
-    expect(listeners).toHaveLength(1);
-
-    await streamPair.return();
-
-    expect(listeners).toHaveLength(0);
-
-    dispatchRuntimeMessage(makeDoneResult());
-    expect(await localReadP).toStrictEqual(makeDoneResult());
-    expect(runtime.sendMessage).toHaveBeenCalledWith(
-      makeEnvelope(makeDoneResult(), ChromeRuntimeStreamTarget.Offscreen),
-    );
+    await duplexStream.writer.return();
+    expect(await duplexStream.reader.next()).toStrictEqual(makeDoneResult());
   });
 
-  it('throw() calls throw() on the writer but return on the reader', async () => {
-    const { runtime, listeners, dispatchRuntimeMessage } = makeRuntime();
-    const streamPair = makeChromeRuntimeStreamPair(
+  it('ends the writer when the reader ends', async () => {
+    const { runtime } = makeRuntime();
+    const duplexStream = new ChromeRuntimeDuplexStream(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Offscreen,
+      ChromeRuntimeStreamTarget.Background,
     );
-    const localReadP = streamPair.reader.next(undefined);
 
-    expect(listeners).toHaveLength(1);
-
-    const error = new Error('foo');
-    await streamPair.throw(error);
-
-    expect(listeners).toHaveLength(0);
-
-    dispatchRuntimeMessage(makeDoneResult());
-    expect(await localReadP).toStrictEqual(makeDoneResult());
-    expect(runtime.sendMessage).toHaveBeenCalledWith(
-      makeEnvelope(
-        makeErrorMatcher(error),
-        ChromeRuntimeStreamTarget.Offscreen,
-      ),
+    await duplexStream.reader.return();
+    expect(await duplexStream.writer.next(null)).toStrictEqual(
+      makeDoneResult(),
     );
   });
 });

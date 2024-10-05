@@ -2,12 +2,25 @@ export {
   initializeMessageChannel,
   receiveMessagePort,
 } from './message-channel.js';
-export type { StreamPair, Reader, Writer } from './utils.js';
+export type { Reader, Writer } from './utils.js';
+export type { DuplexStream } from './BaseStream.js';
 export {
-  makeMessagePortStreamPair,
   MessagePortReader,
   MessagePortWriter,
+  MessagePortDuplexStream,
 } from './MessagePortStream.js';
+export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
+export {
+  ChromeRuntimeReader,
+  ChromeRuntimeWriter,
+  ChromeRuntimeDuplexStream,
+  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
+} from './ChromeRuntimeStream.js';
+export {
+  PostMessageReader,
+  PostMessageWriter,
+  PostMessageDuplexStream,
+} from './PostMessageStream.js';
 export { makeStreamEnvelopeKit } from './envelope-kit.js';
 export type { StreamEnveloper } from './enveloper.js';
 export type { Envelope } from './envelope.js';
@@ -16,15 +29,3 @@ export type {
   MakeStreamEnvelopeHandler,
   StreamEnvelopeKit,
 } from './envelope-kit.js';
-export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
-export {
-  ChromeRuntimeReader,
-  ChromeRuntimeWriter,
-  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
-  makeChromeRuntimeStreamPair,
-} from './ChromeRuntimeStream.js';
-export {
-  PostMessageReader,
-  PostMessageWriter,
-  makePostMessageStreamPair,
-} from './PostMessageStream.js';

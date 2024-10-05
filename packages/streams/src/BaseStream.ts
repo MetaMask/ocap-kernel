@@ -1,5 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { Reader, Writer } from '@endo/stream';
+import type { Reader as EndoReader, Writer as EndoWriter } from '@endo/stream';
 import { type Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
@@ -13,47 +13,8 @@ import {
   unmarshal,
 } from './utils.js';
 
-/**
- * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
- * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
- */
-type StreamBuffer<Value extends IteratorResult<Json, undefined>> = {
-  /**
-   * Flushes pending reads with a value or error, and causes subsequent writes to be ignored.
-   * Subsequent reads will exhaust any puts, then return the error (if any), and finally a `done` result.
-   * Idempotent.
-   *
-   * @param error - The error to end the stream with. A `done` result is used if not provided.
-   */
-  end: (error?: Error) => void;
-
-  /**
-   * Checks if there are pending reads.
-   *
-   * @returns Whether there are pending reads.
-   */
-  hasPendingReads: () => boolean;
-
-  /**
-   * Puts a value or error into the buffer.
-   *
-   * @see `end()` for behavior when the stream ends.
-   * @param value - The value or error to put.
-   */
-  put: (value: Value | Error) => void;
-
-  /**
-   * Gets a value from the buffer.
-   *
-   * @see `end()` for behavior when the stream ends.
-   * @returns The value from the buffer.
-   */
-  get: () => Promise<Value>;
-};
-
-const makeStreamBuffer = <
-  Value extends IteratorResult<Json, undefined>,
->(): StreamBuffer<Value> => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const makeStreamBuffer = <Value extends IteratorResult<Json, undefined>>() => {
   const inputBuffer: (Value | Error)[] = [];
   const outputBuffer: PromiseCallbacks[] = [];
   let done = false;
@@ -73,12 +34,25 @@ const makeStreamBuffer = <
   };
 
   return {
+    /**
+     * Flushes pending reads with a value or error, and causes subsequent writes to be ignored.
+     * Subsequent reads will exhaust any puts, then return the error (if any), and finally a `done` result.
+     * Idempotent.
+     *
+     * @param error - The error to end the stream with. A `done` result is used if not provided.
+     */
     end,
 
     hasPendingReads() {
       return outputBuffer.length > 0;
     },
 
+    /**
+     * Puts a value or error into the buffer.
+     *
+     * @see `end()` for behavior when the stream ends.
+     * @param value - The value or error to put.
+     */
     put(value: Value | Error) {
       if (done) {
         return;
@@ -116,6 +90,12 @@ const makeStreamBuffer = <
 harden(makeStreamBuffer);
 
 /**
+ * A function that is called when a stream ends. Useful for cleanup, such as closing a
+ * message port.
+ */
+export type OnEnd = () => void | Promise<void>;
+
+/**
  * A function that receives input from a transport mechanism to a readable stream.
  * Validates that the input is an {@link IteratorResult}, and throws if it is not.
  */
@@ -131,11 +111,14 @@ export type ReceiveInput = (input: unknown) => void;
  * The result of any value received before the stream ends is guaranteed to be observable
  * by the consumer.
  */
-export class BaseReader<Read extends Json> implements Reader<Read> {
-  readonly #buffer: StreamBuffer<IteratorResult<Read, undefined>> =
-    makeStreamBuffer();
+export class BaseReader<Read extends Json> implements EndoReader<Read> {
+  /**
+   * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
+   * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
+   */
+  readonly #buffer = makeStreamBuffer<IteratorResult<Read, undefined>>();
 
-  #onEnd?: (() => void) | undefined;
+  #onEnd?: OnEnd | undefined;
 
   #didExposeReceiveInput: boolean = false;
 
@@ -164,7 +147,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
     return this.#receiveInput.bind(this);
   }
 
-  readonly #receiveInput: ReceiveInput = (input) => {
+  readonly #receiveInput: ReceiveInput = async (input) => {
     if (!isDispatchable(input)) {
       const error = new Error(
         `Received invalid message from transport:\n${stringify(input)}`,
@@ -172,7 +155,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
       if (!this.#buffer.hasPendingReads()) {
         this.#buffer.put(error);
       }
-      this.#end(error);
+      await this.#end(error);
       return;
     }
 
@@ -181,12 +164,12 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
       if (!this.#buffer.hasPendingReads()) {
         this.#buffer.put(unmarshaled);
       }
-      this.#end(unmarshaled);
+      await this.#end(unmarshaled);
       return;
     }
 
     if (unmarshaled.done === true) {
-      this.#end();
+      await this.#end();
       return;
     }
 
@@ -199,13 +182,13 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    *
    * @param error - The error to end the stream with. A `done` result is used if not provided.
    */
-  #end(error?: Error): void {
+  async #end(error?: Error): Promise<void> {
     this.#buffer.end(error);
-    this.#onEnd?.();
+    await this.#onEnd?.();
     this.#onEnd = undefined;
   }
 
-  [Symbol.asyncIterator](): Reader<Read> {
+  [Symbol.asyncIterator](): typeof this {
     return this;
   }
 
@@ -224,7 +207,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Read, undefined>> {
-    this.#end();
+    await this.#end();
     return makeDoneResult();
   }
 
@@ -236,7 +219,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
-    this.#end(error);
+    await this.#end(error);
     return makeDoneResult();
   }
 }
@@ -249,14 +232,14 @@ export type Dispatch<Yield extends Json> = (
 /**
  * The base of a writable async iterator stream.
  */
-export class BaseWriter<Write extends Json> implements Writer<Write> {
+export class BaseWriter<Write extends Json> implements EndoWriter<Write> {
   #isDone: boolean = false;
 
   readonly #logName: string = 'BaseWriter';
 
   readonly #onDispatch: Dispatch<Write>;
 
-  #onEnd: (() => void) | undefined;
+  #onEnd: OnEnd | undefined;
 
   /**
    * Constructs a {@link BaseWriter}.
@@ -322,13 +305,13 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
     }
   }
 
-  #end(): void {
+  async #end(): Promise<void> {
     this.#isDone = true;
-    this.#onEnd?.();
+    await this.#onEnd?.();
     this.#onEnd = undefined;
   }
 
-  [Symbol.asyncIterator](): Writer<Write> {
+  [Symbol.asyncIterator](): typeof this {
     return this;
   }
 
@@ -353,7 +336,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
   async return(): Promise<IteratorResult<undefined, undefined>> {
     if (!this.#isDone) {
       await this.#onDispatch(makeDoneResult());
-      this.#end();
+      await this.#end();
     }
     return makeDoneResult();
   }
@@ -386,9 +369,90 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
   ): Promise<IteratorResult<undefined, undefined>> {
     const result = this.#dispatch(error, hasFailed);
     if (!this.#isDone) {
-      this.#end();
+      await this.#end();
     }
     return result;
   }
 }
 harden(BaseWriter);
+
+/**
+ * The base of a duplex async iterator stream. Does not implement the async iterator
+ * protocol, since iterating over a duplex stream with a single `next()` method is
+ * difficult to reason about.
+ */
+export abstract class BaseDuplexStream<
+  Read extends Json,
+  Reader extends BaseReader<Read>,
+  Write extends Json = Read,
+  Writer extends BaseWriter<Write> = BaseWriter<Write>,
+> {
+  readonly reader: Reader;
+
+  readonly writer: Writer;
+
+  constructor(reader: Reader, writer: Writer) {
+    this.reader = reader;
+    this.writer = writer;
+    harden(this);
+  }
+
+  /**
+   * Reads the next value from the stream.
+   *
+   * @returns The next value from the stream.
+   */
+  async read(): Promise<IteratorResult<Read, undefined>> {
+    return this.reader.next();
+  }
+
+  /**
+   * Drains the stream by passing each value to a handler function.
+   *
+   * @param handler - The function that will receive each value from the stream.
+   */
+  async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
+    for await (const value of this.reader) {
+      await handler(value);
+    }
+  }
+
+  /**
+   * Writes a value to the stream.
+   *
+   * @param value - The next value to write to the stream.
+   * @returns The result of writing the value.
+   */
+  async write(value: Write): Promise<IteratorResult<undefined, undefined>> {
+    return this.writer.next(value);
+  }
+
+  /**
+   * Closes the stream. Idempotent.
+   *
+   * @returns The final result for this stream.
+   */
+  async return(): Promise<IteratorResult<undefined, undefined>> {
+    return Promise.all([this.writer.return(), this.reader.return()]).then(() =>
+      makeDoneResult(),
+    );
+  }
+
+  /**
+   * Writes the error to the stream, and closes the stream. Idempotent.
+   *
+   * @param error - The error to write.
+   * @returns The final result for this stream.
+   */
+  async throw(error: Error): Promise<IteratorResult<undefined, undefined>> {
+    return Promise.all([this.writer.throw(error), this.reader.return()]).then(
+      () => makeDoneResult(),
+    );
+  }
+}
+harden(BaseDuplexStream);
+
+export type DuplexStream<
+  Read extends Json,
+  Write extends Json = Read,
+> = BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>;
