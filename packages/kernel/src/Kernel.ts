@@ -38,7 +38,7 @@ export class Kernel {
       throw new Error(`Vat with ID ${id} already exists.`);
     }
     const [streams] = await worker.init();
-    const vat = new Vat({ id, streams });
+    const vat = new Vat({ id, stream: streams });
     this.#vats.set(vat.id, { vat, worker });
     await vat.init();
     return vat;

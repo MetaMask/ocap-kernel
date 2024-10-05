@@ -2,7 +2,7 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { Supervisor } from '@ocap/kernel';
 import type { StreamEnvelope, StreamEnvelopeReply } from '@ocap/kernel';
-import { makeMessagePortStreamPair, receiveMessagePort } from '@ocap/streams';
+import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 
 main().catch(console.error);
 
@@ -11,7 +11,7 @@ main().catch(console.error);
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort();
-  const streams = makeMessagePortStreamPair<
+  const stream = new MessagePortDuplexStream<
     StreamEnvelope,
     StreamEnvelopeReply
   >(port);
@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
   );
 
-  const supervisor = new Supervisor({ id: 'iframe', streams, bootstrap });
+  const supervisor = new Supervisor({ id: 'iframe', stream, bootstrap });
 
   console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
 }

@@ -11,8 +11,6 @@ describe('Kernel', () => {
   let terminateMock: unknown;
 
   beforeEach(() => {
-    vi.resetAllMocks();
-
     mockWorker = {
       init: vi.fn().mockResolvedValue([{}]),
       delete: vi.fn(),

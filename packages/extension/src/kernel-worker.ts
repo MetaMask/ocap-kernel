@@ -1,7 +1,7 @@
 import './kernel-worker-trusted-prelude.js';
 import { CommandMethod, isCommand } from '@ocap/kernel';
 import type { Command, CommandReply } from '@ocap/kernel';
-import { makePostMessageStreamPair } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
@@ -106,7 +106,7 @@ async function initDB(): Promise<Database> {
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const streamPair = makePostMessageStreamPair<Command, CommandReply>(
+  const streamPair = new PostMessageDuplexStream<Command, CommandReply>(
     (message) => globalThis.postMessage(message),
     (listener) => globalThis.addEventListener('message', listener),
     (listener) => globalThis.removeEventListener('message', listener),

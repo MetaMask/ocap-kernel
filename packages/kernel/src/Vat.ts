@@ -1,7 +1,7 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
-import type { StreamPair, Reader } from '@ocap/streams';
+import type { DuplexStream, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
@@ -26,13 +26,13 @@ import type { MessageId, UnresolvedMessages, VatId } from './types.js';
 
 type VatConstructorProps = {
   id: VatId;
-  streams: StreamPair<StreamEnvelopeReply, StreamEnvelope>;
+  stream: DuplexStream<StreamEnvelopeReply, StreamEnvelope>;
 };
 
 export class Vat {
   readonly id: VatConstructorProps['id'];
 
-  readonly streams: VatConstructorProps['streams'];
+  readonly stream: VatConstructorProps['stream'];
 
   readonly logger: Logger;
 
@@ -44,9 +44,9 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, streams }: VatConstructorProps) {
+  constructor({ id, stream }: VatConstructorProps) {
     this.id = id;
-    this.streams = streams;
+    this.stream = stream;
     this.logger = makeLogger(`[vat ${id}]`);
     this.#messageCounter = makeCounter();
     this.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
@@ -79,7 +79,7 @@ export class Vat {
    */
   async init(): Promise<unknown> {
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(this.streams.reader).catch((error) => {
+    this.#receiveMessages(this.stream.reader).catch((error) => {
       this.logger.error(`Unexpected read error`, error);
       throw error;
     });
@@ -115,7 +115,7 @@ export class Vat {
     }
 
     // Handle writes here. #receiveMessages() handles reads.
-    const { writer } = this.streams;
+    const { writer } = this.stream;
     const ctp = makeCapTP(this.id, async (content: unknown) => {
       this.logger.log('CapTP to vat', stringify(content));
       await writer.next(wrapCapTp(content as CapTpMessage));
@@ -151,7 +151,7 @@ export class Vat {
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    await this.streams.return();
+    await this.stream.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -171,7 +171,7 @@ export class Vat {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.streams.writer.next(
+    await this.stream.writer.next(
       wrapStreamCommand({ id: messageId, payload }),
     );
     return promise;
