@@ -1,7 +1,7 @@
 import './kernel-worker-trusted-prelude.js';
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
 import { isKernelCommand, KernelCommandMethod } from '@ocap/kernel';
-import { makePostMessageStreamPair } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -117,8 +117,8 @@ async function initDB(): Promise<Database> {
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const streamPair = makePostMessageStreamPair<
-    KernelWorkerCommand,
+  const streamPair = new PostMessageDuplexStream<
+    KernelCommand,
     KernelCommandReply
   >(
     (message) => globalThis.postMessage(message),

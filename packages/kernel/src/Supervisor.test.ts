@@ -1,5 +1,5 @@
 import '@ocap/shims/endoify';
-import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
+import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -13,28 +13,25 @@ describe('Supervisor', () => {
   let messageChannel: MessageChannel;
 
   beforeEach(async () => {
-    vi.resetAllMocks();
-
     messageChannel = new MessageChannel();
 
-    const streams = makeMessagePortStreamPair<
+    const stream = new MessagePortDuplexStream<
       StreamEnvelope,
       StreamEnvelopeReply
     >(messageChannel.port1);
-    supervisor = new Supervisor({ id: 'test-id', streams });
+    supervisor = new Supervisor({ id: 'test-id', stream });
   });
 
   describe('init', () => {
     it('initializes the Supervisor correctly', async () => {
       expect(supervisor.id).toBe('test-id');
-      expect(supervisor.streams).toBeDefined();
-      expect(supervisor.streamEnvelopeHandler).toBeDefined();
+      expect(supervisor.stream).toBeDefined();
     });
 
     it('throws an error if the stream is invalid', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const error = new Error('test-error');
-      await supervisor.streams.reader.throw(error);
+      await supervisor.stream.reader.throw(error);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
@@ -45,12 +42,16 @@ describe('Supervisor', () => {
 
   describe('#receiveMessages', () => {
     it('receives messages correctly', async () => {
-      const handleSpy = vi.spyOn(supervisor.streamEnvelopeHandler, 'handle');
+      const consoleErrorSpy = vi.spyOn(console, 'error');
       const writer = new MessagePortWriter(messageChannel.port2);
       const rawMessage = { type: 'command', payload: { method: 'test' } };
       await writer.next(rawMessage);
       await delay(10);
-      expect(handleSpy).toHaveBeenCalledWith(rawMessage);
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Supervisor stream error:',
+        'Stream envelope handler received unexpected value',
+      );
     });
   });
 

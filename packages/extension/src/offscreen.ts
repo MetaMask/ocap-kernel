@@ -8,8 +8,8 @@ import type { KernelCommandReply, KernelCommand, VatId } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
-  makeChromeRuntimeStreamPair,
-  makePostMessageStreamPair,
+  ChromeRuntimeDuplexStream,
+  PostMessageDuplexStream,
 } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
@@ -21,7 +21,7 @@ main().catch(console.error);
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const backgroundStreams = makeChromeRuntimeStreamPair(
+  const backgroundStream = new ChromeRuntimeDuplexStream(
     chrome.runtime,
     ChromeRuntimeTarget.Offscreen,
     ChromeRuntimeTarget.Background,
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
   const replyToBackground = async (
     commandReply: KernelCommandReply,
   ): Promise<void> => {
-    await backgroundStreams.writer.next(commandReply);
+    await backgroundStream.write(commandReply);
   };
 
   const kernelWorker = makeKernelWorker();
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker and the kernel SQLite worker.
   await Promise.all([
     (async () => {
-      for await (const message of backgroundStreams.reader) {
+      for await (const message of backgroundStream.reader) {
         if (!isKernelCommand(message)) {
           console.error('Offscreen received unexpected message', message);
           continue;
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
     receiveMessages: () => Promise<void>;
   } {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
-    const streamPair = makePostMessageStreamPair<
+    const streamPair = new PostMessageDuplexStream<
       KernelCommandReply,
       KernelCommand
     >(

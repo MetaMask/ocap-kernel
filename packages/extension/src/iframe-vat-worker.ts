@@ -6,7 +6,7 @@ import type {
   StreamEnvelope,
 } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams';
-import { makeMessagePortStreamPair } from '@ocap/streams';
+import { MessagePortDuplexStream } from '@ocap/streams';
 
 const IFRAME_URI = 'iframe.html';
 
@@ -23,12 +23,12 @@ export const makeIframeVatWorker = (
         testId: 'ocap-iframe',
       });
       const port = await getPort(newWindow);
-      const streams = makeMessagePortStreamPair<
+      const stream = new MessagePortDuplexStream<
         StreamEnvelopeReply,
         StreamEnvelope
       >(port);
 
-      return [streams, newWindow];
+      return [stream, newWindow];
     },
     delete: async (): Promise<void> => {
       const iframe = document.getElementById(vatHtmlId);

@@ -2,10 +2,7 @@ import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
 import { ClusterCommandMethod, isClusterCommandReply } from '@ocap/kernel';
 import type { ClusterCommand, ClusterCommandFunction } from '@ocap/kernel';
-import {
-  ChromeRuntimeTarget,
-  makeChromeRuntimeStreamPair,
-} from '@ocap/streams';
+import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
 
 main().catch(console.error);
 
@@ -13,7 +10,7 @@ main().catch(console.error);
  * The main function for the background script.
  */
 async function main(): Promise<void> {
-  const offscreenStreams = makeChromeRuntimeStreamPair(
+  const offscreenStream = new ChromeRuntimeDuplexStream(
     chrome.runtime,
     ChromeRuntimeTarget.Background,
     ChromeRuntimeTarget.Offscreen,
@@ -32,7 +29,7 @@ async function main(): Promise<void> {
   ) => {
     await provideOffScreenDocument();
 
-    await offscreenStreams.writer.next({
+    await offscreenStream.write({
       method,
       params: params ?? null,
     });
@@ -86,7 +83,7 @@ async function main(): Promise<void> {
   }
 
   // Handle replies from the offscreen document
-  for await (const message of offscreenStreams.reader) {
+  for await (const message of offscreenStream.reader) {
     if (!isClusterCommandReply(message)) {
       console.error('Background received unexpected message', message);
       continue;

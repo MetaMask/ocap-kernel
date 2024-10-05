@@ -1,5 +1,5 @@
 import type { PromiseKit } from '@endo/promise-kit';
-import type { StreamPair } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 
 import type { StreamEnvelopeReply, StreamEnvelope } from './stream-envelope.js';
 
@@ -12,7 +12,7 @@ export const isVatId = (value: unknown): value is VatId =>
 
 export type VatWorker = {
   init: () => Promise<
-    [StreamPair<StreamEnvelopeReply, StreamEnvelope>, unknown]
+    [DuplexStream<StreamEnvelopeReply, StreamEnvelope>, unknown]
   >;
   delete: () => Promise<void>;
 };
