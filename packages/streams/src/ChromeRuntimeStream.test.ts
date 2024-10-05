@@ -1,4 +1,4 @@
-import { makePromiseKitMock } from '@ocap/test-utils';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -245,8 +245,7 @@ describe('ChromeRuntimeDuplexStream', () => {
     );
 
     expect(duplexStream).toBeInstanceOf(ChromeRuntimeDuplexStream);
-    expect(duplexStream.reader).toBeInstanceOf(ChromeRuntimeReader);
-    expect(duplexStream.writer).toBeInstanceOf(ChromeRuntimeWriter);
+    expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
@@ -256,22 +255,24 @@ describe('ChromeRuntimeDuplexStream', () => {
       ChromeRuntimeStreamTarget.Background,
       ChromeRuntimeStreamTarget.Background,
     );
+    runtime.sendMessage.mockImplementation(() => {
+      throw new Error('foo');
+    });
 
-    await duplexStream.writer.return();
-    expect(await duplexStream.reader.next()).toStrictEqual(makeDoneResult());
+    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const { runtime } = makeRuntime();
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
     const duplexStream = new ChromeRuntimeDuplexStream(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
       ChromeRuntimeStreamTarget.Background,
     );
 
-    await duplexStream.reader.return();
-    expect(await duplexStream.writer.next(null)).toStrictEqual(
-      makeDoneResult(),
-    );
+    dispatchRuntimeMessage(makeDoneResult());
+    await delay(10);
+    expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
   });
 });

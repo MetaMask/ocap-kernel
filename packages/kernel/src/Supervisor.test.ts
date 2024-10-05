@@ -30,12 +30,11 @@ describe('Supervisor', () => {
 
     it('throws an error if the stream is invalid', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      const error = new Error('test-error');
-      await supervisor.stream.reader.throw(error);
+      messageChannel.port2.postMessage('foobar');
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
-        error,
+        new Error('Received unexpected message from transport:\n"foobar"'),
       );
     });
   });

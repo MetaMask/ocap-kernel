@@ -146,7 +146,7 @@ export class BaseReader<Read extends Json> implements EndoReader<Read> {
   readonly #receiveInput: ReceiveInput = async (input) => {
     if (!isDispatchable(input)) {
       const error = new Error(
-        `Received invalid message from transport:\n${stringify(input)}`,
+        `Received unexpected message from transport:\n${stringify(input)}`,
       );
       if (!this.#buffer.hasPendingReads()) {
         this.#buffer.put(error);
@@ -373,33 +373,45 @@ export class BaseWriter<Write extends Json> implements EndoWriter<Write> {
 harden(BaseWriter);
 
 /**
- * The base of a duplex async iterator stream. Does not implement the async iterator
- * protocol, since iterating over a duplex stream with a single `next()` method is
- * difficult to reason about.
+ * The base of a duplex stream. Essentially a {@link BaseReader} with a `write()` method.
+ * Backed up by separate {@link BaseReader} and {@link BaseWriter} instances under the hood.
  */
 export abstract class BaseDuplexStream<
   Read extends Json,
   Reader extends BaseReader<Read>,
   Write extends Json = Read,
   Writer extends BaseWriter<Write> = BaseWriter<Write>,
-> {
-  readonly reader: Reader;
+> implements EndoReader<Read>
+{
+  readonly #reader: Reader;
 
-  readonly writer: Writer;
-
-  constructor(reader: Reader, writer: Writer) {
-    this.reader = reader;
-    this.writer = writer;
-    harden(this);
-  }
+  readonly #writer: Writer;
 
   /**
    * Reads the next value from the stream.
    *
    * @returns The next value from the stream.
    */
-  async read(): Promise<IteratorResult<Read, undefined>> {
-    return this.reader.next();
+  next: () => Promise<IteratorResult<Read, undefined>>;
+
+  /**
+   * Writes a value to the stream.
+   *
+   * @param value - The next value to write to the stream.
+   * @returns The result of writing the value.
+   */
+  write: (value: Write) => Promise<IteratorResult<undefined, undefined>>;
+
+  constructor(reader: Reader, writer: Writer) {
+    this.#reader = reader;
+    this.#writer = writer;
+    this.next = this.#reader.next.bind(this.#reader);
+    this.write = this.#writer.next.bind(this.#writer);
+    harden(this);
+  }
+
+  [Symbol.asyncIterator](): typeof this {
+    return this;
   }
 
   /**
@@ -408,19 +420,9 @@ export abstract class BaseDuplexStream<
    * @param handler - The function that will receive each value from the stream.
    */
   async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
-    for await (const value of this.reader) {
+    for await (const value of this.#reader) {
       await handler(value);
     }
-  }
-
-  /**
-   * Writes a value to the stream.
-   *
-   * @param value - The next value to write to the stream.
-   * @returns The result of writing the value.
-   */
-  async write(value: Write): Promise<IteratorResult<undefined, undefined>> {
-    return this.writer.next(value);
   }
 
   /**
@@ -428,9 +430,9 @@ export abstract class BaseDuplexStream<
    *
    * @returns The final result for this stream.
    */
-  async return(): Promise<IteratorResult<undefined, undefined>> {
-    return Promise.all([this.writer.return(), this.reader.return()]).then(() =>
-      makeDoneResult(),
+  async return(): Promise<IteratorResult<Read, undefined>> {
+    return Promise.all([this.#writer.return(), this.#reader.return()]).then(
+      () => makeDoneResult(),
     );
   }
 
@@ -440,8 +442,8 @@ export abstract class BaseDuplexStream<
    * @param error - The error to write.
    * @returns The final result for this stream.
    */
-  async throw(error: Error): Promise<IteratorResult<undefined, undefined>> {
-    return Promise.all([this.writer.throw(error), this.reader.return()]).then(
+  async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
+    return Promise.all([this.#writer.throw(error), this.#reader.return()]).then(
       () => makeDoneResult(),
     );
   }

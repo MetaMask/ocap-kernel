@@ -80,7 +80,7 @@ export class Vat {
    */
   async init(): Promise<unknown> {
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(this.stream.reader).catch((error) => {
+    this.#receiveMessages(this.stream).catch((error) => {
       this.logger.error(`Unexpected read error`, error);
       throw error;
     });
@@ -116,10 +116,9 @@ export class Vat {
     }
 
     // Handle writes here. #receiveMessages() handles reads.
-    const { writer } = this.stream;
     const ctp = makeCapTP(this.id, async (content: unknown) => {
       this.logger.log('CapTP to vat', stringify(content));
-      await writer.next(wrapCapTp(content as CapTpMessage));
+      await this.stream.write(wrapCapTp(content as CapTpMessage));
     });
 
     this.capTp = ctp;
@@ -175,9 +174,7 @@ export class Vat {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.stream.writer.next(
-      wrapStreamCommand({ id: messageId, payload }),
-    );
+    await this.stream.write(wrapStreamCommand({ id: messageId, payload }));
     return promise;
   }
 

@@ -110,25 +110,26 @@ describe('MessagePortDuplexStream', () => {
     const duplexStream = new MessagePortDuplexStream(port1);
 
     expect(duplexStream).toBeInstanceOf(MessagePortDuplexStream);
-    expect(duplexStream.reader).toBeInstanceOf(MessagePortReader);
-    expect(duplexStream.writer).toBeInstanceOf(MessagePortWriter);
+    expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
     const { port1 } = new MessageChannel();
+    port1.postMessage = () => {
+      throw new Error('foo');
+    };
     const duplexStream = new MessagePortDuplexStream(port1);
 
-    await duplexStream.writer.return();
-    expect(await duplexStream.reader.next()).toStrictEqual(makeDoneResult());
+    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const { port1 } = new MessageChannel();
+    const { port1, port2 } = new MessageChannel();
     const duplexStream = new MessagePortDuplexStream(port1);
 
-    await duplexStream.reader.return();
-    expect(await duplexStream.writer.next(null)).toStrictEqual(
-      makeDoneResult(),
-    );
+    port2.postMessage(makeDoneResult());
+    await delay(10);
+    expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
   });
 });

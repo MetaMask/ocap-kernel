@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker and the kernel SQLite worker.
   await Promise.all([
     (async () => {
-      for await (const message of backgroundStream.reader) {
+      for await (const message of backgroundStream) {
         if (!isKernelCommand(message)) {
           console.error('Offscreen received unexpected message', message);
           continue;
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
     receiveMessages: () => Promise<void>;
   } {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
-    const streamPair = new PostMessageDuplexStream<
+    const workerStream = new PostMessageDuplexStream<
       KernelCommandReply,
       KernelCommand
     >(
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
       // XXX TODO: Using the IframeMessage type here assumes that the set of response messages is the
       // same as (and aligns perfectly with) the set of command messages, which is horribly, terribly,
       // awfully wrong.  Need to add types to account for the replies.
-      for await (const message of streamPair.reader) {
+      for await (const message of workerStream) {
         if (!isKernelCommandReply(message)) {
           console.error('kernel received unexpected message', message);
           return;
@@ -210,7 +210,7 @@ async function main(): Promise<void> {
     };
 
     const sendMessage = async (message: KernelCommand): Promise<void> => {
-      await streamPair.writer.next(message);
+      await workerStream.write(message);
     };
 
     return {

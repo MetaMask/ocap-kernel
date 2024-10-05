@@ -1,4 +1,4 @@
-import { makePromiseKitMock } from '@ocap/test-utils';
+import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -105,39 +105,40 @@ describe('PostMessageDuplexStream', () => {
   it('constructs a PostMessageDuplexStream', () => {
     const { setListener, removeListener } = makePostMessageMock();
     const duplexStream = new PostMessageDuplexStream(
-      vi.fn(),
+      () => undefined,
       setListener,
       removeListener,
     );
 
     expect(duplexStream).toBeInstanceOf(PostMessageDuplexStream);
-    expect(duplexStream.reader).toBeInstanceOf(PostMessageReader);
-    expect(duplexStream.writer).toBeInstanceOf(PostMessageWriter);
+    expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
     const { setListener, removeListener } = makePostMessageMock();
     const duplexStream = new PostMessageDuplexStream(
-      vi.fn(),
+      vi.fn(() => {
+        throw new Error('foo');
+      }),
       setListener,
       removeListener,
     );
 
-    await duplexStream.writer.return();
-    expect(await duplexStream.reader.next()).toStrictEqual(makeDoneResult());
+    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const { setListener, removeListener } = makePostMessageMock();
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
     const duplexStream = new PostMessageDuplexStream(
-      vi.fn(),
+      () => undefined,
       setListener,
       removeListener,
     );
 
-    await duplexStream.reader.return();
-    expect(await duplexStream.writer.next(null)).toStrictEqual(
-      makeDoneResult(),
-    );
+    postMessageFn(makeDoneResult());
+    await delay(10);
+    expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
   });
 });

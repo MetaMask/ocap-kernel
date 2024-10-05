@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   }
 
   // Handle replies from the offscreen document
-  for await (const message of offscreenStream.reader) {
+  for await (const message of offscreenStream) {
     if (!isClusterCommandReply(message)) {
       console.error('Background received unexpected message', message);
       continue;
