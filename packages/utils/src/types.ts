@@ -3,7 +3,7 @@ import { isObject } from '@metamask/utils';
 
 export type TypeGuard<Type> = (value: unknown) => value is Type;
 
-export type GuardType<Guard, Bound = unknown> = Guard extends (
+export type ExtractGuardType<Guard, Bound = unknown> = Guard extends (
   value: unknown,
 ) => value is infer Type
   ? Type extends Bound

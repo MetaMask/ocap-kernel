@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 
 import type { Json } from '@metamask/utils';
-import type { GuardType, TypeGuard } from '@ocap/utils';
+import type { ExtractGuardType, TypeGuard } from '@ocap/utils';
 
 import { isMessageLike, type MessageLike } from './message.js';
 import type { UnionToIntersection } from './utils.js';
@@ -17,7 +17,7 @@ type MessageUnion<Source extends SourceLike, Index extends 0 | 1> = {
   [Key in keyof Source]: Key extends string
     ? {
         method: Uncapitalize<Key>;
-        params: GuardType<Source[Key][Index], Json>;
+        params: ExtractGuardType<Source[Key][Index], Json>;
       }
     : never;
 }[keyof Source];
