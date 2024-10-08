@@ -1,6 +1,7 @@
 import './kernel-worker-trusted-prelude.js';
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
 import { isKernelCommand, KernelCommandMethod } from '@ocap/kernel';
+import { makePostMessageStreamPair } from '@ocap/streams';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -116,20 +117,122 @@ async function initDB(): Promise<Database> {
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const db = await initDB();
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS kv (
-      key TEXT,
-      value TEXT,
-      PRIMARY KEY(key)
-    )
-  `);
+  const streamPair = makePostMessageStreamPair<
+    KernelWorkerCommand,
+    KernelCommandReply
+  >(
+    (message) => globalThis.postMessage(message),
+    (listener) => globalThis.addEventListener('message', listener),
+    (listener) => globalThis.removeEventListener('message', listener),
+  );
 
-  const sqlKVGet = db.prepare(`
-    SELECT value
-    FROM kv
-    WHERE key = ?
-  `);
+  const { sqlKVGet, sqlKVSet } = await initDb();
+
+  // Handle messages from the console service worker
+  for await (const message of streamPair.reader) {
+    if (isKernelWorkerCommand(message)) {
+      await handleKernelCommand(message);
+    } else {
+      console.error('Received unexpected message', message);
+    }
+  }
+
+  /**
+   * Handle a KernelCommand sent from the offscreen.
+   *
+   * @param command - The KernelCommand to handle.
+   * @param command.method - The command method.
+   * @param command.params - The command params.
+   */
+  async function handleKernelCommand({
+    method,
+    params,
+  }: KernelWorkerCommand): Promise<void> {
+    switch (method) {
+      case KernelCommandMethod.KVSet:
+        kvSet(params.key, params.value);
+        await reply({
+          method,
+          params: `~~~ set "${params.key}" to "${params.value}" ~~~`,
+        });
+        break;
+      case KernelCommandMethod.KVGet: {
+        try {
+          const result = kvGet(params);
+          await reply({
+            method,
+            params: result,
+          });
+        } catch (problem) {
+          // TODO: marshal
+          await reply({
+            method,
+            params: String(asError(problem)),
+          });
+        }
+        break;
+      }
+      default:
+        console.error(
+          'kernel worker received unexpected command',
+          // @ts-expect-error Runtime does not respect "never".
+          { method: method.valueOf(), params },
+        );
+    }
+  }
+
+  /**
+   * Reply to the background script.
+   *
+   * @param payload - The payload to reply with.
+   */
+  async function reply(payload: KernelCommandReply): Promise<void> {
+    await streamPair.writer.next(payload);
+  }
+
+  /**
+   * Coerce an unknown problem into an Error object.
+   *
+   * @param problem - Whatever was caught.
+   * @returns The problem if it is an Error, or a new Error with the problem as the cause.
+   */
+  function asError(problem: unknown): Error {
+    return problem instanceof Error
+      ? problem
+      : new Error('Unknown', { cause: problem });
+  }
+
+  /**
+   * Initialize the database and some prepared statements.
+   *
+   * @returns The prepared database statements.
+   */
+  async function initDb(): Promise<{
+    sqlKVGet: ReturnType<typeof db.prepare>;
+    sqlKVSet: ReturnType<typeof db.prepare>;
+  }> {
+    const db = await initDB();
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS kv (
+        key TEXT,
+        value TEXT,
+        PRIMARY KEY(key)
+      )
+    `);
+
+    return {
+      sqlKVGet: db.prepare(`
+      SELECT value
+      FROM kv
+      WHERE key = ?
+    `),
+      sqlKVSet: db.prepare(`
+      INSERT INTO kv (key, value)
+      VALUES (?, ?)
+      ON CONFLICT DO UPDATE SET value = excluded.value
+    `),
+    };
+  }
 
   /**
    * Exercise reading from the database.
@@ -151,12 +254,6 @@ async function main(): Promise<void> {
     throw Error(`no record matching key '${key}'`);
   }
 
-  const sqlKVSet = db.prepare(`
-    INSERT INTO kv (key, value)
-    VALUES (?, ?)
-    ON CONFLICT DO UPDATE SET value = excluded.value
-  `);
-
   /**
    * Exercise writing to the database.
    *
@@ -169,74 +266,4 @@ async function main(): Promise<void> {
     sqlKVSet.step();
     sqlKVSet.reset();
   }
-
-  /**
-   * Reply to the background script.
-   *
-   * @param method - The message method.
-   * @param params - The message params.
-   */
-  const reply = (
-    method: KernelCommandReply['method'],
-    params?: KernelCommandReply['params'],
-  ): void => {
-    postMessage({ method, params });
-  };
-
-  /**
-   * Cast an unknown problem to an Error object.
-   *
-   * @param problem - Whatever was caught.
-   * @returns The problem if it is an Error, or a new Error with the problem as the cause.
-   */
-  const asError = (problem: unknown): Error =>
-    problem instanceof Error
-      ? problem
-      : new Error('Unknown', { cause: problem });
-
-  /**
-   * Handle a KernelCommand sent from the offscreen.
-   *
-   * @param command - The KernelCommand to handle.
-   * @param command.method - The command method.
-   * @param command.params - The command params.
-   */
-  const handleKernelCommand = ({
-    method,
-    params,
-  }: KernelWorkerCommand): void => {
-    switch (method) {
-      case KernelCommandMethod.KVSet:
-        kvSet(params.key, params.value);
-        reply(method, `~~~ set "${params.key}" to "${params.value}" ~~~`);
-        break;
-      case KernelCommandMethod.KVGet: {
-        try {
-          const result = kvGet(params);
-          reply(method, result);
-        } catch (problem) {
-          // TODO: marshal
-          reply(method, String(asError(problem)));
-        }
-        break;
-      }
-      default:
-        console.error(
-          'kernel worker received unexpected command',
-          // @ts-expect-error Runtime does not respect "never".
-          { method: method.valueOf(), params },
-        );
-    }
-  };
-
-  // Handle messages from the console service worker
-  globalThis.onmessage = async (
-    event: MessageEvent<unknown>,
-  ): Promise<void> => {
-    if (isKernelWorkerCommand(event.data)) {
-      handleKernelCommand(event.data);
-    } else {
-      console.error('Received unexpected message', event.data);
-    }
-  };
 }
