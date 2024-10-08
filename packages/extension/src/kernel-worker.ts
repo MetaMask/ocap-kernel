@@ -191,7 +191,7 @@ async function main(): Promise<void> {
   }
 
   /**
-   * Cast an unknown problem to an Error object.
+   * Coerce an unknown problem into an Error object.
    *
    * @param problem - Whatever was caught.
    * @returns The problem if it is an Error, or a new Error with the problem as the cause.
