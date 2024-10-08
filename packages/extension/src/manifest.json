@@ -8,7 +8,7 @@
     "type": "module"
   },
   "action": {},
-  "permissions": ["offscreen"],
+  "permissions": ["offscreen", "unlimitedStorage"],
   "sandbox": {
     "pages": ["iframe.html"]
   },
