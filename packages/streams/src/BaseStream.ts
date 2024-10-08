@@ -68,6 +68,7 @@ const makeStreamBuffer = <
       for (const { resolve, reject } of outputBuffer) {
         error ? reject(error) : resolve(makeDoneResult() as Value);
       }
+      outputBuffer.length = 0;
     },
 
     hasPendingReads() {
