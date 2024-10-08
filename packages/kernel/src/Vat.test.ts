@@ -4,6 +4,12 @@ import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import {
+  CapTPConnectionExistsError,
+  CapTPConnectionNotFoundError,
+  VatDeletedError,
+  VatReadError,
+} from './errors.js';
 import { VatCommandMethod } from './messages.js';
 import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
@@ -61,14 +67,22 @@ describe('Vat', () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
-      const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
-      const error = new Error('test-error');
-      await vat.streams.reader.throw(error);
-      await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Unexpected read error',
-        error,
-      );
+
+      const testError = new Error('test-error');
+      try {
+        await vat.streams.reader.throw(testError);
+        await delay(10);
+      } catch (error) {
+        expect(error).toBeInstanceOf(VatReadError);
+        expect(error).toMatchObject({
+          code: 'VAT_READ_ERROR',
+          message: 'Unexpected read error from Vat.',
+          data: {
+            vatId: vat.id,
+            originalError: testError,
+          },
+        });
+      }
     });
   });
 
@@ -143,7 +157,7 @@ describe('Vat', () => {
       expect(messageChannel.port1.onmessage).not.toBeNull();
       await vat.terminate();
       expect(messageChannel.port1.onmessage).toBeNull();
-      expect(mockSpy).toHaveBeenCalledWith(expect.any(Error));
+      expect(mockSpy).toHaveBeenCalledWith(expect.any(VatDeletedError));
     });
   });
 
@@ -151,9 +165,7 @@ describe('Vat', () => {
     it('throws an error if CapTP connection already exists', async () => {
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
-      await expect(vat.makeCapTp()).rejects.toThrow(
-        `Vat with id "${vat.id}" already has a CapTP connection.`,
-      );
+      await expect(vat.makeCapTp()).rejects.toThrow(CapTPConnectionExistsError);
     });
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
@@ -213,7 +225,7 @@ describe('Vat', () => {
     it('throws an error if CapTP connection is not established', async () => {
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
-      ).rejects.toThrow(`Vat with id "v0" does not have a CapTP connection.`);
+      ).rejects.toThrow(CapTPConnectionNotFoundError);
     });
 
     it('calls CapTP method with parameters using eventual send', async () => {

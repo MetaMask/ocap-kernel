@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { VatAlreadyExistsError, VatNotFoundError } from './errors.js';
 import { Kernel } from './Kernel.js';
 import type { VatCommand } from './messages.js';
 import type { VatId, VatWorker } from './types.js';
@@ -62,7 +63,7 @@ describe('Kernel', () => {
           id: 'v0',
           worker: mockWorker,
         }),
-      ).rejects.toThrow('Vat with ID v0 already exists.');
+      ).rejects.toThrow(VatAlreadyExistsError);
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
     });
   });
@@ -83,7 +84,7 @@ describe('Kernel', () => {
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.deleteVat(nonExistentVatId),
-      ).rejects.toThrow(`Vat with ID ${nonExistentVatId} does not exist.`);
+      ).rejects.toThrow(VatNotFoundError);
       expect(terminateMock).not.toHaveBeenCalled();
     });
 
@@ -115,7 +116,7 @@ describe('Kernel', () => {
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.sendMessage(nonExistentVatId, {} as VatCommand['payload']),
-      ).rejects.toThrow(`Vat with ID ${nonExistentVatId} does not exist.`);
+      ).rejects.toThrow(VatNotFoundError);
     });
 
     it('throws an error when sending a message to the vat throws', async () => {

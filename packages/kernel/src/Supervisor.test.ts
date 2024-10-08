@@ -3,6 +3,7 @@ import { makeMessagePortStreamPair, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { SupervisorReadError } from './errors.js';
 import { VatCommandMethod } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
@@ -32,14 +33,21 @@ describe('Supervisor', () => {
     });
 
     it('throws an error if the stream is invalid', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error');
-      const error = new Error('test-error');
-      await supervisor.streams.reader.throw(error);
-      await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from Supervisor "${supervisor.id}"`,
-        error,
-      );
+      const testError = new Error('test-error');
+      try {
+        await supervisor.streams.reader.throw(testError);
+        await delay(10);
+      } catch (error) {
+        expect(error).toBeInstanceOf(SupervisorReadError);
+        expect(error).toMatchObject({
+          code: 'SUPERVISOR_READ_ERROR',
+          message: 'Unexpected read error from Supervisor',
+          data: {
+            supervisorId: supervisor.id,
+            originalError: testError,
+          },
+        });
+      }
     });
   });
 

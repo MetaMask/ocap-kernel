@@ -5,6 +5,12 @@ import type { StreamPair, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
+import {
+  CapTPConnectionExistsError,
+  CapTPConnectionNotFoundError,
+  VatDeletedError,
+  VatReadError,
+} from './errors.js';
 import { VatCommandMethod } from './messages.js';
 import type {
   CapTpMessage,
@@ -81,8 +87,7 @@ export class Vat {
   async init(): Promise<unknown> {
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(this.streams.reader).catch((error) => {
-      this.logger.error(`Unexpected read error`, error);
-      throw error;
+      throw new VatReadError(this.id, error);
     });
 
     await this.sendMessage({ method: VatCommandMethod.Ping, params: null });
@@ -110,9 +115,7 @@ export class Vat {
    */
   async makeCapTp(): Promise<unknown> {
     if (this.capTp !== undefined) {
-      throw new Error(
-        `Vat with id "${this.id}" already has a CapTP connection.`,
-      );
+      throw new CapTPConnectionExistsError(this.id);
     }
 
     // Handle writes here. #receiveMessages() handles reads.
@@ -144,9 +147,7 @@ export class Vat {
    */
   async callCapTp(payload: CapTpPayload): Promise<unknown> {
     if (!this.capTp) {
-      throw new Error(
-        `Vat with id "${this.id}" does not have a CapTP connection.`,
-      );
+      throw new CapTPConnectionNotFoundError(this.id);
     }
     return E(this.capTp.getBootstrap())[payload.method](...payload.params);
   }
@@ -159,7 +160,7 @@ export class Vat {
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
-      promiseCallback?.reject(new Error('Vat was deleted'));
+      promiseCallback?.reject(new VatDeletedError(this.id));
       this.unresolvedMessages.delete(messageId);
     }
   }

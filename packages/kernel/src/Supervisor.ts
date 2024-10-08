@@ -2,6 +2,7 @@ import { makeCapTP } from '@endo/captp';
 import type { StreamPair, Reader } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
+import { SupervisorReadError } from './errors.js';
 import type {
   CapTpMessage,
   VatCommand,
@@ -53,11 +54,7 @@ export class Supervisor {
     );
 
     this.#receiveMessages(this.streams.reader).catch((error) => {
-      console.error(
-        `Unexpected read error from Supervisor "${this.id}"`,
-        error,
-      );
-      throw error;
+      throw new SupervisorReadError(this.id, error);
     });
   }
 

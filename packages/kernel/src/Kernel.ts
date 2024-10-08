@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+import { VatNotFoundError, VatAlreadyExistsError } from './errors.js';
 import type { VatCommand } from './messages.js';
 import type { VatId, VatWorker } from './types.js';
 import { Vat } from './Vat.js';
@@ -35,7 +36,7 @@ export class Kernel {
     worker: VatWorker;
   }): Promise<Vat> {
     if (this.#vats.has(id)) {
-      throw new Error(`Vat with ID ${id} already exists.`);
+      throw new VatAlreadyExistsError(id);
     }
     const [streams] = await worker.init();
     const vat = new Vat({ id, streams });
@@ -81,7 +82,7 @@ export class Kernel {
   #getVatRecord(id: VatId): { vat: Vat; worker: VatWorker } {
     const vatRecord = this.#vats.get(id);
     if (vatRecord === undefined) {
-      throw new Error(`Vat with ID ${id} does not exist.`);
+      throw new VatNotFoundError(id);
     }
     return vatRecord;
   }
