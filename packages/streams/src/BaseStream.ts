@@ -58,22 +58,17 @@ const makeStreamBuffer = <
   const outputBuffer: PromiseCallbacks[] = [];
   let done = false;
 
-  const end = (error?: Error): void => {
-    if (done) {
-      return;
-    }
+  return {
+    end: (error?: Error): void => {
+      if (done) {
+        return;
+      }
 
-    done = true;
-    if (outputBuffer.length > 0) {
-      while (outputBuffer.length > 0) {
-        const { resolve, reject } = outputBuffer.shift() as PromiseCallbacks;
+      done = true;
+      for (const { resolve, reject } of outputBuffer) {
         error ? reject(error) : resolve(makeDoneResult() as Value);
       }
-    }
-  };
-
-  return {
-    end,
+    },
 
     hasPendingReads() {
       return outputBuffer.length > 0;
