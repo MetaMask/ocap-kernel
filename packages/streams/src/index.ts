@@ -3,7 +3,7 @@ export {
   receiveMessagePort,
 } from './message-channel.js';
 export type { Reader, Writer } from './utils.js';
-export type { DuplexStream } from './BaseStream.js';
+export type { DuplexStream } from './BaseDuplexStream.js';
 export {
   MessagePortReader,
   MessagePortWriter,

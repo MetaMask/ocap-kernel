@@ -8,8 +8,9 @@
 
 import type { Json } from '@metamask/utils';
 
+import { BaseDuplexStream } from './BaseDuplexStream.js';
 import type { OnEnd } from './BaseStream.js';
-import { BaseDuplexStream, BaseReader, BaseWriter } from './BaseStream.js';
+import { BaseReader, BaseWriter } from './BaseStream.js';
 
 type PostMessage = (message: unknown) => void;
 type OnMessage = (event: MessageEvent<unknown>) => void;

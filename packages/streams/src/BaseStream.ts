@@ -1,5 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { Reader as EndoReader, Writer as EndoWriter } from '@endo/stream';
+import type { Reader, Writer } from '@endo/stream';
 import { type Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
@@ -107,7 +107,7 @@ export type ReceiveInput = (input: unknown) => void;
  * The result of any value received before the stream ends is guaranteed to be observable
  * by the consumer.
  */
-export class BaseReader<Read extends Json> implements EndoReader<Read> {
+export class BaseReader<Read extends Json> implements Reader<Read> {
   /**
    * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
    * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
@@ -228,7 +228,7 @@ export type Dispatch<Yield extends Json> = (
 /**
  * The base of a writable async iterator stream.
  */
-export class BaseWriter<Write extends Json> implements EndoWriter<Write> {
+export class BaseWriter<Write extends Json> implements Writer<Write> {
   #isDone: boolean = false;
 
   readonly #logName: string = 'BaseWriter';
@@ -371,86 +371,3 @@ export class BaseWriter<Write extends Json> implements EndoWriter<Write> {
   }
 }
 harden(BaseWriter);
-
-/**
- * The base of a duplex stream. Essentially a {@link BaseReader} with a `write()` method.
- * Backed up by separate {@link BaseReader} and {@link BaseWriter} instances under the hood.
- */
-export abstract class BaseDuplexStream<
-  Read extends Json,
-  Reader extends BaseReader<Read>,
-  Write extends Json = Read,
-  Writer extends BaseWriter<Write> = BaseWriter<Write>,
-> implements EndoReader<Read>
-{
-  readonly #reader: Reader;
-
-  readonly #writer: Writer;
-
-  /**
-   * Reads the next value from the stream.
-   *
-   * @returns The next value from the stream.
-   */
-  next: () => Promise<IteratorResult<Read, undefined>>;
-
-  /**
-   * Writes a value to the stream.
-   *
-   * @param value - The next value to write to the stream.
-   * @returns The result of writing the value.
-   */
-  write: (value: Write) => Promise<IteratorResult<undefined, undefined>>;
-
-  constructor(reader: Reader, writer: Writer) {
-    this.#reader = reader;
-    this.#writer = writer;
-    this.next = this.#reader.next.bind(this.#reader);
-    this.write = this.#writer.next.bind(this.#writer);
-    harden(this);
-  }
-
-  [Symbol.asyncIterator](): typeof this {
-    return this;
-  }
-
-  /**
-   * Drains the stream by passing each value to a handler function.
-   *
-   * @param handler - The function that will receive each value from the stream.
-   */
-  async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
-    for await (const value of this.#reader) {
-      await handler(value);
-    }
-  }
-
-  /**
-   * Closes the stream. Idempotent.
-   *
-   * @returns The final result for this stream.
-   */
-  async return(): Promise<IteratorResult<Read, undefined>> {
-    return Promise.all([this.#writer.return(), this.#reader.return()]).then(
-      () => makeDoneResult(),
-    );
-  }
-
-  /**
-   * Writes the error to the stream, and closes the stream. Idempotent.
-   *
-   * @param error - The error to write.
-   * @returns The final result for this stream.
-   */
-  async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
-    return Promise.all([this.#writer.throw(error), this.#reader.return()]).then(
-      () => makeDoneResult(),
-    );
-  }
-}
-harden(BaseDuplexStream);
-
-export type DuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
-> = BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>;
