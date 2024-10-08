@@ -413,7 +413,7 @@ describe('BaseDuplexStream', () => {
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
   });
 
-  it('drains the reader', async () => {
+  it('drains the reader in order', async () => {
     const duplexStream = new TestDuplexStream(() => undefined);
 
     const messages = [1, 2, 3];
@@ -430,6 +430,9 @@ describe('BaseDuplexStream', () => {
 
     await duplexStream.drain(drainFn);
     expect(drainFn).toHaveBeenCalledTimes(messages.length);
+    expect(drainFn).toHaveBeenNthCalledWith(1, 1);
+    expect(drainFn).toHaveBeenNthCalledWith(2, 2);
+    expect(drainFn).toHaveBeenNthCalledWith(3, 3);
   });
 
   it('writes to the writer', async () => {
