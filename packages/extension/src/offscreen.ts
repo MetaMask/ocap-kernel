@@ -4,12 +4,7 @@ import {
   isKernelCommand,
   isKernelCommandReply,
 } from '@ocap/kernel';
-import type {
-  KernelCommandReply,
-  KernelCommand,
-  KernelCommandReplyFunction,
-  VatId,
-} from '@ocap/kernel';
+import type { KernelCommandReply, KernelCommand, VatId } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
@@ -41,17 +36,12 @@ async function main(): Promise<void> {
   /**
    * Reply to a command from the background script.
    *
-   * @param method - The command method.
-   * @param params - The command parameters.
+   * @param commandReply - The reply to send.
    */
-  const replyToBackground: KernelCommandReplyFunction<Promise<void>> = async (
-    method: KernelCommand['method'],
-    params?: KernelCommandReply['params'],
-  ) => {
-    await backgroundStreams.writer.next({
-      method,
-      params: params ?? null,
-    });
+  const replyToBackground = async (
+    commandReply: KernelCommandReply,
+  ): Promise<void> => {
+    await backgroundStreams.writer.next(commandReply);
   };
 
   const receiveFromKernel = async (event: MessageEvent): Promise<void> => {
@@ -81,8 +71,13 @@ async function main(): Promise<void> {
     } else {
       result = params;
     }
-    // @ts-expect-error TODO: resolve method types.
-    await replyToBackground(method, result);
+    const reply = { method, params: result ?? null };
+    if (!isKernelCommandReply(reply)) {
+      // Internal error.
+      console.error('Malformed command reply', reply);
+      return;
+    }
+    await replyToBackground(reply);
   };
 
   const kernelWorker = new Worker('kernel-worker.js', { type: 'module' });
@@ -102,10 +97,16 @@ async function main(): Promise<void> {
     const vat = await iframeReadyP;
     switch (method) {
       case KernelCommandMethod.Evaluate:
-        await replyToBackground(method, await evaluate(vat.id, params));
+        await replyToBackground({
+          method,
+          params: await evaluate(vat.id, params),
+        });
         break;
       case KernelCommandMethod.CapTpCall:
-        await replyToBackground(method, stringify(await vat.callCapTp(params)));
+        await replyToBackground({
+          method,
+          params: stringify(await vat.callCapTp(params)),
+        });
         break;
       default:
         console.error(
@@ -123,7 +124,7 @@ async function main(): Promise<void> {
   }: KernelCommand): Promise<void> => {
     switch (method) {
       case KernelCommandMethod.Ping:
-        await replyToBackground(method, 'pong');
+        await replyToBackground({ method, params: 'pong' });
         break;
       case KernelCommandMethod.Evaluate:
         await handleVatTestCommand({ method, params });
