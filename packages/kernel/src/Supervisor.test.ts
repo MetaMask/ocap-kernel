@@ -28,7 +28,7 @@ describe('Supervisor', () => {
       expect(supervisor.stream).toBeDefined();
     });
 
-    it('throws an error if the stream is invalid', async () => {
+    it('throws if the stream throws', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
       messageChannel.port2.postMessage('foobar');
       await delay(10);
@@ -39,8 +39,8 @@ describe('Supervisor', () => {
     });
   });
 
-  describe('#receiveMessages', () => {
-    it('receives messages correctly', async () => {
+  describe('handleMessage', () => {
+    it('throws if the stream envelope handler throws', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const writer = new MessagePortWriter(messageChannel.port2);
       const rawMessage = { type: 'command', payload: { method: 'test' } };
@@ -52,9 +52,7 @@ describe('Supervisor', () => {
         'Stream envelope handler received unexpected value',
       );
     });
-  });
 
-  describe('handleMessage', () => {
     it('handles Ping messages', async () => {
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
