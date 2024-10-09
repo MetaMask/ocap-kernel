@@ -9,8 +9,7 @@ import type {
 } from './vat-worker-service.js';
 import {
   isVatWorkerServiceMessage,
-  SERVICE_TYPE_CREATE,
-  SERVICE_TYPE_DELETE,
+  VatWorkerServiceMethod,
 } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -80,12 +79,12 @@ export class VatWorkerServer {
     };
 
     switch (method) {
-      case SERVICE_TYPE_CREATE:
+      case VatWorkerServiceMethod.Init:
         await this.#initVatWorker(vatId)
           .then((port) => this.#postMessage({ method, id, vatId }, [port]))
           .catch(handleProblem);
         break;
-      case SERVICE_TYPE_DELETE:
+      case VatWorkerServiceMethod.Delete:
         await this.#deleteVatWorker(vatId)
           .then(() => this.#postMessage({ method, id, vatId }))
           .catch(handleProblem);
@@ -115,10 +114,8 @@ export class VatWorkerServer {
     if (!vatWorker) {
       throw new Error(`Worker for vat ${vatId} does not exist.`);
     }
-    return vatWorker
-      .delete()
-      .then(() => this.#vatWorkers.delete(vatId))
-      .then();
+    await vatWorker.delete();
+    this.#vatWorkers.delete(vatId);
   }
 }
 harden(VatWorkerServer);

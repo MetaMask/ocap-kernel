@@ -9,8 +9,7 @@ import type { PromiseCallbacks, VatId } from './types.js';
 import type { AddListener } from './vat-worker-service.js';
 import {
   isVatWorkerServiceMessage,
-  SERVICE_TYPE_CREATE,
-  SERVICE_TYPE_DELETE,
+  VatWorkerServiceMethod,
 } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -48,7 +47,9 @@ export class VatWorkerClient {
   }
 
   async #sendMessage<Return>(
-    method: typeof SERVICE_TYPE_CREATE | typeof SERVICE_TYPE_DELETE,
+    method:
+      | typeof VatWorkerServiceMethod.Init
+      | typeof VatWorkerServiceMethod.Delete,
     vatId: VatId,
   ): Promise<Return> {
     const message = {
@@ -68,11 +69,11 @@ export class VatWorkerClient {
   async initWorker(
     vatId: VatId,
   ): Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>> {
-    return this.#sendMessage(SERVICE_TYPE_CREATE, vatId);
+    return this.#sendMessage(VatWorkerServiceMethod.Init, vatId);
   }
 
   async deleteWorker(vatId: VatId): Promise<undefined> {
-    return this.#sendMessage(SERVICE_TYPE_DELETE, vatId);
+    return this.#sendMessage(VatWorkerServiceMethod.Delete, vatId);
   }
 
   async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
@@ -98,7 +99,7 @@ export class VatWorkerClient {
     }
 
     switch (method) {
-      case SERVICE_TYPE_CREATE:
+      case VatWorkerServiceMethod.Init:
         if (!port) {
           this.#logger.error('Expected a port with message reply', event);
           return;
@@ -109,7 +110,7 @@ export class VatWorkerClient {
           ),
         );
         break;
-      case SERVICE_TYPE_DELETE:
+      case VatWorkerServiceMethod.Delete:
         // If we were caching streams on the client this would be a good place
         // to remove them.
         promise.resolve(undefined);

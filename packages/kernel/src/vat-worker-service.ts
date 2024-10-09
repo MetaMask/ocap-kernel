@@ -1,11 +1,11 @@
-// Vat worker service.
-
 import { isObject } from '@metamask/utils';
 
 import type { VatId } from './types.js';
 
-export const SERVICE_TYPE_CREATE = 'iframe-vat-worker-create';
-export const SERVICE_TYPE_DELETE = 'iframe-vat-worker-delete';
+export enum VatWorkerServiceMethod {
+  Init = 'iframe-vat-worker-init',
+  Delete = 'iframe-vat-worker-delete',
+}
 
 type MessageId = number;
 
@@ -15,7 +15,9 @@ export type VatWorker = {
 };
 
 export type VatWorkerServiceMessage = {
-  method: typeof SERVICE_TYPE_CREATE | typeof SERVICE_TYPE_DELETE;
+  method:
+    | typeof VatWorkerServiceMethod.Init
+    | typeof VatWorkerServiceMethod.Delete;
   id: MessageId;
   vatId: VatId;
   error?: Error;
@@ -26,8 +28,9 @@ export const isVatWorkerServiceMessage = (
 ): value is VatWorkerServiceMessage =>
   isObject(value) &&
   typeof value.id === 'number' &&
-  (value.method === SERVICE_TYPE_CREATE ||
-    value.method === SERVICE_TYPE_DELETE) &&
+  Object.values(VatWorkerServiceMethod).includes(
+    value.method as VatWorkerServiceMethod,
+  ) &&
   typeof value.vatId === 'string';
 
 export type PostMessage = (message: unknown, transfer?: Transferable[]) => void;

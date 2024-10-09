@@ -8,10 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatId } from './types.js';
 import type { VatWorker } from './vat-worker-service.js';
-import {
-  SERVICE_TYPE_CREATE,
-  SERVICE_TYPE_DELETE,
-} from './vat-worker-service.js';
+import { VatWorkerServiceMethod } from './vat-worker-service.js';
 import { VatWorkerClient } from './VatWorkerClient.js';
 import { VatWorkerServer } from './VatWorkerServer.js';
 
@@ -126,8 +123,8 @@ describe('VatWorker', () => {
 
     it.each`
       method
-      ${SERVICE_TYPE_CREATE}
-      ${SERVICE_TYPE_DELETE}
+      ${VatWorkerServiceMethod.Init}
+      ${VatWorkerServiceMethod.Delete}
     `(
       "calls logger.error when receiving a $method reply it wasn't waiting for",
       async ({ method }) => {
@@ -147,13 +144,13 @@ describe('VatWorker', () => {
       },
     );
 
-    it(`calls logger.error when receiving a ${SERVICE_TYPE_CREATE} reply without a port`, async () => {
+    it(`calls logger.error when receiving a ${VatWorkerServiceMethod.Init} reply without a port`, async () => {
       const errorSpy = vi.spyOn(clientLogger, 'error');
       const vatId: VatId = 'v0';
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       client.initWorker(vatId);
       const reply = {
-        method: SERVICE_TYPE_CREATE,
+        method: VatWorkerServiceMethod.Init,
         id: 1,
         vatId: 'v0',
       };
@@ -175,7 +172,7 @@ describe('VatWorker', () => {
       server.start();
     });
 
-    it('inits and deletes a worker', async () => {
+    it('initializes and deletes a worker', async () => {
       const vatId: VatId = 'v0';
       const stream = await client.initWorker(vatId);
       expect(stream).toBeInstanceOf(MessagePortDuplexStream);
