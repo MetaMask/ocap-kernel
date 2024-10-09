@@ -39,9 +39,6 @@ const isVatWorkerServiceMessage = (
 type PostMessage = (message: unknown, transfer?: Transferable[]) => void;
 type AddListener = (listener: (event: MessageEvent<unknown>) => void) => void;
 
-/**
- * To be constructed in the offscreen document.
- */
 export class VatWorkerServer {
   readonly #logger;
 
@@ -55,6 +52,17 @@ export class VatWorkerServer {
 
   #running = false;
 
+  /**
+   * The server end of the vat worker service, intended to be constructed in
+   * the offscreen document. Listens for initWorker and deleteWorker requests
+   * from the client and uses the {@link VatWorker} methods to effect those
+   * requests.
+   *
+   * @param postMessage - A method for posting a message to the client.
+   * @param addListener - A method for registering a listener for messages from the client.
+   * @param makeWorker - A method for making a {@link VatWorker}.
+   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker server]'.
+   */
   constructor(
     postMessage: PostMessage,
     addListener: (listener: (event: MessageEvent<unknown>) => void) => void,
@@ -74,13 +82,6 @@ export class VatWorkerServer {
     this.#addListener(makeHandledCallback(this.#handleMessage.bind(this)));
     this.#running = true;
   }
-
-  /*
-  stop() {
-    // Why would we?
-    this.#removeListener(this.#listener);
-  }
-  */
 
   async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
     if (!isVatWorkerServiceMessage(event.data)) {
@@ -152,6 +153,16 @@ export class VatWorkerClient {
 
   readonly #postMessage: (message: unknown) => void;
 
+  /**
+   * The client end of the vat worker service, intended to be constructed in
+   * the kernel worker. Sends initWorker and deleteWorker requests to the
+   * server and wraps the initWorker response in a DuplexStream for consumption
+   * by the kernel.
+   *
+   * @param postMessage - A method for posting a message to the server.
+   * @param addListener - A method for registering a listener for messages from the server.
+   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   */
   constructor(
     postMessage: (message: unknown) => void,
     addListener: AddListener,
