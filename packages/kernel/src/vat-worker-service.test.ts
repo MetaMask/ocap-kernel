@@ -11,9 +11,9 @@ import type { VatWorker } from './vat-worker-service.js';
 import {
   SERVICE_TYPE_CREATE,
   SERVICE_TYPE_DELETE,
-  VatWorkerClient,
-  VatWorkerServer,
 } from './vat-worker-service.js';
+import { VatWorkerClient } from './VatWorkerClient.js';
+import { VatWorkerServer } from './VatWorkerServer.js';
 
 describe('VatWorker', () => {
   let serverPort: MessagePort;

@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.js';
 import type { VatCommand } from './messages.js';
+import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import type { VatId } from './types.js';
-import type { VatWorkerClient } from './vat-worker-service.js';
 import { Vat } from './Vat.js';
+import type { VatWorkerClient } from './VatWorkerClient.js';
 
 describe('Kernel', () => {
   let mockWorkerService: VatWorkerClient;
@@ -23,7 +24,9 @@ describe('Kernel', () => {
 
     mockGetWorkerStreams = vi
       .spyOn(mockWorkerService, 'initWorker')
-      .mockResolvedValue({} as DuplexStream<never, never>);
+      .mockResolvedValue(
+        {} as DuplexStream<StreamEnvelopeReply, StreamEnvelope>,
+      );
     mockDeleteWorker = vi
       .spyOn(mockWorkerService, 'deleteWorker')
       .mockResolvedValue(undefined);
