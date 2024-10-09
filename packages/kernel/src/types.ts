@@ -1,4 +1,7 @@
 import type { PromiseKit } from '@endo/promise-kit';
+import type { DuplexStream } from '@ocap/streams';
+
+import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 
 export type VatId = `v${number}`;
 
@@ -11,3 +14,10 @@ export type PromiseCallbacks<Resolve = unknown> = Omit<
   PromiseKit<Resolve>,
   'promise'
 >;
+
+export type VatWorkerService = {
+  initWorker: (
+    vatId: VatId,
+  ) => Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>>;
+  deleteWorker: (vatId: VatId) => Promise<void>;
+};

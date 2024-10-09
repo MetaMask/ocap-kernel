@@ -1,6 +1,5 @@
 import { isObject } from '@metamask/utils';
-
-import type { VatId } from './types.js';
+import type { VatId } from '@ocap/kernel';
 
 export enum VatWorkerServiceMethod {
   Init = 'iframe-vat-worker-init',

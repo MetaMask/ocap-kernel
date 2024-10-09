@@ -3,8 +3,6 @@ import {
   KernelCommandMethod,
   isKernelCommand,
   isKernelCommandReply,
-  VatWorkerServer,
-  VatWorkerClient,
 } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand, VatId } from '@ocap/kernel';
 import {
@@ -16,6 +14,8 @@ import {
 import { stringify } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './iframe-vat-worker.js';
+import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
 
 main().catch(console.error);
 
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
 
   const { port1: serverPort, port2: clientPort } = new MessageChannel();
 
-  const vatWorkerServer = new VatWorkerServer(
+  const vatWorkerServer = new ExtensionVatWorkerServer(
     (message: unknown, transfer?: Transferable[]) =>
       transfer
         ? serverPort.postMessage(message, transfer)
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
 
   vatWorkerServer.start();
 
-  const vatWorkerClient = new VatWorkerClient(
+  const vatWorkerClient = new ExtensionVatWorkerClient(
     (message: unknown) => clientPort.postMessage(message),
     (listener) => {
       clientPort.onmessage = listener;

@@ -1,21 +1,19 @@
+import type { VatId } from '@ocap/kernel';
 import type { Logger } from '@ocap/utils';
 import { makeHandledCallback, makeLogger } from '@ocap/utils';
 
-import type { VatId } from './types.js';
-import type {
-  AddListener,
-  PostMessage,
-  VatWorker,
-} from './vat-worker-service.js';
 import {
   isVatWorkerServiceMessage,
   VatWorkerServiceMethod,
+  type AddListener,
+  type PostMessage,
+  type VatWorker,
 } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { VatWorkerClient } from './VatWorkerClient.js';
+import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-export class VatWorkerServer {
+export class ExtensionVatWorkerServer {
   readonly #logger;
 
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
@@ -34,7 +32,7 @@ export class VatWorkerServer {
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
    *
-   * @see {@link VatWorkerClient} for the other end of the service.
+   * @see {@link ExtensionVatWorkerClient} for the other end of the service.
    *
    * @param postMessage - A method for posting a message to the client.
    * @param addListener - A method for registering a listener for messages from the client.
@@ -118,4 +116,4 @@ export class VatWorkerServer {
     this.#vatWorkers.delete(vatId);
   }
 }
-harden(VatWorkerServer);
+harden(ExtensionVatWorkerServer);

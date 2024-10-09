@@ -1,11 +1,16 @@
 import { makePromiseKit } from '@endo/promise-kit';
+import type { PromiseKit } from '@endo/promise-kit';
+import type {
+  StreamEnvelope,
+  StreamEnvelopeReply,
+  VatWorkerService,
+  VatId,
+} from '@ocap/kernel';
 import type { DuplexStream } from '@ocap/streams';
 import { MessagePortDuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeHandledCallback, makeLogger } from '@ocap/utils';
 
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
-import type { PromiseCallbacks, VatId } from './types.js';
 import type { AddListener } from './vat-worker-service.js';
 import {
   isVatWorkerServiceMessage,
@@ -13,9 +18,11 @@ import {
 } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { VatWorkerServer } from './VatWorkerServer.js';
+import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
 
-export class VatWorkerClient {
+type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
+
+export class ExtensionVatWorkerClient implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #unresolvedMessages: Map<number, PromiseCallbacks> = new Map();
@@ -30,7 +37,7 @@ export class VatWorkerClient {
    * server and wraps the initWorker response in a DuplexStream for consumption
    * by the kernel.
    *
-   * @see {@link VatWorkerServer} for the other end of the service.
+   * @see {@link ExtensionVatWorkerServer} for the other end of the service.
    *
    * @param postMessage - A method for posting a message to the server.
    * @param addListener - A method for registering a listener for messages from the server.
@@ -125,4 +132,4 @@ export class VatWorkerClient {
     }
   }
 }
-harden(VatWorkerClient);
+harden(ExtensionVatWorkerClient);

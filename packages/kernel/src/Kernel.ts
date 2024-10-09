@@ -1,15 +1,14 @@
 import '@ocap/shims/endoify';
 import type { VatCommand } from './messages.js';
-import type { VatId } from './types.js';
+import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
-import type { VatWorkerClient } from './VatWorkerClient.js';
 
 export class Kernel {
   readonly #vats: Map<VatId, Vat>;
 
-  readonly #vatWorkerService: VatWorkerClient;
+  readonly #vatWorkerService: VatWorkerService;
 
-  constructor(vatWorkerService: VatWorkerClient) {
+  constructor(vatWorkerService: VatWorkerService) {
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
   }
