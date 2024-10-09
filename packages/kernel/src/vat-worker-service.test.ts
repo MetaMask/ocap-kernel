@@ -189,7 +189,7 @@ describe('VatWorker', () => {
 
     it('throws when deleting a nonexistent worker', async () => {
       await expect(async () => await client.deleteWorker('v0')).rejects.toThrow(
-        /vat v[0-9] does not exist/u,
+        /vat v0 does not exist/u,
       );
     });
 
@@ -197,7 +197,7 @@ describe('VatWorker', () => {
       const vatId: VatId = 'v0';
       await client.initWorker(vatId);
       await expect(async () => await client.initWorker(vatId)).rejects.toThrow(
-        /vat v[0-9] already exists/u,
+        /vat v0 already exists/u,
       );
     });
   });

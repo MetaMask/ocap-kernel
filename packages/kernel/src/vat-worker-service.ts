@@ -91,22 +91,24 @@ export class VatWorkerServer {
 
     const { method, id, vatId } = event.data;
 
+    const handleProblem = async (problem: Error): Promise<void> => {
+      this.#logger.error(
+        `Error handling ${method} for vatId ${vatId}`,
+        problem,
+      );
+      this.#postMessage({ method, id, vatId, error: problem });
+    };
+
     switch (method) {
       case SERVICE_TYPE_CREATE:
         await this.#initVatWorker(vatId)
           .then((port) => this.#postMessage({ method, id, vatId }, [port]))
-          .catch((problem: Error) => {
-            this.#logger.error(problem.message);
-            this.#postMessage({ method, id, vatId, error: problem });
-          });
+          .catch(handleProblem);
         break;
       case SERVICE_TYPE_DELETE:
         await this.#deleteVatWorker(vatId)
           .then(() => this.#postMessage({ method, id, vatId }))
-          .catch((problem: Error) => {
-            this.#logger.error(problem.message);
-            this.#postMessage({ method, id, vatId, error: problem });
-          });
+          .catch(handleProblem);
         break;
       /* v8 ignore next 6: Not known to be possible. */
       default:
@@ -203,7 +205,9 @@ export class VatWorkerClient {
     if (!promise) {
       this.#logger.error('Received unexpected reply', event.data);
       return;
-    } else if (error) {
+    }
+
+    if (error) {
       promise.reject(error);
       return;
     }
