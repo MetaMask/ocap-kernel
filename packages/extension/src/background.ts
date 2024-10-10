@@ -4,6 +4,8 @@ import { ClusterCommandMethod, isClusterCommandReply } from '@ocap/kernel';
 import type { ClusterCommand, ClusterCommandFunction } from '@ocap/kernel';
 import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
 
+const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
+
 main().catch(console.error);
 
 /**
@@ -16,6 +18,12 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Offscreen,
   );
 
+  await chrome.offscreen.createDocument({
+    url: OFFSCREEN_DOCUMENT_PATH,
+    reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
+    justification: `Surely you won't object to our capabilities?`,
+  });
+
   /**
    * Send a message to the offscreen document.
    *
@@ -27,8 +35,6 @@ async function main(): Promise<void> {
     method: ClusterCommand['method'],
     params?: ClusterCommand['params'],
   ) => {
-    await provideOffScreenDocument();
-
     await offscreenStream.write({
       method,
       params: params ?? null,
@@ -62,25 +68,10 @@ async function main(): Promise<void> {
   });
   harden(globalThis.kernel);
 
-  const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
-
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
     sendClusterCommand(ClusterCommandMethod.Ping).catch(console.error);
   });
-
-  /**
-   * Create the offscreen document if it doesn't already exist.
-   */
-  async function provideOffScreenDocument(): Promise<void> {
-    if (!(await chrome.offscreen.hasDocument())) {
-      await chrome.offscreen.createDocument({
-        url: OFFSCREEN_DOCUMENT_PATH,
-        reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
-        justification: `Surely you won't object to our capabilities?`,
-      });
-    }
-  }
 
   // Handle replies from the offscreen document
   for await (const message of offscreenStream) {
