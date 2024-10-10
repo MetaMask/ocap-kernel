@@ -59,11 +59,6 @@ const config = [
 
   {
     files: ['**/*.{ts,mts,cts}'],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.packages.json'],
-      },
-    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': [
