@@ -8,7 +8,7 @@ export const makeHandledCallback = <Args extends unknown[]>(
   callback: (...args: Args) => Promise<void>,
 ) => {
   return (...args: Args): void => {
-    // eslint-disable-next-line n/no-callback-literal, n/callback-return
+    // eslint-disable-next-line n/callback-return
     callback(...args).catch(console.error);
   };
 };
