@@ -1,5 +1,9 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import { isKernelCommand, KernelCommandMethod } from '@ocap/kernel';
+import {
+  isKernelCommand,
+  isKernelCommandReply,
+  KernelCommandMethod,
+} from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
@@ -14,7 +18,7 @@ import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
 
 const logger = makeLogger('[ocap glue]');
 
-main().catch(console.error);
+main().catch(logger.error);
 
 /**
  * The main function for the offscreen script.
@@ -45,9 +49,12 @@ async function main(): Promise<void> {
     kernelWorker.receiveMessages(),
     kernelInitKit.promise.then(async () => {
       for await (const message of backgroundStream) {
-        isKernelCommand(message)
-          ? await kernelWorker.sendMessage(message)
-          : logger.info('Received unexpected message', message);
+        if (!isKernelCommand(message)) {
+          logger.error('Offscreen received unexpected message', message);
+          continue;
+        }
+
+        await kernelWorker.sendMessage(message);
       }
       return undefined;
     }),
@@ -96,6 +103,11 @@ async function main(): Promise<void> {
       // change once this offscreen script is providing services to the kernel worker that don't
       // involve the user.
       for await (const message of workerStream) {
+        if (!isKernelCommandReply(message)) {
+          logger.error('Kernel received unexpected message', message);
+          continue;
+        }
+
         if (message.method === KernelCommandMethod.InitKernel) {
           logger.info('Kernel initialized.');
           kernelInitKit.resolve();
