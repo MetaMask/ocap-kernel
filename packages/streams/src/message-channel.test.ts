@@ -184,9 +184,7 @@ describe('receiveMessagePort', () => {
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
 
       const fulfillmentDetector = vi.fn();
-      messagePortP
-        .then(fulfillmentDetector, fulfillmentDetector)
-        .catch(console.error);
+      messagePortP.then(fulfillmentDetector).catch(fulfillmentDetector);
 
       window.dispatchEvent(
         new MessageEvent('message', {
@@ -213,9 +211,7 @@ describe('receiveMessagePort', () => {
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
 
       const fulfillmentDetector = vi.fn();
-      messagePortP
-        .then(fulfillmentDetector, fulfillmentDetector)
-        .catch(console.error);
+      messagePortP.then(fulfillmentDetector).catch(fulfillmentDetector);
 
       window.dispatchEvent(
         // @ts-expect-error Intentionally destructive testing.
