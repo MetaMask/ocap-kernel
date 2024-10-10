@@ -18,6 +18,7 @@ const config = [
     ...options,
     files: ['**/*.test.{ts,js}'],
   })),
+
   {
     ignores: [
       'yarn.config.cjs',
@@ -29,6 +30,7 @@ const config = [
       '**/coverage',
     ],
   },
+
   {
     languageOptions: {
       parserOptions: {
@@ -47,15 +49,15 @@ const config = [
         },
       ],
 
-      // This prevents using Node.js and/or browser specific globals. We
-      // currently use both in our codebase, so this rule is disabled.
-      'no-restricted-globals': 'off',
-
       'import-x/extensions': 'off',
       'import-x/no-unassigned-import': 'off',
 
       // This prevents pretty formatting of comments with multi-line lists entries.
       'jsdoc/check-indentation': 'off',
+
+      // This prevents using Node.js and/or browser specific globals. We
+      // currently use both in our codebase, so this rule is disabled.
+      'no-restricted-globals': 'off',
     },
   },
 
