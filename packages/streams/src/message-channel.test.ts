@@ -16,7 +16,9 @@ describe.concurrent('initializeMessageChannel', () => {
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
     // We intentionally let this one go. It will never settle.
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    initializeMessageChannel(targetWindow as unknown as Window);
+    initializeMessageChannel((message, transfer) =>
+      targetWindow.postMessage(message, '*', transfer),
+    );
 
     expect(postMessageSpy).toHaveBeenCalledOnce();
     expect(postMessageSpy).toHaveBeenCalledWith(
@@ -33,8 +35,8 @@ describe.concurrent('initializeMessageChannel', () => {
   }) => {
     const targetWindow = new JSDOM().window;
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
-    const messageChannelP = initializeMessageChannel(
-      targetWindow as unknown as Window,
+    const messageChannelP = initializeMessageChannel((message, transfer) =>
+      targetWindow.postMessage(message, '*', transfer),
     );
 
     // @ts-expect-error Wrong types for window.postMessage()
@@ -61,8 +63,8 @@ describe.concurrent('initializeMessageChannel', () => {
     async (unexpectedMessage, { expect }) => {
       const targetWindow = new JSDOM().window;
       const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
-      const messageChannelP = initializeMessageChannel(
-        targetWindow as unknown as Window,
+      const messageChannelP = initializeMessageChannel((message, transfer) =>
+        targetWindow.postMessage(message, '*', transfer),
       );
 
       // @ts-expect-error Wrong types for window.postMessage()
@@ -105,7 +107,10 @@ describe('receiveMessagePort', () => {
   });
 
   it('receives and acknowledges a message port', async ({ expect }) => {
-    const messagePortP = receiveMessagePort();
+    const messagePortP = receiveMessagePort(
+      (listener) => addEventListener('message', listener),
+      (listener) => removeEventListener('message', listener),
+    );
 
     const { port2 } = new MessageChannel();
     const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
@@ -130,7 +135,10 @@ describe('receiveMessagePort', () => {
     const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
     const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
 
-    const messagePortP = receiveMessagePort();
+    const messagePortP = receiveMessagePort(
+      (listener) => addEventListener('message', listener),
+      (listener) => removeEventListener('message', listener),
+    );
 
     const { port2 } = new MessageChannel();
     window.dispatchEvent(
@@ -167,7 +175,10 @@ describe('receiveMessagePort', () => {
   ])(
     'ignores message events with unexpected data dispatched on window: %#',
     async (unexpectedMessage, { expect }) => {
-      const messagePortP = receiveMessagePort();
+      const messagePortP = receiveMessagePort(
+        (listener) => addEventListener('message', listener),
+        (listener) => removeEventListener('message', listener),
+      );
 
       const { port2 } = new MessageChannel();
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');
@@ -191,7 +202,10 @@ describe('receiveMessagePort', () => {
   it.for([{}, { ports: [] }, { ports: [{}, {}] }])(
     'ignores message events with unexpected ports dispatched on window: %#',
     async (unexpectedPorts, { expect }) => {
-      const messagePortP = receiveMessagePort();
+      const messagePortP = receiveMessagePort(
+        (listener) => addEventListener('message', listener),
+        (listener) => removeEventListener('message', listener),
+      );
 
       const { port2 } = new MessageChannel();
       const portPostMessageSpy = vi.spyOn(port2, 'postMessage');

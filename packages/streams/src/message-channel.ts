@@ -1,13 +1,14 @@
 /**
- * This module establishes a simple protocol for creating a MessageChannel between a
- * window and one of its iframes, as follows:
- * 1. The parent window creates an iframe and appends it to the DOM. The iframe must be
- * loaded and the `contentWindow` property must be accessible.
- * 2. The iframe calls `receiveMessagePort()` on startup in one of its scripts. The script
- * element in question should not have the `async` attribute.
- * 3. The parent window calls `initializeMessageChannel()` which sends a message port to
- * the iframe. When the returned promise resolves, the parent window and the iframe have
- * established a message channel.
+ * This module establishes a simple protocol for creating a MessageChannel between two
+ * realms, as follows:
+ * 1. The sending realm asserts that the receiving realm is ready to receive messages,
+ * either by creating the realm itself (for example, by appending an iframe to the DOM),
+ * or via some other means.
+ * 2. The receiving realm calls `receiveMessagePort()` on startup in one of its scripts.
+ * The script element in question should not have the `async` attribute.
+ * 3. The sending realm calls `initializeMessageChannel()` which sends a message port to
+ * the receiving realm. When the returned promise resolves, the sending realm and the
+ * receiving realm have established a message channel.
  *
  * @module MessageChannel utilities
  */
@@ -37,17 +38,18 @@ const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
   isObject(value) && value.type === MessageType.Acknowledge;
 
 /**
- * Creates a message channel and sends one of the ports to the target window. The iframe
- * associated with the target window must be loaded, and it must have called
- * {@link receiveMessagePort} to receive the remote message port. Rejects if the first
- * message received over the channel is not an {@link AcknowledgeMessage}.
+ * Creates a message channel and sends one of the ports to the receiving realm. The
+ * realm must be loaded, and it must have called {@link receiveMessagePort} to
+ * receive the remote message port. Rejects if the first message received over the
+ * channel is not an {@link AcknowledgeMessage}.
  *
- * @param targetWindow - The iframe window to send the message port to.
- * @returns A promise that resolves with the local message port, once the target window
- * has acknowledged its receipt of the remote port.
+ * @param postMessage - A bound method for posting a message to the receiving realm.
+ * Must be able to transfer a message port.
+ * @returns A promise that resolves with the local message port, once the receiving
+ * realm has acknowledged its receipt of the remote port.
  */
 export async function initializeMessageChannel(
-  targetWindow: Window,
+  postMessage: (message: unknown, transfer: Transferable[]) => void,
 ): Promise<MessagePort> {
   const { port1, port2 } = new MessageChannel();
 
@@ -71,7 +73,7 @@ export async function initializeMessageChannel(
   const initMessage: InitializeMessage = {
     type: MessageType.Initialize,
   };
-  targetWindow.postMessage(initMessage, '*', [port2]);
+  postMessage(initMessage, [port2]);
 
   return promise
     .catch((error) => {
@@ -81,24 +83,31 @@ export async function initializeMessageChannel(
     .finally(() => (port1.onmessage = null));
 }
 
+type Listener = (message: MessageEvent) => void;
+
 /**
- * Receives a message port from the parent window, and sends an {@link AcknowledgeMessage}
+ * Receives a message port from the sending realm, and sends an {@link AcknowledgeMessage}
  * over the port. Should be called in a script _without_ the `async` attribute on startup.
- * The parent window must call {@link initializeMessageChannel} to send the message port
- * after this iframe has loaded. Ignores any message events dispatched on the local
- * `window` that are not an {@link InitializeMessage}.
+ * The sending realm must call {@link initializeMessageChannel} to send the message port
+ * after this realm has loaded. Ignores any message events dispatched on the local
+ * realm that are not an {@link InitializeMessage}.
  *
+ * @param addListener - A bound method to add a message event listener to the sending realm.
+ * @param removeListener - A bound method to remove a message event listener from the sending realm.
  * @returns A promise that resolves with a message port that can be used to communicate
- * with the parent window.
+ * with the sending realm.
  */
-export async function receiveMessagePort(): Promise<MessagePort> {
+export async function receiveMessagePort(
+  addListener: (listener: Listener) => void,
+  removeListener: (listener: Listener) => void,
+): Promise<MessagePort> {
   const { promise, resolve } = makePromiseKit<MessagePort>();
 
   const listener = (message: MessageEvent): void => {
     if (!isInitMessage(message)) {
       return;
     }
-    window.removeEventListener('message', listener);
+    removeListener(listener);
 
     const port = message.ports[0] as MessagePort;
     const ackMessage: AcknowledgeMessage = { type: MessageType.Acknowledge };
@@ -106,6 +115,6 @@ export async function receiveMessagePort(): Promise<MessagePort> {
     resolve(port);
   };
 
-  window.addEventListener('message', listener);
+  addListener(listener);
   return promise;
 }

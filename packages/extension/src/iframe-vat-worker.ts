@@ -18,7 +18,9 @@ export const makeIframeVatWorker = (
         id: vatHtmlId,
         testId: 'ocap-iframe',
       });
-      const port = await getPort(newWindow);
+      const port = await getPort((message, transfer) =>
+        newWindow.postMessage(message, '*', transfer),
+      );
 
       return [port, newWindow];
     },

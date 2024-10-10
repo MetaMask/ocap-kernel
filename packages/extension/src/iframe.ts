@@ -10,7 +10,10 @@ main().catch(console.error);
  * The main function for the iframe.
  */
 async function main(): Promise<void> {
-  const port = await receiveMessagePort();
+  const port = await receiveMessagePort(
+    (listener) => addEventListener('message', listener),
+    (listener) => removeEventListener('message', listener),
+  );
   const stream = new MessagePortDuplexStream<
     StreamEnvelope,
     StreamEnvelopeReply
