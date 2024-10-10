@@ -1,35 +1,30 @@
 ---
 ignores:
+  # eslint and prettier
+  - '@*/eslint-*'
+  - '@typescript-eslint/*'
+  - 'eslint'
+  - 'eslint-*'
+  - 'prettier-plugin-*'
+  - 'typescript-eslint'
+
+  # @ts-bridge
+  - '@ts-bridge/cli'
+  - '@ts-bridge/shims'
+
+  # vitest
+  - '@types/vitest'
+  - '@vitest/coverage-v8'
+  - 'vitest'
+
+  # miscellaneous
   - '@arethetypeswrong/cli'
   - '@lavamoat/allow-scripts'
   - '@lavamoat/preinstall-always-fail'
   - '@metamask/auto-changelog'
-  - '@metamask/eslint-config-nodejs'
-  - '@metamask/eslint-config-typescript'
-  - '@metamask/eslint-config'
-  - '@ts-bridge/cli'
-  - '@ts-bridge/shims'
   - '@types/chrome'
   - '@types/lodash'
-  - '@types/vitest'
-  - '@typescript-eslint/eslint-plugin'
-  - '@typescript-eslint/parser'
-  - '@typescript-eslint/utils'
-  - '@vitest/coverage-v8'
-  - '@vitest/eslint-plugin'
-  - 'depcheck' # ._.
-  - 'eslint-config-prettier'
-  - 'eslint-import-resolver-typescript'
-  - 'eslint-plugin-import-x'
-  - 'eslint-plugin-jsdoc'
-  - 'eslint-plugin-n'
-  - 'eslint-plugin-prettier'
-  - 'eslint-plugin-promise'
-  - 'eslint'
-  - 'prettier-plugin-packagejson'
   - 'rimraf'
   - 'simple-git-hooks'
   - 'typedoc'
-  - 'typescript-eslint'
   - 'typescript'
-  - 'vitest'
