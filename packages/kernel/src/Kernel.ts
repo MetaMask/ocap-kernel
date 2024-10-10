@@ -27,7 +27,7 @@ export class Kernel {
   readonly #storage: KernelStore;
 
   // Hopefully removed when we get to n+1 vats.
-  readonly #defaultVat: PromiseKit<Vat>;
+  readonly #defaultVatKit: PromiseKit<Vat>;
 
   readonly #logger: Logger;
 
@@ -41,7 +41,7 @@ export class Kernel {
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
     this.#storage = storage;
-    this.#defaultVat = makePromiseKit<Vat>();
+    this.#defaultVatKit = makePromiseKit<Vat>();
     this.#logger = logger ?? makeLogger('[ocap kernel]');
   }
 
@@ -49,15 +49,13 @@ export class Kernel {
     const start = performance.now();
 
     await this.launchVat({ id: defaultVatId })
-      .then(this.#defaultVat.resolve)
-      .catch(this.#defaultVat.reject);
+      .then(this.#defaultVatKit.resolve)
+      .catch(this.#defaultVatKit.reject);
 
     await this.#stream.write({
       method: KernelCommandMethod.InitKernel,
       params: { defaultVat: defaultVatId, initTime: performance.now() - start },
     });
-
-    // This would be a good place to use the void operator.
 
     return this.#receiveMessages();
   }
@@ -80,14 +78,14 @@ export class Kernel {
           await this.#reply({ method, params: 'pong' });
           break;
         case KernelCommandMethod.Evaluate:
-          vat = await this.#defaultVat.promise;
+          vat = await this.#defaultVatKit.promise;
           await this.#reply({
             method,
             params: await this.evaluate(vat.id, params),
           });
           break;
         case KernelCommandMethod.CapTpCall:
-          vat = await this.#defaultVat.promise;
+          vat = await this.#defaultVatKit.promise;
           await this.#reply({
             method,
             params: stringify(await vat.callCapTp(params)),
