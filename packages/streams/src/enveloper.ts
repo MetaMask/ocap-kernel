@@ -31,12 +31,11 @@ const makeEnveloper = <Label extends string, Content>(
       ({
         label,
         content,
-      } as Envelope<Label, Content>),
+      }) as Envelope<Label, Content>,
     unwrap: (envelope: Envelope<Label, Content>): Content => {
       if (!hasLabel(envelope)) {
         throw new Error(
           // @ts-expect-error The type of `envelope` is `never`, but this could happen at runtime.
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `Expected envelope labelled "${label}" but got "${envelope.label}".`,
         );
       }

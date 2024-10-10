@@ -19,6 +19,7 @@
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./src/dev-console.js",
+    "./vite-plugins/*.ts",
     "./test/**/*.ts"
   ]
 }

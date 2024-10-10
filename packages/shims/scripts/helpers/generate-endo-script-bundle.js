@@ -60,7 +60,7 @@ export async function generateEndoScriptBundle(specifier, outputPath, options) {
         ...Object(options?.rewrite),
         scopedRoot:
           options?.scope ??
-          // @ts-ignore
+          // @ts-expect-error - The `scopedRoot` option is not yet supported.
           options?.rewrite?.scopedRoot ??
           fileURLToPath(new URL('../../../../', import.meta.url)),
       }).transform(source, specifier)?.code ?? source;
@@ -70,4 +70,4 @@ export async function generateEndoScriptBundle(specifier, outputPath, options) {
 }
 
 /** @typedef {import('@endo/bundle-source').BundleOptions<'endoScript'>} EndoScriptBundleSourceOptions */
-/** @typedef {import('./rollup-plugin-endo-script-identifier-transform.js').EndoScriptIdentifierTransformOptions} EndoScriptIdentifierTransformOptions */
+/** @typedef {import('./rollup-plugin-endo-script-identifier-transform.js')} EndoScriptIdentifierTransformOptions */

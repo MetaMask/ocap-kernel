@@ -208,7 +208,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:eslint',
-          'eslint . --cache --ext js,mjs,cjs,ts,mts,cts',
+          'eslint . --cache',
         );
         expectWorkspaceField(
           workspace,

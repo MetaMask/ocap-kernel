@@ -63,9 +63,8 @@ export abstract class BaseDuplexStream<
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Read, undefined>> {
-    return Promise.all([this.#writer.return(), this.#reader.return()]).then(
-      () => makeDoneResult(),
-    );
+    await Promise.all([this.#writer.return(), this.#reader.return()]);
+    return makeDoneResult();
   }
 
   /**
@@ -75,9 +74,9 @@ export abstract class BaseDuplexStream<
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
-    return Promise.all([this.#writer.throw(error), this.#reader.return()]).then(
-      () => makeDoneResult(),
-    );
+    // eslint-disable-next-line promise/no-promise-in-callback
+    await Promise.all([this.#writer.throw(error), this.#reader.return()]);
+    return makeDoneResult();
   }
 }
 harden(BaseDuplexStream);

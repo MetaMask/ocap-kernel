@@ -151,7 +151,6 @@ async function main(): Promise<void> {
         console.error(
           'Offscreen received unexpected vat command',
           // @ts-expect-error Runtime does not respect "never".
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           { method: method.valueOf(), params },
         );
     }

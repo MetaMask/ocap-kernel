@@ -100,7 +100,6 @@ async function main(): Promise<void> {
       default:
         console.error(
           // @ts-expect-error Runtime does not respect "never".
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `Background received unexpected command method: "${payload.method}"`,
         );
     }

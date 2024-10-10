@@ -1,6 +1,6 @@
 import { load as loadHtml } from 'cheerio';
 import { format as prettierFormat } from 'prettier';
-import type { Plugin } from 'vite';
+import type { Plugin as VitePlugin } from 'vite';
 
 /**
  * Vite plugin to insert the endoify script before the first script in the head element.
@@ -9,7 +9,7 @@ import type { Plugin } from 'vite';
  * structure.
  * @returns The Vite plugin.
  */
-export function htmlTrustedPrelude(): Plugin {
+export function htmlTrustedPrelude(): VitePlugin {
   const endoifyElement = '<script src="endoify.js" type="module"></script>';
 
   return {
