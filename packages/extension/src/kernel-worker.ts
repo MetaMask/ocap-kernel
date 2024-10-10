@@ -1,16 +1,14 @@
 import './kernel-worker-trusted-prelude.js';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
-import { isKernelCommand, Kernel, KernelCommandMethod } from '@ocap/kernel';
+import { Kernel, KernelCommandMethod } from '@ocap/kernel';
 import { PostMessageDuplexStream, receiveMessagePort } from '@ocap/streams';
-import { makeLogger, stringify } from '@ocap/utils';
+import { stringify } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 type MainArgs = { defaultVatId: VatId };
-
-const logger = makeLogger('[kernel worker]');
 
 main({ defaultVatId: 'v0' }).catch(console.error);
 
@@ -49,7 +47,7 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
     },
   );
 
-  const start = performance.now();
+  const startTime = performance.now();
 
   const kernelStream = new PostMessageDuplexStream<
     KernelCommand,
@@ -67,21 +65,18 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
   // Create kernel.
 
   const kernel = new Kernel(vatWorkerClient);
-  const iframeReadyP = kernel.launchVat({ id: defaultVatId });
+  const vatReadyP = kernel.launchVat({ id: defaultVatId });
 
   await reply({
     method: KernelCommandMethod.InitKernel,
-    params: { defaultVat: defaultVatId, initTime: performance.now() - start },
+    params: {
+      defaultVat: defaultVatId,
+      initTime: performance.now() - startTime,
+    },
   });
 
   // Handle messages from the console service worker
-  for await (const message of kernelStream) {
-    if (isKernelCommand(message)) {
-      await handleKernelCommand(message);
-    } else {
-      logger.debug(`Received unexpected message ${stringify(message)}`);
-    }
-  }
+  await kernelStream.drain(handleKernelCommand);
 
   /**
    * Handle a KernelCommand sent from the offscreen.
@@ -151,7 +146,7 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
     >,
   ): Promise<void> {
     const { method, params } = command;
-    const vat = await iframeReadyP;
+    const vat = await vatReadyP;
     switch (method) {
       case KernelCommandMethod.Evaluate:
         await reply({

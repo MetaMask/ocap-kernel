@@ -1,9 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import {
-  isKernelCommand,
-  isKernelCommandReply,
-  KernelCommandMethod,
-} from '@ocap/kernel';
+import { isKernelCommand, KernelCommandMethod } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
@@ -51,7 +47,7 @@ async function main(): Promise<void> {
       for await (const message of backgroundStream) {
         isKernelCommand(message)
           ? await kernelWorker.sendMessage(message)
-          : logger.debug('Received unexpected message', message);
+          : logger.info('Received unexpected message', message);
       }
       return undefined;
     }),
@@ -100,13 +96,8 @@ async function main(): Promise<void> {
       // change once this offscreen script is providing services to the kernel worker that don't
       // involve the user.
       for await (const message of workerStream) {
-        if (!isKernelCommandReply(message)) {
-          logger.error('Received unexpected reply', message);
-          continue;
-        }
-
         if (message.method === KernelCommandMethod.InitKernel) {
-          logger.debug('Kernel initialized.');
+          logger.info('Kernel initialized.');
           kernelInitKit.resolve();
         }
         await replyToBackground(message);
