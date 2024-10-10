@@ -11,6 +11,7 @@ ignores:
   - '@ts-bridge/shims'
   - '@types/chrome'
   - '@types/lodash'
+  - '@types/vitest'
   - '@typescript-eslint/eslint-plugin'
   - '@typescript-eslint/parser'
   - '@typescript-eslint/utils'
