@@ -1,9 +1,12 @@
+// @ts-check
+
 import metamaskConfig from '@metamask/eslint-config';
 import metamaskNodeConfig from '@metamask/eslint-config-nodejs';
 import metamaskTypescriptConfig from '@metamask/eslint-config-typescript';
 import vitest from '@vitest/eslint-plugin';
 import globals from 'globals';
 
+/** @type {import('eslint').Linter.Config[]} */
 const config = [
   ...metamaskConfig,
   ...metamaskNodeConfig,
