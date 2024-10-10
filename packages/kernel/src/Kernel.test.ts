@@ -1,18 +1,24 @@
-import type { DuplexStream } from '@ocap/streams';
+import '@ocap/shims/endoify';
+
+import { MessagePortDuplexStream, type DuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelStore } from './kernel-store.js';
 import { Kernel } from './Kernel.js';
-import type { VatCommand } from './messages.js';
+import type {
+  KernelCommand,
+  KernelCommandReply,
+  VatCommand,
+} from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
-import type { VatId } from './types.js';
+import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
-import type { VatWorkerClient } from './VatWorkerClient.js';
 import { makeMapKernelStore } from '../test/storage.js';
 
 describe('Kernel', () => {
-  let mockWorkerService: VatWorkerClient;
+  let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;
+  let mockWorkerService: VatWorkerService;
   let mockGetWorkerStreams: MockInstance;
   let mockDeleteWorker: MockInstance;
   let initMock: MockInstance;
@@ -21,10 +27,15 @@ describe('Kernel', () => {
   let mockKernelStore: KernelStore;
 
   beforeEach(() => {
+    const consoleConnection = new MessageChannel();
+    mockStream = new MessagePortDuplexStream<KernelCommand, KernelCommandReply>(
+      consoleConnection.port1,
+    );
+
     mockWorkerService = {
       initWorker: async () => ({}),
       deleteWorker: async () => undefined,
-    } as unknown as VatWorkerClient;
+    } as unknown as VatWorkerService;
 
     mockGetWorkerStreams = vi
       .spyOn(mockWorkerService, 'initWorker')
@@ -45,18 +56,18 @@ describe('Kernel', () => {
 
   describe('getVatIds()', () => {
     it('returns an empty array when no vats are added', () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
     it('returns the vat IDs after adding a vat', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
     });
 
     it('returns multiple vat IDs after adding multiple vats', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       await kernel.launchVat({ id: 'v1' });
       expect(kernel.getVatIds()).toStrictEqual(['v0', 'v1']);
@@ -65,7 +76,7 @@ describe('Kernel', () => {
 
   describe('launchVat()', () => {
     it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       expect(initMock).toHaveBeenCalledOnce();
       expect(mockGetWorkerStreams).toHaveBeenCalled();
@@ -73,7 +84,7 @@ describe('Kernel', () => {
     });
 
     it('throws an error when launching a vat that already exists in the kernel', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
       await expect(
@@ -87,7 +98,7 @@ describe('Kernel', () => {
 
   describe('deleteVat()', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
       await kernel.deleteVat('v0');
@@ -97,7 +108,7 @@ describe('Kernel', () => {
     });
 
     it('throws an error when deleting a vat that does not exist in the kernel', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.deleteVat(nonExistentVatId),
@@ -106,7 +117,7 @@ describe('Kernel', () => {
     });
 
     it('throws an error when a vat terminate method throws', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       vi.spyOn(Vat.prototype, 'terminate').mockRejectedValueOnce('Test error');
       await expect(async () => kernel.deleteVat('v0')).rejects.toThrow(
@@ -117,7 +128,7 @@ describe('Kernel', () => {
 
   describe('sendMessage()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       vi.spyOn(Vat.prototype, 'sendMessage').mockResolvedValueOnce('test');
       expect(
@@ -129,7 +140,7 @@ describe('Kernel', () => {
     });
 
     it('throws an error when sending a message to the vat that does not exist in the kernel', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.sendMessage(nonExistentVatId, {} as VatCommand['payload']),
@@ -137,7 +148,7 @@ describe('Kernel', () => {
     });
 
     it('throws an error when sending a message to the vat throws', async () => {
-      const kernel = new Kernel(mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       vi.spyOn(Vat.prototype, 'sendMessage').mockRejectedValueOnce('error');
       await expect(async () =>
@@ -149,7 +160,7 @@ describe('Kernel', () => {
   describe('constructor()', () => {
     it('initializes the kernel without errors', () => {
       expect(
-        async () => new Kernel(mockWorkerService, mockKernelStore),
+        async () => new Kernel(mockStream, mockWorkerService, mockKernelStore),
       ).not.toThrow();
     });
   });
