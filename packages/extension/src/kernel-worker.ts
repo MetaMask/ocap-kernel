@@ -1,14 +1,16 @@
 import './kernel-worker-trusted-prelude.js';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
-import { Kernel, KernelCommandMethod } from '@ocap/kernel';
+import { isKernelCommand, Kernel, KernelCommandMethod } from '@ocap/kernel';
 import { PostMessageDuplexStream, receiveMessagePort } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 type MainArgs = { defaultVatId: VatId };
+
+const logger = makeLogger('[kernel worker]');
 
 main({ defaultVatId: 'v0' }).catch(console.error);
 
@@ -82,13 +84,15 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
    * Handle a KernelCommand sent from the offscreen.
    *
    * @param command - The KernelCommand to handle.
-   * @param command.method - The command method.
-   * @param command.params - The command params.
    */
-  async function handleKernelCommand({
-    method,
-    params,
-  }: KernelCommand): Promise<void> {
+  async function handleKernelCommand(command: KernelCommand): Promise<void> {
+    if (!isKernelCommand(command)) {
+      logger.error('Received unexpected message', command);
+      return;
+    }
+
+    const { method, params } = command;
+
     switch (method) {
       case KernelCommandMethod.InitKernel:
         throw new Error('The kernel starts itself.');
@@ -164,7 +168,6 @@ async function main({ defaultVatId }: MainArgs): Promise<void> {
         console.error(
           'Offscreen received unexpected vat command',
           // @ts-expect-error Runtime does not respect "never".
-
           { method: method.valueOf(), params },
         );
     }
