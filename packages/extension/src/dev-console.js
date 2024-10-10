@@ -5,3 +5,5 @@ Object.defineProperty(globalThis, 'kernel', {
   writable: false,
   value: {},
 });
+
+export {};

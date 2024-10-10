@@ -48,8 +48,6 @@ const config = [
       'no-restricted-globals': 'off',
 
       'import-x/extensions': 'off',
-      'import-x/no-unresolved': 'off',
-      'import-x/unambiguous': 'off',
       'import-x/no-unassigned-import': 'off',
 
       // This prevents pretty formatting of comments with multi-line lists entries.
