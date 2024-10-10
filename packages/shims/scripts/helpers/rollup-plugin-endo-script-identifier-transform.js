@@ -1,7 +1,7 @@
 // @ts-check
 
-/* eslint-disable no-plusplus */
 /* eslint-disable jsdoc/require-returns-type */
+/* eslint-disable no-plusplus */
 
 /**
  * Quickly removes the normalized scope prefix from a normalized pathname.
