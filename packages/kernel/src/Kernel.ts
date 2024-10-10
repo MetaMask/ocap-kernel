@@ -1,20 +1,155 @@
 import '@ocap/shims/endoify';
+import type { PromiseKit } from '@endo/promise-kit';
+import { makePromiseKit } from '@endo/promise-kit';
+import type { DuplexStream } from '@ocap/streams';
+import type { Logger } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
+
 import type { KernelStore } from './kernel-store.js';
-import type { VatCommand } from './messages.js';
+import {
+  isKernelCommand,
+  KernelCommandMethod,
+  VatCommandMethod,
+  type KernelCommand,
+  type KernelCommandReply,
+  type VatCommand,
+} from './messages.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
+  readonly #stream: DuplexStream<KernelCommand, KernelCommandReply>;
+
   readonly #vats: Map<VatId, Vat>;
 
   readonly #vatWorkerService: VatWorkerService;
 
   readonly #storage: KernelStore;
 
-  constructor(vatWorkerService: VatWorkerService, storage: KernelStore) {
+  // Hopefully removed when we get to n+1 vats.
+  readonly #defaultVat: PromiseKit<Vat>;
+
+  readonly #logger: Logger;
+
+  constructor(
+    stream: DuplexStream<KernelCommand, KernelCommandReply>,
+    vatWorkerService: VatWorkerService,
+    storage: KernelStore,
+    logger?: Logger,
+  ) {
+    this.#stream = stream;
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
     this.#storage = storage;
+    this.#defaultVat = makePromiseKit<Vat>();
+    this.#logger = logger ?? makeLogger('[ocap kernel]');
+  }
+
+  async init({ defaultVatId }: { defaultVatId: VatId }): Promise<void> {
+    const start = performance.now();
+
+    await this.launchVat({ id: defaultVatId })
+      .then(this.#defaultVat.resolve)
+      .catch(this.#defaultVat.reject);
+
+    await this.#stream.write({
+      method: KernelCommandMethod.InitKernel,
+      params: { defaultVat: defaultVatId, initTime: performance.now() - start },
+    });
+
+    // This would be a good place to use the void operator.
+
+    return this.#receiveMessages();
+  }
+
+  async #receiveMessages(): Promise<void> {
+    for await (const message of this.#stream) {
+      if (!isKernelCommand(message)) {
+        this.#logger.debug('Received unexpected message', message);
+        continue;
+      }
+
+      const { method, params } = message;
+
+      let vat: Vat;
+
+      switch (method) {
+        case KernelCommandMethod.InitKernel:
+          throw new Error('The kernel initializes itself.');
+        case KernelCommandMethod.Ping:
+          await this.#reply({ method, params: 'pong' });
+          break;
+        case KernelCommandMethod.Evaluate:
+          vat = await this.#defaultVat.promise;
+          await this.#reply({
+            method,
+            params: await this.evaluate(vat.id, params),
+          });
+          break;
+        case KernelCommandMethod.CapTpCall:
+          vat = await this.#defaultVat.promise;
+          await this.#reply({
+            method,
+            params: stringify(await vat.callCapTp(params)),
+          });
+          break;
+        case KernelCommandMethod.KVSet:
+          this.kvSet(params.key, params.value);
+          await this.#reply({
+            method,
+            params: `~~~ set "${params.key}" to "${params.value}" ~~~`,
+          });
+          break;
+        case KernelCommandMethod.KVGet: {
+          try {
+            const result = this.kvGet(params);
+            await this.#reply({
+              method,
+              params: result,
+            });
+          } catch (problem) {
+            // TODO: marshal
+            await this.#reply({
+              method,
+              params: String(asError(problem)),
+            });
+          }
+          break;
+        }
+        default:
+          console.error(
+            'kernel worker received unexpected command',
+            // @ts-expect-error Runtime does not respect "never".
+            { method: method.valueOf(), params },
+          );
+      }
+    }
+  }
+
+  async #reply(message: KernelCommandReply): Promise<void> {
+    await this.#stream.write(message);
+  }
+
+  /**
+   * Evaluate a string in the default iframe.
+   *
+   * @param vatId - The ID of the vat to send the message to.
+   * @param source - The source string to evaluate.
+   * @returns The result of the evaluation, or an error message.
+   */
+  async evaluate(vatId: VatId, source: string): Promise<string> {
+    try {
+      const result = await this.sendMessage(vatId, {
+        method: VatCommandMethod.Evaluate,
+        params: source,
+      });
+      return String(result);
+    } catch (error) {
+      if (error instanceof Error) {
+        return `Error: ${error.message}`;
+      }
+      return `Error: Unknown error during evaluation.`;
+    }
   }
 
   kvGet(key: string): string {
@@ -94,3 +229,15 @@ export class Kernel {
   }
 }
 harden(Kernel);
+
+/**
+ * Coerce an unknown problem into an Error object.
+ *
+ * @param problem - Whatever was caught.
+ * @returns The problem if it is an Error, or a new Error with the problem as the cause.
+ */
+function asError(problem: unknown): Error {
+  return problem instanceof Error
+    ? problem
+    : new Error('Unknown', { cause: problem });
+}
