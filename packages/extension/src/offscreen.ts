@@ -31,13 +31,7 @@ async function main(): Promise<void> {
   );
 
   const kernelWorker = await makeKernelWorker();
-  const kernelInit =
-    makePromiseKit<
-      Extract<
-        KernelCommandReply,
-        { method: typeof KernelCommandMethod.InitKernel }
-      >['params']
-    >();
+  const kernelInitKit = makePromiseKit<void>();
 
   /**
    * Reply to a command from the background script.
@@ -52,15 +46,15 @@ async function main(): Promise<void> {
 
   // Handle messages from the background service worker and the kernel SQLite worker.
   await Promise.all([
-    (async () => {
+    kernelWorker.receiveMessages(),
+    kernelInitKit.promise.then(async () => {
       for await (const message of backgroundStream) {
-        await kernelInit.promise;
         isKernelCommand(message)
           ? await kernelWorker.sendMessage(message)
           : logger.debug('Received unexpected message', message);
       }
-    })(),
-    kernelWorker.receiveMessages(),
+      return undefined;
+    }),
   ]);
 
   /**
@@ -107,11 +101,13 @@ async function main(): Promise<void> {
       // involve the user.
       for await (const message of workerStream) {
         if (!isKernelCommandReply(message)) {
-          logger.debug('Received unexpected reply', message);
+          logger.error('Received unexpected reply', message);
+          continue;
         }
+
         if (message.method === KernelCommandMethod.InitKernel) {
           logger.debug('Kernel initialized.');
-          kernelInit.resolve(message.params);
+          kernelInitKit.resolve();
         }
         await replyToBackground(message);
       }
