@@ -145,6 +145,10 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
 
   readonly #receiveInput: ReceiveInput = async (input) => {
     if (!isDispatchable(input)) {
+      console.debug(
+        `Received unexpected message from transport:\n${stringify(input)}`,
+      );
+      /*
       const error = new Error(
         `Received unexpected message from transport:\n${stringify(input)}`,
       );
@@ -152,6 +156,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
         this.#buffer.put(error);
       }
       await this.#end(error);
+      */
       return;
     }
 

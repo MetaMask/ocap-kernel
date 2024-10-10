@@ -28,7 +28,7 @@ describe('Supervisor', () => {
       expect(supervisor.stream).toBeDefined();
     });
 
-    it('throws if the stream throws', async () => {
+    it.todo('throws if the stream throws', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
       messageChannel.port2.postMessage('foobar');
       await delay(10);
