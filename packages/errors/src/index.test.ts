@@ -13,6 +13,7 @@ describe('index', () => {
       'VatDeletedError',
       'VatNotFoundError',
       'VatReadError',
+      'asError',
     ]);
   });
 });

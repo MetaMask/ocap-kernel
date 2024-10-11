@@ -8,3 +8,4 @@ export {
   VatNotFoundError,
   VatReadError,
 } from './errors.js';
+export { asError } from './utils/asError.js';

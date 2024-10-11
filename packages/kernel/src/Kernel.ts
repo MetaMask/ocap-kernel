@@ -1,6 +1,7 @@
 import '@ocap/shims/endoify';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
+import { VatAlreadyExistsError, VatNotFoundError, asError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
@@ -176,7 +177,7 @@ export class Kernel {
    */
   async launchVat({ id }: { id: VatId }): Promise<Vat> {
     if (this.#vats.has(id)) {
-      throw new Error(`Vat with ID ${id} already exists.`);
+      throw new VatAlreadyExistsError(id);
     }
     const stream = await this.#vatWorkerService.initWorker(id);
     const vat = new Vat({ id, stream });
@@ -221,21 +222,9 @@ export class Kernel {
   #getVat(id: VatId): Vat {
     const vat = this.#vats.get(id);
     if (vat === undefined) {
-      throw new Error(`Vat with ID ${id} does not exist.`);
+      throw new VatNotFoundError(id);
     }
     return vat;
   }
 }
 harden(Kernel);
-
-/**
- * Coerce an unknown problem into an Error object.
- *
- * @param problem - Whatever was caught.
- * @returns The problem if it is an Error, or a new Error with the problem as the cause.
- */
-function asError(problem: unknown): Error {
-  return problem instanceof Error
-    ? problem
-    : new Error('Unknown', { cause: problem });
-}

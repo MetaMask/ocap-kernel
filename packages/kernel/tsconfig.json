@@ -3,6 +3,10 @@
   "compilerOptions": {
     "baseUrl": "./"
   },
-  "references": [{ "path": "../streams" }, { "path": "../utils" }],
+  "references": [
+    { "path": "../streams" },
+    { "path": "../utils" },
+    { "path": "../errors" }
+  ],
   "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]
 }
