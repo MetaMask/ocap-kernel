@@ -3,7 +3,6 @@
 /// <reference types="vitest"/>
 
 import path from 'path';
-// eslint-disable-next-line import-x/namespace
 import { defineConfig } from 'vite';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 
