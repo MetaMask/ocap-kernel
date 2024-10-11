@@ -1286,9 +1286,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/utils@npm:^9.0.0, @metamask/utils@npm:^9.1.0, @metamask/utils@npm:^9.2.1":
-  version: 9.2.1
-  resolution: "@metamask/utils@npm:9.2.1"
+"@metamask/utils@npm:^9.0.0, @metamask/utils@npm:^9.1.0, @metamask/utils@npm:^9.2.1, @metamask/utils@npm:^9.3.0":
+  version: 9.3.0
+  resolution: "@metamask/utils@npm:9.3.0"
   dependencies:
     "@ethereumjs/tx": "npm:^4.2.0"
     "@metamask/superstruct": "npm:^3.1.0"
@@ -1299,7 +1299,7 @@ __metadata:
     pony-cause: "npm:^2.1.10"
     semver: "npm:^7.5.4"
     uuid: "npm:^9.0.1"
-  checksum: 10/2192797afd91af19898e107afeaf63e89b61dc7285e0a75d0cc814b5b288e4cdfc856781b01904034c4d2c1efd9bdab512af24c7e4dfe7b77a03f1f3d9dec7e8
+  checksum: 10/ed6648cd973bbf3b4eb0e862903b795a99d27784c820e19f62f0bc0ddf353e98c2858d7e9aaebc0249a586391b344e35b9249d13c08e3ea0c74b23dc1c6b1558
   languageName: node
   linkType: hard
 
@@ -1460,6 +1460,43 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ocap/errors@workspace:packages/errors":
+  version: 0.0.0-use.local
+  resolution: "@ocap/errors@workspace:packages/errors"
+  dependencies:
+    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@metamask/auto-changelog": "npm:^3.4.4"
+    "@metamask/eslint-config": "npm:^14.0.0"
+    "@metamask/eslint-config-nodejs": "npm:^14.0.0"
+    "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/utils": "npm:^9.3.0"
+    "@ts-bridge/cli": "npm:^0.5.1"
+    "@ts-bridge/shims": "npm:^0.1.1"
+    "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
+    "@typescript-eslint/parser": "npm:^8.8.1"
+    "@typescript-eslint/utils": "npm:^8.8.1"
+    "@vitest/eslint-plugin": "npm:^1.1.7"
+    depcheck: "npm:^1.4.7"
+    eslint: "npm:^9.12.0"
+    eslint-config-prettier: "npm:^9.1.0"
+    eslint-import-resolver-typescript: "npm:^3.6.3"
+    eslint-plugin-import-x: "npm:^4.3.1"
+    eslint-plugin-jsdoc: "npm:^50.3.1"
+    eslint-plugin-n: "npm:^17.11.1"
+    eslint-plugin-prettier: "npm:^5.2.1"
+    eslint-plugin-promise: "npm:^7.1.0"
+    jsdom: "npm:^24.1.1"
+    prettier: "npm:^3.3.3"
+    rimraf: "npm:^6.0.1"
+    ses: "npm:^1.7.0"
+    typedoc: "npm:^0.26.8"
+    typescript: "npm:~5.5.4"
+    typescript-eslint: "npm:^8.8.1"
+    vite: "npm:^5.3.5"
+    vitest: "npm:^2.1.2"
+  languageName: unknown
+  linkType: soft
+
 "@ocap/extension@workspace:packages/extension":
   version: 0.0.0-use.local
   resolution: "@ocap/extension@workspace:packages/extension"
@@ -1474,7 +1511,7 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/snaps-utils": "npm:^8.3.0"
-    "@metamask/utils": "npm:^9.1.0"
+    "@metamask/utils": "npm:^9.3.0"
     "@ocap/kernel": "workspace:^"
     "@ocap/shims": "workspace:^"
     "@ocap/streams": "workspace:^"
@@ -1522,7 +1559,7 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/superstruct": "npm:^3.1.0"
-    "@metamask/utils": "npm:^9.1.0"
+    "@metamask/utils": "npm:^9.3.0"
     "@ocap/shims": "workspace:^"
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
@@ -1644,7 +1681,7 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/superstruct": "npm:^3.1.0"
-    "@metamask/utils": "npm:^9.1.0"
+    "@metamask/utils": "npm:^9.3.0"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.5.1"
@@ -1714,7 +1751,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/utils": "npm:^9.1.0"
+    "@metamask/utils": "npm:^9.3.0"
     "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.5.1"
     "@ts-bridge/shims": "npm:^0.1.1"

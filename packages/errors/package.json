@@ -1,8 +1,8 @@
 {
-  "name": "@ocap/kernel",
+  "name": "@ocap/errors",
   "version": "0.0.0",
   "private": true,
-  "description": "OCap kernel core components",
+  "description": "Error classes of Ocap Kernel",
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
@@ -27,7 +27,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel",
+    "changelog:validate": "../../scripts/validate-changelog.sh utils",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -42,24 +42,18 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/captp": "^4.4.0",
-    "@endo/eventual-send": "^1.2.6",
-    "@endo/promise-kit": "^1.1.6",
-    "@metamask/superstruct": "^3.1.0",
-    "@metamask/utils": "^9.3.0",
-    "@ocap/shims": "workspace:^",
-    "@ocap/streams": "workspace:^",
-    "@ocap/utils": "workspace:^",
-    "ses": "^1.9.0"
+    "@metamask/utils": "^9.3.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.16.4",
     "@metamask/auto-changelog": "^3.4.4",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.5.1",
     "@ts-bridge/shims": "^0.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
     "@typescript-eslint/utils": "^8.8.1",
     "@vitest/eslint-plugin": "^1.1.7",
     "depcheck": "^1.4.7",
@@ -71,8 +65,11 @@
     "eslint-plugin-n": "^17.11.1",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^7.1.0",
+    "jsdom": "^24.1.1",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
+    "ses": "^1.7.0",
+    "typedoc": "^0.26.8",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
     "vite": "^5.3.5",
