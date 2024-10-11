@@ -70,13 +70,6 @@ const config = [
   },
 
   {
-    files: ['**/*.test.ts'],
-    rules: {
-      'vitest/no-conditional-expect': 'off',
-    },
-  },
-
-  {
     files: ['**/*.types.test.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',

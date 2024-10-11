@@ -105,6 +105,7 @@ describe('StreamEnveloper', () => {
         envelope.content.c;
         switch (envelope.label) {
           case Label.Foo:
+            // eslint-disable-next-line vitest/no-conditional-expect
             expect(envelope.label).toMatch(Label.Foo);
             break;
           // @ts-expect-error label is Label.Foo
@@ -131,6 +132,7 @@ describe('StreamEnveloper', () => {
             envelope.label.length;
             break;
           case Label.Bar:
+            // eslint-disable-next-line vitest/no-conditional-expect
             expect(envelope.label).toMatch(Label.Bar);
             break;
           default: // unreachable
