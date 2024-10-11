@@ -52,6 +52,10 @@ export class Supervisor {
         await streamEnvelopeHandler.handle(value);
       })
       .catch((error) => {
+        console.error(
+          `Unexpected read error from Supervisor "${this.id}"`,
+          error,
+        );
         throw new SupervisorReadError(this.id, error);
       });
   }

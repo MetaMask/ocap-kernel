@@ -1,4 +1,8 @@
 import '@ocap/shims/endoify';
+import {
+  CapTPConnectionExistsError,
+  CapTPConnectionNotFoundError,
+} from '@ocap/errors';
 import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
@@ -148,9 +152,7 @@ describe('Vat', () => {
     it('throws an error if CapTP connection already exists', async () => {
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
-      await expect(vat.makeCapTp()).rejects.toThrow(
-        `Vat with id "${vat.id}" already has a CapTP connection.`,
-      );
+      await expect(vat.makeCapTp()).rejects.toThrow(CapTPConnectionExistsError);
     });
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
@@ -210,7 +212,7 @@ describe('Vat', () => {
     it('throws an error if CapTP connection is not established', async () => {
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
-      ).rejects.toThrow(`Vat with id "v0" does not have a CapTP connection.`);
+      ).rejects.toThrow(CapTPConnectionNotFoundError);
     });
 
     it('calls CapTP method with parameters using eventual send', async () => {
