@@ -18,7 +18,7 @@ import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
 
 const logger = makeLogger('[ocap glue]');
 
-main().catch((error) => logger.error(error));
+main().catch(logger.error);
 
 /**
  * The main function for the offscreen script.
