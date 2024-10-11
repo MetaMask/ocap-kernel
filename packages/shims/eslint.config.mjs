@@ -8,6 +8,9 @@ const config = [
   {
     languageOptions: {
       globals: { lockdown: 'readonly' },
+      parserOptions: {
+        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+      },
     },
   },
 ];
