@@ -33,10 +33,10 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/eventual-send": "^1.2.4",
-    "@endo/exo": "^1.5.2",
-    "@endo/patterns": "^1.4.2",
-    "@endo/promise-kit": "^1.1.4",
+    "@endo/eventual-send": "^1.2.6",
+    "@endo/exo": "^1.5.4",
+    "@endo/patterns": "^1.4.4",
+    "@endo/promise-kit": "^1.1.6",
     "@metamask/snaps-utils": "^8.3.0",
     "@metamask/utils": "^9.1.0",
     "@ocap/kernel": "workspace:^",
@@ -44,7 +44,7 @@
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
     "@sqlite.org/sqlite-wasm": "3.46.1-build3",
-    "ses": "^1.7.0"
+    "ses": "^1.9.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.4",

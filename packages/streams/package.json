@@ -46,8 +46,8 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/promise-kit": "^1.1.4",
-    "@endo/stream": "^1.2.2",
+    "@endo/promise-kit": "^1.1.6",
+    "@endo/stream": "^1.2.6",
     "@metamask/superstruct": "^3.1.0",
     "@metamask/utils": "^9.1.0",
     "@ocap/utils": "workspace:^"
@@ -79,7 +79,7 @@
     "jsdom": "^24.1.1",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
-    "ses": "^1.7.0",
+    "ses": "^1.9.0",
     "typedoc": "^0.26.8",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",

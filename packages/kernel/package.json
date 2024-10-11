@@ -42,15 +42,15 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/captp": "^4.2.2",
-    "@endo/eventual-send": "^1.2.4",
-    "@endo/promise-kit": "^1.1.4",
+    "@endo/captp": "^4.4.0",
+    "@endo/eventual-send": "^1.2.6",
+    "@endo/promise-kit": "^1.1.6",
     "@metamask/superstruct": "^3.1.0",
     "@metamask/utils": "^9.1.0",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
-    "ses": "^1.7.0"
+    "ses": "^1.9.0"
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^3.4.4",

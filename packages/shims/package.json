@@ -36,12 +36,12 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/eventual-send": "^1.2.4",
-    "@endo/lockdown": "^1.0.9",
-    "ses": "^1.7.0"
+    "@endo/eventual-send": "^1.2.6",
+    "@endo/lockdown": "^1.0.11",
+    "ses": "^1.9.0"
   },
   "devDependencies": {
-    "@endo/bundle-source": "^3.3.0",
+    "@endo/bundle-source": "^3.4.1",
     "@metamask/auto-changelog": "^3.4.4",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
