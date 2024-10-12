@@ -9,7 +9,7 @@ import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
-  PostMessageDuplexStream,
+  MessagePortDuplexStream,
 } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
@@ -71,31 +71,22 @@ async function main(): Promise<void> {
   }> {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
 
-    // Note we must setup the worker MessageChannel before initializing the stream,
-    // because the stream will close if it receives an unrecognized message.
-    const workerPort = await initializeMessageChannel((message, transfer) =>
-      worker.postMessage(message, transfer),
+    const workerStream = await initializeMessageChannel(
+      (message, transfer) => worker.postMessage(message, transfer),
+      (port) =>
+        new MessagePortDuplexStream<KernelCommandReply, KernelCommand>(port),
     );
 
     const vatWorkerServer = new ExtensionVatWorkerServer(
       (message, transfer?) =>
         transfer
-          ? workerPort.postMessage(message, transfer)
-          : workerPort.postMessage(message),
-      (listener) => workerPort.addEventListener('message', listener),
+          ? worker.postMessage(message, transfer)
+          : worker.postMessage(message),
+      (listener) => worker.addEventListener('message', listener),
       (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
     );
 
     vatWorkerServer.start();
-
-    const workerStream = new PostMessageDuplexStream<
-      KernelCommandReply,
-      KernelCommand
-    >(
-      (message) => worker.postMessage(message),
-      (listener) => worker.addEventListener('message', listener),
-      (listener) => worker.removeEventListener('message', listener),
-    );
 
     const receiveMessages = async (): Promise<void> => {
       // For the time being, the only messages that come from the kernel worker are replies to actions
