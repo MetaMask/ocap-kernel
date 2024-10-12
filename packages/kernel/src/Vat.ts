@@ -33,7 +33,7 @@ type VatConstructorProps = {
 export class Vat {
   readonly id: VatConstructorProps['id'];
 
-  readonly stream: VatConstructorProps['stream'];
+  readonly #stream: VatConstructorProps['stream'];
 
   readonly logger: Logger;
 
@@ -47,7 +47,7 @@ export class Vat {
 
   constructor({ id, stream }: VatConstructorProps) {
     this.id = id;
-    this.stream = stream;
+    this.#stream = stream;
     this.logger = makeLogger(`[vat ${id}]`);
     this.#messageCounter = makeCounter();
     this.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
@@ -80,7 +80,7 @@ export class Vat {
    */
   async init(): Promise<unknown> {
     /* v8 ignore next 4: Not known to be possible. */
-    this.#receiveMessages(this.stream).catch((error) => {
+    this.#receiveMessages(this.#stream).catch((error) => {
       this.logger.error(`Unexpected read error`, error);
       throw error;
     });
@@ -118,7 +118,7 @@ export class Vat {
     // Handle writes here. #receiveMessages() handles reads.
     const ctp = makeCapTP(this.id, async (content: unknown) => {
       this.logger.log('CapTP to vat', stringify(content));
-      await this.stream.write(wrapCapTp(content as CapTpMessage));
+      await this.#stream.write(wrapCapTp(content as CapTpMessage));
     });
 
     this.capTp = ctp;
@@ -154,7 +154,7 @@ export class Vat {
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    await this.stream.return();
+    await this.#stream.return();
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -174,7 +174,7 @@ export class Vat {
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.stream.write(wrapStreamCommand({ id: messageId, payload }));
+    await this.#stream.write(wrapStreamCommand({ id: messageId, payload }));
     return promise;
   }
 

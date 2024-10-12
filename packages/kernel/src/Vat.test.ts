@@ -1,5 +1,5 @@
 import '@ocap/shims/endoify';
-import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
+import { DuplexStream, MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -20,13 +20,14 @@ vi.mock('@endo/eventual-send', () => ({
 }));
 
 describe('Vat', () => {
+  let stream: DuplexStream<StreamEnvelopeReply, StreamEnvelope>;
   let vat: Vat;
   let messageChannel: MessageChannel;
 
   beforeEach(() => {
     messageChannel = new MessageChannel();
 
-    const stream = new MessagePortDuplexStream<
+    stream = new MessagePortDuplexStream<
       StreamEnvelopeReply,
       StreamEnvelope
     >(messageChannel.port1);
@@ -137,10 +138,9 @@ describe('Vat', () => {
       const mockPromiseKit = makePromiseKitMock().makePromiseKit();
       const mockSpy = vi.spyOn(mockPromiseKit, 'reject');
       vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
-      expect(messageChannel.port1.onmessage).not.toBeNull();
       await vat.terminate();
-      expect(messageChannel.port1.onmessage).toBeNull();
       expect(mockSpy).toHaveBeenCalledWith(expect.any(Error));
+      expect(await stream.next()).toStrictEqual({ done: true, value: undefined });
     });
   });
 
