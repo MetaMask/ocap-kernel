@@ -11,15 +11,18 @@ import type { Json } from '@metamask/utils';
 import { BaseDuplexStream } from './BaseDuplexStream.js';
 import type { OnEnd } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-
-type PostMessage = (message: unknown) => void;
-type OnMessage = (event: MessageEvent<unknown>) => void;
+// Used in docstring.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { Dispatchable, OnMessage, PostMessage } from './utils.js';
 
 type SetListener = (onMessage: OnMessage) => void;
 type RemoveListener = (onMessage: OnMessage) => void;
 
 /**
  * A readable stream over a {@link PostMessage} function.
+ *
+ * Ignores message events dispatched on its port that contain ports, but otherwise
+ * expects {@link Dispatchable} values to be posted to its port.
  *
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
@@ -38,7 +41,13 @@ export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
     });
 
     const receiveInput = super.getReceiveInput();
-    onMessage = (messageEvent) => receiveInput(messageEvent.data);
+    onMessage = (messageEvent) => {
+      if (messageEvent.ports && messageEvent.ports.length > 0) {
+        return;
+      }
+
+      receiveInput(messageEvent.data);
+    };
     setListener(onMessage);
 
     harden(this);

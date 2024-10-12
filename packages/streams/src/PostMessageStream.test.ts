@@ -14,9 +14,9 @@ vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makePostMessageMock = () => {
   const listeners: ((event: MessageEvent) => void)[] = [];
-  const postMessageFn = vi.fn((message: unknown) => {
+  const postMessageFn = vi.fn((message: unknown, ports: MessagePort[] = []) => {
     listeners.forEach((listener) =>
-      listener({ data: message } as MessageEvent<unknown>),
+      listener({ data: message, ports } as unknown as MessageEvent<unknown>),
     );
   });
   const setListener = vi.fn((listener: (event: MessageEvent) => void) => {
@@ -58,6 +58,21 @@ describe('PostMessageReader', () => {
     expect(await reader.next()).toStrictEqual(message);
     expect(removeListener).toHaveBeenCalled();
     expect(listeners).toHaveLength(0);
+  });
+
+  it('ignores messages with ports', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const reader = new PostMessageReader(setListener, removeListener);
+    const { port1 } = new MessageChannel();
+
+    postMessageFn(makeDoneResult(), [port1]);
+    postMessageFn(makePendingResult({ foo: 'bar' }));
+    await delay(100);
+
+    expect(await reader.next()).toStrictEqual(
+      makePendingResult({ foo: 'bar' }),
+    );
   });
 
   it('calls onEnd once when ending', async () => {

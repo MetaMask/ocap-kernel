@@ -59,8 +59,7 @@ export async function initializeMessageChannel<Result = MessagePort>(
   const { port1, port2 } = new MessageChannel();
 
   const { promise, resolve, reject } = makePromiseKit<Result>();
-  // Assigning to the `onmessage` property initializes the port's message queue.
-  port1.onmessage = (message: MessageEvent): void => {
+  const listener = (message: MessageEvent): void => {
     if (!isAckMessage(message.data)) {
       reject(
         new Error(
@@ -72,9 +71,12 @@ export async function initializeMessageChannel<Result = MessagePort>(
       return;
     }
 
-    port1.onmessage = null;
+    port1.removeEventListener('message', listener);
     resolve(portHandler(port1));
   };
+
+  port1.addEventListener('message', listener);
+  port1.start();
 
   const initMessage: InitializeMessage = {
     type: MessageType.Initialize,
@@ -83,7 +85,7 @@ export async function initializeMessageChannel<Result = MessagePort>(
 
   return promise.catch((error) => {
     port1.close();
-    port1.onmessage = null;
+    port1.removeEventListener('message', listener);
     throw error;
   });
 }

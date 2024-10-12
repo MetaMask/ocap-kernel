@@ -24,34 +24,41 @@ import type { Json } from '@metamask/utils';
 import { BaseDuplexStream } from './BaseDuplexStream.js';
 import type { OnEnd } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import type { Dispatchable } from './utils.js';
+import type { Dispatchable, OnMessage } from './utils.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
  *
  * This class is a naive passthrough mechanism for data over a pair of linked message
- * ports. Expects exclusive read access to its port.
+ * ports. Ignores message events dispatched on its port that contain ports, but
+ * otherwise expects {@link Dispatchable} values to be posted to its port.
  *
  * @see
  * - {@link MessagePortWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
 export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
-  readonly #port: MessagePort;
-
   constructor(port: MessagePort, onEnd?: OnEnd) {
+    // eslint-disable-next-line prefer-const
+    let onMessage: OnMessage;
+
     super(async () => {
+      port.removeEventListener('message', onMessage);
       port.close();
-      port.onmessage = null;
       await onEnd?.();
     });
 
     const receiveInput = super.getReceiveInput();
-    this.#port = port;
 
-    // Assigning to the `onmessage` property initializes the port's message queue.
-    // https://developer.mozilla.org/en-US/docs/Web/API/MessagePort/message_event
-    this.#port.onmessage = (messageEvent) => receiveInput(messageEvent.data);
+    onMessage = (messageEvent) => {
+      if (messageEvent.ports.length > 0) {
+        return;
+      }
+
+      receiveInput(messageEvent.data);
+    };
+    port.addEventListener('message', onMessage);
+    port.start();
 
     harden(this);
   }
@@ -75,6 +82,7 @@ export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
         await onEnd?.();
       },
     );
+    port.start();
     harden(this);
   }
 }

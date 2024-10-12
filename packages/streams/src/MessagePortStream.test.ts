@@ -13,11 +13,12 @@ vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {
     const { port1 } = new MessageChannel();
+    const addListenerSpy = vi.spyOn(port1, 'addEventListener');
     const reader = new MessagePortReader(port1);
 
     expect(reader).toBeInstanceOf(MessagePortReader);
     expect(reader[Symbol.asyncIterator]()).toBe(reader);
-    expect(port1.onmessage).toBeInstanceOf(Function);
+    expect(addListenerSpy).toHaveBeenCalledOnce();
   });
 
   it('emits messages received from port', async () => {
@@ -34,15 +35,31 @@ describe('MessagePortReader', () => {
   it('closes the port when done', async () => {
     const { port1, port2 } = new MessageChannel();
     const closeSpy = vi.spyOn(port1, 'close');
+    const addListenerSpy = vi.spyOn(port1, 'addEventListener');
+    const removeListenerSpy = vi.spyOn(port1, 'removeEventListener');
     const reader = new MessagePortReader(port1);
-    expect(port1.onmessage).toBeDefined();
+    expect(addListenerSpy).toHaveBeenCalledOnce();
 
     port2.postMessage(makeDoneResult());
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(closeSpy).toHaveBeenCalledOnce();
-    expect(port1.onmessage).toBeNull();
+    expect(removeListenerSpy).toHaveBeenCalledOnce();
+  });
+
+  it('ignores messages with ports', async () => {
+    const { port1, port2 } = new MessageChannel();
+    const reader = new MessagePortReader(port1);
+    const { port1: otherPort } = new MessageChannel();
+
+    port2.postMessage(makeDoneResult(), [otherPort]);
+    port2.postMessage(makePendingResult({ foo: 'bar' }));
+    await delay(100);
+
+    expect(await reader.next()).toStrictEqual(
+      makePendingResult({ foo: 'bar' }),
+    );
   });
 
   it('calls onEnd once when ending', async () => {

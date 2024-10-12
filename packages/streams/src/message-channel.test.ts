@@ -10,7 +10,7 @@ import {
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
-describe.concurrent('initializeMessageChannel', () => {
+describe('initializeMessageChannel', () => {
   it('calls postMessage parameter', async ({ expect }) => {
     const targetWindow = new JSDOM().window;
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
@@ -30,22 +30,23 @@ describe.concurrent('initializeMessageChannel', () => {
     );
   });
 
-  it('resolves a port with no message handler once sent acknowledgment via message channel', async ({
+  it('resolves a port and removes event listeneronce sent acknowledgment via message channel', async ({
     expect,
   }) => {
-    const targetWindow = new JSDOM().window;
-    const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
-    const messageChannelP = initializeMessageChannel((message, transfer) =>
-      targetWindow.postMessage(message, '*', transfer),
-    );
+    const { port1, port2 } = new MessageChannel();
+    const removeEventListenerSpy = vi.spyOn(port1, 'removeEventListener');
 
-    // @ts-expect-error Wrong types for window.postMessage()
-    const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
-    remotePort.postMessage({ type: MessageType.Acknowledge });
+    vi.spyOn(globalThis, 'MessageChannel').mockReturnValueOnce({
+      port1,
+      port2,
+    });
+    const messageChannelP = initializeMessageChannel(vi.fn());
+
+    port2.postMessage({ type: MessageType.Acknowledge });
 
     const resolvedValue = await messageChannelP;
     expect(resolvedValue).toBeInstanceOf(MessagePort);
-    expect(resolvedValue.onmessage).toBe(null);
+    expect(removeEventListenerSpy).toHaveBeenCalledOnce();
   });
 
   it('has called portHandler with the local port by the time the promise resolves', async ({
