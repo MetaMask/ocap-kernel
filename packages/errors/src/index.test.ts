@@ -13,6 +13,8 @@ describe('index', () => {
       'VatDeletedError',
       'VatNotFoundError',
       'VatReadError',
+      'isCodedError',
+      'isOcapError',
       'toError',
     ]);
   });
