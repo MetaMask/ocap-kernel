@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { asError } from './asError.js';
+import { toError } from './toError.js';
 
-describe('asError', () => {
+describe('toError', () => {
   it('should return the input if it is already an Error', () => {
     const originalError = new Error('Existing error');
-    const result = asError(originalError);
+    const result = toError(originalError);
 
     expect(result).toBe(originalError);
     expect(result.message).toBe('Existing error');
@@ -22,7 +22,7 @@ describe('asError', () => {
   ])(
     'should create a new Error if the input is not an Error object',
     ({ input, expectedCause }) => {
-      const result = asError(input);
+      const result = toError(input);
       expect(result).toBeInstanceOf(Error);
       expect(result.message).toBe('Unknown');
       expect(result.cause).toStrictEqual(expectedCause);
@@ -31,7 +31,7 @@ describe('asError', () => {
 
   it('should create a new Error if the input is a symbol', () => {
     const problem = Symbol('error');
-    const result = asError(problem);
+    const result = toError(problem);
     expect(result).toBeInstanceOf(Error);
     expect(result.message).toBe('Unknown');
     expect(typeof result.cause).toBe('symbol');
@@ -40,7 +40,7 @@ describe('asError', () => {
 
   it('should create a new Error if the input is a function', () => {
     const problem = (): string => 'problem';
-    const result = asError(problem);
+    const result = toError(problem);
     expect(result).toBeInstanceOf(Error);
     expect(result.message).toBe('Unknown');
     expect(typeof result.cause).toBe('function');
