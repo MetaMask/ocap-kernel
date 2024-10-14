@@ -2,8 +2,8 @@ import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import {
-  CapTPConnectionExistsError,
-  CapTPConnectionNotFoundError,
+  VatCapTpConnectionExistsError,
+  VatCapTpConnectionNotFoundError,
   VatDeletedError,
   VatReadError,
 } from '@ocap/errors';
@@ -110,18 +110,18 @@ export class Vat {
   }
 
   /**
-   * Make a CapTP connection.
+   * Make a CapTp connection.
    *
-   * @returns A promise that resolves when the CapTP connection is made.
+   * @returns A promise that resolves when the CapTp connection is made.
    */
   async makeCapTp(): Promise<unknown> {
     if (this.capTp !== undefined) {
-      throw new CapTPConnectionExistsError(this.id);
+      throw new VatCapTpConnectionExistsError(this.id);
     }
 
     // Handle writes here. #receiveMessages() handles reads.
     const ctp = makeCapTP(this.id, async (content: unknown) => {
-      this.logger.log('CapTP to vat', stringify(content));
+      this.logger.log('CapTp to vat', stringify(content));
       await this.stream.write(wrapCapTp(content as CapTpMessage));
     });
 
@@ -129,7 +129,7 @@ export class Vat {
     this.streamEnvelopeReplyHandler.contentHandlers.capTp = async (
       content: CapTpMessage,
     ) => {
-      this.logger.log('CapTP from vat', stringify(content));
+      this.logger.log('CapTp from vat', stringify(content));
       ctp.dispatch(content);
     };
 
@@ -140,14 +140,14 @@ export class Vat {
   }
 
   /**
-   * Call a CapTP method.
+   * Call a CapTp method.
    *
-   * @param payload - The CapTP payload.
-   * @returns A promise that resolves the result of the CapTP call.
+   * @param payload - The CapTp payload.
+   * @returns A promise that resolves the result of the CapTp call.
    */
   async callCapTp(payload: CapTpPayload): Promise<unknown> {
     if (!this.capTp) {
-      throw new CapTPConnectionNotFoundError(this.id);
+      throw new VatCapTpConnectionNotFoundError(this.id);
     }
     return E(this.capTp.getBootstrap())[payload.method](...payload.params);
   }

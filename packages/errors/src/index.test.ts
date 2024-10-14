@@ -5,15 +5,15 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
-      'CapTPConnectionExistsError',
-      'CapTPConnectionNotFoundError',
+      'VatCapTpConnectionExistsError',
+      'VatCapTpConnectionNotFoundError',
       'ErrorCode',
       'SupervisorReadError',
       'VatAlreadyExistsError',
       'VatDeletedError',
       'VatNotFoundError',
       'VatReadError',
-      'asError',
+      'toError',
     ]);
   });
 });

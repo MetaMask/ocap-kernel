@@ -1,11 +1,11 @@
 export { ErrorCode } from './constants.js';
 export {
-  CapTPConnectionExistsError,
-  CapTPConnectionNotFoundError,
+  VatCapTpConnectionExistsError,
+  VatCapTpConnectionNotFoundError,
   SupervisorReadError,
   VatAlreadyExistsError,
   VatDeletedError,
   VatNotFoundError,
   VatReadError,
 } from './errors.js';
-export { asError } from './utils/asError.js';
+export { toError } from './utils/toError.js';

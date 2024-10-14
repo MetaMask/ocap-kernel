@@ -2,7 +2,7 @@
   "name": "@ocap/errors",
   "version": "0.0.0",
   "private": true,
-  "description": "Error classes of Ocap Kernel",
+  "description": "Ocap Kernel errors",
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
@@ -68,7 +68,7 @@
     "jsdom": "^24.1.1",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
-    "ses": "^1.7.0",
+    "ses": "^1.9.0",
     "typedoc": "^0.26.8",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",

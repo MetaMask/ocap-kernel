@@ -6,12 +6,12 @@ import {
   VatNotFoundError,
   SupervisorReadError,
   VatReadError,
-  CapTPConnectionExistsError,
-  CapTPConnectionNotFoundError,
+  VatCapTpConnectionExistsError,
+  VatCapTpConnectionNotFoundError,
   VatDeletedError,
 } from './errors.js';
 
-describe('Custom Errors', () => {
+describe('Errors classes', () => {
   const mockVatId = 'mockVatId';
   const mockSupervisorId = 'mockSupervisorId';
   const mockOriginalError = new Error('Original error');
@@ -63,23 +63,23 @@ describe('Custom Errors', () => {
     });
   });
 
-  describe('CapTPConnectionExistsError', () => {
-    it('should create a CapTPConnectionExistsError with the correct properties', () => {
-      const error = new CapTPConnectionExistsError(mockVatId);
-      expect(error).toBeInstanceOf(CapTPConnectionExistsError);
-      expect(error.code).toBe(ErrorCode.CaptpConnectionExists);
-      expect(error.message).toBe('Vat already has a CapTP connection.');
+  describe('VatCapTpConnectionExistsError', () => {
+    it('should create a VatCapTpConnectionExistsError with the correct properties', () => {
+      const error = new VatCapTpConnectionExistsError(mockVatId);
+      expect(error).toBeInstanceOf(VatCapTpConnectionExistsError);
+      expect(error.code).toBe(ErrorCode.VatCapTpConnectionExists);
+      expect(error.message).toBe('Vat already has a CapTp connection.');
       expect(error.data).toStrictEqual({ vatId: mockVatId });
       expect(error.cause).toBeUndefined();
     });
   });
 
-  describe('CapTPConnectionNotFoundError', () => {
-    it('should create a CapTPConnectionNotFoundError with the correct properties', () => {
-      const error = new CapTPConnectionNotFoundError(mockVatId);
-      expect(error).toBeInstanceOf(CapTPConnectionNotFoundError);
-      expect(error.code).toBe(ErrorCode.CaptpConnectionNotFound);
-      expect(error.message).toBe('Vat does not have a CapTP connection.');
+  describe('VatCapTpConnectionNotFoundError', () => {
+    it('should create a VatCapTpConnectionNotFoundError with the correct properties', () => {
+      const error = new VatCapTpConnectionNotFoundError(mockVatId);
+      expect(error).toBeInstanceOf(VatCapTpConnectionNotFoundError);
+      expect(error.code).toBe(ErrorCode.VatCapTpConnectionNotFound);
+      expect(error.message).toBe('Vat does not have a CapTp connection.');
       expect(error.data).toStrictEqual({ vatId: mockVatId });
       expect(error.cause).toBeUndefined();
     });

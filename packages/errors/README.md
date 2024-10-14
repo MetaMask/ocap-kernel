@@ -1,6 +1,6 @@
 # `errors`
 
-Error classes of Ocap Kernel.
+Ocap Kernel errors.
 
 ## Contributing
 

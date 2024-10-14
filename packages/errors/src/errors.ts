@@ -41,11 +41,11 @@ export class VatReadError extends BaseError {
   }
 }
 
-export class CapTPConnectionExistsError extends BaseError {
+export class VatCapTpConnectionExistsError extends BaseError {
   constructor(vatId: string) {
     super(
-      ErrorCode.CaptpConnectionExists,
-      'Vat already has a CapTP connection.',
+      ErrorCode.VatCapTpConnectionExists,
+      'Vat already has a CapTp connection.',
       {
         vatId,
       },
@@ -53,11 +53,11 @@ export class CapTPConnectionExistsError extends BaseError {
   }
 }
 
-export class CapTPConnectionNotFoundError extends BaseError {
+export class VatCapTpConnectionNotFoundError extends BaseError {
   constructor(vatId: string) {
     super(
-      ErrorCode.CaptpConnectionNotFound,
-      'Vat does not have a CapTP connection.',
+      ErrorCode.VatCapTpConnectionNotFound,
+      'Vat does not have a CapTp connection.',
       { vatId },
     );
   }

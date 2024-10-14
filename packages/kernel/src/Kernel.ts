@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
-import { VatAlreadyExistsError, VatNotFoundError, asError } from '@ocap/errors';
+import { VatAlreadyExistsError, VatNotFoundError, toError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
@@ -110,7 +110,7 @@ export class Kernel {
             // TODO: marshal
             await this.#reply({
               method,
-              params: String(asError(problem)),
+              params: String(toError(problem)),
             });
           }
           break;

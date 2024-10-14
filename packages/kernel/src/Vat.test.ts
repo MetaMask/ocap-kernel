@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import {
-  CapTPConnectionExistsError,
-  CapTPConnectionNotFoundError,
+  VatCapTpConnectionExistsError,
+  VatCapTpConnectionNotFoundError,
 } from '@ocap/errors';
 import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
@@ -149,13 +149,15 @@ describe('Vat', () => {
   });
 
   describe('makeCapTp', () => {
-    it('throws an error if CapTP connection already exists', async () => {
-      // @ts-expect-error - Simulating an existing CapTP
+    it('throws an error if CapTp connection already exists', async () => {
+      // @ts-expect-error - Simulating an existing CapTp
       vat.capTp = {};
-      await expect(vat.makeCapTp()).rejects.toThrow(CapTPConnectionExistsError);
+      await expect(vat.makeCapTp()).rejects.toThrow(
+        VatCapTpConnectionExistsError,
+      );
     });
 
-    it('creates a CapTP connection and sends CapTpInit message', async () => {
+    it('creates a CapTp connection and sends CapTpInit message', async () => {
       // @ts-expect-error - streamEnvelopeReplyHandler is readonly
       vat.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
         {},
@@ -191,7 +193,7 @@ describe('Vat', () => {
       );
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        'CapTP from vat',
+        'CapTp from vat',
         stringify(capTpQuestion),
       );
 
@@ -209,13 +211,13 @@ describe('Vat', () => {
   });
 
   describe('callCapTp', () => {
-    it('throws an error if CapTP connection is not established', async () => {
+    it('throws an error if CapTp connection is not established', async () => {
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
-      ).rejects.toThrow(CapTPConnectionNotFoundError);
+      ).rejects.toThrow(VatCapTpConnectionNotFoundError);
     });
 
-    it('calls CapTP method with parameters using eventual send', async () => {
+    it('calls CapTp method with parameters using eventual send', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
 

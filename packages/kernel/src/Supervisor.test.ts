@@ -77,7 +77,7 @@ describe('Supervisor', () => {
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
         method: VatCommandMethod.CapTpInit,
-        params: '~~~ CapTP Initialized ~~~',
+        params: '~~~ CapTp Initialized ~~~',
       });
     });
 
