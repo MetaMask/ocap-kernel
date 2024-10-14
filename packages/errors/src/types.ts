@@ -1,3 +1,5 @@
+import type { Json } from '@metamask/utils';
+
 export enum ErrorCode {
   SupervisorReadError = 'SUPERVISOR_READ_ERROR',
   VatAlreadyExists = 'VAT_ALREADY_EXISTS',
@@ -7,3 +9,8 @@ export enum ErrorCode {
   VatNotFound = 'VAT_NOT_FOUND',
   VatReadError = 'VAT_READ_ERROR',
 }
+
+export type OcapError = {
+  code: ErrorCode;
+  data: Json | undefined;
+} & Error;

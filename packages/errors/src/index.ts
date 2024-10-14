@@ -1,4 +1,5 @@
-export { ErrorCode } from './constants.js';
+export type { OcapError } from './types.js';
+export { ErrorCode } from './types.js';
 export {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
@@ -9,5 +10,4 @@ export {
   VatReadError,
 } from './errors.js';
 export { toError } from './utils/toError.js';
-export { isCodedError } from './utils/isCodedError.js';
 export { isOcapError } from './utils/isOcapError.js';

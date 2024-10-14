@@ -15,7 +15,7 @@ import {
   UnsafeJsonStruct,
   object,
 } from '@metamask/utils';
-import { isCodedError, isOcapError } from '@ocap/errors';
+import { isOcapError } from '@ocap/errors';
 import { stringify } from '@ocap/utils';
 
 export type { Reader, Writer };
@@ -139,21 +139,25 @@ export function marshalError(error: Error): MarshaledError {
     [ErrorSentinel]: true,
     message: error.message,
   };
+
   if (error.cause) {
     output.cause =
       error.cause instanceof Error
         ? marshalError(error.cause)
         : stringify(error.cause);
   }
+
   if (error.stack) {
     output.stack = error.stack;
   }
-  if (isCodedError(error) && error.code) {
-    output.code = String(error.code);
+
+  if (isOcapError(error)) {
+    output.code = error.code;
+    if (error.data) {
+      output.data = stringify(error.data);
+    }
   }
-  if (isOcapError(error) && error.data) {
-    output.data = stringify(error.data);
-  }
+
   return output;
 }
 

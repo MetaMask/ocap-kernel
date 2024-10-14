@@ -5,6 +5,7 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
+      'OcapError',
       'ErrorCode',
       'SupervisorReadError',
       'VatAlreadyExistsError',
@@ -13,7 +14,6 @@ describe('index', () => {
       'VatDeletedError',
       'VatNotFoundError',
       'VatReadError',
-      'isCodedError',
       'isOcapError',
       'toError',
     ]);
