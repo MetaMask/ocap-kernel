@@ -5,7 +5,7 @@
     "lib": ["DOM", "ES2022"],
     "types": ["ses", "vitest", "vitest/jsdom"]
   },
-  "references": [{ "path": "../test-utils" }],
+  "references": [{ "path": "../test-utils" }, { "path": "../errors" }],
   "include": [
     "./src",
     "./src/chrome.d.ts",

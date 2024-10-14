@@ -1,4 +1,5 @@
 import type { Json } from '@metamask/utils';
+import { ErrorCode, VatNotFoundError } from '@ocap/errors';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
@@ -130,6 +131,42 @@ describe('marshalError', () => {
         message: 'foo',
         stack: expect.any(String),
         cause: stringify(cause),
+      }),
+    );
+  });
+
+  it('should marshal a coded error', () => {
+    class CodedError extends Error {
+      code: string;
+
+      constructor(message: string, code: string) {
+        super(message);
+        this.code = code;
+      }
+    }
+
+    const error = new CodedError('Coded error', 'CODE');
+    const marshaledError = marshalError(error);
+    expect(marshaledError).toStrictEqual(
+      expect.objectContaining({
+        [ErrorSentinel]: true,
+        message: 'Coded error',
+        stack: expect.any(String),
+        code: 'CODE',
+      }),
+    );
+  });
+
+  it('should marshal an ocap error', () => {
+    const error = new VatNotFoundError('v1');
+    const marshaledError = marshalError(error);
+    expect(marshaledError).toStrictEqual(
+      expect.objectContaining({
+        [ErrorSentinel]: true,
+        message: 'Vat does not exist.',
+        stack: expect.any(String),
+        code: ErrorCode.VatNotFound,
+        data: stringify({ vatId: 'v1' }),
       }),
     );
   });

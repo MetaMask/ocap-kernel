@@ -9,7 +9,13 @@ import {
   string,
   union,
 } from '@metamask/superstruct';
-import { type Json, UnsafeJsonStruct, object } from '@metamask/utils';
+import {
+  type Json,
+  JsonStruct,
+  UnsafeJsonStruct,
+  object,
+} from '@metamask/utils';
+import { isCodedError, isOcapError } from '@ocap/errors';
 import { stringify } from '@ocap/utils';
 
 export type { Reader, Writer };
@@ -97,6 +103,8 @@ export const ErrorSentinel = '@@MARSHALED_ERROR';
 type MarshaledError = {
   [ErrorSentinel]: true;
   message: string;
+  code?: string;
+  data?: Json;
   stack?: string;
   cause?: MarshaledError | string;
 };
@@ -104,6 +112,8 @@ type MarshaledError = {
 const MarshaledErrorStruct: Struct<MarshaledError> = object({
   [ErrorSentinel]: literal(true),
   message: string(),
+  code: optional(string()),
+  data: optional(JsonStruct),
   stack: optional(string()),
   cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
 }) as Struct<MarshaledError>;
@@ -137,6 +147,12 @@ export function marshalError(error: Error): MarshaledError {
   }
   if (error.stack) {
     output.stack = error.stack;
+  }
+  if (isCodedError(error) && error.code) {
+    output.code = error.code;
+  }
+  if (isOcapError(error) && error.data) {
+    output.data = stringify(error.data);
   }
   return output;
 }
