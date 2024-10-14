@@ -1,3 +1,5 @@
+import type { Json } from '@metamask/utils';
+
 export enum ErrorCode {
   StreamReadError = 'STREAM_READ_ERROR',
   VatAlreadyExists = 'VAT_ALREADY_EXISTS',
@@ -6,3 +8,8 @@ export enum ErrorCode {
   VatDeleted = 'VAT_DELETED',
   VatNotFound = 'VAT_NOT_FOUND',
 }
+
+export type OcapError = {
+  code: ErrorCode;
+  data: Json | undefined;
+} & Error;

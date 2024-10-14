@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 
-import { ErrorCode } from './constants.js';
 import {
   VatAlreadyExistsError,
   VatNotFoundError,
@@ -9,6 +8,7 @@ import {
   VatCapTpConnectionNotFoundError,
   VatDeletedError,
 } from './errors.js';
+import { ErrorCode } from './types.js';
 
 describe('Errors classes', () => {
   const mockVatId = 'mockVatId';

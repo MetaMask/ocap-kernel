@@ -1,13 +1,11 @@
 import type { Json } from '@metamask/utils';
 
-import type { ErrorCode } from './constants.js';
+import type { ErrorCode, OcapError } from './types.js';
 
-export class BaseError extends Error {
+export class BaseError extends Error implements OcapError {
   public readonly code: ErrorCode;
 
   public data: Json | undefined;
-
-  public cause: unknown;
 
   constructor(code: ErrorCode, message: string, data?: Json, cause?: unknown) {
     super(message, { cause });

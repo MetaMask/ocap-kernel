@@ -135,28 +135,6 @@ describe('marshalError', () => {
     );
   });
 
-  it('should marshal a coded error', () => {
-    class CodedError extends Error {
-      code: string;
-
-      constructor(message: string, code: string) {
-        super(message);
-        this.code = code;
-      }
-    }
-
-    const error = new CodedError('Coded error', 'CODE');
-    const marshaledError = marshalError(error);
-    expect(marshaledError).toStrictEqual(
-      expect.objectContaining({
-        [ErrorSentinel]: true,
-        message: 'Coded error',
-        stack: expect.any(String),
-        code: 'CODE',
-      }),
-    );
-  });
-
   it('should marshal an ocap error', () => {
     const error = new VatNotFoundError('v1');
     const marshaledError = marshalError(error);
