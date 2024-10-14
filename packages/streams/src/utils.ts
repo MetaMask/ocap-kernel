@@ -149,7 +149,7 @@ export function marshalError(error: Error): MarshaledError {
     output.stack = error.stack;
   }
   if (isCodedError(error) && error.code) {
-    output.code = error.code;
+    output.code = String(error.code);
   }
   if (isOcapError(error) && error.data) {
     output.data = stringify(error.data);
