@@ -1,5 +1,5 @@
 type CodedError = {
-  code: string;
+  code: string | number;
 } & Error;
 
 /**
@@ -9,5 +9,9 @@ type CodedError = {
  * @returns Whether the error has a code.
  */
 export function isCodedError(error: Error): error is CodedError {
-  return error instanceof Error && 'code' in error;
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (typeof error.code === 'string' || typeof error.code === 'number')
+  );
 }
