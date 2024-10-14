@@ -5,11 +5,11 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
-      'VatCapTpConnectionExistsError',
-      'VatCapTpConnectionNotFoundError',
       'ErrorCode',
       'SupervisorReadError',
       'VatAlreadyExistsError',
+      'VatCapTpConnectionExistsError',
+      'VatCapTpConnectionNotFoundError',
       'VatDeletedError',
       'VatNotFoundError',
       'VatReadError',
