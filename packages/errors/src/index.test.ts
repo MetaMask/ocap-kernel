@@ -12,6 +12,8 @@ describe('index', () => {
       'VatCapTpConnectionNotFoundError',
       'VatDeletedError',
       'VatNotFoundError',
+      'isCodedError',
+      'isOcapError',
       'toError',
     ]);
   });
