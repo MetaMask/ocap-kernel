@@ -1,12 +1,11 @@
-export type { OcapError } from './types.js';
-export { ErrorCode } from './types.js';
-export {
-  VatCapTpConnectionExistsError,
-  VatCapTpConnectionNotFoundError,
-  VatAlreadyExistsError,
-  VatDeletedError,
-  VatNotFoundError,
-  StreamReadError,
-} from './errors.js';
+export type { OcapError, MarshaledError } from './types.js';
+export { VatCapTpConnectionExistsError } from './errors/VatCapTpConnectionExistsError.js';
+export { VatCapTpConnectionNotFoundError } from './errors/VatCapTpConnectionNotFoundError.js';
+export { VatAlreadyExistsError } from './errors/VatAlreadyExistsError.js';
+export { VatDeletedError } from './errors/VatDeletedError.js';
+export { VatNotFoundError } from './errors/VatNotFoundError.js';
+export { StreamReadError } from './errors/StreamReadError.js';
+export { ErrorCode, ErrorSentinel } from './types.js';
 export { toError } from './utils/toError.js';
 export { isOcapError } from './utils/isOcapError.js';
+export { isMarshaledError, marshalError, unmarshalError } from './marshal.js';

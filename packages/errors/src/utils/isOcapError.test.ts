@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 import { isOcapError } from './isOcapError.js';
 import { BaseError } from '../BaseError.js';
-import { VatAlreadyExistsError } from '../errors.js';
+import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
 import { ErrorCode } from '../types.js';
 
 class MockCodedError extends Error {

@@ -1,8 +1,9 @@
+import { marshalError } from '@ocap/errors';
 import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import { makeDoneResult, makePendingResult, marshalError } from './utils.js';
+import { makeDoneResult, makePendingResult } from './utils.js';
 import { TestReader, TestWriter } from '../test/stream-mocks.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());

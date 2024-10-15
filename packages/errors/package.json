@@ -42,6 +42,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
+    "@metamask/superstruct": "^3.1.0",
     "@metamask/utils": "^9.3.0"
   },
   "devDependencies": {
@@ -50,6 +51,7 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
+    "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.5.1",
     "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.8.1",

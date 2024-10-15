@@ -1,14 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import {
-  VatAlreadyExistsError,
-  VatNotFoundError,
-  StreamReadError,
-  VatCapTpConnectionExistsError,
-  VatCapTpConnectionNotFoundError,
-  VatDeletedError,
-} from './errors.js';
-import { ErrorCode } from './types.js';
+import { StreamReadError } from './StreamReadError.js';
+import { VatAlreadyExistsError } from './VatAlreadyExistsError.js';
+import { VatCapTpConnectionExistsError } from './VatCapTpConnectionExistsError.js';
+import { VatCapTpConnectionNotFoundError } from './VatCapTpConnectionNotFoundError.js';
+import { VatDeletedError } from './VatDeletedError.js';
+import { VatNotFoundError } from './VatNotFoundError.js';
+import { ErrorCode } from '../types.js';
 
 describe('Errors classes', () => {
   const mockVatId = 'mockVatId';
