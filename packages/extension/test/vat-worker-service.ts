@@ -12,8 +12,8 @@ export const getMockMakeWorker = (
   kernelPort: MessagePort,
 ): [VatWorker, MakeVatWorker] => {
   const mockWorker = {
-    init: vi.fn().mockResolvedValue([kernelPort, {}]),
-    delete: vi.fn().mockResolvedValue(undefined),
+    launch: vi.fn().mockResolvedValue([kernelPort, {}]),
+    terminate: vi.fn().mockResolvedValue(undefined),
   };
 
   return [mockWorker, vi.fn().mockReturnValue(mockWorker)];

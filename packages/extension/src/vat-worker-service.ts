@@ -2,21 +2,21 @@ import { isObject } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
 
 export enum VatWorkerServiceMethod {
-  Init = 'iframe-vat-worker-init',
-  Delete = 'iframe-vat-worker-delete',
+  Launch = 'iframe-vat-worker-launch',
+  Terminate = 'iframe-vat-worker-terminate',
 }
 
 type MessageId = number;
 
 export type VatWorker = {
-  init: () => Promise<[MessagePort, unknown]>;
-  delete: () => Promise<void>;
+  launch: () => Promise<[MessagePort, unknown]>;
+  terminate: () => Promise<void>;
 };
 
 export type VatWorkerServiceMessage = {
   method:
-    | typeof VatWorkerServiceMethod.Init
-    | typeof VatWorkerServiceMethod.Delete;
+    | typeof VatWorkerServiceMethod.Launch
+    | typeof VatWorkerServiceMethod.Terminate;
   id: MessageId;
   vatId: VatId;
   error?: Error;

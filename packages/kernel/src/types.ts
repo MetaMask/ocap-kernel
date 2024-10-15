@@ -16,8 +16,8 @@ export type PromiseCallbacks<Resolve = unknown> = Omit<
 >;
 
 export type VatWorkerService = {
-  initWorker: (
+  launch: (
     vatId: VatId,
   ) => Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>>;
-  deleteWorker: (vatId: VatId) => Promise<void>;
+  terminate: (vatId: VatId) => Promise<void>;
 };

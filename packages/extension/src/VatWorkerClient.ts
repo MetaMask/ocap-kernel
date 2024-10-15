@@ -33,8 +33,8 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
 
   /**
    * The client end of the vat worker service, intended to be constructed in
-   * the kernel worker. Sends initWorker and deleteWorker requests to the
-   * server and wraps the initWorker response in a DuplexStream for consumption
+   * the kernel worker. Sends launch and terminate worker requests to the
+   * server and wraps the launch response in a DuplexStream for consumption
    * by the kernel.
    *
    * @see {@link ExtensionVatWorkerServer} for the other end of the service.
@@ -55,8 +55,8 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
 
   async #sendMessage<Return>(
     method:
-      | typeof VatWorkerServiceMethod.Init
-      | typeof VatWorkerServiceMethod.Delete,
+      | typeof VatWorkerServiceMethod.Launch
+      | typeof VatWorkerServiceMethod.Terminate,
     vatId: VatId,
   ): Promise<Return> {
     const message = {
@@ -73,14 +73,12 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     return promise;
   }
 
-  async initWorker(
-    vatId: VatId,
-  ): Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>> {
-    return this.#sendMessage(VatWorkerServiceMethod.Init, vatId);
+  async launch(vatId: VatId): Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>>{
+    return this.#sendMessage(VatWorkerServiceMethod.Launch, vatId);
   }
 
-  async deleteWorker(vatId: VatId): Promise<undefined> {
-    return this.#sendMessage(VatWorkerServiceMethod.Delete, vatId);
+  async terminate(vatId: VatId): Promise<undefined> {
+    return this.#sendMessage(VatWorkerServiceMethod.Terminate, vatId);
   }
 
   async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
@@ -106,7 +104,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     }
 
     switch (method) {
-      case VatWorkerServiceMethod.Init:
+      case VatWorkerServiceMethod.Launch:
         if (!port) {
           this.#logger.error('Expected a port with message reply', event);
           return;
@@ -117,7 +115,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           ),
         );
         break;
-      case VatWorkerServiceMethod.Delete:
+      case VatWorkerServiceMethod.Terminate:
         // If we were caching streams on the client this would be a good place
         // to remove them.
         promise.resolve(undefined);

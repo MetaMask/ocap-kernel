@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
 import { makeTestServer } from '../test/vat-worker-service.js';
 
-describe('VatWorker', () => {
+describe('ExtensionVatWorkerServer', () => {
   let serverPort: MessagePort;
   let clientPort: MessagePort;
 

@@ -20,8 +20,8 @@ import { makeMapKernelStore } from '../test/storage.js';
 describe('Kernel', () => {
   let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;
   let mockWorkerService: VatWorkerService;
-  let mockGetWorkerStreams: MockInstance;
-  let mockDeleteWorker: MockInstance;
+  let launchWorkerMock: MockInstance;
+  let terminateWorkerMock: MockInstance;
   let initMock: MockInstance;
   let terminateMock: MockInstance;
 
@@ -38,17 +38,17 @@ describe('Kernel', () => {
     } as unknown as MessagePortDuplexStream<KernelCommand, KernelCommandReply>;
 
     mockWorkerService = {
-      initWorker: async () => ({}),
-      deleteWorker: async () => undefined,
+      launch: async () => ({}),
+      terminate: async () => undefined,
     } as unknown as VatWorkerService;
 
-    mockGetWorkerStreams = vi
-      .spyOn(mockWorkerService, 'initWorker')
+    launchWorkerMock = vi
+      .spyOn(mockWorkerService, 'launch')
       .mockResolvedValue(
         {} as DuplexStream<StreamEnvelopeReply, StreamEnvelope>,
       );
-    mockDeleteWorker = vi
-      .spyOn(mockWorkerService, 'deleteWorker')
+    terminateWorkerMock = vi
+      .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);
 
     initMock = vi.spyOn(Vat.prototype, 'init').mockImplementation(vi.fn());
@@ -84,7 +84,7 @@ describe('Kernel', () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
       await kernel.launchVat({ id: 'v0' });
       expect(initMock).toHaveBeenCalledOnce();
-      expect(mockGetWorkerStreams).toHaveBeenCalled();
+      expect(launchWorkerMock).toHaveBeenCalled();
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
     });
 
@@ -108,7 +108,7 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
       await kernel.deleteVat('v0');
       expect(terminateMock).toHaveBeenCalledOnce();
-      expect(mockDeleteWorker).toHaveBeenCalledOnce();
+      expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 

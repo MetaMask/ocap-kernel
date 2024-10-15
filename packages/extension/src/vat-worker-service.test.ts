@@ -26,8 +26,8 @@ describe('VatWorker', () => {
   let mockWorker: VatWorker;
 
   let mockMakeWorker: (vatId: VatId) => VatWorker;
-  let mockInitWorker: MockInstance;
-  let mockDeleteWorker: MockInstance;
+  let mockLaunchWorker: MockInstance;
+  let mockTerminateWorker: MockInstance;
 
   beforeEach(() => {
     const serviceMessageChannel = new MessageChannel();
@@ -40,8 +40,8 @@ describe('VatWorker', () => {
 
     [mockWorker, mockMakeWorker] = getMockMakeWorker(kernelPort);
 
-    mockInitWorker = vi.spyOn(mockWorker, 'init');
-    mockDeleteWorker = vi.spyOn(mockWorker, 'delete');
+    mockLaunchWorker = vi.spyOn(mockWorker, 'launch');
+    mockTerminateWorker = vi.spyOn(mockWorker, 'terminate');
   });
 
   // low key integration test
@@ -52,28 +52,28 @@ describe('VatWorker', () => {
       server.start();
     });
 
-    it('initializes and deletes a worker', async () => {
+    it('launches and terminates a worker', async () => {
       const vatId: VatId = 'v0';
-      const stream = await client.initWorker(vatId);
+      const stream = await client.launch(vatId);
       expect(stream).toBeInstanceOf(MessagePortDuplexStream);
-      expect(mockInitWorker).toHaveBeenCalledOnce();
-      expect(mockDeleteWorker).not.toHaveBeenCalled();
+      expect(mockLaunchWorker).toHaveBeenCalledOnce();
+      expect(mockTerminateWorker).not.toHaveBeenCalled();
 
-      await client.deleteWorker(vatId);
-      expect(mockInitWorker).toHaveBeenCalledOnce();
-      expect(mockDeleteWorker).toHaveBeenCalledOnce();
+      await client.terminate(vatId);
+      expect(mockLaunchWorker).toHaveBeenCalledOnce();
+      expect(mockTerminateWorker).toHaveBeenCalledOnce();
     });
 
-    it('throws when deleting a nonexistent worker', async () => {
-      await expect(async () => await client.deleteWorker('v0')).rejects.toThrow(
+    it('throws when terminating a nonexistent worker', async () => {
+      await expect(async () => await client.terminate('v0')).rejects.toThrow(
         /vat v0 does not exist/u,
       );
     });
 
-    it('throws when initializing the same worker twice', async () => {
+    it('throws when launching the same worker twice', async () => {
       const vatId: VatId = 'v0';
-      await client.initWorker(vatId);
-      await expect(async () => await client.initWorker(vatId)).rejects.toThrow(
+      await client.launch(vatId);
+      await expect(async () => await client.launch(vatId)).rejects.toThrow(
         /vat v0 already exists/u,
       );
     });

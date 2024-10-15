@@ -12,7 +12,7 @@ export const makeIframeVatWorker = (
 ): VatWorker => {
   const vatHtmlId = `ocap-iframe-${id}`;
   return {
-    init: async () => {
+    launch: async () => {
       const newWindow = await createWindow({
         uri: IFRAME_URI,
         id: vatHtmlId,
@@ -24,7 +24,7 @@ export const makeIframeVatWorker = (
 
       return [port, newWindow];
     },
-    delete: async (): Promise<void> => {
+    terminate: async (): Promise<void> => {
       const iframe = document.getElementById(vatHtmlId);
       /* v8 ignore next 6: Not known to be possible. */
       if (iframe === null) {

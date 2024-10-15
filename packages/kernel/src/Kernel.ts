@@ -181,7 +181,7 @@ export class Kernel {
     if (this.#vats.has(id)) {
       throw new VatAlreadyExistsError(id);
     }
-    const stream = await this.#vatWorkerService.initWorker(id);
+    const stream = await this.#vatWorkerService.launch(id);
     const vat = new Vat({ id, stream });
     this.#vats.set(vat.id, vat);
     await vat.init();
@@ -196,7 +196,7 @@ export class Kernel {
   async deleteVat(id: VatId): Promise<void> {
     const vat = this.#getVat(id);
     await vat.terminate();
-    await this.#vatWorkerService.deleteWorker(id).catch(console.error);
+    await this.#vatWorkerService.terminate(id).catch(console.error);
     this.#vats.delete(id);
   }
 

@@ -30,7 +30,7 @@ export class ExtensionVatWorkerServer {
 
   /**
    * The server end of the vat worker service, intended to be constructed in
-   * the offscreen document. Listens for initWorker and deleteWorker requests
+   * the offscreen document. Listens for launch and terminate worker requests
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
    *
@@ -79,13 +79,13 @@ export class ExtensionVatWorkerServer {
     };
 
     switch (method) {
-      case VatWorkerServiceMethod.Init:
-        await this.#initVatWorker(vatId)
+      case VatWorkerServiceMethod.Launch:
+        await this.#launch(vatId)
           .then((port) => this.#postMessage({ method, id, vatId }, [port]))
           .catch(handleProblem);
         break;
-      case VatWorkerServiceMethod.Delete:
-        await this.#deleteVatWorker(vatId)
+      case VatWorkerServiceMethod.Terminate:
+        await this.#terminate(vatId)
           .then(() => this.#postMessage({ method, id, vatId }))
           .catch(handleProblem);
         break;
@@ -99,22 +99,22 @@ export class ExtensionVatWorkerServer {
     }
   }
 
-  async #initVatWorker(vatId: VatId): Promise<MessagePort> {
+  async #launch(vatId: VatId): Promise<MessagePort> {
     if (this.#vatWorkers.has(vatId)) {
       throw new Error(`Worker for vat ${vatId} already exists.`);
     }
     const vatWorker = this.#makeWorker(vatId);
-    const [port] = await vatWorker.init();
+    const [port] = await vatWorker.launch();
     this.#vatWorkers.set(vatId, vatWorker);
     return port;
   }
 
-  async #deleteVatWorker(vatId: VatId): Promise<void> {
+  async #terminate(vatId: VatId): Promise<void> {
     const vatWorker = this.#vatWorkers.get(vatId);
     if (!vatWorker) {
       throw new Error(`Worker for vat ${vatId} does not exist.`);
     }
-    await vatWorker.delete();
+    await vatWorker.terminate();
     this.#vatWorkers.delete(vatId);
   }
 }
