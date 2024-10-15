@@ -77,11 +77,11 @@ describe('Supervisor', () => {
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
         method: VatCommandMethod.CapTpInit,
-        params: '~~~ CapTp Initialized ~~~',
+        params: '~~~ CapTP Initialized ~~~',
       });
     });
 
-    it('handles CapTp messages', async () => {
+    it('handles CapTP messages', async () => {
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({
