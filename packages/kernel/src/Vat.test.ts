@@ -7,7 +7,7 @@ import type { DuplexStream } from '@ocap/streams';
 import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages.js';
 import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
@@ -24,7 +24,7 @@ vi.mock('@endo/eventual-send', () => ({
   }),
 }));
 
-const makeVat = (messageChannel = new MessageChannel()) => {
+const makeVat = (messageChannel = new MessageChannel()): Vat => {
   const stream = new MessagePortDuplexStream<
     StreamEnvelopeReply,
     StreamEnvelope

@@ -70,6 +70,17 @@ const config = [
   },
 
   {
+    files: ['**/*.test.ts'],
+    rules: {
+      // This causes false positives in tests especially.
+      '@typescript-eslint/unbound-method': 'off',
+      // We should enable this instead, but the rule is unreleased.
+      // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/359
+      // 'vitest/unbound-method': 'error',
+    },
+  },
+
+  {
     files: ['**/*.types.test.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',

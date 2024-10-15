@@ -2,14 +2,14 @@ import '@ocap/shims/endoify';
 import type { DuplexStream } from '@ocap/streams';
 import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
 
-const makeSupervisor = (messageChannel = new MessageChannel()) => {
+const makeSupervisor = (messageChannel = new MessageChannel()): Supervisor => {
   const stream = new MessagePortDuplexStream<
     StreamEnvelope,
     StreamEnvelopeReply
