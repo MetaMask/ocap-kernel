@@ -8,4 +8,7 @@ export { StreamReadError } from './errors/StreamReadError.js';
 export { ErrorCode, ErrorSentinel } from './types.js';
 export { toError } from './utils/toError.js';
 export { isOcapError } from './utils/isOcapError.js';
-export { isMarshaledError, marshalError, unmarshalError } from './marshal.js';
+export { marshalError } from './marshal/marshalError.js';
+export { unmarshalError } from './marshal/unmarshalError.js';
+export { isMarshaledError } from './marshal/isMarshaledError.js';
+export { isMarshaledOcapError } from './marshal/isMarshaledOcapError.js';

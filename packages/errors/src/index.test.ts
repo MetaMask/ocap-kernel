@@ -15,6 +15,7 @@ describe('index', () => {
       'VatNotFoundError',
       'isCodedError',
       'isMarshaledError',
+      'isMarshaledOcapError',
       'isOcapError',
       'marshalError',
       'toError',
