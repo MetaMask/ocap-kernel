@@ -1,5 +1,6 @@
 import '@ocap/shims/endoify';
-import { DuplexStream, MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
+import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -16,10 +17,9 @@ describe('Supervisor', () => {
   beforeEach(async () => {
     messageChannel = new MessageChannel();
 
-    stream = new MessagePortDuplexStream<
-      StreamEnvelope,
-      StreamEnvelopeReply
-    >(messageChannel.port1);
+    stream = new MessagePortDuplexStream<StreamEnvelope, StreamEnvelopeReply>(
+      messageChannel.port1,
+    );
     supervisor = new Supervisor({ id: 'test-id', stream });
   });
 
@@ -161,7 +161,10 @@ describe('Supervisor', () => {
   describe('terminate', () => {
     it('terminates correctly', async () => {
       await supervisor.terminate();
-      expect(await stream.next()).toStrictEqual({ done: true, value: undefined });
+      expect(await stream.next()).toStrictEqual({
+        done: true,
+        value: undefined,
+      });
     });
   });
 
