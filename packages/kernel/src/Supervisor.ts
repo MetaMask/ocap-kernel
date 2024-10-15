@@ -101,7 +101,7 @@ export class Supervisor {
         );
         await this.replyToMessage(id, {
           method: VatCommandMethod.CapTpInit,
-          params: '~~~ CapTp Initialized ~~~',
+          params: '~~~ CapTP Initialized ~~~',
         });
         break;
       }

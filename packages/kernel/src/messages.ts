@@ -2,7 +2,7 @@
 
 export type { VatMessageId } from './messages/vat-message.js';
 
-// CapTp.
+// CapTP.
 
 export { isCapTpPayload, isCapTpMessage } from './messages/captp.js';
 export type { CapTpPayload, CapTpMessage } from './messages/captp.js';

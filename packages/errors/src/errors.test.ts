@@ -68,7 +68,7 @@ describe('Errors classes', () => {
       const error = new VatCapTpConnectionExistsError(mockVatId);
       expect(error).toBeInstanceOf(VatCapTpConnectionExistsError);
       expect(error.code).toBe(ErrorCode.VatCapTpConnectionExists);
-      expect(error.message).toBe('Vat already has a CapTp connection.');
+      expect(error.message).toBe('Vat already has a CapTP connection.');
       expect(error.data).toStrictEqual({ vatId: mockVatId });
       expect(error.cause).toBeUndefined();
     });
@@ -79,7 +79,7 @@ describe('Errors classes', () => {
       const error = new VatCapTpConnectionNotFoundError(mockVatId);
       expect(error).toBeInstanceOf(VatCapTpConnectionNotFoundError);
       expect(error.code).toBe(ErrorCode.VatCapTpConnectionNotFound);
-      expect(error.message).toBe('Vat does not have a CapTp connection.');
+      expect(error.message).toBe('Vat does not have a CapTP connection.');
       expect(error.data).toStrictEqual({ vatId: mockVatId });
       expect(error.cause).toBeUndefined();
     });
