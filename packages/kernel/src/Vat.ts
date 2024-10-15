@@ -5,7 +5,7 @@ import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
   VatDeletedError,
-  VatReadError,
+  StreamReadError,
 } from '@ocap/errors';
 import type { DuplexStream, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
@@ -88,7 +88,7 @@ export class Vat {
     /* v8 ignore next 4: Not known to be possible. */
     this.#receiveMessages(this.stream).catch((error) => {
       this.logger.error(`Unexpected read error`, error);
-      throw new VatReadError(this.id, error);
+      throw new StreamReadError({ vatId: this.id }, error);
     });
 
     await this.sendMessage({ method: VatCommandMethod.Ping, params: null });

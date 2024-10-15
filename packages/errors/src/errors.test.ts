@@ -4,8 +4,7 @@ import { ErrorCode } from './constants.js';
 import {
   VatAlreadyExistsError,
   VatNotFoundError,
-  SupervisorReadError,
-  VatReadError,
+  StreamReadError,
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
   VatDeletedError,
@@ -38,26 +37,27 @@ describe('Errors classes', () => {
     });
   });
 
-  describe('SupervisorReadError', () => {
-    it('should create a SupervisorReadError with the correct properties', () => {
-      const error = new SupervisorReadError(
-        mockSupervisorId,
+  describe('StreamReadError', () => {
+    it('should create a StreamReadError for Supervisor with the correct properties', () => {
+      const error = new StreamReadError(
+        { supervisorId: mockSupervisorId },
         mockOriginalError,
       );
-      expect(error).toBeInstanceOf(SupervisorReadError);
-      expect(error.code).toBe(ErrorCode.SupervisorReadError);
-      expect(error.message).toBe('Unexpected read error from Supervisor.');
+      expect(error).toBeInstanceOf(StreamReadError);
+      expect(error.code).toBe(ErrorCode.StreamReadError);
+      expect(error.message).toBe('Unexpected stream read error.');
       expect(error.data).toStrictEqual({ supervisorId: mockSupervisorId });
       expect(error.cause).toBe(mockOriginalError);
     });
-  });
 
-  describe('VatReadError', () => {
-    it('should create a VatReadError with the correct properties', () => {
-      const error = new VatReadError(mockVatId, mockOriginalError);
-      expect(error).toBeInstanceOf(VatReadError);
-      expect(error.code).toBe(ErrorCode.VatReadError);
-      expect(error.message).toBe('Unexpected read error from Vat.');
+    it('should create a StreamReadError for Vat with the correct properties', () => {
+      const error = new StreamReadError(
+        { vatId: mockVatId },
+        mockOriginalError,
+      );
+      expect(error).toBeInstanceOf(StreamReadError);
+      expect(error.code).toBe(ErrorCode.StreamReadError);
+      expect(error.message).toBe('Unexpected stream read error.');
       expect(error.data).toStrictEqual({ vatId: mockVatId });
       expect(error.cause).toBe(mockOriginalError);
     });

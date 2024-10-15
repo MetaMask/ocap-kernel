@@ -2,10 +2,9 @@ export { ErrorCode } from './constants.js';
 export {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
-  SupervisorReadError,
   VatAlreadyExistsError,
   VatDeletedError,
   VatNotFoundError,
-  VatReadError,
+  StreamReadError,
 } from './errors.js';
 export { toError } from './utils/toError.js';

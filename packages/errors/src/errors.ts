@@ -15,27 +15,15 @@ export class VatNotFoundError extends BaseError {
   }
 }
 
-export class SupervisorReadError extends BaseError {
-  constructor(supervisorId: string, originalError: Error) {
+export class StreamReadError extends BaseError {
+  constructor(
+    data: { vatId: string } | { supervisorId: string },
+    originalError: Error,
+  ) {
     super(
-      ErrorCode.SupervisorReadError,
-      'Unexpected read error from Supervisor.',
-      {
-        supervisorId,
-      },
-      originalError,
-    );
-  }
-}
-
-export class VatReadError extends BaseError {
-  constructor(vatId: string, originalError: Error) {
-    super(
-      ErrorCode.VatReadError,
-      'Unexpected read error from Vat.',
-      {
-        vatId,
-      },
+      ErrorCode.StreamReadError,
+      'Unexpected stream read error.',
+      data,
       originalError,
     );
   }

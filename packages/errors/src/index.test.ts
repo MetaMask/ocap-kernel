@@ -6,13 +6,12 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'ErrorCode',
-      'SupervisorReadError',
       'VatAlreadyExistsError',
       'VatCapTpConnectionExistsError',
       'VatCapTpConnectionNotFoundError',
       'VatDeletedError',
       'VatNotFoundError',
-      'VatReadError',
+      'StreamReadError',
       'toError',
     ]);
   });
