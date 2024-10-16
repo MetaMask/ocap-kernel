@@ -1,4 +1,5 @@
 import { makeCapTP } from '@endo/captp';
+import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
@@ -55,7 +56,7 @@ export class Supervisor {
           `Unexpected read error from Supervisor "${this.id}"`,
           error,
         );
-        throw error;
+        throw new StreamReadError({ supervisorId: this.id }, error);
       });
   }
 

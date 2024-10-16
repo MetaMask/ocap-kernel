@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@endo/captp": "^4.4.0",
-    "@metamask/utils": "^9.1.0"
+    "@metamask/utils": "^9.3.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.4",

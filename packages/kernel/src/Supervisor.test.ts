@@ -81,7 +81,7 @@ describe('Supervisor', () => {
       });
     });
 
-    it('handles CapTp messages', async () => {
+    it('handles CapTP messages', async () => {
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({

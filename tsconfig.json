@@ -9,7 +9,9 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "./packages/errors" },
     { "path": "./packages/extension" },
+    { "path": "./packages/kernel" },
     { "path": "./packages/shims" },
     { "path": "./packages/streams" },
     { "path": "./packages/test-utils" },

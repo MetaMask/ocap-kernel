@@ -38,7 +38,7 @@
     "@endo/patterns": "^1.4.4",
     "@endo/promise-kit": "^1.1.6",
     "@metamask/snaps-utils": "^8.3.0",
-    "@metamask/utils": "^9.1.0",
+    "@metamask/utils": "^9.3.0",
     "@ocap/kernel": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",

@@ -9,7 +9,8 @@
   },
   "references": [
     { "path": "../streams/tsconfig.build.json" },
-    { "path": "../utils/tsconfig.build.json" }
+    { "path": "../utils/tsconfig.build.json" },
+    { "path": "../errors/tsconfig.build.json" }
   ],
   "include": ["./src"]
 }

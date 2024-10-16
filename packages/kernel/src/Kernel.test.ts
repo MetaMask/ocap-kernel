@@ -1,5 +1,6 @@
 import '@ocap/shims/endoify';
 
+import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -95,7 +96,7 @@ describe('Kernel', () => {
         kernel.launchVat({
           id: 'v0',
         }),
-      ).rejects.toThrow('Vat with ID v0 already exists.');
+      ).rejects.toThrow(VatAlreadyExistsError);
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
     });
   });
@@ -116,7 +117,7 @@ describe('Kernel', () => {
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.deleteVat(nonExistentVatId),
-      ).rejects.toThrow(`Vat with ID ${nonExistentVatId} does not exist.`);
+      ).rejects.toThrow(VatNotFoundError);
       expect(terminateMock).not.toHaveBeenCalled();
     });
 
@@ -148,7 +149,7 @@ describe('Kernel', () => {
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.sendMessage(nonExistentVatId, {} as VatCommand['payload']),
-      ).rejects.toThrow(`Vat with ID ${nonExistentVatId} does not exist.`);
+      ).rejects.toThrow(VatNotFoundError);
     });
 
     it('throws an error when sending a message to the vat throws', async () => {
