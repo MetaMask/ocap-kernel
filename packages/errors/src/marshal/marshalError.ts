@@ -1,3 +1,5 @@
+import { getSafeJson } from '@metamask/utils';
+
 import type { MarshaledError } from '../types.js';
 import { ErrorSentinel } from '../types.js';
 import { isOcapError } from '../utils/isOcapError.js';
@@ -28,7 +30,7 @@ export function marshalError(error: Error): MarshaledError {
   if (isOcapError(error)) {
     output.code = error.code;
     if (error.data) {
-      output.data = JSON.stringify(error.data);
+      output.data = getSafeJson(error.data);
     }
   }
 

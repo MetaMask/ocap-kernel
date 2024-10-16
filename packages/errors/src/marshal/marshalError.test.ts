@@ -58,7 +58,7 @@ describe('marshalError', () => {
         message: 'Vat does not exist.',
         stack: expect.any(String),
         code: ErrorCode.VatNotFound,
-        data: JSON.stringify({ vatId: 'v1' }),
+        data: { vatId: 'v1' },
       }),
     );
   });

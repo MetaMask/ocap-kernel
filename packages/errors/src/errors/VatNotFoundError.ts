@@ -45,7 +45,6 @@ export class VatNotFoundError extends BaseError {
     if (!is(marshaledError, this.struct)) {
       throw new Error('Invalid VatNotFoundError structure');
     }
-    const data = JSON.parse(marshaledError.data);
-    return new VatNotFoundError(data.vatId);
+    return new VatNotFoundError(marshaledError.data.vatId);
   }
 }

@@ -1,3 +1,6 @@
+import { isMarshaledOcapError } from './isMarshaledOcapError.js';
+import type { BaseError } from '../BaseError.js';
+import { errorClasses } from '../errors/index.js';
 import type { MarshaledError, OcapError } from '../types.js';
 
 /**
@@ -9,18 +12,26 @@ import type { MarshaledError, OcapError } from '../types.js';
 export function unmarshalError(
   marshaledError: MarshaledError,
 ): Error | OcapError {
-  const output = new Error(marshaledError.message);
+  let error: Error | OcapError;
+
+  if (isMarshaledOcapError(marshaledError)) {
+    error = (errorClasses[marshaledError.code] as typeof BaseError).unmarshal(
+      marshaledError,
+    );
+  } else {
+    error = new Error(marshaledError.message);
+  }
 
   if (marshaledError.cause) {
-    output.cause =
+    error.cause =
       typeof marshaledError.cause === 'string'
         ? marshaledError.cause
         : unmarshalError(marshaledError.cause);
   }
 
   if (marshaledError.stack) {
-    output.stack = marshaledError.stack;
+    error.stack = marshaledError.stack;
   }
 
-  return output;
+  return error;
 }

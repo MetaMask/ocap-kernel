@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { BaseError } from './BaseError.js';
+import type { MarshaledOcapError } from './types.js';
 import { ErrorCode } from './types.js';
 
 describe('BaseError', () => {
@@ -9,7 +10,7 @@ describe('BaseError', () => {
   const mockData = { key: 'value' };
   const mockCause = new Error('Root cause error');
 
-  it('should create a BaseError with required properties', () => {
+  it('creates a BaseError with required properties', () => {
     const error = new BaseError(mockCode, mockMessage);
     expect(error).toBeInstanceOf(BaseError);
     expect(error).toBeInstanceOf(Error);
@@ -20,7 +21,7 @@ describe('BaseError', () => {
     expect(error.cause).toBeUndefined();
   });
 
-  it('should create a BaseError with all properties', () => {
+  it('creates a BaseError with all properties', () => {
     const error = new BaseError(mockCode, mockMessage, mockData, mockCause);
     expect(error.name).toBe('BaseError');
     expect(error.message).toBe(mockMessage);
@@ -29,21 +30,27 @@ describe('BaseError', () => {
     expect(error.cause).toBe(mockCause);
   });
 
-  it('should inherit from the Error class and have the correct name', () => {
+  it('inherits from the Error class and have the correct name', () => {
     const error = new BaseError(mockCode, mockMessage);
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe('BaseError');
   });
 
-  it('should correctly handle a missing data parameter', () => {
+  it('handles a missing data parameter', () => {
     const error = new BaseError(mockCode, mockMessage, undefined, mockCause);
     expect(error.data).toBeUndefined();
     expect(error.cause).toBe(mockCause);
   });
 
-  it('should correctly handle a missing cause parameter', () => {
+  it('handles a missing cause parameter', () => {
     const error = new BaseError(mockCode, mockMessage, mockData);
     expect(error.data).toStrictEqual(mockData);
     expect(error.cause).toBeUndefined();
+  });
+
+  it('throws an error when unmarshal is called', () => {
+    expect(() => BaseError.unmarshal({} as MarshaledOcapError)).toThrow(
+      'Unmarshal method not implemented',
+    );
   });
 });

@@ -203,7 +203,7 @@ describe('Vat', () => {
       );
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        'CapTp from vat',
+        'CapTP from vat',
         stringify(capTpQuestion),
       );
 

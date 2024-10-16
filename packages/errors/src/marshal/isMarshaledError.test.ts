@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { isMarshaledError } from './isMarshaledError.js';
-import { ErrorSentinel } from '../types.js';
+import { ErrorCode, ErrorSentinel } from '../types.js';
 
 describe('isMarshaledError', () => {
   it.each([
@@ -18,7 +18,7 @@ describe('isMarshaledError', () => {
       {
         [ErrorSentinel]: true,
         message: 'An error occurred',
-        code: 'ERROR_CODE',
+        code: ErrorCode.VatAlreadyExists,
         data: { key: 'value' },
         stack: 'Error stack trace',
         cause: 'Another error',

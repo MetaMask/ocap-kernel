@@ -26,14 +26,14 @@ export type MarshaledError = {
   [ErrorSentinel]: true;
   message: string;
   code?: ErrorCode;
-  data?: string;
+  data?: Json;
   stack?: string;
   cause?: MarshaledError | string;
 };
 
 export type MarshaledOcapError = Omit<MarshaledError, 'code' | 'data'> & {
   code: ErrorCode;
-  data: string;
+  data: Json;
 };
 
 const ErrorCodeStruct = union(
