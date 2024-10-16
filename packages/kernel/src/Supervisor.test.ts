@@ -9,25 +9,30 @@ import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
 
-const makeSupervisor = (messageChannel = new MessageChannel()): Supervisor => {
+const makeSupervisor = (
+  messageChannel = new MessageChannel(),
+): {
+  supervisor: Supervisor;
+  stream: DuplexStream<StreamEnvelope, StreamEnvelopeReply>;
+} => {
   const stream = new MessagePortDuplexStream<
     StreamEnvelope,
     StreamEnvelopeReply
   >(messageChannel.port1);
-  return new Supervisor({ id: 'test-id', stream });
+  return { supervisor: new Supervisor({ id: 'test-id', stream }), stream };
 };
 
 describe('Supervisor', () => {
   describe('init', () => {
     it('initializes the Supervisor correctly', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       expect(supervisor).toBeInstanceOf(Supervisor);
       expect(supervisor.id).toBe('test-id');
     });
 
     it('throws if the stream throws', async () => {
       const messageChannel = new MessageChannel();
-      const supervisor = makeSupervisor(messageChannel);
+      const { supervisor } = makeSupervisor(messageChannel);
       const consoleErrorSpy = vi.spyOn(console, 'error');
       messageChannel.port2.postMessage('foobar');
       await delay(10);
@@ -56,7 +61,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Ping messages', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -71,7 +76,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTpInit messages', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -86,7 +91,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTP messages', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({
@@ -116,7 +121,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Evaluate messages', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -131,7 +136,7 @@ describe('Supervisor', () => {
     });
 
     it('logs error on invalid Evaluate messages', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
@@ -149,7 +154,7 @@ describe('Supervisor', () => {
     });
 
     it('handles unknown message types', async () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       await supervisor.handleMessage({
@@ -167,33 +172,31 @@ describe('Supervisor', () => {
 
   describe('terminate', () => {
     it('terminates correctly', async () => {
-      const messageChannel = new MessageChannel();
-      vi.spyOn(messageChannel.port1, 'addEventListener');
-      vi.spyOn(messageChannel.port1, 'removeEventListener');
-      const supervisor = makeSupervisor(messageChannel);
+      const { supervisor, stream } = makeSupervisor();
 
-      expect(messageChannel.port1.addEventListener).toHaveBeenCalledOnce();
-      expect(messageChannel.port1.removeEventListener).not.toHaveBeenCalled();
       await supervisor.terminate();
-      expect(messageChannel.port1.removeEventListener).toHaveBeenCalled();
+      expect(await stream.next()).toStrictEqual({
+        done: true,
+        value: undefined,
+      });
     });
   });
 
   describe('evaluate', () => {
     it('evaluates code correctly', () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const result = supervisor.evaluate('1 + 1');
       expect(result).toBe(2);
     });
 
     it('returns an error message when evaluation fails', () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const result = supervisor.evaluate('invalidCode!');
       expect(result).toBe("Error: Unexpected token '!'");
     });
 
     it('returns unknown when no error message is given', () => {
-      const supervisor = makeSupervisor();
+      const { supervisor } = makeSupervisor();
       const result = supervisor.evaluate('throw new Error("")');
       expect(result).toBe('Error: Unknown');
     });
