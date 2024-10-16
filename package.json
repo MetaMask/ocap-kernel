@@ -28,6 +28,7 @@
     "lint:eslint:root": "yarn eslint ./*.{js,mjs,cjs,ts,mts,cts}",
     "lint:fix": "yarn constraints --fix && yarn lint:eslint:fix && yarn lint:misc --write && yarn lint:dependencies:fix",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path .gitignore",
+    "postinstall": "simple-git-hooks",
     "prepack": "./scripts/prepack.sh",
     "test": "yarn workspaces foreach --all --parallel --verbose run test",
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
@@ -94,6 +95,7 @@
   },
   "lavamoat": {
     "allowScripts": {
+      "$root$": true,
       "@lavamoat/preinstall-always-fail": false,
       "vite>esbuild": false,
       "simple-git-hooks": false

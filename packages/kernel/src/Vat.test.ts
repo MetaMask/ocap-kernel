@@ -1,4 +1,8 @@
 import '@ocap/shims/endoify';
+import {
+  VatCapTpConnectionExistsError,
+  VatCapTpConnectionNotFoundError,
+} from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
@@ -152,7 +156,7 @@ describe('Vat', () => {
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
       await expect(vat.makeCapTp()).rejects.toThrow(
-        `Vat with id "${vat.id}" already has a CapTP connection.`,
+        VatCapTpConnectionExistsError,
       );
     });
 
@@ -175,7 +179,7 @@ describe('Vat', () => {
       });
     });
 
-    it('handles CapTp messages', async () => {
+    it('handles CapTP messages', async () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
       const consoleLogSpy = vi.spyOn(vat.logger, 'log');
@@ -213,7 +217,7 @@ describe('Vat', () => {
     it('throws an error if CapTP connection is not established', async () => {
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
-      ).rejects.toThrow(`Vat with id "v0" does not have a CapTP connection.`);
+      ).rejects.toThrow(VatCapTpConnectionNotFoundError);
     });
 
     it('calls CapTP method with parameters using eventual send', async () => {

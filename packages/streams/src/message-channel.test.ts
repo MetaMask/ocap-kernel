@@ -11,7 +11,7 @@ import {
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 describe.concurrent('initializeMessageChannel', () => {
-  it('calls targetWindow.postMessage', async ({ expect }) => {
+  it('calls postMessage parameter', async ({ expect }) => {
     const targetWindow = new JSDOM().window;
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
     // We intentionally let this one go. It will never settle.
@@ -46,6 +46,44 @@ describe.concurrent('initializeMessageChannel', () => {
     const resolvedValue = await messageChannelP;
     expect(resolvedValue).toBeInstanceOf(MessagePort);
     expect(resolvedValue.onmessage).toBe(null);
+  });
+
+  it('has called portHandler with the local port by the time the promise resolves', async ({
+    expect,
+  }) => {
+    const targetWindow = new JSDOM().window;
+    const portHandler = vi.fn();
+    const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
+    const messageChannelP = initializeMessageChannel(
+      (message, transfer) => targetWindow.postMessage(message, '*', transfer),
+      portHandler,
+    );
+
+    // @ts-expect-error Wrong types for window.postMessage()
+    const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
+    remotePort.postMessage({ type: MessageType.Acknowledge });
+
+    await messageChannelP;
+
+    expect(portHandler).toHaveBeenCalledOnce();
+    expect(portHandler).toHaveBeenCalledWith(expect.any(MessagePort));
+    expect(portHandler).not.toHaveBeenCalledWith(remotePort);
+  });
+
+  it('resolves with the value returned by portHandler', async ({ expect }) => {
+    const targetWindow = new JSDOM().window;
+    const portHandler = vi.fn(() => 'foo');
+    const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
+    const messageChannelP = initializeMessageChannel(
+      (message, transfer) => targetWindow.postMessage(message, '*', transfer),
+      portHandler,
+    );
+
+    // @ts-expect-error Wrong types for window.postMessage()
+    const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
+    remotePort.postMessage({ type: MessageType.Acknowledge });
+
+    expect(await messageChannelP).toBe('foo');
   });
 
   it.for([
@@ -122,13 +160,52 @@ describe('receiveMessagePort', () => {
       }),
     );
 
-    const resolvedValue = await messagePortP;
-
-    expect(resolvedValue).toBe(port2);
+    expect(await messagePortP).toBe(port2);
     expect(portPostMessageSpy).toHaveBeenCalledOnce();
     expect(portPostMessageSpy).toHaveBeenCalledWith({
       type: MessageType.Acknowledge,
     });
+  });
+
+  it('calls portHandler with the received port', async ({ expect }) => {
+    const portHandler = vi.fn();
+    const messagePortP = receiveMessagePort(
+      (listener) => addEventListener('message', listener),
+      (listener) => removeEventListener('message', listener),
+      portHandler,
+    );
+
+    const { port2 } = new MessageChannel();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: MessageType.Initialize },
+        ports: [port2],
+      }),
+    );
+
+    await messagePortP;
+
+    expect(portHandler).toHaveBeenCalledOnce();
+    expect(portHandler).toHaveBeenCalledWith(port2);
+  });
+
+  it('resolves with the value returned by portHandler', async ({ expect }) => {
+    const portHandler = vi.fn(() => 'foo');
+    const messagePortP = receiveMessagePort(
+      (listener) => addEventListener('message', listener),
+      (listener) => removeEventListener('message', listener),
+      portHandler,
+    );
+
+    const { port2 } = new MessageChannel();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: MessageType.Initialize },
+        ports: [port2],
+      }),
+    );
+    expect(await messagePortP).toBe('foo');
   });
 
   it('cleans up event listeners', async ({ expect }) => {
@@ -173,7 +250,7 @@ describe('receiveMessagePort', () => {
     null,
     undefined,
   ])(
-    'ignores message events with unexpected data dispatched on window: %#',
+    'ignores message events with unexpected data: %#',
     async (unexpectedMessage, { expect }) => {
       const messagePortP = receiveMessagePort(
         (listener) => addEventListener('message', listener),
@@ -200,7 +277,7 @@ describe('receiveMessagePort', () => {
   );
 
   it.for([{}, { ports: [] }, { ports: [{}, {}] }])(
-    'ignores message events with unexpected ports dispatched on window: %#',
+    'ignores message events with unexpected ports: %#',
     async (unexpectedPorts, { expect }) => {
       const messagePortP = receiveMessagePort(
         (listener) => addEventListener('message', listener),

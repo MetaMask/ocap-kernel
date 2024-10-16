@@ -43,17 +43,22 @@ const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
  * receive the remote message port. Rejects if the first message received over the
  * channel is not an {@link AcknowledgeMessage}.
  *
+ * A `portHandler` function can be specified to synchronously perform any work with
+ * the local message port before the promise resolves.
+ *
  * @param postMessage - A bound method for posting a message to the receiving realm.
  * Must be able to transfer a message port.
- * @returns A promise that resolves with the local message port, once the receiving
- * realm has acknowledged its receipt of the remote port.
+ * @param portHandler - A function that receives the local message port and returns a
+ * value. Returns the local message port by default.
+ * @returns A promise that resolves with the value returned by `portHandler`.
  */
-export async function initializeMessageChannel(
+export async function initializeMessageChannel<Result = MessagePort>(
   postMessage: (message: unknown, transfer: Transferable[]) => void,
-): Promise<MessagePort> {
+  portHandler: (port: MessagePort) => Result = (port) => port as Result,
+): Promise<Result> {
   const { port1, port2 } = new MessageChannel();
 
-  const { promise, resolve, reject } = makePromiseKit<MessagePort>();
+  const { promise, resolve, reject } = makePromiseKit<Result>();
   // Assigning to the `onmessage` property initializes the port's message queue.
   port1.onmessage = (message: MessageEvent): void => {
     if (!isAckMessage(message.data)) {
@@ -67,7 +72,8 @@ export async function initializeMessageChannel(
       return;
     }
 
-    resolve(port1);
+    port1.onmessage = null;
+    resolve(portHandler(port1));
   };
 
   const initMessage: InitializeMessage = {
@@ -75,12 +81,11 @@ export async function initializeMessageChannel(
   };
   postMessage(initMessage, [port2]);
 
-  return promise
-    .catch((error) => {
-      port1.close();
-      throw error;
-    })
-    .finally(() => (port1.onmessage = null));
+  return promise.catch((error) => {
+    port1.close();
+    port1.onmessage = null;
+    throw error;
+  });
 }
 
 type Listener = (message: MessageEvent) => void;
@@ -92,16 +97,23 @@ type Listener = (message: MessageEvent) => void;
  * after this realm has loaded. Ignores any message events dispatched on the local
  * realm that are not an {@link InitializeMessage}.
  *
- * @param addListener - A bound method to add a message event listener to the sending realm.
- * @param removeListener - A bound method to remove a message event listener from the sending realm.
- * @returns A promise that resolves with a message port that can be used to communicate
- * with the sending realm.
+ * A `portHandler` function can be specified to synchronously perform any work with the
+ * received port before the promise resolves.
+ *
+ * @param addListener - A bound method to add a message event listener to the sending
+ * realm.
+ * @param removeListener - A bound method to remove a message event listener from the
+ * sending realm.
+ * @param portHandler - A function that receives the message port and returns a value.
+ * Returns the message port by default.
+ * @returns A promise that resolves with the value returned by `portHandler`.
  */
-export async function receiveMessagePort(
+export async function receiveMessagePort<Result = MessagePort>(
   addListener: (listener: Listener) => void,
   removeListener: (listener: Listener) => void,
-): Promise<MessagePort> {
-  const { promise, resolve } = makePromiseKit<MessagePort>();
+  portHandler: (port: MessagePort) => Result = (port) => port as Result,
+): Promise<Result> {
+  const { promise, resolve } = makePromiseKit<Result>();
 
   const listener = (message: MessageEvent): void => {
     if (!isInitMessage(message)) {
@@ -112,7 +124,7 @@ export async function receiveMessagePort(
     const port = message.ports[0] as MessagePort;
     const ackMessage: AcknowledgeMessage = { type: MessageType.Acknowledge };
     port.postMessage(ackMessage);
-    resolve(port);
+    resolve(portHandler(port));
   };
 
   addListener(listener);
