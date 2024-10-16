@@ -1,4 +1,12 @@
-import { is, literal, object, optional, string } from '@metamask/superstruct';
+import {
+  is,
+  literal,
+  never,
+  object,
+  optional,
+  string,
+  union,
+} from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import type { MarshaledOcapError } from '../types.js';
@@ -23,10 +31,10 @@ export class StreamReadError extends BaseError {
     [ErrorSentinel]: literal(true),
     message: string(),
     code: literal(ErrorCode.StreamReadError),
-    data: object({
-      vatId: optional(string()),
-      supervisorId: optional(string()),
-    }),
+    data: union([
+      object({ vatId: string(), supervisorId: optional(never()) }),
+      object({ supervisorId: string(), vatId: optional(never()) }),
+    ]),
     stack: optional(string()),
     cause: MarshaledErrorStruct,
   });

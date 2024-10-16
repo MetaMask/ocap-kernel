@@ -95,4 +95,23 @@ describe('StreamReadError', () => {
       'Invalid StreamReadError structure',
     );
   });
+
+  it('throws when both vatId and supervisorId are present in data', () => {
+    const marshaledError: MarshaledOcapError = {
+      [ErrorSentinel]: true,
+      message: 'Unexpected stream read error.',
+      stack: 'customStack',
+      code: ErrorCode.StreamReadError,
+      data: { supervisorId: mockSupervisorId, vatId: mockVatId },
+      cause: {
+        [ErrorSentinel]: true,
+        message: 'Original error',
+        stack: 'bar',
+      },
+    };
+
+    expect(() => StreamReadError.unmarshal(marshaledError)).toThrow(
+      'Invalid StreamReadError structure',
+    );
+  });
 });
