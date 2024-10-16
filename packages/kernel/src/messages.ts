@@ -3,6 +3,18 @@
 export { isCapTpPayload, isCapTpMessage } from './messages/captp.js';
 export type { CapTpPayload, CapTpMessage } from './messages/captp.js';
 
+// Vat worker service commands.
+
+export {
+  VatWorkerServiceCommandMethod,
+  isVatWorkerServiceCommand,
+  isVatWorkerServiceCommandReply,
+} from './messages/vat-worker-service.js';
+export type {
+  VatWorkerServiceCommand,
+  VatWorkerServiceCommandReply,
+} from './messages/vat-worker-service.js';
+
 // Cluster commands.
 
 export {

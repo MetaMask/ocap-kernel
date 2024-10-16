@@ -1,11 +1,13 @@
-import type { VatId } from '@ocap/kernel';
+import type { OcapError } from '@ocap/errors';
+import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
+import {
+  isVatWorkerServiceCommand,
+  VatWorkerServiceCommandMethod,
+} from '@ocap/kernel';
+import type { VatWorkerServiceCommandReply, VatId } from '@ocap/kernel';
 import type { Logger } from '@ocap/utils';
 import { makeHandledCallback, makeLogger } from '@ocap/utils';
 
-import {
-  isVatWorkerServiceMessage,
-  VatWorkerServiceMethod,
-} from './vat-worker-service.js';
 import type {
   AddListener,
   PostMessage,
@@ -20,7 +22,7 @@ export class ExtensionVatWorkerServer {
 
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
 
-  readonly #postMessage: PostMessage;
+  readonly #postMessage: PostMessage<VatWorkerServiceCommandReply>;
 
   readonly #addListener: AddListener;
 
@@ -42,7 +44,7 @@ export class ExtensionVatWorkerServer {
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker server]'.
    */
   constructor(
-    postMessage: PostMessage,
+    postMessage: PostMessage<VatWorkerServiceCommandReply>,
     addListener: (listener: (event: MessageEvent<unknown>) => void) => void,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
@@ -62,32 +64,56 @@ export class ExtensionVatWorkerServer {
   }
 
   async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
-    if (!isVatWorkerServiceMessage(event.data)) {
+    if (!isVatWorkerServiceCommand(event.data)) {
       // This happens when other messages pass through the same channel.
       this.#logger.debug('Received unexpected message', event.data);
       return;
     }
 
-    const { method, id, vatId } = event.data;
+    const { id, payload } = event.data;
+    const { method, params } = payload;
 
-    const handleProblem = async (problem: Error): Promise<void> => {
+    const handleProblem = ({
+      problem,
+      vatId,
+    }: {
+      problem: OcapError;
+      vatId: VatId;
+    }): void => {
       this.#logger.error(
         `Error handling ${method} for vatId ${vatId}`,
         problem,
       );
-      this.#postMessage({ method, id, vatId, error: problem });
+      this.#postMessage({
+        id,
+        // TODO(#170): use @ocap/errors marshaling.
+        payload: {
+          method,
+          params: { vatId, error: `${problem.code}: ${vatId}` },
+        },
+      });
     };
 
     switch (method) {
-      case VatWorkerServiceMethod.Launch:
-        await this.#launch(vatId)
-          .then((port) => this.#postMessage({ method, id, vatId }, [port]))
-          .catch(handleProblem);
+      case VatWorkerServiceCommandMethod.Launch:
+        await this.#launch(params.vatId)
+          .then((port) => this.#postMessage({ id, payload }, [port]))
+          .catch(async (problem) => handleProblem({ problem, ...params }));
         break;
-      case VatWorkerServiceMethod.Terminate:
-        await this.#terminate(vatId)
-          .then(() => this.#postMessage({ method, id, vatId }))
-          .catch(handleProblem);
+      case VatWorkerServiceCommandMethod.Terminate:
+        await this.#terminate(params.vatId)
+          .then(() => this.#postMessage({ id, payload }))
+          .catch(async (problem) => handleProblem({ problem, ...params }));
+        break;
+      case VatWorkerServiceCommandMethod.TerminateAll:
+        await Promise.all(
+          Array.from(this.#vatWorkers.keys()).map(async (vatId) =>
+            this.#terminate(vatId).catch((problem) => {
+              // eslint-disable-next-line @typescript-eslint/only-throw-error
+              throw { problem, vatId };
+            }),
+          ),
+        ).then(() => this.#postMessage({ id, payload }), handleProblem);
         break;
       /* v8 ignore next 6: Not known to be possible. */
       default:
@@ -101,7 +127,7 @@ export class ExtensionVatWorkerServer {
 
   async #launch(vatId: VatId): Promise<MessagePort> {
     if (this.#vatWorkers.has(vatId)) {
-      throw new Error(`Worker for vat ${vatId} already exists.`);
+      throw new VatAlreadyExistsError(vatId);
     }
     const vatWorker = this.#makeWorker(vatId);
     const [port] = await vatWorker.launch();
@@ -112,7 +138,7 @@ export class ExtensionVatWorkerServer {
   async #terminate(vatId: VatId): Promise<void> {
     const vatWorker = this.#vatWorkers.get(vatId);
     if (!vatWorker) {
-      throw new Error(`Worker for vat ${vatId} does not exist.`);
+      throw new VatDeletedError(vatId);
     }
     await vatWorker.terminate();
     this.#vatWorkers.delete(vatId);

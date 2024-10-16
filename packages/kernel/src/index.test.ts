@@ -1,3 +1,4 @@
+import '@ocap/shims/endoify';
 import { describe, it, expect } from 'vitest';
 
 import * as indexModule from './index.js';
@@ -7,7 +8,8 @@ describe('index', () => {
     expect(Object.keys(indexModule)).toStrictEqual(
       expect.arrayContaining(
         ['Kernel', 'Vat'].concat(
-          ['Cluster', 'Kernel', 'Vat'].flatMap((value) => [
+          ['Cluster', 'Kernel', 'Vat', 'VatWorkerService'].flatMap((value) => [
+            `${value}CommandMethod`,
             `is${value}Command`,
             `is${value}CommandReply`,
           ]),

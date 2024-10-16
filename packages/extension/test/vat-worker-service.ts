@@ -1,4 +1,5 @@
 import type { VatId } from '@ocap/kernel';
+import { makeCounter } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { vi } from 'vitest';
 
@@ -6,17 +7,31 @@ import type { VatWorker } from '../src/vat-worker-service.js';
 import { ExtensionVatWorkerClient } from '../src/VatWorkerClient.js';
 import { ExtensionVatWorkerServer } from '../src/VatWorkerServer.js';
 
-type MakeVatWorker = (vatId: VatId) => VatWorker;
+type MakeVatWorker = (vatId: VatId) => VatWorker & { kernelPort: MessagePort };
 
 export const getMockMakeWorker = (
-  kernelPort: MessagePort,
-): [VatWorker, MakeVatWorker] => {
-  const mockWorker = {
-    launch: vi.fn().mockResolvedValue([kernelPort, {}]),
-    terminate: vi.fn().mockResolvedValue(undefined),
-  };
+  nWorkers: number = 1,
+): [MakeVatWorker, ...VatWorker[]] => {
+  const counter = makeCounter(-1);
+  const mockWorkers = Array(nWorkers)
+    .fill(0)
+    .map(() => {
+      const {
+        // port1: vatPort,
+        port2: kernelPort,
+      } = new MessageChannel();
+      return {
+        launch: vi.fn().mockResolvedValue([kernelPort, {}]),
+        terminate: vi.fn().mockResolvedValue(undefined),
+        // vatPort,
+        kernelPort,
+      };
+    });
 
-  return [mockWorker, vi.fn().mockReturnValue(mockWorker)];
+  return [
+    vi.fn().mockImplementation(() => mockWorkers[counter()]),
+    ...mockWorkers,
+  ];
 };
 
 export const makeTestClient = (

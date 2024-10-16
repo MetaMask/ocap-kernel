@@ -1,4 +1,12 @@
 import '@ocap/shims/endoify';
+// VatAleadyExistsError and VatDeletedError appears in TODO(#170) comments.
+import {
+  ErrorCode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  VatAlreadyExistsError,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  VatDeletedError,
+} from '@ocap/errors';
 import type { VatId } from '@ocap/kernel';
 import { MessagePortDuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
@@ -13,17 +21,16 @@ import {
   makeTestServer,
 } from '../test/vat-worker-service.js';
 
-describe('VatWorker', () => {
+// low key integration test
+describe('VatWorkerService', () => {
   let serverPort: MessagePort;
   let clientPort: MessagePort;
 
   let server: ExtensionVatWorkerServer;
   let client: ExtensionVatWorkerClient;
 
-  // let vatPort: MessagePort;
-  let kernelPort: MessagePort;
-
   let mockWorker: VatWorker;
+  let mockWorkers: VatWorker[];
 
   let mockMakeWorker: (vatId: VatId) => VatWorker;
   let mockLaunchWorker: MockInstance;
@@ -34,48 +41,73 @@ describe('VatWorker', () => {
     serverPort = serviceMessageChannel.port1;
     clientPort = serviceMessageChannel.port2;
 
-    const deliveredMessageChannel = new MessageChannel();
-    // vatPort = deliveredMessageChannel.port1;
-    kernelPort = deliveredMessageChannel.port2;
+    [mockMakeWorker, ...mockWorkers] = getMockMakeWorker(3);
 
-    [mockWorker, mockMakeWorker] = getMockMakeWorker(kernelPort);
-
-    mockLaunchWorker = vi.spyOn(mockWorker, 'launch');
-    mockTerminateWorker = vi.spyOn(mockWorker, 'terminate');
+    client = makeTestClient(clientPort);
+    server = makeTestServer({ serverPort, makeWorker: mockMakeWorker });
+    server.start();
   });
 
-  // low key integration test
-  describe('Service', () => {
-    beforeEach(() => {
-      client = makeTestClient(clientPort);
-      server = makeTestServer({ serverPort, makeWorker: mockMakeWorker });
-      server.start();
-    });
+  it('launches and terminates a worker', async () => {
+    mockWorker = mockWorkers[0];
+    mockLaunchWorker = vi.spyOn(mockWorker, 'launch');
+    mockTerminateWorker = vi.spyOn(mockWorker, 'terminate');
 
-    it('launches and terminates a worker', async () => {
-      const vatId: VatId = 'v0';
-      const stream = await client.launch(vatId);
+    const vatId: VatId = 'v0';
+    const stream = await client.launch(vatId);
+    expect(stream).toBeInstanceOf(MessagePortDuplexStream);
+    expect(mockLaunchWorker).toHaveBeenCalledOnce();
+    expect(mockTerminateWorker).not.toHaveBeenCalled();
+
+    await client.terminate(vatId);
+    expect(mockLaunchWorker).toHaveBeenCalledOnce();
+    expect(mockTerminateWorker).toHaveBeenCalledOnce();
+  });
+
+  it('terminates all workers', async () => {
+    const mockLaunches = mockWorkers.map((worker) =>
+      vi.spyOn(worker, 'launch'),
+    );
+    const mockTerminates = mockWorkers.map((worker) =>
+      vi.spyOn(worker, 'terminate'),
+    );
+
+    // launch many workers
+    for (let i = 0; i < mockWorkers.length; i++) {
+      const stream = await client.launch(`v${i}`);
       expect(stream).toBeInstanceOf(MessagePortDuplexStream);
-      expect(mockLaunchWorker).toHaveBeenCalledOnce();
-      expect(mockTerminateWorker).not.toHaveBeenCalled();
+    }
 
-      await client.terminate(vatId);
-      expect(mockLaunchWorker).toHaveBeenCalledOnce();
-      expect(mockTerminateWorker).toHaveBeenCalledOnce();
-    });
+    // each worker had its launch method called
+    for (let i = 0; i < mockWorkers.length; i++) {
+      expect(mockLaunches[i]).toHaveBeenCalledOnce();
+      expect(mockTerminates[i]).not.toHaveBeenCalled();
+    }
 
-    it('throws when terminating a nonexistent worker', async () => {
-      await expect(async () => await client.terminate('v0')).rejects.toThrow(
-        /vat v0 does not exist/u,
-      );
-    });
+    // terminate all workers
+    await client.terminateAll();
 
-    it('throws when launching the same worker twice', async () => {
-      const vatId: VatId = 'v0';
-      await client.launch(vatId);
-      await expect(async () => await client.launch(vatId)).rejects.toThrow(
-        /vat v0 already exists/u,
-      );
-    });
+    // each worker had its terminate method called
+    for (let i = 0; i < mockWorkers.length; i++) {
+      expect(mockLaunches[i]).toHaveBeenCalledOnce();
+      expect(mockTerminates[i]).toHaveBeenCalledOnce();
+    }
+  });
+
+  it('throws when terminating a nonexistent worker', async () => {
+    const vatId: VatId = 'v0';
+    await expect(async () => await client.terminate(vatId)).rejects.toThrow(
+      /** TODO(#170): use @ocap/errors marshaling. {@link VatDeletedError} */
+      RegExp(`${ErrorCode.VatDeleted}.*${vatId}`, 'u'),
+    );
+  });
+
+  it('throws when launching the same worker twice', async () => {
+    const vatId: VatId = 'v0';
+    await client.launch(vatId);
+    await expect(async () => await client.launch(vatId)).rejects.toThrow(
+      /** TODO(#170): use @ocap/errors marshaling. {@link VatAlreadyExistsError} */
+      RegExp(`${ErrorCode.VatAlreadyExists}.*${vatId}`, 'u'),
+    );
   });
 });

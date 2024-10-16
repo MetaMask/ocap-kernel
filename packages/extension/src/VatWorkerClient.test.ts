@@ -1,11 +1,11 @@
 import '@ocap/shims/endoify';
-import type { VatId } from '@ocap/kernel';
+import type { VatId, VatWorkerServiceCommandReply } from '@ocap/kernel';
+import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { delay } from '@ocap/test-utils';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { VatWorkerServiceMethod } from './vat-worker-service.js';
 import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 import { makeTestClient } from '../test/vat-worker-service.js';
 
@@ -40,16 +40,18 @@ describe('ExtensionVatWorkerClient', () => {
 
   it.each`
     method
-    ${VatWorkerServiceMethod.Launch}
-    ${VatWorkerServiceMethod.Terminate}
+    ${VatWorkerServiceCommandMethod.Launch}
+    ${VatWorkerServiceCommandMethod.Terminate}
   `(
     "calls logger.error when receiving a $method reply it wasn't waiting for",
     async ({ method }) => {
       const errorSpy = vi.spyOn(clientLogger, 'error');
-      const unexpectedReply = {
-        method,
-        id: 9,
-        vatId: 'v0',
+      const unexpectedReply: VatWorkerServiceCommandReply = {
+        id: 'm9',
+        payload: {
+          method,
+          params: { vatId: 'v0' },
+        },
       };
       serverPort.postMessage(unexpectedReply);
       await delay(100);
@@ -61,15 +63,17 @@ describe('ExtensionVatWorkerClient', () => {
     },
   );
 
-  it(`calls logger.error when receiving a ${VatWorkerServiceMethod.Launch} reply without a port`, async () => {
+  it(`calls logger.error when receiving a ${VatWorkerServiceCommandMethod.Launch} reply without a port`, async () => {
     const errorSpy = vi.spyOn(clientLogger, 'error');
     const vatId: VatId = 'v0';
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     client.launch(vatId);
     const reply = {
-      method: VatWorkerServiceMethod.Launch,
-      id: 1,
-      vatId: 'v0',
+      id: 'm1',
+      payload: {
+        method: VatWorkerServiceCommandMethod.Launch,
+        params: { vatId: 'v0' },
+      },
     };
     serverPort.postMessage(reply);
     await delay(100);
