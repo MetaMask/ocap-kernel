@@ -5,7 +5,7 @@ export { VatAlreadyExistsError } from './errors/VatAlreadyExistsError.js';
 export { VatDeletedError } from './errors/VatDeletedError.js';
 export { VatNotFoundError } from './errors/VatNotFoundError.js';
 export { StreamReadError } from './errors/StreamReadError.js';
-export { ErrorCode, ErrorSentinel } from './types.js';
+export { ErrorCode, ErrorSentinel } from './constants.js';
 export { toError } from './utils/toError.js';
 export { isOcapError } from './utils/isOcapError.js';
 export { marshalError } from './marshal/marshalError.js';

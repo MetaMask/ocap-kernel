@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { VatNotFoundError } from './VatNotFoundError.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
 
 describe('VatNotFoundError', () => {
   const mockVatId = 'mockVatId';

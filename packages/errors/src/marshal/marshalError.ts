@@ -1,7 +1,7 @@
 import { getSafeJson } from '@metamask/utils';
 
+import { ErrorSentinel } from '../constants.js';
 import type { MarshaledError } from '../types.js';
-import { ErrorSentinel } from '../types.js';
 import { isOcapError } from '../utils/isOcapError.js';
 
 /**

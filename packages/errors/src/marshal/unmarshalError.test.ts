@@ -2,10 +2,10 @@ import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, it, expect } from 'vitest';
 
 import { unmarshalError } from './unmarshalError.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 import { StreamReadError } from '../errors/StreamReadError.js';
 import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
 import type { OcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
 import { isOcapError } from '../utils/isOcapError.js';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
@@ -50,7 +50,7 @@ describe('unmarshalError', () => {
     );
   });
 
-  it('should unmarshal a custom error class', () => {
+  it('should unmarshal an ocap error class', () => {
     const data = { vatId: 'v123' };
     const marshaledError = {
       [ErrorSentinel]: true,
@@ -71,7 +71,7 @@ describe('unmarshalError', () => {
     expect(unmarshaledError.data).toStrictEqual(data);
   });
 
-  it('should unmarshal a custom error class with a cause', () => {
+  it('should unmarshal an ocap error class with a cause', () => {
     const data = { vatId: 'v123' };
     const marshaledError = {
       [ErrorSentinel]: true,

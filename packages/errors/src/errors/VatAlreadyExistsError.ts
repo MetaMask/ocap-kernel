@@ -9,8 +9,12 @@ import {
 } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
+import {
+  ErrorCode,
+  ErrorSentinel,
+  MarshaledErrorStruct,
+} from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel, MarshaledErrorStruct } from '../types.js';
 
 export class VatAlreadyExistsError extends BaseError {
   constructor(vatId: string) {

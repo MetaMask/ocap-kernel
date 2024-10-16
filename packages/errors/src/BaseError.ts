@@ -1,6 +1,7 @@
 import type { Json } from '@metamask/utils';
 
-import type { ErrorCode, MarshaledOcapError, OcapError } from './types.js';
+import type { ErrorCode } from './constants.js';
+import type { MarshaledOcapError, OcapError } from './types.js';
 
 export class BaseError extends Error implements OcapError {
   public readonly code: ErrorCode;

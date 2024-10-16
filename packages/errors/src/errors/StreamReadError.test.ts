@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { StreamReadError } from './StreamReadError.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
 
 describe('StreamReadError', () => {
   const mockVatId = 'mockVatId';

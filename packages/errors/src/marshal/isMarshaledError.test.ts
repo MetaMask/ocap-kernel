@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { isMarshaledError } from './isMarshaledError.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 
 describe('isMarshaledError', () => {
   it.each([

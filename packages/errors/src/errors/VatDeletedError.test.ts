@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { VatDeletedError } from './VatDeletedError.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
 
 describe('VatDeletedError', () => {
   const mockVatId = 'mockVatId';

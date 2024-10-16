@@ -1,7 +1,7 @@
 import { is } from '@metamask/superstruct';
 
+import { MarshaledErrorStruct } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { MarshaledErrorStruct } from '../types.js';
 
 /**
  * Checks if a value is a {@link MarshaledOcapError}.

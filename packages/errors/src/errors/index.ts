@@ -4,7 +4,7 @@ import { VatCapTpConnectionExistsError } from './VatCapTpConnectionExistsError.j
 import { VatCapTpConnectionNotFoundError } from './VatCapTpConnectionNotFoundError.js';
 import { VatDeletedError } from './VatDeletedError.js';
 import { VatNotFoundError } from './VatNotFoundError.js';
-import { ErrorCode } from '../types.js';
+import { ErrorCode } from '../constants.js';
 
 export const errorClasses: { [K in ErrorCode]: unknown } = {
   [ErrorCode.StreamReadError]: StreamReadError,

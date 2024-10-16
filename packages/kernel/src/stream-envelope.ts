@@ -8,7 +8,7 @@ import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
 
 enum EnvelopeLabel {
   Command = 'command',
-  CapTP = 'capTp',
+  CapTp = 'capTp',
 }
 
 // makeStreamEnvelopeKit requires an enum of labels but typescript

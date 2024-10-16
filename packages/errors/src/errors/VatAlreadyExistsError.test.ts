@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { VatAlreadyExistsError } from './VatAlreadyExistsError.js';
+import { ErrorCode, ErrorSentinel } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
-import { ErrorCode, ErrorSentinel } from '../types.js';
 
 describe('VatAlreadyExistsError', () => {
   const mockVatId = 'mockVatId';
