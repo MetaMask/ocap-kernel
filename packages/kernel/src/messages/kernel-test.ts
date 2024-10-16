@@ -35,13 +35,7 @@ export const KernelTestCommandMethod = kernelTestCommandKit.methods;
 export type KernelTestCommand = typeof kernelTestCommandKit.send;
 export const isKernelTestCommand: TypeGuard<KernelTestCommand> =
   kernelTestCommandKit.sendGuard;
-export type KernelTestCommandFunction<Return> = ReturnType<
-  typeof kernelTestCommandKit.sendFunction<Return>
->;
 
 export type KernelTestCommandReply = typeof kernelTestCommandKit.reply;
 export const isKernelTestCommandReply: TypeGuard<KernelTestCommandReply> =
   kernelTestCommandKit.replyGuard;
-export type KernelTestCommandReplyFunction<Return> = ReturnType<
-  typeof kernelTestCommandKit.replyFunction<Return>
->;

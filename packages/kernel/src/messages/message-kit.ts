@@ -3,8 +3,7 @@ import '@ocap/shims/endoify';
 import type { Json } from '@metamask/utils';
 import type { ExtractGuardType, TypeGuard } from '@ocap/utils';
 
-import { isMessageLike, type MessageLike } from './message.js';
-import type { UnionToIntersection } from './utils.js';
+import { isMessageLike } from './message.js';
 import { uncapitalize } from './utils.js';
 
 // Message kit.
@@ -25,14 +24,6 @@ type MessageUnion<Source extends SourceLike, Index extends 0 | 1> = {
 export type Send<Source extends SourceLike> = MessageUnion<Source, 0>;
 
 export type Reply<Source extends SourceLike> = MessageUnion<Source, 1>;
-
-type MessageFunction<Union extends MessageLike, Return> = UnionToIntersection<
-  {
-    [Key in Union as Key['method']]: Key['params'] extends null
-      ? (method: Key['method']) => Return
-      : (method: Key['method'], params: Key['params']) => Return;
-  }[Union['method']]
->;
 
 /**
  * A typescript utility used to reduce boilerplate in message type declarations.
@@ -79,12 +70,6 @@ const makeGuard = <Source extends SourceLike, Index extends 0 | 1>(
     guards[value.method as keyof typeof guards](value.params);
 };
 
-// Applying ReturnType to the type of this function allows us to curry the
-// template parameter Return.
-type MakeMessageFunction<Union extends MessageLike> = <
-  Return,
->() => MessageFunction<Union, Return>;
-
 /**
  * An object type encapsulating all of the schematics that define a functional
  * group of messages.
@@ -94,10 +79,8 @@ export type MessageKit<Source extends SourceLike> = {
   methods: Methods<Source>;
   send: Send<Source>;
   sendGuard: TypeGuard<Send<Source>>;
-  sendFunction: MakeMessageFunction<Send<Source>>;
   reply: Reply<Source>;
   replyGuard: TypeGuard<Reply<Source>>;
-  replyFunction: MakeMessageFunction<Reply<Source>>;
 };
 
 export const makeMessageKit = <Source extends SourceLike>(

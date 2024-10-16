@@ -16,9 +16,7 @@ export {
 } from './messages/cluster.js';
 export type {
   ClusterCommand,
-  ClusterCommandFunction,
   ClusterCommandReply,
-  ClusterCommandReplyFunction,
 } from './messages/cluster.js';
 
 // Kernel commands.
@@ -28,12 +26,7 @@ export {
   isKernelCommand,
   isKernelCommandReply,
 } from './messages/kernel.js';
-export type {
-  KernelCommand,
-  KernelCommandFunction,
-  KernelCommandReply,
-  KernelCommandReplyFunction,
-} from './messages/kernel.js';
+export type { KernelCommand, KernelCommandReply } from './messages/kernel.js';
 
 // Vat commands.
 

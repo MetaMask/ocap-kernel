@@ -1,7 +1,7 @@
 import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
 import { ClusterCommandMethod, isClusterCommandReply } from '@ocap/kernel';
-import type { ClusterCommand, ClusterCommandFunction } from '@ocap/kernel';
+import type { ClusterCommand } from '@ocap/kernel';
 import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
@@ -25,52 +25,63 @@ async function main(): Promise<void> {
   });
 
   /**
-   * Send a message to the offscreen document.
+   * Send a command to the offscreen document.
    *
-   * @param method - The message type.
-   * @param params - The message data.
-   * @param params.name - The name to include in the message.
+   * @param command - The command to send.
    */
-  const sendClusterCommand: ClusterCommandFunction<Promise<void>> = async (
-    method: ClusterCommand['method'],
-    params?: ClusterCommand['params'],
-  ) => {
-    await offscreenStream.write({
-      method,
-      params: params ?? null,
-    });
+  const sendClusterCommand = async (command: ClusterCommand): Promise<void> => {
+    await offscreenStream.write(command);
   };
 
   // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
   Object.defineProperties(globalThis.kernel, {
     capTpCall: {
       value: async (method: string, params: Json[]) =>
-        sendClusterCommand(ClusterCommandMethod.CapTpCall, { method, params }),
+        sendClusterCommand({
+          method: ClusterCommandMethod.CapTpCall,
+          params: { method, params },
+        }),
     },
     evaluate: {
       value: async (source: string) =>
-        sendClusterCommand(ClusterCommandMethod.Evaluate, source),
+        sendClusterCommand({
+          method: ClusterCommandMethod.Evaluate,
+          params: source,
+        }),
     },
     ping: {
-      value: async () => sendClusterCommand(ClusterCommandMethod.Ping),
+      value: async () =>
+        sendClusterCommand({
+          method: ClusterCommandMethod.Ping,
+          params: null,
+        }),
     },
     sendMessage: {
-      value: sendClusterCommand,
+      value: async (message: Json) => await offscreenStream.write(message),
     },
     kvGet: {
       value: async (key: string) =>
-        sendClusterCommand(ClusterCommandMethod.KVGet, key),
+        sendClusterCommand({
+          method: ClusterCommandMethod.KVGet,
+          params: key,
+        }),
     },
     kvSet: {
       value: async (key: string, value: string) =>
-        sendClusterCommand(ClusterCommandMethod.KVSet, { key, value }),
+        sendClusterCommand({
+          method: ClusterCommandMethod.KVSet,
+          params: { key, value },
+        }),
     },
   });
   harden(globalThis.kernel);
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
-    sendClusterCommand(ClusterCommandMethod.Ping).catch(console.error);
+    sendClusterCommand({
+      method: ClusterCommandMethod.Ping,
+      params: null,
+    }).catch(console.error);
   });
 
   // Handle replies from the offscreen document
