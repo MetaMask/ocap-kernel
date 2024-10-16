@@ -1,8 +1,4 @@
-// Base messages.
-
-export type { VatMessageId } from './messages/vat-message.js';
-
-// CapTP.
+// CapTp.
 
 export { isCapTpPayload, isCapTpMessage } from './messages/captp.js';
 export type { CapTpPayload, CapTpMessage } from './messages/captp.js';

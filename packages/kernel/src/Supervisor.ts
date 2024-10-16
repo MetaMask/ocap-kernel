@@ -3,12 +3,7 @@ import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
-import type {
-  CapTpMessage,
-  VatCommand,
-  VatCommandReply,
-  VatMessageId,
-} from './messages.js';
+import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
 import { VatCommandMethod } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import {
@@ -127,7 +122,7 @@ export class Supervisor {
    * @param payload - The payload to reply with.
    */
   async replyToMessage(
-    id: VatMessageId,
+    id: VatCommand['id'],
     payload: VatCommandReply['payload'],
   ): Promise<void> {
     await this.#stream.write(wrapStreamCommandReply({ id, payload }));

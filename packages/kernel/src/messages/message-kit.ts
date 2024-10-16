@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
 
-import type { Json } from '@metamask/utils';
+import { isObject, type Json } from '@metamask/utils';
 import type { ExtractGuardType, TypeGuard } from '@ocap/utils';
 
 import { isMessageLike } from './message.js';
@@ -8,9 +8,9 @@ import { uncapitalize } from './utils.js';
 
 // Message kit.
 
-type BoolExpr = (value: unknown) => boolean;
+export type BoolExpr = (value: unknown) => boolean;
 
-type SourceLike = Record<string, [BoolExpr, BoolExpr]>;
+export type SourceLike = Record<string, [BoolExpr, BoolExpr]>;
 
 type MessageUnion<Source extends SourceLike, Index extends 0 | 1> = {
   [Key in keyof Source]: Key extends string
@@ -94,4 +94,45 @@ export const makeMessageKit = <Source extends SourceLike>(
     sendGuard: makeGuard(source, methods, 0),
     replyGuard: makeGuard(source, methods, 1),
   } as MessageKit<Source>;
+};
+
+const makeIsIdentified =
+  <Identifier, Payload extends Json>(
+    isId: TypeGuard<Identifier>,
+    isPayload: TypeGuard<Payload>,
+  ) =>
+  (value: unknown): value is { id: Identifier; payload: Payload } =>
+    isObject(value) && isId(value.id) && isPayload(value.payload);
+
+/**
+ * An object type encapsulating all of the schematics that define a functional
+ * group of messages as a payload wrapped with a message id.
+ */
+type IdentifiedMessageKit<
+  Source extends SourceLike,
+  MessageId extends string,
+> = {
+  source: Source;
+  methods: Methods<Source>;
+  send: { id: MessageId; payload: Send<Source> };
+  sendGuard: TypeGuard<{ id: MessageId; payload: Send<Source> }>;
+  reply: { id: MessageId; payload: Reply<Source> };
+  replyGuard: TypeGuard<{ id: MessageId; payload: Reply<Source> }>;
+};
+
+export const makeIdentifiedMessageKit = <
+  Source extends SourceLike,
+  MessageId extends string,
+>(
+  source: Source,
+  isMessageId: TypeGuard<MessageId>,
+): IdentifiedMessageKit<Source, MessageId> => {
+  const messageKit = makeMessageKit(source);
+
+  return {
+    source: messageKit.source,
+    methods: messageKit.methods,
+    sendGuard: makeIsIdentified(isMessageId, messageKit.sendGuard),
+    replyGuard: makeIsIdentified(isMessageId, messageKit.replyGuard),
+  } as IdentifiedMessageKit<Source, MessageId>;
 };

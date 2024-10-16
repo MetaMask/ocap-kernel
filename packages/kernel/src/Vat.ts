@@ -17,7 +17,6 @@ import type {
   CapTpPayload,
   VatCommandReply,
   VatCommand,
-  VatMessageId,
 } from './messages.js';
 import type {
   StreamEnvelope,
@@ -45,7 +44,8 @@ export class Vat {
 
   readonly #messageCounter: () => number;
 
-  readonly unresolvedMessages: Map<VatMessageId, PromiseCallbacks> = new Map();
+  readonly unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
+    new Map();
 
   readonly streamEnvelopeReplyHandler: StreamEnvelopeReplyHandler;
 
@@ -185,7 +185,7 @@ export class Vat {
    *
    * @returns The message ID.
    */
-  readonly #nextMessageId = (): VatMessageId => {
+  readonly #nextMessageId = (): VatCommand['id'] => {
     return `${this.id}:${this.#messageCounter()}`;
   };
 }
