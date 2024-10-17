@@ -6,6 +6,8 @@ import metamaskTypescriptConfig from '@metamask/eslint-config-typescript';
 import metamaskVitestConfig from '@metamask/eslint-config-vitest';
 import globals from 'globals';
 
+import shimOverrides from './packages/shims/eslint.overrides.mjs';
+
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
   ...metamaskConfig,
@@ -89,6 +91,12 @@ const config = [
       'vitest/no-conditional-in-test': 'off',
     },
   },
+
+  // Package-specific overrides to ensure lint-staged functions correctly.
+  ...shimOverrides.map((options) => ({
+    ...options,
+    files: ['**/packages/shims/**/*'],
+  })),
 ];
 
 export default config;
