@@ -1,6 +1,6 @@
 import { is } from '@metamask/superstruct';
 
-import { MarshaledErrorStruct } from '../constants.js';
+import { MarshaledOcapErrorStruct } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
 
 /**
@@ -12,9 +12,5 @@ import type { MarshaledOcapError } from '../types.js';
 export function isMarshaledOcapError(
   value: unknown,
 ): value is MarshaledOcapError {
-  return (
-    is(value, MarshaledErrorStruct) &&
-    Boolean(value.data) &&
-    Boolean(value.code)
-  );
+  return is(value, MarshaledOcapErrorStruct);
 }

@@ -10,7 +10,7 @@ import {
 
 import { BaseError } from '../BaseError.js';
 import {
-  baseErrorStructSchema,
+  marshaledErrorSchema,
   ErrorCode,
   MarshaledErrorStruct,
 } from '../constants.js';
@@ -33,7 +33,7 @@ export class StreamReadError extends BaseError {
    * A superstruct struct for validating marshaled {@link StreamReadError} instances.
    */
   public static struct = object({
-    ...baseErrorStructSchema,
+    ...marshaledErrorSchema,
     code: literal(ErrorCode.StreamReadError),
     data: union([
       object({ vatId: string(), supervisorId: optional(never()) }),

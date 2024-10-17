@@ -3,7 +3,7 @@ import { lazy, literal, optional, string, union } from '@metamask/superstruct';
 import { JsonStruct, object } from '@metamask/utils';
 import type { NonEmptyArray } from '@metamask/utils';
 
-import type { MarshaledError } from './types.js';
+import type { MarshaledError, MarshaledOcapError } from './types.js';
 
 /**
  * Enum defining all error codes for Ocap errors.
@@ -28,26 +28,28 @@ const ErrorCodeStruct = union(
   >,
 );
 
-/**
- * Struct to validate marshaled errors.
- */
-export const MarshaledErrorStruct = object({
+export const marshaledErrorSchema = {
   [ErrorSentinel]: literal(true),
   message: string(),
   code: optional(ErrorCodeStruct),
   data: optional(JsonStruct),
   stack: optional(string()),
+};
+
+/**
+ * Struct to validate marshaled errors.
+ */
+export const MarshaledErrorStruct = object({
+  ...marshaledErrorSchema,
   cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
 }) as Struct<MarshaledError>;
 
 /**
- * Base schema for validating Ocap error classes during error marshaling.
+ * Struct to validate marshaled ocap errors.
  */
-export const baseErrorStructSchema = {
-  [ErrorSentinel]: literal(true),
-  message: string(),
+export const MarshaledOcapErrorStruct = object({
+  ...marshaledErrorSchema,
   code: ErrorCodeStruct,
   data: JsonStruct,
-  stack: optional(string()),
-  cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
-};
+  cause: optional(union([string(), lazy(() => MarshaledOcapErrorStruct)])),
+}) as Struct<MarshaledOcapError>;

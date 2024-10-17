@@ -1,7 +1,7 @@
 import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
-import { baseErrorStructSchema, ErrorCode } from '../constants.js';
+import { marshaledErrorSchema, ErrorCode } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
 
 export class VatAlreadyExistsError extends BaseError {
@@ -16,7 +16,7 @@ export class VatAlreadyExistsError extends BaseError {
    * A superstruct struct for validating marshaled {@link VatAlreadyExistsError} instances.
    */
   public static struct = object({
-    ...baseErrorStructSchema,
+    ...marshaledErrorSchema,
     code: literal(ErrorCode.VatAlreadyExists),
     data: object({
       vatId: string(),

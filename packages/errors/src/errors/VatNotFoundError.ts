@@ -1,7 +1,7 @@
 import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
-import { baseErrorStructSchema, ErrorCode } from '../constants.js';
+import { marshaledErrorSchema, ErrorCode } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
 
 export class VatNotFoundError extends BaseError {
@@ -14,7 +14,7 @@ export class VatNotFoundError extends BaseError {
    * A superstruct struct for validating marshaled {@link VatNotFoundError} instances.
    */
   public static struct = object({
-    ...baseErrorStructSchema,
+    ...marshaledErrorSchema,
     code: literal(ErrorCode.VatNotFound),
     data: object({
       vatId: string(),

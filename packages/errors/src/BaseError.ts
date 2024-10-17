@@ -6,7 +6,7 @@ import type { MarshaledOcapError, OcapError } from './types.js';
 export class BaseError extends Error implements OcapError {
   public readonly code: ErrorCode;
 
-  public data: Json | undefined;
+  public readonly data: Json | undefined;
 
   constructor(code: ErrorCode, message: string, data?: Json, cause?: unknown) {
     super(message, { cause });
@@ -15,6 +15,7 @@ export class BaseError extends Error implements OcapError {
     this.code = code;
     this.data = data;
     this.cause = cause;
+    harden(this);
   }
 
   /**
@@ -26,3 +27,4 @@ export class BaseError extends Error implements OcapError {
     throw new Error('Unmarshal method not implemented');
   }
 }
+harden(BaseError);
