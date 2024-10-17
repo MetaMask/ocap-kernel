@@ -23,6 +23,7 @@ export class VatCapTpConnectionNotFoundError extends BaseError {
       'Vat does not have a CapTP connection.',
       { vatId },
     );
+    harden(this);
   }
 
   /**
@@ -54,3 +55,4 @@ export class VatCapTpConnectionNotFoundError extends BaseError {
     return new VatCapTpConnectionNotFoundError(marshaledError.data.vatId);
   }
 }
+harden(VatCapTpConnectionNotFoundError);

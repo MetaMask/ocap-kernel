@@ -19,6 +19,7 @@ import type { MarshaledOcapError } from '../types.js';
 export class VatDeletedError extends BaseError {
   constructor(vatId: string) {
     super(ErrorCode.VatDeleted, 'Vat was deleted.', { vatId });
+    harden(this);
   }
 
   /**
@@ -48,3 +49,4 @@ export class VatDeletedError extends BaseError {
     return new VatDeletedError(marshaledError.data.vatId);
   }
 }
+harden(VatDeletedError);

@@ -12,6 +12,7 @@ const config = mergeConfig(
   defineConfig({
     test: {
       pool: 'vmThreads',
+      setupFiles: '../test-utils/src/env/mock-endo.ts',
     },
   }),
 );

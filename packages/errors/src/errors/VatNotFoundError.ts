@@ -19,6 +19,7 @@ import type { MarshaledOcapError } from '../types.js';
 export class VatNotFoundError extends BaseError {
   constructor(vatId: string) {
     super(ErrorCode.VatNotFound, 'Vat does not exist.', { vatId });
+    harden(this);
   }
 
   /**
@@ -50,3 +51,4 @@ export class VatNotFoundError extends BaseError {
     return new VatNotFoundError(marshaledError.data.vatId);
   }
 }
+harden(VatNotFoundError);

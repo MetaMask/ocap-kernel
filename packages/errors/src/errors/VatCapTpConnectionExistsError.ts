@@ -25,6 +25,7 @@ export class VatCapTpConnectionExistsError extends BaseError {
         vatId,
       },
     );
+    harden(this);
   }
 
   /**
@@ -56,3 +57,4 @@ export class VatCapTpConnectionExistsError extends BaseError {
     return new VatCapTpConnectionExistsError(marshaledError.data.vatId);
   }
 }
+harden(VatCapTpConnectionExistsError);

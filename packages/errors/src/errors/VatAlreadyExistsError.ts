@@ -21,6 +21,7 @@ export class VatAlreadyExistsError extends BaseError {
     super(ErrorCode.VatAlreadyExists, 'Vat already exists.', {
       vatId,
     });
+    harden(this);
   }
 
   /**
@@ -52,3 +53,4 @@ export class VatAlreadyExistsError extends BaseError {
     return new VatAlreadyExistsError(marshaledError.data.vatId);
   }
 }
+harden(VatAlreadyExistsError);

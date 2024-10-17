@@ -26,6 +26,7 @@ export class StreamReadError extends BaseError {
       data,
       originalError,
     );
+    harden(this);
   }
 
   /**
@@ -58,3 +59,4 @@ export class StreamReadError extends BaseError {
     );
   }
 }
+harden(StreamReadError);

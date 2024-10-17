@@ -34,5 +34,5 @@ export function marshalError(error: Error): MarshaledError {
     }
   }
 
-  return output;
+  return harden(output);
 }
