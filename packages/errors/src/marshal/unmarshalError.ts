@@ -1,5 +1,4 @@
 import { isMarshaledOcapError } from './isMarshaledOcapError.js';
-import type { BaseError } from '../BaseError.js';
 import { errorClasses } from '../errors/index.js';
 import type { MarshaledError, OcapError } from '../types.js';
 
@@ -15,9 +14,7 @@ export function unmarshalError(
   let error: Error | OcapError;
 
   if (isMarshaledOcapError(marshaledError)) {
-    error = (errorClasses[marshaledError.code] as typeof BaseError).unmarshal(
-      marshaledError,
-    );
+    error = errorClasses[marshaledError.code].unmarshal(marshaledError);
   } else {
     error = new Error(marshaledError.message);
   }

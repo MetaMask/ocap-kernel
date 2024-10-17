@@ -6,7 +6,7 @@ import { VatDeletedError } from './VatDeletedError.js';
 import { VatNotFoundError } from './VatNotFoundError.js';
 import { ErrorCode } from '../constants.js';
 
-export const errorClasses: { [K in ErrorCode]: unknown } = {
+export const errorClasses = {
   [ErrorCode.StreamReadError]: StreamReadError,
   [ErrorCode.VatAlreadyExists]: VatAlreadyExistsError,
   [ErrorCode.VatCapTpConnectionExists]: VatCapTpConnectionExistsError,
