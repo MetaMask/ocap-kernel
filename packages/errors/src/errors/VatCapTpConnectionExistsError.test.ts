@@ -37,7 +37,7 @@ describe('VatCapTpConnectionExistsError', () => {
     });
   });
 
-  it('throws when an invalid messages is unmarshal marshaled', () => {
+  it('throws an error when an invalid message is unmarshaled', () => {
     const marshaledError: MarshaledOcapError = {
       [ErrorSentinel]: true,
       message: 'Vat already has a CapTP connection.',

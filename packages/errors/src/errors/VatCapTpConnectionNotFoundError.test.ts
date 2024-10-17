@@ -37,7 +37,7 @@ describe('VatCapTpConnectionNotFoundError', () => {
     });
   });
 
-  it('throws when an invalid messages is unmarshal marshaled', () => {
+  it('throws an error when an invalid message is unmarshaled', () => {
     const marshaledError: MarshaledOcapError = {
       [ErrorSentinel]: true,
       message: 'Vat does not have a CapTP connection.',
