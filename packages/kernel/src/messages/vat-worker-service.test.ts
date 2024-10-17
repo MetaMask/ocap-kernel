@@ -1,5 +1,9 @@
 import '@ocap/shims/endoify';
-import { ErrorCode } from '@ocap/errors';
+import {
+  marshalError,
+  VatAlreadyExistsError,
+  VatDeletedError,
+} from '@ocap/errors';
 import { describe, expect, it } from 'vitest';
 
 import type { VatWorkerServiceCommandReply } from './vat-worker-service.js';
@@ -35,6 +39,7 @@ describe('isVatWorkerServiceCommand', () => {
     payload
     ${launch}
     ${terminate}
+    ${terminateAll}
   `('$payload.method', ({ payload }) => {
     it.each(sharedCases(payload))(
       'returns %j for %j',
@@ -54,27 +59,20 @@ describe('isVatWorkerServiceCommandReply', () => {
     params: { ...payload.params, error: problem },
   });
 
-  // TODO(#170): use @ocap/errors marshaling.
-  const withVatError = (
-    payload: VatWorkerServiceCommandReply['payload'],
-    problem: ErrorCode,
-    vatId: VatId,
-  ): unknown => ({
-    method: payload.method,
-    params: { ...payload.params, error: `${problem}: ${vatId}`, vatId },
-  });
-
   describe('launch', () => {
+    const withMarshaledError = (vatId: VatId): unknown => ({
+      method: launch.method,
+      params: {
+        ...launch.params,
+        error: marshalError(new VatAlreadyExistsError(vatId)),
+      },
+    });
     it.each([
       ...sharedCases(launch),
       [
         true,
         'valid message id with valid error',
-        // TODO(#170): use @ocap/errors marshaling.
-        {
-          id: 'm0',
-          payload: withVatError(launch, ErrorCode.VatAlreadyExists, 'v0'),
-        },
+        { id: 'm0', payload: withMarshaledError('v0') },
       ],
       [
         false,
@@ -87,16 +85,19 @@ describe('isVatWorkerServiceCommandReply', () => {
   });
 
   describe('terminate', () => {
+    const withMarshaledError = (vatId: VatId): unknown => ({
+      method: terminate.method,
+      params: {
+        ...terminate.params,
+        error: marshalError(new VatDeletedError(vatId)),
+      },
+    });
     it.each([
       ...sharedCases(terminate),
       [
         true,
         'valid message id with valid error',
-        // TODO(#170): use @ocap/errors marshaling.
-        {
-          id: 'm0',
-          payload: withVatError(terminate, ErrorCode.VatDeleted, 'v0'),
-        },
+        { id: 'm0', payload: withMarshaledError('v0') },
       ],
       [
         false,
@@ -109,25 +110,25 @@ describe('isVatWorkerServiceCommandReply', () => {
   });
 
   describe('terminateAll', () => {
+    const withValidVatError = (vatId: VatId): unknown => ({
+      method: terminateAll.method,
+      params: { vatId, error: marshalError(new VatDeletedError(vatId)) },
+    });
+    const withMarshaledError = (): unknown => ({
+      method: terminateAll.method,
+      params: { error: marshalError(new Error('code: foobar')) },
+    });
     it.each([
       ...sharedCases(terminateAll),
       [
         true,
         'valid message id with valid vat error',
-        // TODO(#170): use @ocap/errors marshaling.
-        {
-          id: 'm0',
-          payload: withVatError(terminateAll, ErrorCode.VatDeleted, 'v0'),
-        },
+        { id: 'm0', payload: withValidVatError('v0') },
       ],
       [
         true,
         'valid message id with valid error',
-        // TODO(#170): use @ocap/errors marshaling.
-        {
-          id: 'm0',
-          payload: withError(terminateAll, `${ErrorCode.VatNotFound}`),
-        },
+        { id: 'm0', payload: withMarshaledError() },
       ],
       [
         false,

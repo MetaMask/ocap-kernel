@@ -1,13 +1,15 @@
 import { hasProperty, isObject } from '@metamask/utils';
-import { ErrorCode } from '@ocap/errors';
+import { ErrorCode, isMarshaledError } from '@ocap/errors';
+import type { MarshaledError } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
 import { makeIdentifiedMessageKit, messageType } from './message-kit.js';
-import { hasMarshaledError } from './utils.js';
-import type { MarshaledError } from './utils.js';
 import type { VatId } from '../types.js';
 import { isVatId } from '../types.js';
-// TODO(#170): use @ocap/errors marshaling.
+
+const hasOptionalMarshaledError = (value: object, code: ErrorCode): boolean =>
+  !hasProperty(value, 'error') ||
+  (isMarshaledError(value.error) && value.error.code === code);
 
 export const vatWorkerServiceCommand = {
   Launch: messageType<
@@ -19,7 +21,7 @@ export const vatWorkerServiceCommand = {
     (reply) =>
       isObject(reply) &&
       isVatId(reply.vatId) &&
-      hasMarshaledError('optional', reply, ErrorCode.VatAlreadyExists),
+      hasOptionalMarshaledError(reply, ErrorCode.VatAlreadyExists),
   ),
 
   Terminate: messageType<
@@ -31,7 +33,7 @@ export const vatWorkerServiceCommand = {
     (reply) =>
       isObject(reply) &&
       isVatId(reply.vatId) &&
-      hasMarshaledError('optional', reply, ErrorCode.VatDeleted),
+      hasOptionalMarshaledError(reply, ErrorCode.VatDeleted),
   ),
 
   TerminateAll: messageType<
@@ -42,12 +44,7 @@ export const vatWorkerServiceCommand = {
     (reply) =>
       reply === null ||
       (isObject(reply) &&
-        hasMarshaledError(
-          'required',
-          reply,
-          ErrorCode.VatDeleted,
-          ErrorCode.VatNotFound,
-        ) &&
+        isMarshaledError(reply.error) &&
         (!hasProperty(reply, 'vatId') || isVatId(reply.vatId))),
   ),
 };

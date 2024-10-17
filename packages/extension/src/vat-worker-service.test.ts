@@ -1,12 +1,5 @@
 import '@ocap/shims/endoify';
-// VatAleadyExistsError and VatDeletedError appears in TODO(#170) comments.
-import {
-  ErrorCode,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  VatAlreadyExistsError,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  VatDeletedError,
-} from '@ocap/errors';
+import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
 import type { VatId } from '@ocap/kernel';
 import { MessagePortDuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
@@ -95,10 +88,8 @@ describe('VatWorkerService', () => {
   });
 
   it('throws when terminating a nonexistent worker', async () => {
-    const vatId: VatId = 'v0';
-    await expect(async () => await client.terminate(vatId)).rejects.toThrow(
-      /** TODO(#170): use @ocap/errors marshaling. {@link VatDeletedError} */
-      RegExp(`${ErrorCode.VatDeleted}.*${vatId}`, 'u'),
+    await expect(async () => await client.terminate('v0')).rejects.toThrow(
+      VatDeletedError,
     );
   });
 
@@ -106,8 +97,7 @@ describe('VatWorkerService', () => {
     const vatId: VatId = 'v0';
     await client.launch(vatId);
     await expect(async () => await client.launch(vatId)).rejects.toThrow(
-      /** TODO(#170): use @ocap/errors marshaling. {@link VatAlreadyExistsError} */
-      RegExp(`${ErrorCode.VatAlreadyExists}.*${vatId}`, 'u'),
+      VatAlreadyExistsError,
     );
   });
 });

@@ -1,6 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
+import { unmarshalError } from '@ocap/errors';
 import {
   VatWorkerServiceCommandMethod,
   isVatWorkerServiceCommandReply,
@@ -116,7 +117,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     }
 
     if (isObject(payload.params) && payload.params.error) {
-      promise.reject(new Error(payload.params.error));
+      promise.reject(unmarshalError(payload.params.error));
       return;
     }
 

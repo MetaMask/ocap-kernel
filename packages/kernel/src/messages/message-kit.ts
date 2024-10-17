@@ -1,6 +1,7 @@
 import '@ocap/shims/endoify';
 
-import { isObject, type Json } from '@metamask/utils';
+import { isObject } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 import type { ExtractGuardType, TypeGuard } from '@ocap/utils';
 
 import { isMessageLike } from './message.js';

@@ -1,5 +1,9 @@
 import type { OcapError } from '@ocap/errors';
-import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
+import {
+  VatAlreadyExistsError,
+  VatDeletedError,
+  marshalError,
+} from '@ocap/errors';
 import {
   isVatWorkerServiceCommand,
   VatWorkerServiceCommandMethod,
@@ -86,11 +90,7 @@ export class ExtensionVatWorkerServer {
       );
       this.#postMessage({
         id,
-        // TODO(#170): use @ocap/errors marshaling.
-        payload: {
-          method,
-          params: { vatId, error: `${problem.code}: ${vatId}` },
-        },
+        payload: { method, params: { vatId, error: marshalError(problem) } },
       });
     };
 
