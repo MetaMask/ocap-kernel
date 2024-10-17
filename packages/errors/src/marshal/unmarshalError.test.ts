@@ -100,7 +100,7 @@ describe('unmarshalError', () => {
     expect(unmarshaledError.data).toStrictEqual(data);
   });
 
-  it('should throw if the custom error class is malformed', () => {
+  it('should throw if the ocap error class is malformed', () => {
     const invalidMarshaledError = {
       [ErrorSentinel]: true,
       message: 'Vat already exists.',
