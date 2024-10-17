@@ -1,15 +1,19 @@
 import type { Json } from '@metamask/utils';
-import { ErrorSentinel, marshalError } from '@ocap/errors';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { stringify } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 
-import type { Dispatchable } from './utils.js';
+import type { Dispatchable, Writable } from './utils.js';
 import {
   assertIsWritable,
   isDispatchable,
   makeDoneResult,
   makePendingResult,
+  makeStreamDoneSignal,
+  makeStreamErrorSignal,
   marshal,
+  StreamDoneSymbol,
+  StreamSentinel,
   unmarshal,
 } from './utils.js';
 
@@ -17,11 +21,10 @@ const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 describe('assertIsWritable', () => {
   it.each([
-    ['pending result with string', makePendingResult('foo')],
-    ['pending result with number', makePendingResult(42)],
-    ['pending result with object', makePendingResult({ key: 'value' })],
-    ['pending result with null', makePendingResult(null)],
-    ['pending result with undefined', makePendingResult(undefined)],
+    ['string', 'foo'],
+    ['number', 42],
+    ['object', { key: 'value' }],
+    ['null', null],
     ['Error', new Error('foo')],
     ['TypeError', new TypeError('type error')],
     ['RangeError', new RangeError('range error')],
@@ -30,44 +33,88 @@ describe('assertIsWritable', () => {
   });
 
   it.each([
-    ['string', 'string'],
-    ['number', 42],
-    ['boolean', true],
-    ['null', null],
     ['undefined', undefined],
-    ['empty object', {}],
-    ['empty array', []],
     ['function', () => undefined],
     ['symbol', Symbol('symbol')],
   ])('should throw if the value is not a Writable: %s', (_, value) => {
     expect(() => assertIsWritable(value)).toThrow(
-      'Invalid writable value: must be IteratorResult or Error.',
+      `Invalid writable value: ${String(value)}`,
     );
   });
 });
 
 describe('isDispatchable', () => {
   it.each([
-    ['IteratorResult (done)', makeDoneResult()],
-    ['IteratorResult (pending)', makePendingResult('test')],
-    ['MarshaledError', marshalError(new Error('test'))],
+    ['string', 'foo'],
+    ['number', 42],
+    ['object', { foo: 'bar' }],
+    ['null', null],
+    ['StreamDoneSignal', makeStreamDoneSignal()],
+    ['StreamErrorSignal', makeStreamErrorSignal(new Error('foo'))],
   ])('should return true for a dispatchable value: %s', (_, dispatchable) => {
     expect(isDispatchable(dispatchable)).toBe(true);
   });
 
   it.each([
-    ['Error', new Error('foo')],
-    ['string', 'not dispatchable'],
-    ['number', 42],
-    ['object', { foo: 'bar' }],
-    ['null', null],
     ['undefined', undefined],
+    ['function', () => undefined],
+    ['symbol', Symbol('symbol')],
   ])(
     'should return false for a non-dispatchable value: %s',
     (_, nonDispatchable) => {
       expect(isDispatchable(nonDispatchable)).toBe(false);
     },
   );
+});
+
+describe('marshal', () => {
+  it.each([
+    ['StreamDoneSymbol', StreamDoneSymbol, makeStreamDoneSignal()],
+    [
+      'Error',
+      new Error('foo'),
+      {
+        [StreamSentinel.Error]: true,
+        error: makeErrorMatcher('foo'),
+      },
+    ],
+    ['number', 42],
+    ['string', 'foo'],
+    ['object', { foo: 'bar' }],
+    ['array', [1, 2, 3]],
+    ['null', null],
+  ] as [string, Writable<Json>, Dispatchable<Json> | undefined][])(
+    'should marshal a %s value',
+    (_, value, expected) => {
+      const marshaledValue = marshal(value);
+      expect(marshaledValue).toStrictEqual(expected ?? value);
+    },
+  );
+});
+
+describe('unmarshal', () => {
+  it.each([
+    ['StreamDoneSignal', makeStreamDoneSignal(), StreamDoneSymbol],
+    ['Error', makeStreamErrorSignal(new Error('foo')), new Error('foo')],
+    ['number', 42],
+    ['string', 'foo'],
+    ['object', { foo: 'bar' }],
+    ['array', [1, 2, 3]],
+    ['null', null],
+  ] as [string, Dispatchable<Json>, Writable<Json> | undefined][])(
+    'should unmarshal a %s value',
+    (_, value, expected) => {
+      const unmarshaledValue = unmarshal(value);
+      expect(unmarshaledValue).toStrictEqual(expected ?? value);
+    },
+  );
+
+  it('throws if the value is not a valid stream signal', () => {
+    const badSignal = { [StreamSentinel.Error]: true, error: 'foo' };
+    expect(() => unmarshal(badSignal)).toThrow(
+      `Invalid stream signal: ${stringify(badSignal)}`,
+    );
+  });
 });
 
 describe('makeDoneResult', () => {
@@ -83,63 +130,5 @@ describe('makePendingResult', () => {
     const result = makePendingResult(42);
     expect(result).toStrictEqual({ done: false, value: 42 });
     expect(globalThis.harden).toHaveBeenCalledWith(makePendingResult(42));
-  });
-});
-
-describe('marshal', () => {
-  it.each([
-    ['pending result with string', makePendingResult('foo')],
-    ['pending result with number', makePendingResult(42)],
-    ['pending result with boolean', makePendingResult(true)],
-    ['pending result with null', makePendingResult(null)],
-    ['pending result with array', makePendingResult([1, 2, 3])],
-    ['pending result with object', makePendingResult({ a: 1, b: 2 })],
-    ['done result', makeDoneResult()],
-  ] as [string, IteratorResult<Json, undefined>][])(
-    'should marshal a %s value',
-    (_, value) => {
-      const marshaledValue = marshal(value);
-      expect(marshaledValue).toStrictEqual(value);
-    },
-  );
-
-  it('should marshal an error', () => {
-    const error = new Error('test error');
-    const marshaledValue = marshal(error);
-    expect(marshaledValue).toStrictEqual(
-      expect.objectContaining({
-        [ErrorSentinel]: true,
-        message: 'test error',
-        stack: expect.any(String),
-      }),
-    );
-  });
-});
-
-describe('unmarshal', () => {
-  it.each([
-    ['pending result with string', makePendingResult('foo')],
-    ['pending result with number', makePendingResult(42)],
-    ['pending result with boolean', makePendingResult(true)],
-    ['pending result with null', makePendingResult(null)],
-    ['pending result with array', makePendingResult([1, 2, 3])],
-    ['pending result with object', makePendingResult({ a: 1, b: 2 })],
-    ['done result', makeDoneResult()],
-  ] as [string, IteratorResult<Json, undefined>][])(
-    'should unmarshal a %s value',
-    (_, value) => {
-      const unmarshaledValue = unmarshal(value);
-      expect(unmarshaledValue).toStrictEqual(value);
-    },
-  );
-
-  it('should unmarshal a marshaled error', () => {
-    const marshaledError: Dispatchable<Json> = {
-      [ErrorSentinel]: true,
-      message: 'foo',
-      stack: 'bar',
-    };
-    const unmarshaledValue = unmarshal(marshaledError);
-    expect(unmarshaledValue).toStrictEqual(makeErrorMatcher('foo'));
   });
 });

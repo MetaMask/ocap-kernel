@@ -6,7 +6,11 @@ import {
   MessagePortReader,
   MessagePortWriter,
 } from './MessagePortStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import {
+  makeDoneResult,
+  makePendingResult,
+  makeStreamDoneSignal,
+} from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -26,7 +30,7 @@ describe('MessagePortReader', () => {
     const reader = new MessagePortReader(port1);
 
     const message = { foo: 'bar' };
-    port2.postMessage(makePendingResult(message));
+    port2.postMessage(message);
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
@@ -40,7 +44,7 @@ describe('MessagePortReader', () => {
     const reader = new MessagePortReader(port1);
     expect(addListenerSpy).toHaveBeenCalledOnce();
 
-    port2.postMessage(makeDoneResult());
+    port2.postMessage(makeStreamDoneSignal());
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -54,7 +58,7 @@ describe('MessagePortReader', () => {
     const { port1: otherPort } = new MessageChannel();
 
     port2.postMessage(makeDoneResult(), [otherPort]);
-    port2.postMessage(makePendingResult({ foo: 'bar' }));
+    port2.postMessage({ foo: 'bar' });
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(
@@ -67,7 +71,7 @@ describe('MessagePortReader', () => {
     const onEnd = vi.fn();
     const reader = new MessagePortReader(port1, onEnd);
 
-    port2.postMessage(makeDoneResult());
+    port2.postMessage(makeStreamDoneSignal());
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -97,10 +101,10 @@ describe('MessagePortWriter', () => {
     const nextP = writer.next(message);
 
     expect(await nextP).toStrictEqual(makePendingResult(undefined));
-    expect(await messageP).toStrictEqual(makePendingResult(message));
+    expect(await messageP).toStrictEqual(message);
   });
 
-  it('closes the port when it ends', async () => {
+  it('closes the port when done', async () => {
     const { port1 } = new MessageChannel();
     const closeSpy = vi.spyOn(port1, 'close');
     const writer = new MessagePortWriter(port1);
@@ -145,8 +149,10 @@ describe('MessagePortDuplexStream', () => {
     const { port1, port2 } = new MessageChannel();
     const duplexStream = new MessagePortDuplexStream(port1);
 
-    port2.postMessage(makeDoneResult());
+    const readP = duplexStream.next();
+    port2.postMessage(makeStreamDoneSignal());
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
+    expect(await readP).toStrictEqual(makeDoneResult());
   });
 });

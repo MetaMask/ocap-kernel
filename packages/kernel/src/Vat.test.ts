@@ -54,18 +54,18 @@ describe('Vat', () => {
       expect(capTpMock).toHaveBeenCalled();
     });
 
-    it('throws an error if the stream is invalid', async () => {
+    it('throws if the stream throws', async () => {
       const messageChannel = new MessageChannel();
       const { vat } = makeVat(messageChannel);
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
-      messageChannel.port2.postMessage('foobar');
+      messageChannel.port2.postMessage(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
-        new Error('Received unexpected message from transport:\n"foobar"'),
+        new Error('Received unexpected message from transport:\nnull'),
       );
     });
   });

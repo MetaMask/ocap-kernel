@@ -34,11 +34,11 @@ describe('Supervisor', () => {
       const messageChannel = new MessageChannel();
       const { supervisor } = makeSupervisor(messageChannel);
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      messageChannel.port2.postMessage('foobar');
+      messageChannel.port2.postMessage(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
-        new Error('Received unexpected message from transport:\n"foobar"'),
+        new Error('Received unexpected message from transport:\nnull'),
       );
     });
   });

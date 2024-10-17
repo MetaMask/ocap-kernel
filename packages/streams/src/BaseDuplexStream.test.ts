@@ -15,7 +15,7 @@ describe('BaseDuplexStream', () => {
     const duplexStream = new TestDuplexStream(() => undefined);
 
     const message = 42;
-    duplexStream.receiveInput(makePendingResult(message));
+    duplexStream.receiveInput(message);
 
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
   });
@@ -24,9 +24,7 @@ describe('BaseDuplexStream', () => {
     const duplexStream = new TestDuplexStream(() => undefined);
 
     const messages = [1, 2, 3];
-    messages.forEach((message) =>
-      duplexStream.receiveInput(makePendingResult(message)),
-    );
+    messages.forEach((message) => duplexStream.receiveInput(message));
     await duplexStream.return();
 
     let index = 0;
@@ -48,7 +46,7 @@ describe('BaseDuplexStream', () => {
 
     const message = 42;
     await duplexStream.write(message);
-    expect(onDispatch).toHaveBeenCalledWith(makePendingResult(message));
+    expect(onDispatch).toHaveBeenCalledWith(message);
   });
 
   it('return calls ends both the reader and writer', async () => {

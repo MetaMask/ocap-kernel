@@ -9,7 +9,10 @@ import {
   isDispatchable,
   makeDoneResult,
   makePendingResult,
+  makeStreamDoneSignal,
+  makeStreamErrorSignal,
   marshal,
+  StreamDoneSymbol,
   unmarshal,
 } from './utils.js';
 
@@ -164,12 +167,12 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
       return;
     }
 
-    if (unmarshaled.done === true) {
+    if (unmarshaled === StreamDoneSymbol) {
       await this.#end();
       return;
     }
 
-    this.#buffer.put(unmarshaled as IteratorResult<Read, undefined>);
+    this.#buffer.put(makePendingResult(unmarshaled as Read));
   };
 
   /**
@@ -275,7 +278,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
     assertIsWritable(value);
     try {
       await this.#onDispatch(marshal(value));
-      return value instanceof Error || value.done === true
+      return value === StreamDoneSymbol || value instanceof Error
         ? makeDoneResult()
         : makePendingResult(undefined);
     } catch (error) {
@@ -288,7 +291,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
           `${this.#logName} experienced repeated dispatch failures.`,
           { cause: error },
         );
-        await this.#onDispatch(marshal(repeatedFailureError));
+        await this.#onDispatch(makeStreamErrorSignal(repeatedFailureError));
         throw repeatedFailureError;
       } else {
         await this.#throw(
@@ -321,7 +324,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
     if (this.#isDone) {
       return makeDoneResult();
     }
-    return this.#dispatch(makePendingResult(value));
+    return this.#dispatch(value);
   }
 
   /**
@@ -331,7 +334,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
    */
   async return(): Promise<IteratorResult<undefined, undefined>> {
     if (!this.#isDone) {
-      await this.#onDispatch(makeDoneResult());
+      await this.#onDispatch(makeStreamDoneSignal());
       await this.#end();
     }
     return makeDoneResult();
