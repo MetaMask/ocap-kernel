@@ -5,6 +5,9 @@ import type { NonEmptyArray } from '@metamask/utils';
 
 import type { MarshaledError } from './types.js';
 
+/**
+ * Enum defining all error codes for Ocap errors.
+ */
 export enum ErrorCode {
   StreamReadError = 'STREAM_READ_ERROR',
   VatAlreadyExists = 'VAT_ALREADY_EXISTS',
@@ -13,8 +16,9 @@ export enum ErrorCode {
   VatDeleted = 'VAT_DELETED',
   VatNotFound = 'VAT_NOT_FOUND',
 }
+
 /**
- * A sentinel value to detect marshaled errors.
+ * A sentinel value used to identify marshaled errors.
  */
 export const ErrorSentinel = '@@MARSHALED_ERROR';
 
@@ -24,6 +28,9 @@ const ErrorCodeStruct = union(
   >,
 );
 
+/**
+ * Struct to validate marshaled errors.
+ */
 export const MarshaledErrorStruct = object({
   [ErrorSentinel]: literal(true),
   message: string(),
@@ -32,3 +39,15 @@ export const MarshaledErrorStruct = object({
   stack: optional(string()),
   cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
 }) as Struct<MarshaledError>;
+
+/**
+ * Base schema for validating Ocap error classes during error marshaling.
+ */
+export const baseErrorStructSchema = {
+  [ErrorSentinel]: literal(true),
+  message: string(),
+  code: ErrorCodeStruct,
+  data: JsonStruct,
+  stack: optional(string()),
+  cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
+};

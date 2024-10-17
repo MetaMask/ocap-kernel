@@ -10,8 +10,8 @@ import {
 
 import { BaseError } from '../BaseError.js';
 import {
+  baseErrorStructSchema,
   ErrorCode,
-  ErrorSentinel,
   MarshaledErrorStruct,
 } from '../constants.js';
 import type { MarshaledOcapError } from '../types.js';
@@ -33,14 +33,12 @@ export class StreamReadError extends BaseError {
    * A superstruct struct for validating marshaled {@link StreamReadError} instances.
    */
   public static struct = object({
-    [ErrorSentinel]: literal(true),
-    message: string(),
+    ...baseErrorStructSchema,
     code: literal(ErrorCode.StreamReadError),
     data: union([
       object({ vatId: string(), supervisorId: optional(never()) }),
       object({ supervisorId: string(), vatId: optional(never()) }),
     ]),
-    stack: optional(string()),
     cause: MarshaledErrorStruct,
   });
 
