@@ -44,7 +44,7 @@ describe('VatNotFoundError', () => {
     };
 
     expect(() => VatNotFoundError.unmarshal(marshaledError)).toThrow(
-      'Invalid VatNotFoundError structure',
+      'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });
 });

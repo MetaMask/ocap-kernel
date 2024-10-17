@@ -110,7 +110,7 @@ describe('unmarshalError', () => {
     } as const;
 
     expect(() => unmarshalError(invalidMarshaledError)).toThrow(
-      'Invalid VatAlreadyExistsError structure',
+      'At path: data -- Expected an object, but received: "invalid data"',
     );
   });
 });

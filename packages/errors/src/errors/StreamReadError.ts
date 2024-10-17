@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   literal,
   never,
   object,
@@ -50,9 +50,7 @@ export class StreamReadError extends BaseError {
    * @returns The unmarshaled error.
    */
   public static unmarshal(marshaledError: MarshaledOcapError): StreamReadError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid StreamReadError structure');
-    }
+    assert(marshaledError, this.struct);
     return new StreamReadError(
       marshaledError.data as StreamReadErrorData,
       // The cause will be properly unmarshaled during the parent call.

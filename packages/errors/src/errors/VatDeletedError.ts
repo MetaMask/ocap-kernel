@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   lazy,
   literal,
   object,
@@ -44,9 +44,7 @@ export class VatDeletedError extends BaseError {
    * @returns The unmarshaled error.
    */
   public static unmarshal(marshaledError: MarshaledOcapError): VatDeletedError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid VatDeletedError structure');
-    }
+    assert(marshaledError, this.struct);
     return new VatDeletedError(marshaledError.data.vatId);
   }
 }

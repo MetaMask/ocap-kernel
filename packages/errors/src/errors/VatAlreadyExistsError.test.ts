@@ -44,7 +44,7 @@ describe('VatAlreadyExistsError', () => {
     };
 
     expect(() => VatAlreadyExistsError.unmarshal(marshaledError)).toThrow(
-      'Invalid VatAlreadyExistsError structure',
+      'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });
 });

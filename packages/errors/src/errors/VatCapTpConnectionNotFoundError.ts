@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   lazy,
   literal,
   object,
@@ -50,9 +50,7 @@ export class VatCapTpConnectionNotFoundError extends BaseError {
   public static unmarshal(
     marshaledError: MarshaledOcapError,
   ): VatCapTpConnectionNotFoundError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid VatCapTpConnectionNotFoundError structure');
-    }
+    assert(marshaledError, this.struct);
     return new VatCapTpConnectionNotFoundError(marshaledError.data.vatId);
   }
 }

@@ -48,6 +48,8 @@ describe('VatCapTpConnectionExistsError', () => {
 
     expect(() =>
       VatCapTpConnectionExistsError.unmarshal(marshaledError),
-    ).toThrow('Invalid VatCapTpConnectionExistsError structure');
+    ).toThrow(
+      'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
+    );
   });
 });

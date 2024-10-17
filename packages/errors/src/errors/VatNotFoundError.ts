@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   lazy,
   literal,
   object,
@@ -46,9 +46,7 @@ export class VatNotFoundError extends BaseError {
   public static unmarshal(
     marshaledError: MarshaledOcapError,
   ): VatNotFoundError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid VatNotFoundError structure');
-    }
+    assert(marshaledError, this.struct);
     return new VatNotFoundError(marshaledError.data.vatId);
   }
 }

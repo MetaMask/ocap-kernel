@@ -44,7 +44,7 @@ describe('VatDeletedError', () => {
     };
 
     expect(() => VatDeletedError.unmarshal(marshaledError)).toThrow(
-      'Invalid VatDeletedError structure',
+      'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });
 });

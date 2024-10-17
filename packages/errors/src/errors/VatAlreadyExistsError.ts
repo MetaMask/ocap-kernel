@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   lazy,
   literal,
   object,
@@ -48,9 +48,7 @@ export class VatAlreadyExistsError extends BaseError {
   public static unmarshal(
     marshaledError: MarshaledOcapError,
   ): VatAlreadyExistsError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid VatAlreadyExistsError structure');
-    }
+    assert(marshaledError, this.struct);
     return new VatAlreadyExistsError(marshaledError.data.vatId);
   }
 }

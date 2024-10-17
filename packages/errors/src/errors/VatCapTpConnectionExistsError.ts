@@ -1,5 +1,5 @@
 import {
-  is,
+  assert,
   lazy,
   literal,
   object,
@@ -52,9 +52,7 @@ export class VatCapTpConnectionExistsError extends BaseError {
   public static unmarshal(
     marshaledError: MarshaledOcapError,
   ): VatCapTpConnectionExistsError {
-    if (!is(marshaledError, this.struct)) {
-      throw new Error('Invalid VatCapTpConnectionExistsError structure');
-    }
+    assert(marshaledError, this.struct);
     return new VatCapTpConnectionExistsError(marshaledError.data.vatId);
   }
 }
