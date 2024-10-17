@@ -51,5 +51,5 @@ export const MarshaledOcapErrorStruct = object({
   ...marshaledErrorSchema,
   code: ErrorCodeStruct,
   data: JsonStruct,
-  cause: optional(union([string(), lazy(() => MarshaledOcapErrorStruct)])),
+  cause: optional(union([string(), lazy(() => MarshaledErrorStruct)])),
 }) as Struct<MarshaledOcapError>;
