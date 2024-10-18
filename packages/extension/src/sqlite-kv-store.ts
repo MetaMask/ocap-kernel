@@ -1,4 +1,4 @@
-import type { KernelStore } from '@ocap/kernel';
+import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
@@ -18,14 +18,14 @@ async function initDB(): Promise<Database> {
 }
 
 /**
- * Makes a {@link KernelStore} for persistent storage.
+ * Makes a {@link KVStore} for low-level persistent storage.
  *
  * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @returns The kernel store.
+ * @returns The key/value store to base the kernel store on.
  */
-export async function makeKernelStore(
+export async function makeSQLKVStore(
   label: string = '[sqlite]',
-): Promise<KernelStore> {
+): Promise<KVStore> {
   const logger = makeLogger(label);
   const db = await initDB();
 
@@ -44,12 +44,13 @@ export async function makeKernelStore(
   `);
 
   /**
-   * Exercise reading from the database.
+   * Read a key's value from the database.
    *
    * @param key - A key to fetch.
+   * @param required - True if it is an error for the entry not to be there.
    * @returns The value at that key.
    */
-  function kvGet(key: string): string {
+  function kvGet(key: string, required: boolean): string {
     sqlKVGet.bind([key]);
     if (sqlKVGet.step()) {
       const result = sqlKVGet.getString(0);
@@ -60,7 +61,11 @@ export async function makeKernelStore(
       }
     }
     sqlKVGet.reset();
-    throw Error(`no record matching key '${key}'`);
+    if (required) {
+      throw Error(`no record matching key '${key}'`);
+    } else {
+      return undefined as unknown as string;
+    }
   }
 
   const sqlKVSet = db.prepare(`
@@ -70,7 +75,7 @@ export async function makeKernelStore(
   `);
 
   /**
-   * Exercise writing to the database.
+   * Set the value associated with a key in the database.
    *
    * @param key - A key to assign.
    * @param value - The value to assign to it.
@@ -82,8 +87,27 @@ export async function makeKernelStore(
     sqlKVSet.reset();
   }
 
+  const sqlKVDelete = db.prepare(`
+    DELETE FROM kv
+    WHERE key = ?
+  `);
+
+  /**
+   * Delete a key from the database.
+   *
+   * @param key - The key to remove.
+   */
+  function kvDelete(key: string): void {
+    logger.debug(`kernel delete '${key}'`);
+    sqlKVDelete.bind([key]);
+    sqlKVDelete.step();
+    sqlKVDelete.reset();
+  }
+
   return {
-    kvGet,
-    kvSet,
+    get: (key) => kvGet(key, false),
+    getRequired: (key) => kvGet(key, true),
+    set: kvSet,
+    delete: kvDelete,
   };
 }

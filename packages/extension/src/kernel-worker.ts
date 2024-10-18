@@ -3,7 +3,7 @@ import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel } from '@ocap/kernel';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 
-import { makeKernelStore } from './sqlite-kernel-store.js';
+import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 main('v0').catch(console.error);
@@ -28,10 +28,10 @@ async function main(defaultVatId: VatId): Promise<void> {
 
   // Initialize kernel store.
 
-  const kernelStore = await makeKernelStore();
+  const kvStore = await makeSQLKVStore();
 
   // Create and start kernel.
 
-  const kernel = new Kernel(kernelStream, vatWorkerClient, kernelStore);
+  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init({ defaultVatId });
 }

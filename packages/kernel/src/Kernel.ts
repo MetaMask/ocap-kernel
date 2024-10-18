@@ -6,7 +6,7 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
 
-import type { KernelStore } from './kernel-store.js';
+import type { KVStore } from './kernel-store.js';
 import {
   isKernelCommand,
   KernelCommandMethod,
@@ -27,7 +27,7 @@ export class Kernel {
 
   readonly #vatWorkerService: VatWorkerService;
 
-  readonly #storage: KernelStore;
+  readonly #storage: KVStore;
 
   // Hopefully removed when we get to n+1 vats.
   readonly #defaultVatKit: PromiseKit<Vat>;
@@ -37,7 +37,7 @@ export class Kernel {
   constructor(
     stream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
-    storage: KernelStore,
+    storage: KVStore,
     logger?: Logger,
   ) {
     this.#stream = stream;
@@ -145,11 +145,11 @@ export class Kernel {
   }
 
   kvGet(key: string): string {
-    return this.#storage.kvGet(key);
+    return this.#storage.get(key);
   }
 
   kvSet(key: string, value: string): void {
-    this.#storage.kvSet(key, value);
+    this.#storage.set(key, value);
   }
 
   /**

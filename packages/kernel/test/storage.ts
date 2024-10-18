@@ -1,20 +1,30 @@
-import type { KernelStore } from '../src/kernel-store.js';
+import type { KVStore } from '../src/kernel-store.js';
 
 /**
- * A mock kernel store realized as a Map<string, string>.
+ * A mock key/value store realized as a Map<string, string>.
  *
- * @returns The mock {@link KernelStore}.
+ * @returns The mock {@link KVStore}.
  */
-export function makeMapKernelStore(): KernelStore {
+export function makeMapKVStore(): KVStore {
   const map = new Map<string, string>();
+
+  /**
+   * Like `get`, but fail if the key isn't there.
+   *
+   * @param key - The key to fetch.
+   * @returns The value at `key`.
+   */
+  function getRequired(key: string): string {
+    if (!map.has(key)) {
+      throw Error(`No value found for key ${key}.`);
+    }
+    return map.get(key);
+  }
+
   return {
-    kvGet: (key) => {
-      const value = map.get(key);
-      if (value === undefined) {
-        throw new Error(`No value found for key ${key}.`);
-      }
-      return value;
-    },
-    kvSet: map.set.bind(map),
+    get: map.get.bind(map),
+    getRequired,
+    set: map.set.bind(map),
+    delete: map.set.delete(map),
   };
 }
