@@ -24,6 +24,9 @@ pids
 coverage
 *.lcov
 
+# Browser test screenshots
+__screenshots__
+
 # nyc test coverage
 .nyc_output
 

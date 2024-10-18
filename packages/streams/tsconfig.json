@@ -3,7 +3,9 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
-    "types": ["ses", "vitest", "vitest/jsdom"]
+    "types": ["ses", "vitest", "vitest/jsdom"],
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   },
   "references": [{ "path": "../test-utils" }, { "path": "../errors" }],
   "include": [
