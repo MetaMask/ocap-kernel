@@ -180,5 +180,19 @@ export class ChromeRuntimeDuplexStream<
     super(reader, writer);
     harden(this);
   }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    runtime: ChromeRuntime,
+    localTarget: ChromeRuntimeStreamTarget,
+    remoteTarget: ChromeRuntimeStreamTarget,
+  ): Promise<ChromeRuntimeDuplexStream<Read, Write>> {
+    const stream = new ChromeRuntimeDuplexStream<Read, Write>(
+      runtime,
+      localTarget,
+      remoteTarget,
+    );
+    await stream.synchronize();
+    return stream;
+  }
 }
 harden(ChromeRuntimeDuplexStream);

@@ -101,5 +101,19 @@ export class PostMessageDuplexStream<
     });
     super(reader, writer);
   }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    postMessageFn: PostMessage,
+    setListener: SetListener,
+    removeListener: RemoveListener,
+  ): Promise<PostMessageDuplexStream<Read, Write>> {
+    const stream = new PostMessageDuplexStream<Read, Write>(
+      postMessageFn,
+      setListener,
+      removeListener,
+    );
+    await stream.synchronize();
+    return stream;
+  }
 }
 harden(PostMessageDuplexStream);

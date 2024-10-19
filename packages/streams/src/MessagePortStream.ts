@@ -107,5 +107,13 @@ export class MessagePortDuplexStream<
     });
     super(reader, writer);
   }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    port: MessagePort,
+  ): Promise<MessagePortDuplexStream<Read, Write>> {
+    const stream = new MessagePortDuplexStream<Read, Write>(port);
+    await stream.synchronize();
+    return stream;
+  }
 }
 harden(MessagePortDuplexStream);

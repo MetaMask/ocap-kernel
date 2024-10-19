@@ -1,6 +1,7 @@
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { makeAck } from './BaseDuplexStream.js';
 import {
   MessagePortDuplexStream,
   MessagePortReader,
@@ -31,7 +32,7 @@ describe('MessagePortReader', () => {
 
     const message = { foo: 'bar' };
     port2.postMessage(message);
-    await delay(100);
+    await delay(10);
 
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
   });
@@ -45,7 +46,7 @@ describe('MessagePortReader', () => {
     expect(addListenerSpy).toHaveBeenCalledOnce();
 
     port2.postMessage(makeStreamDoneSignal());
-    await delay(100);
+    await delay(10);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(closeSpy).toHaveBeenCalledOnce();
@@ -59,7 +60,7 @@ describe('MessagePortReader', () => {
 
     port2.postMessage(makeDoneResult(), [otherPort]);
     port2.postMessage({ foo: 'bar' });
-    await delay(100);
+    await delay(10);
 
     expect(await reader.next()).toStrictEqual(
       makePendingResult({ foo: 'bar' }),
@@ -72,7 +73,7 @@ describe('MessagePortReader', () => {
     const reader = new MessagePortReader(port1, onEnd);
 
     port2.postMessage(makeStreamDoneSignal());
-    await delay(100);
+    await delay(10);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -126,28 +127,41 @@ describe('MessagePortWriter', () => {
 });
 
 describe('MessagePortDuplexStream', () => {
-  it('constructs a MessagePortDuplexStream', () => {
-    const { port1 } = new MessageChannel();
-    const duplexStream = new MessagePortDuplexStream(port1);
+  const makeDuplexStream = async (
+    channel: MessageChannel = new MessageChannel(),
+  ): Promise<MessagePortDuplexStream<number>> => {
+    const duplexStreamP = MessagePortDuplexStream.make<number>(channel.port1);
+    channel.port2.postMessage(makeAck());
+    await delay(10);
+
+    return await duplexStreamP;
+  };
+
+  it('constructs a MessagePortDuplexStream', async () => {
+    const duplexStream = await makeDuplexStream();
 
     expect(duplexStream).toBeInstanceOf(MessagePortDuplexStream);
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
-    const { port1 } = new MessageChannel();
-    port1.postMessage = () => {
-      throw new Error('foo');
-    };
-    const duplexStream = new MessagePortDuplexStream(port1);
+    const { port1, port2 } = new MessageChannel();
+    vi.spyOn(port1, 'postMessage')
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error('foo');
+      });
+    const duplexStream = await makeDuplexStream({ port1, port2 });
 
-    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    await expect(duplexStream.write(42)).rejects.toThrow(
+      'MessagePortWriter experienced a dispatch failure',
+    );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
     const { port1, port2 } = new MessageChannel();
-    const duplexStream = new MessagePortDuplexStream(port1);
+    const duplexStream = await makeDuplexStream({ port1, port2 });
 
     const readP = duplexStream.next();
     port2.postMessage(makeStreamDoneSignal());
