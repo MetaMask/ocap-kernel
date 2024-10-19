@@ -13,8 +13,8 @@ async function main(): Promise<void> {
   const stream = await receiveMessagePort(
     (listener) => addEventListener('message', listener),
     (listener) => removeEventListener('message', listener),
-    (port) =>
-      new MessagePortDuplexStream<StreamEnvelope, StreamEnvelopeReply>(port),
+  ).then(async (port) =>
+    MessagePortDuplexStream.make<StreamEnvelope, StreamEnvelopeReply>(port),
   );
 
   const bootstrap = makeExo(

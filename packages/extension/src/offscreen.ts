@@ -24,7 +24,10 @@ main().catch((error) => logger.error(error));
  * The main function for the offscreen script.
  */
 async function main(): Promise<void> {
-  const backgroundStream = new ChromeRuntimeDuplexStream(
+  // Without this delay, sending messages via the chrome.runtime API can fail.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const backgroundStream = await ChromeRuntimeDuplexStream.make(
     chrome.runtime,
     ChromeRuntimeTarget.Offscreen,
     ChromeRuntimeTarget.Background,
@@ -71,10 +74,10 @@ async function main(): Promise<void> {
   }> {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
 
-    const workerStream = await initializeMessageChannel(
-      (message, transfer) => worker.postMessage(message, transfer),
-      (port) =>
-        new MessagePortDuplexStream<KernelCommandReply, KernelCommand>(port),
+    const workerStream = await initializeMessageChannel((message, transfer) =>
+      worker.postMessage(message, transfer),
+    ).then(async (port) =>
+      MessagePortDuplexStream.make<KernelCommandReply, KernelCommand>(port),
     );
 
     const vatWorkerServer = new ExtensionVatWorkerServer(

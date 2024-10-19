@@ -12,17 +12,20 @@ main().catch(console.error);
  * The main function for the background script.
  */
 async function main(): Promise<void> {
-  const offscreenStream = new ChromeRuntimeDuplexStream(
-    chrome.runtime,
-    ChromeRuntimeTarget.Background,
-    ChromeRuntimeTarget.Offscreen,
-  );
-
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_DOCUMENT_PATH,
     reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
     justification: `Surely you won't object to our capabilities?`,
   });
+
+  // Without this delay, sending messages via the chrome.runtime API can fail.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const offscreenStream = await ChromeRuntimeDuplexStream.make(
+    chrome.runtime,
+    ChromeRuntimeTarget.Background,
+    ChromeRuntimeTarget.Offscreen,
+  );
 
   /**
    * Send a command to the offscreen document.
