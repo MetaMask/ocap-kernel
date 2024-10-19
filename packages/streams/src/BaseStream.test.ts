@@ -277,28 +277,19 @@ describe('BaseWriter', () => {
       });
       const writer = new TestWriter(dispatchSpy);
 
-      expect(await writer.next(42)).toStrictEqual(makeDoneResult());
+      await expect(writer.next(42)).rejects.toThrow(
+        makeErrorMatcher(
+          new Error('TestWriter experienced a dispatch failure', {
+            cause: new Error('foo'),
+          }),
+        ),
+      );
       expect(dispatchSpy).toHaveBeenCalledTimes(2);
       expect(dispatchSpy).toHaveBeenNthCalledWith(1, 42);
       expect(dispatchSpy).toHaveBeenNthCalledWith(2, {
         [StreamSentinel.Error]: true,
         error: makeErrorMatcher('foo'),
       });
-    });
-
-    it('failing to dispatch a message logs the error', async () => {
-      const dispatchSpy = vi.fn().mockImplementationOnce(() => {
-        throw new Error('foo');
-      });
-      const consoleErrorSpy = vi.spyOn(console, 'error');
-      const writer = new TestWriter(dispatchSpy);
-
-      expect(await writer.next(42)).toStrictEqual(makeDoneResult());
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'TestWriter experienced a dispatch failure:',
-        new Error('foo'),
-      );
     });
 
     it('handles repeated failures to dispatch messages', async () => {

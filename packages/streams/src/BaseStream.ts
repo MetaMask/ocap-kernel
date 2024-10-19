@@ -282,8 +282,6 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
         ? makeDoneResult()
         : makePendingResult(undefined);
     } catch (error) {
-      console.error(`${this.#logName} experienced a dispatch failure:`, error);
-
       if (hasFailed) {
         // Break out of repeated failure to dispatch an error. It is unclear how this would occur
         // in practice, but it's the kind of failure mode where it's better to be sure.
@@ -299,8 +297,10 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
           error instanceof Error ? error : new Error(String(error)),
           true,
         );
+        throw new Error(`${this.#logName} experienced a dispatch failure`, {
+          cause: error,
+        });
       }
-      return makeDoneResult();
     }
   }
 
