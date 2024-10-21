@@ -26,6 +26,20 @@ const config = [
   },
 
   {
+    files: ['**/*.{js,mjs}'],
+    languageOptions: {
+      sourceType: 'module',
+    },
+  },
+
+  {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'script',
+    },
+  },
+
+  {
     languageOptions: {
       parserOptions: {
         tsconfigRootDir: new URL('.', import.meta.url).pathname,

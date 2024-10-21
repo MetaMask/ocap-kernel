@@ -4,8 +4,6 @@
 // manifests of each package in the monorepo to ensure they follow a standard
 // format, but also check the presence of certain files as well.
 
-/* eslint-disable import-x/unambiguous */
-
 // The jsdoc plugin complains that this type is undefined
 /* global RegExpMatchArray */
 
