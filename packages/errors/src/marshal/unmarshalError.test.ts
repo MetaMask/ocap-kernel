@@ -61,7 +61,9 @@ describe('unmarshalError', () => {
     } as const;
 
     const expectedError = new VatAlreadyExistsError(data.vatId);
-    expectedError.stack = 'customStack';
+    expect(() => (expectedError.stack = 'customStack')).toThrow(
+      'Cannot assign to read only property',
+    );
 
     const unmarshaledError = unmarshalError(marshaledError) as OcapError;
 
@@ -90,9 +92,13 @@ describe('unmarshalError', () => {
     expectedCauseError.stack = 'bar';
 
     const expectedError = new StreamReadError(data, {
+      stack: 'customStack',
       cause: expectedCauseError,
     });
-    expectedError.stack = 'customStack';
+    // since StreamReadError is hardened we cannot modify the stack
+    expect(() => (expectedError.stack = 'customStack')).toThrow(
+      'Cannot assign to read only property',
+    );
 
     const unmarshaledError = unmarshalError(marshaledError) as OcapError;
 

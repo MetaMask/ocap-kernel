@@ -51,6 +51,7 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
+    "@ocap/shims": "workspace:^",
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.5.1",
     "@ts-bridge/shims": "^0.1.1",
