@@ -169,7 +169,7 @@ describe('unmarshalErrorOptions', () => {
 
     expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
       stack: 'Error stack trace',
-      cause: new Error('A string cause'),
+      cause: 'A string cause',
     });
   });
 

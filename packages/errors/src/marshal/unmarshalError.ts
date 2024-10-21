@@ -19,18 +19,12 @@ export function unmarshalError(
     return errorClasses[marshaledError.code].unmarshal(marshaledError);
   }
 
-  let cause;
-  if (marshaledError.cause) {
-    cause =
-      typeof marshaledError.cause === 'string'
-        ? marshaledError.cause
-        : unmarshalError(marshaledError.cause);
-  }
+  const { cause, stack } = unmarshalErrorOptions(marshaledError);
 
   const error = new Error(marshaledError.message, { cause });
 
-  if (marshaledError.stack) {
-    error.stack = marshaledError.stack;
+  if (stack) {
+    error.stack = stack;
   }
 
   return error;
@@ -50,7 +44,7 @@ export function unmarshalErrorOptions(
   if (marshaledError.cause) {
     output.cause =
       typeof marshaledError.cause === 'string'
-        ? new Error(marshaledError.cause)
+        ? marshaledError.cause
         : unmarshalError(marshaledError.cause);
   }
 
