@@ -2,8 +2,8 @@
   "files": [],
   "include": [],
   "references": [
+    // We exclude the extension here because it has its own build process.
     { "path": "./packages/errors/tsconfig.build.json" },
-    { "path": "./packages/extension/tsconfig.build.json" },
     { "path": "./packages/kernel/tsconfig.build.json" },
     { "path": "./packages/shims/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" },
