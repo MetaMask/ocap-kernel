@@ -17,7 +17,7 @@ const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
 describe('assertIsWritable', () => {
   it.each([
-    ['pending result with string', makePendingResult('foo')],
+    ['pending result with string', makePendingResult('foo') as symbol],
     ['pending result with number', makePendingResult(42)],
     ['pending result with object', makePendingResult({ key: 'value' })],
     ['pending result with null', makePendingResult(null)],
