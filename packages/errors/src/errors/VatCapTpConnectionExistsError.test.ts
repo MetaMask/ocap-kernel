@@ -29,6 +29,7 @@ describe('VatCapTpConnectionExistsError', () => {
       VatCapTpConnectionExistsError.unmarshal(marshaledError);
     expect(unmarshaledError).toBeInstanceOf(VatCapTpConnectionExistsError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatCapTpConnectionExists);
+    expect(unmarshaledError.stack).toBe('stack trace');
     expect(unmarshaledError.message).toBe(
       'Vat already has a CapTP connection.',
     );

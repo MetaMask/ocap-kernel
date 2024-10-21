@@ -1,7 +1,7 @@
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, it, expect } from 'vitest';
 
-import { unmarshalError } from './unmarshalError.js';
+import { unmarshalError, unmarshalErrorOptions } from './unmarshalError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
 import { StreamReadError } from '../errors/StreamReadError.js';
 import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
@@ -89,7 +89,9 @@ describe('unmarshalError', () => {
     const expectedCauseError = new Error('foo');
     expectedCauseError.stack = 'bar';
 
-    const expectedError = new StreamReadError(data, expectedCauseError);
+    const expectedError = new StreamReadError(data, {
+      cause: expectedCauseError,
+    });
     expectedError.stack = 'customStack';
 
     const unmarshaledError = unmarshalError(marshaledError) as OcapError;
@@ -111,6 +113,105 @@ describe('unmarshalError', () => {
 
     expect(() => unmarshalError(invalidMarshaledError)).toThrow(
       'At path: data -- Expected an object, but received: "invalid data"',
+    );
+  });
+
+  it('should unmarshal a marshaled error without a stack trace', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'foo',
+    } as const;
+
+    expect(unmarshalError(marshaledError)).toStrictEqual(
+      makeErrorMatcher(new Error('foo')),
+    );
+  });
+
+  it('should unmarshal a marshaled error without a cause', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'foo',
+      stack: 'bar',
+    } as const;
+
+    expect(unmarshalError(marshaledError)).toStrictEqual(
+      makeErrorMatcher(new Error('foo')),
+    );
+  });
+});
+
+describe('unmarshalErrorOptions', () => {
+  it('should unmarshal error options without cause', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'An error occurred.',
+      stack: 'Error stack trace',
+    } as const;
+
+    const expectedOptions = {
+      stack: 'Error stack trace',
+    };
+
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
+      expectedOptions,
+    );
+  });
+
+  it('should unmarshal error options with string cause', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'An error occurred.',
+      stack: 'Error stack trace',
+      cause: 'A string cause',
+    } as const;
+
+    const expectedOptions = {
+      stack: 'Error stack trace',
+      cause: new Error('A string cause'),
+    };
+
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
+      expectedOptions,
+    );
+  });
+
+  it('should unmarshal error options with nested marshaled error as cause', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'An error occurred.',
+      stack: 'Error stack trace',
+      cause: {
+        [ErrorSentinel]: true,
+        message: 'Cause message',
+        stack: 'Cause stack trace',
+      },
+    } as const;
+
+    const expectedCauseError = new Error('Cause message');
+    expectedCauseError.stack = 'Cause stack trace';
+
+    const expectedOptions = {
+      stack: 'Error stack trace',
+      cause: expectedCauseError,
+    };
+
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
+      expectedOptions,
+    );
+  });
+
+  it('should return default stack when stack is undefined', () => {
+    const marshaledError = {
+      [ErrorSentinel]: true,
+      message: 'An error occurred.',
+    } as const;
+
+    const expectedOptions = {
+      stack: '',
+    };
+
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
+      expectedOptions,
     );
   });
 });

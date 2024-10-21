@@ -2,11 +2,15 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatDeletedError extends BaseError {
-  constructor(vatId: string) {
-    super(ErrorCode.VatDeleted, 'Vat was deleted.', { vatId });
+  constructor(vatId: string, options?: ErrorOptionsWithStack) {
+    super(ErrorCode.VatDeleted, 'Vat was deleted.', {
+      ...options,
+      data: { vatId },
+    });
     harden(this);
   }
 
@@ -29,7 +33,10 @@ export class VatDeletedError extends BaseError {
    */
   public static unmarshal(marshaledError: MarshaledOcapError): VatDeletedError {
     assert(marshaledError, this.struct);
-    return new VatDeletedError(marshaledError.data.vatId);
+    return new VatDeletedError(
+      marshaledError.data.vatId,
+      unmarshalErrorOptions(marshaledError),
+    );
   }
 }
 harden(VatDeletedError);

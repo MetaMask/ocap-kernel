@@ -12,7 +12,7 @@ describe('StreamReadError', () => {
   it('creates a StreamReadError for Supervisor with the correct properties', () => {
     const error = new StreamReadError(
       { supervisorId: mockSupervisorId },
-      mockOriginalError,
+      { cause: mockOriginalError },
     );
     expect(error).toBeInstanceOf(StreamReadError);
     expect(error.code).toBe(ErrorCode.StreamReadError);
@@ -22,7 +22,10 @@ describe('StreamReadError', () => {
   });
 
   it('creates a StreamReadError for Vat with the correct properties', () => {
-    const error = new StreamReadError({ vatId: mockVatId }, mockOriginalError);
+    const error = new StreamReadError(
+      { vatId: mockVatId },
+      { cause: mockOriginalError },
+    );
     expect(error).toBeInstanceOf(StreamReadError);
     expect(error.code).toBe(ErrorCode.StreamReadError);
     expect(error.message).toBe('Unexpected stream read error.');
@@ -49,6 +52,7 @@ describe('StreamReadError', () => {
     expect(unmarshaledError).toBeInstanceOf(StreamReadError);
     expect(unmarshaledError.code).toBe(ErrorCode.StreamReadError);
     expect(unmarshaledError.message).toBe('Unexpected stream read error.');
+    expect(unmarshaledError.stack).toBe('customStack');
     expect(unmarshaledError.data).toStrictEqual({
       vatId: mockVatId,
     });
@@ -75,6 +79,7 @@ describe('StreamReadError', () => {
     expect(unmarshaledError).toBeInstanceOf(StreamReadError);
     expect(unmarshaledError.code).toBe(ErrorCode.StreamReadError);
     expect(unmarshaledError.message).toBe('Unexpected stream read error.');
+    expect(unmarshaledError.stack).toBe('customStack');
     expect(unmarshaledError.data).toStrictEqual({
       supervisorId: mockSupervisorId,
     });

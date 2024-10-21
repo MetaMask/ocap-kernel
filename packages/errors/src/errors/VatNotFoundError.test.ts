@@ -29,6 +29,7 @@ describe('VatNotFoundError', () => {
     expect(unmarshaledError).toBeInstanceOf(VatNotFoundError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatNotFound);
     expect(unmarshaledError.message).toBe('Vat does not exist.');
+    expect(unmarshaledError.stack).toBe('stack trace');
     expect(unmarshaledError.data).toStrictEqual({
       vatId: mockVatId,
     });

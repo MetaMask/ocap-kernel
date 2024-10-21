@@ -2,6 +2,10 @@ import type { Json } from '@metamask/utils';
 
 import type { ErrorCode, ErrorSentinel } from './constants.js';
 
+export type ErrorOptionsWithStack = ErrorOptions & {
+  stack?: string;
+};
+
 export type OcapError = {
   code: ErrorCode;
   data: Json | undefined;

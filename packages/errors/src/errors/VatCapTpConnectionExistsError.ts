@@ -2,15 +2,17 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatCapTpConnectionExistsError extends BaseError {
-  constructor(vatId: string) {
+  constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(
       ErrorCode.VatCapTpConnectionExists,
       'Vat already has a CapTP connection.',
       {
-        vatId,
+        ...options,
+        data: { vatId },
       },
     );
     harden(this);
@@ -37,7 +39,10 @@ export class VatCapTpConnectionExistsError extends BaseError {
     marshaledError: MarshaledOcapError,
   ): VatCapTpConnectionExistsError {
     assert(marshaledError, this.struct);
-    return new VatCapTpConnectionExistsError(marshaledError.data.vatId);
+    return new VatCapTpConnectionExistsError(
+      marshaledError.data.vatId,
+      unmarshalErrorOptions(marshaledError),
+    );
   }
 }
 harden(VatCapTpConnectionExistsError);

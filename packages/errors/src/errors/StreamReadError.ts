@@ -14,18 +14,19 @@ import {
   ErrorCode,
   MarshaledErrorStruct,
 } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 type StreamReadErrorData = { vatId: string } | { supervisorId: string };
+type StreamReadErrorOptions = Required<ErrorOptions> &
+  Pick<ErrorOptionsWithStack, 'stack'>;
 
 export class StreamReadError extends BaseError {
-  constructor(data: StreamReadErrorData, originalError: Error) {
-    super(
-      ErrorCode.StreamReadError,
-      'Unexpected stream read error.',
+  constructor(data: StreamReadErrorData, options: StreamReadErrorOptions) {
+    super(ErrorCode.StreamReadError, 'Unexpected stream read error.', {
+      ...options,
       data,
-      originalError,
-    );
+    });
     harden(this);
   }
 
@@ -52,8 +53,7 @@ export class StreamReadError extends BaseError {
     assert(marshaledError, this.struct);
     return new StreamReadError(
       marshaledError.data as StreamReadErrorData,
-      // The cause will be properly unmarshaled during the parent call.
-      new Error(marshaledError.cause?.message),
+      unmarshalErrorOptions(marshaledError) as StreamReadErrorOptions,
     );
   }
 }

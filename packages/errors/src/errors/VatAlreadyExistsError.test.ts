@@ -29,6 +29,7 @@ describe('VatAlreadyExistsError', () => {
     expect(unmarshaledError).toBeInstanceOf(VatAlreadyExistsError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatAlreadyExists);
     expect(unmarshaledError.message).toBe('Vat already exists.');
+    expect(unmarshaledError.stack).toBe('stack trace');
     expect(unmarshaledError.data).toStrictEqual({
       vatId: mockVatId,
     });

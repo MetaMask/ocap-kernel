@@ -2,14 +2,18 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatCapTpConnectionNotFoundError extends BaseError {
-  constructor(vatId: string) {
+  constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(
       ErrorCode.VatCapTpConnectionNotFound,
       'Vat does not have a CapTP connection.',
-      { vatId },
+      {
+        ...options,
+        data: { vatId },
+      },
     );
     harden(this);
   }
@@ -35,7 +39,10 @@ export class VatCapTpConnectionNotFoundError extends BaseError {
     marshaledError: MarshaledOcapError,
   ): VatCapTpConnectionNotFoundError {
     assert(marshaledError, this.struct);
-    return new VatCapTpConnectionNotFoundError(marshaledError.data.vatId);
+    return new VatCapTpConnectionNotFoundError(
+      marshaledError.data.vatId,
+      unmarshalErrorOptions(marshaledError),
+    );
   }
 }
 harden(VatCapTpConnectionNotFoundError);

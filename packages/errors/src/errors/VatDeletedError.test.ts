@@ -29,6 +29,7 @@ describe('VatDeletedError', () => {
     expect(unmarshaledError).toBeInstanceOf(VatDeletedError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatDeleted);
     expect(unmarshaledError.message).toBe('Vat was deleted.');
+    expect(unmarshaledError.stack).toBe('stack trace');
     expect(unmarshaledError.data).toStrictEqual({
       vatId: mockVatId,
     });

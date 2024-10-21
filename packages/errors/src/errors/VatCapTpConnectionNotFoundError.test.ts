@@ -29,6 +29,7 @@ describe('VatCapTpConnectionNotFoundError', () => {
       VatCapTpConnectionNotFoundError.unmarshal(marshaledError);
     expect(unmarshaledError).toBeInstanceOf(VatCapTpConnectionNotFoundError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatCapTpConnectionNotFound);
+    expect(unmarshaledError.stack).toBe('stack trace');
     expect(unmarshaledError.message).toBe(
       'Vat does not have a CapTP connection.',
     );

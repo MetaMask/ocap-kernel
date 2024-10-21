@@ -2,12 +2,14 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatAlreadyExistsError extends BaseError {
-  constructor(vatId: string) {
+  constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatAlreadyExists, 'Vat already exists.', {
-      vatId,
+      ...options,
+      data: { vatId },
     });
     harden(this);
   }
@@ -33,7 +35,10 @@ export class VatAlreadyExistsError extends BaseError {
     marshaledError: MarshaledOcapError,
   ): VatAlreadyExistsError {
     assert(marshaledError, this.struct);
-    return new VatAlreadyExistsError(marshaledError.data.vatId);
+    return new VatAlreadyExistsError(
+      marshaledError.data.vatId,
+      unmarshalErrorOptions(marshaledError),
+    );
   }
 }
 harden(VatAlreadyExistsError);

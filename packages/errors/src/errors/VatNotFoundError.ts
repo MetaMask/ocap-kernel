@@ -2,11 +2,15 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { MarshaledOcapError } from '../types.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatNotFoundError extends BaseError {
-  constructor(vatId: string) {
-    super(ErrorCode.VatNotFound, 'Vat does not exist.', { vatId });
+  constructor(vatId: string, options?: ErrorOptionsWithStack) {
+    super(ErrorCode.VatNotFound, 'Vat does not exist.', {
+      ...options,
+      data: { vatId },
+    });
     harden(this);
   }
 
@@ -31,7 +35,10 @@ export class VatNotFoundError extends BaseError {
     marshaledError: MarshaledOcapError,
   ): VatNotFoundError {
     assert(marshaledError, this.struct);
-    return new VatNotFoundError(marshaledError.data.vatId);
+    return new VatNotFoundError(
+      marshaledError.data.vatId,
+      unmarshalErrorOptions(marshaledError),
+    );
   }
 }
 harden(VatNotFoundError);
