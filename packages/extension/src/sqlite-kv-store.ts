@@ -64,6 +64,7 @@ export async function makeSQLKVStore(
     if (required) {
       throw Error(`no record matching key '${key}'`);
     } else {
+      // Sometimes, we really lean on TypeScript's unsoundness
       return undefined as unknown as string;
     }
   }

@@ -25,6 +25,6 @@ export function makeMapKVStore(): KVStore {
     get: map.get.bind(map),
     getRequired,
     set: map.set.bind(map),
-    delete: map.set.delete(map),
+    delete: map.delete.bind(map),
   };
 }

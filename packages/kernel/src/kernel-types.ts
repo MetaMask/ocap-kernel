@@ -53,8 +53,6 @@ type RemoteState = {
 // Kernel persistent state
 export type KernelObject = {
   owner: EndpointId;
-  reachableCount: number;
-  recognizableCount: number;
 };
 
 type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
@@ -62,7 +60,6 @@ type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
 export type KernelPromise = {
   decider: EndpointId;
   state: PromiseState;
-  referenceCount: number;
   value: undefined | CapData;
 };
 
