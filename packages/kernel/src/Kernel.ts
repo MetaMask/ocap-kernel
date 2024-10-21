@@ -11,9 +11,11 @@ import {
   isKernelCommand,
   KernelCommandMethod,
   VatCommandMethod,
-  type KernelCommand,
-  type KernelCommandReply,
-  type VatCommand,
+} from './messages.js';
+import type {
+  KernelCommand,
+  KernelCommandReply,
+  VatCommand,
 } from './messages.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';

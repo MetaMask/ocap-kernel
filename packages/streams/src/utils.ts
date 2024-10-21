@@ -1,7 +1,8 @@
 import type { Reader, Writer } from '@endo/stream';
 import type { Struct } from '@metamask/superstruct';
 import { boolean, is, optional } from '@metamask/superstruct';
-import { type Json, UnsafeJsonStruct, object } from '@metamask/utils';
+import { UnsafeJsonStruct, object } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 import type { MarshaledError } from '@ocap/errors';
 import { isMarshaledError, marshalError, unmarshalError } from '@ocap/errors';
 
