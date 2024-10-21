@@ -1,10 +1,10 @@
 import '@ocap/shims/endoify';
 
-import { VatAlreadyExistsError } from 'src/errors/VatAlreadyExistsError.js';
 import { describe, it, expect } from 'vitest';
 
 import { marshalError } from './marshalError.js';
 import { unmarshalError } from './unmarshalError.js';
+import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
 
 describe('marshal', () => {
   it('should round trip a thrown error', async () => {
