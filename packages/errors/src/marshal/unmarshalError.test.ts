@@ -154,13 +154,9 @@ describe('unmarshalErrorOptions', () => {
       stack: 'Error stack trace',
     } as const;
 
-    const expectedOptions = {
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
       stack: 'Error stack trace',
-    };
-
-    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
-      expectedOptions,
-    );
+    });
   });
 
   it('should unmarshal error options with string cause', () => {
@@ -171,14 +167,10 @@ describe('unmarshalErrorOptions', () => {
       cause: 'A string cause',
     } as const;
 
-    const expectedOptions = {
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
       stack: 'Error stack trace',
       cause: new Error('A string cause'),
-    };
-
-    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
-      expectedOptions,
-    );
+    });
   });
 
   it('should unmarshal error options with nested marshaled error as cause', () => {
@@ -196,14 +188,10 @@ describe('unmarshalErrorOptions', () => {
     const expectedCauseError = new Error('Cause message');
     expectedCauseError.stack = 'Cause stack trace';
 
-    const expectedOptions = {
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
       stack: 'Error stack trace',
       cause: expectedCauseError,
-    };
-
-    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
-      expectedOptions,
-    );
+    });
   });
 
   it('should return default stack when stack is undefined', () => {
@@ -212,12 +200,8 @@ describe('unmarshalErrorOptions', () => {
       message: 'An error occurred.',
     } as const;
 
-    const expectedOptions = {
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
       stack: '',
-    };
-
-    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual(
-      expectedOptions,
-    );
+    });
   });
 });
