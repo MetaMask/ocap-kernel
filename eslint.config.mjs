@@ -55,7 +55,13 @@ const config = [
         },
       ],
 
+      // We have been hoisted by our own petard in the past.
+      'import-x/no-cycle': ['error', { ignoreExternal: true, maxDepth: 3 }],
+
+      // This is not compatible with ESM.
       'import-x/extensions': 'off',
+
+      // We use unassigned imports for e.g. `import '@ocap/shims/endoify'`.
       'import-x/no-unassigned-import': 'off',
 
       // This prevents pretty formatting of comments with multi-line lists entries.
