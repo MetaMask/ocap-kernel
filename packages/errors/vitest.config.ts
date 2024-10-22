@@ -14,13 +14,6 @@ const config = mergeConfig(
     test: {
       pool: 'vmThreads',
       setupFiles: path.resolve('../shims/src/endoify.js'),
-      alias: [
-        {
-          find: '@ocap/shims/endoify',
-          replacement: path.resolve('../shims/src/endoify.js'),
-          customResolver: (id) => ({ external: true, id }),
-        },
-      ],
     },
   }),
 );
