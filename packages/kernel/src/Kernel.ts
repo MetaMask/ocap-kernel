@@ -194,6 +194,16 @@ export class Kernel {
   }
 
   /**
+   * Restarts a vat in the kernel.
+   *
+   * @param id - The ID of the vat.
+   */
+  async restartVat(id: VatId): Promise<void> {
+    await this.deleteVat(id);
+    await this.launchVat({ id });
+  }
+
+  /**
    * Send a message to a vat.
    *
    * @param id - The id of the vat to send the message to.
