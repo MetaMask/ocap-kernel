@@ -1,5 +1,5 @@
 import { hasProperty, isObject } from '@metamask/utils';
-import { ErrorCode, isMarshaledError } from '@ocap/errors';
+import { isMarshaledError } from '@ocap/errors';
 import type { MarshaledError } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
@@ -7,33 +7,30 @@ import { makeIdentifiedMessageKit, messageType } from './message-kit.js';
 import type { VatId } from '../types.js';
 import { isVatId } from '../types.js';
 
-const hasOptionalMarshaledError = (value: object, code: ErrorCode): boolean =>
-  !hasProperty(value, 'error') ||
-  (isMarshaledError(value.error) && value.error.code === code);
+const hasOptionalMarshaledError = (value: object): boolean =>
+  !hasProperty(value, 'error') || isMarshaledError(value.error);
 
 export const vatWorkerServiceCommand = {
   Launch: messageType<
     { vatId: VatId },
-    // Expect VatAlreadyExistsError.
     { vatId: VatId; error?: MarshaledError }
   >(
     (send) => isObject(send) && isVatId(send.vatId),
     (reply) =>
       isObject(reply) &&
       isVatId(reply.vatId) &&
-      hasOptionalMarshaledError(reply, ErrorCode.VatAlreadyExists),
+      hasOptionalMarshaledError(reply),
   ),
 
   Terminate: messageType<
     { vatId: VatId },
-    // Expect VatDeletedError.
     { vatId: VatId; error?: MarshaledError }
   >(
     (send) => isObject(send) && isVatId(send.vatId),
     (reply) =>
       isObject(reply) &&
       isVatId(reply.vatId) &&
-      hasOptionalMarshaledError(reply, ErrorCode.VatDeleted),
+      hasOptionalMarshaledError(reply),
   ),
 
   TerminateAll: messageType<
