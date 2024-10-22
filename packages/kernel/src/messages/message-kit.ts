@@ -97,14 +97,6 @@ export const makeMessageKit = <Source extends SourceLike>(
   } as MessageKit<Source>;
 };
 
-const makeIsIdentified =
-  <Identifier, Payload extends Json>(
-    isId: TypeGuard<Identifier>,
-    isPayload: TypeGuard<Payload>,
-  ) =>
-  (value: unknown): value is { id: Identifier; payload: Payload } =>
-    isObject(value) && isId(value.id) && isPayload(value.payload);
-
 /**
  * An object type encapsulating all of the schematics that define a functional
  * group of messages as a payload wrapped with a message id.
@@ -133,7 +125,13 @@ export const makeIdentifiedMessageKit = <
   return {
     source: messageKit.source,
     methods: messageKit.methods,
-    sendGuard: makeIsIdentified(isMessageId, messageKit.sendGuard),
-    replyGuard: makeIsIdentified(isMessageId, messageKit.replyGuard),
+    sendGuard: (value: unknown) =>
+      isObject(value) &&
+      isMessageId(value.id) &&
+      messageKit.sendGuard(value.payload),
+    replyGuard: (value: unknown) =>
+      isObject(value) &&
+      isMessageId(value.id) &&
+      messageKit.replyGuard(value.payload),
   } as IdentifiedMessageKit<Source, MessageId>;
 };
