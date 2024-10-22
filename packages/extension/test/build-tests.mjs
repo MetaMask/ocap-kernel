@@ -67,8 +67,10 @@ async function checkTrustedPreludes() {
     const expectedImport = path.basename(preludePath);
     const builtFilePath = path.join(buildDir, `${preludeName}.js`);
     const content = await fs.readFile(builtFilePath, 'utf8');
-    const preludeImportStatement = `import"./${expectedImport}";`;
-    if (!content.startsWith(preludeImportStatement)) {
+    if (
+      !content.startsWith(`import"./${expectedImport}";`) &&
+      !content.startsWith(`import "./${expectedImport}";`)
+    ) {
       throw new Error(
         `The trusted prelude ${expectedImport} is not imported in the first position in ${preludeName}.js`,
       );
