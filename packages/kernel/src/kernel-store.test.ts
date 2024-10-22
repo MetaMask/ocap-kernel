@@ -3,7 +3,19 @@ import '@ocap/shims/endoify';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';
+import type { KVStore } from './kernel-store.js';
+import type { Message } from './kernel-types.js';
 import { makeMapKVStore } from '../test/storage.js';
+
+/**
+ * Stupid hack to allow use of strings as fake Messages without TS complaints
+ *
+ * @param str - The string.
+ * @returns The same string coerced to type Message
+ */
+function sm(str: string): Message {
+  return str as unknown as Message;
+}
 
 describe('kernel store', () => {
   let mockKVStore: KVStore;
@@ -117,19 +129,19 @@ describe('kernel store', () => {
       expect(ks.getKernelPromise('kp1')).toEqual(kp1);
       // eslint-disable-next-line vitest/prefer-strict-equal
       expect(ks.getKernelPromise('kp2')).toEqual(kp2);
-      ks.enqueuePromiseMessage('kp1', 'first message to kp1');
-      ks.enqueuePromiseMessage('kp1', 'second message to kp1');
+      ks.enqueuePromiseMessage('kp1', sm('first message to kp1'));
+      ks.enqueuePromiseMessage('kp1', sm('second message to kp1'));
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([
         'first message to kp1',
         'second message to kp1',
       ]);
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([]);
-      ks.enqueuePromiseMessage('kp1', 'sacrificial message');
+      ks.enqueuePromiseMessage('kp1', sm('sacrificial message'));
       ks.deleteKernelPromise('kp1');
       expect(() => ks.getKernelPromise('kp1')).toThrow(
         'unknown kernel promise kp1',
       );
-      expect(() => ks.enqueuePromiseMessage('kp1', 'not really')).toThrow(
+      expect(() => ks.enqueuePromiseMessage('kp1', sm('not really'))).toThrow(
         'enqueue into deleted queue kp1',
       );
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([]);
@@ -139,14 +151,14 @@ describe('kernel store', () => {
     });
     it('manages the run queue', () => {
       const ks = makeKernelStore(mockKVStore);
-      ks.enqueueRun('first message' as Message);
-      ks.enqueueRun('second message');
+      ks.enqueueRun(sm('first message'));
+      ks.enqueueRun(sm('second message'));
       expect(ks.dequeueRun()).toBe('first message');
-      ks.enqueueRun('third message');
+      ks.enqueueRun(sm('third message'));
       expect(ks.dequeueRun()).toBe('second message');
       expect(ks.dequeueRun()).toBe('third message');
       expect(ks.dequeueRun()).toBeUndefined();
-      ks.enqueueRun('fourth message');
+      ks.enqueueRun(sm('fourth message'));
       expect(ks.dequeueRun()).toBe('fourth message');
       expect(ks.dequeueRun()).toBeUndefined();
     });
