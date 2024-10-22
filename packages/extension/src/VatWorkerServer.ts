@@ -5,9 +5,11 @@ import { makeHandledCallback, makeLogger } from '@ocap/utils';
 import {
   isVatWorkerServiceMessage,
   VatWorkerServiceMethod,
-  type AddListener,
-  type PostMessage,
-  type VatWorker,
+} from './vat-worker-service.js';
+import type {
+  AddListener,
+  PostMessage,
+  VatWorker,
 } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

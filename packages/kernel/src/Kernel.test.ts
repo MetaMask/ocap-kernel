@@ -7,10 +7,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelStore } from './kernel-store.js';
 import { Kernel } from './Kernel.js';
-import {
-  type KernelCommand,
-  type KernelCommandReply,
-  type VatCommand,
+import type {
+  KernelCommand,
+  KernelCommandReply,
+  VatCommand,
 } from './messages.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import type { VatId, VatWorkerService } from './types.js';

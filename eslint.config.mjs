@@ -70,7 +70,6 @@ const config = [
   {
     files: ['**/*.{ts,mts,cts}'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': [
         'error',
         {
@@ -80,6 +79,12 @@ const config = [
           allowExpressions: true,
         },
       ],
+      '@typescript-eslint/no-explicit-any': 'error',
+
+      // Replace this tseslint rule with "verbatimModuleSyntax" tsconfig
+      // option and "import-x/consistent-type-specifiers" rule.
+      '@typescript-eslint/consistent-type-imports': 'off',
+      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
     },
   },
 
