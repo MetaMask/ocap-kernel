@@ -35,9 +35,10 @@ export type VatWorkerService = {
    */
   terminate: (vatId: VatId) => Promise<void>;
   /**
-   * Terminate all workers known to the service.
+   * Terminate all workers managed by the service.
    *
-   * @returns A promise for the number of workers deleted.
+   * @returns A promise that resolves after all workers have terminated
+   * or rejects if there was an error during termination.
    */
   terminateAll: () => Promise<void>;
 };
