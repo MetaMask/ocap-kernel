@@ -1,5 +1,3 @@
-import '@ocap/shims/endoify';
-
 import { describe, it, expect } from 'vitest';
 
 import { marshalError } from './marshalError.js';

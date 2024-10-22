@@ -39,7 +39,11 @@ export function unmarshalError(
 export function unmarshalErrorOptions(
   marshaledError: MarshaledError,
 ): ErrorOptionsWithStack {
-  const output: ErrorOptionsWithStack = { stack: marshaledError.stack ?? '' };
+  const output: ErrorOptionsWithStack = {};
+
+  if (marshaledError.stack) {
+    output.stack = marshaledError.stack;
+  }
 
   if (marshaledError.cause) {
     output.cause =

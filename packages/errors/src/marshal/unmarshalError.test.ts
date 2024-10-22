@@ -194,14 +194,12 @@ describe('unmarshalErrorOptions', () => {
     });
   });
 
-  it('should return default stack when stack is undefined', () => {
+  it('should not return stack when stack is undefined', () => {
     const marshaledError = {
       [ErrorSentinel]: true,
       message: 'An error occurred.',
     } as const;
 
-    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({
-      stack: '',
-    });
+    expect(unmarshalErrorOptions(marshaledError)).toStrictEqual({});
   });
 });
