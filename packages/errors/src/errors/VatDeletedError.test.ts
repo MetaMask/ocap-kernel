@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { VatDeletedError } from './VatDeletedError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('VatDeletedError', () => {
@@ -25,7 +26,10 @@ describe('VatDeletedError', () => {
       stack: 'stack trace',
     };
 
-    const unmarshaledError = VatDeletedError.unmarshal(marshaledError);
+    const unmarshaledError = VatDeletedError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(VatDeletedError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatDeleted);
     expect(unmarshaledError.message).toBe('Vat was deleted.');
@@ -44,7 +48,9 @@ describe('VatDeletedError', () => {
       stack: 'stack trace',
     };
 
-    expect(() => VatDeletedError.unmarshal(marshaledError)).toThrow(
+    expect(() =>
+      VatDeletedError.unmarshal(marshaledError, unmarshalErrorOptions),
+    ).toThrow(
       'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });

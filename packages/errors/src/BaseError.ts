@@ -5,6 +5,7 @@ import type {
   MarshaledOcapError,
   OcapError,
   ErrorOptionsWithStack,
+  MarshaledError,
 } from './types.js';
 
 export class BaseError extends Error implements OcapError {
@@ -39,8 +40,14 @@ export class BaseError extends Error implements OcapError {
    * A placeholder for unmarshal functionality. Should be implemented in subclasses.
    *
    * @param _marshaledError - The marshaled error to unmarshal.
+   * @param _unmarshalErrorOptions - A function to unmarshal the error options.
    */
-  public static unmarshal(_marshaledError: MarshaledOcapError): BaseError {
+  public static unmarshal(
+    _marshaledError: MarshaledOcapError,
+    _unmarshalErrorOptions: (
+      marshaledError: MarshaledError,
+    ) => ErrorOptionsWithStack,
+  ): BaseError {
     throw new Error('Unmarshal method not implemented');
   }
 }

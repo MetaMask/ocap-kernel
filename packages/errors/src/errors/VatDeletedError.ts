@@ -2,7 +2,6 @@ import { assert, literal, object, string } from '@metamask/superstruct';
 
 import { BaseError } from '../BaseError.js';
 import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 export class VatDeletedError extends BaseError {
@@ -29,9 +28,15 @@ export class VatDeletedError extends BaseError {
    * Unmarshals a {@link MarshaledError} into a {@link VatDeletedError}.
    *
    * @param marshaledError - The marshaled error to unmarshal.
+   * @param unmarshalErrorOptions - The function to unmarshal the error options.
    * @returns The unmarshaled error.
    */
-  public static unmarshal(marshaledError: MarshaledOcapError): VatDeletedError {
+  public static unmarshal(
+    marshaledError: MarshaledOcapError,
+    unmarshalErrorOptions: (
+      marshaledError: MarshaledOcapError,
+    ) => ErrorOptionsWithStack,
+  ): VatDeletedError {
     assert(marshaledError, this.struct);
     return new VatDeletedError(
       marshaledError.data.vatId,

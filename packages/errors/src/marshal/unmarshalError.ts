@@ -16,7 +16,10 @@ export function unmarshalError(
   marshaledError: MarshaledError,
 ): Error | OcapError {
   if (isMarshaledOcapError(marshaledError)) {
-    return errorClasses[marshaledError.code].unmarshal(marshaledError);
+    return errorClasses[marshaledError.code].unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
   }
 
   const { cause, stack } = unmarshalErrorOptions(marshaledError);

@@ -14,7 +14,6 @@ import {
   ErrorCode,
   MarshaledErrorStruct,
 } from '../constants.js';
-import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
 type StreamReadErrorData = { vatId: string } | { supervisorId: string };
@@ -47,9 +46,15 @@ export class StreamReadError extends BaseError {
    * Unmarshals a {@link MarshaledError} into a {@link StreamReadError}.
    *
    * @param marshaledError - The marshaled error to unmarshal.
+   * @param unmarshalErrorOptions - A function to unmarshal the error options.
    * @returns The unmarshaled error.
    */
-  public static unmarshal(marshaledError: MarshaledOcapError): StreamReadError {
+  public static unmarshal(
+    marshaledError: MarshaledOcapError,
+    unmarshalErrorOptions: (
+      marshaledError: MarshaledOcapError,
+    ) => ErrorOptionsWithStack,
+  ): StreamReadError {
     assert(marshaledError, this.struct);
     return new StreamReadError(
       marshaledError.data as StreamReadErrorData,

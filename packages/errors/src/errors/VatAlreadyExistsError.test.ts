@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { VatAlreadyExistsError } from './VatAlreadyExistsError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('VatAlreadyExistsError', () => {
@@ -25,7 +26,10 @@ describe('VatAlreadyExistsError', () => {
       stack: 'stack trace',
     };
 
-    const unmarshaledError = VatAlreadyExistsError.unmarshal(marshaledError);
+    const unmarshaledError = VatAlreadyExistsError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(VatAlreadyExistsError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatAlreadyExists);
     expect(unmarshaledError.message).toBe('Vat already exists.');
@@ -44,7 +48,9 @@ describe('VatAlreadyExistsError', () => {
       stack: 'stack trace',
     };
 
-    expect(() => VatAlreadyExistsError.unmarshal(marshaledError)).toThrow(
+    expect(() =>
+      VatAlreadyExistsError.unmarshal(marshaledError, unmarshalErrorOptions),
+    ).toThrow(
       'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });

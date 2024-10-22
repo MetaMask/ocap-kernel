@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { VatNotFoundError } from './VatNotFoundError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('VatNotFoundError', () => {
@@ -25,7 +26,10 @@ describe('VatNotFoundError', () => {
       stack: 'stack trace',
     };
 
-    const unmarshaledError = VatNotFoundError.unmarshal(marshaledError);
+    const unmarshaledError = VatNotFoundError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(VatNotFoundError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatNotFound);
     expect(unmarshaledError.message).toBe('Vat does not exist.');
@@ -44,7 +48,9 @@ describe('VatNotFoundError', () => {
       stack: 'stack trace',
     };
 
-    expect(() => VatNotFoundError.unmarshal(marshaledError)).toThrow(
+    expect(() =>
+      VatNotFoundError.unmarshal(marshaledError, unmarshalErrorOptions),
+    ).toThrow(
       'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );
   });

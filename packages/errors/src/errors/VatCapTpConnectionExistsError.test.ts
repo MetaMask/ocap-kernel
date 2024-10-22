@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { VatCapTpConnectionExistsError } from './VatCapTpConnectionExistsError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('VatCapTpConnectionExistsError', () => {
@@ -25,8 +26,10 @@ describe('VatCapTpConnectionExistsError', () => {
       stack: 'stack trace',
     };
 
-    const unmarshaledError =
-      VatCapTpConnectionExistsError.unmarshal(marshaledError);
+    const unmarshaledError = VatCapTpConnectionExistsError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(VatCapTpConnectionExistsError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatCapTpConnectionExists);
     expect(unmarshaledError.stack).toBe('stack trace');
@@ -48,7 +51,10 @@ describe('VatCapTpConnectionExistsError', () => {
     };
 
     expect(() =>
-      VatCapTpConnectionExistsError.unmarshal(marshaledError),
+      VatCapTpConnectionExistsError.unmarshal(
+        marshaledError,
+        unmarshalErrorOptions,
+      ),
     ).toThrow(
       'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );

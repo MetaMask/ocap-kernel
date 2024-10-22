@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { VatCapTpConnectionNotFoundError } from './VatCapTpConnectionNotFoundError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('VatCapTpConnectionNotFoundError', () => {
@@ -25,8 +26,10 @@ describe('VatCapTpConnectionNotFoundError', () => {
       stack: 'stack trace',
     };
 
-    const unmarshaledError =
-      VatCapTpConnectionNotFoundError.unmarshal(marshaledError);
+    const unmarshaledError = VatCapTpConnectionNotFoundError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(VatCapTpConnectionNotFoundError);
     expect(unmarshaledError.code).toBe(ErrorCode.VatCapTpConnectionNotFound);
     expect(unmarshaledError.stack).toBe('stack trace');
@@ -48,7 +51,10 @@ describe('VatCapTpConnectionNotFoundError', () => {
     };
 
     expect(() =>
-      VatCapTpConnectionNotFoundError.unmarshal(marshaledError),
+      VatCapTpConnectionNotFoundError.unmarshal(
+        marshaledError,
+        unmarshalErrorOptions,
+      ),
     ).toThrow(
       'At path: data -- Expected an object, but received: "{ vatId: mockVatId }"',
     );

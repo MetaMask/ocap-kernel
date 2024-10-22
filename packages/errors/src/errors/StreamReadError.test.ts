@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { StreamReadError } from './StreamReadError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
 import type { MarshaledOcapError } from '../types.js';
 
 describe('StreamReadError', () => {
@@ -48,7 +49,10 @@ describe('StreamReadError', () => {
       },
     };
 
-    const unmarshaledError = StreamReadError.unmarshal(marshaledError);
+    const unmarshaledError = StreamReadError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(StreamReadError);
     expect(unmarshaledError.code).toBe(ErrorCode.StreamReadError);
     expect(unmarshaledError.message).toBe('Unexpected stream read error.');
@@ -75,7 +79,10 @@ describe('StreamReadError', () => {
       },
     };
 
-    const unmarshaledError = StreamReadError.unmarshal(marshaledError);
+    const unmarshaledError = StreamReadError.unmarshal(
+      marshaledError,
+      unmarshalErrorOptions,
+    );
     expect(unmarshaledError).toBeInstanceOf(StreamReadError);
     expect(unmarshaledError.code).toBe(ErrorCode.StreamReadError);
     expect(unmarshaledError.message).toBe('Unexpected stream read error.');
@@ -96,7 +103,9 @@ describe('StreamReadError', () => {
       stack: 'stack trace',
     };
 
-    expect(() => StreamReadError.unmarshal(marshaledError)).toThrow(
+    expect(() =>
+      StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
+    ).toThrow(
       'At path: data -- Expected the value to satisfy a union of `object | object`, but received: "invalid data"',
     );
   });
@@ -115,7 +124,9 @@ describe('StreamReadError', () => {
       },
     };
 
-    expect(() => StreamReadError.unmarshal(marshaledError)).toThrow(
+    expect(() =>
+      StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
+    ).toThrow(
       'At path: data -- Expected the value to satisfy a union of `object | object`, but received: [object Object]',
     );
   });
