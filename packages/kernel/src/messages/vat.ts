@@ -14,17 +14,10 @@ export const vatCommand = {
 
 const vatMessageKit = makeIdentifiedMessageKit(
   vatCommand,
-  (value: unknown): value is `${VatId}:${number}` => {
-    if (typeof value !== 'string') {
-      return false;
-    }
-    const parts = value.split(':');
-    return (
-      parts.length === 2 &&
-      isVatId(parts[0]) &&
-      parts[1] === String(Number(parts[1]))
-    );
-  },
+  (value: unknown): value is `${VatId}:${number}` =>
+    typeof value === 'string' &&
+    /^\w+:\d+$/u.test(value) &&
+    isVatId(value.split(':')[0]),
 );
 
 export const VatCommandMethod = vatMessageKit.methods;
