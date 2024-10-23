@@ -118,7 +118,7 @@ describe('StreamReadError', () => {
     expect(() =>
       StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
     ).toThrow(
-      'At path: data -- Expected the value to satisfy a union of `object | object`, but received: "invalid data"',
+      'At path: data -- Expected the value to satisfy a union of `object | object | object`, but received: "invalid data"',
     );
   });
 
@@ -139,7 +139,7 @@ describe('StreamReadError', () => {
     expect(() =>
       StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
     ).toThrow(
-      'At path: data -- Expected the value to satisfy a union of `object | object`, but received: [object Object]',
+      'At path: data -- Expected the value to satisfy a union of `object | object | object`, but received: [object Object]',
     );
   });
 });
