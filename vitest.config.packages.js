@@ -37,8 +37,5 @@ export const getDefaultConfig = (projectRoot = './src') =>
       reporters: ['basic'],
       silent: true,
       testTimeout: 2000,
-      typecheck: {
-        enabled: true,
-      },
     },
   });

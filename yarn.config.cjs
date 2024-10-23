@@ -229,12 +229,12 @@ module.exports = defineConfig({
           expectWorkspaceField(
             workspace,
             'scripts.test',
-            'vitest run --config vitest.config.ts',
+            'yarn test:ts && vitest run --config vitest.config.ts',
           );
           expectWorkspaceField(
             workspace,
-            'scripts.test',
-            'vitest run --config vitest.config.ts',
+            'scripts.test:ts',
+            'tsc --project tsconfig.test.json --noEmit',
           );
           expectWorkspaceField(
             workspace,
