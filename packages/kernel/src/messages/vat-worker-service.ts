@@ -46,13 +46,13 @@ export const vatWorkerServiceCommand = {
   ),
 };
 
-const messageKit = makeIdentifiedMessageKit(
-  vatWorkerServiceCommand,
-  (value: unknown): value is `m${number}` =>
+const messageKit = makeIdentifiedMessageKit({
+  source: vatWorkerServiceCommand,
+  isMessageId: (value: unknown): value is `m${number}` =>
     typeof value === 'string' &&
     value.at(0) === 'm' &&
     value.slice(1) === String(Number(value.slice(1))),
-);
+});
 
 export const VatWorkerServiceCommandMethod = messageKit.methods;
 

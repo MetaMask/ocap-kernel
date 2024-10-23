@@ -116,10 +116,13 @@ type IdentifiedMessageKit<
 export const makeIdentifiedMessageKit = <
   Source extends SourceLike,
   MessageId extends string,
->(
-  source: Source,
-  isMessageId: TypeGuard<MessageId>,
-): IdentifiedMessageKit<Source, MessageId> => {
+>({
+  source,
+  isMessageId,
+}: {
+  source: Source;
+  isMessageId: TypeGuard<MessageId>;
+}): IdentifiedMessageKit<Source, MessageId> => {
   const messageKit = makeMessageKit(source);
 
   return {

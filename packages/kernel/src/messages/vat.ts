@@ -12,13 +12,13 @@ export const vatCommand = {
   ...vatTestCommand,
 };
 
-const vatMessageKit = makeIdentifiedMessageKit(
-  vatCommand,
-  (value: unknown): value is `${VatId}:${number}` =>
+const vatMessageKit = makeIdentifiedMessageKit({
+  source: vatCommand,
+  isMessageId: (value: unknown): value is `${VatId}:${number}` =>
     typeof value === 'string' &&
     /^\w+:\d+$/u.test(value) &&
     isVatId(value.split(':')[0]),
-);
+});
 
 export const VatCommandMethod = vatMessageKit.methods;
 
