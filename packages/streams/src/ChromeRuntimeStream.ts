@@ -161,7 +161,9 @@ export class ChromeRuntimeDuplexStream<
   Write,
   ChromeRuntimeWriter<Write>
 > {
-  constructor(
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,

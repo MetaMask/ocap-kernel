@@ -97,7 +97,9 @@ export class MessagePortDuplexStream<
   Write,
   MessagePortWriter<Write>
 > {
-  constructor(port: MessagePort) {
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(port: MessagePort) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, async () => {
       await writer.return();

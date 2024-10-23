@@ -65,6 +65,10 @@ export class TestDuplexStream<
     this.#receiveInput = reader.receiveInput;
   }
 
+  async synchronize(): Promise<void> {
+    return super.synchronize();
+  }
+
   /**
    * Synchronize the stream by receiving an ack.
    *

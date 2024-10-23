@@ -83,7 +83,9 @@ export class PostMessageDuplexStream<
   Write,
   PostMessageWriter<Write>
 > {
-  constructor(
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,

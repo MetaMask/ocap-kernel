@@ -112,22 +112,21 @@ export abstract class BaseDuplexStream<
   }
 
   /**
-   * Synchronizes the duplex stream with its remote counterpart.
+   * Synchronizes the duplex stream with its remote counterpart. Must be awaited
+   * before values can be read from or written to the stream. Idempotent.
    *
    * @returns A promise that resolves when the stream is synchronized.
    */
-  async synchronize(): Promise<void> {
+  protected async synchronize(): Promise<void> {
     if (this.#synchronizationStatus !== SynchronizationStatus.Idle) {
       return this.#syncKit.promise;
     }
-
-    const { reject } = this.#syncKit;
     this.#synchronizationStatus = SynchronizationStatus.Pending;
 
     try {
       await this.#performSynchronization();
     } catch (error) {
-      reject(error);
+      this.#syncKit.reject(error);
     }
 
     return this.#syncKit.promise;
