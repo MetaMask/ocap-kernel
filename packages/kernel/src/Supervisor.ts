@@ -8,8 +8,8 @@ import type {
   VatCommand,
   VatCommandReply,
   VatMessageId,
-} from './messages.js';
-import { VatCommandMethod } from './messages.js';
+} from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import {
   makeStreamEnvelopeHandler,

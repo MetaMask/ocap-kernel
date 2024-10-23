@@ -1,21 +1,31 @@
 import { isObject } from '@metamask/utils';
 import type { TypeGuard } from '@ocap/utils';
 
-import { kernelTestCommand } from './kernel-test.js';
+import type { CapTpPayload } from './captp.js';
+import { isCapTpPayload } from './captp.js';
 import { makeMessageKit, messageType } from './message-kit.js';
-import type { VatId } from '../types.js';
-import { isVatId } from '../types.js';
+import { vatTestCommand } from './vat-test.js';
 
 export const kernelCommand = {
-  InitKernel: messageType<null, { initTime: number; defaultVat: VatId }>(
-    (send) => send === null,
-    (reply) =>
-      isObject(reply) &&
-      typeof reply.initTime === 'number' &&
-      isVatId(reply.defaultVat),
+  CapTpCall: messageType<CapTpPayload, string>(
+    (send) => isCapTpPayload(send),
+    (reply) => typeof reply === 'string',
   ),
 
-  ...kernelTestCommand,
+  KVSet: messageType<{ key: string; value: string }, string>(
+    (send) =>
+      isObject(send) &&
+      typeof send.key === 'string' &&
+      typeof send.value === 'string',
+    (reply) => typeof reply === 'string',
+  ),
+
+  KVGet: messageType<string, string>(
+    (send) => typeof send === 'string',
+    (reply) => typeof reply === 'string',
+  ),
+
+  ...vatTestCommand,
 };
 
 const kernelCommandKit = makeMessageKit(kernelCommand);

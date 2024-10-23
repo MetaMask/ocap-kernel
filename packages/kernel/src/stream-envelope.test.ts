@@ -3,8 +3,12 @@ import '@ocap/shims/endoify';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect } from 'vitest';
 
-import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
-import { VatCommandMethod } from './messages.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+} from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import {
   wrapCapTp,
   wrapStreamCommand,
