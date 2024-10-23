@@ -104,7 +104,10 @@ export class Vat {
    */
   async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
     for await (const rawMessage of reader) {
-      this.logger.debug('Vat received message', rawMessage);
+      this.logger.log(
+        'Received message',
+        stringify(rawMessage?.content?.payload),
+      );
       await this.streamEnvelopeReplyHandler.handle(rawMessage);
     }
   }

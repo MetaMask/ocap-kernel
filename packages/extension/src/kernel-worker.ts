@@ -1,5 +1,5 @@
 import './kernel-worker-trusted-prelude.js';
-import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
+import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 
@@ -33,30 +33,30 @@ async function main(): Promise<void> {
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init({ defaultVatId: 'v0' });
 
-  console.log('Kernel started');
+  const vats: VatId[] = ['v1', 'v2', 'v3'];
 
-  await kernel.launchVat({ id: 'v1' });
-  await kernel.launchVat({ id: 'v2' });
-  await kernel.launchVat({ id: 'v3' });
-  console.log('Kernel vats:', kernel.getVatIds());
+  console.time(`Created vats: ${vats.join(', ')}`);
+  await Promise.all(vats.map(async (id) => kernel.launchVat({ id })));
+  console.timeEnd(`Created vats: ${vats.join(', ')}`);
 
+  console.log('Kernel vats:', kernel.getVatIds().join(', '));
+
+  console.time('Vat "v2" restart');
   await kernel.restartVat('v2');
-  console.log('Vat v2 restarted');
+  console.timeEnd('Vat "v2" restart');
 
-  console.log('Kernel vats:', kernel.getVatIds());
-
+  console.time('Ping Vat "v1"');
   await kernel.sendMessage('v1', {
     method: VatCommandMethod.Ping,
     params: null,
   });
+  console.timeEnd('Ping Vat "v1"');
 
-  await kernel.deleteVat('v1');
-  console.log('Vat v1 deleted');
+  console.time(`Terminated vats: ${vats.join(', ')}`);
+  for (const vatId of vats) {
+    await kernel.terminateVat(vatId);
+  }
+  console.timeEnd(`Terminated vats: ${vats.join(', ')}`);
 
-  console.log('Kernel vats:', kernel.getVatIds());
-
-  await kernel.sendMessage('v2', {
-    method: VatCommandMethod.Ping,
-    params: null,
-  });
+  console.log('Kernel vats:', kernel.getVatIds().join(', '));
 }

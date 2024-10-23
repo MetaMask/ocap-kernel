@@ -88,6 +88,15 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
     });
 
+    it('adds multiple vats to the kernel without errors when no vat with the same ID exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      await kernel.launchVat({ id: 'v0' });
+      await kernel.launchVat({ id: 'v1' });
+      expect(initMock).toHaveBeenCalledTimes(2);
+      expect(mockGetWorkerStreams).toHaveBeenCalledTimes(2);
+      expect(kernel.getVatIds()).toStrictEqual(['v0', 'v1']);
+    });
+
     it('throws an error when launching a vat that already exists in the kernel', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
@@ -101,12 +110,12 @@ describe('Kernel', () => {
     });
   });
 
-  describe('deleteVat()', () => {
+  describe('terminateVat()', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
-      await kernel.deleteVat('v0');
+      await kernel.terminateVat('v0');
       expect(terminateMock).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
@@ -116,7 +125,7 @@ describe('Kernel', () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
-        kernel.deleteVat(nonExistentVatId),
+        kernel.terminateVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
       expect(terminateMock).not.toHaveBeenCalled();
     });
@@ -125,9 +134,22 @@ describe('Kernel', () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
       vi.spyOn(Vat.prototype, 'terminate').mockRejectedValueOnce('Test error');
-      await expect(async () => kernel.deleteVat('v0')).rejects.toThrow(
+      await expect(async () => kernel.terminateVat('v0')).rejects.toThrow(
         'Test error',
       );
+    });
+  });
+
+  describe('restartVat()', () => {
+    it('restarts a vat', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      await kernel.launchVat({ id: 'v0' });
+      expect(kernel.getVatIds()).toStrictEqual(['v0']);
+      await kernel.restartVat('v0');
+      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(mockDeleteWorker).toHaveBeenCalledOnce();
+      expect(kernel.getVatIds()).toStrictEqual(['v0']);
+      expect(initMock).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -174,5 +196,7 @@ describe('Kernel', () => {
     it.todo('initializes the kernel store');
 
     it.todo('starts receiving messages');
+
+    it.todo('throws an error if the stream is invalid');
   });
 });

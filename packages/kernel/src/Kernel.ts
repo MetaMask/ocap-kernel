@@ -1,7 +1,12 @@
 import '@ocap/shims/endoify';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
-import { VatAlreadyExistsError, VatNotFoundError, toError } from '@ocap/errors';
+import {
+  StreamReadError,
+  VatAlreadyExistsError,
+  VatNotFoundError,
+  toError,
+} from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
@@ -53,7 +58,9 @@ export class Kernel {
       .then(this.#defaultVatKit.resolve)
       .catch(this.#defaultVatKit.reject);
 
-    return this.#receiveMessages();
+    this.#receiveMessages().catch((error) => {
+      throw new StreamReadError({ kernelId: 'kernel' }, error);
+    });
   }
 
   async #receiveMessages(): Promise<void> {
@@ -182,25 +189,25 @@ export class Kernel {
   }
 
   /**
-   * Deletes a vat from the kernel.
-   *
-   * @param id - The ID of the vat.
-   */
-  async deleteVat(id: VatId): Promise<void> {
-    const vat = this.#getVat(id);
-    await vat.terminate();
-    await this.#vatWorkerService.terminate(id).catch(console.error);
-    this.#vats.delete(id);
-  }
-
-  /**
    * Restarts a vat in the kernel.
    *
    * @param id - The ID of the vat.
    */
   async restartVat(id: VatId): Promise<void> {
-    await this.deleteVat(id);
+    await this.terminateVat(id);
     await this.launchVat({ id });
+  }
+
+  /**
+   * Terminate a vat from the kernel.
+   *
+   * @param id - The ID of the vat.
+   */
+  async terminateVat(id: VatId): Promise<void> {
+    const vat = this.#getVat(id);
+    await vat.terminate();
+    await this.#vatWorkerService.terminate(id).catch(console.error);
+    this.#vats.delete(id);
   }
 
   /**

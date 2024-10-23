@@ -16,7 +16,10 @@ import {
 } from '../constants.js';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
 
-type StreamReadErrorData = { vatId: string } | { supervisorId: string };
+type StreamReadErrorData =
+  | { vatId: string }
+  | { supervisorId: string }
+  | { kernelId: string };
 type StreamReadErrorOptions = Required<ErrorOptions> &
   Pick<ErrorOptionsWithStack, 'stack'>;
 
@@ -36,8 +39,21 @@ export class StreamReadError extends BaseError {
     ...marshaledErrorSchema,
     code: literal(ErrorCode.StreamReadError),
     data: union([
-      object({ vatId: string(), supervisorId: optional(never()) }),
-      object({ supervisorId: string(), vatId: optional(never()) }),
+      object({
+        vatId: string(),
+        supervisorId: optional(never()),
+        kernelId: optional(never()),
+      }),
+      object({
+        supervisorId: string(),
+        vatId: optional(never()),
+        kernelId: optional(never()),
+      }),
+      object({
+        kernelId: string(),
+        vatId: optional(never()),
+        supervisorId: optional(never()),
+      }),
     ]),
     cause: MarshaledErrorStruct,
   });
