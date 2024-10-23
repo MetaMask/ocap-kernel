@@ -8,10 +8,11 @@ import type { Message } from './kernel-types.js';
 import { makeMapKVStore } from '../test/storage.js';
 
 /**
- * Stupid hack to allow use of strings as fake Messages without TS complaints
+ * Stupid hack to allow easy use of strings as fake Messages without TS
+ * complaints.
  *
  * @param str - The string.
- * @returns The same string coerced to type Message
+ * @returns The same string coerced to type Message.
  */
 function sm(str: string): Message {
   return str as unknown as Message;
@@ -41,7 +42,7 @@ describe('kernel store', () => {
       const ks = makeKernelStore(mockKVStore);
       expect(Object.keys(ks).sort()).toStrictEqual([
         'addClistEntry',
-        'decRefCt',
+        'decRefCount',
         'deleteKernelObject',
         'deleteKernelPromise',
         'dequeueRun',
@@ -50,13 +51,13 @@ describe('kernel store', () => {
         'erefToKref',
         'forgetEref',
         'forgetKref',
-        'getKernelObject',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
         'getNextRemoteId',
         'getNextVatId',
-        'getRefCt',
-        'incRefCt',
+        'getOwner',
+        'getRefCount',
+        'incRefCount',
         'initKernelObject',
         'initKernelPromise',
         'krefToEref',
@@ -77,58 +78,48 @@ describe('kernel store', () => {
     });
     it('manages kernel objects', () => {
       const ks = makeKernelStore(mockKVStore);
-      const ko1 = {
-        owner: 'v47',
-      };
-      const ko2 = {
-        owner: 'r23',
-      };
-      expect(ks.initKernelObject('v47')).toStrictEqual(['ko1', ko1]);
-      expect(ks.getRefCt('ko1')).toBe(1);
-      expect(ks.incRefCt('ko1')).toBe(2);
-      ks.incRefCt('ko1');
-      expect(ks.getRefCt('ko1')).toBe(3);
-      expect(ks.decRefCt('ko1')).toBe(2);
-      ks.decRefCt('ko1');
-      ks.decRefCt('ko1');
-      expect(ks.getRefCt('ko1')).toBe(0);
-      expect(ks.initKernelObject('r23')).toStrictEqual(['ko2', ko2]);
-      expect(ks.getKernelObject('ko1')).toStrictEqual(ko1);
-      expect(ks.getKernelObject('ko2')).toStrictEqual(ko2);
+      const ko1Owner = 'v47';
+      const ko2Owner = 'r23';
+      expect(ks.initKernelObject(ko1Owner)).toBe('ko1');
+      expect(ks.getRefCount('ko1')).toBe(1);
+      expect(ks.incRefCount('ko1')).toBe(2);
+      ks.incRefCount('ko1');
+      expect(ks.getRefCount('ko1')).toBe(3);
+      expect(ks.decRefCount('ko1')).toBe(2);
+      ks.decRefCount('ko1');
+      ks.decRefCount('ko1');
+      expect(ks.getRefCount('ko1')).toBe(0);
+      expect(ks.initKernelObject(ko2Owner)).toBe('ko2');
+      expect(ks.getOwner('ko1')).toBe(ko1Owner);
+      expect(ks.getOwner('ko2')).toBe(ko2Owner);
       ks.deleteKernelObject('ko1');
-      expect(() => ks.getKernelObject('ko1')).toThrow(
-        'unknown kernel object ko1',
-      );
-      expect(() => ks.getKernelObject('ko99')).toThrow(
-        'unknown kernel object ko99',
-      );
+      expect(() => ks.getOwner('ko1')).toThrow('unknown kernel object ko1');
+      expect(() => ks.getOwner('ko99')).toThrow('unknown kernel object ko99');
     });
     it('manages kernel promises', () => {
       const ks = makeKernelStore(mockKVStore);
       const kp1 = {
         decider: 'v23',
         state: 'unresolved',
-        value: undefined,
+        subscribers: [],
       };
       const kp2 = {
         decider: 'r47',
         state: 'unresolved',
-        value: undefined,
+        subscribers: [],
       };
       expect(ks.initKernelPromise('v23')).toStrictEqual(['kp1', kp1]);
-      expect(ks.getRefCt('kp1')).toBe(1);
-      expect(ks.incRefCt('kp1')).toBe(2);
-      ks.incRefCt('kp1');
-      expect(ks.getRefCt('kp1')).toBe(3);
-      expect(ks.decRefCt('kp1')).toBe(2);
-      ks.decRefCt('kp1');
-      ks.decRefCt('kp1');
-      expect(ks.getRefCt('kp1')).toBe(0);
+      expect(ks.getRefCount('kp1')).toBe(1);
+      expect(ks.incRefCount('kp1')).toBe(2);
+      ks.incRefCount('kp1');
+      expect(ks.getRefCount('kp1')).toBe(3);
+      expect(ks.decRefCount('kp1')).toBe(2);
+      ks.decRefCount('kp1');
+      ks.decRefCount('kp1');
+      expect(ks.getRefCount('kp1')).toBe(0);
       expect(ks.initKernelPromise('r47')).toStrictEqual(['kp2', kp2]);
-      // eslint-disable-next-line vitest/prefer-strict-equal
-      expect(ks.getKernelPromise('kp1')).toEqual(kp1);
-      // eslint-disable-next-line vitest/prefer-strict-equal
-      expect(ks.getKernelPromise('kp2')).toEqual(kp2);
+      expect(ks.getKernelPromise('kp1')).toStrictEqual(kp1);
+      expect(ks.getKernelPromise('kp2')).toStrictEqual(kp2);
       ks.enqueuePromiseMessage('kp1', sm('first message to kp1'));
       ks.enqueuePromiseMessage('kp1', sm('second message to kp1'));
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([
@@ -142,9 +133,11 @@ describe('kernel store', () => {
         'unknown kernel promise kp1',
       );
       expect(() => ks.enqueuePromiseMessage('kp1', sm('not really'))).toThrow(
-        'enqueue into deleted queue kp1',
+        'queue kp1 not initialized',
       );
-      expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([]);
+      expect(() => ks.getKernelPromiseMessageQueue('kp1')).toThrow(
+        'queue kp1 not initialized',
+      );
       expect(() => ks.getKernelPromise('kp99')).toThrow(
         'unknown kernel promise kp99',
       );

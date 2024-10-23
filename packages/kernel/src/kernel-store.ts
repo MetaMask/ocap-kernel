@@ -1,3 +1,54 @@
+/*
+ * Organization of keys in the key value store:
+ *
+ * Definitions
+ *   NN ::= some decimal integer
+ *   CAPDATA ::= capdata encoded structure value
+ *   JSON(${xx}) ::= JSON encoding of ${xx}
+ *
+ *   ${koid} ::= ko${NN}                      // kernel object ID
+ *   ${kpid} ::= kp${NN}                      // kernel promise ID
+ *   ${kref} ::= ${koid} | ${kpid}            // kernel reference
+ *   ${dir} ::= + | -                         // direction (for remote and vat references)
+ *   ${roid} ::= ro${dir}${NN}                // remote object ID
+ *   ${rpid} ::= rp${dir}${NN}                // remote promise ID
+ *   ${rref} ::= ${roid} | ${rpid}            // remote reference
+ *   ${void} ::= vo${dir}${NN}                // vat object ID
+ *   ${vpid} ::= vp${dir}${NN}                // vat promise ID
+ *   ${vref} ::= ${void} | ${vpid}            // vat reference
+ *   ${eref} ::= ${vref} | ${rref}            // external reference
+ *   ${vatid} ::= v${NN}                      // vat ID
+ *   ${remid} ::= r${NN}                      // remote ID
+ *   ${endid} ::= ${vatid} | ${remid}         // endpoint ID
+ *   ${queueName} ::= run | ${kpid}
+ *
+ * Queues
+ *   queue.${queueName}.head = NN             // queue head index
+ *   queue.${queueName}.tail = NN             // queue tail index
+ *   queue.${queueName}.${NN} = JSON(CAPDATA) // queue entry #NN
+ *
+ * Kernel objects
+ *   ${koid}.refCount = NN                    // reference count
+ *   ${koid}.owner = ${vatid}                 // owner (where the object is)
+ *
+ * Kernel promises
+ *   ${kpid}.refCount = NN                    // reference count
+ *   ${kpid}.state = unresolved | fulfilled | rejected  // current state of settlement
+ *   ${kpid}.subscribers = JSON([${endid}])   // array of who is waiting for settlement
+ *   ${kpid}.decider = ${endid}               // who decides on settlement
+ *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
+ *
+ * C-lists
+ *   cle.${endpointId}.${eref} = ${kref}      // ERef->KRef mapping
+ *   clk.${endpointId}.${kref} = ${eref}      // KRef->ERef mapping
+ *
+ * Kernel bookkeeping
+ *   nextVatId = NN
+ *   nextRemoteId = NN
+ *   nextObjectId = NN
+ *   nextPromiseId = NN
+ */
+
 import type {
   VatId,
   RemoteId,
@@ -5,7 +56,7 @@ import type {
   KRef,
   ERef,
   Message,
-  KernelObject,
+  PromiseState,
   KernelPromise,
 } from './kernel-types.js';
 
@@ -152,6 +203,9 @@ export function makeKernelStore(kv: KVStore) {
       : provideRawStoredValue;
     const head = provideValue(`${qk}.head`);
     const tail = provideValue(`${qk}.tail`);
+    if (head.get() === undefined || tail.get() === undefined) {
+      throw Error(`queue ${queueName} not initialized`);
+    }
     return {
       enqueue(message: Message): void {
         if (head.get() === undefined) {
@@ -238,7 +292,7 @@ export function makeKernelStore(kv: KVStore) {
   /**
    * Obtain a KRef for the next unallocated kernel object.
    *
-   * @returns The next koid use.
+   * @returns The next koId use.
    */
   function getNextObjectId(): KRef {
     return `ko${incCounter(nextObjectId)}`;
@@ -250,8 +304,8 @@ export function makeKernelStore(kv: KVStore) {
    * @param kref - The KRef of interest.
    * @returns the key to store the indicated reference count at.
    */
-  function refCtKey(kref: KRef): string {
-    return `${kref}.rc`;
+  function refCountKey(kref: KRef): string {
+    return `${kref}.refCount`;
   }
 
   /**
@@ -260,8 +314,8 @@ export function makeKernelStore(kv: KVStore) {
    * @param kref - The KRef of interest.
    * @returns the reference count of the indicated kernel entity.
    */
-  function getRefCt(kref: KRef): number {
-    return Number(kv.get(refCtKey(kref)));
+  function getRefCount(kref: KRef): number {
+    return Number(kv.get(refCountKey(kref)));
   }
 
   /**
@@ -270,8 +324,8 @@ export function makeKernelStore(kv: KVStore) {
    * @param kref - The KRef of the entity to increment the ref count of.
    * @returns the new reference count after incrementing.
    */
-  function incRefCt(kref: KRef): number {
-    const key = refCtKey(kref);
+  function incRefCount(kref: KRef): number {
+    const key = refCountKey(kref);
     const newCount = Number(kv.get(key)) + 1;
     kv.set(key, `${newCount}`);
     return newCount;
@@ -283,8 +337,8 @@ export function makeKernelStore(kv: KVStore) {
    * @param kref - The KRef of the entity to decrement the ref count of.
    * @returns the new reference count after decrementing.
    */
-  function decRefCt(kref: KRef): number {
-    const key = refCtKey(kref);
+  function decRefCount(kref: KRef): number {
+    const key = refCountKey(kref);
     const newCount = Number(kv.get(key)) - 1;
     kv.set(key, `${newCount}`);
     return newCount;
@@ -296,39 +350,37 @@ export function makeKernelStore(kv: KVStore) {
    * corresponds to an object that has just been imported from somewhere.
    *
    * @param owner - The endpoint that is the owner of the new object.
-   * @returns A tuple of the new object's KRef and an object describing the new
-   * kernel object itself.
+   * @returns The new object's KRef.
    */
-  function initKernelObject(owner: EndpointId): [KRef, KernelObject] {
-    const kobj = { owner };
-    const koid = getNextObjectId();
-    kv.set(koid, JSON.stringify(kobj));
-    kv.set(refCtKey(koid), '1');
-    return [koid, kobj];
+  function initKernelObject(owner: EndpointId): KRef {
+    const koId = getNextObjectId();
+    kv.set(`${koId}.owner`, owner);
+    kv.set(refCountKey(koId), '1');
+    return koId;
   }
 
   /**
-   * Fetch the descriptive record for a kernel object.
+   * Get a kernel object's owner.
    *
-   * @param koid - The KRef of the kernel object of interest.
-   * @returns An object describing the requested kernel object.
+   * @param koId - The KRef of the kernel object of interest.
+   * @returns The identity of the vat or remote that owns the object.
    */
-  function getKernelObject(koid: KRef): KernelObject {
-    const raw = kv.get(koid);
-    if (raw === undefined) {
-      throw Error(`unknown kernel object ${koid}`);
+  function getOwner(koId: KRef): EndpointId {
+    const owner = kv.get(`${koId}.owner`);
+    if (owner === undefined) {
+      throw Error(`unknown kernel object ${koId}`);
     }
-    return JSON.parse(raw) as KernelObject;
+    return owner as EndpointId;
   }
 
   /**
    * Expunge a kernel object from the kernel's persistent state.
    *
-   * @param koid - The KRef of the kernel object to delete.
+   * @param koId - The KRef of the kernel object to delete.
    */
-  function deleteKernelObject(koid: KRef): void {
-    kv.delete(koid);
-    kv.delete(refCtKey(koid));
+  function deleteKernelObject(koId: KRef): void {
+    kv.delete(`${koId}.owner`);
+    kv.delete(refCountKey(koId));
   }
 
   /** Counter for allocating kernel promise IDs */
@@ -336,7 +388,7 @@ export function makeKernelStore(kv: KVStore) {
   /**
    * Obtain a KRef for the next unallocated kernel promise.
    *
-   * @returns The next kpid use.
+   * @returns The next kpId use.
    */
   function getNextPromiseId(): KRef {
     return `kp${incCounter(nextPromiseId)}`;
@@ -348,55 +400,75 @@ export function makeKernelStore(kv: KVStore) {
    * imported from somewhere.
    *
    * @param decider - The endpoint that is the decider for the new promise.
-   * @returns A tuple of the new promise's KRef and a object describing the
+   * @returns A tuple of the new promise's KRef and an object describing the
    * new promise itself.
    */
   function initKernelPromise(decider: EndpointId): [KRef, KernelPromise] {
     const kpr: KernelPromise = {
       decider,
       state: 'unresolved',
-      value: undefined,
+      subscribers: [],
     };
-    const kpid = getNextPromiseId();
-    createStoredMessageQueue(kpid, false);
-    kv.set(kpid, JSON.stringify(kpr));
-    kv.set(refCtKey(kpid), '1');
-    return [kpid, kpr];
+    const kpId = getNextPromiseId();
+    createStoredMessageQueue(kpId, false);
+    kv.set(`${kpId}.decider`, decider);
+    kv.set(`${kpId}.state`, 'unresolved');
+    kv.set(`${kpId}.subscribers`, '[]');
+    kv.set(refCountKey(kpId), '1');
+    return [kpId, kpr];
   }
 
   /**
    * Append a message to a promise's message queue.
    *
-   * @param kpid - The KRef of the promise to enqueue on.
+   * @param kpId - The KRef of the promise to enqueue on.
    * @param message - The message to enqueue.
    */
-  function enqueuePromiseMessage(kpid: KRef, message: Message): void {
-    provideStoredMessageQueue(kpid, false).enqueue(message);
+  function enqueuePromiseMessage(kpId: KRef, message: Message): void {
+    provideStoredMessageQueue(kpId, false).enqueue(message);
   }
 
   /**
    * Fetch the descriptive record for a kernel promise.
    *
-   * @param kpid - The KRef of the kernel promise of interest.
+   * @param kpId - The KRef of the kernel promise of interest.
    * @returns An object describing the requested kernel promise.
    */
-  function getKernelPromise(kpid: KRef): KernelPromise {
-    const raw = kv.get(kpid);
-    if (raw === undefined) {
-      throw Error(`unknown kernel promise ${kpid}`);
+  function getKernelPromise(kpId: KRef): KernelPromise {
+    const state = kv.get(`${kpId}.state`) as PromiseState;
+    if (state === undefined) {
+      throw Error(`unknown kernel promise ${kpId}`);
     }
-    return JSON.parse(raw) as KernelPromise;
+    const result: KernelPromise = { state };
+    switch (state as string) {
+      case 'unresolved': {
+        const decider = kv.get(`${kpId}.decider`);
+        if (decider !== '' && decider !== undefined) {
+          result.decider = decider as EndpointId;
+        }
+        result.subscribers = JSON.parse(kv.get(`${kpId}.subscribers`));
+        break;
+      }
+      case 'fulfilled':
+      case 'rejected': {
+        result.value = JSON.parse(kv.get(`${kpId}.value`));
+        break;
+      }
+      default:
+        throw Error(`unknown state for ${kpId}: ${state}`);
+    }
+    return result;
   }
 
   /**
    * Fetch the messages in a kernel promise's message queue.
    *
-   * @param kpid - The KRef of the kernel promise of interest.
+   * @param kpId - The KRef of the kernel promise of interest.
    * @returns An array of all the messages in the given promise's message queue.
    */
-  function getKernelPromiseMessageQueue(kpid: KRef): Message[] {
+  function getKernelPromiseMessageQueue(kpId: KRef): Message[] {
     const result: Message[] = [];
-    const queue = provideStoredMessageQueue(kpid, false);
+    const queue = provideStoredMessageQueue(kpId, false);
     for (;;) {
       const message = queue.dequeue();
       if (message) {
@@ -410,12 +482,15 @@ export function makeKernelStore(kv: KVStore) {
   /**
    * Expunge a kernel promise from the kernel's persistent state.
    *
-   * @param kpid - The KRef of the kernel promise to delete.
+   * @param kpId - The KRef of the kernel promise to delete.
    */
-  function deleteKernelPromise(kpid: KRef): void {
-    kv.delete(kpid);
-    kv.delete(refCtKey(kpid));
-    provideStoredMessageQueue(kpid).delete();
+  function deleteKernelPromise(kpId: KRef): void {
+    kv.delete(`${kpId}.state`);
+    kv.delete(`${kpId}.decider`);
+    kv.delete(`${kpId}.subscribers`);
+    kv.delete(`${kpId}.value`);
+    kv.delete(refCountKey(kpId));
+    provideStoredMessageQueue(kpId).delete();
   }
 
   /**
@@ -503,11 +578,11 @@ export function makeKernelStore(kv: KVStore) {
     dequeueRun,
     getNextVatId,
     getNextRemoteId,
-    getRefCt,
-    incRefCt,
-    decRefCt,
+    getRefCount,
+    incRefCount,
+    decRefCount,
     initKernelObject,
-    getKernelObject,
+    getOwner,
     deleteKernelObject,
     initKernelPromise,
     getKernelPromise,

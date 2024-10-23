@@ -51,21 +51,18 @@ type RemoteState = {
 };
 
 // Kernel persistent state
-export type KernelObject = {
-  owner: EndpointId;
-};
 
-type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
+export type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
 
 export type KernelPromise = {
-  decider: EndpointId;
   state: PromiseState;
-  value: undefined | CapData;
+  decider?: EndpointId;
+  subscribers?: EndpointId[];
+  value?: CapData;
 };
 
 export type KernelState = {
   vats: Map<VatId, VatState>;
   remotes: Map<RemoteId, RemoteState>;
-  kernelObjects: Map<KRef, KernelObject>;
   kernelPromises: Map<KRef, KernelPromise>;
 };
