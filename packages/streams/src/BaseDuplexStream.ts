@@ -1,7 +1,8 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader } from '@endo/stream';
-import { isObject, type Json } from '@metamask/utils';
+import { isObject } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
 import type { BaseReader, BaseWriter } from './BaseStream.js';
@@ -219,7 +220,9 @@ harden(BaseDuplexStream);
 /**
  * A duplex stream. Essentially a {@link Reader} with a `write()` method.
  */
-export type DuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
-> = BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>;
+export type DuplexStream<Read extends Json, Write extends Json = Read> = Pick<
+  BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>,
+  'next' | 'write' | 'drain' | 'return' | 'throw'
+> & {
+  [Symbol.asyncIterator]: () => DuplexStream<Read, Write>;
+};

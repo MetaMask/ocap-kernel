@@ -3,9 +3,8 @@ import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
 } from '@ocap/errors';
-import type { DuplexStream } from '@ocap/streams';
-import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -24,20 +23,21 @@ vi.mock('@endo/eventual-send', () => ({
   }),
 }));
 
-const makeVat = (
-  messageChannel = new MessageChannel(),
-): { vat: Vat; stream: DuplexStream<StreamEnvelopeReply, StreamEnvelope> } => {
-  const stream = new MessagePortDuplexStream<
+const makeVat = async (): Promise<{
+  vat: Vat;
+  stream: TestDuplexStream<StreamEnvelopeReply, StreamEnvelope>;
+}> => {
+  const stream = await TestDuplexStream.make<
     StreamEnvelopeReply,
     StreamEnvelope
-  >(messageChannel.port1);
+  >(() => undefined);
   return { vat: new Vat({ id: 'v0', stream }), stream };
 };
 
 describe('Vat', () => {
   describe('init', () => {
     it('initializes the vat and sends a ping message', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
         .mockResolvedValueOnce(undefined);
@@ -55,13 +55,12 @@ describe('Vat', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const messageChannel = new MessageChannel();
-      const { vat } = makeVat(messageChannel);
+      const { vat, stream } = await makeVat();
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
-      messageChannel.port2.postMessage(NaN);
+      stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
@@ -72,7 +71,7 @@ describe('Vat', () => {
 
   describe('sendMessage', () => {
     it('sends a message and resolves the promise', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       const mockMessage = {
         method: VatCommandMethod.Ping,
         params: null,
@@ -86,15 +85,13 @@ describe('Vat', () => {
 
   describe('#receiveMessages', () => {
     it('receives messages correctly', async () => {
-      const messageChannel = new MessageChannel();
-      const { vat } = makeVat(messageChannel);
+      const { vat, stream } = await makeVat();
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       const handleSpy = vi.spyOn(vat.streamEnvelopeReplyHandler, 'handle');
       await vat.init();
-      const writer = new MessagePortWriter(messageChannel.port2);
       const rawMessage = { type: 'command', payload: { method: 'test' } };
-      await writer.next(rawMessage);
+      stream.receiveInput(rawMessage);
       await delay(10);
       expect(handleSpy).toHaveBeenCalledWith(rawMessage);
     });
@@ -102,7 +99,7 @@ describe('Vat', () => {
 
   describe('handleMessage', () => {
     it('resolves the payload when the message id exists in unresolvedMessages', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       const mockMessageId = 'v0:1';
       const mockPayload: VatCommandReply['payload'] = {
         method: VatCommandMethod.Evaluate,
@@ -116,7 +113,7 @@ describe('Vat', () => {
     });
 
     it('logs an error when the message id does not exist in unresolvedMessages', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       const nonExistentMessageId = 'v0:9';
@@ -139,7 +136,7 @@ describe('Vat', () => {
 
   describe('terminate', () => {
     it('terminates the vat and resolves/rejects unresolved messages', async () => {
-      const { vat, stream } = makeVat();
+      const { vat, stream } = await makeVat();
 
       const mockMessageId = 'v0:1';
       const mockPromiseKit = makePromiseKitMock().makePromiseKit();
@@ -157,7 +154,7 @@ describe('Vat', () => {
 
   describe('makeCapTp', () => {
     it('throws an error if CapTP connection already exists', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       // @ts-expect-error - Simulating an existing CapTP
       vat.capTp = {};
       await expect(vat.makeCapTp()).rejects.toThrow(
@@ -166,7 +163,7 @@ describe('Vat', () => {
     });
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       // @ts-expect-error - streamEnvelopeReplyHandler is readonly
       vat.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
         {},
@@ -186,7 +183,7 @@ describe('Vat', () => {
     });
 
     it('handles CapTP messages', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
       const consoleLogSpy = vi.spyOn(vat.logger, 'log');
@@ -222,14 +219,14 @@ describe('Vat', () => {
 
   describe('callCapTp', () => {
     it('throws an error if CapTP connection is not established', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       await expect(
         vat.callCapTp({ method: 'testMethod', params: [] }),
       ).rejects.toThrow(VatCapTpConnectionNotFoundError);
     });
 
     it('calls CapTP method with parameters using eventual send', async () => {
-      const { vat } = makeVat();
+      const { vat } = await makeVat();
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
 

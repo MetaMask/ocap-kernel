@@ -1,8 +1,10 @@
+import type { Json } from '@metamask/utils';
+
 import { BaseDuplexStream, makeAck } from '../src/BaseDuplexStream.js';
 import type { Dispatch, ReceiveInput } from '../src/BaseStream.js';
 import { BaseReader, BaseWriter } from '../src/BaseStream.js';
 
-export class TestReader extends BaseReader<number> {
+export class TestReader<Read extends Json = number> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
 
   get receiveInput(): ReceiveInput {
@@ -19,14 +21,14 @@ export class TestReader extends BaseReader<number> {
   }
 }
 
-export class TestWriter extends BaseWriter<number> {
-  readonly #onDispatch: Dispatch<number>;
+export class TestWriter<Write extends Json = number> extends BaseWriter<Write> {
+  readonly #onDispatch: Dispatch<Write>;
 
-  get onDispatch(): Dispatch<number> {
+  get onDispatch(): Dispatch<Write> {
     return this.#onDispatch;
   }
 
-  constructor(onDispatch: Dispatch<number>, onEnd?: () => void) {
+  constructor(onDispatch: Dispatch<Write>, onEnd?: () => void) {
     super('TestWriter', onDispatch, onEnd);
     this.#onDispatch = onDispatch;
   }
@@ -37,17 +39,15 @@ type TestDuplexStreamOptions = {
   writerOnEnd?: () => void;
 };
 
-export class TestDuplexStream extends BaseDuplexStream<
-  number,
-  TestReader,
-  number,
-  TestWriter
-> {
-  readonly #onDispatch: Dispatch<number>;
+export class TestDuplexStream<
+  Read extends Json = number,
+  Write extends Json = Read,
+> extends BaseDuplexStream<Read, TestReader<Read>, Write, TestWriter<Write>> {
+  readonly #onDispatch: Dispatch<Write>;
 
   readonly #receiveInput: ReceiveInput;
 
-  get onDispatch(): Dispatch<number> {
+  get onDispatch(): Dispatch<Write> {
     return this.#onDispatch;
   }
 
@@ -56,11 +56,11 @@ export class TestDuplexStream extends BaseDuplexStream<
   }
 
   constructor(
-    onDispatch: Dispatch<number>,
+    onDispatch: Dispatch<Write>,
     { readerOnEnd, writerOnEnd }: TestDuplexStreamOptions = {},
   ) {
-    const reader = new TestReader(readerOnEnd);
-    super(reader, new TestWriter(onDispatch, writerOnEnd));
+    const reader = new TestReader<Read>(readerOnEnd);
+    super(reader, new TestWriter<Write>(onDispatch, writerOnEnd));
     this.#onDispatch = onDispatch;
     this.#receiveInput = reader.receiveInput;
   }
@@ -83,11 +83,11 @@ export class TestDuplexStream extends BaseDuplexStream<
    * @param opts - The options to use.
    * @returns A synchronized TestDuplexStream.
    */
-  static async make(
-    onDispatch: Dispatch<number>,
+  static async make<Read extends Json = number, Write extends Json = Read>(
+    onDispatch: Dispatch<Write>,
     opts: TestDuplexStreamOptions = {},
-  ): Promise<TestDuplexStream> {
-    const stream = new TestDuplexStream(onDispatch, opts);
+  ): Promise<TestDuplexStream<Read, Write>> {
+    const stream = new TestDuplexStream<Read, Write>(onDispatch, opts);
     await stream.completeSynchronization();
     return stream;
   }

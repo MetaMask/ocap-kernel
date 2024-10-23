@@ -10,7 +10,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./streams": "./src/streams.ts"
   },
   "scripts": {
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",

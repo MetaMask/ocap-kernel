@@ -1,7 +1,6 @@
 import '@ocap/shims/endoify';
-import type { DuplexStream } from '@ocap/streams';
-import { MessagePortDuplexStream, MessagePortWriter } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages.js';
@@ -9,32 +8,29 @@ import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
 
-const makeSupervisor = (
-  messageChannel = new MessageChannel(),
-): {
+const makeSupervisor = async (): Promise<{
   supervisor: Supervisor;
-  stream: DuplexStream<StreamEnvelope, StreamEnvelopeReply>;
-} => {
-  const stream = new MessagePortDuplexStream<
+  stream: TestDuplexStream<StreamEnvelope, StreamEnvelopeReply>;
+}> => {
+  const stream = await TestDuplexStream.make<
     StreamEnvelope,
     StreamEnvelopeReply
-  >(messageChannel.port1);
+  >(() => undefined);
   return { supervisor: new Supervisor({ id: 'test-id', stream }), stream };
 };
 
 describe('Supervisor', () => {
   describe('init', () => {
     it('initializes the Supervisor correctly', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       expect(supervisor).toBeInstanceOf(Supervisor);
       expect(supervisor.id).toBe('test-id');
     });
 
     it('throws if the stream throws', async () => {
-      const messageChannel = new MessageChannel();
-      const { supervisor } = makeSupervisor(messageChannel);
+      const { supervisor, stream } = await makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      messageChannel.port2.postMessage(NaN);
+      stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
@@ -45,13 +41,10 @@ describe('Supervisor', () => {
 
   describe('handleMessage', () => {
     it('throws if the stream envelope handler throws', async () => {
-      const messageChannel = new MessageChannel();
-      makeSupervisor(messageChannel);
+      const { stream } = await makeSupervisor();
 
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      const writer = new MessagePortWriter(messageChannel.port2);
-      const rawMessage = { type: 'command', payload: { method: 'test' } };
-      await writer.next(rawMessage);
+      stream.receiveInput({ type: 'command', payload: { method: 'test' } });
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -61,7 +54,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Ping messages', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -76,7 +69,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTpInit messages', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -91,7 +84,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTP messages', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
 
       await supervisor.handleMessage({
@@ -121,7 +114,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Evaluate messages', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -136,7 +129,7 @@ describe('Supervisor', () => {
     });
 
     it('logs error on invalid Evaluate messages', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
@@ -154,7 +147,7 @@ describe('Supervisor', () => {
     });
 
     it('handles unknown message types', async () => {
-      const { supervisor } = makeSupervisor();
+      const { supervisor } = await makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
 
       await supervisor.handleMessage({
@@ -172,7 +165,7 @@ describe('Supervisor', () => {
 
   describe('terminate', () => {
     it('terminates correctly', async () => {
-      const { supervisor, stream } = makeSupervisor();
+      const { supervisor, stream } = await makeSupervisor();
 
       await supervisor.terminate();
       expect(await stream.next()).toStrictEqual({
@@ -183,20 +176,20 @@ describe('Supervisor', () => {
   });
 
   describe('evaluate', () => {
-    it('evaluates code correctly', () => {
-      const { supervisor } = makeSupervisor();
+    it('evaluates code correctly', async () => {
+      const { supervisor } = await makeSupervisor();
       const result = supervisor.evaluate('1 + 1');
       expect(result).toBe(2);
     });
 
-    it('returns an error message when evaluation fails', () => {
-      const { supervisor } = makeSupervisor();
+    it('returns an error message when evaluation fails', async () => {
+      const { supervisor } = await makeSupervisor();
       const result = supervisor.evaluate('invalidCode!');
       expect(result).toBe("Error: Unexpected token '!'");
     });
 
-    it('returns unknown when no error message is given', () => {
-      const { supervisor } = makeSupervisor();
+    it('returns unknown when no error message is given', async () => {
+      const { supervisor } = await makeSupervisor();
       const result = supervisor.evaluate('throw new Error("")');
       expect(result).toBe('Error: Unknown');
     });
