@@ -95,7 +95,6 @@ async function main(): Promise<void> {
     }
 
     switch (message.method) {
-      case ClusterCommandMethod.InitKernel:
       case ClusterCommandMethod.Evaluate:
       case ClusterCommandMethod.CapTpCall:
       case ClusterCommandMethod.Ping:
@@ -106,7 +105,7 @@ async function main(): Promise<void> {
       default:
         console.error(
           // @ts-expect-error Runtime does not respect "never".
-          `Background received unexpected command method: "${payload.method}"`,
+          `Background received unexpected command method: "${message.method}"`,
         );
     }
   }

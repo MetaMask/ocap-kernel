@@ -1,4 +1,4 @@
-export * from './messages.js';
+export * from './messages/index.js';
 export { Kernel } from './Kernel.js';
 export type { KernelStore } from './kernel-store.js';
 export { Vat } from './Vat.js';

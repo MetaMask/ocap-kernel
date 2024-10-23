@@ -11,7 +11,7 @@ import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
-} from './messages.js';
+} from './messages/index.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
@@ -172,8 +172,6 @@ describe('Kernel', () => {
 
   describe('init()', () => {
     it.todo('initializes the kernel store');
-
-    it.todo('sends an InitKernel reply to the console');
 
     it.todo('starts receiving messages');
   });

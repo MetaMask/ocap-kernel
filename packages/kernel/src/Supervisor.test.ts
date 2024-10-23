@@ -3,7 +3,7 @@ import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages.js';
+import { VatCommandMethod } from './messages/index.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
