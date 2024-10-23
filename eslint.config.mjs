@@ -1,30 +1,22 @@
 // @ts-check
 
-import metamaskConfig from '@metamask/eslint-config';
+import metamaskConfig, { createConfig } from '@metamask/eslint-config';
 import metamaskNodeConfig from '@metamask/eslint-config-nodejs';
 import metamaskTypescriptConfig from '@metamask/eslint-config-typescript';
 import metamaskVitestConfig from '@metamask/eslint-config-vitest';
 import globals from 'globals';
 
-/** @type {import('eslint').Linter.Config[]} */
-const config = [
-  ...metamaskConfig,
-  ...metamaskNodeConfig,
-  ...metamaskTypescriptConfig.map((options) => ({
-    ...options,
-    files: ['**/*.{ts,mts,cts}'],
-  })),
-  ...metamaskVitestConfig.map((options) => ({
-    ...options,
-    files: ['**/*.test.{ts,js}'],
-  })),
+const config = createConfig([
+  {
+    extends: [metamaskConfig, metamaskNodeConfig],
+  },
 
   {
     ignores: ['node_modules', '**/dist', '**/docs', '**/coverage'],
   },
 
   {
-    files: ['**/*.{js,mjs}'],
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
     },
@@ -40,7 +32,8 @@ const config = [
   {
     languageOptions: {
       parserOptions: {
-        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
       globals: {
         ...globals['shared-node-browser'],
@@ -74,7 +67,8 @@ const config = [
   },
 
   {
-    files: ['**/*.{ts,mts,cts}'],
+    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
+    extends: [metamaskTypescriptConfig],
     rules: {
       '@typescript-eslint/explicit-function-return-type': [
         'error',
@@ -96,6 +90,7 @@ const config = [
 
   {
     files: ['**/*.test.ts'],
+    extends: [metamaskVitestConfig],
     rules: {
       // This causes false positives in tests especially.
       '@typescript-eslint/unbound-method': 'off',
@@ -125,6 +120,6 @@ const config = [
       globals: { lockdown: 'readonly' },
     },
   },
-];
+]);
 
 export default config;
