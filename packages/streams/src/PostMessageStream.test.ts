@@ -6,7 +6,11 @@ import {
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import {
+  makeDoneResult,
+  makePendingResult,
+  makeStreamDoneSignal,
+} from './utils.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
@@ -40,10 +44,10 @@ describe('PostMessageReader', () => {
       makePostMessageMock();
     const reader = new PostMessageReader(setListener, removeListener);
 
-    const message = makePendingResult({ foo: 'bar' });
+    const message = { foo: 'bar' };
 
     postMessageFn(message);
-    expect(await reader.next()).toStrictEqual(message);
+    expect(await reader.next()).toStrictEqual(makePendingResult(message));
   });
 
   it('removes its listener when it ends', async () => {
@@ -52,10 +56,10 @@ describe('PostMessageReader', () => {
     const reader = new PostMessageReader(setListener, removeListener);
     expect(listeners).toHaveLength(1);
 
-    const message = makeDoneResult();
+    const message = makeStreamDoneSignal();
     postMessageFn(message);
 
-    expect(await reader.next()).toStrictEqual(message);
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(removeListener).toHaveBeenCalled();
     expect(listeners).toHaveLength(0);
   });
@@ -67,7 +71,7 @@ describe('PostMessageReader', () => {
     const { port1 } = new MessageChannel();
 
     postMessageFn(makeDoneResult(), [port1]);
-    postMessageFn(makePendingResult({ foo: 'bar' }));
+    postMessageFn({ foo: 'bar' });
     await delay(100);
 
     expect(await reader.next()).toStrictEqual(
@@ -81,7 +85,7 @@ describe('PostMessageReader', () => {
     const onEnd = vi.fn();
     const reader = new PostMessageReader(setListener, removeListener, onEnd);
 
-    postMessageFn(makeDoneResult());
+    postMessageFn(makeStreamDoneSignal());
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -101,7 +105,7 @@ describe('PostMessageWriter', () => {
     const writer = new PostMessageWriter(postMessageFn);
     const message = { foo: 'bar' };
     await writer.next(message);
-    expect(postMessageFn).toHaveBeenCalledWith(makePendingResult(message));
+    expect(postMessageFn).toHaveBeenCalledWith(message);
   });
 
   it('calls onEnd once when ending', async () => {
@@ -152,8 +156,10 @@ describe('PostMessageDuplexStream', () => {
       removeListener,
     );
 
-    postMessageFn(makeDoneResult());
+    const readP = duplexStream.next();
+    postMessageFn(makeStreamDoneSignal());
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
+    expect(await readP).toStrictEqual(makeDoneResult());
   });
 });

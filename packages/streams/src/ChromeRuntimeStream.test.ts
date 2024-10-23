@@ -10,7 +10,11 @@ import {
   ChromeRuntimeStreamTarget,
   ChromeRuntimeDuplexStream,
 } from './ChromeRuntimeStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import {
+  makeDoneResult,
+  makePendingResult,
+  makeStreamDoneSignal,
+} from './utils.js';
 
 // TODO: Something about the runtime mock prevents this test suite from being run
 // concurrently. Even following the advice of using the test context `expect`
@@ -83,12 +87,10 @@ describe('ChromeRuntimeReader', () => {
       ChromeRuntimeStreamTarget.Background,
     );
 
-    const message = makePendingResult({ foo: 'bar' });
+    const message = { foo: 'bar' };
     dispatchRuntimeMessage(message);
 
-    expect(await reader.next()).toStrictEqual({
-      ...message,
-    });
+    expect(await reader.next()).toStrictEqual(makePendingResult(message));
   });
 
   it('ignores messages from other extensions', async () => {
@@ -99,12 +101,12 @@ describe('ChromeRuntimeReader', () => {
     );
 
     const nextP = reader.next();
-    const message1 = makePendingResult({ foo: 'bar' });
-    const message2 = makePendingResult({ fizz: 'buzz' });
+    const message1 = { foo: 'bar' };
+    const message2 = { fizz: 'buzz' };
     dispatchRuntimeMessage(message1, undefined, 'other-extension-id');
     dispatchRuntimeMessage(message2);
 
-    expect(await nextP).toStrictEqual(message2);
+    expect(await nextP).toStrictEqual(makePendingResult(message2));
   });
 
   it('ignores messages that are not valid envelopes', async () => {
@@ -125,9 +127,9 @@ describe('ChromeRuntimeReader', () => {
       })}`,
     );
 
-    const message = makePendingResult({ foo: 'bar' });
+    const message = { foo: 'bar' };
     dispatchRuntimeMessage(message);
-    expect(await nextP).toStrictEqual({ ...message });
+    expect(await nextP).toStrictEqual(makePendingResult(message));
   });
 
   it('ignores messages for other targets', async () => {
@@ -140,7 +142,7 @@ describe('ChromeRuntimeReader', () => {
     const nextP = reader.next();
 
     vi.spyOn(console, 'warn');
-    const message1 = makePendingResult({ foo: 'bar' });
+    const message1 = { foo: 'bar' };
     // @ts-expect-error Intentional destructive testing
     dispatchRuntimeMessage(message1, 'foo');
 
@@ -151,9 +153,9 @@ describe('ChromeRuntimeReader', () => {
       })}`,
     );
 
-    const message2 = makePendingResult({ fizz: 'buzz' });
+    const message2 = { fizz: 'buzz' };
     dispatchRuntimeMessage(message2);
-    expect(await nextP).toStrictEqual({ ...message2 });
+    expect(await nextP).toStrictEqual(makePendingResult(message2));
   });
 
   it('removes runtime.onMessage listener when done', async () => {
@@ -164,7 +166,7 @@ describe('ChromeRuntimeReader', () => {
     );
     expect(listeners).toHaveLength(1);
 
-    dispatchRuntimeMessage(makeDoneResult());
+    dispatchRuntimeMessage(makeStreamDoneSignal());
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(runtime.onMessage.removeListener).toHaveBeenCalledTimes(1);
@@ -180,7 +182,7 @@ describe('ChromeRuntimeReader', () => {
       onEnd,
     );
 
-    dispatchRuntimeMessage(makeDoneResult());
+    dispatchRuntimeMessage(makeStreamDoneSignal());
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
     expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -212,10 +214,7 @@ describe('ChromeRuntimeWriter', () => {
 
     expect(await nextP).toStrictEqual(makePendingResult(undefined));
     expect(runtime.sendMessage).toHaveBeenCalledWith(
-      makeEnvelope(
-        makePendingResult(message),
-        ChromeRuntimeStreamTarget.Background,
-      ),
+      makeEnvelope(message, ChromeRuntimeStreamTarget.Background),
     );
   });
 
@@ -271,8 +270,10 @@ describe('ChromeRuntimeDuplexStream', () => {
       ChromeRuntimeStreamTarget.Background,
     );
 
-    dispatchRuntimeMessage(makeDoneResult());
+    const readP = duplexStream.next();
+    dispatchRuntimeMessage(makeStreamDoneSignal());
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
+    expect(await readP).toStrictEqual(makeDoneResult());
   });
 });

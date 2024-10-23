@@ -1,9 +1,14 @@
-import { marshalError } from '@ocap/errors';
 import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import {
+  makeDoneResult,
+  makePendingResult,
+  makeStreamDoneSignal,
+  makeStreamErrorSignal,
+  StreamSentinel,
+} from './utils.js';
 import { TestReader, TestWriter } from '../test/stream-mocks.js';
 
 vi.mock('@endo/promise-kit', () => makePromiseKitMock());
@@ -42,7 +47,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const message = 42;
-      reader.receiveInput(makePendingResult(message));
+      reader.receiveInput(message);
 
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
     });
@@ -52,7 +57,7 @@ describe('BaseReader', () => {
 
       const nextP = reader.next();
       const message = 42;
-      reader.receiveInput(makePendingResult(message));
+      reader.receiveInput(message);
 
       expect(await nextP).toStrictEqual(makePendingResult(message));
     });
@@ -61,9 +66,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const messages = [1, 2, 3];
-      messages.forEach((message) =>
-        reader.receiveInput(makePendingResult(message)),
-      );
+      messages.forEach((message) => reader.receiveInput(message));
 
       let index = 0;
       for await (const message of reader) {
@@ -79,7 +82,7 @@ describe('BaseReader', () => {
     it('throws after receiving unexpected message, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      const unexpectedMessage = { foo: 'bar' };
+      const unexpectedMessage = Symbol('foo');
       reader.receiveInput(unexpectedMessage);
 
       await expect(reader.next()).rejects.toThrow(
@@ -91,7 +94,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      const unexpectedMessage = { foo: 'bar' };
+      const unexpectedMessage = Symbol('foo');
       reader.receiveInput(unexpectedMessage);
 
       await expect(nextP).rejects.toThrow(
@@ -102,7 +105,7 @@ describe('BaseReader', () => {
     it('throws after receiving marshaled error, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(marshalError(new Error('foo')));
+      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       await expect(reader.next()).rejects.toThrow('foo');
     });
@@ -111,25 +114,25 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      reader.receiveInput(marshalError(new Error('foo')));
+      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       await expect(nextP).rejects.toThrow('foo');
     });
 
-    it('ends after receiving final iterator result, before read is enqueued', async () => {
+    it('ends after receiving done signal, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makeDoneResult());
+      reader.receiveInput(makeStreamDoneSignal());
 
       expect(await reader.next()).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
     });
 
-    it('ends after receiving final iterator result, after read is enqueued', async () => {
+    it('ends after receiving done signal, after read is enqueued', async () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      reader.receiveInput(makeDoneResult());
+      reader.receiveInput(makeStreamDoneSignal());
 
       expect(await nextP).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -138,7 +141,7 @@ describe('BaseReader', () => {
     it('enqueues input before returning', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makePendingResult(1));
+      reader.receiveInput(1);
       await reader.return();
 
       expect(await reader.next()).toStrictEqual(makePendingResult(1));
@@ -149,7 +152,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       await reader.return();
-      reader.receiveInput(makePendingResult(1));
+      reader.receiveInput(1);
 
       expect(await reader.next()).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -158,8 +161,8 @@ describe('BaseReader', () => {
     it('enqueues input before throwing', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makePendingResult(1));
-      reader.receiveInput(marshalError(new Error('foo')));
+      reader.receiveInput(1);
+      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       expect(await reader.next()).toStrictEqual(makePendingResult(1));
       await expect(reader.next()).rejects.toThrow('foo');
@@ -169,8 +172,8 @@ describe('BaseReader', () => {
     it('ignores input after throwing', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(marshalError(new Error('foo')));
-      reader.receiveInput(makePendingResult(1));
+      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
+      reader.receiveInput(1);
 
       await expect(reader.next()).rejects.toThrow('foo');
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -265,7 +268,7 @@ describe('BaseWriter', () => {
       const nextP = writer.next(message);
 
       expect(await nextP).toStrictEqual(makePendingResult(undefined));
-      expect(dispatchSpy).toHaveBeenCalledWith(makePendingResult(message));
+      expect(dispatchSpy).toHaveBeenCalledWith(message);
     });
 
     it('throws if failing to dispatch a message', async () => {
@@ -274,25 +277,19 @@ describe('BaseWriter', () => {
       });
       const writer = new TestWriter(dispatchSpy);
 
-      expect(await writer.next(42)).toStrictEqual(makeDoneResult());
-      expect(dispatchSpy).toHaveBeenCalledTimes(2);
-      expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
-      expect(dispatchSpy).toHaveBeenNthCalledWith(2, makeErrorMatcher('foo'));
-    });
-
-    it('failing to dispatch a message logs the error', async () => {
-      const dispatchSpy = vi.fn().mockImplementationOnce(() => {
-        throw new Error('foo');
-      });
-      const consoleErrorSpy = vi.spyOn(console, 'error');
-      const writer = new TestWriter(dispatchSpy);
-
-      expect(await writer.next(42)).toStrictEqual(makeDoneResult());
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'TestWriter experienced a dispatch failure:',
-        new Error('foo'),
+      await expect(writer.next(42)).rejects.toThrow(
+        makeErrorMatcher(
+          new Error('TestWriter experienced a dispatch failure', {
+            cause: new Error('foo'),
+          }),
+        ),
       );
+      expect(dispatchSpy).toHaveBeenCalledTimes(2);
+      expect(dispatchSpy).toHaveBeenNthCalledWith(1, 42);
+      expect(dispatchSpy).toHaveBeenNthCalledWith(2, {
+        [StreamSentinel.Error]: true,
+        error: makeErrorMatcher('foo'),
+      });
     });
 
     it('handles repeated failures to dispatch messages', async () => {
@@ -310,12 +307,17 @@ describe('BaseWriter', () => {
         'TestWriter experienced repeated dispatch failures.',
       );
       expect(dispatchSpy).toHaveBeenCalledTimes(3);
-      expect(dispatchSpy).toHaveBeenNthCalledWith(1, makePendingResult(42));
-      expect(dispatchSpy).toHaveBeenNthCalledWith(2, makeErrorMatcher('foo'));
-      expect(dispatchSpy).toHaveBeenNthCalledWith(
-        3,
-        makeErrorMatcher('TestWriter experienced repeated dispatch failures.'),
-      );
+      expect(dispatchSpy).toHaveBeenNthCalledWith(1, 42);
+      expect(dispatchSpy).toHaveBeenNthCalledWith(2, {
+        [StreamSentinel.Error]: true,
+        error: makeErrorMatcher('foo'),
+      });
+      expect(dispatchSpy).toHaveBeenNthCalledWith(3, {
+        [StreamSentinel.Error]: true,
+        error: makeErrorMatcher(
+          'TestWriter experienced repeated dispatch failures.',
+        ),
+      });
     });
   });
 
