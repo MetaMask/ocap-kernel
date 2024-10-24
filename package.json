@@ -20,22 +20,22 @@
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
     "changelog:validate": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:validate",
     "clean": "rimraf --glob './*.tsbuildinfo' && yarn workspaces foreach --all --parallel --interlaced --verbose run clean",
-    "lint": "yarn constraints && yarn lint:eslint && yarn lint:misc --check && yarn lint:dependencies",
+    "lint": "yarn constraints && yarn lint:eslint && yarn lint:misc --check && yarn lint:dependencies && yarn lint:ts",
     "lint:dependencies": "yarn dedupe --check && yarn depcheck && yarn workspaces foreach --all --parallel --verbose run lint:dependencies",
     "lint:dependencies:fix": "yarn dedupe && yarn depcheck && yarn workspaces foreach --all --parallel --verbose run lint:dependencies",
     "lint:eslint": "yarn eslint . --cache",
     "lint:fix": "yarn constraints --fix && yarn lint:eslint --fix && yarn lint:misc --write && yarn lint:dependencies:fix",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path .gitignore",
+    "lint:ts": "yarn workspaces foreach --all --parallel --verbose run lint:ts",
     "postinstall": "simple-git-hooks",
     "prepack": "./scripts/prepack.sh",
     "test": "yarn workspaces foreach --all --parallel --verbose run test",
-    "test:ts": "yarn workspaces foreach --all --parallel --verbose run test:ts",
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
     "test:verbose": "yarn workspaces foreach --all --parallel --verbose run test:verbose",
     "why:batch": "./scripts/why-batch.sh"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn lint-staged && yarn test:ts && yarn dedupe --check"
+    "pre-commit": "yarn lint-staged && yarn lint:ts && yarn dedupe --check"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,mts,cts}": [
