@@ -2,8 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
+    "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["./src"],
+  "include": ["./src", "./test", "./scripts"],
   "exclude": ["./vite.config.ts", "./vitest.config.ts"]
 }
