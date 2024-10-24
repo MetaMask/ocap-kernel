@@ -1,4 +1,3 @@
-import type { OcapError } from '@ocap/errors';
 import {
   VatAlreadyExistsError,
   VatDeletedError,
@@ -77,43 +76,33 @@ export class ExtensionVatWorkerServer {
     const { id, payload } = event.data;
     const { method, params } = payload;
 
-    const handleProblem = ({
-      problem,
-      vatId,
-    }: {
-      problem: OcapError;
-      vatId: VatId;
-    }): void => {
-      this.#logger.error(
-        `Error handling ${method} for vatId ${vatId}`,
-        problem,
-      );
+    const handleError = (error: Error, vatId: VatId): void => {
+      this.#logger.error(`Error handling ${method} for vatId ${vatId}`, error);
       this.#postMessage({
         id,
-        payload: { method, params: { vatId, error: marshalError(problem) } },
+        payload: { method, params: { vatId, error: marshalError(error) } },
       });
+      throw error;
     };
 
     switch (method) {
       case VatWorkerServiceCommandMethod.Launch:
         await this.#launch(params.vatId)
           .then((port) => this.#postMessage({ id, payload }, [port]))
-          .catch(async (problem) => handleProblem({ problem, ...params }));
+          .catch(async (error) => handleError(error, params.vatId));
         break;
       case VatWorkerServiceCommandMethod.Terminate:
         await this.#terminate(params.vatId)
           .then(() => this.#postMessage({ id, payload }))
-          .catch(async (problem) => handleProblem({ problem, ...params }));
+          .catch(async (error) => handleError(error, params.vatId));
         break;
       case VatWorkerServiceCommandMethod.TerminateAll:
         await Promise.all(
           Array.from(this.#vatWorkers.keys()).map(async (vatId) =>
-            this.#terminate(vatId).catch((problem) => {
-              // eslint-disable-next-line @typescript-eslint/only-throw-error
-              throw { problem, vatId };
-            }),
+            this.#terminate(vatId).catch((error) => handleError(error, vatId)),
           ),
-        ).then(() => this.#postMessage({ id, payload }), handleProblem);
+        );
+        this.#postMessage({ id, payload });
         break;
       /* v8 ignore next 6: Not known to be possible. */
       default:
