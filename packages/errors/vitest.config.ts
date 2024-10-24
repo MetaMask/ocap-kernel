@@ -4,6 +4,7 @@
 import path from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 
+// @ts-expect-error - no declaration for module
 import { getDefaultConfig } from '../../vitest.config.packages.js';
 
 const defaultConfig = getDefaultConfig();

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { BaseError } from './BaseError.js';
 import { ErrorCode } from './constants.js';
+import { unmarshalErrorOptions } from './marshal/unmarshalError.js';
 import type { MarshaledOcapError } from './types.js';
 
 describe('BaseError', () => {
@@ -57,9 +58,9 @@ describe('BaseError', () => {
   });
 
   it('throws an error when unmarshal is called', () => {
-    expect(() => BaseError.unmarshal({} as MarshaledOcapError)).toThrow(
-      'Unmarshal method not implemented',
-    );
+    expect(() =>
+      BaseError.unmarshal({} as MarshaledOcapError, unmarshalErrorOptions),
+    ).toThrow('Unmarshal method not implemented');
   });
 
   it('initializes the stack property automatically if not provided', () => {

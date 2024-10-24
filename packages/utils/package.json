@@ -34,6 +34,7 @@
     "lint:eslint": "eslint . --cache",
     "lint:fix": "yarn constraints --fix && yarn lint:eslint --fix && yarn lint:misc --write",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+    "lint:ts": "tsc --project tsconfig.test.json --noEmit",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",

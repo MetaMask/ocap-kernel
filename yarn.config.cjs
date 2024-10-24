@@ -233,8 +233,8 @@ module.exports = defineConfig({
           );
           expectWorkspaceField(
             workspace,
-            'scripts.test',
-            'vitest run --config vitest.config.ts',
+            'scripts.lint:ts',
+            'tsc --project tsconfig.test.json --noEmit',
           );
           expectWorkspaceField(
             workspace,
