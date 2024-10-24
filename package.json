@@ -35,11 +35,12 @@
     "why:batch": "./scripts/why-batch.sh"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn lint-staged && yarn lint:ts && yarn dedupe --check"
+    "pre-commit": "yarn lint-staged && yarn dedupe --check"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,mts,cts}": [
-      "eslint --fix"
+      "eslint --fix",
+      "bash -c 'yarn lint:ts'"
     ],
     "!(CHANGELOG).{json,html,md,yml}": [
       "prettier --write"
