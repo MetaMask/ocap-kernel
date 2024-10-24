@@ -1,7 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "module": "Node16",
+    "moduleResolution": "Node16"
   },
   "include": ["./src", "./test", "./scripts"],
   "exclude": ["./vite.config.ts", "./vitest.config.ts"]

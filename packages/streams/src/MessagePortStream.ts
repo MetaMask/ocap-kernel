@@ -97,7 +97,9 @@ export class MessagePortDuplexStream<
   Write,
   MessagePortWriter<Write>
 > {
-  constructor(port: MessagePort) {
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(port: MessagePort) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, async () => {
       await writer.return();
@@ -106,6 +108,14 @@ export class MessagePortDuplexStream<
       await reader.return();
     });
     super(reader, writer);
+  }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    port: MessagePort,
+  ): Promise<MessagePortDuplexStream<Read, Write>> {
+    const stream = new MessagePortDuplexStream<Read, Write>(port);
+    await stream.synchronize();
+    return stream;
   }
 }
 harden(MessagePortDuplexStream);

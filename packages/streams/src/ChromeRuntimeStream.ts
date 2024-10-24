@@ -161,7 +161,9 @@ export class ChromeRuntimeDuplexStream<
   Write,
   ChromeRuntimeWriter<Write>
 > {
-  constructor(
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,
@@ -179,6 +181,20 @@ export class ChromeRuntimeDuplexStream<
     });
     super(reader, writer);
     harden(this);
+  }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    runtime: ChromeRuntime,
+    localTarget: ChromeRuntimeStreamTarget,
+    remoteTarget: ChromeRuntimeStreamTarget,
+  ): Promise<ChromeRuntimeDuplexStream<Read, Write>> {
+    const stream = new ChromeRuntimeDuplexStream<Read, Write>(
+      runtime,
+      localTarget,
+      remoteTarget,
+    );
+    await stream.synchronize();
+    return stream;
   }
 }
 harden(ChromeRuntimeDuplexStream);

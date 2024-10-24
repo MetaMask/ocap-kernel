@@ -17,8 +17,8 @@ async function main(defaultVatId: VatId): Promise<void> {
   const kernelStream = await receiveMessagePort(
     (listener) => globalThis.addEventListener('message', listener),
     (listener) => globalThis.removeEventListener('message', listener),
-    (port) =>
-      new MessagePortDuplexStream<KernelCommand, KernelCommandReply>(port),
+  ).then(async (port) =>
+    MessagePortDuplexStream.make<KernelCommand, KernelCommandReply>(port),
   );
 
   const vatWorkerClient = new ExtensionVatWorkerClient(

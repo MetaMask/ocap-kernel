@@ -2,6 +2,7 @@ import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import { makeAck } from './BaseDuplexStream.js';
 import type { ChromeRuntime } from './chrome.js';
 import type { MessageEnvelope } from './ChromeRuntimeStream.js';
 import {
@@ -235,40 +236,40 @@ describe('ChromeRuntimeWriter', () => {
 });
 
 describe('ChromeRuntimeDuplexStream', () => {
-  it('constructs a ChromeRuntimeDuplexStream', () => {
-    const { runtime } = makeRuntime();
-    const duplexStream = new ChromeRuntimeDuplexStream(
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const makeDuplexStream = async () => {
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
+    const duplexStreamP = ChromeRuntimeDuplexStream.make(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
       ChromeRuntimeStreamTarget.Background,
     );
+    dispatchRuntimeMessage(makeAck());
+
+    return [await duplexStreamP, { runtime, dispatchRuntimeMessage }] as const;
+  };
+
+  it('constructs a ChromeRuntimeDuplexStream', async () => {
+    const [duplexStream] = await makeDuplexStream();
 
     expect(duplexStream).toBeInstanceOf(ChromeRuntimeDuplexStream);
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
-    const { runtime } = makeRuntime();
-    const duplexStream = new ChromeRuntimeDuplexStream(
-      asChromeRuntime(runtime),
-      ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Background,
-    );
-    runtime.sendMessage.mockImplementation(() => {
+    const [duplexStream, { runtime }] = await makeDuplexStream();
+    runtime.sendMessage.mockImplementationOnce(() => {
       throw new Error('foo');
     });
 
-    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    await expect(duplexStream.write(42)).rejects.toThrow(
+      'ChromeRuntimeWriter experienced a dispatch failure',
+    );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const { runtime, dispatchRuntimeMessage } = makeRuntime();
-    const duplexStream = new ChromeRuntimeDuplexStream(
-      asChromeRuntime(runtime),
-      ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Background,
-    );
+    const [duplexStream, { dispatchRuntimeMessage }] = await makeDuplexStream();
 
     const readP = duplexStream.next();
     dispatchRuntimeMessage(makeStreamDoneSignal());

@@ -2,7 +2,7 @@ import '@ocap/shims/endoify';
 import type { NonEmptyArray } from '@metamask/utils';
 import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
 import type { VatId } from '@ocap/kernel';
-import { MessagePortDuplexStream } from '@ocap/streams';
+import { delay } from '@ocap/test-utils';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -41,12 +41,16 @@ describe('VatWorkerService', () => {
     mockTerminateWorker = vi.spyOn(mockWorker, 'terminate');
 
     const vatId: VatId = 'v0';
-    const stream = await client.launch(vatId);
-    expect(stream).toBeInstanceOf(MessagePortDuplexStream);
+
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    client.launch(vatId);
+    await delay(10);
     expect(mockLaunchWorker).toHaveBeenCalledOnce();
     expect(mockTerminateWorker).not.toHaveBeenCalled();
 
-    await client.terminate(vatId);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    client.terminate(vatId);
+    await delay(10);
     expect(mockLaunchWorker).toHaveBeenCalledOnce();
     expect(mockTerminateWorker).toHaveBeenCalledOnce();
   });
@@ -61,9 +65,11 @@ describe('VatWorkerService', () => {
 
     // launch many workers
     for (let i = 0; i < mockWorkers.length; i++) {
-      const stream = await client.launch(`v${i}`);
-      expect(stream).toBeInstanceOf(MessagePortDuplexStream);
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      client.launch(`v${i}`);
     }
+
+    await delay(10);
 
     // each worker had its launch method called
     for (let i = 0; i < mockWorkers.length; i++) {
@@ -72,7 +78,9 @@ describe('VatWorkerService', () => {
     }
 
     // terminate all workers
-    await client.terminateAll();
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    client.terminateAll();
+    await delay(10);
 
     // each worker had its terminate method called
     for (let i = 0; i < mockWorkers.length; i++) {
@@ -89,7 +97,9 @@ describe('VatWorkerService', () => {
 
   it('throws when launching the same worker twice', async () => {
     const vatId: VatId = 'v0';
-    await client.launch(vatId);
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    client.launch(vatId);
+    await delay(10);
     await expect(async () => await client.launch(vatId)).rejects.toThrow(
       VatAlreadyExistsError,
     );

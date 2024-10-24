@@ -233,7 +233,7 @@ module.exports = defineConfig({
           );
           expectWorkspaceField(
             workspace,
-            'scripts.test:ts',
+            'scripts.lint:ts',
             'tsc --project tsconfig.test.json --noEmit',
           );
           expectWorkspaceField(

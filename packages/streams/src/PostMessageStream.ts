@@ -83,7 +83,9 @@ export class PostMessageDuplexStream<
   Write,
   PostMessageWriter<Write>
 > {
-  constructor(
+  // Unavoidable exception to our preference for #-private names.
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,
@@ -100,6 +102,20 @@ export class PostMessageDuplexStream<
       await reader.return();
     });
     super(reader, writer);
+  }
+
+  static async make<Read extends Json, Write extends Json = Read>(
+    postMessageFn: PostMessage,
+    setListener: SetListener,
+    removeListener: RemoveListener,
+  ): Promise<PostMessageDuplexStream<Read, Write>> {
+    const stream = new PostMessageDuplexStream<Read, Write>(
+      postMessageFn,
+      setListener,
+      removeListener,
+    );
+    await stream.synchronize();
+    return stream;
   }
 }
 harden(PostMessageDuplexStream);

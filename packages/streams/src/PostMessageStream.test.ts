@@ -1,11 +1,13 @@
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
+import { makeAck } from './BaseDuplexStream.js';
 import {
   PostMessageDuplexStream,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
+import type { PostMessage } from './utils.js';
 import {
   makeDoneResult,
   makePendingResult,
@@ -72,7 +74,7 @@ describe('PostMessageReader', () => {
 
     postMessageFn(makeDoneResult(), [port1]);
     postMessageFn({ foo: 'bar' });
-    await delay(100);
+    await delay(10);
 
     expect(await reader.next()).toStrictEqual(
       makePendingResult({ foo: 'bar' }),
@@ -121,39 +123,48 @@ describe('PostMessageWriter', () => {
 });
 
 describe('PostMessageDuplexStream', () => {
-  it('constructs a PostMessageDuplexStream', () => {
-    const { setListener, removeListener } = makePostMessageMock();
-    const duplexStream = new PostMessageDuplexStream(
-      () => undefined,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const makeDuplexStream = async (sendMessage: PostMessage) => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+
+    const duplexStreamP = PostMessageDuplexStream.make(
+      sendMessage,
       setListener,
       removeListener,
     );
+    postMessageFn(makeAck());
+    await delay(10);
+
+    return [await duplexStreamP, postMessageFn] as const;
+  };
+
+  it('constructs a PostMessageDuplexStream', async () => {
+    const [duplexStream] = await makeDuplexStream(() => undefined);
 
     expect(duplexStream).toBeInstanceOf(PostMessageDuplexStream);
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
   it('ends the reader when the writer ends', async () => {
-    const { setListener, removeListener } = makePostMessageMock();
-    const duplexStream = new PostMessageDuplexStream(
-      vi.fn(() => {
-        throw new Error('foo');
-      }),
-      setListener,
-      removeListener,
+    const [duplexStream] = await makeDuplexStream(
+      vi
+        .fn()
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(() => {
+          throw new Error('foo');
+        }),
     );
 
-    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    await expect(duplexStream.write(42)).rejects.toThrow(
+      'PostMessageWriter experienced a dispatch failure',
+    );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const duplexStream = new PostMessageDuplexStream(
+    const [duplexStream, postMessageFn] = await makeDuplexStream(
       () => undefined,
-      setListener,
-      removeListener,
     );
 
     const readP = duplexStream.next();
