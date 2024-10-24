@@ -140,6 +140,19 @@ describe('Kernel', () => {
     });
   });
 
+  describe('terminateAllVats()', () => {
+    it('deletes all vats from the kernel without errors', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      await kernel.launchVat({ id: 'v0' });
+      await kernel.launchVat({ id: 'v1' });
+      expect(kernel.getVatIds()).toStrictEqual(['v0', 'v1']);
+      await kernel.terminateAllVats();
+      expect(terminateMock).toHaveBeenCalledTimes(2);
+      expect(mockDeleteWorker).toHaveBeenCalledTimes(2);
+      expect(kernel.getVatIds()).toStrictEqual([]);
+    });
+  });
+
   describe('restartVat()', () => {
     it('restarts a vat', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
