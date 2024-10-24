@@ -1,9 +1,4 @@
-import { makePromiseKit } from '@endo/promise-kit';
-import {
-  isKernelCommand,
-  isKernelCommandReply,
-  KernelCommandMethod,
-} from '@ocap/kernel';
+import { isKernelCommand, isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
@@ -34,7 +29,6 @@ async function main(): Promise<void> {
   );
 
   const kernelWorker = await makeKernelWorker();
-  const kernelInitKit = makePromiseKit<void>();
 
   /**
    * Reply to a command from the background script.
@@ -50,7 +44,7 @@ async function main(): Promise<void> {
   // Handle messages from the background service worker and the kernel SQLite worker.
   await Promise.all([
     kernelWorker.receiveMessages(),
-    kernelInitKit.promise.then(async () => {
+    (async () => {
       for await (const message of backgroundStream) {
         if (!isKernelCommand(message)) {
           logger.error('Offscreen received unexpected message', message);
@@ -59,8 +53,7 @@ async function main(): Promise<void> {
 
         await kernelWorker.sendMessage(message);
       }
-      return undefined;
-    }),
+    })(),
   ]);
 
   /**
@@ -102,10 +95,6 @@ async function main(): Promise<void> {
           continue;
         }
 
-        if (message.method === KernelCommandMethod.InitKernel) {
-          logger.info('Kernel initialized.');
-          kernelInitKit.resolve();
-        }
         await replyToBackground(message);
       }
     };

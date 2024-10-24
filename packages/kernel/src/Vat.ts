@@ -11,13 +11,13 @@ import type { DuplexStream, Reader } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
-import { VatCommandMethod } from './messages.js';
+import { VatCommandMethod } from './messages/index.js';
 import type {
   CapTpMessage,
   CapTpPayload,
   VatCommandReply,
   VatCommand,
-} from './messages.js';
+} from './messages/index.js';
 import type {
   StreamEnvelope,
   StreamEnvelopeReply,

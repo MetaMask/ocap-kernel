@@ -11,12 +11,12 @@ import {
   isKernelCommand,
   KernelCommandMethod,
   VatCommandMethod,
-} from './messages.js';
+} from './messages/index.js';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
-} from './messages.js';
+} from './messages/index.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
 
@@ -49,16 +49,9 @@ export class Kernel {
   }
 
   async init({ defaultVatId }: { defaultVatId: VatId }): Promise<void> {
-    const start = performance.now();
-
     await this.launchVat({ id: defaultVatId })
       .then(this.#defaultVatKit.resolve)
       .catch(this.#defaultVatKit.reject);
-
-    await this.#stream.write({
-      method: KernelCommandMethod.InitKernel,
-      params: { defaultVat: defaultVatId, initTime: performance.now() - start },
-    });
 
     return this.#receiveMessages();
   }
@@ -75,8 +68,6 @@ export class Kernel {
       let vat: Vat;
 
       switch (method) {
-        case KernelCommandMethod.InitKernel:
-          throw new Error('The kernel initializes itself.');
         case KernelCommandMethod.Ping:
           await this.#reply({ method, params: 'pong' });
           break;

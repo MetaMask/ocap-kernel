@@ -8,8 +8,12 @@ import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages.js';
-import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
+import { VatCommandMethod } from './messages/index.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+} from './messages/index.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import * as streamEnvelope from './stream-envelope.js';
 import { makeStreamEnvelopeReplyHandler } from './stream-envelope.js';

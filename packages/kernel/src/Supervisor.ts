@@ -3,8 +3,12 @@ import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
-import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
-import { VatCommandMethod } from './messages.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+} from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import {
   makeStreamEnvelopeHandler,

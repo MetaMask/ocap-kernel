@@ -114,6 +114,9 @@ jobs:
           cache: yarn
       - run: yarn --immutable
       - run: yarn build
+      # Due to our use of Node16 module resolution, we have to build before running type checks.
+      - name: Check for TypeScript issues
+        run: yarn lint:ts
       - name: Require clean working directory
         shell: bash
         run: |

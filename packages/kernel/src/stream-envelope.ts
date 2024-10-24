@@ -1,8 +1,16 @@
 import { makeStreamEnvelopeKit } from '@ocap/streams';
 import type { ExtractGuardType } from '@ocap/utils';
 
-import { isCapTpMessage, isVatCommand, isVatCommandReply } from './messages.js';
-import type { CapTpMessage, VatCommand, VatCommandReply } from './messages.js';
+import {
+  isCapTpMessage,
+  isVatCommand,
+  isVatCommandReply,
+} from './messages/index.js';
+import type {
+  CapTpMessage,
+  VatCommand,
+  VatCommandReply,
+} from './messages/index.js';
 
 // Declare and destructure the envelope kit.
 
