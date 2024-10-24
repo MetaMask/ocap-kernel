@@ -4,7 +4,8 @@
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2022"],
-    "moduleResolution": "Node",
+    "module": "Preserve",
+    "moduleResolution": "Node10",
     "noErrorTruncation": true,
     "noUncheckedIndexedAccess": true,
     /**
