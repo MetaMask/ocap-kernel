@@ -25,16 +25,13 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel store.
-
   const kvStore = await makeSQLKVStore();
 
   // Create and start kernel.
-
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init({ defaultVatId: 'v0' });
 
   const vats: VatId[] = ['v1', 'v2', 'v3'];
-
   console.time(`Created vats: ${vats.join(', ')}`);
   await Promise.all(vats.map(async (id) => kernel.launchVat({ id })));
   console.timeEnd(`Created vats: ${vats.join(', ')}`);
@@ -52,11 +49,10 @@ async function main(): Promise<void> {
   });
   console.timeEnd('Ping Vat "v1"');
 
-  console.time(`Terminated vats: ${vats.join(', ')}`);
-  for (const vatId of vats) {
-    await kernel.terminateVat(vatId);
-  }
-  console.timeEnd(`Terminated vats: ${vats.join(', ')}`);
+  const vatIds = kernel.getVatIds().join(', ');
+  console.time(`Terminated vats: ${vatIds}`);
+  await kernel.terminateAllVats();
+  console.timeEnd(`Terminated vats: ${vatIds}`);
 
-  console.log('Kernel vats:', kernel.getVatIds().join(', '));
+  console.log(`Kernel has ${kernel.getVatIds().length} vats`);
 }
