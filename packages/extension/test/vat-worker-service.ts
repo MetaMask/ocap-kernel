@@ -1,3 +1,4 @@
+import type { NonEmptyArray } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
 import { makeCounter } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
@@ -7,11 +8,15 @@ import type { VatWorker } from '../src/vat-worker-service.js';
 import { ExtensionVatWorkerClient } from '../src/VatWorkerClient.js';
 import { ExtensionVatWorkerServer } from '../src/VatWorkerServer.js';
 
-type MakeVatWorker = (vatId: VatId) => VatWorker & { kernelPort: MessagePort };
-
-export const getMockMakeWorker = (
+const getMockMakeWorker = (
   nWorkers: number = 1,
-): [MakeVatWorker, ...VatWorker[]] => {
+): [
+  (vatId: VatId) => VatWorker & { kernelPort: MessagePort },
+  ...NonEmptyArray<VatWorker>,
+] => {
+  if (typeof nWorkers !== 'number' || nWorkers < 1) {
+    throw new Error('invalid argument: nWorkers must be > 0');
+  }
   const counter = makeCounter(-1);
   const mockWorkers = Array(nWorkers)
     .fill(0)
@@ -26,7 +31,7 @@ export const getMockMakeWorker = (
         // vatPort,
         kernelPort,
       };
-    });
+    }) as unknown as NonEmptyArray<VatWorker>;
 
   return [
     vi.fn().mockImplementation(() => mockWorkers[counter()]),
@@ -46,31 +51,24 @@ export const makeTestClient = (
     logger,
   );
 
-type MakeTestServerArgs = {
+export const makeTestServer = (args: {
   serverPort: MessagePort;
   logger?: Logger;
-} & (
-  | {
-      makeWorker: MakeVatWorker;
-      kernelPort?: never;
-    }
-  | {
-      makeWorker?: never;
-      kernelPort: MessagePort;
-    }
-);
-
-export const makeTestServer = (
-  args: MakeTestServerArgs,
-): ExtensionVatWorkerServer =>
-  new ExtensionVatWorkerServer(
-    (message: unknown, transfer?: Transferable[]) =>
-      transfer
-        ? args.serverPort.postMessage(message, transfer)
-        : args.serverPort.postMessage(message),
-    (listener) => {
-      args.serverPort.onmessage = listener;
-    },
-    args.makeWorker ?? getMockMakeWorker(args.kernelPort)[1],
-    args.logger,
-  );
+  nWorkers?: number;
+}): [ExtensionVatWorkerServer, ...NonEmptyArray<VatWorker>] => {
+  const [makeWorker, ...workers] = getMockMakeWorker(args.nWorkers);
+  return [
+    new ExtensionVatWorkerServer(
+      (message: unknown, transfer?: Transferable[]) =>
+        transfer
+          ? args.serverPort.postMessage(message, transfer)
+          : args.serverPort.postMessage(message),
+      (listener) => {
+        args.serverPort.onmessage = listener;
+      },
+      makeWorker,
+      args.logger,
+    ),
+    ...workers,
+  ];
+};

@@ -1,4 +1,6 @@
 import '@ocap/shims/endoify';
+import type { NonEmptyArray } from '@metamask/utils';
+import { VatNotFoundError } from '@ocap/errors';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { delay } from '@ocap/test-utils';
 import type { Logger } from '@ocap/utils';
@@ -7,10 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorker } from './vat-worker-service.js';
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import {
-  getMockMakeWorker,
-  makeTestServer,
-} from '../test/vat-worker-service.js';
+import { makeTestServer } from '../test/vat-worker-service.js';
 
 describe('ExtensionVatWorkerServer', () => {
   let serverPort: MessagePort;
@@ -20,24 +19,17 @@ describe('ExtensionVatWorkerServer', () => {
 
   let server: ExtensionVatWorkerServer;
 
-  // let vatPort: MessagePort;
-  let kernelPort: MessagePort;
-
   beforeEach(() => {
     const serviceMessageChannel = new MessageChannel();
     serverPort = serviceMessageChannel.port1;
     clientPort = serviceMessageChannel.port2;
 
     logger = makeLogger('[test server]');
-
-    const deliveredMessageChannel = new MessageChannel();
-    // vatPort = deliveredMessageChannel.port1;
-    kernelPort = deliveredMessageChannel.port2;
   });
 
   describe('Misc', () => {
     beforeEach(() => {
-      server = makeTestServer({ serverPort, logger, kernelPort });
+      [server] = makeTestServer({ serverPort, logger });
     });
 
     it('starts', () => {
@@ -65,18 +57,20 @@ describe('ExtensionVatWorkerServer', () => {
   });
 
   describe('terminateAll', () => {
-    let workers: VatWorker[];
-    let makeWorker: (vatId: VatId) => VatWorker;
+    let workers: NonEmptyArray<VatWorker>;
 
     beforeEach(() => {
-      [makeWorker, ...workers] = getMockMakeWorker(3);
-      server = makeTestServer({ serverPort, logger, makeWorker });
+      [server, ...workers] = makeTestServer({
+        serverPort,
+        logger,
+        nWorkers: 3,
+      });
     });
 
     it('calls logger.error when a vat fails to terminate', async () => {
       const errorSpy = vi.spyOn(logger, 'error');
       const vatId = 'v0';
-      const vatNotFoundError = new Error(`vat not found: ${vatId}`);
+      const vatNotFoundError = new VatNotFoundError(vatId);
       vi.spyOn(workers[0], 'terminate').mockRejectedValue(vatNotFoundError);
       server.start();
       clientPort.postMessage({
@@ -97,10 +91,10 @@ describe('ExtensionVatWorkerServer', () => {
       await delay(100);
 
       expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy.mock.lastCall[0]).toBe(
+      expect(errorSpy.mock.lastCall?.[0]).toBe(
         `Error handling ${VatWorkerServiceCommandMethod.TerminateAll} for vatId ${vatId}`,
       );
-      expect(errorSpy.mock.lastCall[1]).toBe(vatNotFoundError);
+      expect(errorSpy.mock.lastCall?.[1]).toBe(vatNotFoundError);
     });
   });
 });

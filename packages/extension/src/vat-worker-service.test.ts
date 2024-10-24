@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+import type { NonEmptyArray } from '@metamask/utils';
 import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
 import type { VatId } from '@ocap/kernel';
 import { MessagePortDuplexStream } from '@ocap/streams';
@@ -8,11 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorker } from './vat-worker-service.js';
 import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import {
-  getMockMakeWorker,
-  makeTestClient,
-  makeTestServer,
-} from '../test/vat-worker-service.js';
+import { makeTestClient, makeTestServer } from '../test/vat-worker-service.js';
 
 // low key integration test
 describe('VatWorkerService', () => {
@@ -23,9 +20,8 @@ describe('VatWorkerService', () => {
   let client: ExtensionVatWorkerClient;
 
   let mockWorker: VatWorker;
-  let mockWorkers: VatWorker[];
+  let mockWorkers: NonEmptyArray<VatWorker>;
 
-  let mockMakeWorker: (vatId: VatId) => VatWorker;
   let mockLaunchWorker: MockInstance;
   let mockTerminateWorker: MockInstance;
 
@@ -34,10 +30,8 @@ describe('VatWorkerService', () => {
     serverPort = serviceMessageChannel.port1;
     clientPort = serviceMessageChannel.port2;
 
-    [mockMakeWorker, ...mockWorkers] = getMockMakeWorker(3);
-
     client = makeTestClient(clientPort);
-    server = makeTestServer({ serverPort, makeWorker: mockMakeWorker });
+    [server, ...mockWorkers] = makeTestServer({ serverPort, nWorkers: 3 });
     server.start();
   });
 
