@@ -4,15 +4,16 @@
 
 import path from 'path';
 import { defineConfig } from 'vite';
+import type { UserConfig } from 'vite';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 
 /**
  * Get the default vitest config. See https://vitest.dev/config/ for details.
  *
- * @param {string} projectRoot - The vite project root directory.
- * @returns {import('vite').UserConfig} The default vitest config.
+ * @param projectRoot - The vite project root directory.
+ * @returns The default vitest config.
  */
-export const getDefaultConfig = (projectRoot = './src') =>
+export const getDefaultConfig = (projectRoot = './src'): UserConfig =>
   defineConfig({
     root: projectRoot,
 

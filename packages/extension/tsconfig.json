@@ -16,13 +16,14 @@
     { "path": "../utils" }
   ],
   "include": [
+    "../../vitest.config.packages.ts",
+    "./scripts/build-constants.mjs",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./src/dev-console.js",
-    "./vite-plugins/*.ts",
     "./test/**/*.ts",
+    "./vite-plugins/*.ts",
     "./vite.config.ts",
-    "./vitest.config.ts",
-    "./scripts/build-constants.mjs"
+    "./vitest.config.ts"
   ]
 }

@@ -7,6 +7,7 @@
   },
   "references": [{ "path": "../test-utils" }, { "path": "../errors" }],
   "include": [
+    "../../vitest.config.packages.ts",
     "./src",
     "./src/chrome.d.ts",
     "./test/*.ts",
