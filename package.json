@@ -29,12 +29,13 @@
     "postinstall": "simple-git-hooks",
     "prepack": "./scripts/prepack.sh",
     "test": "yarn workspaces foreach --all --parallel --verbose run test",
+    "test:ts": "yarn workspaces foreach --all --parallel --verbose run test:ts",
     "test:clean": "yarn workspaces foreach --all --parallel --verbose run test:clean && yarn test",
     "test:verbose": "yarn workspaces foreach --all --parallel --verbose run test:verbose",
     "why:batch": "./scripts/why-batch.sh"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn lint-staged && yarn dedupe --check"
+    "pre-commit": "yarn lint-staged && yarn test:ts && yarn dedupe --check"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,mts,cts}": [

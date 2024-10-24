@@ -26,6 +26,7 @@
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
     "test": "vitest run --config vitest.config.ts",
+    "test:ts": "tsc --project tsconfig.test.json --noEmit",
     "test:build": "node ./test/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",

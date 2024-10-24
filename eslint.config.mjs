@@ -1,30 +1,22 @@
 // @ts-check
 
-import metamaskConfig from '@metamask/eslint-config';
+import metamaskConfig, { createConfig } from '@metamask/eslint-config';
 import metamaskNodeConfig from '@metamask/eslint-config-nodejs';
 import metamaskTypescriptConfig from '@metamask/eslint-config-typescript';
 import metamaskVitestConfig from '@metamask/eslint-config-vitest';
 import globals from 'globals';
 
-/** @type {import('eslint').Linter.Config[]} */
-const config = [
-  ...metamaskConfig,
-  ...metamaskNodeConfig,
-  ...metamaskTypescriptConfig.map((options) => ({
-    ...options,
-    files: ['**/*.{ts,mts,cts}'],
-  })),
-  ...metamaskVitestConfig.map((options) => ({
-    ...options,
-    files: ['**/*.test.{ts,js}'],
-  })),
+const config = createConfig([
+  {
+    extends: [metamaskConfig, metamaskNodeConfig],
+  },
 
   {
     ignores: ['node_modules', '**/dist', '**/docs', '**/coverage'],
   },
 
   {
-    files: ['**/*.{js,mjs}'],
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
     },
@@ -40,8 +32,58 @@ const config = [
   {
     languageOptions: {
       parserOptions: {
-        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+
+  {
+    files: ['**/*.ts', '**/*.mts', '**/*.cts'],
+    extends: [metamaskTypescriptConfig],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': [
+        'error',
+        {
+          // To permit omitting the return type in situations like:
+          // `const obj = { foo: (bar: string) => bar };`
+          // We'll presume that `obj` has a type that enforces the return type.
+          allowExpressions: true,
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+
+      // Replace this tseslint rule with "verbatimModuleSyntax" tsconfig
+      // option and "import-x/consistent-type-specifiers" rule.
+      '@typescript-eslint/consistent-type-imports': 'off',
+      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+    },
+  },
+
+  {
+    files: ['**/*.test.ts'],
+    extends: [metamaskVitestConfig],
+    rules: {
+      // This causes false positives in tests especially.
+      '@typescript-eslint/unbound-method': 'off',
+      // We should enable this instead, but the rule is unreleased.
+      // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/359
+      // 'vitest/unbound-method': 'error',
+    },
+  },
+
+  {
+    files: ['**/*.types.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
+      'vitest/expect-expect': 'off',
+      'vitest/no-conditional-in-test': 'off',
+    },
+  },
+
+  {
+    languageOptions: {
       globals: {
         ...globals['shared-node-browser'],
       },
@@ -73,48 +115,6 @@ const config = [
     },
   },
 
-  {
-    files: ['**/*.{ts,mts,cts}'],
-    rules: {
-      '@typescript-eslint/explicit-function-return-type': [
-        'error',
-        {
-          // To permit omitting the return type in situations like:
-          // `const obj = { foo: (bar: string) => bar };`
-          // We'll presume that `obj` has a type that enforces the return type.
-          allowExpressions: true,
-        },
-      ],
-      '@typescript-eslint/no-explicit-any': 'error',
-
-      // Replace this tseslint rule with "verbatimModuleSyntax" tsconfig
-      // option and "import-x/consistent-type-specifiers" rule.
-      '@typescript-eslint/consistent-type-imports': 'off',
-      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-    },
-  },
-
-  {
-    files: ['**/*.test.ts'],
-    rules: {
-      // This causes false positives in tests especially.
-      '@typescript-eslint/unbound-method': 'off',
-      // We should enable this instead, but the rule is unreleased.
-      // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/359
-      // 'vitest/unbound-method': 'error',
-    },
-  },
-
-  {
-    files: ['**/*.types.test.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-expressions': 'off',
-      'vitest/expect-expect': 'off',
-      'vitest/no-conditional-in-test': 'off',
-    },
-  },
-
   // ////////////////////////// //
   // Package-specific overrides //
   // ////////////////////////// //
@@ -125,6 +125,6 @@ const config = [
       globals: { lockdown: 'readonly' },
     },
   },
-];
+]);
 
 export default config;
