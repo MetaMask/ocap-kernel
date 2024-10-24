@@ -8,13 +8,14 @@ import type { Message } from './kernel-types.js';
 import { makeMapKVStore } from '../test/storage.js';
 
 /**
- * Stupid hack to allow easy use of strings as fake Messages without TS
- * complaints.
+ * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they
+ * were Messages, since, for testing purposes here, all that's necessary to be a
+ * "message" is to be stringifiable.
  *
- * @param str - The string.
+ * @param str - A string.
  * @returns The same string coerced to type Message.
  */
-function sm(str: string): Message {
+function mm(str: string): Message {
   return str as unknown as Message;
 }
 
@@ -120,19 +121,19 @@ describe('kernel store', () => {
       expect(ks.initKernelPromise('r47')).toStrictEqual(['kp2', kp2]);
       expect(ks.getKernelPromise('kp1')).toStrictEqual(kp1);
       expect(ks.getKernelPromise('kp2')).toStrictEqual(kp2);
-      ks.enqueuePromiseMessage('kp1', sm('first message to kp1'));
-      ks.enqueuePromiseMessage('kp1', sm('second message to kp1'));
+      ks.enqueuePromiseMessage('kp1', mm('first message to kp1'));
+      ks.enqueuePromiseMessage('kp1', mm('second message to kp1'));
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([
         'first message to kp1',
         'second message to kp1',
       ]);
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([]);
-      ks.enqueuePromiseMessage('kp1', sm('sacrificial message'));
+      ks.enqueuePromiseMessage('kp1', mm('sacrificial message'));
       ks.deleteKernelPromise('kp1');
       expect(() => ks.getKernelPromise('kp1')).toThrow(
         'unknown kernel promise kp1',
       );
-      expect(() => ks.enqueuePromiseMessage('kp1', sm('not really'))).toThrow(
+      expect(() => ks.enqueuePromiseMessage('kp1', mm('not really'))).toThrow(
         'queue kp1 not initialized',
       );
       expect(() => ks.getKernelPromiseMessageQueue('kp1')).toThrow(
@@ -144,14 +145,14 @@ describe('kernel store', () => {
     });
     it('manages the run queue', () => {
       const ks = makeKernelStore(mockKVStore);
-      ks.enqueueRun(sm('first message'));
-      ks.enqueueRun(sm('second message'));
+      ks.enqueueRun(mm('first message'));
+      ks.enqueueRun(mm('second message'));
       expect(ks.dequeueRun()).toBe('first message');
-      ks.enqueueRun(sm('third message'));
+      ks.enqueueRun(mm('third message'));
       expect(ks.dequeueRun()).toBe('second message');
       expect(ks.dequeueRun()).toBe('third message');
       expect(ks.dequeueRun()).toBeUndefined();
-      ks.enqueueRun(sm('fourth message'));
+      ks.enqueueRun(mm('fourth message'));
       expect(ks.dequeueRun()).toBe('fourth message');
       expect(ks.dequeueRun()).toBeUndefined();
     });

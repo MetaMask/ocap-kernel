@@ -94,10 +94,12 @@ export class Kernel {
           break;
         case KernelCommandMethod.KVGet: {
           try {
-            const result = this.kvGet(params);
+            const value = this.kvGet(params);
+            const result =
+              typeof value === 'string' ? `"${value}"` : `${value}`;
             await this.#reply({
               method,
-              params: result,
+              params: `~~~ got ${result} ~~~`,
             });
           } catch (problem) {
             // TODO: marshal
@@ -144,7 +146,7 @@ export class Kernel {
     }
   }
 
-  kvGet(key: string): string {
+  kvGet(key: string): string | undefined {
     return this.#storage.get(key);
   }
 

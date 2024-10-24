@@ -73,7 +73,7 @@ type StoredMessageQueue = {
 };
 
 export type KVStore = {
-  get(key: string): string;
+  get(key: string): string | undefined;
   getRequired(key: string): string;
   set(key: string, value: string): void;
   delete(key: string): void;
@@ -221,7 +221,7 @@ export function makeKernelStore(kv: KVStore) {
         }
         const tailPos = tail.get();
         if (tailPos !== headPos) {
-          const entry = kv.get(`${qk}.${tailPos}`);
+          const entry = kv.getRequired(`${qk}.${tailPos}`);
           kv.delete(`${qk}.${tailPos}`);
           incCounter(tail);
           return JSON.parse(entry) as Message;
@@ -446,12 +446,12 @@ export function makeKernelStore(kv: KVStore) {
         if (decider !== '' && decider !== undefined) {
           result.decider = decider as EndpointId;
         }
-        result.subscribers = JSON.parse(kv.get(`${kpId}.subscribers`));
+        result.subscribers = JSON.parse(kv.getRequired(`${kpId}.subscribers`));
         break;
       }
       case 'fulfilled':
       case 'rejected': {
-        result.value = JSON.parse(kv.get(`${kpId}.value`));
+        result.value = JSON.parse(kv.getRequired(`${kpId}.value`));
         break;
       }
       default:

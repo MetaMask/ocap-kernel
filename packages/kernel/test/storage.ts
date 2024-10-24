@@ -15,10 +15,11 @@ export function makeMapKVStore(): KVStore {
    * @returns The value at `key`.
    */
   function getRequired(key: string): string {
-    if (!map.has(key)) {
+    const result = map.get(key);
+    if (result === undefined) {
       throw Error(`No value found for key ${key}.`);
     }
-    return map.get(key);
+    return result;
   }
 
   return {
