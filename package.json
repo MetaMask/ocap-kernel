@@ -39,8 +39,7 @@
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,mts,cts}": [
-      "eslint --fix",
-      "bash -c 'yarn lint:ts'"
+      "eslint --fix"
     ],
     "!(CHANGELOG).{json,html,md,yml}": [
       "prettier --write"
