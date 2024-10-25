@@ -51,7 +51,7 @@ export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
         return;
       }
 
-      receiveInput(messageEvent.data);
+      receiveInput(messageEvent.data).catch(async (error) => this.throw(error));
     };
     setListener(onMessage);
 

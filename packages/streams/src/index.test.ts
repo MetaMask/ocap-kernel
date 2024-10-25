@@ -15,7 +15,9 @@ describe('index', () => {
       'PostMessageDuplexStream',
       'PostMessageReader',
       'PostMessageWriter',
+      'StreamMultiplexer',
       'initializeMessageChannel',
+      'makeChannelParams',
       'makeStreamEnvelopeKit',
       'receiveMessagePort',
     ]);

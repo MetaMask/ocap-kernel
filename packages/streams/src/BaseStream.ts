@@ -34,15 +34,15 @@ const makeStreamBuffer = <Value extends IteratorResult<Json, undefined>>() => {
       if (done) {
         return;
       }
-
       done = true;
+
       for (const { resolve, reject } of outputBuffer) {
         error ? reject(error) : resolve(makeDoneResult() as Value);
       }
       outputBuffer.length = 0;
     },
 
-    hasPendingReads() {
+    hasPendingReads(): boolean {
       return outputBuffer.length > 0;
     },
 
@@ -52,7 +52,7 @@ const makeStreamBuffer = <Value extends IteratorResult<Json, undefined>>() => {
      * @see `end()` for behavior when the stream ends.
      * @param value - The value or error to put.
      */
-    put(value: Value | Error) {
+    put(value: Value | Error): void {
       if (done) {
         return;
       }
@@ -65,7 +65,7 @@ const makeStreamBuffer = <Value extends IteratorResult<Json, undefined>>() => {
       inputBuffer.push(value);
     },
 
-    async get() {
+    async get(): Promise<Value> {
       if (inputBuffer.length > 0) {
         const value = inputBuffer.shift() as Value;
         return value instanceof Error
@@ -103,7 +103,7 @@ export type ValidateInput<Read extends Json> = (input: Json) => input is Read;
  * A function that receives input from a transport mechanism to a readable stream.
  * Validates that the input is an {@link IteratorResult}, and throws if it is not.
  */
-export type ReceiveInput = (input: unknown) => void;
+export type ReceiveInput = (input: unknown) => Promise<void>;
 
 export type BaseReaderArgs<Read extends Json> = {
   name?: string | undefined;
@@ -168,7 +168,10 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
     return this.#receiveInput.bind(this);
   }
 
-  readonly #receiveInput: ReceiveInput = async (input) => {
+  readonly #receiveInput = async (input: unknown): Promise<void> => {
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    await null;
+
     if (!isDispatchable(input)) {
       await this.#handleInputError(
         new Error(
@@ -216,8 +219,9 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    */
   async #end(error?: Error): Promise<void> {
     this.#buffer.end(error);
-    await this.#onEnd?.();
+    const onEndP = this.#onEnd?.();
     this.#onEnd = undefined;
+    await onEndP;
   }
 
   [Symbol.asyncIterator](): typeof this {
@@ -277,7 +281,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
 
   readonly #onDispatch: Dispatch<Write>;
 
-  #onEnd: OnEnd | undefined;
+  #onEnd?: OnEnd | undefined;
 
   /**
    * Constructs a {@link BaseWriter}.
@@ -342,8 +346,9 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
 
   async #end(): Promise<void> {
     this.#isDone = true;
-    await this.#onEnd?.();
+    const onEndP = this.#onEnd?.();
     this.#onEnd = undefined;
+    await onEndP;
   }
 
   [Symbol.asyncIterator](): typeof this {

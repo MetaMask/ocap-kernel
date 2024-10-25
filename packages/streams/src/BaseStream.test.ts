@@ -46,7 +46,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const message = 42;
-      reader.receiveInput(message);
+      await reader.receiveInput(message);
 
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
     });
@@ -58,7 +58,7 @@ describe('BaseReader', () => {
       });
 
       const message = 42;
-      reader.receiveInput(message);
+      await reader.receiveInput(message);
 
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
       expect(validateInput).toHaveBeenCalledWith(message);
@@ -69,7 +69,7 @@ describe('BaseReader', () => {
 
       const nextP = reader.next();
       const message = 42;
-      reader.receiveInput(message);
+      await reader.receiveInput(message);
 
       expect(await nextP).toStrictEqual(makePendingResult(message));
     });
@@ -78,7 +78,9 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const messages = [1, 2, 3];
-      messages.forEach((message) => reader.receiveInput(message));
+      await Promise.all(
+        messages.map(async (message) => reader.receiveInput(message)),
+      );
 
       let index = 0;
       for await (const message of reader) {
@@ -95,7 +97,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const badMessage = Symbol('foo');
-      reader.receiveInput(badMessage);
+      await reader.receiveInput(badMessage);
 
       await expect(reader.next()).rejects.toThrow(
         'TestReader: Message cannot be processed (must be JSON-serializable)',
@@ -107,7 +109,7 @@ describe('BaseReader', () => {
 
       const nextP = reader.next();
       const badMessage = Symbol('foo');
-      reader.receiveInput(badMessage);
+      await reader.receiveInput(badMessage);
 
       await expect(nextP).rejects.toThrow(
         'TestReader: Message cannot be processed (must be JSON-serializable)',
@@ -117,7 +119,7 @@ describe('BaseReader', () => {
     it('throws after receiving marshaled error, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
+      await reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       await expect(reader.next()).rejects.toThrow('foo');
     });
@@ -126,7 +128,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
+      await reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       await expect(nextP).rejects.toThrow('foo');
     });
@@ -136,7 +138,7 @@ describe('BaseReader', () => {
         validateInput: (value) => typeof value === 'number',
       });
 
-      reader.receiveInput({});
+      await reader.receiveInput({});
 
       await expect(reader.next()).rejects.toThrow(
         'TestReader: Message failed type validation',
@@ -149,7 +151,7 @@ describe('BaseReader', () => {
       });
 
       const nextP = reader.next();
-      reader.receiveInput({});
+      await reader.receiveInput({});
 
       await expect(nextP).rejects.toThrow(
         'TestReader: Message failed type validation',
@@ -159,7 +161,7 @@ describe('BaseReader', () => {
     it('ends after receiving done signal, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makeStreamDoneSignal());
+      await reader.receiveInput(makeStreamDoneSignal());
 
       expect(await reader.next()).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -169,7 +171,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      reader.receiveInput(makeStreamDoneSignal());
+      await reader.receiveInput(makeStreamDoneSignal());
 
       expect(await nextP).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -178,7 +180,7 @@ describe('BaseReader', () => {
     it('enqueues input before returning', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(1);
+      await reader.receiveInput(1);
       await reader.return();
 
       expect(await reader.next()).toStrictEqual(makePendingResult(1));
@@ -189,7 +191,7 @@ describe('BaseReader', () => {
       const reader = new TestReader();
 
       await reader.return();
-      reader.receiveInput(1);
+      await reader.receiveInput(1);
 
       expect(await reader.next()).toStrictEqual(makeDoneResult());
       expect(await reader.next()).toStrictEqual(makeDoneResult());
@@ -198,8 +200,8 @@ describe('BaseReader', () => {
     it('enqueues input before throwing', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(1);
-      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
+      await reader.receiveInput(1);
+      await reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       expect(await reader.next()).toStrictEqual(makePendingResult(1));
       await expect(reader.next()).rejects.toThrow('foo');
@@ -209,8 +211,8 @@ describe('BaseReader', () => {
     it('ignores input after throwing', async () => {
       const reader = new TestReader();
 
-      reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
-      reader.receiveInput(1);
+      await reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
+      await reader.receiveInput(1);
 
       await expect(reader.next()).rejects.toThrow('foo');
       expect(await reader.next()).toStrictEqual(makeDoneResult());

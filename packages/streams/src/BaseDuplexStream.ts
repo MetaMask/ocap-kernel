@@ -117,7 +117,7 @@ export abstract class BaseDuplexStream<
    *
    * @returns A promise that resolves when the stream is synchronized.
    */
-  protected async synchronize(): Promise<void> {
+  async synchronize(): Promise<void> {
     if (this.#synchronizationStatus !== SynchronizationStatus.Idle) {
       return this.#syncKit.promise;
     }
@@ -224,4 +224,11 @@ export type DuplexStream<Read extends Json, Write extends Json = Read> = Pick<
   'next' | 'write' | 'drain' | 'return' | 'throw'
 > & {
   [Symbol.asyncIterator]: () => DuplexStream<Read, Write>;
+};
+
+export type SynchronizableDuplexStream<
+  Read extends Json,
+  Write extends Json = Read,
+> = DuplexStream<Read, Write> & {
+  synchronize(): Promise<void>;
 };

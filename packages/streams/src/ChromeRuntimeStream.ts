@@ -123,7 +123,9 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
       return;
     }
 
-    this.#receiveInput(message.payload);
+    this.#receiveInput(message.payload).catch(async (error) =>
+      this.throw(error),
+    );
   }
 }
 harden(ChromeRuntimeReader);

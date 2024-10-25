@@ -29,3 +29,5 @@ export type {
   MakeStreamEnvelopeHandler,
   StreamEnvelopeKit,
 } from './envelope-kit.js';
+export { StreamMultiplexer, makeChannelParams } from './StreamMultiplexer.js';
+export type { MultiplexEnvelope } from './StreamMultiplexer.js';

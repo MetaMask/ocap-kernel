@@ -26,7 +26,7 @@ describe('BaseDuplexStream', () => {
     it('resolves the synchronization promise when receiving an ACK', async () => {
       const duplexStream = new TestDuplexStream(() => undefined);
 
-      duplexStream.receiveInput(makeAck());
+      await duplexStream.receiveInput(makeAck());
       expect(await duplexStream.completeSynchronization()).toBeUndefined();
     });
 
@@ -37,7 +37,7 @@ describe('BaseDuplexStream', () => {
         throw error;
       });
 
-      duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
       await delay(10);
       expect(onDispatch).toHaveBeenCalledTimes(2);
       expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
@@ -47,8 +47,8 @@ describe('BaseDuplexStream', () => {
       const duplexStream = new TestDuplexStream(() => undefined);
       duplexStream.synchronize().catch(() => undefined);
 
-      duplexStream.receiveInput(makeSyn());
-      duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
       await expect(duplexStream.next()).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
@@ -58,7 +58,7 @@ describe('BaseDuplexStream', () => {
       const duplexStream = new TestDuplexStream(() => undefined);
       duplexStream.synchronize().catch(() => undefined);
 
-      duplexStream.receiveInput(42);
+      await duplexStream.receiveInput(42);
       await expect(duplexStream.next()).rejects.toThrow(
         `Received unexpected message during synchronization: ${stringify({
           done: false,
@@ -71,8 +71,8 @@ describe('BaseDuplexStream', () => {
       const duplexStream = new TestDuplexStream(() => undefined);
       duplexStream.synchronize().catch(() => undefined);
 
-      duplexStream.receiveInput(makeSyn());
-      duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
       await expect(duplexStream.next()).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
@@ -85,8 +85,8 @@ describe('BaseDuplexStream', () => {
       const duplexStream = new TestDuplexStream(() => undefined);
       duplexStream.synchronize().catch(() => undefined);
 
-      duplexStream.receiveInput(makeSyn());
-      duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
+      await duplexStream.receiveInput(makeSyn());
       await expect(duplexStream.write(42)).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
@@ -149,7 +149,7 @@ describe('BaseDuplexStream', () => {
     const duplexStream = await TestDuplexStream.make(() => undefined);
 
     const message = 42;
-    duplexStream.receiveInput(message);
+    await duplexStream.receiveInput(message);
 
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
   });
@@ -170,7 +170,9 @@ describe('BaseDuplexStream', () => {
     const duplexStream = await TestDuplexStream.make(() => undefined);
 
     const messages = [1, 2, 3];
-    messages.forEach((message) => duplexStream.receiveInput(message));
+    await Promise.all(
+      messages.map(async (message) => duplexStream.receiveInput(message)),
+    );
     await duplexStream.return();
 
     let index = 0;
@@ -241,7 +243,7 @@ describe('BaseDuplexStream', () => {
       readerOnEnd,
     });
 
-    duplexStream.receiveInput(makeDoneResult());
+    await duplexStream.receiveInput(makeDoneResult());
     expect(readerOnEnd).toHaveBeenCalledOnce();
   });
 

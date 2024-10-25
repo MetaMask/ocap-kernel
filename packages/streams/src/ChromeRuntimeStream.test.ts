@@ -216,6 +216,24 @@ describe('ChromeRuntimeReader', () => {
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
+
+  it('handles errors from onEnd function', async () => {
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
+    const onEnd = vi.fn(() => {
+      throw new Error('foo');
+    });
+    const reader = new ChromeRuntimeReader(
+      asChromeRuntime(runtime),
+      ChromeRuntimeStreamTarget.Background,
+      { onEnd },
+    );
+
+    dispatchRuntimeMessage(makeStreamDoneSignal());
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe.concurrent('ChromeRuntimeWriter', () => {

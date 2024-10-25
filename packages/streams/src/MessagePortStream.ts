@@ -65,7 +65,7 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
         return;
       }
 
-      receiveInput(messageEvent.data);
+      receiveInput(messageEvent.data).catch(async (error) => this.throw(error));
     };
     port.addEventListener('message', onMessage);
     port.start();

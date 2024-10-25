@@ -9,6 +9,9 @@ import type {
   BaseWriterArgs,
 } from '../src/BaseStream.js';
 import { BaseReader, BaseWriter } from '../src/BaseStream.js';
+import { StreamMultiplexer } from '../src/StreamMultiplexer.js';
+
+export type { MultiplexEnvelope } from '../src/StreamMultiplexer.js';
 
 export class TestReader<Read extends Json = number> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
@@ -98,7 +101,7 @@ export class TestDuplexStream<
    */
   async completeSynchronization(): Promise<void> {
     const syncP = super.synchronize().catch(() => undefined);
-    this.receiveInput(makeAck());
+    await this.receiveInput(makeAck());
     return syncP;
   }
 
@@ -118,3 +121,5 @@ export class TestDuplexStream<
     return stream;
   }
 }
+
+export class TestMultiplexer extends StreamMultiplexer {}
