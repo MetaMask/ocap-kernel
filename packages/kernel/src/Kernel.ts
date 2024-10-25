@@ -214,8 +214,14 @@ export class Kernel {
    * Terminate a vat from the kernel.
    */
   async terminateAllVats(): Promise<void> {
-    const vatIds = this.getVatIds();
-    await Promise.all(vatIds.map(async (id) => this.terminateVat(id)));
+    await Promise.all(
+      this.getVatIds().map(async (id) => {
+        const vat = this.#getVat(id);
+        await vat.terminate();
+        this.#vats.delete(id);
+      }),
+    );
+    await this.#vatWorkerService.terminateAll();
   }
 
   /**
