@@ -25,7 +25,7 @@ describe('BaseReader', () => {
     it('throws if getReceiveInput is called more than once', () => {
       const reader = new TestReader();
       expect(() => reader.getReceiveInput()).toThrow(
-        'receiveInput has already been accessed',
+        'TestReader received multiple calls to getReceiveInput()',
       );
     });
 
@@ -98,7 +98,7 @@ describe('BaseReader', () => {
       reader.receiveInput(badMessage);
 
       await expect(reader.next()).rejects.toThrow(
-        'Message cannot be processed by stream (must be JSON-serializable)',
+        'TestReader: Message cannot be processed (must be JSON-serializable)',
       );
     });
 
@@ -110,7 +110,7 @@ describe('BaseReader', () => {
       reader.receiveInput(badMessage);
 
       await expect(nextP).rejects.toThrow(
-        'Message cannot be processed by stream (must be JSON-serializable)',
+        'TestReader: Message cannot be processed (must be JSON-serializable)',
       );
     });
 
@@ -139,7 +139,7 @@ describe('BaseReader', () => {
       reader.receiveInput({});
 
       await expect(reader.next()).rejects.toThrow(
-        'Message failed type validation',
+        'TestReader: Message failed type validation',
       );
     });
 
@@ -151,7 +151,9 @@ describe('BaseReader', () => {
       const nextP = reader.next();
       reader.receiveInput({});
 
-      await expect(nextP).rejects.toThrow('Message failed type validation');
+      await expect(nextP).rejects.toThrow(
+        'TestReader: Message failed type validation',
+      );
     });
 
     it('ends after receiving done signal, before read is enqueued', async () => {
@@ -277,14 +279,17 @@ describe('BaseReader', () => {
 describe('BaseWriter', () => {
   describe('initialization', () => {
     it('constructs a BaseWriter', () => {
-      const writer = new TestWriter(() => undefined);
+      const writer = new TestWriter({ onDispatch: () => undefined });
       expect(writer).toBeInstanceOf(BaseWriter);
       expect(writer[Symbol.asyncIterator]()).toBe(writer);
     });
 
     it('calls onEnd once when ending', async () => {
       const onEnd = vi.fn();
-      const writer = new TestWriter(() => undefined, onEnd);
+      const writer = new TestWriter({
+        onDispatch: () => undefined,
+        onEnd,
+      });
       expect(onEnd).not.toHaveBeenCalled();
 
       await writer.return();
@@ -297,7 +302,7 @@ describe('BaseWriter', () => {
   describe('next and sending messages', () => {
     it('dispatches messages', async () => {
       const dispatchSpy = vi.fn();
-      const writer = new TestWriter(dispatchSpy);
+      const writer = new TestWriter({ onDispatch: dispatchSpy });
 
       const message = 42;
       const nextP = writer.next(message);
@@ -310,7 +315,7 @@ describe('BaseWriter', () => {
       const dispatchSpy = vi.fn().mockImplementationOnce(() => {
         throw new Error('foo');
       });
-      const writer = new TestWriter(dispatchSpy);
+      const writer = new TestWriter({ onDispatch: dispatchSpy });
 
       await expect(writer.next(42)).rejects.toThrow(
         makeErrorMatcher(
@@ -336,7 +341,7 @@ describe('BaseWriter', () => {
         .mockImplementationOnce(() => {
           throw new Error('foo');
         });
-      const writer = new TestWriter(dispatchSpy);
+      const writer = new TestWriter({ onDispatch: dispatchSpy });
 
       await expect(writer.next(42)).rejects.toThrow(
         'TestWriter experienced repeated dispatch failures.',
@@ -358,14 +363,14 @@ describe('BaseWriter', () => {
 
   describe('return', () => {
     it('ends the stream', async () => {
-      const writer = new TestWriter(() => undefined);
+      const writer = new TestWriter({ onDispatch: () => undefined });
 
       expect(await writer.return()).toStrictEqual(makeDoneResult());
       expect(await writer.next(42)).toStrictEqual(makeDoneResult());
     });
 
     it('is idempotent', async () => {
-      const writer = new TestWriter(() => undefined);
+      const writer = new TestWriter({ onDispatch: () => undefined });
 
       expect(await writer.return()).toStrictEqual(makeDoneResult());
       expect(await writer.return()).toStrictEqual(makeDoneResult());
@@ -374,28 +379,28 @@ describe('BaseWriter', () => {
 
   describe('throw', () => {
     it('ends the stream', async () => {
-      const writer = new TestWriter(() => undefined);
+      const writer = new TestWriter({ onDispatch: () => undefined });
 
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.next(42)).toStrictEqual(makeDoneResult());
     });
 
     it('is idempotent', async () => {
-      const writer = new TestWriter(() => undefined);
+      const writer = new TestWriter({ onDispatch: () => undefined });
 
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
     });
 
     it('breaks out of failed onDispatch with failed onEnd', async () => {
-      const writer = new TestWriter(
-        () => {
+      const writer = new TestWriter({
+        onDispatch: () => {
           throw new Error('onDispatchError');
         },
-        () => {
+        onEnd: () => {
           throw new Error('onEndError');
         },
-      );
+      });
 
       await expect(
         async () => await writer.throw(new Error('thrownError')),

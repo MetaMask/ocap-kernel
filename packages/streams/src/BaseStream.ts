@@ -106,8 +106,9 @@ export type ValidateInput<Read extends Json> = (input: Json) => input is Read;
 export type ReceiveInput = (input: unknown) => void;
 
 export type BaseReaderArgs<Read extends Json> = {
-  validateInput?: ValidateInput<Read> | undefined;
+  name?: string | undefined;
   onEnd?: OnEnd | undefined;
+  validateInput?: ValidateInput<Read> | undefined;
 };
 
 /**
@@ -127,6 +128,8 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    */
   readonly #buffer = makeStreamBuffer<IteratorResult<Read, undefined>>();
 
+  readonly #name: string;
+
   readonly #validateInput?: ValidateInput<Read> | undefined;
 
   #onEnd?: OnEnd | undefined;
@@ -137,13 +140,15 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    * Constructs a {@link BaseReader}.
    *
    * @param args - Options bag.
-   * @param args.validateInput - A function that validates input from the transport.
-   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
+   * @param args.name - The name of the stream, for logging purposes. Defaults to the class name.
    * should happen when the stream ends, such as closing a message port.
+   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
+   * @param args.validateInput - A function that validates input from the transport.
    */
-  constructor({ validateInput, onEnd }: BaseReaderArgs<Read>) {
-    this.#validateInput = validateInput;
+  constructor({ name, onEnd, validateInput }: BaseReaderArgs<Read>) {
+    this.#name = name ?? this.constructor.name;
     this.#onEnd = onEnd;
+    this.#validateInput = validateInput;
     harden(this);
   }
 
@@ -155,7 +160,9 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    */
   protected getReceiveInput(): ReceiveInput {
     if (this.#didExposeReceiveInput) {
-      throw new Error('receiveInput has already been accessed');
+      throw new Error(
+        `${this.#name} received multiple calls to getReceiveInput()`,
+      );
     }
     this.#didExposeReceiveInput = true;
     return this.#receiveInput.bind(this);
@@ -165,7 +172,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
     if (!isDispatchable(input)) {
       await this.#handleInputError(
         new Error(
-          `Message cannot be processed by stream (must be JSON-serializable):\n${stringify(input)}`,
+          `${this.#name}: Message cannot be processed (must be JSON-serializable):\n${stringify(input)}`,
         ),
       );
       return;
@@ -184,7 +191,9 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
 
     if (this.#validateInput?.(unmarshaled) === false) {
       await this.#handleInputError(
-        new Error(`Message failed type validation:\n${stringify(unmarshaled)}`),
+        new Error(
+          `${this.#name}: Message failed type validation:\n${stringify(unmarshaled)}`,
+        ),
       );
       return;
     }
@@ -252,13 +261,19 @@ export type Dispatch<Yield extends Json> = (
   value: Dispatchable<Yield>,
 ) => void | Promise<void>;
 
+export type BaseWriterArgs<Write extends Json> = {
+  onDispatch: Dispatch<Write>;
+  name?: string | undefined;
+  onEnd?: OnEnd | undefined;
+};
+
 /**
  * The base of a writable async iterator stream.
  */
 export class BaseWriter<Write extends Json> implements Writer<Write> {
   #isDone: boolean = false;
 
-  readonly #logName: string = 'BaseWriter';
+  readonly #name: string = 'BaseWriter';
 
   readonly #onDispatch: Dispatch<Write>;
 
@@ -267,17 +282,14 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
   /**
    * Constructs a {@link BaseWriter}.
    *
-   * @param logName - The name of the stream, for logging purposes.
-   * @param onDispatch - A function that dispatches messages over the underlying transport mechanism.
-   * @param onEnd - A function that is called when the stream ends. For any cleanup that
+   * @param args - Options bag.
+   * @param args.onDispatch - A function that dispatches messages over the underlying transport mechanism.
+   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
+   * @param args.name - The name of the stream, for logging purposes. Defaults to the class name.
    * should happen when the stream ends, such as closing a message port.
    */
-  constructor(
-    logName: string,
-    onDispatch: Dispatch<Write>,
-    onEnd?: () => void,
-  ) {
-    this.#logName = logName;
+  constructor({ name, onDispatch, onEnd }: BaseWriterArgs<Write>) {
+    this.#name = name ?? this.constructor.name;
     this.#onDispatch = onDispatch;
     this.#onEnd = onEnd;
     harden(this);
@@ -310,7 +322,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
         // Break out of repeated failure to dispatch an error. It is unclear how this would occur
         // in practice, but it's the kind of failure mode where it's better to be sure.
         const repeatedFailureError = new Error(
-          `${this.#logName} experienced repeated dispatch failures.`,
+          `${this.#name} experienced repeated dispatch failures.`,
           { cause: error },
         );
         await this.#onDispatch(makeStreamErrorSignal(repeatedFailureError));
@@ -321,7 +333,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
           error instanceof Error ? error : new Error(String(error)),
           true,
         );
-        throw new Error(`${this.#logName} experienced a dispatch failure`, {
+        throw new Error(`${this.#name} experienced a dispatch failure`, {
           cause: error,
         });
       }

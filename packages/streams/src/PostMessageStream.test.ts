@@ -130,7 +130,7 @@ describe('PostMessageWriter', () => {
   it('calls onEnd once when ending', async () => {
     const { postMessageFn } = makePostMessageMock();
     const onEnd = vi.fn();
-    const writer = new PostMessageWriter(postMessageFn, onEnd);
+    const writer = new PostMessageWriter(postMessageFn, { onEnd });
 
     expect(await writer.return()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -196,7 +196,7 @@ describe('PostMessageDuplexStream', () => {
     );
 
     await expect(duplexStream.write(42)).rejects.toThrow(
-      'PostMessageWriter experienced a dispatch failure',
+      'PostMessageDuplexStream experienced a dispatch failure',
     );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });

@@ -9,10 +9,12 @@
 import type { Json } from '@metamask/utils';
 
 import { BaseDuplexStream } from './BaseDuplexStream.js';
-import type { BaseReaderArgs, ValidateInput, OnEnd } from './BaseStream.js';
+import type {
+  BaseReaderArgs,
+  BaseWriterArgs,
+  ValidateInput,
+} from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-// Used in docstring.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Dispatchable, OnMessage, PostMessage } from './utils.js';
 
 type SetListener = (onMessage: OnMessage) => void;
@@ -64,8 +66,17 @@ harden(PostMessageReader);
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
 export class PostMessageWriter<Write extends Json> extends BaseWriter<Write> {
-  constructor(postMessageFn: PostMessage, onEnd?: OnEnd) {
-    super('PostMessageWriter', postMessageFn, onEnd);
+  constructor(
+    postMessageFn: PostMessage,
+    { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
+  ) {
+    super({
+      name,
+      onDispatch: (value: Dispatchable<Write>) => postMessageFn(value),
+      onEnd: async () => {
+        await onEnd?.();
+      },
+    });
     harden(this);
   }
 }
@@ -96,13 +107,17 @@ export class PostMessageDuplexStream<
   ) {
     let writer: PostMessageWriter<Write>; // eslint-disable-line prefer-const
     const reader = new PostMessageReader<Read>(setListener, removeListener, {
+      name: 'PostMessageDuplexStream',
       validateInput,
       onEnd: async () => {
         await writer.return();
       },
     });
-    writer = new PostMessageWriter<Write>(postMessageFn, async () => {
-      await reader.return();
+    writer = new PostMessageWriter<Write>(postMessageFn, {
+      name: 'PostMessageDuplexStream',
+      onEnd: async () => {
+        await reader.return();
+      },
     });
     super(reader, writer);
   }

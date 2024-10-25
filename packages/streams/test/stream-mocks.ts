@@ -6,6 +6,7 @@ import type {
   ReceiveInput,
   BaseReaderArgs,
   ValidateInput,
+  BaseWriterArgs,
 } from '../src/BaseStream.js';
 import { BaseReader, BaseWriter } from '../src/BaseStream.js';
 
@@ -33,9 +34,9 @@ export class TestWriter<Write extends Json = number> extends BaseWriter<Write> {
     return this.#onDispatch;
   }
 
-  constructor(onDispatch: Dispatch<Write>, onEnd?: () => void) {
-    super('TestWriter', onDispatch, onEnd);
-    this.#onDispatch = onDispatch;
+  constructor(args: BaseWriterArgs<Write>) {
+    super(args);
+    this.#onDispatch = args.onDispatch;
   }
 }
 
@@ -69,8 +70,19 @@ export class TestDuplexStream<
       writerOnEnd,
     }: TestDuplexStreamOptions<Read> = {},
   ) {
-    const reader = new TestReader<Read>({ validateInput, onEnd: readerOnEnd });
-    super(reader, new TestWriter<Write>(onDispatch, writerOnEnd));
+    const reader = new TestReader<Read>({
+      name: 'TestDuplexStream',
+      onEnd: readerOnEnd,
+      validateInput,
+    });
+    super(
+      reader,
+      new TestWriter<Write>({
+        name: 'TestDuplexStream',
+        onDispatch,
+        onEnd: writerOnEnd,
+      }),
+    );
     this.#onDispatch = onDispatch;
     this.#receiveInput = reader.receiveInput;
   }

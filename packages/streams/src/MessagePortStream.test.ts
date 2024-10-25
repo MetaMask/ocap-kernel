@@ -131,7 +131,7 @@ describe('MessagePortWriter', () => {
   it('calls onEnd once when ending', async () => {
     const { port1 } = new MessageChannel();
     const onEnd = vi.fn();
-    const writer = new MessagePortWriter(port1, onEnd);
+    const writer = new MessagePortWriter(port1, { onEnd });
 
     expect(await writer.return()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -185,7 +185,7 @@ describe('MessagePortDuplexStream', () => {
     const duplexStream = await makeDuplexStream({ port1, port2 });
 
     await expect(duplexStream.write(42)).rejects.toThrow(
-      'MessagePortWriter experienced a dispatch failure',
+      'MessagePortDuplexStream experienced a dispatch failure',
     );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });

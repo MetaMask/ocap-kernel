@@ -259,7 +259,7 @@ describe.concurrent('ChromeRuntimeWriter', () => {
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
       ChromeRuntimeStreamTarget.Offscreen,
-      onEnd,
+      { onEnd },
     );
 
     expect(await writer.return()).toStrictEqual(makeDoneResult());
@@ -324,7 +324,7 @@ describe.concurrent('ChromeRuntimeDuplexStream', () => {
     });
 
     await expect(duplexStream.write(42)).rejects.toThrow(
-      'ChromeRuntimeWriter experienced a dispatch failure',
+      'ChromeRuntimeDuplexStream experienced a dispatch failure',
     );
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });

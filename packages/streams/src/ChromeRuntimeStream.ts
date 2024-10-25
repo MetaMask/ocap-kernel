@@ -21,7 +21,7 @@ import { BaseDuplexStream } from './BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   ValidateInput,
-  OnEnd,
+  BaseWriterArgs,
   ReceiveInput,
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
@@ -142,11 +142,11 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
     source: ChromeRuntimeStreamTarget,
-    onEnd?: OnEnd,
+    { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
-    super(
-      'ChromeRuntimeWriter',
-      async (value: Dispatchable<Write>) => {
+    super({
+      name,
+      onDispatch: async (value: Dispatchable<Write>) => {
         await runtime.sendMessage({
           target,
           source,
@@ -154,7 +154,7 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
         });
       },
       onEnd,
-    );
+    });
     harden(this);
   }
 }
@@ -192,6 +192,7 @@ export class ChromeRuntimeDuplexStream<
       localTarget,
       remoteTarget,
       {
+        name: 'ChromeRuntimeDuplexStream',
         validateInput,
         onEnd: async () => {
           await writer.return();
@@ -202,8 +203,11 @@ export class ChromeRuntimeDuplexStream<
       runtime,
       remoteTarget,
       localTarget,
-      async () => {
-        await reader.return();
+      {
+        name: 'ChromeRuntimeDuplexStream',
+        onEnd: async () => {
+          await reader.return();
+        },
       },
     );
     super(reader, writer);

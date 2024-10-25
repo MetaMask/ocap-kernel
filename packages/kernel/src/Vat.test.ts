@@ -69,7 +69,7 @@ describe('Vat', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
         new Error(
-          'Message cannot be processed by stream (must be JSON-serializable):\nnull',
+          'TestDuplexStream: Message cannot be processed (must be JSON-serializable):\nnull',
         ),
       );
     });

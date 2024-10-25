@@ -35,7 +35,7 @@ describe('Supervisor', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
         new Error(
-          'Message cannot be processed by stream (must be JSON-serializable):\nnull',
+          'TestDuplexStream: Message cannot be processed (must be JSON-serializable):\nnull',
         ),
       );
     });

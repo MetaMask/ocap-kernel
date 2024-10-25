@@ -22,7 +22,11 @@
 import type { Json } from '@metamask/utils';
 
 import { BaseDuplexStream } from './BaseDuplexStream.js';
-import type { BaseReaderArgs, ValidateInput, OnEnd } from './BaseStream.js';
+import type {
+  BaseReaderArgs,
+  BaseWriterArgs,
+  ValidateInput,
+} from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { Dispatchable, OnMessage } from './utils.js';
 
@@ -79,15 +83,18 @@ harden(MessagePortReader);
  * - The module-level documentation for more details.
  */
 export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
-  constructor(port: MessagePort, onEnd?: OnEnd) {
-    super(
-      'MessagePortWriter',
-      (value: Dispatchable<Write>) => port.postMessage(value),
-      async () => {
+  constructor(
+    port: MessagePort,
+    { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
+  ) {
+    super({
+      name,
+      onDispatch: (value: Dispatchable<Write>) => port.postMessage(value),
+      onEnd: async () => {
         port.close();
         await onEnd?.();
       },
-    );
+    });
     port.start();
     harden(this);
   }
@@ -108,13 +115,17 @@ export class MessagePortDuplexStream<
   private constructor(port: MessagePort, validateInput?: ValidateInput<Read>) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, {
+      name: 'MessagePortDuplexStream',
       validateInput,
       onEnd: async () => {
         await writer.return();
       },
     });
-    writer = new MessagePortWriter<Write>(port, async () => {
-      await reader.return();
+    writer = new MessagePortWriter<Write>(port, {
+      name: 'MessagePortDuplexStream',
+      onEnd: async () => {
+        await reader.return();
+      },
     });
     super(reader, writer);
   }
