@@ -5,11 +5,5 @@
   },
   "references": [],
   "types": ["ses", "vitest", "vitest/jsdom"],
-  "include": [
-    "../streams/src",
-    "../streams/test",
-    "./src",
-    "./vite.config.ts",
-    "./vitest.config.ts"
-  ]
+  "include": ["./src", "./vite.config.ts", "./vitest.config.ts"]
 }

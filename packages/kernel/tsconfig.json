@@ -4,9 +4,9 @@
     "baseUrl": "./"
   },
   "references": [
+    { "path": "../errors" },
     { "path": "../streams" },
-    { "path": "../utils" },
-    { "path": "../errors" }
+    { "path": "../utils" }
   ],
   "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]
 }
