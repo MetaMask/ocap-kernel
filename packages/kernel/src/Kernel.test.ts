@@ -40,6 +40,7 @@ describe('Kernel', () => {
     mockWorkerService = {
       launch: async () => ({}),
       terminate: async () => undefined,
+      terminateAll: async () => undefined,
     } as unknown as VatWorkerService;
 
     launchWorkerMock = vi
@@ -89,11 +90,11 @@ describe('Kernel', () => {
     });
 
     it('adds multiple vats to the kernel without errors when no vat with the same ID exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
       await kernel.launchVat({ id: 'v1' });
       expect(initMock).toHaveBeenCalledTimes(2);
-      expect(mockGetWorkerStreams).toHaveBeenCalledTimes(2);
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual(['v0', 'v1']);
     });
 
@@ -142,25 +143,28 @@ describe('Kernel', () => {
 
   describe('terminateAllVats()', () => {
     it('deletes all vats from the kernel without errors', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      const workerTerminateAllMock = vi
+        .spyOn(mockWorkerService, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
       await kernel.launchVat({ id: 'v1' });
       expect(kernel.getVatIds()).toStrictEqual(['v0', 'v1']);
       await kernel.terminateAllVats();
       expect(terminateMock).toHaveBeenCalledTimes(2);
-      expect(mockDeleteWorker).toHaveBeenCalledTimes(2);
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
   });
 
   describe('restartVat()', () => {
     it('restarts a vat', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKernelStore);
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat({ id: 'v0' });
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
       await kernel.restartVat('v0');
       expect(terminateMock).toHaveBeenCalledOnce();
-      expect(mockDeleteWorker).toHaveBeenCalledOnce();
+      expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual(['v0']);
       expect(initMock).toHaveBeenCalledTimes(2);
     });
