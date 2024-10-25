@@ -42,10 +42,12 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
     // eslint-disable-next-line prefer-const
     let onMessage: OnMessage;
 
-    super(async () => {
-      port.removeEventListener('message', onMessage);
-      port.close();
-      await onEnd?.();
+    super({
+      onEnd: async () => {
+        port.removeEventListener('message', onMessage);
+        port.close();
+        await onEnd?.();
+      },
     });
 
     const receiveInput = super.getReceiveInput();

@@ -94,6 +94,15 @@ harden(makeStreamBuffer);
  */
 export type OnEnd = () => void | Promise<void>;
 
+export type InputValidator<Read extends Json> = (
+  input: Json,
+) => asserts input is Read;
+
+export type BaseReaderArgs<Read extends Json> = {
+  inputValidator?: InputValidator<Read> | undefined;
+  onEnd?: OnEnd | undefined;
+};
+
 /**
  * A function that receives input from a transport mechanism to a readable stream.
  * Validates that the input is an {@link IteratorResult}, and throws if it is not.
@@ -117,6 +126,8 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
    */
   readonly #buffer = makeStreamBuffer<IteratorResult<Read, undefined>>();
 
+  readonly #inputValidator?: InputValidator<Read> | undefined;
+
   #onEnd?: OnEnd | undefined;
 
   #didExposeReceiveInput: boolean = false;
@@ -124,10 +135,13 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
   /**
    * Constructs a {@link BaseReader}.
    *
-   * @param onEnd - A function that is called when the stream ends. For any cleanup that
+   * @param args - Options bag.
+   * @param args.inputValidator - A function that validates input from the transport.
+   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
    * should happen when the stream ends, such as closing a message port.
    */
-  constructor(onEnd?: () => void) {
+  constructor({ inputValidator, onEnd }: BaseReaderArgs<Read>) {
+    this.#inputValidator = inputValidator;
     this.#onEnd = onEnd;
     harden(this);
   }
@@ -172,6 +186,7 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
       return;
     }
 
+    this.#inputValidator?.(unmarshaled);
     this.#buffer.put(makePendingResult(unmarshaled as Read));
   };
 

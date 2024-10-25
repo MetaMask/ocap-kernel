@@ -1,7 +1,12 @@
 import type { Json } from '@metamask/utils';
 
 import { BaseDuplexStream, makeAck } from '../src/BaseDuplexStream.js';
-import type { Dispatch, ReceiveInput } from '../src/BaseStream.js';
+import type {
+  Dispatch,
+  ReceiveInput,
+  BaseReaderArgs,
+  InputValidator,
+} from '../src/BaseStream.js';
 import { BaseReader, BaseWriter } from '../src/BaseStream.js';
 
 export class TestReader<Read extends Json = number> extends BaseReader<Read> {
@@ -11,8 +16,8 @@ export class TestReader<Read extends Json = number> extends BaseReader<Read> {
     return this.#receiveInput;
   }
 
-  constructor(onEnd?: () => void) {
-    super(onEnd);
+  constructor(args: BaseReaderArgs<Read> = {}) {
+    super(args);
     this.#receiveInput = super.getReceiveInput();
   }
 
@@ -34,7 +39,8 @@ export class TestWriter<Write extends Json = number> extends BaseWriter<Write> {
   }
 }
 
-type TestDuplexStreamOptions = {
+type TestDuplexStreamOptions<Read extends Json = number> = {
+  inputValidator?: InputValidator<Read> | undefined;
   readerOnEnd?: () => void;
   writerOnEnd?: () => void;
 };
@@ -57,9 +63,13 @@ export class TestDuplexStream<
 
   constructor(
     onDispatch: Dispatch<Write>,
-    { readerOnEnd, writerOnEnd }: TestDuplexStreamOptions = {},
+    {
+      inputValidator,
+      readerOnEnd,
+      writerOnEnd,
+    }: TestDuplexStreamOptions<Read> = {},
   ) {
-    const reader = new TestReader<Read>(readerOnEnd);
+    const reader = new TestReader<Read>({ inputValidator, onEnd: readerOnEnd });
     super(reader, new TestWriter<Write>(onDispatch, writerOnEnd));
     this.#onDispatch = onDispatch;
     this.#receiveInput = reader.receiveInput;

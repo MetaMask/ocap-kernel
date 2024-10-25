@@ -75,9 +75,11 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
       sender: ChromeMessageSender,
     ) => void;
 
-    super(async () => {
-      runtime.onMessage.removeListener(messageListener);
-      await onEnd?.();
+    super({
+      onEnd: async () => {
+        runtime.onMessage.removeListener(messageListener);
+        await onEnd?.();
+      },
     });
 
     this.#receiveInput = super.getReceiveInput();

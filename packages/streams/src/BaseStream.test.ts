@@ -30,7 +30,7 @@ describe('BaseReader', () => {
 
     it('calls onEnd once when ending', async () => {
       const onEnd = vi.fn();
-      const reader = new TestReader(onEnd);
+      const reader = new TestReader({ onEnd });
       expect(onEnd).not.toHaveBeenCalled();
 
       await reader.return();
@@ -48,6 +48,17 @@ describe('BaseReader', () => {
       reader.receiveInput(message);
 
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
+    });
+
+    it('calls inputValidator with received input if specified', async () => {
+      const inputValidator = vi.fn();
+      const reader = new TestReader({ inputValidator });
+
+      const message = 42;
+      reader.receiveInput(message);
+
+      expect(await reader.next()).toStrictEqual(makePendingResult(message));
+      expect(inputValidator).toHaveBeenCalledWith(message);
     });
 
     it('emits message received after next()', async () => {

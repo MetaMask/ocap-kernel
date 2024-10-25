@@ -35,9 +35,11 @@ export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
     // eslint-disable-next-line prefer-const
     let onMessage: OnMessage;
 
-    super(async () => {
-      removeListener(onMessage);
-      await onEnd?.();
+    super({
+      onEnd: async () => {
+        removeListener(onMessage);
+        await onEnd?.();
+      },
     });
 
     const receiveInput = super.getReceiveInput();
