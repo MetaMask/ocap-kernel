@@ -90,7 +90,7 @@ describe('Vat', () => {
   describe('#receiveMessages', () => {
     it('receives messages correctly', async () => {
       const { vat, stream } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined as number);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       const handleSpy = vi.spyOn(vat.streamEnvelopeReplyHandler, 'handle');
       await vat.init();
