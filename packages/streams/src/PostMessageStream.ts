@@ -9,7 +9,7 @@
 import type { Json } from '@metamask/utils';
 
 import { BaseDuplexStream } from './BaseDuplexStream.js';
-import type { OnEnd } from './BaseStream.js';
+import type { BaseReaderArgs, InputValidator, OnEnd } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 // Used in docstring.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -30,12 +30,13 @@ export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
   constructor(
     setListener: SetListener,
     removeListener: RemoveListener,
-    onEnd?: OnEnd,
+    { inputValidator, onEnd }: BaseReaderArgs<Read> = {},
   ) {
     // eslint-disable-next-line prefer-const
     let onMessage: OnMessage;
 
     super({
+      inputValidator,
       onEnd: async () => {
         removeListener(onMessage);
         await onEnd?.();
@@ -91,15 +92,15 @@ export class PostMessageDuplexStream<
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,
+    inputValidator?: InputValidator<Read>,
   ) {
     let writer: PostMessageWriter<Write>; // eslint-disable-line prefer-const
-    const reader = new PostMessageReader<Read>(
-      setListener,
-      removeListener,
-      async () => {
+    const reader = new PostMessageReader<Read>(setListener, removeListener, {
+      inputValidator,
+      onEnd: async () => {
         await writer.return();
       },
-    );
+    });
     writer = new PostMessageWriter<Write>(postMessageFn, async () => {
       await reader.return();
     });
@@ -110,11 +111,13 @@ export class PostMessageDuplexStream<
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,
+    inputValidator?: InputValidator<Read>,
   ): Promise<PostMessageDuplexStream<Read, Write>> {
     const stream = new PostMessageDuplexStream<Read, Write>(
       postMessageFn,
       setListener,
       removeListener,
+      inputValidator,
     );
     await stream.synchronize();
     return stream;

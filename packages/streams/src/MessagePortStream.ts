@@ -22,7 +22,7 @@
 import type { Json } from '@metamask/utils';
 
 import { BaseDuplexStream } from './BaseDuplexStream.js';
-import type { OnEnd } from './BaseStream.js';
+import type { BaseReaderArgs, InputValidator, OnEnd } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { Dispatchable, OnMessage } from './utils.js';
 
@@ -38,11 +38,15 @@ import type { Dispatchable, OnMessage } from './utils.js';
  * - The module-level documentation for more details.
  */
 export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
-  constructor(port: MessagePort, onEnd?: OnEnd) {
+  constructor(
+    port: MessagePort,
+    { inputValidator, onEnd }: BaseReaderArgs<Read> = {},
+  ) {
     // eslint-disable-next-line prefer-const
     let onMessage: OnMessage;
 
     super({
+      inputValidator,
       onEnd: async () => {
         port.removeEventListener('message', onMessage);
         port.close();
@@ -101,10 +105,16 @@ export class MessagePortDuplexStream<
 > {
   // Unavoidable exception to our preference for #-private names.
   // eslint-disable-next-line no-restricted-syntax
-  private constructor(port: MessagePort) {
+  private constructor(
+    port: MessagePort,
+    inputValidator?: InputValidator<Read>,
+  ) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
-    const reader = new MessagePortReader<Read>(port, async () => {
-      await writer.return();
+    const reader = new MessagePortReader<Read>(port, {
+      inputValidator,
+      onEnd: async () => {
+        await writer.return();
+      },
     });
     writer = new MessagePortWriter<Write>(port, async () => {
       await reader.return();
@@ -114,8 +124,12 @@ export class MessagePortDuplexStream<
 
   static async make<Read extends Json, Write extends Json = Read>(
     port: MessagePort,
+    inputValidator?: InputValidator<Read>,
   ): Promise<MessagePortDuplexStream<Read, Write>> {
-    const stream = new MessagePortDuplexStream<Read, Write>(port);
+    const stream = new MessagePortDuplexStream<Read, Write>(
+      port,
+      inputValidator,
+    );
     await stream.synchronize();
     return stream;
   }
