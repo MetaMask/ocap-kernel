@@ -162,7 +162,7 @@ export class Kernel {
   }
 
   /**
-   * Gets the vat IDs in the kernel.
+   * Gets the vat IDs.
    *
    * @returns An array of vat IDs.
    */
@@ -171,7 +171,7 @@ export class Kernel {
   }
 
   /**
-   * Launches a vat in the kernel.
+   * Launches a vat.
    *
    * @param options - The options for launching the vat.
    * @param options.id - The ID of the vat.
@@ -189,7 +189,7 @@ export class Kernel {
   }
 
   /**
-   * Restarts a vat in the kernel.
+   * Restarts a vat.
    *
    * @param id - The ID of the vat.
    */
@@ -199,7 +199,7 @@ export class Kernel {
   }
 
   /**
-   * Terminate a vat from the kernel.
+   * Terminate a vat.
    *
    * @param id - The ID of the vat.
    */
@@ -211,7 +211,7 @@ export class Kernel {
   }
 
   /**
-   * Terminate a vat from the kernel.
+   * Terminate all vats.
    */
   async terminateAllVats(): Promise<void> {
     await Promise.all(
@@ -240,7 +240,7 @@ export class Kernel {
   }
 
   /**
-   * Gets a vat from the kernel.
+   * Gets a vat.
    *
    * @param id - The ID of the vat.
    * @returns The vat.

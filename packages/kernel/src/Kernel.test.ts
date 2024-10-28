@@ -214,6 +214,6 @@ describe('Kernel', () => {
 
     it.todo('starts receiving messages');
 
-    it.todo('throws an error if the stream is invalid');
+    it.todo('throws if the stream throws');
   });
 });

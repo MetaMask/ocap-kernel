@@ -1,4 +1,5 @@
 import './kernel-worker-trusted-prelude.js';
+import type { NonEmptyArray } from '@metamask/utils';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
@@ -31,23 +32,41 @@ async function main(): Promise<void> {
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init({ defaultVatId: 'v0' });
 
-  const vats: VatId[] = ['v1', 'v2', 'v3'];
+  // Handle the lifecycle of multiple vats.
+  await handleVatLifecycle(kernel, ['v1', 'v2', 'v3']);
+}
+
+/**
+ * Manages the full lifecycle of an array of vats, including their creation,
+ * restart, message passing, and termination.
+ *
+ * @param kernel The kernel instance.
+ * @param vats An array of VatIds to be managed.
+ */
+async function handleVatLifecycle(
+  kernel: Kernel,
+  vats: NonEmptyArray<VatId>,
+): Promise<void> {
   console.time(`Created vats: ${vats.join(', ')}`);
   await Promise.all(vats.map(async (id) => kernel.launchVat({ id })));
   console.timeEnd(`Created vats: ${vats.join(', ')}`);
 
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
 
-  console.time('Vat "v2" restart');
-  await kernel.restartVat('v2');
-  console.timeEnd('Vat "v2" restart');
+  // Restart a randomly selected vat from the array.
+  const vatToRestart = vats[Math.floor(Math.random() * vats.length)] as VatId;
+  console.time(`Vat "${vatToRestart}" restart`);
+  await kernel.restartVat(vatToRestart);
+  console.timeEnd(`Vat "${vatToRestart}" restart`);
 
-  console.time('Ping Vat "v1"');
-  await kernel.sendMessage('v1', {
+  // Send a "Ping" message to a randomly selected vat.
+  const vatToPing = vats[Math.floor(Math.random() * vats.length)] as VatId;
+  console.time(`Ping Vat "${vatToPing}"`);
+  await kernel.sendMessage(vatToPing, {
     method: VatCommandMethod.Ping,
     params: null,
   });
-  console.timeEnd('Ping Vat "v1"');
+  console.timeEnd(`Ping Vat "${vatToPing}"`);
 
   const vatIds = kernel.getVatIds().join(', ');
   console.time(`Terminated vats: ${vatIds}`);
