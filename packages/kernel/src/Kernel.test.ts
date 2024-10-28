@@ -207,9 +207,7 @@ describe('Kernel', () => {
         async () => new Kernel(mockStream, mockWorkerService, mockKVStore),
       ).not.toThrow();
     });
-  });
 
-  describe('init()', () => {
     it.todo('initializes the kernel store');
 
     it.todo('starts receiving messages');

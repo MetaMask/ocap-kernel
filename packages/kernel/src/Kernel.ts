@@ -1,6 +1,4 @@
 import '@ocap/shims/endoify';
-import type { PromiseKit } from '@endo/promise-kit';
-import { makePromiseKit } from '@endo/promise-kit';
 import {
   StreamReadError,
   VatAlreadyExistsError,
@@ -34,9 +32,6 @@ export class Kernel {
 
   readonly #storage: KVStore;
 
-  // Hopefully removed when we get to n+1 vats.
-  readonly #defaultVatKit: PromiseKit<Vat>;
-
   readonly #logger: Logger;
 
   constructor(
@@ -49,16 +44,15 @@ export class Kernel {
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
     this.#storage = storage;
-    this.#defaultVatKit = makePromiseKit<Vat>();
     this.#logger = logger ?? makeLogger('[ocap kernel]');
-  }
-
-  async init({ defaultVatId }: { defaultVatId: VatId }): Promise<void> {
-    await this.launchVat({ id: defaultVatId })
-      .then(this.#defaultVatKit.resolve)
-      .catch(this.#defaultVatKit.reject);
 
     this.#receiveMessages().catch((error) => {
+      this.#logger.error('Stream read error occurred:', error);
+      // Errors thrown here will not be surfaced in the usual synchronous manner
+      // because #receiveMessages() is awaited within the constructor.
+      // Any error thrown inside the async loop is 'caught' within this constructor
+      // call stack but will be displayed as 'Uncaught (in promise)'
+      // since they occur after the constructor has returned.
       throw new StreamReadError({ kernelId: 'kernel' }, error);
     });
   }
@@ -79,14 +73,20 @@ export class Kernel {
           await this.#reply({ method, params: 'pong' });
           break;
         case KernelCommandMethod.Evaluate:
-          vat = await this.#defaultVatKit.promise;
+          if (!this.#vats.size) {
+            throw new Error('No vats available to call');
+          }
+          vat = this.#vats.values().next().value as Vat;
           await this.#reply({
             method,
             params: await this.evaluate(vat.id, params),
           });
           break;
         case KernelCommandMethod.CapTpCall:
-          vat = await this.#defaultVatKit.promise;
+          if (!this.#vats.size) {
+            throw new Error('No vats available to call');
+          }
+          vat = this.#vats.values().next().value as Vat;
           await this.#reply({
             method,
             params: stringify(await vat.callCapTp(params)),

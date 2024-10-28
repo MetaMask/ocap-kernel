@@ -30,20 +30,22 @@ async function main(): Promise<void> {
 
   // Create and start kernel.
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
-  await kernel.init({ defaultVatId: 'v0' });
 
   // Handle the lifecycle of multiple vats.
-  await handleVatLifecycle(kernel, ['v1', 'v2', 'v3']);
+  await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
+
+  // Add default vat.
+  await kernel.launchVat({ id: 'v0' });
 }
 
 /**
- * Manages the full lifecycle of an array of vats, including their creation,
+ * Runs the full lifecycle of an array of vats, including their creation,
  * restart, message passing, and termination.
  *
  * @param kernel The kernel instance.
  * @param vats An array of VatIds to be managed.
  */
-async function handleVatLifecycle(
+async function runVatLifecycle(
   kernel: Kernel,
   vats: NonEmptyArray<VatId>,
 ): Promise<void> {
