@@ -30,6 +30,7 @@ async function main(): Promise<void> {
 
   // Create and start kernel.
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
+  await kernel.init();
 
   // Handle the lifecycle of multiple vats.
   await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);

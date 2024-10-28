@@ -45,7 +45,9 @@ export class Kernel {
     this.#vatWorkerService = vatWorkerService;
     this.#storage = storage;
     this.#logger = logger ?? makeLogger('[ocap kernel]');
+  }
 
+  async init(): Promise<void> {
     this.#receiveMessages().catch((error) => {
       this.#logger.error('Stream read error occurred:', error);
       // Errors thrown here will not be surfaced in the usual synchronous manner
