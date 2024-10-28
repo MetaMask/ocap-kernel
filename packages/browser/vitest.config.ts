@@ -30,6 +30,11 @@ export default mergeConfig(
           replacement: path.resolve('../shims/src/endoify.js'),
           customResolver: (id) => ({ external: true, id }),
         },
+        {
+          find: '@endo/promise-kit',
+          replacement: path.resolve('__mocks__/@endo/promise-kit.ts'),
+          customResolver: (id) => ({ external: true, id }),
+        }
       ],
       
     },
