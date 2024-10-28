@@ -36,7 +36,7 @@ export const getDefaultConfig = (projectRoot = './src'): UserConfig =>
         },
       },
       reporters: ['basic'],
-      silent: true,
+      silent: false,
       testTimeout: 2000,
     },
   });
