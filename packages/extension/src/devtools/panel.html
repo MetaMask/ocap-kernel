@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Kernel DevTools</title>
+    <style>
+      .kernel-panel {
+        padding: 16px;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+
+      .kernel-controls,
+      .vat-controls {
+        margin-bottom: 16px;
+      }
+
+      button {
+        margin: 4px;
+        padding: 8px 16px;
+      }
+
+      input {
+        padding: 8px;
+        margin: 4px;
+      }
+
+      #status-display {
+        background: #f5f5f5;
+        padding: 12px;
+        border-radius: 4px;
+      }
+    </style>
+    <script src="./panel.ts" type="module"></script>
+  </head>
+  <body>
+    <div id="panel-root">
+      <div class="kernel-panel">
+        <div class="kernel-controls">
+          <button id="init-kernel">Initialize Kernel</button>
+          <button id="shutdown-kernel">Shutdown Kernel</button>
+        </div>
+
+        <div class="vat-controls">
+          <input type="text" id="vat-id" placeholder="Vat ID" />
+          <button id="launch-vat">Launch Vat</button>
+          <button id="restart-vat">Restart Vat</button>
+          <button id="terminate-vat">Terminate Vat</button>
+          <button id="terminate-all">Terminate All Vats</button>
+        </div>
+
+        <div class="kernel-status">
+          <h3>Kernel Status</h3>
+          <pre id="status-display"></pre>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

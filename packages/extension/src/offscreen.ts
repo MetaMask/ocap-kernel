@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     sendMessage: (message: KernelCommand) => Promise<void>;
     receiveMessages: () => Promise<void>;
   }> {
-    const worker = new Worker('kernel-worker.js', { type: 'module' });
+    const worker = new Worker('kernel/kernel-worker.js', { type: 'module' });
 
     const workerStream = await initializeMessageChannel((message, transfer) =>
       worker.postMessage(message, transfer),
