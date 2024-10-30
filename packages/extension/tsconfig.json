@@ -13,7 +13,8 @@
     { "path": "../shims" },
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../utils" }
+    { "path": "../utils" },
+    { "path": "../kernel" }
   ],
   "include": [
     "../../vitest.config.packages.ts",
