@@ -1,84 +1,35 @@
 import path from 'path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 
-// This type is referenced in JSDoc strings in this file.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type RollupOptions = ResolvedConfig['build']['rollupOptions'];
-
-type PluginContext = {
-  warn: (message: string) => void;
-  error: (message: string) => never;
-};
-
 /**
- * Resolve trusted prelude file names as their basename only, rewriting `.[mc]?ts` files as `.[mc]?js`.
+ * A Vite plugin that ensures trusted preludes are imported first in their respective files.
+ * The plugin will:
+ * - Mark all trusted preludes as external modules
+ * - Validate that trusted prelude importers are entry points
+ * - Prevent manual imports of trusted preludes
+ * - Add the trusted prelude import at the very top of each entry point
  *
- * @param fileName - The trusted prelude fileName to resolve.
- * @returns The simple filename '[basename].[ext]', with '*ts' extensions converted to '*js' extensions.
- */
-const resolvePreludeFileName = (fileName: string): string =>
-  path.basename(fileName).replace(/ts$/u, 'js');
-
-/**
- * Check if the given code begins by importing the given trusted prelude.
- *
- * @param code - The code to evaluate.
- * @param preludeFileName - The file name of the trusted prelude.
- * @returns True if the code begins by importing the trusted prelude file, false otherwise.
- */
-const importsTrustedPreludeFirst = (
-  code: string,
-  preludeFileName: string,
-): boolean =>
-  code.match(
-    new RegExp(
-      `^import\\s*['"]\\./${resolvePreludeFileName(preludeFileName)}['"];`,
-      'u',
-    ),
-  ) !== null;
-
-/**
- * A Vite plugin to ensure the following.
- * - Every declared trusted prelude is handled externally (automatically merged into {@link RollupOptions.external}).
- * - Every declared trusted prelude importer:
- *   - Is a declared entry point (throws during {@link VitePlugin.buildStart} otherwise).
- *   - Imports at most one declared trusted prelude (throws during {@link VitePlugin.generateBundle} otherwise).
- *   - Begins by importing its declared trusted prelude (prepended during {@link VitePlugin.generateBundle} if missing).
- *
- * @param pluginConfig - The config options bag.
- * @param pluginConfig.trustedPreludes - A mapping from the keys of {@link RollupOptions.input} to the file names of trusted preludes for the corresponding entry point.
- * @returns The Vite plugin.
+ * @param pluginConfig - The plugin configuration object
+ * @param pluginConfig.trustedPreludes - A mapping from entry point names to their trusted prelude files
+ * @param pluginConfig.sourceDir - The source directory for the trusted preludes
+ * @returns A Vite plugin
  */
 export function jsTrustedPrelude(pluginConfig: {
-  trustedPreludes: {
-    [key: string]: string;
-  };
+  trustedPreludes: Record<string, string>;
+  sourceDir: string;
 }): VitePlugin {
-  const { trustedPreludes } = pluginConfig;
+  const { trustedPreludes, sourceDir } = pluginConfig;
 
-  // Plugin state transferred between rollup stages.
-  let configError: ((context: PluginContext) => never) | undefined;
-  let isTrustedPrelude: (source: string) => boolean;
-  let isTrustingImporter: (importer: string) => boolean;
-  /**
-   * Given the name of a trusted prelude importer, return the resolved file name of its trusted prelude.
-   *
-   * @param context - The calling plugin context which provides `.warn` and `.error` methods.
-   * @param importer - The name of the trusted prelude importer.
-   * @throws If importer was not declared as a trusted prelude importer.
-   */
-  let getTrustedPreludeFileName: (
-    context: PluginContext,
-    importer: string,
-  ) => string;
+  // Track entry points for validation
+  let entryPoints: Set<string>;
 
   return {
     name: 'ocap-kernel:js-trusted-prelude',
 
     /**
-     * Append declared trusted preludes to the {@link RollupOptions.external} declaration.
+     * Marks trusted preludes as external modules to prevent them from being bundled.
      *
-     * @returns Changes to be deeply merged into the declared vite config file.
+     * @returns The Rollup configuration changes
      */
     config() {
       return {
@@ -91,141 +42,86 @@ export function jsTrustedPrelude(pluginConfig: {
     },
 
     /**
-     * Whenever the config changes, update config dependent functions and collect configuration errors to be thrown during {@link Plugin.buildStart}.
+     * Validates that all trusted prelude importers are declared as entry points.
+     * This ensures that trusted preludes are only imported by the files we expect.
      *
-     * @param viteConfig - The resolved vite config file after all plugins have had a change to modify it.
+     * @param config - The resolved Vite configuration
+     * @throws If a trusted prelude importer is not declared as an entry point
      */
-    configResolved(viteConfig: ResolvedConfig) {
-      // Collect entry points.
-      const entryPoints = new Map(
-        Object.entries(viteConfig.build.rollupOptions.input ?? {}),
+    configResolved(config: ResolvedConfig) {
+      entryPoints = new Set(
+        Object.keys(config.build.rollupOptions.input ?? {}),
       );
 
-      // Parse trusted prelude mappings.
-      const misconfiguredKeys: string[] = [];
-      const resolvedTrustingImporters = new Map();
-      const resolvedTrustedPreludes = new Set();
-      for (const [key, source] of Object.entries(trustedPreludes)) {
-        // If this trusting importer isn't declared an entry point, add it to misconfigured keys.
+      for (const key of Object.keys(trustedPreludes)) {
         if (!entryPoints.has(key)) {
-          misconfiguredKeys.push(key);
-          continue;
+          throw new Error(
+            `Trusted prelude importer "${key}" must be declared as an entry point`,
+          );
         }
-        const preludeOutputFileName = resolvePreludeFileName(source);
-        resolvedTrustingImporters.set(key, preludeOutputFileName);
-        resolvedTrustedPreludes.add(preludeOutputFileName);
       }
-
-      // Set trusted prelude functions for use in generateBundle phase.
-      isTrustedPrelude = (source: string) =>
-        resolvedTrustedPreludes.has(resolvePreludeFileName(source));
-      isTrustingImporter = (importer: string) =>
-        resolvedTrustingImporters.has(importer);
-      getTrustedPreludeFileName = (context: PluginContext, importer: string) =>
-        // Ensure importer was declared and recognized as a trusting importer.
-        resolvedTrustingImporters.get(importer) ??
-        context.error(
-          // Shouldn't be possible without heavy interference from other plugins.
-          `Module "${importer}" was identified as but not declared as a trusted prelude importer.`,
-        );
-
-      // If misconfigured, prepare error for buildStart phase.
-      configError =
-        misconfiguredKeys.length === 0
-          ? undefined
-          : (context): never => {
-              const errorLine = `Configured trusted prelude importers ${JSON.stringify(
-                misconfiguredKeys,
-              )} must be declared entry points.`;
-              context.warn(errorLine);
-              context.warn(
-                `Declared entry points: ${JSON.stringify(
-                  Array.from(entryPoints.keys()),
-                )}`,
-              );
-              return context.error(errorLine);
-            };
-    },
-
-    /**
-     * Throw configuration errors if there were any.
-     * Wait until buildStart to throw configuration errors to utilize {@link PluginContext}'s `warn` and `error`.
-     *
-     * @throws If a declared trusted prelude importer was not a declared entry point.
-     */
-    buildStart() {
-      configError?.(this);
     },
 
     generateBundle: {
       order: 'post',
       /**
-       * At write time, ensure the following.
-       * Every declared trusted prelude importer:
-       *  - Imports at most one declared trusted prelude (throws otherwise).
-       *  - Begins by importing its declared trusted prelude (prepended if missing).
+       * Processes the final bundle to:
+       * - Ensure entry points are correctly configured
+       * - Prevent manual imports of trusted preludes
+       * - Add trusted prelude imports at the top of entry points
        *
-       * @param _ - Unused.
-       * @param bundle - The OutputBundle being generated.
-       * @param isWrite - Whether bundle is being written.
-       * @throws If a declared trusted prelude importer imports more than one declared trusted prelude.
+       * @param _ - Unused options parameter
+       * @param bundle - The output bundle being generated
+       * @param isWrite - Whether the bundle is being written to disk
+       * @throws If an entry point contains manual trusted prelude imports
        */
-      async handler(_, bundle, isWrite) {
+      handler(_, bundle, isWrite) {
         if (!isWrite) {
           return;
         }
 
-        // The relevant properties of the OutputChunk type, declared here because it is not exposed by Vite.
-        type TrustingChunk = {
-          imports: [string, ...string[]];
-          fileName: string;
-          code: string;
-          name: string;
-          isEntry: boolean;
-        };
+        for (const chunk of Object.values(bundle)) {
+          if (chunk.type !== 'chunk') {
+            continue;
+          }
 
-        // Collect chunks which import a trusted prelude.
-        const trustingChunks: TrustingChunk[] = Object.values(bundle).filter(
-          (output) =>
-            output.type === 'chunk' && isTrustingImporter(output.name),
-        ) as unknown as TrustingChunk[];
+          const entryName = path.basename(
+            chunk.fileName,
+            path.extname(chunk.fileName),
+          );
+          const preludePath = trustedPreludes[entryName];
 
-        // Validate trusted prelude assumptions for chunks that import them and prepend the import if necessary.
-        for (const chunk of trustingChunks) {
-          // Ensure trusted prelude importer was declared an entry point.
+          if (!preludePath) {
+            continue;
+          }
+
+          // Validate chunk is an entry point
           if (!chunk.isEntry) {
-            // Shouldn't be possible without interference from other plugins.
-            this.warn(
-              `Identified a trusting chunk ${chunk.name} which was not declared an entry point.`,
+            this.error(
+              `Trusted prelude importer "${entryName}" must be an entry point`,
             );
           }
 
-          // Check if this chunk has imported more than one trusted prelude.
-          const chunkTrustedPreludes = chunk.imports.filter(isTrustedPrelude);
-          if (chunkTrustedPreludes.length > 1) {
-            // This should only occur due to transitive imports.
-            const errorLine = `Module "${chunk.fileName}" attempted to import multiple trusted preludes (perhaps transitively), but no more than one is allowed.`;
-            this.warn(errorLine);
-            this.warn(
-              `Imported preludes: ${JSON.stringify(chunkTrustedPreludes)}`,
+          // Check for any existing trusted prelude imports
+          const trustedPreludeImports = chunk.imports.filter((imp) =>
+            Object.values(trustedPreludes).some(
+              (importPath) => path.basename(importPath) === path.basename(imp),
+            ),
+          );
+
+          if (trustedPreludeImports.length > 0) {
+            this.error(
+              `Module "${chunk.fileName}" contains trusted prelude imports that should be handled by the plugin: ${trustedPreludeImports.join(', ')}`,
             );
-            this.error(errorLine);
           }
 
-          // Add the trusted prelude import to the beginning of the file if it is missing.
-          const declaredPrelude = getTrustedPreludeFileName(this, chunk.name);
-          if (!importsTrustedPreludeFirst(chunk.code, declaredPrelude)) {
-            this.warn(
-              `Module "${chunk.name}" was declared as a trusted prelude importer but its first import was not the declared trusted prelude.`,
-            );
-            const trustedPreludeImportStatement = `import"./${declaredPrelude}";`;
-            // Due to idempotency of ESM import statements, it is not necessary to remove duplicate imports.
-            // It is only necessary to ensure the trusted prelude import is the first.
-            chunk.code = trustedPreludeImportStatement + chunk.code;
-            this.warn(
-              `Automatically prepended prefix "${trustedPreludeImportStatement}" to code for module "${chunk.name}".`,
-            );
-          }
+          // Add the import at the top
+          const preludeDir = path.dirname(preludePath);
+          const relativePath = path.relative(sourceDir, preludeDir);
+          const preludeFile = path.basename(preludePath);
+          const importPath = path.join(relativePath, preludeFile);
+          const importStatement = `import "./${importPath}";\n`;
+          chunk.code = importStatement + chunk.code;
         }
       },
     },

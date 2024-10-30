@@ -9,7 +9,7 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import {
   sourceDir,
   buildDir,
-  jsTrustedPreludes,
+  trustedPreludes,
 } from './scripts/build-constants.mjs';
 import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude.js';
 import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.js';
@@ -25,7 +25,7 @@ const staticCopyTargets: readonly string[] = [
   'dev-console.js',
   '../../shims/dist/endoify.js',
   // Trusted preludes
-  ...new Set(Object.values(jsTrustedPreludes)),
+  ...new Set(Object.values(trustedPreludes)),
 ];
 
 // https://vitejs.dev/config/
@@ -59,7 +59,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     htmlTrustedPrelude(),
     jsTrustedPrelude({
-      trustedPreludes: jsTrustedPreludes,
+      trustedPreludes,
+      sourceDir,
     }),
     viteStaticCopy({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),

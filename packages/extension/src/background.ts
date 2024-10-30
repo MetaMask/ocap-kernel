@@ -1,4 +1,3 @@
-import './background-trusted-prelude.js';
 import type { Json } from '@metamask/utils';
 import { ClusterCommandMethod, isClusterCommandReply } from '@ocap/kernel';
 import type { ClusterCommand } from '@ocap/kernel';

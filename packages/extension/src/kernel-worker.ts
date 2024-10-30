@@ -1,4 +1,3 @@
-import './kernel-worker-trusted-prelude.js';
 import type { NonEmptyArray } from '@metamask/utils';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
