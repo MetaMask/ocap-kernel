@@ -9,7 +9,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorker } from './vat-worker-service.js';
 import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import { makeTestClient, makeTestServer } from '../test/vat-worker-service.js';
+import {
+  makeTestClient,
+  makeTestServer,
+} from '../../test/vat-worker-service.js';
 
 // low key integration test
 describe('VatWorkerService', () => {

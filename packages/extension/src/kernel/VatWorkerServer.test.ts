@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorker } from './vat-worker-service.js';
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import { makeTestServer } from '../test/vat-worker-service.js';
+import { makeTestServer } from '../../test/vat-worker-service.js';
 
 describe('ExtensionVatWorkerServer', () => {
   let serverPort: MessagePort;

@@ -8,8 +8,8 @@ import {
 } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './iframe-vat-worker.js';
-import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
+import { makeIframeVatWorker } from './kernel/iframe-vat-worker.js';
+import { ExtensionVatWorkerServer } from './kernel/VatWorkerServer.js';
 
 const logger = makeLogger('[ocap glue]');
 

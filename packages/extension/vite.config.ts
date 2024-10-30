@@ -22,7 +22,7 @@ const staticCopyTargets: readonly string[] = [
   // The extension manifest
   'manifest.json',
   // External modules
-  'dev-console.js',
+  'env/dev-console.js',
   '../../shims/dist/endoify.js',
   // Trusted preludes
   ...new Set(Object.values(trustedPreludes)),
@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         background: path.resolve(sourceDir, 'background.ts'),
-        'kernel-worker': path.resolve(sourceDir, 'kernel-worker.ts'),
+        'kernel-worker': path.resolve(sourceDir, 'kernel/kernel-worker.ts'),
         offscreen: path.resolve(sourceDir, 'offscreen.html'),
         iframe: path.resolve(sourceDir, 'iframe.html'),
       },
