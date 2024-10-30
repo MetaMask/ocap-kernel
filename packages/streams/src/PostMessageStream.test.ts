@@ -1,4 +1,4 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeAck } from './BaseDuplexStream.js';
@@ -13,8 +13,6 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from './utils.js';
-
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 // This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

@@ -154,6 +154,18 @@ describe('BaseDuplexStream', () => {
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
   });
 
+  it('reads from the reader before synchronization', async () => {
+    const duplexStream = new TestDuplexStream(() => undefined);
+    const nextP = duplexStream.next();
+
+    const message = 42;
+    await duplexStream.completeSynchronization();
+
+    duplexStream.receiveInput(message);
+
+    expect(await nextP).toStrictEqual(makePendingResult(message));
+  });
+
   it('drains the reader in order', async () => {
     const duplexStream = await TestDuplexStream.make(() => undefined);
 
@@ -180,6 +192,20 @@ describe('BaseDuplexStream', () => {
 
     const message = 42;
     await duplexStream.write(message);
+    expect(onDispatch).toHaveBeenCalledWith(message);
+  });
+
+  it('writes to the writer before synchronization', async () => {
+    const onDispatch = vi.fn();
+    const duplexStream = new TestDuplexStream(onDispatch);
+
+    const message = 42;
+    duplexStream.write(message).catch(() => undefined);
+
+    expect(onDispatch).not.toHaveBeenCalled();
+
+    await duplexStream.completeSynchronization();
+
     expect(onDispatch).toHaveBeenCalledWith(message);
   });
 

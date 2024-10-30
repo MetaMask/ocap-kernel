@@ -1,4 +1,4 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -16,13 +16,6 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from './utils.js';
-
-// TODO: Something about the runtime mock prevents this test suite from being run
-// concurrently. Even following the advice of using the test context `expect`
-// doesn't help. Further investigation is needed to determine whether these tests
-// can be run concurrently.
-
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 const makeEnvelope = (
   value: unknown,
@@ -68,6 +61,8 @@ const asChromeRuntime = (
   runtime: ReturnType<typeof makeRuntime>['runtime'],
 ): ChromeRuntime => runtime as unknown as ChromeRuntime;
 
+// TODO: Further investigation is needed to determine whether these tests
+// can be run concurrently.
 describe('ChromeRuntimeReader', () => {
   it('constructs a ChromeRuntimeReader', () => {
     const { runtime } = makeRuntime();
@@ -191,7 +186,7 @@ describe('ChromeRuntimeReader', () => {
   });
 });
 
-describe('ChromeRuntimeWriter', () => {
+describe.concurrent('ChromeRuntimeWriter', () => {
   it('constructs a ChromeRuntimeWriter', () => {
     const { runtime } = makeRuntime();
     const writer = new ChromeRuntimeWriter(
@@ -235,7 +230,7 @@ describe('ChromeRuntimeWriter', () => {
   });
 });
 
-describe('ChromeRuntimeDuplexStream', () => {
+describe.concurrent('ChromeRuntimeDuplexStream', () => {
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const makeDuplexStream = async () => {
     const { runtime, dispatchRuntimeMessage } = makeRuntime();

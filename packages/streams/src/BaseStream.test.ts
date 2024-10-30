@@ -1,4 +1,4 @@
-import { makeErrorMatcherFactory, makePromiseKitMock } from '@ocap/test-utils';
+import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseReader, BaseWriter } from './BaseStream.js';
@@ -10,8 +10,6 @@ import {
   StreamSentinel,
 } from './utils.js';
 import { TestReader, TestWriter } from '../test/stream-mocks.js';
-
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
@@ -350,6 +348,21 @@ describe('BaseWriter', () => {
 
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
+    });
+
+    it('breaks out of failed onDispatch with failed onEnd', async () => {
+      const writer = new TestWriter(
+        () => {
+          throw new Error('onDispatchError');
+        },
+        () => {
+          throw new Error('onEndError');
+        },
+      );
+
+      await expect(
+        async () => await writer.throw(new Error('thrownError')),
+      ).rejects.toThrow('onEndError');
     });
   });
 });
