@@ -20,7 +20,7 @@
     "./scripts/build-constants.mjs",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
-    "./src/ses/dev-console.js",
+    "./src/env/dev-console.js",
     "./test/**/*.ts",
     "./vite-plugins/*.ts",
     "./vite.config.ts",

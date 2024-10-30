@@ -22,7 +22,7 @@ const staticCopyTargets: readonly string[] = [
   // The extension manifest
   'manifest.json',
   // External modules
-  'ses/dev-console.js',
+  'env/dev-console.js',
   '../../shims/dist/endoify.js',
   // Trusted preludes
   ...new Set(Object.values(trustedPreludes)),
