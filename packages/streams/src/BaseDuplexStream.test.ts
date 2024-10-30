@@ -1,12 +1,10 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.js';
 import { makeDoneResult, makePendingResult } from './utils.js';
 import { TestDuplexStream } from '../test/stream-mocks.js';
-
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 describe('BaseDuplexStream', () => {
   it('constructs a BaseDuplexStream', () => {

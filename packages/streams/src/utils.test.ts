@@ -121,7 +121,7 @@ describe('makeDoneResult', () => {
   it('should create a frozen done result', () => {
     const result = makeDoneResult();
     expect(result).toStrictEqual({ done: true, value: undefined });
-    expect(globalThis.harden).toHaveBeenCalledWith(makeDoneResult());
+    expect(Object.isFrozen(result)).toBe(true);
   });
 });
 
@@ -129,6 +129,18 @@ describe('makePendingResult', () => {
   it('should create a frozen pending result', () => {
     const result = makePendingResult(42);
     expect(result).toStrictEqual({ done: false, value: 42 });
-    expect(globalThis.harden).toHaveBeenCalledWith(makePendingResult(42));
+    expect(Object.isFrozen(result)).toBe(true);
+  });
+});
+
+describe('isFrozen', () => {
+  it('is defined', () => {
+    expect(Object.isFrozen).toBeDefined();
+  });
+
+  it('is nontrivial', () => {
+    const fooBar = { foo: 'bar' };
+    expect(Object.isFrozen(fooBar)).toBe(false);
+    expect(Object.isFrozen(harden(fooBar))).toBe(true);
   });
 });
