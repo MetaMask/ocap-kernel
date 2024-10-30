@@ -2,7 +2,7 @@ import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeAck } from './BaseDuplexStream.js';
-import type { InputValidator } from './BaseStream.js';
+import type { ValidateInput } from './BaseStream.js';
 import {
   PostMessageDuplexStream,
   PostMessageReader,
@@ -51,18 +51,20 @@ describe('PostMessageReader', () => {
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
   });
 
-  it('calls inputValidator with received input if specified', async () => {
-    const inputValidator = vi.fn();
+  it('calls validateInput with received input if specified', async () => {
+    const validateInput = vi
+      .fn()
+      .mockReturnValue(true) as unknown as ValidateInput<number>;
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
     const reader = new PostMessageReader(setListener, removeListener, {
-      inputValidator,
+      validateInput,
     });
 
     const message = { foo: 'bar' };
     postMessageFn(message);
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
-    expect(inputValidator).toHaveBeenCalledWith(message);
+    expect(validateInput).toHaveBeenCalledWith(message);
   });
 
   it('removes its listener when it ends', async () => {
@@ -143,7 +145,7 @@ describe('PostMessageDuplexStream', () => {
     postMessageMock: ReturnType<
       typeof makePostMessageMock
     > = makePostMessageMock(),
-    inputValidator?: InputValidator<number>,
+    validateInput?: ValidateInput<number>,
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   ) => {
     const { postMessageFn, setListener, removeListener } = postMessageMock;
@@ -152,7 +154,7 @@ describe('PostMessageDuplexStream', () => {
       sendMessage,
       setListener,
       removeListener,
-      inputValidator,
+      validateInput,
     );
     postMessageFn(makeAck());
     await delay(10);
@@ -167,18 +169,20 @@ describe('PostMessageDuplexStream', () => {
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
-  it('calls inputValidator with received input if specified', async () => {
-    const inputValidator = vi.fn();
+  it('calls validateInput with received input if specified', async () => {
+    const validateInput = vi
+      .fn()
+      .mockReturnValue(true) as unknown as ValidateInput<number>;
     const postMessageMock = makePostMessageMock();
     const [duplexStream] = await makeDuplexStream(
       () => undefined,
       postMessageMock,
-      inputValidator,
+      validateInput,
     );
 
     postMessageMock.postMessageFn(42);
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
-    expect(inputValidator).toHaveBeenCalledWith(42);
+    expect(validateInput).toHaveBeenCalledWith(42);
   });
 
   it('ends the reader when the writer ends', async () => {

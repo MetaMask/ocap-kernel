@@ -2,6 +2,7 @@ import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseReader, BaseWriter } from './BaseStream.js';
+import type { ValidateInput } from './BaseStream.js';
 import {
   makeDoneResult,
   makePendingResult,
@@ -50,15 +51,17 @@ describe('BaseReader', () => {
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
     });
 
-    it('calls inputValidator with received input if specified', async () => {
-      const inputValidator = vi.fn();
-      const reader = new TestReader({ inputValidator });
+    it('calls validateInput with received input if specified', async () => {
+      const validateInput = vi.fn((_value: unknown) => true);
+      const reader = new TestReader({
+        validateInput: validateInput as unknown as ValidateInput<number>,
+      });
 
       const message = 42;
       reader.receiveInput(message);
 
       expect(await reader.next()).toStrictEqual(makePendingResult(message));
-      expect(inputValidator).toHaveBeenCalledWith(message);
+      expect(validateInput).toHaveBeenCalledWith(message);
     });
 
     it('emits message received after next()', async () => {
@@ -88,26 +91,26 @@ describe('BaseReader', () => {
       }
     });
 
-    it('throws after receiving unexpected message, before read is enqueued', async () => {
+    it('throws after receiving non-Dispatchable input, before read is enqueued', async () => {
       const reader = new TestReader();
 
-      const unexpectedMessage = Symbol('foo');
-      reader.receiveInput(unexpectedMessage);
+      const badMessage = Symbol('foo');
+      reader.receiveInput(badMessage);
 
       await expect(reader.next()).rejects.toThrow(
-        'Received unexpected message from transport',
+        'Message cannot be processed by stream (must be JSON-serializable)',
       );
     });
 
-    it('throws after receiving unexpected message, after read is enqueued', async () => {
+    it('throws after receiving non-Dispatchable input, after read is enqueued', async () => {
       const reader = new TestReader();
 
       const nextP = reader.next();
-      const unexpectedMessage = Symbol('foo');
-      reader.receiveInput(unexpectedMessage);
+      const badMessage = Symbol('foo');
+      reader.receiveInput(badMessage);
 
       await expect(nextP).rejects.toThrow(
-        'Received unexpected message from transport',
+        'Message cannot be processed by stream (must be JSON-serializable)',
       );
     });
 
@@ -126,6 +129,29 @@ describe('BaseReader', () => {
       reader.receiveInput(makeStreamErrorSignal(new Error('foo')));
 
       await expect(nextP).rejects.toThrow('foo');
+    });
+
+    it('throws after receiving invalid input, before read is enqueued', async () => {
+      const reader = new TestReader({
+        validateInput: (value) => typeof value === 'number',
+      });
+
+      reader.receiveInput({});
+
+      await expect(reader.next()).rejects.toThrow(
+        'Message failed type validation',
+      );
+    });
+
+    it('throws after receiving invalid input, after read is enqueued', async () => {
+      const reader = new TestReader({
+        validateInput: (value) => typeof value === 'number',
+      });
+
+      const nextP = reader.next();
+      reader.receiveInput({});
+
+      await expect(nextP).rejects.toThrow('Message failed type validation');
     });
 
     it('ends after receiving done signal, before read is enqueued', async () => {

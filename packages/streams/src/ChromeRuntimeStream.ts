@@ -20,7 +20,7 @@ import { stringify } from '@ocap/utils';
 import { BaseDuplexStream } from './BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
-  InputValidator,
+  ValidateInput,
   OnEnd,
   ReceiveInput,
 } from './BaseStream.js';
@@ -72,7 +72,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
     source: ChromeRuntimeStreamTarget,
-    { inputValidator, onEnd }: BaseReaderArgs<Read> = {},
+    { validateInput, onEnd }: BaseReaderArgs<Read> = {},
   ) {
     // eslint-disable-next-line prefer-const
     let messageListener: (
@@ -81,7 +81,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     ) => void;
 
     super({
-      inputValidator,
+      validateInput,
       onEnd: async () => {
         runtime.onMessage.removeListener(messageListener);
         await onEnd?.();
@@ -184,7 +184,7 @@ export class ChromeRuntimeDuplexStream<
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,
-    inputValidator?: InputValidator<Read>,
+    validateInput?: ValidateInput<Read>,
   ) {
     let writer: ChromeRuntimeWriter<Write>; // eslint-disable-line prefer-const
     const reader = new ChromeRuntimeReader<Read>(
@@ -192,7 +192,7 @@ export class ChromeRuntimeDuplexStream<
       localTarget,
       remoteTarget,
       {
-        inputValidator,
+        validateInput,
         onEnd: async () => {
           await writer.return();
         },
@@ -214,7 +214,7 @@ export class ChromeRuntimeDuplexStream<
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,
-    inputValidator?: InputValidator<Read>,
+    validateInput?: ValidateInput<Read>,
   ): Promise<ChromeRuntimeDuplexStream<Read, Write>> {
     if (localTarget === remoteTarget) {
       throw new Error('localTarget and remoteTarget must be different');
@@ -224,7 +224,7 @@ export class ChromeRuntimeDuplexStream<
       runtime,
       localTarget,
       remoteTarget,
-      inputValidator,
+      validateInput,
     );
     await stream.synchronize();
     return stream;

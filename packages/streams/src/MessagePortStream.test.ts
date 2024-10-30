@@ -2,7 +2,7 @@ import { delay } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { makeAck } from './BaseDuplexStream.js';
-import type { InputValidator } from './BaseStream.js';
+import type { ValidateInput } from './BaseStream.js';
 import {
   MessagePortDuplexStream,
   MessagePortReader,
@@ -36,17 +36,19 @@ describe('MessagePortReader', () => {
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
   });
 
-  it('calls inputValidator with received input if specified', async () => {
-    const inputValidator = vi.fn();
+  it('calls validateInput with received input if specified', async () => {
+    const validateInput = vi
+      .fn()
+      .mockReturnValue(true) as unknown as ValidateInput<number>;
     const { port1, port2 } = new MessageChannel();
-    const reader = new MessagePortReader(port1, { inputValidator });
+    const reader = new MessagePortReader(port1, { validateInput });
 
     const message = { foo: 'bar' };
     port2.postMessage(message);
     await delay(10);
 
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
-    expect(inputValidator).toHaveBeenCalledWith(message);
+    expect(validateInput).toHaveBeenCalledWith(message);
   });
 
   it('closes the port when done', async () => {
@@ -141,11 +143,11 @@ describe('MessagePortWriter', () => {
 describe('MessagePortDuplexStream', () => {
   const makeDuplexStream = async (
     channel: MessageChannel = new MessageChannel(),
-    inputValidator?: InputValidator<number>,
+    validateInput?: ValidateInput<number>,
   ): Promise<MessagePortDuplexStream<number>> => {
     const duplexStreamP = MessagePortDuplexStream.make<number>(
       channel.port1,
-      inputValidator,
+      validateInput,
     );
     channel.port2.postMessage(makeAck());
     await delay(10);
@@ -160,15 +162,17 @@ describe('MessagePortDuplexStream', () => {
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
   });
 
-  it('calls inputValidator with received input if specified', async () => {
-    const inputValidator = vi.fn();
+  it('calls validateInput with received input if specified', async () => {
+    const validateInput = vi
+      .fn()
+      .mockReturnValue(true) as unknown as ValidateInput<number>;
     const channel = new MessageChannel();
-    const duplexStream = await makeDuplexStream(channel, inputValidator);
+    const duplexStream = await makeDuplexStream(channel, validateInput);
 
     channel.port2.postMessage(42);
 
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
-    expect(inputValidator).toHaveBeenCalledWith(42);
+    expect(validateInput).toHaveBeenCalledWith(42);
   });
 
   it('ends the reader when the writer ends', async () => {
