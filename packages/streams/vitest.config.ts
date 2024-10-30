@@ -11,6 +11,9 @@ delete defaultConfig.test?.environment;
 export default mergeConfig(
   defaultConfig,
   defineConfig({
+    optimizeDeps: {
+      include: ['@vitest/coverage-istanbul'],
+    },
     test: {
       setupFiles: '../shims/src/endoify.js',
       browser: {
