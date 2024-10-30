@@ -64,15 +64,12 @@ async function checkTrustedPreludes() {
   console.log('Checking that trusted preludes are loaded at the top...');
 
   for (const [preludeName, preludePath] of Object.entries(trustedPreludes)) {
-    const preludeDir = path.dirname(preludePath);
-    const relativePath = path.relative(sourceDir, preludeDir);
-    const preludeFile = path.basename(preludePath);
-    const expectedImportPath = path.join(relativePath, preludeFile);
+    const expectedImport = path.basename(preludePath);
     const builtFilePath = path.join(buildDir, `${preludeName}.js`);
     const content = await fs.readFile(builtFilePath, 'utf8');
-    if (!content.startsWith(`import "./${expectedImportPath}";`)) {
+    if (!content.startsWith(`import "./${expectedImport}";`)) {
       throw new Error(
-        `The trusted prelude ${expectedImportPath} is not imported in the first position in ${preludeName}.js`,
+        `The trusted prelude ${expectedImport} is not imported in the first position in ${preludeName}.js`,
       );
     }
   }

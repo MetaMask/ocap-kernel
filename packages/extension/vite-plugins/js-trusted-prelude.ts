@@ -11,14 +11,12 @@ import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
  *
  * @param pluginConfig - The plugin configuration object
  * @param pluginConfig.trustedPreludes - A mapping from entry point names to their trusted prelude files
- * @param pluginConfig.sourceDir - The source directory for the trusted preludes
  * @returns A Vite plugin
  */
 export function jsTrustedPrelude(pluginConfig: {
   trustedPreludes: Record<string, string>;
-  sourceDir: string;
 }): VitePlugin {
-  const { trustedPreludes, sourceDir } = pluginConfig;
+  const { trustedPreludes } = pluginConfig;
 
   // Track entry points for validation
   let entryPoints: Set<string>;
@@ -115,12 +113,9 @@ export function jsTrustedPrelude(pluginConfig: {
             );
           }
 
-          // Add the import at the top
-          const preludeDir = path.dirname(preludePath);
-          const relativePath = path.relative(sourceDir, preludeDir);
+          // Add the import at the top - always use root level import
           const preludeFile = path.basename(preludePath);
-          const importPath = path.join(relativePath, preludeFile);
-          const importStatement = `import "./${importPath}";\n`;
+          const importStatement = `import "./${preludeFile}";\n`;
           chunk.code = importStatement + chunk.code;
         }
       },

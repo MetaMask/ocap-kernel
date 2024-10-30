@@ -58,10 +58,7 @@ export default defineConfig(({ mode }) => ({
 
   plugins: [
     htmlTrustedPrelude(),
-    jsTrustedPrelude({
-      trustedPreludes,
-      sourceDir,
-    }),
+    jsTrustedPrelude({ trustedPreludes }),
     viteStaticCopy({
       targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
       watch: { reloadPageOnChange: true },
