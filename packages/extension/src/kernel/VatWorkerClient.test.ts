@@ -7,7 +7,7 @@ import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
-import { makeTestClient } from '../test/vat-worker-service.js';
+import { makeTestClient } from '../../test/vat-worker-service.js';
 
 describe('ExtensionVatWorkerClient', () => {
   let serverPort: MessagePort;

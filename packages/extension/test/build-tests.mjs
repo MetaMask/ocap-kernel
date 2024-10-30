@@ -13,7 +13,7 @@ const untransformedFiles = [
     builtPath: path.resolve(buildDir, 'endoify.js'),
   },
   {
-    sourcePath: path.resolve(sourceDir, 'dev-console.js'),
+    sourcePath: path.resolve(sourceDir, 'ses/dev-console.js'),
     builtPath: path.resolve(buildDir, 'dev-console.js'),
   },
   ...Object.values(trustedPreludes).map((preludePath) => ({
