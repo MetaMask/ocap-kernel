@@ -13,6 +13,6 @@
     "./test",
     "./vite.config.ts",
     "./vitest.config.ts",
-    "../extension/src/BaseKernelManager.ts"
+    "../extension/src/kernel/BaseKernelManager.ts"
   ]
 }

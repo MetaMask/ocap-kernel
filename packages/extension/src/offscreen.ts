@@ -9,6 +9,14 @@ import {
 import { makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel/iframe-vat-worker.js';
+import {
+  isKernelControlCommand,
+  isKernelControlReply,
+} from './kernel/messages.js';
+import type {
+  KernelControlCommand,
+  KernelControlReply,
+} from './kernel/messages.js';
 import { ExtensionVatWorkerServer } from './kernel/VatWorkerServer.js';
 
 const logger = makeLogger('[ocap glue]');
@@ -28,6 +36,12 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
+  const devtoolsStream = await ChromeRuntimeDuplexStream.make(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Devtools,
+  );
+
   const kernelWorker = await makeKernelWorker();
 
   /**
@@ -39,6 +53,17 @@ async function main(): Promise<void> {
     commandReply: KernelCommandReply,
   ): Promise<void> => {
     await backgroundStream.write(commandReply);
+  };
+
+  /**
+   * Reply to a command from the devtools page.
+   *
+   * @param commandReply - The reply to send.
+   */
+  const replyToDevtools = async (
+    commandReply: KernelControlReply,
+  ): Promise<void> => {
+    await devtoolsStream.write(commandReply);
   };
 
   // Handle messages from the background service worker and the kernel SQLite worker.
@@ -54,6 +79,16 @@ async function main(): Promise<void> {
         await kernelWorker.sendMessage(message);
       }
     })(),
+    (async () => {
+      for await (const message of devtoolsStream) {
+        if (!isKernelControlCommand(message)) {
+          logger.error('Offscreen received unexpected message', message);
+          continue;
+        }
+
+        await kernelWorker.sendMessage(message);
+      }
+    })(),
   ]);
 
   /**
@@ -62,7 +97,9 @@ async function main(): Promise<void> {
    * @returns An object with methods to send and receive messages from the kernel worker.
    */
   async function makeKernelWorker(): Promise<{
-    sendMessage: (message: KernelCommand) => Promise<void>;
+    sendMessage: (
+      message: KernelCommand | KernelControlCommand,
+    ) => Promise<void>;
     receiveMessages: () => Promise<void>;
   }> {
     const worker = new Worker('kernel/kernel-worker.js', { type: 'module' });
@@ -70,7 +107,10 @@ async function main(): Promise<void> {
     const workerStream = await initializeMessageChannel((message, transfer) =>
       worker.postMessage(message, transfer),
     ).then(async (port) =>
-      MessagePortDuplexStream.make<KernelCommandReply, KernelCommand>(port),
+      MessagePortDuplexStream.make<
+        KernelCommandReply | KernelControlReply,
+        KernelCommand | KernelControlCommand
+      >(port),
     );
 
     const vatWorkerServer = new ExtensionVatWorkerServer(
@@ -90,16 +130,21 @@ async function main(): Promise<void> {
       // change once this offscreen script is providing services to the kernel worker that don't
       // involve the user.
       for await (const message of workerStream) {
-        if (!isKernelCommandReply(message)) {
-          logger.error('Kernel sent unexpected reply', message);
-          continue;
+        if (isKernelCommandReply(message)) {
+          await replyToBackground(message);
+          return;
+        } else if (isKernelControlReply(message)) {
+          await replyToDevtools(message);
+          return;
         }
 
-        await replyToBackground(message);
+        logger.error('Kernel sent unexpected reply', message);
       }
     };
 
-    const sendMessage = async (message: KernelCommand): Promise<void> => {
+    const sendMessage = async (
+      message: KernelCommand | KernelControlCommand,
+    ): Promise<void> => {
       await workerStream.write(message);
     };
 
