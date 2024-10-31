@@ -52,7 +52,7 @@ async function main(): Promise<void> {
         }
       }
     },
-  };
+  } as DuplexStream<KernelCommand, KernelCommandReply>;
 
   // Create and initialize kernel
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);

@@ -2,7 +2,7 @@ import type { Json } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
 import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
-import type { KernelStatus } from '../kernel/messages';
+import type { KernelStatus } from '../kernel/messages.js';
 
 // Initialize and start the UI
 main().catch(console.error);
