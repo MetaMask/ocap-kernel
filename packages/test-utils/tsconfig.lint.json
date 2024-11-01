@@ -3,7 +3,8 @@
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": ["DOM", "es2022"]
   },
   "include": ["./src"],
   "exclude": []

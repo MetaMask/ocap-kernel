@@ -66,13 +66,13 @@ __metadata:
   linkType: hard
 
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.10.4, @babel/code-frame@npm:^7.12.13, @babel/code-frame@npm:^7.25.9, @babel/code-frame@npm:^7.26.0":
-  version: 7.26.0
-  resolution: "@babel/code-frame@npm:7.26.0"
+  version: 7.26.2
+  resolution: "@babel/code-frame@npm:7.26.2"
   dependencies:
     "@babel/helper-validator-identifier": "npm:^7.25.9"
     js-tokens: "npm:^4.0.0"
     picocolors: "npm:^1.0.0"
-  checksum: 10/41deb0a9ac72d81e46aeab7e587a75e46c7af6a717e10b150a150b332e843807eacb7c856832c84bee2c5015fe31de23e04c18e052c83a1254027c71c0840791
+  checksum: 10/db2c2122af79d31ca916755331bb4bac96feb2b334cdaca5097a6b467fdd41963b89b14b6836a14f083de7ff887fc78fa1b3c10b14e743d33e12dbfe5ee3d223
   languageName: node
   linkType: hard
 
@@ -1364,8 +1364,8 @@ __metadata:
   linkType: hard
 
 "@mswjs/interceptors@npm:^0.36.5":
-  version: 0.36.6
-  resolution: "@mswjs/interceptors@npm:0.36.6"
+  version: 0.36.7
+  resolution: "@mswjs/interceptors@npm:0.36.7"
   dependencies:
     "@open-draft/deferred-promise": "npm:^2.2.0"
     "@open-draft/logger": "npm:^0.3.0"
@@ -1373,7 +1373,7 @@ __metadata:
     is-node-process: "npm:^1.2.0"
     outvariant: "npm:^1.4.3"
     strict-event-emitter: "npm:^0.5.1"
-  checksum: 10/7f0b6b6d102a6ceae77476dcefdbc81fedf79c7b3f79a2a903a1d7793cee87c9a912345bd5a198432eb8bdd1fda912976210c25ae6c92dbdc85cea6f1f1bf98e
+  checksum: 10/c2579a89f0cd4b9d7026499dffb9fc8ae0e1dea685cbee2028f1bc8ff55a13babe5b1631b10220d15acb4c8198636070913818d415026b850bdd086d384bdc27
   languageName: node
   linkType: hard
 
