@@ -18,6 +18,9 @@ ignores:
   - '@vitest/coverage-istanbul'
   - 'playwright'
   - 'vitest'
+  # we explicitly require cookie ^0.7.0 to eliminate a security vulnerability
+  # https://github.com/advisories/GHSA-pxg6-pf52-xh8x
+  - 'cookie'
 
   # miscellaneous
   - '@arethetypeswrong/cli'

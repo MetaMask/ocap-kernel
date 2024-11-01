@@ -102,5 +102,8 @@
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
       "vitest>@vitest/mocker>msw": false
     }
+  },
+  "resolutions": {
+    "cookie": "^0.7.0"
   }
 }
