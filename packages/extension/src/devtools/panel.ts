@@ -1,8 +1,25 @@
-import type { Json } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
 import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
-import type { KernelStatus } from '../kernel/messages.js';
+import type { KernelControlCommand } from '../kernel/messages.js';
+
+// This will redirect logs to both the panel's console and the DevTools-for-DevTools console
+const originalConsole = { ...console };
+Object.assign(console, {
+  log: (...args: unknown[]) => {
+    originalConsole.log('[Devtools Panel]', ...args);
+    // Also log to the DevTools-for-DevTools console
+    chrome.devtools.inspectedWindow.eval(
+      `console.log("[Devtools Panel]", ${JSON.stringify(args)})`,
+    );
+  },
+  error: (...args: unknown[]) => {
+    originalConsole.error('[Devtools Panel]', ...args);
+    chrome.devtools.inspectedWindow.eval(
+      `console.error("[Devtools Panel]", ${JSON.stringify(args)})`,
+    );
+  },
+});
 
 // Initialize and start the UI
 main().catch(console.error);
@@ -11,14 +28,16 @@ main().catch(console.error);
  * The main function for the devtools panel.
  */
 async function main(): Promise<void> {
-  const stream = await ChromeRuntimeDuplexStream.make(
+  const offscreenStream = await ChromeRuntimeDuplexStream.make(
     chrome.runtime,
     ChromeRuntimeTarget.Devtools,
     ChromeRuntimeTarget.Offscreen,
   );
+  console.log('devtools <-> offscreen stream created');
 
-  const sendMessage = async (message: Json): Promise<void> => {
-    await stream.write(message);
+  const sendMessage = async (message: KernelControlCommand): Promise<void> => {
+    console.log('sending devtools message', message);
+    await offscreenStream.write(message);
   };
 
   const getVatId = (): VatId =>
@@ -27,12 +46,14 @@ async function main(): Promise<void> {
   document.getElementById('init-kernel')?.addEventListener('click', () => {
     sendMessage({
       method: 'initKernel',
+      params: null,
     }).catch(console.error);
   });
 
   document.getElementById('shutdown-kernel')?.addEventListener('click', () => {
     sendMessage({
       method: 'shutdownKernel',
+      params: null,
     }).catch(console.error);
   });
 
@@ -60,30 +81,33 @@ async function main(): Promise<void> {
   document.getElementById('terminate-all')?.addEventListener('click', () => {
     sendMessage({
       method: 'terminateAllVats',
+      params: null,
     }).catch(console.error);
   });
 
   /**
    * Update the status display.
    */
-  const updateStatus = async (): Promise<void> => {
-    const statusDisplay = document.getElementById('status-display');
-    if (!statusDisplay) {
-      return;
-    }
+  // const updateStatus = async (): Promise<void> => {
+  //   const statusDisplay = document.getElementById('status-display');
+  //   if (!statusDisplay) {
+  //     return;
+  //   }
 
-    const { status } = (await stream.write({
-      method: 'getStatus',
-    })) as unknown as { status: KernelStatus };
+  //   await stream.write({ method: 'getStatus' });
 
-    // Write the status to the display
-    statusDisplay.textContent = JSON.stringify(status, null, 2);
+  //   // Write the status to the display
+  //   statusDisplay.textContent = JSON.stringify(status, null, 2);
 
-    // Update every second
-    setTimeout(() => {
-      updateStatus().catch(console.error);
-    }, 1000);
-  };
+  //   // Update every second
+  //   setTimeout(() => {
+  //     updateStatus().catch(console.error);
+  //   }, 1000);
+  // };
 
-  await updateStatus();
+  // await updateStatus();
+
+  for await (const message of offscreenStream) {
+    console.log('received devtools message', message);
+  }
 }

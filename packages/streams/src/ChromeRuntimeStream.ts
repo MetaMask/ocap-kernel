@@ -119,10 +119,19 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (message.target !== this.#target || message.source !== this.#source) {
+<<<<<<< HEAD
       console.debug(
         `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
         `Expected target: ${this.#target}`,
         `Expected source: ${this.#source}`,
+=======
+      console.log(
+        `ChromeRuntimeReader received unexpected target/source: ${stringify(
+          message,
+        )}`,
+        this.#target,
+        this.#source,
+>>>>>>> 8d74ef6 (testing streams)
       );
       return;
     }
@@ -234,7 +243,11 @@ export class ChromeRuntimeDuplexStream<
       remoteTarget,
       validateInput,
     );
+    console.log(
+      `ChromeRuntimeDuplexStream created for ${localTarget} <-> ${remoteTarget}`,
+    );
     await stream.synchronize();
+    console.log(`stream synchronized for ${localTarget} <-> ${remoteTarget}`);
     return stream;
   }
 }

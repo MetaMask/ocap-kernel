@@ -20,6 +20,12 @@
       button {
         margin: 4px;
         padding: 8px 16px;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
       input {
@@ -41,6 +47,7 @@
         <div class="kernel-controls">
           <button id="init-kernel">Initialize Kernel</button>
           <button id="shutdown-kernel">Shutdown Kernel</button>
+          <button id="terminate-all">Terminate All Vats</button>
         </div>
 
         <div class="vat-controls">
@@ -48,7 +55,6 @@
           <button id="launch-vat">Launch Vat</button>
           <button id="restart-vat">Restart Vat</button>
           <button id="terminate-vat">Terminate Vat</button>
-          <button id="terminate-all">Terminate All Vats</button>
         </div>
 
         <div class="kernel-status">
