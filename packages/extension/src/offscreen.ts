@@ -29,6 +29,20 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
+  // Handle messages from the devtools page
+  ChromeRuntimeDuplexStream.make<KernelControlReply>(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Devtools,
+  )
+    .then(async (stream) => {
+      console.log('[Offscreen] offscreen <-> devtools stream created');
+      return stream.drain(handleDevtoolsStream);
+    })
+    .catch((error) =>
+      logger.error('Unexpected error from devtools stream', error),
+    );
+
   const kernelWorker = await makeKernelWorker();
 
   /**
@@ -56,17 +70,6 @@ async function main(): Promise<void> {
       }
     })(),
   ]);
-
-  // Handle messages from the devtools page
-  ChromeRuntimeDuplexStream.make<KernelControlReply>(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Devtools,
-  )
-    .then(async (stream) => stream.drain(handleDevtoolsStream))
-    .catch((error) =>
-      logger.error('Unexpected error from devtools stream', error),
-    );
 
   /**
    * Make the SQLite kernel worker.

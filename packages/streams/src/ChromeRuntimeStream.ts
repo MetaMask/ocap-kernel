@@ -120,6 +120,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
     if (message.target !== this.#target || message.source !== this.#source) {
 <<<<<<< HEAD
+<<<<<<< HEAD
       console.debug(
         `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
         `Expected target: ${this.#target}`,
@@ -133,6 +134,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
         this.#source,
 >>>>>>> 8d74ef6 (testing streams)
       );
+=======
+>>>>>>> 7c50684 (fix chrome duplex)
       return;
     }
 

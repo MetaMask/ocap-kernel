@@ -3,24 +3,6 @@ import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
 import type { KernelControlCommand } from '../kernel/messages.js';
 
-// This will redirect logs to both the panel's console and the DevTools-for-DevTools console
-const originalConsole = { ...console };
-Object.assign(console, {
-  log: (...args: unknown[]) => {
-    originalConsole.log('[Devtools Panel]', ...args);
-    // Also log to the DevTools-for-DevTools console
-    chrome.devtools.inspectedWindow.eval(
-      `console.log("[Devtools Panel]", ${JSON.stringify(args)})`,
-    );
-  },
-  error: (...args: unknown[]) => {
-    originalConsole.error('[Devtools Panel]', ...args);
-    chrome.devtools.inspectedWindow.eval(
-      `console.error("[Devtools Panel]", ${JSON.stringify(args)})`,
-    );
-  },
-});
-
 // Initialize and start the UI
 main().catch(console.error);
 
@@ -28,15 +10,21 @@ main().catch(console.error);
  * The main function for the devtools panel.
  */
 async function main(): Promise<void> {
+  chrome.devtools.inspectedWindow.eval(`console.log("[Devtools Panel] INIT")`);
   const offscreenStream = await ChromeRuntimeDuplexStream.make(
     chrome.runtime,
     ChromeRuntimeTarget.Devtools,
     ChromeRuntimeTarget.Offscreen,
   );
-  console.log('devtools <-> offscreen stream created');
+  // Log to the DevTools-for-DevTools console
+  chrome.devtools.inspectedWindow.eval(
+    `console.log("[Devtools Panel] devtools <-> offscreen stream created")`,
+  );
 
   const sendMessage = async (message: KernelControlCommand): Promise<void> => {
-    console.log('sending devtools message', message);
+    chrome.devtools.inspectedWindow.eval(
+      `console.log("[Devtools Panel] sending devtools message", ${JSON.stringify(message)})`,
+    );
     await offscreenStream.write(message);
   };
 
@@ -108,6 +96,8 @@ async function main(): Promise<void> {
   // await updateStatus();
 
   for await (const message of offscreenStream) {
-    console.log('received devtools message', message);
+    chrome.devtools.inspectedWindow.eval(
+      `console.log("[Devtools Panel] received devtools message", ${JSON.stringify(message)})`,
+    );
   }
 }
