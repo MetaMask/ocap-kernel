@@ -15,36 +15,10 @@ import {
 const createWindow = (): {
   postMessage: typeof Window.prototype.postMessage;
   addEventListener: typeof Window.prototype.addEventListener;
-} => {
-  type MockMessageEvent = {
-    data: unknown;
-    ports?: Transferable[];
-  };
-  type Listener = (ev: MockMessageEvent) => void | Promise<void>;
-  const listeners: Listener[] = [];
-  return {
-    postMessage: (async (
-      message: unknown,
-      _: string,
-      transfer?: Transferable[],
-    ) => {
-      await delay();
-      const messageEvent: MockMessageEvent = {
-        data: message,
-        ...(transfer ? { ports: transfer } : {}),
-      };
-      await Promise.all(
-        listeners.map(async (listener) => listener(messageEvent)),
-      );
-    }) as typeof Window.prototype.postMessage,
-    addEventListener: ((eventType: 'message', listener: Listener) => {
-      if (eventType !== 'message') {
-        throw new Error('test window only listens for messages');
-      }
-      listeners.push(listener);
-    }) as typeof Window.prototype.addEventListener,
-  };
-};
+} => ({
+  postMessage: vi.fn(),
+  addEventListener: vi.fn(),
+});
 
 describe('initializeMessageChannel', () => {
   it('calls postMessage parameter', async ({ expect }) => {
