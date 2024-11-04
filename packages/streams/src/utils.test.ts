@@ -132,15 +132,3 @@ describe('makePendingResult', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 });
-
-describe('isFrozen', () => {
-  it('is defined', () => {
-    expect(Object.isFrozen).toBeDefined();
-  });
-
-  it('is nontrivial', () => {
-    const fooBar = { foo: 'bar' };
-    expect(Object.isFrozen(fooBar)).toBe(false);
-    expect(Object.isFrozen(harden(fooBar))).toBe(true);
-  });
-});
