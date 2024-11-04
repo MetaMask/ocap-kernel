@@ -26,6 +26,7 @@ import type {
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { Dispatchable } from './utils.js';
 
 export enum ChromeRuntimeStreamTarget {
@@ -180,9 +181,7 @@ export class ChromeRuntimeDuplexStream<
   Write,
   ChromeRuntimeWriter<Write>
 > {
-  // Unavoidable exception to our preference for #-private names.
-  // eslint-disable-next-line no-restricted-syntax
-  private constructor(
+  constructor(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,
@@ -237,3 +236,19 @@ export class ChromeRuntimeDuplexStream<
   }
 }
 harden(ChromeRuntimeDuplexStream);
+
+export class ChromeRuntimeMultiplexer extends StreamMultiplexer {
+  constructor(
+    runtime: ChromeRuntime,
+    localTarget: ChromeRuntimeStreamTarget,
+    remoteTarget: ChromeRuntimeStreamTarget,
+    name?: string,
+  ) {
+    super(
+      new ChromeRuntimeDuplexStream(runtime, localTarget, remoteTarget),
+      name,
+    );
+    harden(this);
+  }
+}
+harden(ChromeRuntimeMultiplexer);

@@ -5,9 +5,11 @@ import { makeAck } from './BaseDuplexStream.js';
 import type { ValidateInput } from './BaseStream.js';
 import {
   PostMessageDuplexStream,
+  PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { PostMessage } from './utils.js';
 import {
   makeDoneResult,
@@ -211,5 +213,43 @@ describe('PostMessageDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
+  });
+});
+
+describe('PostMessageMultiplexer', () => {
+  it('constructs a PostMessageMultiplexer', () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const multiplexer = new PostMessageMultiplexer(
+      postMessageFn,
+      setListener,
+      removeListener,
+    );
+
+    expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
+  });
+
+  it('can create and drain channels', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const multiplexer = new PostMessageMultiplexer(
+      postMessageFn,
+      setListener,
+      removeListener,
+    );
+    const handleRead = vi.fn();
+    multiplexer.addChannel<number, number>(
+      '1',
+      (value: unknown): value is number => typeof value === 'number',
+      handleRead,
+    );
+
+    const drainP = multiplexer.drainAll();
+    postMessageFn(makeAck());
+    postMessageFn({ channel: '1', payload: 42 });
+    postMessageFn(makeStreamDoneSignal());
+
+    await drainP;
+    expect(handleRead).toHaveBeenCalledWith(42);
   });
 });

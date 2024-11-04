@@ -6,13 +6,16 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'ChromeRuntimeDuplexStream',
+      'ChromeRuntimeMultiplexer',
       'ChromeRuntimeReader',
       'ChromeRuntimeTarget',
       'ChromeRuntimeWriter',
       'MessagePortDuplexStream',
+      'MessagePortMultiplexer',
       'MessagePortReader',
       'MessagePortWriter',
       'PostMessageDuplexStream',
+      'PostMessageMultiplexer',
       'PostMessageReader',
       'PostMessageWriter',
       'StreamMultiplexer',

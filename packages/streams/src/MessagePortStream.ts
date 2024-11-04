@@ -28,6 +28,7 @@ import type {
   ValidateInput,
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { Dispatchable, OnMessage } from './utils.js';
 
 /**
@@ -110,9 +111,7 @@ export class MessagePortDuplexStream<
   Write,
   MessagePortWriter<Write>
 > {
-  // Unavoidable exception to our preference for #-private names.
-  // eslint-disable-next-line no-restricted-syntax
-  private constructor(port: MessagePort, validateInput?: ValidateInput<Read>) {
+  constructor(port: MessagePort, validateInput?: ValidateInput<Read>) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, {
       name: 'MessagePortDuplexStream',
@@ -143,3 +142,11 @@ export class MessagePortDuplexStream<
   }
 }
 harden(MessagePortDuplexStream);
+
+export class MessagePortMultiplexer extends StreamMultiplexer {
+  constructor(port: MessagePort, name?: string) {
+    super(new MessagePortDuplexStream(port), name);
+    harden(this);
+  }
+}
+harden(MessagePortMultiplexer);

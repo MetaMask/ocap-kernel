@@ -15,6 +15,7 @@ import type {
   ValidateInput,
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { Dispatchable, OnMessage, PostMessage } from './utils.js';
 
 type SetListener = (onMessage: OnMessage) => void;
@@ -97,9 +98,7 @@ export class PostMessageDuplexStream<
   Write,
   PostMessageWriter<Write>
 > {
-  // Unavoidable exception to our preference for #-private names.
-  // eslint-disable-next-line no-restricted-syntax
-  private constructor(
+  constructor(
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,
@@ -139,3 +138,19 @@ export class PostMessageDuplexStream<
   }
 }
 harden(PostMessageDuplexStream);
+
+export class PostMessageMultiplexer extends StreamMultiplexer {
+  constructor(
+    postMessageFn: PostMessage,
+    setListener: SetListener,
+    removeListener: RemoveListener,
+    name?: string,
+  ) {
+    super(
+      new PostMessageDuplexStream(postMessageFn, setListener, removeListener),
+      name,
+    );
+    harden(this);
+  }
+}
+harden(PostMessageMultiplexer);

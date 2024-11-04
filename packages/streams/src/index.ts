@@ -5,21 +5,24 @@ export {
 export type { Reader, Writer } from './utils.js';
 export type { DuplexStream } from './BaseDuplexStream.js';
 export {
+  MessagePortDuplexStream,
+  MessagePortMultiplexer,
   MessagePortReader,
   MessagePortWriter,
-  MessagePortDuplexStream,
 } from './MessagePortStream.js';
 export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 export {
+  ChromeRuntimeDuplexStream,
+  ChromeRuntimeMultiplexer,
+  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
   ChromeRuntimeReader,
   ChromeRuntimeWriter,
-  ChromeRuntimeDuplexStream,
-  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
 } from './ChromeRuntimeStream.js';
 export {
+  PostMessageDuplexStream,
+  PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
-  PostMessageDuplexStream,
 } from './PostMessageStream.js';
 export { makeStreamEnvelopeKit } from './envelope-kit.js';
 export type { StreamEnveloper } from './enveloper.js';

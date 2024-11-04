@@ -11,7 +11,9 @@ import {
   ChromeRuntimeWriter,
   ChromeRuntimeStreamTarget,
   ChromeRuntimeDuplexStream,
+  ChromeRuntimeMultiplexer,
 } from './ChromeRuntimeStream.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
@@ -355,5 +357,40 @@ describe.concurrent('ChromeRuntimeDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
+  });
+});
+
+describe('ChromeRuntimeMultiplexer', () => {
+  it('constructs a ChromeRuntimeMultiplexer', () => {
+    const multiplexer = new ChromeRuntimeMultiplexer(
+      asChromeRuntime(makeRuntime().runtime),
+      ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
+    );
+
+    expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
+  });
+
+  it('can create and drain channels', async () => {
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
+    const multiplexer = new ChromeRuntimeMultiplexer(
+      asChromeRuntime(runtime),
+      ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
+    );
+    const handleRead = vi.fn();
+    multiplexer.addChannel<number, number>(
+      '1',
+      (value: unknown): value is number => typeof value === 'number',
+      handleRead,
+    );
+
+    const drainP = multiplexer.drainAll();
+    dispatchRuntimeMessage(makeAck());
+    dispatchRuntimeMessage({ channel: '1', payload: 42 });
+    dispatchRuntimeMessage(makeStreamDoneSignal());
+
+    await drainP;
+    expect(handleRead).toHaveBeenCalledWith(42);
   });
 });

@@ -5,6 +5,7 @@ import { makeAck } from './BaseDuplexStream.js';
 import type { ValidateInput } from './BaseStream.js';
 import {
   MessagePortDuplexStream,
+  MessagePortMultiplexer,
   MessagePortReader,
   MessagePortWriter,
 } from './MessagePortStream.js';
@@ -199,5 +200,33 @@ describe('MessagePortDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
+  });
+});
+
+describe('MessagePortMultiplexer', () => {
+  it('constructs a MessagePortMultiplexer', () => {
+    const { port1 } = new MessageChannel();
+    const multiplexer = new MessagePortMultiplexer(port1);
+
+    expect(multiplexer).toBeInstanceOf(MessagePortMultiplexer);
+  });
+
+  it('can create and drain channels', async () => {
+    const { port1, port2 } = new MessageChannel();
+    const multiplexer = new MessagePortMultiplexer(port1);
+    const handleRead = vi.fn();
+    multiplexer.addChannel<number, number>(
+      '1',
+      (value: unknown): value is number => typeof value === 'number',
+      handleRead,
+    );
+
+    const drainP = multiplexer.drainAll();
+    port2.postMessage(makeAck());
+    port2.postMessage({ channel: '1', payload: 42 });
+    port2.postMessage(makeStreamDoneSignal());
+
+    await drainP;
+    expect(handleRead).toHaveBeenCalledWith(42);
   });
 });
