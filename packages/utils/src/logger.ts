@@ -1,21 +1,13 @@
 /**
- * An interface for logging messages to a terminal
+ * Aliases for logging messages to a terminal
  */
-const consolePrototype = {
-  log: console.log,
-  debug: console.debug,
-  info: console.info,
-  warn: console.warn,
-  error: console.error,
-} as const;
-
-type ConsolePrototype = typeof consolePrototype;
+const consoleMethods = ['log', 'debug', 'info', 'warn', 'error'] as const;
 
 export type Logger<Label extends string = string> = {
   label: Label;
-} & ConsolePrototype;
+} & Console;
 
-type LoggerMethod = keyof Omit<Logger, 'label'>;
+type LoggerMethod = keyof Console & (typeof consoleMethods)[number];
 
 /**
  * Make a proxy console which prepends the given label to its outputs.
@@ -26,7 +18,7 @@ type LoggerMethod = keyof Omit<Logger, 'label'>;
  */
 export const makeLogger = <Label extends string>(
   label: Label,
-  baseConsole: ConsolePrototype = console,
+  baseConsole: Console = console,
 ): Logger<Label> => {
   /**
    * Prepends the label to the beginning of the args of the baseConsole method.
@@ -36,21 +28,20 @@ export const makeLogger = <Label extends string>(
    */
   const prefixed = (
     methodName: LoggerMethod,
-  ): [LoggerMethod, Logger<Label>[typeof methodName]] => {
-    const method = baseConsole[methodName];
+  ): [LoggerMethod, Console[typeof methodName]] => {
+    const method: Console[typeof methodName] = baseConsole[methodName];
     return [
       methodName,
-      (message?, ...optionalParams) =>
+      ((message?: unknown, ...optionalParams: unknown[]) =>
         method(
           label,
           ...(message ? [message, ...optionalParams] : optionalParams),
-        ),
+        )) as Console[typeof methodName],
     ];
   };
 
-  const keys = Object.keys(consolePrototype) as LoggerMethod[];
   return {
     label,
-    ...(Object.fromEntries(keys.map(prefixed)) as ConsolePrototype),
-  };
+    ...Object.fromEntries(consoleMethods.map(prefixed)),
+  } as Logger<Label>;
 };
