@@ -26,6 +26,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
+      - run: yarn workspace @ocap/streams playwright install chromium
       - name: Fetch workspace package names
         id: workspace-package-names
         run: |
@@ -143,8 +144,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: yarn
-      - run: yarn --immutable
-      - run: yarn workspace @ocap/streams playwright install
+      - run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 yarn --immutable
+      - run: yarn workspace @ocap/streams playwright install chromium
       - run: yarn workspace ${{ matrix.package-name }} run test
       - name: Require clean working directory
         shell: bash
