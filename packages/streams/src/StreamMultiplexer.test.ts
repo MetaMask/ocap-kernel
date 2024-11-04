@@ -3,7 +3,7 @@ import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ValidateInput } from './BaseStream.js';
-import { makeChannelParams, StreamMultiplexer } from './StreamMultiplexer.js';
+import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { MultiplexEnvelope } from './StreamMultiplexer.js';
 import { makeDoneResult } from './utils.js';
 import { TestDuplexStream, TestMultiplexer } from '../test/stream-mocks.js';
@@ -32,6 +32,8 @@ const makeEnvelope = (channel: string, payload: Json): MultiplexEnvelope => ({
   payload,
 });
 
+const noop = (_value: unknown): void => undefined;
+
 describe('StreamMultiplexer', () => {
   it('constructs a StreamMultiplexer', () => {
     const duplex = new TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>(
@@ -41,42 +43,85 @@ describe('StreamMultiplexer', () => {
     expect(multiplex).toBeInstanceOf(StreamMultiplexer);
   });
 
-  describe('addChannels', () => {
+  describe('addChannel', () => {
     it('makes and adds channels', async () => {
       const [multiplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
       expect(ch1[Symbol.asyncIterator]()).toBe(ch1);
       expect(ch2[Symbol.asyncIterator]()).toBe(ch2);
     });
 
     it('throws if adding a channel with the same name multiple times', async () => {
       const [multiplex] = await makeMultiplexer();
+      multiplex.addChannel('1', isString, noop);
+      expect(() => multiplex.addChannel('1', isString, noop)).toThrow(
+        'Channel "1" already exists',
+      );
+    });
 
-      expect(() =>
-        multiplex.addChannels(
-          makeChannelParams('1', (_value: string) => undefined, isString),
-          makeChannelParams('1', (_value: string) => undefined, isString),
-        ),
-      ).toThrow('Channel "1" already exists');
+    it('throws if adding channels after starting', async () => {
+      const [multiplex, duplex] = await makeMultiplexer();
+      multiplex.addChannel('1', isString, noop);
+      const startP = multiplex.start();
+
+      expect(() => multiplex.addChannel('2', isNumber, noop)).toThrow(
+        'Channels must be added before starting the multiplexer',
+      );
+
+      await Promise.all([startP, duplex.return()]);
     });
 
     it('throws if adding channels after ending', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
       // Add one channel so we can start the multiplexer.
-      multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-      );
+      multiplex.addChannel('1', isString, noop);
 
       await Promise.all([multiplex.drainAll(), duplex.return()]);
 
-      expect(() =>
-        multiplex.addChannels(
-          makeChannelParams('2', (_value: number) => undefined, isNumber),
-        ),
-      ).toThrow('TestMultiplexer has already ended');
+      expect(() => multiplex.addChannel('2', isNumber, noop)).toThrow(
+        'Channels must be added before starting',
+      );
+    });
+  });
+
+  describe('start', () => {
+    it('is idempotent', async () => {
+      const [multiplex, duplex] = await makeMultiplexer();
+      // Add one channel so we can start the multiplexer.
+      multiplex.addChannel('1', isString, noop);
+      const startP = Promise.all([multiplex.start(), multiplex.start()]).then(
+        () => undefined,
+      );
+      await duplex.return();
+      expect(await startP).toBeUndefined();
+    });
+
+    it('enables draining channels separately', async () => {
+      const [multiplex, duplex] = await makeMultiplexer();
+      const ch1Handler = vi.fn();
+      const ch2Handler = vi.fn();
+      const ch1 = multiplex.addChannel('1', isString, ch1Handler);
+      const ch2 = multiplex.addChannel('2', isNumber, ch2Handler);
+
+      const startAndDrainP = Promise.all([
+        multiplex.start(),
+        ch1.drain(),
+        ch2.drain(),
+      ]);
+
+      await Promise.all([
+        duplex.receiveInput(makeEnvelope('1', 'foo')),
+        duplex.receiveInput(makeEnvelope('2', 42)),
+      ]);
+
+      await delay(10);
+
+      await duplex.return();
+      await startAndDrainP;
+
+      expect(ch1Handler).toHaveBeenCalledWith('foo');
+      expect(ch2Handler).toHaveBeenCalledWith(42);
     });
   });
 
@@ -90,15 +135,11 @@ describe('StreamMultiplexer', () => {
 
     it('forwards input to the correct channel', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const receiveCh1Input = vi.fn();
-      const receiveCh2Input = vi.fn();
-      multiplex.addChannels(
-        makeChannelParams('1', receiveCh1Input, isString),
-        makeChannelParams('2', receiveCh2Input, isNumber),
-      );
-      multiplex.drainAll().catch((error) => {
-        throw error;
-      });
+      const ch1Handler = vi.fn();
+      const ch2Handler = vi.fn();
+      multiplex.addChannel('1', isString, ch1Handler);
+      multiplex.addChannel('2', isNumber, ch2Handler);
+      const drainP = multiplex.drainAll();
 
       await Promise.all([
         duplex.receiveInput(makeEnvelope('1', 'foo')),
@@ -107,16 +148,17 @@ describe('StreamMultiplexer', () => {
 
       await delay(10);
 
-      expect(receiveCh1Input).toHaveBeenCalledWith('foo');
-      expect(receiveCh2Input).toHaveBeenCalledWith(42);
+      expect(ch1Handler).toHaveBeenCalledWith('foo');
+      expect(ch2Handler).toHaveBeenCalledWith(42);
+
+      await duplex.return();
+      await drainP;
     });
 
     it('ends all streams when the duplex stream returns', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
       const drainP = multiplex.drainAll();
 
       await duplex.return();
@@ -129,10 +171,8 @@ describe('StreamMultiplexer', () => {
 
     it('ends all streams when any channel returns', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
       const drainP = multiplex.drainAll();
 
       await ch1.return();
@@ -148,10 +188,8 @@ describe('StreamMultiplexer', () => {
       const [multiplex] = await makeMultiplexer(
         await TestDuplexStream.make(onDispatch),
       );
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
       onDispatch.mockImplementationOnce(() => {
         throw new Error('foo');
       });
@@ -171,10 +209,8 @@ describe('StreamMultiplexer', () => {
 
     it('ends all streams when a channel throws', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
 
       const drainP = multiplex.drainAll();
 
@@ -189,10 +225,8 @@ describe('StreamMultiplexer', () => {
 
     it('ends all streams when receiving a message for a non-existent channel', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
 
       const drainP = multiplex.drainAll();
 
@@ -210,10 +244,8 @@ describe('StreamMultiplexer', () => {
   describe('writing', () => {
     it('writes channel messages correctly', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
 
       const writeSpy = vi.spyOn(duplex, 'write');
 
@@ -233,10 +265,8 @@ describe('StreamMultiplexer', () => {
 
     it('returns done results from channel writes after ending', async () => {
       const [multiplex, duplex] = await makeMultiplexer();
-      const [ch1, ch2] = multiplex.addChannels(
-        makeChannelParams('1', (_value: string) => undefined, isString),
-        makeChannelParams('2', (_value: number) => undefined, isNumber),
-      );
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
 
       await Promise.all([multiplex.drainAll(), duplex.return()]);
 

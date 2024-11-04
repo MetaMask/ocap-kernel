@@ -17,7 +17,6 @@ describe('index', () => {
       'PostMessageWriter',
       'StreamMultiplexer',
       'initializeMessageChannel',
-      'makeChannelParams',
       'makeStreamEnvelopeKit',
       'receiveMessagePort',
     ]);

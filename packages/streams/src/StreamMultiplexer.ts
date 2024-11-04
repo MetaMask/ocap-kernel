@@ -35,44 +35,27 @@ export type MultiplexEnvelope = {
 
 type HandleRead<Read extends Json> = (value: Read) => void | Promise<void>;
 
-export type ChannelParameters<Read extends Json, Write extends Json> = {
-  channelName: ChannelName;
-  handleRead: HandleRead<Read>;
-  validateInput: ValidateInput<Read>;
-} & { _write: Write };
-
-export const makeChannelParams = <Read extends Json, Write extends Json = Read>(
-  channelName: ChannelName,
-  handleRead: HandleRead<Read>,
-  validateInput: ValidateInput<Read>,
-): ChannelParameters<Read, Write> =>
-  ({
-    channelName,
-    handleRead,
-    validateInput,
-  }) as ChannelParameters<Read, Write>;
-
 type ChannelRecord<Read extends Json, Write extends Json = Read> = {
   channelName: ChannelName;
-  stream: DuplexStream<Read, Write>;
-  handleRead: HandleRead<Read>;
+  stream: HandledDuplexStream<Read, Write>;
   receiveInput: ReceiveInput;
 };
 
-type MappedChannels<Channels extends readonly ChannelParameters<Json, Json>[]> =
-  Readonly<{
-    [K in keyof Channels]: DuplexStream<
-      // We need to use `any` for the types to actually be inferred, and our
-      // usage should ensure that we avoid polluting the outside world.
-      /* eslint-disable @typescript-eslint/no-explicit-any */
-      Channels[K] extends ChannelParameters<infer Read, any> ? Read : never,
-      Channels[K] extends ChannelParameters<any, infer Write> ? Write : never
-      /* eslint-enable @typescript-eslint/no-explicit-any */
-    >;
-  }>;
+type HandledDuplexStream<Read extends Json, Write extends Json> = Omit<
+  DuplexStream<Read, Write>,
+  'drain'
+> & {
+  drain: () => Promise<void>;
+};
+
+enum MultiplexerStatus {
+  Idle = 0,
+  Running = 1,
+  Done = 2,
+}
 
 export class StreamMultiplexer {
-  #isDone: boolean;
+  #status: MultiplexerStatus;
 
   readonly #name: string;
 
@@ -83,19 +66,26 @@ export class StreamMultiplexer {
     MultiplexEnvelope
   >;
 
+  /**
+   * Creates a new multiplexer over the specified duplex stream. The duplex stream will
+   * be synchronized by the multiplexer, and **should not** be synchronized by the caller.
+   *
+   * @param stream - The underlying duplex stream.
+   * @param name - The multiplexer name.
+   */
   constructor(
     stream: SynchronizableDuplexStream<MultiplexEnvelope, MultiplexEnvelope>,
     name?: string,
   ) {
-    this.#isDone = false;
+    this.#status = MultiplexerStatus.Idle;
     this.#channels = new Map();
     this.#name = name ?? this.constructor.name;
     this.#stream = stream;
   }
 
   /**
-   * Starts the multiplexer and drains all of its channels. Waits for the underlying
-   * duplex stream to be synchronized before reading from it.
+   * Starts the multiplexer and drains all of its channels. Use either this method or
+   * {@link start} to drain the multiplexer.
    *
    * @returns A promise resolves when the multiplexer and its channels have ended.
    */
@@ -103,12 +93,11 @@ export class StreamMultiplexer {
     if (this.#channels.size === 0) {
       throw new Error(`${this.#name} has no channels`);
     }
-    await this.#stream.synchronize();
 
     const promise = Promise.all([
-      this.#drain(),
-      ...Array.from(this.#channels.values()).map(
-        async ({ stream, handleRead }) => stream.drain(handleRead),
+      this.start(),
+      ...Array.from(this.#channels.values()).map(async ({ stream }) =>
+        stream.drain(),
       ),
     ]).then(async () => this.#end());
 
@@ -119,7 +108,20 @@ export class StreamMultiplexer {
     return promise;
   }
 
-  async #drain(): Promise<void> {
+  /**
+   * Idempotently starts the multiplexer by draining the underlying duplex stream and
+   * forwarding messages to the appropriate channels. Waits for the underlying duplex
+   * stream to be synchronized before reading from it. Ends the multiplexer if the duplex
+   * stream ends. Use either this method or {@link drainAll} to drain the multiplexer.
+   */
+  async start(): Promise<void> {
+    if (this.#status !== MultiplexerStatus.Idle) {
+      return;
+    }
+    this.#status = MultiplexerStatus.Running;
+
+    await this.#stream.synchronize();
+
     for await (const envelope of this.#stream) {
       const channel = this.#channels.get(envelope.channel);
       if (channel === undefined) {
@@ -136,31 +138,22 @@ export class StreamMultiplexer {
   }
 
   /**
-   * Adds a set of channels. To avoid messages loss, the underlying duplex stream must not
-   * be synchronized until all channels have been created.
+   * Adds a channel to the multiplexer. To avoid messages loss, the underlying duplex
+   * stream must not be synchronized until all channels have been created.
    *
-   * @param channels - The channels to add.
-   * @returns The added channels.
+   * @param channelName - The channel name.
+   * @param validateInput - The input validator.
+   * @param handleRead - The channel stream's drain handler.
+   * @returns The channel stream.
    */
-  // See MappedChannels for why we need to use `any`.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addChannels<Channels extends ChannelParameters<any, any>[]>(
-    ...channels: Channels
-  ): MappedChannels<Channels> {
-    if (this.#isDone) {
-      throw new Error(`${this.#name} has already ended`);
+  addChannel<Read extends Json, Write extends Json>(
+    channelName: ChannelName,
+    validateInput: ValidateInput<Read>,
+    handleRead: HandleRead<Read>,
+  ): HandledDuplexStream<Read, Write> {
+    if (this.#status !== MultiplexerStatus.Idle) {
+      throw new Error('Channels must be added before starting the multiplexer');
     }
-
-    return channels.map((params) =>
-      this.#addChannel(params),
-    ) as MappedChannels<Channels>;
-  }
-
-  #addChannel<Read extends Json, Write extends Json>({
-    channelName,
-    handleRead,
-    validateInput,
-  }: ChannelParameters<Read, Write>): DuplexStream<Read, Write> {
     if (this.#channels.has(channelName)) {
       throw new Error(`Channel "${channelName}" already exists.`);
     }
@@ -168,24 +161,33 @@ export class StreamMultiplexer {
     const { stream, receiveInput } = this.#makeChannel<Read, Write>(
       channelName,
       validateInput,
+      handleRead,
     );
 
     // We downcast some properties in order to store all records in one place.
     this.#channels.set(channelName, {
       channelName,
-      handleRead: handleRead as HandleRead<Json>,
-      stream: stream as unknown as DuplexStream<Json, Json>,
+      stream: stream as unknown as HandledDuplexStream<Json, Json>,
       receiveInput,
     });
 
     return stream;
   }
 
+  /**
+   * Constructs a channel.
+   *
+   * @param channelName - The channel name.
+   * @param validateInput - The input validator.
+   * @param handleRead - The channel stream's drain handler.
+   * @returns The channel stream and its receiveInput method.
+   */
   #makeChannel<Read extends Json, Write extends Json>(
     channelName: ChannelName,
     validateInput: ValidateInput<Read>,
+    handleRead: HandleRead<Read>,
   ): {
-    stream: DuplexStream<Read, Write>;
+    stream: HandledDuplexStream<Read, Write>;
     receiveInput: ReceiveInput;
   } {
     let isDone = false;
@@ -217,14 +219,14 @@ export class StreamMultiplexer {
       return writeP;
     };
 
-    const drain = async (handler: HandleRead<Read>): Promise<void> => {
+    const drain = async (): Promise<void> => {
       for await (const value of reader) {
-        await handler(value);
+        await handleRead(value);
       }
     };
 
     // Create and return the DuplexStream interface
-    const stream: DuplexStream<Read, Write> = {
+    const stream: HandledDuplexStream<Read, Write> = {
       next: reader.next.bind(reader),
       return: reader.return.bind(reader),
       throw: reader.throw.bind(reader),
@@ -239,10 +241,10 @@ export class StreamMultiplexer {
   }
 
   async #end(error?: Error): Promise<void> {
-    if (this.#isDone) {
+    if (this.#status === MultiplexerStatus.Done) {
       return;
     }
-    this.#isDone = true;
+    this.#status = MultiplexerStatus.Done;
 
     const end = async <Read extends Json, Write extends Json>(
       stream: DuplexStream<Read, Write>,
