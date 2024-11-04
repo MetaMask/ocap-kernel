@@ -27,8 +27,10 @@ vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 const makeEnvelope = (
   value: unknown,
   target: ChromeRuntimeStreamTarget,
+  source: ChromeRuntimeStreamTarget,
 ): MessageEnvelope<unknown> => ({
   target,
+  source,
   payload: value,
 });
 
@@ -41,10 +43,11 @@ const makeRuntime = (extensionId: string = EXTENSION_ID) => {
   const dispatchRuntimeMessage = (
     message: unknown,
     target: ChromeRuntimeStreamTarget = ChromeRuntimeStreamTarget.Background,
+    source: ChromeRuntimeStreamTarget = ChromeRuntimeStreamTarget.Offscreen,
     senderId: string = extensionId,
   ): void => {
     listeners.forEach((listener) =>
-      listener(makeEnvelope(message, target), { id: senderId }),
+      listener(makeEnvelope(message, target, source), { id: senderId }),
     );
   };
 
@@ -74,6 +77,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     expect(reader).toBeInstanceOf(ChromeRuntimeReader);
@@ -86,6 +90,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const message = { foo: 'bar' };
@@ -99,12 +104,18 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const nextP = reader.next();
     const message1 = { foo: 'bar' };
     const message2 = { fizz: 'buzz' };
-    dispatchRuntimeMessage(message1, undefined, 'other-extension-id');
+    dispatchRuntimeMessage(
+      message1,
+      ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
+      'other-extension-id',
+    );
     dispatchRuntimeMessage(message2);
 
     expect(await nextP).toStrictEqual(makePendingResult(message2));
@@ -115,6 +126,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const nextP = reader.next();
@@ -138,20 +150,18 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const nextP = reader.next();
 
     vi.spyOn(console, 'warn');
     const message1 = { foo: 'bar' };
-    // @ts-expect-error Intentional destructive testing
-    dispatchRuntimeMessage(message1, 'foo');
-
-    expect(console.warn).toHaveBeenCalledWith(
-      `ChromeRuntimeReader received message for unexpected target: ${stringify({
-        target: 'foo',
-        payload: message1,
-      })}`,
+    dispatchRuntimeMessage(
+      message1,
+      // @ts-expect-error Intentional destructive testing
+      'foo',
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const message2 = { fizz: 'buzz' };
@@ -164,6 +174,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
     expect(listeners).toHaveLength(1);
 
@@ -180,6 +191,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
       onEnd,
     );
 
@@ -197,6 +209,7 @@ describe('ChromeRuntimeWriter', () => {
     const writer = new ChromeRuntimeWriter(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     expect(writer).toBeInstanceOf(ChromeRuntimeWriter);
@@ -208,6 +221,7 @@ describe('ChromeRuntimeWriter', () => {
     const writer = new ChromeRuntimeWriter(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
 
     const message = { foo: 'bar' };
@@ -215,7 +229,11 @@ describe('ChromeRuntimeWriter', () => {
 
     expect(await nextP).toStrictEqual(makePendingResult(undefined));
     expect(runtime.sendMessage).toHaveBeenCalledWith(
-      makeEnvelope(message, ChromeRuntimeStreamTarget.Background),
+      makeEnvelope(
+        message,
+        ChromeRuntimeStreamTarget.Background,
+        ChromeRuntimeStreamTarget.Offscreen,
+      ),
     );
   });
 
@@ -225,6 +243,7 @@ describe('ChromeRuntimeWriter', () => {
     const writer = new ChromeRuntimeWriter(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
       onEnd,
     );
 
@@ -242,12 +261,24 @@ describe('ChromeRuntimeDuplexStream', () => {
     const duplexStreamP = ChromeRuntimeDuplexStream.make(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
     );
     dispatchRuntimeMessage(makeAck());
 
     return [await duplexStreamP, { runtime, dispatchRuntimeMessage }] as const;
   };
+
+  it('throws an error when localTarget and remoteTarget are the same', async () => {
+    const { runtime } = makeRuntime();
+
+    await expect(
+      ChromeRuntimeDuplexStream.make(
+        asChromeRuntime(runtime),
+        ChromeRuntimeStreamTarget.Background,
+        ChromeRuntimeStreamTarget.Background,
+      ),
+    ).rejects.toThrow('localTarget and remoteTarget must be different');
+  });
 
   it('constructs a ChromeRuntimeDuplexStream', async () => {
     const [duplexStream] = await makeDuplexStream();

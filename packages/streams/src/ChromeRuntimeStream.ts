@@ -26,10 +26,12 @@ import type { Dispatchable } from './utils.js';
 export enum ChromeRuntimeStreamTarget {
   Background = 'background',
   Offscreen = 'offscreen',
+  Devtools = 'devtools',
 }
 
 export type MessageEnvelope<Payload> = {
   target: ChromeRuntimeStreamTarget;
+  source: ChromeRuntimeStreamTarget;
   payload: Payload;
 };
 
@@ -39,6 +41,7 @@ const isMessageEnvelope = (
   typeof message === 'object' &&
   message !== null &&
   'target' in message &&
+  'source' in message &&
   'payload' in message;
 
 /**
@@ -56,11 +59,14 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
   readonly #target: ChromeRuntimeStreamTarget;
 
+  readonly #source: ChromeRuntimeStreamTarget;
+
   readonly #extensionId: string;
 
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
+    source: ChromeRuntimeStreamTarget,
     onEnd?: OnEnd,
   ) {
     // eslint-disable-next-line prefer-const
@@ -76,6 +82,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
     this.#receiveInput = super.getReceiveInput();
     this.#target = target;
+    this.#source = source;
     this.#extensionId = runtime.id;
 
     messageListener = this.#onMessage.bind(this);
@@ -99,12 +106,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
       return;
     }
 
-    if (message.target !== this.#target) {
-      console.warn(
-        `ChromeRuntimeReader received message for unexpected target: ${stringify(
-          message,
-        )}`,
-      );
+    if (message.target !== this.#target || message.source !== this.#source) {
       return;
     }
 
@@ -126,6 +128,7 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
+    source: ChromeRuntimeStreamTarget,
     onEnd?: OnEnd,
   ) {
     super(
@@ -133,6 +136,7 @@ export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
       async (value: Dispatchable<Write>) => {
         await runtime.sendMessage({
           target,
+          source,
           payload: value,
         });
       },
@@ -172,13 +176,19 @@ export class ChromeRuntimeDuplexStream<
     const reader = new ChromeRuntimeReader<Read>(
       runtime,
       localTarget,
+      remoteTarget,
       async () => {
         await writer.return();
       },
     );
-    writer = new ChromeRuntimeWriter<Write>(runtime, remoteTarget, async () => {
-      await reader.return();
-    });
+    writer = new ChromeRuntimeWriter<Write>(
+      runtime,
+      remoteTarget,
+      localTarget,
+      async () => {
+        await reader.return();
+      },
+    );
     super(reader, writer);
     harden(this);
   }
@@ -188,6 +198,10 @@ export class ChromeRuntimeDuplexStream<
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,
   ): Promise<ChromeRuntimeDuplexStream<Read, Write>> {
+    if (localTarget === remoteTarget) {
+      throw new Error('localTarget and remoteTarget must be different');
+    }
+
     const stream = new ChromeRuntimeDuplexStream<Read, Write>(
       runtime,
       localTarget,
