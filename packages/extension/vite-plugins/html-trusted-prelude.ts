@@ -1,4 +1,5 @@
 import { load as loadHtml } from 'cheerio';
+import path from 'path';
 import { format as prettierFormat } from 'prettier';
 import type { Plugin as VitePlugin } from 'vite';
 
@@ -10,11 +11,9 @@ import type { Plugin as VitePlugin } from 'vite';
  * @returns The Vite plugin.
  */
 export function htmlTrustedPrelude(): VitePlugin {
-  const endoifyElement = '<script src="endoify.js" type="module"></script>';
-
   return {
     name: 'ocap-kernel:html-trusted-prelude',
-    async transformIndexHtml(htmlString): Promise<string> {
+    async transformIndexHtml(htmlString, ctx): Promise<string> {
       const htmlDoc = loadHtml(htmlString);
 
       if (htmlDoc('script[src="endoify.ts"]').length > 0) {
@@ -23,7 +22,7 @@ export function htmlTrustedPrelude(): VitePlugin {
         );
       }
 
-      if (htmlDoc('script[src="endoify.js"]').length > 0) {
+      if (htmlDoc('script[src*="endoify.js"]').length > 0) {
         throw new Error(
           `HTML document already references endoify script:\n${htmlString}`,
         );
@@ -35,6 +34,19 @@ export function htmlTrustedPrelude(): VitePlugin {
         );
       }
 
+      // Calculate relative path to endoify.js based on HTML file location
+      const htmlFilePath = ctx.filename;
+      const htmlDirPath = path.dirname(htmlFilePath);
+      const rootDir = path.resolve(process.cwd(), 'src');
+      const relativePathToRoot = path.relative(htmlDirPath, rootDir);
+
+      // Create the relative path to endoify.js
+      const endoifyPath = path
+        .join(relativePathToRoot, 'endoify.js')
+        .split(path.sep)
+        .join('/');
+
+      const endoifyElement = `<script src="${endoifyPath}" type="module"></script>`;
       htmlDoc(endoifyElement).insertBefore('head:first script:first');
 
       return await prettierFormat(htmlDoc.html(), {
