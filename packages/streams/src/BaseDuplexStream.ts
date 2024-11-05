@@ -5,7 +5,7 @@ import { isObject } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
-import type { BaseReader, BaseWriter } from './BaseStream.js';
+import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.js';
 import { makeDoneResult } from './utils.js';
 
 export enum DuplexStreamSentinel {
@@ -34,6 +34,29 @@ export const makeAck = (): DuplexStreamAck => ({
 
 const isAck = (value: unknown): value is DuplexStreamAck =>
   isObject(value) && value[DuplexStreamSentinel.Ack] === true;
+
+type StreamSignal = DuplexStreamSyn | DuplexStreamAck;
+
+const isDuplexStreamSignal = (value: unknown): value is StreamSignal =>
+  isSyn(value) || isAck(value);
+
+/**
+ * Make a validator for input to a duplex stream. Constructor helper for concrete
+ * duplex stream implementations.
+ *
+ * Validators passed in by consumers must be augmented such that errors aren't
+ * thrown for {@link StreamSignal} values.
+ *
+ * @param validateInput - The validator for the stream's input type.
+ * @returns A validator for the stream's input type, or `undefined` if no
+ * validation is desired.
+ */
+export const makeDuplexStreamInputValidator = <Read extends Json>(
+  validateInput?: ValidateInput<Read>,
+): ((value: unknown) => value is Read) | undefined =>
+  validateInput &&
+  ((value: unknown): value is Read =>
+    isDuplexStreamSignal(value) || validateInput(value as Json));
 
 enum SynchronizationStatus {
   Idle = 0,

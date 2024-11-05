@@ -21,14 +21,17 @@
 
 import type { Json } from '@metamask/utils';
 
-import { BaseDuplexStream } from './BaseDuplexStream.js';
+import {
+  BaseDuplexStream,
+  makeDuplexStreamInputValidator,
+} from './BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
-import { StreamMultiplexer } from './StreamMultiplexer.js';
+import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
 import type { Dispatchable, OnMessage } from './utils.js';
 
 /**
@@ -115,7 +118,7 @@ export class MessagePortDuplexStream<
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, {
       name: 'MessagePortDuplexStream',
-      validateInput,
+      validateInput: makeDuplexStreamInputValidator(validateInput),
       onEnd: async () => {
         await writer.return();
       },
@@ -145,7 +148,7 @@ harden(MessagePortDuplexStream);
 
 export class MessagePortMultiplexer extends StreamMultiplexer {
   constructor(port: MessagePort, name?: string) {
-    super(new MessagePortDuplexStream(port), name);
+    super(new MessagePortDuplexStream(port, isMultiplexEnvelope), name);
     harden(this);
   }
 }

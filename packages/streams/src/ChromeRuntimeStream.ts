@@ -17,7 +17,10 @@
 import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
-import { BaseDuplexStream } from './BaseDuplexStream.js';
+import {
+  BaseDuplexStream,
+  makeDuplexStreamInputValidator,
+} from './BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   ValidateInput,
@@ -26,7 +29,7 @@ import type {
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
-import { StreamMultiplexer } from './StreamMultiplexer.js';
+import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
 import type { Dispatchable } from './utils.js';
 
 export enum ChromeRuntimeStreamTarget {
@@ -194,7 +197,7 @@ export class ChromeRuntimeDuplexStream<
       remoteTarget,
       {
         name: 'ChromeRuntimeDuplexStream',
-        validateInput,
+        validateInput: makeDuplexStreamInputValidator(validateInput),
         onEnd: async () => {
           await writer.return();
         },
@@ -245,7 +248,12 @@ export class ChromeRuntimeMultiplexer extends StreamMultiplexer {
     name?: string,
   ) {
     super(
-      new ChromeRuntimeDuplexStream(runtime, localTarget, remoteTarget),
+      new ChromeRuntimeDuplexStream(
+        runtime,
+        localTarget,
+        remoteTarget,
+        isMultiplexEnvelope,
+      ),
       name,
     );
     harden(this);

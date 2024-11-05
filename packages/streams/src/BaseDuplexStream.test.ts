@@ -166,6 +166,18 @@ describe('BaseDuplexStream', () => {
     expect(await nextP).toStrictEqual(makePendingResult(message));
   });
 
+  it('reads from the reader, with input validation', async () => {
+    const duplexStream = await TestDuplexStream.make(() => undefined, {
+      validateInput: (value: unknown): value is number =>
+        typeof value === 'number',
+    });
+
+    const message = 42;
+    await duplexStream.receiveInput(message);
+
+    expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
+  });
+
   it('drains the reader in order', async () => {
     const duplexStream = await TestDuplexStream.make(() => undefined);
 

@@ -1,4 +1,5 @@
 import type { Json } from '@metamask/utils';
+import { isObject } from '@metamask/utils';
 
 import type { DuplexStream } from './BaseDuplexStream.js';
 import type {
@@ -36,6 +37,21 @@ export type MultiplexEnvelope = {
   channel: ChannelName;
   payload: Json;
 };
+
+/**
+ * Type guard for {@link MultiplexEnvelope}. Only verifies that the `payload` property
+ * is not `undefined`, assuming that multiplexer channels will be responsible for
+ * performing further validation.
+ *
+ * @param value - The value to check.
+ * @returns Whether the value is a {@link MultiplexEnvelope}.
+ */
+export const isMultiplexEnvelope = (
+  value: unknown,
+): value is MultiplexEnvelope =>
+  isObject(value) &&
+  typeof value.channel === 'string' &&
+  typeof value.payload !== 'undefined';
 
 type HandleRead<Read extends Json> = (value: Read) => void | Promise<void>;
 

@@ -1,6 +1,10 @@
 import type { Json } from '@metamask/utils';
 
-import { BaseDuplexStream, makeAck } from '../src/BaseDuplexStream.js';
+import {
+  BaseDuplexStream,
+  makeAck,
+  makeDuplexStreamInputValidator,
+} from '../src/BaseDuplexStream.js';
 import type { DuplexStream } from '../src/BaseDuplexStream.js';
 import type {
   Dispatch,
@@ -78,7 +82,7 @@ export class TestDuplexStream<
     const reader = new TestReader<Read>({
       name: 'TestDuplexStream',
       onEnd: readerOnEnd,
-      validateInput,
+      validateInput: makeDuplexStreamInputValidator(validateInput),
     });
     super(
       reader,
