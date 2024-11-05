@@ -137,6 +137,7 @@ async function main(): Promise<void> {
           .then(async (stream) => {
             const replyToPopup = (event: MessageEvent): void => {
               if (isKernelControlReply(event.data)) {
+                // eslint-disable-next-line promise/no-nesting
                 stream.write(event.data).catch(logger.error);
               }
             };
