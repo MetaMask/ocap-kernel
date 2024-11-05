@@ -9,7 +9,11 @@ import {
 import { makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel/iframe-vat-worker.js';
-import type { KernelControlReply } from './kernel/messages.js';
+import { isKernelControlReply } from './kernel/messages.js';
+import type {
+  KernelControlCommand,
+  KernelControlReply,
+} from './kernel/messages.js';
 import { ExtensionVatWorkerServer } from './kernel/VatWorkerServer.js';
 
 const logger = makeLogger('[ocap glue]');
@@ -29,21 +33,9 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
-  // Handle messages from the devtools page
-  ChromeRuntimeDuplexStream.make<KernelControlReply>(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Devtools,
-  )
-    .then(async (stream) => {
-      console.log('[Offscreen] offscreen <-> devtools stream created');
-      return stream.drain(handleDevtoolsStream);
-    })
-    .catch((error) =>
-      logger.error('Unexpected error from devtools stream', error),
-    );
-
   const kernelWorker = await makeKernelWorker();
+
+  const replyToPopup = setupPopupStream();
 
   /**
    * Reply to a command from the background script.
@@ -77,7 +69,9 @@ async function main(): Promise<void> {
    * @returns An object with methods to send and receive messages from the kernel worker.
    */
   async function makeKernelWorker(): Promise<{
-    sendMessage: (message: KernelCommand) => Promise<void>;
+    sendMessage: (
+      message: KernelCommand | KernelControlCommand,
+    ) => Promise<void>;
     receiveMessages: () => Promise<void>;
   }> {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
@@ -85,7 +79,10 @@ async function main(): Promise<void> {
     const workerStream = await initializeMessageChannel((message, transfer) =>
       worker.postMessage(message, transfer),
     ).then(async (port) =>
-      MessagePortDuplexStream.make<KernelCommandReply, KernelCommand>(port),
+      MessagePortDuplexStream.make<
+        KernelCommandReply | KernelControlReply,
+        KernelCommand | KernelControlCommand
+      >(port),
     );
 
     const vatWorkerServer = new ExtensionVatWorkerServer(
@@ -105,16 +102,21 @@ async function main(): Promise<void> {
       // change once this offscreen script is providing services to the kernel worker that don't
       // involve the user.
       for await (const message of workerStream) {
-        if (!isKernelCommandReply(message)) {
-          logger.error('Kernel sent unexpected reply', message);
+        if (isKernelCommandReply(message)) {
+          await replyToBackground(message);
+          continue;
+        } else if (isKernelControlReply(message)) {
+          await replyToPopup(message);
           continue;
         }
 
-        await replyToBackground(message);
+        logger.error('Kernel sent unexpected reply', message);
       }
     };
 
-    const sendMessage = async (message: KernelCommand): Promise<void> => {
+    const sendMessage = async (
+      message: KernelCommand | KernelControlCommand,
+    ): Promise<void> => {
       await workerStream.write(message);
     };
 
@@ -125,13 +127,48 @@ async function main(): Promise<void> {
   }
 
   /**
-   * Handle messages from the devtools page.
+   * Set up the popup stream.
    *
-   * @param value - The value to handle.
+   * @returns A function that sends messages to the popup.
    */
-  async function handleDevtoolsStream(
-    value: KernelControlReply,
-  ): Promise<void> {
-    console.log('Offscreen received devtools message', value);
+  function setupPopupStream(): (message: KernelControlReply) => Promise<void> {
+    let sendToPopup = async (message: KernelControlReply): Promise<void> => {
+      logger.log('Offscreen sending message to popup before setup:', message);
+    };
+
+    // Set up the stream to the popup every time the popup shows.
+    // This is necessary because the stream is closed when the popup is closed.
+    chrome.runtime.onConnect.addListener((port) => {
+      if (port.name === 'popup') {
+        ChromeRuntimeDuplexStream.make<
+          KernelControlCommand,
+          KernelControlReply
+        >(
+          chrome.runtime,
+          ChromeRuntimeTarget.Offscreen,
+          ChromeRuntimeTarget.Popup,
+        )
+          .then(async (stream) => {
+            // Close the stream when the popup is closed
+            port.onDisconnect.addListener(() => {
+              // eslint-disable-next-line promise/no-nesting
+              stream.return().catch(console.error);
+            });
+
+            sendToPopup = async (message) => {
+              logger.log('Offscreen sending message to popup:', message);
+              await stream.write(message);
+            };
+
+            return stream.drain(async (message) => {
+              console.log('Offscreen received message from popup:', message);
+              await kernelWorker.sendMessage(message);
+            });
+          })
+          .catch(logger.error);
+      }
+    });
+
+    return sendToPopup;
   }
 }

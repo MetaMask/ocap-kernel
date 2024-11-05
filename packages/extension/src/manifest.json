@@ -7,14 +7,15 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "action": {},
+  "action": {
+    "default_popup": "popup.html"
+  },
   "permissions": ["offscreen", "unlimitedStorage"],
-  "devtools_page": "devtools/devtools.html",
   "sandbox": {
     "pages": ["iframe.html"]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; frame-ancestors 'self' devtools://devtools;",
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; frame-ancestors 'self'",
     "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; default-src 'none'; connect-src *;"
   }
 }

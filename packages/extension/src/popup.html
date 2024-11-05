@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Kernel DevTools</title>
+    <title>Kernel Panel</title>
     <style>
       .kernel-panel {
         padding: 16px;
@@ -28,6 +28,18 @@
         cursor: not-allowed;
       }
 
+      button.green {
+        background-color: #4caf50;
+      }
+
+      button.red {
+        background-color: #f44336;
+      }
+
+      button.yellow {
+        background-color: #ffeb3b;
+      }
+
       input {
         padding: 8px;
         margin: 4px;
@@ -39,15 +51,16 @@
         border-radius: 4px;
       }
     </style>
-    <script src="./panel.ts" type="module"></script>
+    <script src="./popup.ts" type="module"></script>
   </head>
   <body>
     <div id="panel-root">
+      <h2>Kernel Panel</h2>
       <div class="kernel-panel">
         <div class="kernel-controls">
-          <button id="init-kernel">Initialize Kernel</button>
-          <button id="shutdown-kernel">Shutdown Kernel</button>
-          <button id="terminate-all">Terminate All Vats</button>
+          <button class="green" id="init-kernel">Initialize Kernel</button>
+          <button class="red" id="shutdown-kernel">Shutdown Kernel</button>
+          <button class="yellow" id="terminate-all">Terminate All Vats</button>
         </div>
 
         <div class="vat-controls">

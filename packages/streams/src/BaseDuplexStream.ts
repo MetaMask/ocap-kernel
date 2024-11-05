@@ -176,15 +176,11 @@ export abstract class BaseDuplexStream<
 
     while (this.#synchronizationStatus !== SynchronizationStatus.Complete) {
       const result = await this.#reader.next();
-      console.log('waiting for synchronization', result);
       if (isAck(result.value) || result.done) {
-        console.log('synchronization complete');
         this.#synchronizationStatus = SynchronizationStatus.Complete;
         resolve();
       } else if (isSyn(result.value)) {
-        console.log('received SYN message during synchronization');
         if (receivedSyn) {
-          console.log('received duplicate SYN message during synchronization');
           reject(
             new Error('Received duplicate SYN message during synchronization'),
           );
@@ -194,10 +190,6 @@ export abstract class BaseDuplexStream<
         // @ts-expect-error See docstring.
         await this.#writer.next(makeAck());
       } else {
-        console.log(
-          'received unexpected message during synchronization',
-          result,
-        );
         reject(
           new Error(
             `Received unexpected message during synchronization: ${stringify(result)}`,

@@ -8,6 +8,14 @@ export type KernelStatus = {
   activeVats: VatId[];
 };
 
+export const isKernelStatus: TypeGuard<KernelStatus> = (
+  value,
+): value is KernelStatus =>
+  isObject(value) &&
+  typeof value.isRunning === 'boolean' &&
+  Array.isArray(value.activeVats) &&
+  value.activeVats.every((id) => isVatId(id));
+
 const kernelControlCommand = {
   InitKernel: messageType<null, null>(
     (send) => send === null,
@@ -35,11 +43,7 @@ const kernelControlCommand = {
   ),
   GetStatus: messageType<null, KernelStatus>(
     (send) => send === null,
-    (reply) =>
-      isObject(reply) &&
-      typeof reply.isRunning === 'boolean' &&
-      Array.isArray(reply.activeVats) &&
-      reply.activeVats.every((id) => isVatId(id)),
+    isKernelStatus,
   ),
 };
 

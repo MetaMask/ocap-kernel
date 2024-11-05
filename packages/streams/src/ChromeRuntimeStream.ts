@@ -35,7 +35,7 @@ import type { Dispatchable } from './utils.js';
 export enum ChromeRuntimeStreamTarget {
   Background = 'background',
   Offscreen = 'offscreen',
-  Devtools = 'devtools',
+  Popup = 'popup',
 }
 
 export type MessageEnvelope<Payload> = {
@@ -119,23 +119,11 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (message.target !== this.#target || message.source !== this.#source) {
-<<<<<<< HEAD
-<<<<<<< HEAD
       console.debug(
         `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
         `Expected target: ${this.#target}`,
         `Expected source: ${this.#source}`,
-=======
-      console.log(
-        `ChromeRuntimeReader received unexpected target/source: ${stringify(
-          message,
-        )}`,
-        this.#target,
-        this.#source,
->>>>>>> 8d74ef6 (testing streams)
       );
-=======
->>>>>>> 7c50684 (fix chrome duplex)
       return;
     }
 
@@ -239,18 +227,13 @@ export class ChromeRuntimeDuplexStream<
     if (localTarget === remoteTarget) {
       throw new Error('localTarget and remoteTarget must be different');
     }
-
     const stream = new ChromeRuntimeDuplexStream<Read, Write>(
       runtime,
       localTarget,
       remoteTarget,
       validateInput,
     );
-    console.log(
-      `ChromeRuntimeDuplexStream created for ${localTarget} <-> ${remoteTarget}`,
-    );
     await stream.synchronize();
-    console.log(`stream synchronized for ${localTarget} <-> ${remoteTarget}`);
     return stream;
   }
 }
