@@ -1,22 +1,30 @@
 import '@ocap/shims/endoify';
+import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
+import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages/index.js';
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
-import * as streamEnvelope from './stream-envelope.js';
 import { Supervisor } from './Supervisor.js';
 
-const makeSupervisor = async (): Promise<{
+const makeSupervisor = async (
+  handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
+): Promise<{
   supervisor: Supervisor;
-  stream: TestDuplexStream<StreamEnvelope, StreamEnvelopeReply>;
+  stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
 }> => {
   const stream = await TestDuplexStream.make<
-    StreamEnvelope,
-    StreamEnvelopeReply
-  >(() => undefined);
-  return { supervisor: new Supervisor({ id: 'test-id', stream }), stream };
+    MultiplexEnvelope,
+    MultiplexEnvelope
+  >(handleWrite);
+  return {
+    supervisor: new Supervisor({
+      id: 'test-id',
+      multiplexer: new TestMultiplexer(stream),
+    }),
+    stream,
+  };
 };
 
 describe('Supervisor', () => {
@@ -42,19 +50,25 @@ describe('Supervisor', () => {
   });
 
   describe('handleMessage', () => {
-    it('throws if the stream envelope handler throws', async () => {
-      const { stream } = await makeSupervisor();
+    it('throws if receiving an unexpected message', async () => {
+      const { supervisor, stream } = await makeSupervisor();
 
       const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput({
-        type: 'command',
+        channel: 'command',
         payload: { method: 'test' },
       });
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Supervisor stream error:',
-        'Stream envelope handler received unexpected value',
+        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        new Error(
+          `TestMultiplexer#command: Message failed type validation:\n${stringify(
+            {
+              method: 'test',
+            },
+          )}`,
+        ),
       );
     });
 
@@ -89,8 +103,8 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTP messages', async () => {
-      const { supervisor } = await makeSupervisor();
-      const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
+      const handleWrite = vi.fn();
+      const { supervisor } = await makeSupervisor(handleWrite);
 
       await supervisor.handleMessage({
         id: 'v0:0',
@@ -106,7 +120,7 @@ describe('Supervisor', () => {
 
       await delay(10);
 
-      const capTpAnswer = {
+      const capTpPayload = {
         type: 'CTP_RETURN',
         epoch: 0,
         answerID: 'q-1',
@@ -115,7 +129,10 @@ describe('Supervisor', () => {
           slots: [],
         },
       };
-      expect(wrapCapTpSpy).toHaveBeenCalledWith(capTpAnswer);
+      expect(handleWrite).toHaveBeenCalledWith({
+        channel: 'capTp',
+        payload: capTpPayload,
+      });
     });
 
     it('handles Evaluate messages', async () => {

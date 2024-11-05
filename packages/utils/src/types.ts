@@ -11,7 +11,7 @@ export type ExtractGuardType<Guard, Bound = unknown> = Guard extends (
     : never
   : never;
 
-const primitives = [
+const primitives = new Set([
   'string',
   'number',
   'bigint',
@@ -19,9 +19,9 @@ const primitives = [
   'symbol',
   'null',
   'undefined',
-];
+]);
 export const isPrimitive = (value: unknown): value is Primitive =>
-  value === null || primitives.includes(typeof value);
+  value === null || primitives.has(typeof value);
 
 export const isTypedArray = <ElementType>(
   value: unknown,

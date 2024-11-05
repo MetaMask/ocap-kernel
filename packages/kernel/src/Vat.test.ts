@@ -3,20 +3,15 @@ import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
 } from '@ocap/errors';
+import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
-import { stringify } from '@ocap/utils';
+import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
+import { makeLogger, stringify } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages/index.js';
-import type {
-  CapTpMessage,
-  VatCommand,
-  VatCommandReply,
-} from './messages/index.js';
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
-import * as streamEnvelope from './stream-envelope.js';
-import { makeStreamEnvelopeReplyHandler } from './stream-envelope.js';
+import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { Vat } from './Vat.js';
 
 vi.mock('@endo/eventual-send', () => ({
@@ -27,15 +22,24 @@ vi.mock('@endo/eventual-send', () => ({
   }),
 }));
 
-const makeVat = async (): Promise<{
+const makeVat = async (
+  logger?: Logger,
+): Promise<{
   vat: Vat;
-  stream: TestDuplexStream<StreamEnvelopeReply, StreamEnvelope>;
+  stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
 }> => {
   const stream = await TestDuplexStream.make<
-    StreamEnvelopeReply,
-    StreamEnvelope
+    MultiplexEnvelope,
+    MultiplexEnvelope
   >(() => undefined);
-  return { vat: new Vat({ id: 'v0', stream }), stream };
+  return {
+    vat: new Vat({
+      id: 'v0',
+      multiplexer: new TestMultiplexer(stream),
+      logger,
+    }),
+    stream,
+  };
 };
 
 describe('Vat', () => {
@@ -63,10 +67,10 @@ describe('Vat', () => {
       vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
-      const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
+      const logErrorSpy = vi.spyOn(vat.logger, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(logErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
         new Error(
           'TestDuplexStream: Message cannot be processed (must be JSON-serializable):\nnull',
@@ -89,20 +93,6 @@ describe('Vat', () => {
     });
   });
 
-  describe('#receiveMessages', () => {
-    it('receives messages correctly', async () => {
-      const { vat, stream } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
-      vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
-      const handleSpy = vi.spyOn(vat.streamEnvelopeReplyHandler, 'handle');
-      await vat.init();
-      const rawMessage = { type: 'command', payload: { method: 'test' } };
-      await stream.receiveInput(rawMessage);
-      await delay(10);
-      expect(handleSpy).toHaveBeenCalledWith(rawMessage);
-    });
-  });
-
   describe('handleMessage', () => {
     it('resolves the payload when the message id exists in unresolvedMessages', async () => {
       const { vat } = await makeVat();
@@ -120,7 +110,7 @@ describe('Vat', () => {
 
     it('logs an error when the message id does not exist in unresolvedMessages', async () => {
       const { vat } = await makeVat();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const logErrorSpy = vi.spyOn(vat.logger, 'error');
 
       const nonExistentMessageId = 'v0:9';
       const mockPayload: VatCommandReply['payload'] = {
@@ -133,10 +123,10 @@ describe('Vat', () => {
         payload: mockPayload,
       });
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(logErrorSpy).toHaveBeenCalledWith(
         `No unresolved message with id "${nonExistentMessageId}".`,
       );
-      consoleErrorSpy.mockRestore();
+      logErrorSpy.mockRestore();
     });
   });
 
@@ -170,18 +160,10 @@ describe('Vat', () => {
 
     it('creates a CapTP connection and sends CapTpInit message', async () => {
       const { vat } = await makeVat();
-      // @ts-expect-error - streamEnvelopeReplyHandler is readonly
-      vat.streamEnvelopeReplyHandler = makeStreamEnvelopeReplyHandler(
-        {},
-        console.warn,
-      );
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
         .mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
-      expect(
-        vat.streamEnvelopeReplyHandler.contentHandlers.capTp,
-      ).toBeDefined();
       expect(sendMessageMock).toHaveBeenCalledWith({
         method: VatCommandMethod.CapTpInit,
         params: null,
@@ -189,25 +171,26 @@ describe('Vat', () => {
     });
 
     it('handles CapTP messages', async () => {
-      const { vat } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
-      const wrapCapTpSpy = vi.spyOn(streamEnvelope, 'wrapCapTp');
-      const consoleLogSpy = vi.spyOn(vat.logger, 'log');
+      const logger = makeLogger('[test]');
+      const logSpy = vi.spyOn(logger, 'log');
+      const { vat, stream } = await makeVat(logger);
+      vi.spyOn(vat, 'sendMessage')
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
 
-      await vat.makeCapTp();
+      await vat.init();
 
-      const capTpQuestion = {
+      const capTpPayload = {
         type: 'CTP_BOOTSTRAP',
         epoch: 0,
         questionID: 'q-1',
       };
-      await vat.streamEnvelopeReplyHandler.contentHandlers.capTp?.(
-        capTpQuestion as CapTpMessage,
-      );
+      await stream.receiveInput({ channel: 'capTp', payload: capTpPayload });
+      await delay(10);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(logSpy).toHaveBeenCalledWith(
         'CapTP from vat',
-        stringify(capTpQuestion),
+        stringify(capTpPayload),
       );
 
       const capTpAnswer = {
@@ -219,7 +202,11 @@ describe('Vat', () => {
           slots: [],
         },
       };
-      expect(wrapCapTpSpy).toHaveBeenCalledWith(capTpAnswer);
+
+      expect(logSpy).toHaveBeenLastCalledWith(
+        'CapTP to vat',
+        stringify(capTpAnswer),
+      );
     });
   });
 

@@ -1,7 +1,5 @@
 import type { PromiseKit } from '@endo/promise-kit';
-import type { DuplexStream } from '@ocap/streams';
-
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
+import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
 
 export type VatId = `v${number}`;
 
@@ -25,7 +23,7 @@ export type VatWorkerService = {
    */
   launch: (
     vatId: VatId,
-  ) => Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>>;
+  ) => Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>>;
   /**
    * Terminate a worker identified by its vat id.
    *

@@ -7,14 +7,12 @@ import {
   isVatWorkerServiceCommandReply,
 } from '@ocap/kernel';
 import type {
-  StreamEnvelope,
-  StreamEnvelopeReply,
   VatWorkerService,
   VatId,
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
-import type { DuplexStream } from '@ocap/streams';
-import { MessagePortDuplexStream } from '@ocap/streams';
+import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
+import { isMultiplexEnvelope, MessagePortDuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeHandledCallback, makeLogger } from '@ocap/utils';
 
@@ -77,7 +75,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
 
   async launch(
     vatId: VatId,
-  ): Promise<DuplexStream<StreamEnvelopeReply, StreamEnvelope>> {
+  ): Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>> {
     return this.#sendMessage({
       method: VatWorkerServiceCommandMethod.Launch,
       params: { vatId },
@@ -128,8 +126,9 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           return;
         }
         promise.resolve(
-          MessagePortDuplexStream.make<StreamEnvelope, StreamEnvelopeReply>(
+          new MessagePortDuplexStream<MultiplexEnvelope, MultiplexEnvelope>(
             port,
+            isMultiplexEnvelope,
           ),
         );
         break;
