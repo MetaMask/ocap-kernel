@@ -16,7 +16,7 @@ import type {
 } from './kernel/messages.js';
 import { ExtensionVatWorkerServer } from './kernel/VatWorkerServer.js';
 
-const logger = makeLogger('[ocap glue]');
+const logger = makeLogger('[offscreen]');
 
 main().catch(logger.error);
 
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
 
   const kernelWorker = await makeKernelWorker();
 
-  const replyToPopup = setupPopupStream();
+  setupPopupStream();
 
   /**
    * Reply to a command from the background script.
@@ -69,20 +69,16 @@ async function main(): Promise<void> {
    * @returns An object with methods to send and receive messages from the kernel worker.
    */
   async function makeKernelWorker(): Promise<{
-    sendMessage: (
-      message: KernelCommand | KernelControlCommand,
-    ) => Promise<void>;
+    sendMessage: (message: KernelCommand) => Promise<void>;
     receiveMessages: () => Promise<void>;
+    worker: Worker;
   }> {
     const worker = new Worker('kernel-worker.js', { type: 'module' });
 
     const workerStream = await initializeMessageChannel((message, transfer) =>
       worker.postMessage(message, transfer),
     ).then(async (port) =>
-      MessagePortDuplexStream.make<
-        KernelCommandReply | KernelControlReply,
-        KernelCommand | KernelControlCommand
-      >(port),
+      MessagePortDuplexStream.make<KernelCommandReply, KernelCommand>(port),
     );
 
     const vatWorkerServer = new ExtensionVatWorkerServer(
@@ -102,40 +98,30 @@ async function main(): Promise<void> {
       // change once this offscreen script is providing services to the kernel worker that don't
       // involve the user.
       for await (const message of workerStream) {
-        if (isKernelCommandReply(message)) {
-          await replyToBackground(message);
-          continue;
-        } else if (isKernelControlReply(message)) {
-          await replyToPopup(message);
+        if (!isKernelCommandReply(message)) {
+          logger.error('Kernel sent unexpected reply', message);
           continue;
         }
 
-        logger.error('Kernel sent unexpected reply', message);
+        await replyToBackground(message);
       }
     };
 
-    const sendMessage = async (
-      message: KernelCommand | KernelControlCommand,
-    ): Promise<void> => {
+    const sendMessage = async (message: KernelCommand): Promise<void> => {
       await workerStream.write(message);
     };
 
     return {
       sendMessage,
       receiveMessages,
+      worker,
     };
   }
 
   /**
    * Set up the popup stream.
-   *
-   * @returns A function that sends messages to the popup.
    */
-  function setupPopupStream(): (message: KernelControlReply) => Promise<void> {
-    let sendToPopup = async (message: KernelControlReply): Promise<void> => {
-      logger.log('Offscreen sending message to popup before setup:', message);
-    };
-
+  function setupPopupStream(): void {
     // Set up the stream to the popup every time the popup shows.
     // This is necessary because the stream is closed when the popup is closed.
     chrome.runtime.onConnect.addListener((port) => {
@@ -149,26 +135,27 @@ async function main(): Promise<void> {
           ChromeRuntimeTarget.Popup,
         )
           .then(async (stream) => {
+            const replyToPopup = (event: MessageEvent): void => {
+              if (isKernelControlReply(event.data)) {
+                stream.write(event.data).catch(logger.error);
+              }
+            };
+
+            kernelWorker.worker.addEventListener('message', replyToPopup);
+
             // Close the stream when the popup is closed
             port.onDisconnect.addListener(() => {
               // eslint-disable-next-line promise/no-nesting
               stream.return().catch(console.error);
+              kernelWorker.worker.removeEventListener('message', replyToPopup);
             });
 
-            sendToPopup = async (message) => {
-              logger.log('Offscreen sending message to popup:', message);
-              await stream.write(message);
-            };
-
             return stream.drain(async (message) => {
-              console.log('Offscreen received message from popup:', message);
-              await kernelWorker.sendMessage(message);
+              kernelWorker.worker.postMessage(message);
             });
           })
           .catch(logger.error);
       }
     });
-
-    return sendToPopup;
   }
 }

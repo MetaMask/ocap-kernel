@@ -2,8 +2,10 @@ import type { NonEmptyArray } from '@metamask/utils';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
-import { makeLogger } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
 
+import { isKernelControlCommand } from './messages.js';
+import type { KernelControlCommand, KernelControlReply } from './messages.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
@@ -36,58 +38,18 @@ async function main(): Promise<void> {
   // Run default kernel lifecycle
   await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
   await kernel.launchVat({ id: 'v0' });
+
+  // Handle Kernel Panel messages
+  // TODO: This is a temporary solution to allow the kernel worker to send replies back to the
+  // offscreen script. This should be replaced with MultiplexStream once it's implemented.
+  globalThis.addEventListener('message', (event) => {
+    if (isKernelControlCommand(event.data)) {
+      handleControlMessage(kernel, event.data)
+        .then((reply) => globalThis.postMessage(reply))
+        .catch(logger.error);
+    }
+  });
 }
-
-/**
- * Handle a control message and return the appropriate reply.
- *
- * @param kernel - The kernel instance.
- * @param message - The control message to handle.
- * @returns The reply to the control message.
- */
-// async function handleControlMessage(
-//   kernel: Kernel,
-//   message: KernelControlCommand,
-// ): Promise<KernelControlReply> {
-//   switch (message.method) {
-//     case 'initKernel':
-//       await kernel.init();
-//       return { method: 'initKernel', params: null };
-
-//     case 'shutdownKernel':
-//       // TODO: Implement proper shutdown sequence
-//       return { method: 'shutdownKernel', params: null };
-
-//     case 'launchVat':
-//       await kernel.launchVat({ id: message.params.id });
-//       return { method: 'launchVat', params: null };
-
-//     case 'restartVat':
-//       await kernel.restartVat(message.params.id);
-//       return { method: 'restartVat', params: null };
-
-//     case 'terminateVat':
-//       await kernel.terminateVat(message.params.id);
-//       return { method: 'terminateVat', params: null };
-
-//     case 'terminateAllVats':
-//       await kernel.terminateAllVats();
-//       return { method: 'terminateAllVats', params: null };
-
-//     case 'getStatus':
-//       return {
-//         method: 'getStatus',
-//         params: {
-//           isRunning: true, // TODO: Track actual kernel state
-//           activeVats: kernel.getVatIds(),
-//         },
-//       };
-
-//     default:
-//       logger.error('Unknown control message method', message);
-//       throw new Error(`Unknown control message: ${stringify(message)}`);
-//   }
-// }
 
 /**
  * Runs the full lifecycle of an array of vats
@@ -126,4 +88,47 @@ async function runVatLifecycle(
   console.timeEnd(`Terminated vats: ${vatIds}`);
 
   logger.log(`Kernel has ${kernel.getVatIds().length} vats`);
+}
+
+/**
+ * Handle a control message and return the appropriate reply.
+ *
+ * @param kernel - The kernel instance.
+ * @param message - The control message to handle.
+ * @returns The reply to the control message.
+ */
+async function handleControlMessage(
+  kernel: Kernel,
+  message: KernelControlCommand,
+): Promise<KernelControlReply> {
+  switch (message.method) {
+    case 'launchVat':
+      await kernel.launchVat({ id: message.params.id });
+      return { method: 'launchVat', params: null };
+
+    case 'restartVat':
+      await kernel.restartVat(message.params.id);
+      return { method: 'restartVat', params: null };
+
+    case 'terminateVat':
+      await kernel.terminateVat(message.params.id);
+      return { method: 'terminateVat', params: null };
+
+    case 'terminateAllVats':
+      await kernel.terminateAllVats();
+      return { method: 'terminateAllVats', params: null };
+
+    case 'getStatus':
+      return {
+        method: 'getStatus',
+        params: {
+          isRunning: true, // TODO: Track actual kernel state
+          activeVats: kernel.getVatIds(),
+        },
+      };
+
+    default:
+      logger.error('Unknown control message method', message);
+      throw new Error(`Unknown control message: ${stringify(message)}`);
+  }
 }

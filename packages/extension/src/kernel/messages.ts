@@ -17,14 +17,6 @@ export const isKernelStatus: TypeGuard<KernelStatus> = (
   value.activeVats.every((id) => isVatId(id));
 
 const kernelControlCommand = {
-  InitKernel: messageType<null, null>(
-    (send) => send === null,
-    (reply) => reply === null,
-  ),
-  ShutdownKernel: messageType<null, null>(
-    (send) => send === null,
-    (reply) => reply === null,
-  ),
   LaunchVat: messageType<{ id: VatId }, null>(
     (send) => isObject(send) && isVatId(send.id),
     (reply) => reply === null,

@@ -5,6 +5,7 @@
     <title>Kernel Panel</title>
     <style>
       .kernel-panel {
+        width: 370px;
         padding: 16px;
         font-family:
           system-ui,
@@ -12,67 +13,124 @@
           sans-serif;
       }
 
-      .kernel-controls,
       .vat-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         margin-bottom: 16px;
       }
 
-      button {
+      button,
+      select,
+      input {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        font-size: 14px;
         margin: 4px;
-        padding: 8px 16px;
+        background-color: white;
+        transition: background-color 0.1s;
+      }
+
+      button {
+        white-space: nowrap;
         cursor: pointer;
+        background-color: #f0f0f0;
+      }
+
+      button:hover:not(:disabled) {
+        background-color: #ccc;
       }
 
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.7;
         cursor: not-allowed;
       }
 
       button.green {
         background-color: #4caf50;
+        color: white;
+        border: none;
       }
 
       button.red {
         background-color: #f44336;
+        color: white;
+        border: none;
       }
 
       button.yellow {
         background-color: #ffeb3b;
+        border: none;
+      }
+
+      button.red:hover:not(:disabled) {
+        color: white;
+        background-color: #333;
+      }
+
+      select {
+        min-width: 120px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 8px auto;
+        padding-right: 30px;
       }
 
       input {
-        padding: 8px;
-        margin: 4px;
+        width: 50px;
       }
 
       #status-display {
         background: #f5f5f5;
         padding: 12px;
-        border-radius: 4px;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+
+      h3 {
+        margin: 4px;
+      }
+
+      .kernel-status {
+        margin: 4px 4px 16px;
+      }
+
+      #vat-id {
+        width: 60px;
       }
     </style>
     <script src="./popup.ts" type="module"></script>
   </head>
   <body>
     <div id="panel-root">
-      <h2>Kernel Panel</h2>
       <div class="kernel-panel">
-        <div class="kernel-controls">
-          <button class="green" id="init-kernel">Initialize Kernel</button>
-          <button class="red" id="shutdown-kernel">Shutdown Kernel</button>
-          <button class="yellow" id="terminate-all">Terminate All Vats</button>
+        <div class="kernel-status">
+          <h3>Kernel Status</h3>
+          <pre id="status-display"></pre>
         </div>
 
         <div class="vat-controls">
-          <input type="text" id="vat-id" placeholder="Vat ID" />
+          <input type="text" id="new-vat-id" placeholder="Vat ID" />
           <button id="launch-vat">Launch Vat</button>
+        </div>
+
+        <div class="vat-controls">
+          <select id="vat-id">
+            <option value="">Select Vat</option>
+          </select>
           <button id="restart-vat">Restart Vat</button>
           <button id="terminate-vat">Terminate Vat</button>
         </div>
 
-        <div class="kernel-status">
-          <h3>Kernel Status</h3>
-          <pre id="status-display"></pre>
+        <div class="kernel-controls">
+          <button class="red" id="terminate-all">Terminate All Vats</button>
         </div>
       </div>
     </div>
