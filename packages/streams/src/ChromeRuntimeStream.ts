@@ -107,6 +107,11 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (message.target !== this.#target || message.source !== this.#source) {
+      console.debug(
+        `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
+        `Expected target: ${this.#target}`,
+        `Expected source: ${this.#source}`,
+      );
       return;
     }
 
