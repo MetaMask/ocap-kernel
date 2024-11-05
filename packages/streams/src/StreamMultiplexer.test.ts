@@ -14,19 +14,6 @@ const isString: ValidateInput<string> = (value) => typeof value === 'string';
 
 const isNumber: ValidateInput<number> = (value) => typeof value === 'number';
 
-const makeMultiplexer = async (
-  duplex?: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>,
-): Promise<
-  [TestMultiplexer, TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>]
-> => {
-  // We can't use the async factory for a parameter default
-  // eslint-disable-next-line no-param-reassign
-  duplex ??= await TestDuplexStream.make<MultiplexEnvelope, MultiplexEnvelope>(
-    () => undefined,
-  );
-  return [new TestMultiplexer(duplex), duplex];
-};
-
 const makeEnvelope = (channel: string, payload: Json): MultiplexEnvelope => ({
   channel,
   payload,
@@ -45,7 +32,7 @@ describe('StreamMultiplexer', () => {
 
   describe('addChannel', () => {
     it('makes and adds channels', async () => {
-      const [multiplex] = await makeMultiplexer();
+      const [multiplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
       expect(ch1[Symbol.asyncIterator]()).toBe(ch1);
@@ -53,7 +40,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('throws if adding a channel with the same name multiple times', async () => {
-      const [multiplex] = await makeMultiplexer();
+      const [multiplex] = await TestMultiplexer.make();
       multiplex.addChannel('1', isString, noop);
       expect(() => multiplex.addChannel('1', isString, noop)).toThrow(
         'Channel "1" already exists',
@@ -61,7 +48,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('throws if adding channels after starting', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       multiplex.addChannel('1', isString, noop);
       const startP = multiplex.start();
 
@@ -73,7 +60,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('throws if adding channels after ending', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       // Add one channel so we can start the multiplexer.
       multiplex.addChannel('1', isString, noop);
 
@@ -87,7 +74,7 @@ describe('StreamMultiplexer', () => {
 
   describe('start', () => {
     it('is idempotent', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       // Add one channel so we can start the multiplexer.
       multiplex.addChannel('1', isString, noop);
       const startP = Promise.all([multiplex.start(), multiplex.start()]).then(
@@ -98,7 +85,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('enables draining channels separately', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1Handler = vi.fn();
       const ch2Handler = vi.fn();
       const ch1 = multiplex.addChannel('1', isString, ch1Handler);
@@ -127,14 +114,14 @@ describe('StreamMultiplexer', () => {
 
   describe('drainAll', () => {
     it('throws if draining when there are no channels', async () => {
-      const [multiplex] = await makeMultiplexer();
+      const [multiplex] = await TestMultiplexer.make();
       await expect(multiplex.drainAll()).rejects.toThrow(
         'TestMultiplexer has no channels',
       );
     });
 
     it('forwards input to the correct channel', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1Handler = vi.fn();
       const ch2Handler = vi.fn();
       multiplex.addChannel('1', isString, ch1Handler);
@@ -156,7 +143,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('ends all streams when the duplex stream returns', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
       const drainP = multiplex.drainAll();
@@ -170,7 +157,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('ends all streams when any channel returns', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
       const drainP = multiplex.drainAll();
@@ -185,7 +172,7 @@ describe('StreamMultiplexer', () => {
 
     it('ends all streams when the duplex stream throws', async () => {
       const onDispatch = vi.fn();
-      const [multiplex] = await makeMultiplexer(
+      const [multiplex] = await TestMultiplexer.make(
         await TestDuplexStream.make(onDispatch),
       );
       const ch1 = multiplex.addChannel('1', isString, noop);
@@ -208,7 +195,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('ends all streams when a channel throws', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
 
@@ -224,7 +211,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('ends all streams when receiving a message for a non-existent channel', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
 
@@ -243,7 +230,7 @@ describe('StreamMultiplexer', () => {
 
   describe('writing', () => {
     it('writes channel messages correctly', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
 
@@ -264,7 +251,7 @@ describe('StreamMultiplexer', () => {
     });
 
     it('returns done results from channel writes after ending', async () => {
-      const [multiplex, duplex] = await makeMultiplexer();
+      const [multiplex, duplex] = await TestMultiplexer.make();
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
 
@@ -272,6 +259,35 @@ describe('StreamMultiplexer', () => {
 
       expect(await ch1.write('foo')).toStrictEqual(makeDoneResult());
       expect(await ch2.write(42)).toStrictEqual(makeDoneResult());
+    });
+  });
+
+  describe('return', () => {
+    it('ends the multiplexer and its channels', async () => {
+      const [multiplex] = await TestMultiplexer.make();
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
+
+      await multiplex.return();
+
+      expect(await ch1.next()).toStrictEqual(makeDoneResult());
+      expect(await ch2.next()).toStrictEqual(makeDoneResult());
+    });
+
+    it('is idempotent', async () => {
+      const [multiplex] = await TestMultiplexer.make();
+      const ch1 = multiplex.addChannel('1', isString, noop);
+      const ch2 = multiplex.addChannel('2', isNumber, noop);
+
+      await multiplex.return();
+
+      expect(await ch1.next()).toStrictEqual(makeDoneResult());
+      expect(await ch2.next()).toStrictEqual(makeDoneResult());
+
+      await multiplex.return();
+
+      expect(await ch1.next()).toStrictEqual(makeDoneResult());
+      expect(await ch2.next()).toStrictEqual(makeDoneResult());
     });
   });
 });

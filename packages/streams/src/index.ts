@@ -33,4 +33,7 @@ export type {
   StreamEnvelopeKit,
 } from './envelope-kit.js';
 export { StreamMultiplexer } from './StreamMultiplexer.js';
-export type { MultiplexEnvelope } from './StreamMultiplexer.js';
+export type {
+  HandledDuplexStream,
+  MultiplexEnvelope,
+} from './StreamMultiplexer.js';

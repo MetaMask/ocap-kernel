@@ -225,10 +225,3 @@ export type DuplexStream<Read extends Json, Write extends Json = Read> = Pick<
 > & {
   [Symbol.asyncIterator]: () => DuplexStream<Read, Write>;
 };
-
-export type SynchronizableDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
-> = DuplexStream<Read, Write> & {
-  synchronize(): Promise<void>;
-};
