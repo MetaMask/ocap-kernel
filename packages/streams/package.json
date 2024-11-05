@@ -40,6 +40,7 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "lint:ts": "tsc --project tsconfig.lint.json",
     "publish:preview": "yarn npm publish --tag preview",
+    "postinstall": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 yarn playwright install chromium",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
