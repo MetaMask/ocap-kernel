@@ -1,7 +1,11 @@
 import '@ocap/shims/endoify';
 
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
+import type {
+  MessagePortDuplexStream,
+  DuplexStream,
+  MultiplexEnvelope,
+} from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -12,7 +16,6 @@ import type {
   KernelCommandReply,
   VatCommand,
 } from './messages/index.js';
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
 import { makeMapKVStore } from '../test/storage.js';
@@ -45,9 +48,7 @@ describe('Kernel', () => {
 
     launchWorkerMock = vi
       .spyOn(mockWorkerService, 'launch')
-      .mockResolvedValue(
-        {} as DuplexStream<StreamEnvelopeReply, StreamEnvelope>,
-      );
+      .mockResolvedValue({} as DuplexStream<MultiplexEnvelope>);
     terminateWorkerMock = vi
       .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);

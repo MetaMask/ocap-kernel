@@ -1,6 +1,6 @@
 import { makeCapTP } from '@endo/captp';
 import { StreamReadError } from '@ocap/errors';
-import type { DuplexStream } from '@ocap/streams';
+import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
 import type {
@@ -8,24 +8,26 @@ import type {
   VatCommand,
   VatCommandReply,
 } from './messages/index.js';
-import { VatCommandMethod } from './messages/index.js';
-import type { StreamEnvelope, StreamEnvelopeReply } from './stream-envelope.js';
 import {
-  makeStreamEnvelopeHandler,
-  wrapCapTp,
-  wrapStreamCommandReply,
-} from './stream-envelope.js';
+  isCapTpMessage,
+  isVatCommand,
+  VatCommandMethod,
+} from './messages/index.js';
 
 type SupervisorConstructorProps = {
   id: string;
-  stream: DuplexStream<StreamEnvelope, StreamEnvelopeReply>;
+  multiplexer: StreamMultiplexer;
   bootstrap?: unknown;
 };
 
 export class Supervisor {
   readonly id: string;
 
-  readonly #stream: DuplexStream<StreamEnvelope, StreamEnvelopeReply>;
+  readonly #multiplexer: StreamMultiplexer;
+
+  readonly #commandStream: HandledDuplexStream<VatCommand, VatCommandReply>;
+
+  readonly #capTpStream: HandledDuplexStream<CapTpMessage, CapTpMessage>;
 
   readonly #defaultCompartment = new Compartment({ URL });
 
@@ -33,37 +35,36 @@ export class Supervisor {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, stream, bootstrap }: SupervisorConstructorProps) {
+  constructor({ id, multiplexer, bootstrap }: SupervisorConstructorProps) {
     this.id = id;
     this.#bootstrap = bootstrap;
-    this.#stream = stream;
-
-    const streamEnvelopeHandler = makeStreamEnvelopeHandler(
-      {
-        command: this.handleMessage.bind(this),
-        capTp: async (content) => this.capTp?.dispatch(content),
-      },
-      (error) => console.error('Supervisor stream error:', error),
+    this.#multiplexer = multiplexer;
+    this.#commandStream = multiplexer.addChannel(
+      'command',
+      isVatCommand,
+      this.handleMessage.bind(this),
+    );
+    this.#capTpStream = multiplexer.addChannel(
+      'capTp',
+      isCapTpMessage,
+      // eslint-disable-next-line no-void
+      async (content): Promise<void> => void this.capTp?.dispatch(content),
     );
 
-    this.#stream
-      .drain(async (value) => {
-        await streamEnvelopeHandler.handle(value);
-      })
-      .catch((error) => {
-        console.error(
-          `Unexpected read error from Supervisor "${this.id}"`,
-          error,
-        );
-        throw new StreamReadError({ supervisorId: this.id }, error);
-      });
+    multiplexer.drainAll().catch((error) => {
+      console.error(
+        `Unexpected read error from Supervisor "${this.id}"`,
+        error,
+      );
+      throw new StreamReadError({ supervisorId: this.id }, error);
+    });
   }
 
   /**
    * Terminates the Supervisor.
    */
   async terminate(): Promise<void> {
-    await this.#stream.return();
+    await this.#multiplexer.return();
   }
 
   /**
@@ -95,7 +96,7 @@ export class Supervisor {
         this.capTp = makeCapTP(
           'iframe',
           async (content: unknown) =>
-            this.#stream.write(wrapCapTp(content as CapTpMessage)),
+            this.#capTpStream.write(content as CapTpMessage),
           this.#bootstrap,
         );
         await this.replyToMessage(id, {
@@ -126,10 +127,11 @@ export class Supervisor {
    * @param payload - The payload to reply with.
    */
   async replyToMessage(
-    id: VatCommand['id'],
+    id: VatCommandReply['id'],
     payload: VatCommandReply['payload'],
   ): Promise<void> {
-    await this.#stream.write(wrapStreamCommandReply({ id, payload }));
+    console.log('replyToMessage', id, payload);
+    await this.#commandStream.write({ id, payload });
   }
 
   /**

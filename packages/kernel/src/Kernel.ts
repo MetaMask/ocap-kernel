@@ -5,6 +5,7 @@ import {
   VatNotFoundError,
   toError,
 } from '@ocap/errors';
+import { StreamMultiplexer } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
@@ -184,7 +185,7 @@ export class Kernel {
       throw new VatAlreadyExistsError(id);
     }
     const stream = await this.#vatWorkerService.launch(id);
-    const vat = new Vat({ id, stream });
+    const vat = new Vat({ id, multiplexer: new StreamMultiplexer(stream) });
     this.#vats.set(vat.id, vat);
     await vat.init();
     return vat;

@@ -24,15 +24,7 @@ export {
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
-export { makeStreamEnvelopeKit } from './envelope-kit.js';
-export type { StreamEnveloper } from './enveloper.js';
-export type { Envelope } from './envelope.js';
-export type { StreamEnvelopeHandler } from './envelope-handler.js';
-export type {
-  MakeStreamEnvelopeHandler,
-  StreamEnvelopeKit,
-} from './envelope-kit.js';
-export { StreamMultiplexer } from './StreamMultiplexer.js';
+export { StreamMultiplexer, isMultiplexEnvelope } from './StreamMultiplexer.js';
 export type {
   HandledDuplexStream,
   MultiplexEnvelope,

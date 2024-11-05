@@ -20,7 +20,7 @@ describe('index', () => {
       'PostMessageWriter',
       'StreamMultiplexer',
       'initializeMessageChannel',
-      'makeStreamEnvelopeKit',
+      'isMultiplexEnvelope',
       'receiveMessagePort',
     ]);
   });
