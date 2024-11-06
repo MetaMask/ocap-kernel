@@ -1,7 +1,7 @@
-import { BaseError } from 'src/BaseError.js';
 import { describe, it, expect } from 'vitest';
 
 import { marshalError } from './marshalError.js';
+import { BaseError } from '../BaseError.js';
 import { ErrorCode, ErrorSentinel } from '../constants.js';
 import { VatNotFoundError } from '../errors/VatNotFoundError.js';
 

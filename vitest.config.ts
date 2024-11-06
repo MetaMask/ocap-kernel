@@ -36,7 +36,7 @@ export default defineConfig({
         'packages/errors/**': {
           statements: 100,
           functions: 100,
-          branches: 92.59,
+          branches: 100,
           lines: 100,
         },
         'packages/extension/**': {

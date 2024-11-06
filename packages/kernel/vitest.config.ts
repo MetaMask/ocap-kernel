@@ -9,6 +9,7 @@ const config = mergeConfig(
     test: {
       name: 'kernel',
       pool: 'vmThreads',
+      environment: 'jsdom',
       alias: [
         {
           find: '@ocap/shims/endoify',
