@@ -227,6 +227,7 @@ export class ChromeRuntimeDuplexStream<
     if (localTarget === remoteTarget) {
       throw new Error('localTarget and remoteTarget must be different');
     }
+
     const stream = new ChromeRuntimeDuplexStream<Read, Write>(
       runtime,
       localTarget,
