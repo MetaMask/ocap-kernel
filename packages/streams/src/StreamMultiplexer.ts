@@ -1,3 +1,23 @@
+/**
+ * This module provides a class and utilities for multiplexing duplex streams. A
+ * multiplexer is not a stream itself, but rather a wrapper around a duplex stream.
+ * The multiplexer provides methods for creating "channels" over the underlying stream,
+ * which are themselves duplex streams and may have a different message type and
+ * validation logic.
+ *
+ * The multiplexer is constructed in an idle state, and must be explicitly "started"
+ * via the `start()` or `drainAll()` methods. All channels must be added before the
+ * multiplexer is started.
+ *
+ * Starting the multiplexer will synchronize the underlying duplex stream, if it is
+ * synchronizable. Therefore, in order to prevent message loss, callers **should not**
+ * synchronize the underlying duplex stream before passing it to the multiplexer. For
+ * the same reason, the multiplexer will throw if any channels are added after it has
+ * started.
+ *
+ * @module StreamMultiplexer
+ */
+
 import type { Json } from '@metamask/utils';
 import { isObject } from '@metamask/utils';
 
@@ -10,6 +30,9 @@ import type {
 import { BaseReader } from './BaseStream.js';
 import { makeDoneResult } from './utils.js';
 
+/**
+ * A duplex stream that can maybe be synchronized.
+ */
 type SynchronizableDuplexStream<
   Read extends Json,
   Write extends Json = Read,
@@ -17,6 +40,9 @@ type SynchronizableDuplexStream<
   synchronize?: () => Promise<void>;
 };
 
+/**
+ * The read stream implementation for {@link StreamMultiplexer} channels.
+ */
 class ChannelReader<Read extends Json> extends BaseReader<Read> {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(args: BaseReaderArgs<Read>) {
@@ -33,6 +59,10 @@ class ChannelReader<Read extends Json> extends BaseReader<Read> {
 
 type ChannelName = string;
 
+/**
+ * A multiplex envelope. The wrapper for all values passing through the underlying
+ * duplex stream of a {@link StreamMultiplexer}.
+ */
 export type MultiplexEnvelope = {
   channel: ChannelName;
   payload: Json;
@@ -55,12 +85,10 @@ export const isMultiplexEnvelope = (
 
 type HandleRead<Read extends Json> = (value: Read) => void | Promise<void>;
 
-type ChannelRecord<Read extends Json, Write extends Json = Read> = {
-  channelName: ChannelName;
-  stream: HandledDuplexStream<Read, Write>;
-  receiveInput: ReceiveInput;
-};
-
+/**
+ * A duplex stream whose `drain` method does not accept a callback. We say it is
+ * "handled" because in practice the callback is bound to the `drain` method.
+ */
 export type HandledDuplexStream<Read extends Json, Write extends Json> = Omit<
   DuplexStream<Read, Write>,
   'drain'
@@ -73,6 +101,12 @@ enum MultiplexerStatus {
   Running = 1,
   Done = 2,
 }
+
+type ChannelRecord<Read extends Json, Write extends Json = Read> = {
+  channelName: ChannelName;
+  stream: HandledDuplexStream<Read, Write>;
+  receiveInput: ReceiveInput;
+};
 
 export class StreamMultiplexer {
   #status: MultiplexerStatus;
@@ -161,11 +195,12 @@ export class StreamMultiplexer {
   }
 
   /**
-   * Adds a channel to the multiplexer.
+   * Adds a channel to the multiplexer. Must be called before starting the
+   * multiplexer.
    *
-   * @param channelName - The channel name.
-   * @param validateInput - The input validator.
-   * @param handleRead - The channel stream's drain handler.
+   * @param channelName - The channel name. Must be unique.
+   * @param validateInput - The channel's input validator.
+   * @param handleRead - The channel's drain handler.
    * @returns The channel stream.
    */
   addChannel<Read extends Json, Write extends Json>(
@@ -197,12 +232,14 @@ export class StreamMultiplexer {
   }
 
   /**
-   * Constructs a channel.
+   * Constructs a channel. Channels are objects that implement the {@link HandledDuplexStream}
+   * interface. Internally, they are backed up by a {@link ChannelReader} and a wrapped
+   * write method that forwards messages to the underlying duplex stream.
    *
-   * @param channelName - The channel name.
-   * @param validateInput - The input validator.
-   * @param handleRead - The channel stream's drain handler.
-   * @returns The channel stream and its receiveInput method.
+   * @param channelName - The channel name. Must be unique.
+   * @param validateInput - The channel's input validator.
+   * @param handleRead - The channel's drain handler.
+   * @returns The channel stream and its `receiveInput` method.
    */
   #makeChannel<Read extends Json, Write extends Json>(
     channelName: ChannelName,
