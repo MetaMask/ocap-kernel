@@ -1,18 +1,11 @@
 import { makeCapTP } from '@endo/captp';
+import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
-import type {
-  CapTpMessage,
-  VatCommand,
-  VatCommandReply,
-} from './messages/index.js';
-import {
-  isCapTpMessage,
-  isVatCommand,
-  VatCommandMethod,
-} from './messages/index.js';
+import type { VatCommand, VatCommandReply } from './messages/index.js';
+import { isVatCommand, VatCommandMethod } from './messages/index.js';
 
 type SupervisorConstructorProps = {
   id: string;
@@ -27,7 +20,7 @@ export class Supervisor {
 
   readonly #commandStream: HandledDuplexStream<VatCommand, VatCommandReply>;
 
-  readonly #capTpStream: HandledDuplexStream<CapTpMessage, CapTpMessage>;
+  readonly #capTpStream: HandledDuplexStream<Json, Json>;
 
   readonly #defaultCompartment = new Compartment({ URL });
 
@@ -46,7 +39,8 @@ export class Supervisor {
     );
     this.#capTpStream = multiplexer.addChannel(
       'capTp',
-      isCapTpMessage,
+      // The streams already enforce that the values are JSON.
+      (_value): _value is Json => true,
       // eslint-disable-next-line no-void
       async (content): Promise<void> => void this.capTp?.dispatch(content),
     );
@@ -76,7 +70,7 @@ export class Supervisor {
    */
   async handleMessage({ id, payload }: VatCommand): Promise<void> {
     switch (payload.method) {
-      case VatCommandMethod.Evaluate: {
+      case VatCommandMethod.evaluate: {
         if (typeof payload.params !== 'string') {
           console.error(
             'Supervisor received command with unexpected params',
@@ -87,27 +81,26 @@ export class Supervisor {
         }
         const result = this.evaluate(payload.params);
         await this.replyToMessage(id, {
-          method: VatCommandMethod.Evaluate,
+          method: VatCommandMethod.evaluate,
           params: stringify(result),
         });
         break;
       }
-      case VatCommandMethod.CapTpInit: {
+      case VatCommandMethod.capTpInit: {
         this.capTp = makeCapTP(
           'iframe',
-          async (content: unknown) =>
-            this.#capTpStream.write(content as CapTpMessage),
+          async (content: Json) => this.#capTpStream.write(content),
           this.#bootstrap,
         );
         await this.replyToMessage(id, {
-          method: VatCommandMethod.CapTpInit,
+          method: VatCommandMethod.capTpInit,
           params: '~~~ CapTP Initialized ~~~',
         });
         break;
       }
-      case VatCommandMethod.Ping:
+      case VatCommandMethod.ping:
         await this.replyToMessage(id, {
-          method: VatCommandMethod.Ping,
+          method: VatCommandMethod.ping,
           params: 'pong',
         });
         break;

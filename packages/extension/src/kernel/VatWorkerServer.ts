@@ -86,17 +86,17 @@ export class ExtensionVatWorkerServer {
     };
 
     switch (method) {
-      case VatWorkerServiceCommandMethod.Launch:
+      case VatWorkerServiceCommandMethod.launch:
         await this.#launch(params.vatId)
           .then((port) => this.#postMessage({ id, payload }, [port]))
           .catch(async (error) => handleError(error, params.vatId));
         break;
-      case VatWorkerServiceCommandMethod.Terminate:
+      case VatWorkerServiceCommandMethod.terminate:
         await this.#terminate(params.vatId)
           .then(() => this.#postMessage({ id, payload }))
           .catch(async (error) => handleError(error, params.vatId));
         break;
-      case VatWorkerServiceCommandMethod.TerminateAll:
+      case VatWorkerServiceCommandMethod.terminateAll:
         await Promise.all(
           Array.from(this.#vatWorkers.keys()).map(async (vatId) =>
             this.#terminate(vatId).catch((error) => handleError(error, vatId)),

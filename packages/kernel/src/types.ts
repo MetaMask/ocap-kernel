@@ -1,4 +1,5 @@
 import type { PromiseKit } from '@endo/promise-kit';
+import { define } from '@metamask/superstruct';
 import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
 
 export type VatId = `v${number}`;
@@ -7,6 +8,20 @@ export const isVatId = (value: unknown): value is VatId =>
   typeof value === 'string' &&
   value.at(0) === 'v' &&
   value.slice(1) === String(Number(value.slice(1)));
+
+export const VatIdStruct = define<VatId>('VatId', isVatId);
+
+export type VatMessageId = `m${number}`;
+
+export const isVatMessageId = (value: unknown): value is VatMessageId =>
+  typeof value === 'string' &&
+  value.at(0) === 'm' &&
+  value.slice(1) === String(Number(value.slice(1)));
+
+export const VatMessageIdStruct = define<VatMessageId>(
+  'VatMessageId',
+  isVatMessageId,
+);
 
 export type PromiseCallbacks<Resolve = unknown> = Omit<
   PromiseKit<Resolve>,

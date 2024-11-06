@@ -15,15 +15,15 @@ import {
 import type { VatId } from '../types.js';
 
 const launchPayload: VatWorkerServiceCommandReply['payload'] = harden({
-  method: VatWorkerServiceCommandMethod.Launch,
+  method: VatWorkerServiceCommandMethod.launch,
   params: { vatId: 'v0' },
 });
 const terminatePayload: VatWorkerServiceCommandReply['payload'] = harden({
-  method: VatWorkerServiceCommandMethod.Terminate,
+  method: VatWorkerServiceCommandMethod.terminate,
   params: { vatId: 'v0' },
 });
 const terminateAllPayload: VatWorkerServiceCommandReply['payload'] = harden({
-  method: VatWorkerServiceCommandMethod.TerminateAll,
+  method: VatWorkerServiceCommandMethod.terminateAll,
   params: null,
 });
 

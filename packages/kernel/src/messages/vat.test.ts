@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isVatCommand, VatCommandMethod } from './vat.js';
 
 describe('isVatCommand', () => {
-  const payload = { method: VatCommandMethod.Evaluate, params: '3 + 3' };
+  const payload = { method: VatCommandMethod.evaluate, params: '3 + 3' };
 
   it.each`
     value                                | expectedResult | description

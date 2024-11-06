@@ -76,14 +76,14 @@ describe('ExtensionVatWorkerServer', () => {
       clientPort.postMessage({
         id: 'm0',
         payload: {
-          method: VatWorkerServiceCommandMethod.Launch,
+          method: VatWorkerServiceCommandMethod.launch,
           params: { vatId },
         },
       });
       clientPort.postMessage({
         id: 'm1',
         payload: {
-          method: VatWorkerServiceCommandMethod.TerminateAll,
+          method: VatWorkerServiceCommandMethod.terminateAll,
           params: null,
         },
       });
@@ -92,7 +92,7 @@ describe('ExtensionVatWorkerServer', () => {
 
       expect(errorSpy).toHaveBeenCalledOnce();
       expect(errorSpy.mock.lastCall?.[0]).toBe(
-        `Error handling ${VatWorkerServiceCommandMethod.TerminateAll} for vatId ${vatId}`,
+        `Error handling ${VatWorkerServiceCommandMethod.terminateAll} for vatId ${vatId}`,
       );
       expect(errorSpy.mock.lastCall?.[1]).toBe(vatNotFoundError);
     });
