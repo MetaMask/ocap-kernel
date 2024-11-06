@@ -1,7 +1,7 @@
 import type { VatId } from '@ocap/kernel';
-import type { KernelControlCommand } from 'src/kernel/messages.js';
 
 import { logger } from './shared.js';
+import type { KernelControlCommand } from '../kernel/messages.js';
 
 export const vatId = document.getElementById('vat-id') as HTMLSelectElement;
 export const newVatId = document.getElementById(
