@@ -6,12 +6,26 @@ import { defineConfig, mergeConfig } from 'vite';
 import { getDefaultConfig } from '../../vitest.config.packages.js';
 
 const defaultConfig = getDefaultConfig();
+delete defaultConfig.test?.environment;
 
 export default mergeConfig(
   defaultConfig,
   defineConfig({
+    optimizeDeps: {
+      include: ['@vitest/coverage-istanbul'],
+    },
     test: {
-      setupFiles: '../test-utils/src/env/mock-endo.ts',
+      setupFiles: '../shims/src/endoify.js',
+      browser: {
+        provider: 'playwright',
+        name: 'chromium',
+        enabled: true,
+        headless: true,
+        screenshotFailures: false,
+      },
+      coverage: {
+        provider: 'istanbul',
+      },
     },
   }),
 );

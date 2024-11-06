@@ -293,7 +293,7 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
         throw repeatedFailureError;
       } else {
         await this.#throw(
-          /* v8 ignore next: The ternary is mostly to please TypeScript */
+          /* istanbul ignore next: The ternary is mostly to please TypeScript */
           error instanceof Error ? error : new Error(String(error)),
           true,
         );

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
-    "types": ["ses", "vitest", "vitest/jsdom"]
+    "types": ["ses", "vitest", "vitest/browser"]
   },
   "references": [
     { "path": "../errors" },

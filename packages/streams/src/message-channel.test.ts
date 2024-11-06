@@ -1,5 +1,4 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
-import { JSDOM } from 'jsdom';
+import { delay } from '@ocap/test-utils';
 import { vi, describe, it, beforeEach, afterEach, beforeAll } from 'vitest';
 
 import {
@@ -8,12 +7,24 @@ import {
   receiveMessagePort,
 } from './message-channel.js';
 
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
+/**
+ * Construct a mock Window with mock message post and listen capabilities.
+ *
+ * @returns A mock window which can postMessage and addEventListener.
+ */
+const createWindow = (): {
+  postMessage: typeof Window.prototype.postMessage;
+  addEventListener: typeof Window.prototype.addEventListener;
+} => ({
+  postMessage: vi.fn(),
+  addEventListener: vi.fn(),
+});
 
 describe('initializeMessageChannel', () => {
   it('calls postMessage parameter', async ({ expect }) => {
-    const targetWindow = new JSDOM().window;
+    const targetWindow = createWindow();
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
+
     // We intentionally let this one go. It will never settle.
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     initializeMessageChannel((message, transfer) =>
@@ -52,7 +63,7 @@ describe('initializeMessageChannel', () => {
   it('has called portHandler with the local port by the time the promise resolves', async ({
     expect,
   }) => {
-    const targetWindow = new JSDOM().window;
+    const targetWindow = createWindow();
     const portHandler = vi.fn();
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
     const messageChannelP = initializeMessageChannel(
@@ -68,11 +79,11 @@ describe('initializeMessageChannel', () => {
 
     expect(portHandler).toHaveBeenCalledOnce();
     expect(portHandler).toHaveBeenCalledWith(expect.any(MessagePort));
-    expect(portHandler).not.toHaveBeenCalledWith(remotePort);
+    expect(portHandler.mock.lastCall?.[0] === remotePort).toBe(false);
   });
 
   it('resolves with the value returned by portHandler', async ({ expect }) => {
-    const targetWindow = new JSDOM().window;
+    const targetWindow = createWindow();
     const portHandler = vi.fn(() => 'foo');
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
     const messageChannelP = initializeMessageChannel(
@@ -100,7 +111,7 @@ describe('initializeMessageChannel', () => {
   ])(
     'rejects if sent unexpected message via message channel: %#',
     async (unexpectedMessage, { expect }) => {
-      const targetWindow = new JSDOM().window;
+      const targetWindow = createWindow();
       const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
       const messageChannelP = initializeMessageChannel((message, transfer) =>
         targetWindow.postMessage(message, '*', transfer),
@@ -116,7 +127,6 @@ describe('initializeMessageChannel', () => {
     },
   );
 });
-
 describe('receiveMessagePort', () => {
   let messageEventListeners: [string, EventListenerOrEventListenerObject][] =
     [];
@@ -277,7 +287,10 @@ describe('receiveMessagePort', () => {
     },
   );
 
-  it.for([{}, { ports: [] }, { ports: [{}, {}] }])(
+  const mockMessageChannel = new MessageChannel();
+  const mockPorts = [mockMessageChannel.port1, mockMessageChannel.port2];
+
+  it.for([{}, { ports: [] }, { ports: mockPorts }])(
     'ignores message events with unexpected ports: %#',
     async (unexpectedPorts, { expect }) => {
       const messagePortP = receiveMessagePort(
@@ -292,7 +305,6 @@ describe('receiveMessagePort', () => {
       messagePortP.then(fulfillmentDetector).catch(fulfillmentDetector);
 
       window.dispatchEvent(
-        // @ts-expect-error Intentionally destructive testing.
         new MessageEvent('message', {
           data: { type: MessageType.Initialize },
           ...unexpectedPorts,

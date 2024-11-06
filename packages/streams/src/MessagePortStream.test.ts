@@ -1,4 +1,4 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { makeAck } from './BaseDuplexStream.js';
@@ -12,8 +12,6 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from './utils.js';
-
-vi.mock('@endo/promise-kit', () => makePromiseKitMock());
 
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {
