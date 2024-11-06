@@ -52,6 +52,18 @@ describe('MessagePortReader', () => {
     expect(validateInput).toHaveBeenCalledWith(message);
   });
 
+  it('throws if validateInput throws', async () => {
+    const validateInput = (() => {
+      throw new Error('foo');
+    }) as unknown as ValidateInput<number>;
+    const { port1, port2 } = new MessageChannel();
+    const reader = new MessagePortReader(port1, { validateInput });
+
+    port2.postMessage(42);
+    await expect(reader.next()).rejects.toThrow('foo');
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+  });
+
   it('closes the port when done', async () => {
     const { port1, port2 } = new MessageChannel();
     const closeSpy = vi.spyOn(port1, 'close');

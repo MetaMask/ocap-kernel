@@ -64,7 +64,7 @@ describe('Vat', () => {
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const consoleErrorSpy = vi.spyOn(vat.logger, 'error');
-      stream.receiveInput(NaN);
+      await stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
@@ -97,7 +97,7 @@ describe('Vat', () => {
       const handleSpy = vi.spyOn(vat.streamEnvelopeReplyHandler, 'handle');
       await vat.init();
       const rawMessage = { type: 'command', payload: { method: 'test' } };
-      stream.receiveInput(rawMessage);
+      await stream.receiveInput(rawMessage);
       await delay(10);
       expect(handleSpy).toHaveBeenCalledWith(rawMessage);
     });

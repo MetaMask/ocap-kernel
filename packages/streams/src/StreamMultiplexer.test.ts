@@ -230,21 +230,23 @@ describe('StreamMultiplexer', () => {
 
   describe('writing', () => {
     it('writes channel messages correctly', async () => {
-      const [multiplex, duplex] = await TestMultiplexer.make();
+      const dispatch = vi.fn();
+      const duplex = await TestDuplexStream.make<
+        MultiplexEnvelope,
+        MultiplexEnvelope
+      >(dispatch);
+      const [multiplex] = await TestMultiplexer.make(duplex);
       const ch1 = multiplex.addChannel('1', isString, noop);
       const ch2 = multiplex.addChannel('2', isNumber, noop);
-
-      const writeSpy = vi.spyOn(duplex, 'write');
 
       await ch1.write('foo');
       await ch2.write(42);
 
-      expect(writeSpy).toHaveBeenCalledTimes(2);
-      expect(writeSpy).toHaveBeenNthCalledWith(1, {
+      expect(dispatch).toHaveBeenCalledWith({
         channel: '1',
         payload: 'foo',
       });
-      expect(writeSpy).toHaveBeenNthCalledWith(2, {
+      expect(dispatch).toHaveBeenLastCalledWith({
         channel: '2',
         payload: 42,
       });

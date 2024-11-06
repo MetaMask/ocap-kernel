@@ -116,6 +116,24 @@ describe('ChromeRuntimeReader', () => {
     expect(validateInput).toHaveBeenCalledWith(message);
   });
 
+  it('throws if validateInput throws', async () => {
+    const { runtime, dispatchRuntimeMessage } = makeRuntime();
+    const validateInput = (() => {
+      throw new Error('foo');
+    }) as unknown as ValidateInput<number>;
+    const reader = new ChromeRuntimeReader(
+      asChromeRuntime(runtime),
+      ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
+      { validateInput },
+    );
+
+    const message = { foo: 'bar' };
+    dispatchRuntimeMessage(message);
+    await expect(reader.next()).rejects.toThrow('foo');
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+  });
+
   it('ignores messages from other extensions', async () => {
     const { runtime, dispatchRuntimeMessage } = makeRuntime();
     const reader = new ChromeRuntimeReader(
@@ -227,6 +245,7 @@ describe('ChromeRuntimeReader', () => {
     const reader = new ChromeRuntimeReader(
       asChromeRuntime(runtime),
       ChromeRuntimeStreamTarget.Background,
+      ChromeRuntimeStreamTarget.Offscreen,
       { onEnd },
     );
 

@@ -69,6 +69,21 @@ describe('PostMessageReader', () => {
     expect(validateInput).toHaveBeenCalledWith(message);
   });
 
+  it('throws if validateInput throws', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const validateInput = (() => {
+      throw new Error('foo');
+    }) as unknown as ValidateInput<number>;
+    const reader = new PostMessageReader(setListener, removeListener, {
+      validateInput,
+    });
+
+    postMessageFn(42);
+    await expect(reader.next()).rejects.toThrow('foo');
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+  });
+
   it('removes its listener when it ends', async () => {
     const { postMessageFn, setListener, removeListener, listeners } =
       makePostMessageMock();

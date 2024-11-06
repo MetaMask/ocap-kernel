@@ -286,6 +286,6 @@ export class StreamMultiplexer {
       ...Array.from(this.#channels.values()).map(async (channel) =>
         end(channel.stream),
       ),
-    ]).catch(() => undefined);
+    ]);
   }
 }

@@ -158,12 +158,10 @@ describe('BaseDuplexStream', () => {
     const duplexStream = new TestDuplexStream(() => undefined);
     const nextP = duplexStream.next();
 
-    const message = 42;
     await duplexStream.completeSynchronization();
 
-    duplexStream.receiveInput(message);
-
-    expect(await nextP).toStrictEqual(makePendingResult(message));
+    await duplexStream.receiveInput(42);
+    expect(await nextP).toStrictEqual(makePendingResult(42));
   });
 
   it('reads from the reader, with input validation', async () => {
@@ -172,10 +170,8 @@ describe('BaseDuplexStream', () => {
         typeof value === 'number',
     });
 
-    const message = 42;
-    await duplexStream.receiveInput(message);
-
-    expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
+    await duplexStream.receiveInput(42);
+    expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
   });
 
   it('drains the reader in order', async () => {

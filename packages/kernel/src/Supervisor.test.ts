@@ -30,7 +30,7 @@ describe('Supervisor', () => {
     it('throws if the stream throws', async () => {
       const { supervisor, stream } = await makeSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      stream.receiveInput(NaN);
+      await stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
@@ -46,7 +46,10 @@ describe('Supervisor', () => {
       const { stream } = await makeSupervisor();
 
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      stream.receiveInput({ type: 'command', payload: { method: 'test' } });
+      await stream.receiveInput({
+        type: 'command',
+        payload: { method: 'test' },
+      });
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
