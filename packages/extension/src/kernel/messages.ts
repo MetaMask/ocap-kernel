@@ -1,5 +1,6 @@
 import { isObject } from '@metamask/utils';
-import type { VatId } from '@ocap/kernel';
+import type { Json } from '@metamask/utils';
+import type { KernelCommand, VatId } from '@ocap/kernel';
 import { makeMessageKit, messageType, isVatId } from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
@@ -36,6 +37,13 @@ const kernelControlCommand = {
   GetStatus: messageType<null, KernelStatus>(
     (send) => send === null,
     isKernelStatus,
+  ),
+  SendMessage: messageType<{ id?: VatId; payload: KernelCommand }, Json>(
+    (send) =>
+      isObject(send) &&
+      (send.id === undefined || isVatId(send.id)) &&
+      isObject(send.payload),
+    (reply) => isObject(reply),
   ),
 };
 

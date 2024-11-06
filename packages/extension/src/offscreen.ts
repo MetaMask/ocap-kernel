@@ -152,6 +152,7 @@ async function main(): Promise<void> {
             });
 
             return stream.drain(async (message) => {
+              logger.log('sending message to kernel from popup', message);
               kernelWorker.worker.postMessage(message);
             });
           })
