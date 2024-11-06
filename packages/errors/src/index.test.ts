@@ -7,6 +7,8 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'ErrorCode',
       'ErrorSentinel',
+      'MarshaledErrorStruct',
+      'MarshaledOcapErrorStruct',
       'StreamReadError',
       'VatAlreadyExistsError',
       'VatCapTpConnectionExistsError',

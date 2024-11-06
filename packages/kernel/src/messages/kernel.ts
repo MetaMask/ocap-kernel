@@ -1,41 +1,77 @@
-import { isObject } from '@metamask/utils';
+import {
+  object,
+  union,
+  literal,
+  string,
+  is,
+  array,
+} from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+import { UnsafeJsonStruct } from '@metamask/utils';
 import type { TypeGuard } from '@ocap/utils';
 
-import type { CapTpPayload } from './captp.js';
-import { isCapTpPayload } from './captp.js';
-import { makeMessageKit, messageType } from './message-kit.js';
-import { vatTestCommand } from './vat-test.js';
+import {
+  VatTestCommandMethod,
+  VatTestMethodStructs,
+  VatTestReplyStructs,
+} from './vat.js';
 
-export const kernelCommand = {
-  CapTpCall: messageType<CapTpPayload, string>(
-    (send) => isCapTpPayload(send),
-    (reply) => typeof reply === 'string',
-  ),
+export const KernelCommandMethod = {
+  evaluate: VatTestCommandMethod.evaluate,
+  capTpCall: 'capTpCall',
+  kvSet: 'kvSet',
+  kvGet: 'kvGet',
+  ping: VatTestCommandMethod.ping,
+} as const;
 
-  KVSet: messageType<{ key: string; value: string }, string>(
-    (send) =>
-      isObject(send) &&
-      typeof send.key === 'string' &&
-      typeof send.value === 'string',
-    (reply) => typeof reply === 'string',
-  ),
+const CapTpPayloadStruct = object({
+  method: string(),
+  params: array(UnsafeJsonStruct),
+});
 
-  KVGet: messageType<string, string>(
-    (send) => typeof send === 'string',
-    (reply) => typeof reply === 'string',
-  ),
+export type CapTpPayload = Infer<typeof CapTpPayloadStruct>;
 
-  ...vatTestCommand,
-};
+const KernelCommandStruct = union([
+  object({
+    method: literal(KernelCommandMethod.capTpCall),
+    params: CapTpPayloadStruct,
+  }),
+  object({
+    method: literal(KernelCommandMethod.kvSet),
+    params: object({ key: string(), value: string() }),
+  }),
+  object({
+    method: literal(KernelCommandMethod.kvGet),
+    params: string(),
+  }),
+  VatTestMethodStructs.evaluate,
+  VatTestMethodStructs.ping,
+]);
 
-const kernelCommandKit = makeMessageKit(kernelCommand);
+const KernelCommandReplyStruct = union([
+  object({
+    method: literal(KernelCommandMethod.capTpCall),
+    params: string(),
+  }),
+  object({
+    method: literal(KernelCommandMethod.kvSet),
+    params: string(),
+  }),
+  object({
+    method: literal(KernelCommandMethod.kvGet),
+    params: string(),
+  }),
+  VatTestReplyStructs.evaluate,
+  VatTestReplyStructs.ping,
+]);
 
-export const KernelCommandMethod = kernelCommandKit.methods;
+export type KernelCommand = Infer<typeof KernelCommandStruct>;
+export type KernelCommandReply = Infer<typeof KernelCommandReplyStruct>;
 
-export type KernelCommand = typeof kernelCommandKit.send;
-export const isKernelCommand: TypeGuard<KernelCommand> =
-  kernelCommandKit.sendGuard;
+export const isKernelCommand: TypeGuard<KernelCommand> = (
+  value: unknown,
+): value is KernelCommand => is(value, KernelCommandStruct);
 
-export type KernelCommandReply = typeof kernelCommandKit.reply;
-export const isKernelCommandReply: TypeGuard<KernelCommandReply> =
-  kernelCommandKit.replyGuard;
+export const isKernelCommandReply: TypeGuard<KernelCommandReply> = (
+  value: unknown,
+): value is KernelCommandReply => is(value, KernelCommandReplyStruct);

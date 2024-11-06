@@ -1,6 +1,6 @@
 import type { Json } from '@metamask/utils';
-import { ClusterCommandMethod, isClusterCommandReply } from '@ocap/kernel';
-import type { ClusterCommand } from '@ocap/kernel';
+import { KernelCommandMethod, isKernelCommandReply } from '@ocap/kernel';
+import type { KernelCommand } from '@ocap/kernel';
 import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
    *
    * @param command - The command to send.
    */
-  const sendClusterCommand = async (command: ClusterCommand): Promise<void> => {
+  const sendClusterCommand = async (command: KernelCommand): Promise<void> => {
     await offscreenStream.write(command);
   };
 
@@ -40,21 +40,21 @@ async function main(): Promise<void> {
     capTpCall: {
       value: async (method: string, params: Json[]) =>
         sendClusterCommand({
-          method: ClusterCommandMethod.CapTpCall,
+          method: KernelCommandMethod.capTpCall,
           params: { method, params },
         }),
     },
     evaluate: {
       value: async (source: string) =>
         sendClusterCommand({
-          method: ClusterCommandMethod.Evaluate,
+          method: KernelCommandMethod.evaluate,
           params: source,
         }),
     },
     ping: {
       value: async () =>
         sendClusterCommand({
-          method: ClusterCommandMethod.Ping,
+          method: KernelCommandMethod.ping,
           params: null,
         }),
     },
@@ -64,14 +64,14 @@ async function main(): Promise<void> {
     kvGet: {
       value: async (key: string) =>
         sendClusterCommand({
-          method: ClusterCommandMethod.KVGet,
+          method: KernelCommandMethod.kvGet,
           params: key,
         }),
     },
     kvSet: {
       value: async (key: string, value: string) =>
         sendClusterCommand({
-          method: ClusterCommandMethod.KVSet,
+          method: KernelCommandMethod.kvSet,
           params: { key, value },
         }),
     },
@@ -81,24 +81,24 @@ async function main(): Promise<void> {
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
     sendClusterCommand({
-      method: ClusterCommandMethod.Ping,
+      method: KernelCommandMethod.ping,
       params: null,
     }).catch(console.error);
   });
 
   // Handle replies from the offscreen document
   for await (const message of offscreenStream) {
-    if (!isClusterCommandReply(message)) {
+    if (!isKernelCommandReply(message)) {
       console.error('Background received unexpected message', message);
       continue;
     }
 
     switch (message.method) {
-      case ClusterCommandMethod.Evaluate:
-      case ClusterCommandMethod.CapTpCall:
-      case ClusterCommandMethod.Ping:
-      case ClusterCommandMethod.KVGet:
-      case ClusterCommandMethod.KVSet:
+      case KernelCommandMethod.evaluate:
+      case KernelCommandMethod.capTpCall:
+      case KernelCommandMethod.ping:
+      case KernelCommandMethod.kvGet:
+      case KernelCommandMethod.kvSet:
         console.log(message.params);
         break;
       default:

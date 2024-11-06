@@ -78,11 +78,11 @@ describe('Supervisor', () => {
 
       await supervisor.handleMessage({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.Ping, params: null },
+        payload: { method: VatCommandMethod.ping, params: null },
       });
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.Ping,
+        method: VatCommandMethod.ping,
         params: 'pong',
       });
     });
@@ -93,11 +93,11 @@ describe('Supervisor', () => {
 
       await supervisor.handleMessage({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.CapTpInit, params: null },
+        payload: { method: VatCommandMethod.capTpInit, params: null },
       });
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.CapTpInit,
+        method: VatCommandMethod.capTpInit,
         params: '~~~ CapTP Initialized ~~~',
       });
     });
@@ -108,7 +108,7 @@ describe('Supervisor', () => {
 
       await supervisor.handleMessage({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.CapTpInit, params: null },
+        payload: { method: VatCommandMethod.capTpInit, params: null },
       });
 
       const capTpQuestion = {
@@ -141,11 +141,11 @@ describe('Supervisor', () => {
 
       await supervisor.handleMessage({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.Evaluate, params: '2 + 2' },
+        payload: { method: VatCommandMethod.evaluate, params: '2 + 2' },
       });
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.Evaluate,
+        method: VatCommandMethod.evaluate,
         params: '4',
       });
     });
@@ -158,7 +158,7 @@ describe('Supervisor', () => {
       await supervisor.handleMessage({
         id: 'v0:0',
         // @ts-expect-error - invalid params type.
-        payload: { method: VatCommandMethod.Evaluate, params: null },
+        payload: { method: VatCommandMethod.evaluate, params: null },
       });
 
       expect(replySpy).not.toHaveBeenCalled();

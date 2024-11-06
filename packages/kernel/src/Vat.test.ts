@@ -56,7 +56,7 @@ describe('Vat', () => {
       await vat.init();
 
       expect(sendMessageMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.Ping,
+        method: VatCommandMethod.ping,
         params: null,
       });
       expect(capTpMock).toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe('Vat', () => {
     it('sends a message and resolves the promise', async () => {
       const { vat } = await makeVat();
       const mockMessage = {
-        method: VatCommandMethod.Ping,
+        method: VatCommandMethod.ping,
         params: null,
       } as VatCommand['payload'];
       const sendMessagePromise = vat.sendMessage(mockMessage);
@@ -98,7 +98,7 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const mockMessageId = 'v0:1';
       const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.Evaluate,
+        method: VatCommandMethod.evaluate,
         params: 'test-response',
       };
       const mockPromiseKit = { resolve: vi.fn(), reject: vi.fn() };
@@ -114,7 +114,7 @@ describe('Vat', () => {
 
       const nonExistentMessageId = 'v0:9';
       const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.Ping,
+        method: VatCommandMethod.ping,
         params: 'pong',
       };
 
@@ -165,7 +165,7 @@ describe('Vat', () => {
         .mockResolvedValueOnce(undefined);
       await vat.makeCapTp();
       expect(sendMessageMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.CapTpInit,
+        method: VatCommandMethod.capTpInit,
         params: null,
       });
     });

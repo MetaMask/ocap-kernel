@@ -40,8 +40,8 @@ describe('ExtensionVatWorkerClient', () => {
 
   it.each`
     method
-    ${VatWorkerServiceCommandMethod.Launch}
-    ${VatWorkerServiceCommandMethod.Terminate}
+    ${VatWorkerServiceCommandMethod.launch}
+    ${VatWorkerServiceCommandMethod.terminate}
   `(
     "calls logger.error when receiving a $method reply it wasn't waiting for",
     async ({ method }) => {
@@ -63,7 +63,7 @@ describe('ExtensionVatWorkerClient', () => {
     },
   );
 
-  it(`calls logger.error when receiving a ${VatWorkerServiceCommandMethod.Launch} reply without a port`, async () => {
+  it(`calls logger.error when receiving a ${VatWorkerServiceCommandMethod.launch} reply without a port`, async () => {
     const errorSpy = vi.spyOn(clientLogger, 'error');
     const vatId: VatId = 'v0';
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -71,7 +71,7 @@ describe('ExtensionVatWorkerClient', () => {
     const reply = {
       id: 'm1',
       payload: {
-        method: VatWorkerServiceCommandMethod.Launch,
+        method: VatWorkerServiceCommandMethod.launch,
         params: { vatId: 'v0' },
       },
     };

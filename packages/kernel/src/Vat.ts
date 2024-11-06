@@ -1,6 +1,7 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
+import type { Json } from '@metamask/utils';
 import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
@@ -11,13 +12,8 @@ import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
-import {
-  isCapTpMessage,
-  isVatCommandReply,
-  VatCommandMethod,
-} from './messages/index.js';
+import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
 import type {
-  CapTpMessage,
   CapTpPayload,
   VatCommandReply,
   VatCommand,
@@ -37,7 +33,7 @@ export class Vat {
 
   readonly #commandStream: HandledDuplexStream<VatCommandReply, VatCommand>;
 
-  readonly #capTpStream: HandledDuplexStream<CapTpMessage, CapTpMessage>;
+  readonly #capTpStream: HandledDuplexStream<Json, Json>;
 
   readonly logger: Logger;
 
@@ -60,7 +56,8 @@ export class Vat {
     );
     this.#capTpStream = multiplexer.addChannel(
       'capTp',
-      isCapTpMessage,
+      // The streams already enforce that the values are JSON.
+      (_value): _value is Json => true,
       async (content): Promise<void> => {
         this.logger.log('CapTP from vat', stringify(content));
         this.capTp?.dispatch(content);
@@ -97,7 +94,7 @@ export class Vat {
       throw new StreamReadError({ vatId: this.id }, error);
     });
 
-    await this.sendMessage({ method: VatCommandMethod.Ping, params: null });
+    await this.sendMessage({ method: VatCommandMethod.ping, params: null });
     this.logger.debug('Created');
 
     return await this.makeCapTp();
@@ -113,15 +110,15 @@ export class Vat {
       throw new VatCapTpConnectionExistsError(this.id);
     }
 
-    const ctp = makeCapTP(this.id, async (content: unknown) => {
+    const ctp = makeCapTP(this.id, async (content: Json) => {
       this.logger.log('CapTP to vat', stringify(content));
-      await this.#capTpStream.write(content as CapTpMessage);
+      await this.#capTpStream.write(content);
     });
 
     this.capTp = ctp;
 
     return this.sendMessage({
-      method: VatCommandMethod.CapTpInit,
+      method: VatCommandMethod.capTpInit,
       params: null,
     });
   }

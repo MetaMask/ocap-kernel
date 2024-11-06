@@ -77,21 +77,21 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     vatId: VatId,
   ): Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>> {
     return this.#sendMessage({
-      method: VatWorkerServiceCommandMethod.Launch,
+      method: VatWorkerServiceCommandMethod.launch,
       params: { vatId },
     });
   }
 
   async terminate(vatId: VatId): Promise<undefined> {
     return this.#sendMessage({
-      method: VatWorkerServiceCommandMethod.Terminate,
+      method: VatWorkerServiceCommandMethod.terminate,
       params: { vatId },
     });
   }
 
   async terminateAll(): Promise<void> {
     return this.#sendMessage({
-      method: VatWorkerServiceCommandMethod.TerminateAll,
+      method: VatWorkerServiceCommandMethod.terminateAll,
       params: null,
     });
   }
@@ -120,7 +120,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     }
 
     switch (method) {
-      case VatWorkerServiceCommandMethod.Launch:
+      case VatWorkerServiceCommandMethod.launch:
         if (!port) {
           this.#logger.error('Expected a port with message reply', event);
           return;
@@ -132,8 +132,8 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           ),
         );
         break;
-      case VatWorkerServiceCommandMethod.Terminate:
-      case VatWorkerServiceCommandMethod.TerminateAll:
+      case VatWorkerServiceCommandMethod.terminate:
+      case VatWorkerServiceCommandMethod.terminateAll:
         // If we were caching streams on the client this would be a good place
         // to remove them.
         promise.resolve(undefined);

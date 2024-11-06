@@ -1,65 +1,72 @@
-import { hasProperty, isObject } from '@metamask/utils';
-import { isMarshaledError } from '@ocap/errors';
-import type { MarshaledError } from '@ocap/errors';
+import { object, union, optional, is, literal } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+import { MarshaledErrorStruct } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
-import { makeIdentifiedMessageKit, messageType } from './message-kit.js';
-import type { VatId } from '../types.js';
-import { isVatId } from '../types.js';
+import { VatIdStruct, VatMessageIdStruct } from '../types.js';
 
-const hasOptionalMarshaledError = (value: object): boolean =>
-  !hasProperty(value, 'error') || isMarshaledError(value.error);
+export const VatWorkerServiceCommandMethod = {
+  launch: 'launch',
+  terminate: 'terminate',
+  terminateAll: 'terminateAll',
+} as const;
 
-export const vatWorkerServiceCommand = {
-  Launch: messageType<
-    { vatId: VatId },
-    { vatId: VatId; error?: MarshaledError }
-  >(
-    (send) => isObject(send) && isVatId(send.vatId),
-    (reply) =>
-      isObject(reply) &&
-      isVatId(reply.vatId) &&
-      hasOptionalMarshaledError(reply),
-  ),
-
-  Terminate: messageType<
-    { vatId: VatId },
-    { vatId: VatId; error?: MarshaledError }
-  >(
-    (send) => isObject(send) && isVatId(send.vatId),
-    (reply) =>
-      isObject(reply) &&
-      isVatId(reply.vatId) &&
-      hasOptionalMarshaledError(reply),
-  ),
-
-  TerminateAll: messageType<
-    null,
-    null | { vatId?: VatId; error: MarshaledError }
-  >(
-    (send) => send === null,
-    (reply) =>
-      reply === null ||
-      (isObject(reply) &&
-        isMarshaledError(reply.error) &&
-        (!hasProperty(reply, 'vatId') || isVatId(reply.vatId))),
-  ),
-};
-
-const messageKit = makeIdentifiedMessageKit({
-  source: vatWorkerServiceCommand,
-  isMessageId: (value: unknown): value is `m${number}` =>
-    typeof value === 'string' &&
-    value.at(0) === 'm' &&
-    value.slice(1) === String(Number(value.slice(1))),
+const VatWorkerServiceCommandStruct = object({
+  id: VatMessageIdStruct,
+  payload: union([
+    object({
+      method: literal(VatWorkerServiceCommandMethod.launch),
+      params: object({ vatId: VatIdStruct }),
+    }),
+    object({
+      method: literal(VatWorkerServiceCommandMethod.terminate),
+      params: object({ vatId: VatIdStruct }),
+    }),
+    object({
+      method: literal(VatWorkerServiceCommandMethod.terminateAll),
+      params: literal(null),
+    }),
+  ]),
 });
 
-export const VatWorkerServiceCommandMethod = messageKit.methods;
+const VatWorkerServiceCommandReplyStruct = object({
+  id: VatMessageIdStruct,
+  payload: union([
+    object({
+      method: union([
+        literal(VatWorkerServiceCommandMethod.launch),
+        literal(VatWorkerServiceCommandMethod.terminate),
+      ]),
+      params: object({
+        vatId: VatIdStruct,
+        error: optional(MarshaledErrorStruct),
+      }),
+    }),
+    object({
+      method: literal(VatWorkerServiceCommandMethod.terminateAll),
+      params: union([
+        literal(null),
+        object({
+          vatId: optional(VatIdStruct),
+          error: MarshaledErrorStruct,
+        }),
+      ]),
+    }),
+  ]),
+});
 
-export type VatWorkerServiceCommand = typeof messageKit.send;
-export const isVatWorkerServiceCommand: TypeGuard<VatWorkerServiceCommand> =
-  messageKit.sendGuard;
+export type VatWorkerServiceCommand = Infer<
+  typeof VatWorkerServiceCommandStruct
+>;
+export type VatWorkerServiceCommandReply = Infer<
+  typeof VatWorkerServiceCommandReplyStruct
+>;
 
-export type VatWorkerServiceCommandReply = typeof messageKit.reply;
-export const isVatWorkerServiceCommandReply: TypeGuard<VatWorkerServiceCommandReply> =
-  messageKit.replyGuard;
+export const isVatWorkerServiceCommand: TypeGuard<VatWorkerServiceCommand> = (
+  value: unknown,
+): value is VatWorkerServiceCommand => is(value, VatWorkerServiceCommandStruct);
+
+export const isVatWorkerServiceCommandReply: TypeGuard<
+  VatWorkerServiceCommandReply
+> = (value: unknown): value is VatWorkerServiceCommandReply =>
+  is(value, VatWorkerServiceCommandReplyStruct);

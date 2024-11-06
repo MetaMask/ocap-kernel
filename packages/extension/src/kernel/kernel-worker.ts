@@ -65,7 +65,7 @@ async function runVatLifecycle(
   const vatToPing = vats[Math.floor(Math.random() * vats.length)] as VatId;
   console.time(`Ping Vat "${vatToPing}"`);
   await kernel.sendMessage(vatToPing, {
-    method: VatCommandMethod.Ping,
+    method: VatCommandMethod.ping,
     params: null,
   });
   console.timeEnd(`Ping Vat "${vatToPing}"`);

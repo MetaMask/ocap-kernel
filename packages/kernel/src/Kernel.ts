@@ -72,10 +72,10 @@ export class Kernel {
       let vat: Vat;
 
       switch (method) {
-        case KernelCommandMethod.Ping:
+        case KernelCommandMethod.ping:
           await this.#reply({ method, params: 'pong' });
           break;
-        case KernelCommandMethod.Evaluate:
+        case KernelCommandMethod.evaluate:
           if (!this.#vats.size) {
             throw new Error('No vats available to call');
           }
@@ -85,7 +85,7 @@ export class Kernel {
             params: await this.evaluate(vat.id, params),
           });
           break;
-        case KernelCommandMethod.CapTpCall:
+        case KernelCommandMethod.capTpCall:
           if (!this.#vats.size) {
             throw new Error('No vats available to call');
           }
@@ -95,14 +95,14 @@ export class Kernel {
             params: stringify(await vat.callCapTp(params)),
           });
           break;
-        case KernelCommandMethod.KVSet:
+        case KernelCommandMethod.kvSet:
           this.kvSet(params.key, params.value);
           await this.#reply({
             method,
             params: `~~~ set "${params.key}" to "${params.value}" ~~~`,
           });
           break;
-        case KernelCommandMethod.KVGet: {
+        case KernelCommandMethod.kvGet: {
           try {
             const value = this.kvGet(params);
             const result =
@@ -144,7 +144,7 @@ export class Kernel {
   async evaluate(vatId: VatId, source: string): Promise<string> {
     try {
       const result = await this.sendMessage(vatId, {
-        method: VatCommandMethod.Evaluate,
+        method: VatCommandMethod.evaluate,
         params: source,
       });
       return String(result);
