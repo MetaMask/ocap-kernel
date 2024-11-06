@@ -68,7 +68,9 @@ describe('Vat', () => {
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
-        new Error('Received unexpected message from transport:\nnull'),
+        new Error(
+          'Message cannot be processed by stream (must be JSON-serializable):\nnull',
+        ),
       );
     });
   });
