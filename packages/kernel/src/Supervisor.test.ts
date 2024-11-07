@@ -1,11 +1,13 @@
 import '@ocap/shims/endoify';
+import type { Json } from '@metamask/utils';
 import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages/index.js';
+import { isVatCommand, VatCommandMethod } from './messages/index.js';
+import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { Supervisor } from './Supervisor.js';
 
 const makeSupervisor = async (
@@ -18,10 +20,21 @@ const makeSupervisor = async (
     MultiplexEnvelope,
     MultiplexEnvelope
   >(handleWrite);
+  const multiplexer = await TestMultiplexer.make(stream);
+  const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
+    'command',
+    isVatCommand,
+  );
+  const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
+  multiplexer.start().catch((error) => {
+    throw error;
+  });
+  await multiplexer.synchronizeChannels('command', 'capTp');
   return {
     supervisor: new Supervisor({
       id: 'test-id',
-      multiplexer: new TestMultiplexer(stream),
+      commandStream,
+      capTpStream,
     }),
     stream,
   };

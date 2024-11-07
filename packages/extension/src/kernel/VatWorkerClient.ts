@@ -4,7 +4,7 @@ import { isObject } from '@metamask/utils';
 import { unmarshalError } from '@ocap/errors';
 import {
   VatWorkerServiceCommandMethod,
-  isVatWorkerServiceCommandReply,
+  isVatWorkerServiceReply,
 } from '@ocap/kernel';
 import type {
   VatWorkerService,
@@ -12,8 +12,8 @@ import type {
   VatWorkerServiceCommand,
   VatConfig,
 } from '@ocap/kernel';
-import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
-import { isMultiplexEnvelope, MessagePortDuplexStream } from '@ocap/streams';
+import { MessagePortMultiplexer } from '@ocap/streams';
+import type { StreamMultiplexer } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeHandledCallback, makeLogger } from '@ocap/utils';
 
@@ -74,10 +74,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     return promise;
   }
 
-  async launch(
-    vatId: VatId,
-    vatConfig: VatConfig,
-  ): Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>> {
+  async launch(vatId: VatId, vatConfig: VatConfig): Promise<StreamMultiplexer> {
     return this.#sendMessage({
       method: VatWorkerServiceCommandMethod.launch,
       params: { vatId, vatConfig },
@@ -99,7 +96,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
   }
 
   async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
-    if (!isVatWorkerServiceCommandReply(event.data)) {
+    if (!isVatWorkerServiceReply(event.data)) {
       // This happens when other messages pass through the same channel.
       this.#logger.debug('Received unexpected message', event.data);
       return;
@@ -127,12 +124,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           this.#logger.error('Expected a port with message reply', event);
           return;
         }
-        promise.resolve(
-          new MessagePortDuplexStream<MultiplexEnvelope, MultiplexEnvelope>(
-            port,
-            isMultiplexEnvelope,
-          ),
-        );
+        promise.resolve(new MessagePortMultiplexer(port));
         break;
       case VatWorkerServiceCommandMethod.terminate:
       case VatWorkerServiceCommandMethod.terminateAll:

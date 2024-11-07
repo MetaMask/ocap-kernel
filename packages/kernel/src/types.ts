@@ -10,7 +10,7 @@ import {
 } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
+import type { StreamMultiplexer } from '@ocap/streams';
 
 export type VatId = `v${string}`;
 export type RemoteId = `r${string}`;
@@ -48,7 +48,7 @@ type EndpointState<IdType> = {
 };
 
 type VatState = {
-  messagePort: MessagePort;
+  messagePort: typeof MessagePort;
   state: EndpointState<VatId>;
   source: string;
   kvTable: Map<string, string>;
@@ -110,10 +110,7 @@ export type VatWorkerService = {
    * @returns A promise for a duplex stream connected to the worker
    * which rejects if a worker with the given vat id already exists.
    */
-  launch: (
-    vatId: VatId,
-    vatConfig: VatConfig,
-  ) => Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>>;
+  launch: (vatId: VatId, vatConfig: VatConfig) => Promise<StreamMultiplexer>;
   /**
    * Terminate a worker identified by its vat id.
    *

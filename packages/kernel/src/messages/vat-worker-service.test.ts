@@ -8,11 +8,11 @@ import { describe, expect, it } from 'vitest';
 
 import type {
   VatWorkerServiceCommand,
-  VatWorkerServiceCommandReply,
+  VatWorkerServiceReply,
 } from './vat-worker-service.js';
 import {
   isVatWorkerServiceCommand,
-  isVatWorkerServiceCommandReply,
+  isVatWorkerServiceReply,
   VatWorkerServiceCommandMethod,
 } from './vat-worker-service.js';
 import type { VatId } from '../types.js';
@@ -21,7 +21,7 @@ const launchPayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.launch,
   params: { vatId: 'v0', vatConfig: { sourceSpec: 'bogus.js' } },
 });
-const launchReplyPayload: VatWorkerServiceCommandReply['payload'] = harden({
+const launchReplyPayload: VatWorkerServiceReply['payload'] = harden({
   method: VatWorkerServiceCommandMethod.launch,
   params: { vatId: 'v0' },
 });
@@ -30,7 +30,7 @@ const terminatePayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.terminate,
   params: { vatId: 'v0' },
 });
-const terminateReplyPayload: VatWorkerServiceCommandReply['payload'] = harden({
+const terminateReplyPayload: VatWorkerServiceReply['payload'] = harden({
   method: VatWorkerServiceCommandMethod.terminate,
   params: { vatId: 'v0' },
 });
@@ -39,11 +39,10 @@ const terminateAllPayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.terminateAll,
   params: null,
 });
-const terminateAllReplyPayload: VatWorkerServiceCommandReply['payload'] =
-  harden({
-    method: VatWorkerServiceCommandMethod.terminateAll,
-    params: null,
-  });
+const terminateAllReplyPayload: VatWorkerServiceReply['payload'] = harden({
+  method: VatWorkerServiceCommandMethod.terminateAll,
+  params: null,
+});
 
 describe('isVatWorkerServiceCommand', () => {
   describe.each`
@@ -63,9 +62,9 @@ describe('isVatWorkerServiceCommand', () => {
   });
 });
 
-describe('isVatWorkerServiceCommandReply', () => {
+describe('isVatWorkerServiceReply', () => {
   const withError = (
-    payload: VatWorkerServiceCommandReply['payload'],
+    payload: VatWorkerServiceReply['payload'],
     problem: unknown,
   ): unknown => ({
     method: payload.method,
@@ -104,7 +103,7 @@ describe('isVatWorkerServiceCommandReply', () => {
         { id: 'm0', payload: withError(launchReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
-      expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);
+      expect(isVatWorkerServiceReply(value)).toBe(expectedResult);
     });
   });
 
@@ -140,7 +139,7 @@ describe('isVatWorkerServiceCommandReply', () => {
         { id: 'm0', payload: withError(terminateReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
-      expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);
+      expect(isVatWorkerServiceReply(value)).toBe(expectedResult);
     });
   });
 
@@ -182,7 +181,7 @@ describe('isVatWorkerServiceCommandReply', () => {
         { id: 'm0', payload: withError(terminateAllReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
-      expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);
+      expect(isVatWorkerServiceReply(value)).toBe(expectedResult);
     });
   });
 });

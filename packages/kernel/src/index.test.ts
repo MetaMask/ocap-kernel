@@ -22,7 +22,7 @@ describe('index', () => {
       'isVatConfig',
       'isVatId',
       'isVatWorkerServiceCommand',
-      'isVatWorkerServiceCommandReply',
+      'isVatWorkerServiceReply',
     ]);
   });
 });

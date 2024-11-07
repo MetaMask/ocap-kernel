@@ -8,11 +8,11 @@ import {
   VatDeletedError,
   StreamReadError,
 } from '@ocap/errors';
-import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter, stringify } from '@ocap/utils';
 
-import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import type {
   CapTpPayload,
   VatCommandReply,
@@ -23,18 +23,17 @@ import type { PromiseCallbacks, VatId, VatConfig } from './types.js';
 type VatConstructorProps = {
   vatId: VatId;
   vatConfig: VatConfig;
-  multiplexer: StreamMultiplexer;
+  commandStream: DuplexStream<VatCommandReply, VatCommand>;
+  capTpStream: DuplexStream<Json, Json>;
   logger?: Logger | undefined;
 };
 
 export class Vat {
   readonly vatId: VatConstructorProps['vatId'];
 
-  readonly #multiplexer: StreamMultiplexer;
+  readonly #commandStream: DuplexStream<VatCommandReply, VatCommand>;
 
-  readonly #commandStream: HandledDuplexStream<VatCommandReply, VatCommand>;
-
-  readonly #capTpStream: HandledDuplexStream<Json, Json>;
+  readonly #capTpStream: DuplexStream<Json, Json>;
 
   readonly #config: VatConstructorProps['vatConfig'];
 
@@ -47,24 +46,19 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ vatId, vatConfig, multiplexer, logger }: VatConstructorProps) {
+  constructor({
+    vatId,
+    vatConfig,
+    commandStream,
+    capTpStream,
+    logger,
+  }: VatConstructorProps) {
     this.vatId = vatId;
     this.#config = vatConfig;
     this.logger = logger ?? makeLogger(`[vat ${vatId}]`);
     this.#messageCounter = makeCounter();
-    this.#multiplexer = multiplexer;
-    this.#commandStream = multiplexer.addChannel(
-      'command',
-      this.handleMessage.bind(this),
-      isVatCommandReply,
-    );
-    this.#capTpStream = multiplexer.addChannel(
-      'capTp',
-      async (content): Promise<void> => {
-        this.logger.log('CapTP from vat', stringify(content));
-        this.capTp?.dispatch(content);
-      },
-    );
+    this.#commandStream = commandStream;
+    this.#capTpStream = capTpStream;
   }
 
   /**
@@ -90,16 +84,18 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    this.#multiplexer.drainAll().catch((error) => {
-      this.logger.error(`Unexpected read error`, error);
-      throw new StreamReadError({ vatId: this.vatId }, error);
-    });
-    /*
-    this.#receiveMessages(this.#stream).catch((error) => {
-      this.logger.error(`Unexpected read error`, error);
-      throw new StreamReadError({ vatId: this.vatId }, error);
-    });
-    */
+    Promise.all([
+      this.#commandStream.drain(this.handleMessage.bind(this)),
+      this.#capTpStream.drain(async (content): Promise<void> => {
+        this.logger.log('CapTP from vat', stringify(content));
+        this.capTp?.dispatch(content);
+      }),
+    ])
+      /* v8 ignore next 4: Not known to be possible. */
+      .catch((error) => {
+        this.logger.error(`Unexpected read error`, error);
+        throw new StreamReadError({ vatId: this.vatId }, error);
+      });
 
     await this.sendMessage({ method: VatCommandMethod.ping, params: null });
     const loadResult = await this.sendMessage({
@@ -167,7 +163,10 @@ export class Vat {
    * Terminates the vat.
    */
   async terminate(): Promise<void> {
-    await this.#multiplexer.return();
+    await Promise.all([
+      this.#commandStream.return(),
+      this.#capTpStream.return(),
+    ]);
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
