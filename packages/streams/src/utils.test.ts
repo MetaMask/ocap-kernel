@@ -1,12 +1,9 @@
-import type { Json } from '@metamask/utils';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 
 import type { Dispatchable, Writable } from './utils.js';
 import {
-  assertIsWritable,
-  isDispatchable,
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
@@ -18,54 +15,6 @@ import {
 } from './utils.js';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
-
-describe('assertIsWritable', () => {
-  it.each([
-    ['string', 'foo'],
-    ['number', 42],
-    ['object', { key: 'value' }],
-    ['null', null],
-    ['Error', new Error('foo')],
-    ['TypeError', new TypeError('type error')],
-    ['RangeError', new RangeError('range error')],
-  ])('should pass if the value is a Writable: %s', (_, value) => {
-    expect(() => assertIsWritable(value)).not.toThrow();
-  });
-
-  it.each([
-    ['undefined', undefined],
-    ['function', () => undefined],
-    ['symbol', Symbol('symbol')],
-  ])('should throw if the value is not a Writable: %s', (_, value) => {
-    expect(() => assertIsWritable(value)).toThrow(
-      `Invalid writable value: ${String(value)}`,
-    );
-  });
-});
-
-describe('isDispatchable', () => {
-  it.each([
-    ['string', 'foo'],
-    ['number', 42],
-    ['object', { foo: 'bar' }],
-    ['null', null],
-    ['StreamDoneSignal', makeStreamDoneSignal()],
-    ['StreamErrorSignal', makeStreamErrorSignal(new Error('foo'))],
-  ])('should return true for a dispatchable value: %s', (_, dispatchable) => {
-    expect(isDispatchable(dispatchable)).toBe(true);
-  });
-
-  it.each([
-    ['undefined', undefined],
-    ['function', () => undefined],
-    ['symbol', Symbol('symbol')],
-  ])(
-    'should return false for a non-dispatchable value: %s',
-    (_, nonDispatchable) => {
-      expect(isDispatchable(nonDispatchable)).toBe(false);
-    },
-  );
-});
 
 describe('marshal', () => {
   it.each([
@@ -83,7 +32,8 @@ describe('marshal', () => {
     ['object', { foo: 'bar' }],
     ['array', [1, 2, 3]],
     ['null', null],
-  ] as [string, Writable<Json>, Dispatchable<Json> | undefined][])(
+    ['Symbol', Symbol('foo')],
+  ] as [string, Writable<unknown>, Dispatchable<unknown> | undefined][])(
     'should marshal a %s value',
     (_, value, expected) => {
       const marshaledValue = marshal(value);
@@ -101,7 +51,8 @@ describe('unmarshal', () => {
     ['object', { foo: 'bar' }],
     ['array', [1, 2, 3]],
     ['null', null],
-  ] as [string, Dispatchable<Json>, Writable<Json> | undefined][])(
+    ['Symbol', Symbol('foo')],
+  ] as [string, Dispatchable<unknown>, Writable<unknown> | undefined][])(
     'should unmarshal a %s value',
     (_, value, expected) => {
       const unmarshaledValue = unmarshal(value);

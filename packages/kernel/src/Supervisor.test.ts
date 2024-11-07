@@ -42,9 +42,7 @@ describe('Supervisor', () => {
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from Supervisor "${supervisor.id}"`,
-        new Error(
-          'TestDuplexStream: Message cannot be processed (must be JSON-serializable):\nnull',
-        ),
+        expect.any(Error),
       );
     });
   });

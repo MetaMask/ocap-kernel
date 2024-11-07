@@ -1,21 +1,21 @@
 import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { makeAck } from './BaseDuplexStream.js';
-import type { ValidateInput } from './BaseStream.js';
 import {
   PostMessageDuplexStream,
   PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
-import { StreamMultiplexer } from './StreamMultiplexer.js';
 import type { PostMessage } from './utils.js';
+import { makeAck } from '../BaseDuplexStream.js';
+import type { ValidateInput } from '../BaseStream.js';
+import { StreamMultiplexer } from '../StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from './utils.js';
+} from '../utils.js';
 
 // This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

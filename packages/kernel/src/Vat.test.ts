@@ -72,9 +72,7 @@ describe('Vat', () => {
       await delay(10);
       expect(logErrorSpy).toHaveBeenCalledWith(
         'Unexpected read error',
-        new Error(
-          'TestDuplexStream: Message cannot be processed (must be JSON-serializable):\nnull',
-        ),
+        expect.any(Error),
       );
     });
   });

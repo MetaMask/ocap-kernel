@@ -6,20 +6,22 @@
  * @module PostMessage streams
  */
 
-import type { Json } from '@metamask/utils';
-
+import type { OnMessage, PostMessage } from './utils.js';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from './BaseDuplexStream.js';
+} from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
-} from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
-import type { Dispatchable, OnMessage, PostMessage } from './utils.js';
+} from '../BaseStream.js';
+import { BaseReader, BaseWriter } from '../BaseStream.js';
+import {
+  isMultiplexEnvelope,
+  StreamMultiplexer,
+} from '../StreamMultiplexer.js';
+import type { Dispatchable } from '../utils.js';
 
 type SetListener = (onMessage: OnMessage) => void;
 type RemoveListener = (onMessage: OnMessage) => void;
@@ -32,7 +34,7 @@ type RemoveListener = (onMessage: OnMessage) => void;
  *
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
-export class PostMessageReader<Read extends Json> extends BaseReader<Read> {
+export class PostMessageReader<Read> extends BaseReader<Read> {
   constructor(
     setListener: SetListener,
     removeListener: RemoveListener,
@@ -69,7 +71,7 @@ harden(PostMessageReader);
  *
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
-export class PostMessageWriter<Write extends Json> extends BaseWriter<Write> {
+export class PostMessageWriter<Write> extends BaseWriter<Write> {
   constructor(
     postMessageFn: PostMessage,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -93,8 +95,8 @@ harden(PostMessageWriter);
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
 export class PostMessageDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
+  Read,
+  Write = Read,
 > extends BaseDuplexStream<
   Read,
   PostMessageReader<Read>,
@@ -124,7 +126,7 @@ export class PostMessageDuplexStream<
     super(reader, writer);
   }
 
-  static async make<Read extends Json, Write extends Json = Read>(
+  static async make<Read, Write = Read>(
     postMessageFn: PostMessage,
     setListener: SetListener,
     removeListener: RemoveListener,

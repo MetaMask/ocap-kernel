@@ -2,9 +2,6 @@ import { delay } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { makeAck } from './BaseDuplexStream.js';
-import type { ValidateInput } from './BaseStream.js';
-import type { ChromeRuntime } from './chrome.js';
 import type { MessageEnvelope } from './ChromeRuntimeStream.js';
 import {
   ChromeRuntimeReader,
@@ -13,12 +10,15 @@ import {
   ChromeRuntimeDuplexStream,
   ChromeRuntimeMultiplexer,
 } from './ChromeRuntimeStream.js';
-import { StreamMultiplexer } from './StreamMultiplexer.js';
+import { makeAck } from '../BaseDuplexStream.js';
+import type { ValidateInput } from '../BaseStream.js';
+import type { ChromeRuntime } from '../chrome.js';
+import { StreamMultiplexer } from '../StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from './utils.js';
+} from '../utils.js';
 
 const makeEnvelope = (
   value: unknown,

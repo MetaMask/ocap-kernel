@@ -10,10 +10,10 @@ import {
 } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import {
-  UnsafeJsonStruct,
   hasProperty,
   isObject,
   object,
+  UnsafeJsonStruct,
 } from '@metamask/utils';
 import { isMarshaledError, marshalError, unmarshalError } from '@ocap/errors';
 import { stringify } from '@ocap/utils';
@@ -30,6 +30,19 @@ const PlainObject = refine(
   'PlainObject',
   (value) => !Array.isArray(value),
 );
+
+/**
+ * Check if the given value is a valid {@link Json} value, i.e., a value that is
+ * serializable to JSON.
+ *
+ * **Note:** This function is unsafe, and should only be used when the input is
+ * trusted.
+ *
+ * @param value - The value to check.
+ * @returns Whether the value is a valid {@link Json} value.
+ */
+export const isJsonUnsafe = (value: unknown): value is Json =>
+  is(value, UnsafeJsonStruct);
 
 export enum StreamSentinel {
   // Not a problem if we don't use the word "Error" in this scope, which we won't.
@@ -79,40 +92,14 @@ export const makeStreamDoneSignal = (): StreamDone => ({
  *
  * @template Yield - The type of the values yielded by the iterator.
  */
-export type Writable<Yield extends Json> =
-  | Yield
-  | Error
-  | typeof StreamDoneSymbol;
-
-/**
- * Asserts that a value is a {@link Writable}.
- *
- * @param value - The value to check.
- */
-export function assertIsWritable(
-  value: unknown,
-): asserts value is Writable<Json> {
-  if (!is(value, UnsafeJsonStruct) && !(value instanceof Error)) {
-    throw new Error(`Invalid writable value: ${String(value)}`);
-  }
-}
+export type Writable<Yield> = Yield | Error | typeof StreamDoneSymbol;
 
 /**
  * A value that can be dispatched to the internal transport mechanism of a stream.
  *
  * @template Yield - The type of the values yielded by the stream.
  */
-export type Dispatchable<Yield extends Json> = Yield | StreamSignal;
-
-/**
- * Checks if a value is a {@link Dispatchable}.
- *
- * @param value - The value to check.
- * @returns Whether the value is a {@link Dispatchable}.
- */
-export function isDispatchable(value: unknown): value is Dispatchable<Json> {
-  return is(value, UnsafeJsonStruct);
-}
+export type Dispatchable<Yield> = Yield | StreamSignal;
 
 /**
  * Marshals a {@link Writable} into a {@link Dispatchable}.
@@ -120,9 +107,7 @@ export function isDispatchable(value: unknown): value is Dispatchable<Json> {
  * @param value - The value to marshal.
  * @returns The marshaled value.
  */
-export function marshal<Yield extends Json>(
-  value: Writable<Yield>,
-): Dispatchable<Yield> {
+export function marshal<Yield>(value: Writable<Yield>): Dispatchable<Yield> {
   if (value === StreamDoneSymbol) {
     return { [StreamSentinel.Done]: true };
   }
@@ -141,9 +126,7 @@ export function marshal<Yield extends Json>(
  * @param value - The value to unmarshal.
  * @returns The unmarshaled value.
  */
-export function unmarshal<Yield extends Json>(
-  value: Dispatchable<Yield>,
-): Writable<Yield> {
+export function unmarshal<Yield>(value: Dispatchable<Yield>): Writable<Yield> {
   if (isSignalLike(value)) {
     if (is(value, StreamDoneStruct)) {
       return StreamDoneSymbol;
@@ -175,13 +158,10 @@ export const makeDoneResult = <Yield>(): IteratorResult<Yield, undefined> =>
  * @param value - The value of the iterator result.
  * @returns A {@link IteratorResult} with `{ done: false, value }`.
  */
-export const makePendingResult = <Yield extends Json | undefined>(
+export const makePendingResult = <Yield>(
   value: Yield,
 ): IteratorResult<Yield, undefined> =>
   harden({
     done: false,
     value,
   });
-
-export type PostMessage = (message: unknown) => void;
-export type OnMessage = (event: MessageEvent<unknown>) => void;

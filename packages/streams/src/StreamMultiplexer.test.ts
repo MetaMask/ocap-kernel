@@ -1,4 +1,3 @@
-import type { Json } from '@metamask/utils';
 import { delay, makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +13,10 @@ const isString: ValidateInput<string> = (value) => typeof value === 'string';
 
 const isNumber: ValidateInput<number> = (value) => typeof value === 'number';
 
-const makeEnvelope = (channel: string, payload: Json): MultiplexEnvelope => ({
+const makeEnvelope = (
+  channel: string,
+  payload: unknown,
+): MultiplexEnvelope => ({
   channel,
   payload,
 });

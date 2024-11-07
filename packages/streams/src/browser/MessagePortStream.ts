@@ -19,20 +19,22 @@
  * @module MessagePort streams
  */
 
-import type { Json } from '@metamask/utils';
-
+import type { OnMessage } from './utils.js';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from './BaseDuplexStream.js';
+} from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
-} from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
-import type { Dispatchable, OnMessage } from './utils.js';
+} from '../BaseStream.js';
+import { BaseReader, BaseWriter } from '../BaseStream.js';
+import {
+  isMultiplexEnvelope,
+  StreamMultiplexer,
+} from '../StreamMultiplexer.js';
+import type { Dispatchable } from '../utils.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -45,17 +47,15 @@ import type { Dispatchable, OnMessage } from './utils.js';
  * - {@link MessagePortWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
+export class MessagePortReader<Read> extends BaseReader<Read> {
   constructor(
     port: MessagePort,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
   ) {
-    // eslint-disable-next-line prefer-const
-    let onMessage: OnMessage;
-
     super({
       validateInput,
       onEnd: async () => {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         port.removeEventListener('message', onMessage);
         port.close();
         await onEnd?.();
@@ -64,7 +64,7 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
 
     const receiveInput = super.getReceiveInput();
 
-    onMessage = (messageEvent) => {
+    const onMessage: OnMessage = (messageEvent) => {
       if (messageEvent.ports.length > 0) {
         return;
       }
@@ -86,7 +86,7 @@ harden(MessagePortReader);
  * - {@link MessagePortReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
+export class MessagePortWriter<Write> extends BaseWriter<Write> {
   constructor(
     port: MessagePort,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -106,8 +106,8 @@ export class MessagePortWriter<Write extends Json> extends BaseWriter<Write> {
 harden(MessagePortWriter);
 
 export class MessagePortDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
+  Read,
+  Write = Read,
 > extends BaseDuplexStream<
   Read,
   MessagePortReader<Read>,
@@ -132,7 +132,7 @@ export class MessagePortDuplexStream<
     super(reader, writer);
   }
 
-  static async make<Read extends Json, Write extends Json = Read>(
+  static async make<Read, Write = Read>(
     port: MessagePort,
     validateInput?: ValidateInput<Read>,
   ): Promise<MessagePortDuplexStream<Read, Write>> {
