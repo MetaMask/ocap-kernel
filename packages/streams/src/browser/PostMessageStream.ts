@@ -8,18 +8,22 @@
 
 import type { Json } from '@metamask/utils';
 
+import type { OnMessage, PostMessage } from './utils.js';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from './BaseDuplexStream.js';
+} from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
-} from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
-import type { Dispatchable, OnMessage, PostMessage } from './utils.js';
+} from '../BaseStream.js';
+import { BaseReader, BaseWriter } from '../BaseStream.js';
+import {
+  isMultiplexEnvelope,
+  StreamMultiplexer,
+} from '../StreamMultiplexer.js';
+import type { Dispatchable } from '../utils.js';
 
 type SetListener = (onMessage: OnMessage) => void;
 type RemoveListener = (onMessage: OnMessage) => void;

@@ -21,18 +21,22 @@
 
 import type { Json } from '@metamask/utils';
 
+import type { OnMessage } from './utils.js';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from './BaseDuplexStream.js';
+} from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
-} from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
-import type { Dispatchable, OnMessage } from './utils.js';
+} from '../BaseStream.js';
+import { BaseReader, BaseWriter } from '../BaseStream.js';
+import {
+  isMultiplexEnvelope,
+  StreamMultiplexer,
+} from '../StreamMultiplexer.js';
+import type { Dispatchable } from '../utils.js';
 
 /**
  * A readable stream over a {@link MessagePort}.
@@ -50,12 +54,10 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
     port: MessagePort,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
   ) {
-    // eslint-disable-next-line prefer-const
-    let onMessage: OnMessage;
-
     super({
       validateInput,
       onEnd: async () => {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
         port.removeEventListener('message', onMessage);
         port.close();
         await onEnd?.();
@@ -64,7 +66,7 @@ export class MessagePortReader<Read extends Json> extends BaseReader<Read> {
 
     const receiveInput = super.getReceiveInput();
 
-    onMessage = (messageEvent) => {
+    const onMessage: OnMessage = (messageEvent) => {
       if (messageEvent.ports.length > 0) {
         return;
       }

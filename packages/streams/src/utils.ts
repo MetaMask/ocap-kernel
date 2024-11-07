@@ -182,6 +182,3 @@ export const makePendingResult = <Yield extends Json | undefined>(
     done: false,
     value,
   });
-
-export type PostMessage = (message: unknown) => void;
-export type OnMessage = (event: MessageEvent<unknown>) => void;

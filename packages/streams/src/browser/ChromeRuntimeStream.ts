@@ -20,17 +20,20 @@ import { stringify } from '@ocap/utils';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from './BaseDuplexStream.js';
+} from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   ValidateInput,
   BaseWriterArgs,
   ReceiveInput,
-} from './BaseStream.js';
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import type { ChromeRuntime, ChromeMessageSender } from './chrome.js';
-import { isMultiplexEnvelope, StreamMultiplexer } from './StreamMultiplexer.js';
-import type { Dispatchable } from './utils.js';
+} from '../BaseStream.js';
+import { BaseReader, BaseWriter } from '../BaseStream.js';
+import type { ChromeRuntime, ChromeMessageSender } from '../chrome.js';
+import {
+  isMultiplexEnvelope,
+  StreamMultiplexer,
+} from '../StreamMultiplexer.js';
+import type { Dispatchable } from '../utils.js';
 
 export enum ChromeRuntimeStreamTarget {
   Background = 'background',
