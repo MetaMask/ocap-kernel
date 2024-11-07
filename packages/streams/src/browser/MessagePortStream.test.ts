@@ -1,19 +1,19 @@
 import { delay } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { makeAck } from './BaseDuplexStream.js';
-import type { ValidateInput } from './BaseStream.js';
 import {
   MessagePortDuplexStream,
   MessagePortMultiplexer,
   MessagePortReader,
   MessagePortWriter,
 } from './MessagePortStream.js';
+import { makeAck } from '../BaseDuplexStream.js';
+import type { ValidateInput } from '../BaseStream.js';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from './utils.js';
+} from '../utils.js';
 
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {

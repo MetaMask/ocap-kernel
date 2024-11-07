@@ -1,5 +1,3 @@
-import type { Json } from '@metamask/utils';
-
 import {
   BaseDuplexStream,
   makeAck,
@@ -19,7 +17,7 @@ import { StreamMultiplexer } from '../src/StreamMultiplexer.js';
 
 export type { MultiplexEnvelope } from '../src/StreamMultiplexer.js';
 
-export class TestReader<Read extends Json = number> extends BaseReader<Read> {
+export class TestReader<Read = number> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
 
   get receiveInput(): ReceiveInput {
@@ -36,7 +34,7 @@ export class TestReader<Read extends Json = number> extends BaseReader<Read> {
   }
 }
 
-export class TestWriter<Write extends Json = number> extends BaseWriter<Write> {
+export class TestWriter<Write = number> extends BaseWriter<Write> {
   readonly #onDispatch: Dispatch<Write>;
 
   get onDispatch(): Dispatch<Write> {
@@ -49,15 +47,15 @@ export class TestWriter<Write extends Json = number> extends BaseWriter<Write> {
   }
 }
 
-type TestDuplexStreamOptions<Read extends Json = number> = {
+type TestDuplexStreamOptions<Read = number> = {
   validateInput?: ValidateInput<Read> | undefined;
   readerOnEnd?: () => void;
   writerOnEnd?: () => void;
 };
 
 export class TestDuplexStream<
-  Read extends Json = number,
-  Write extends Json = Read,
+  Read = number,
+  Write = Read,
 > extends BaseDuplexStream<Read, TestReader<Read>, Write, TestWriter<Write>> {
   readonly #onDispatch: Dispatch<Write>;
 
@@ -118,7 +116,7 @@ export class TestDuplexStream<
    * @param opts - The options to use.
    * @returns A synchronized TestDuplexStream.
    */
-  static async make<Read extends Json = number, Write extends Json = Read>(
+  static async make<Read = number, Write = Read>(
     onDispatch: Dispatch<Write>,
     opts: TestDuplexStreamOptions<Read> = {},
   ): Promise<TestDuplexStream<Read, Write>> {

@@ -9,7 +9,7 @@ export {
   MessagePortMultiplexer,
   MessagePortReader,
   MessagePortWriter,
-} from './MessagePortStream.js';
+} from './browser/MessagePortStream.js';
 export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 export {
   ChromeRuntimeDuplexStream,
@@ -17,13 +17,13 @@ export {
   ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
   ChromeRuntimeReader,
   ChromeRuntimeWriter,
-} from './ChromeRuntimeStream.js';
+} from './browser/ChromeRuntimeStream.js';
 export {
   PostMessageDuplexStream,
   PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
-} from './PostMessageStream.js';
+} from './browser/PostMessageStream.js';
 export { StreamMultiplexer, isMultiplexEnvelope } from './StreamMultiplexer.js';
 export type {
   HandledDuplexStream,

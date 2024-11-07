@@ -1,12 +1,9 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
-import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
 import type { Dispatchable, PromiseCallbacks, Writable } from './utils.js';
 import {
-  assertIsWritable,
-  isDispatchable,
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
@@ -16,8 +13,10 @@ import {
   unmarshal,
 } from './utils.js';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const makeStreamBuffer = <Value extends IteratorResult<Json, undefined>>() => {
+const makeStreamBuffer = <
+  Value extends IteratorResult<unknown, undefined>,
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+>() => {
   const inputBuffer: (Value | Error)[] = [];
   const outputBuffer: PromiseCallbacks[] = [];
   let done = false;
@@ -97,7 +96,7 @@ export type OnEnd = () => void | Promise<void>;
 /**
  * A function that validates input to a readable stream.
  */
-export type ValidateInput<Read extends Json> = (input: Json) => input is Read;
+export type ValidateInput<Read> = (input: unknown) => input is Read;
 
 /**
  * A function that receives input from a transport mechanism to a readable stream.
@@ -105,7 +104,7 @@ export type ValidateInput<Read extends Json> = (input: Json) => input is Read;
  */
 export type ReceiveInput = (input: unknown) => Promise<void>;
 
-export type BaseReaderArgs<Read extends Json> = {
+export type BaseReaderArgs<Read> = {
   name?: string | undefined;
   onEnd?: OnEnd | undefined;
   validateInput?: ValidateInput<Read> | undefined;
@@ -121,7 +120,7 @@ export type BaseReaderArgs<Read extends Json> = {
  * The result of any value received before the stream ends is guaranteed to be observable
  * by the consumer.
  */
-export class BaseReader<Read extends Json> implements Reader<Read> {
+export class BaseReader<Read> implements Reader<Read> {
   /**
    * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
    * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
@@ -171,15 +170,6 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
   readonly #receiveInput = async (input: unknown): Promise<void> => {
     // eslint-disable-next-line @typescript-eslint/await-thenable
     await null;
-
-    if (!isDispatchable(input)) {
-      await this.#handleInputError(
-        new Error(
-          `${this.#name}: Message cannot be processed (must be JSON-serializable):\n${stringify(input)}`,
-        ),
-      );
-      return;
-    }
 
     const unmarshaled = unmarshal(input);
     if (unmarshaled instanceof Error) {
@@ -261,11 +251,11 @@ export class BaseReader<Read extends Json> implements Reader<Read> {
 }
 harden(BaseReader);
 
-export type Dispatch<Yield extends Json> = (
+export type Dispatch<Yield> = (
   value: Dispatchable<Yield>,
 ) => void | Promise<void>;
 
-export type BaseWriterArgs<Write extends Json> = {
+export type BaseWriterArgs<Write> = {
   onDispatch: Dispatch<Write>;
   name?: string | undefined;
   onEnd?: OnEnd | undefined;
@@ -274,7 +264,7 @@ export type BaseWriterArgs<Write extends Json> = {
 /**
  * The base of a writable async iterator stream.
  */
-export class BaseWriter<Write extends Json> implements Writer<Write> {
+export class BaseWriter<Write> implements Writer<Write> {
   #isDone: boolean = false;
 
   readonly #name: string = 'BaseWriter';
@@ -315,7 +305,6 @@ export class BaseWriter<Write extends Json> implements Writer<Write> {
     value: Writable<Write>,
     hasFailed = false,
   ): Promise<IteratorResult<undefined, undefined>> {
-    assertIsWritable(value);
     try {
       await this.#onDispatch(marshal(value));
       return value === StreamDoneSymbol || value instanceof Error

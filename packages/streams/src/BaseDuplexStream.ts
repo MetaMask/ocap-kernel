@@ -2,7 +2,6 @@ import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader } from '@endo/stream';
 import { isObject } from '@metamask/utils';
-import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
 import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.js';
@@ -51,12 +50,12 @@ const isDuplexStreamSignal = (value: unknown): value is StreamSignal =>
  * @returns A validator for the stream's input type, or `undefined` if no
  * validation is desired.
  */
-export const makeDuplexStreamInputValidator = <Read extends Json>(
+export const makeDuplexStreamInputValidator = <Read>(
   validateInput?: ValidateInput<Read>,
 ): ((value: unknown) => value is Read) | undefined =>
   validateInput &&
   ((value: unknown): value is Read =>
-    isDuplexStreamSignal(value) || validateInput(value as Json));
+    isDuplexStreamSignal(value) || validateInput(value));
 
 enum SynchronizationStatus {
   Idle = 0,
@@ -69,9 +68,9 @@ enum SynchronizationStatus {
  * Backed up by separate {@link BaseReader} and {@link BaseWriter} instances under the hood.
  */
 export abstract class BaseDuplexStream<
-  Read extends Json,
+  Read,
   ReadStream extends BaseReader<Read>,
-  Write extends Json = Read,
+  Write = Read,
   WriteStream extends BaseWriter<Write> = BaseWriter<Write>,
 > implements Reader<Read>
 {
@@ -242,7 +241,7 @@ harden(BaseDuplexStream);
 /**
  * A duplex stream. Essentially a {@link Reader} with a `write()` method.
  */
-export type DuplexStream<Read extends Json, Write extends Json = Read> = Pick<
+export type DuplexStream<Read, Write = Read> = Pick<
   BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>,
   'next' | 'write' | 'drain' | 'return' | 'throw'
 > & {
