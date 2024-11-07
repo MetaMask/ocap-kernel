@@ -51,13 +51,11 @@ export class Vat {
     this.#multiplexer = multiplexer;
     this.#commandStream = multiplexer.addChannel(
       'command',
-      isVatCommandReply,
       this.handleMessage.bind(this),
+      isVatCommandReply,
     );
     this.#capTpStream = multiplexer.addChannel(
       'capTp',
-      // The streams already enforce that the values are JSON.
-      (_value): _value is Json => true,
       async (content): Promise<void> => {
         this.logger.log('CapTP from vat', stringify(content));
         this.capTp?.dispatch(content);

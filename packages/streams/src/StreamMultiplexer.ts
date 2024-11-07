@@ -199,14 +199,14 @@ export class StreamMultiplexer {
    * multiplexer.
    *
    * @param channelName - The channel name. Must be unique.
-   * @param validateInput - The channel's input validator.
    * @param handleRead - The channel's drain handler.
+   * @param validateInput - The channel's input validator.
    * @returns The channel stream.
    */
   addChannel<Read extends Json, Write extends Json>(
     channelName: ChannelName,
-    validateInput: ValidateInput<Read>,
     handleRead: HandleRead<Read>,
+    validateInput?: ValidateInput<Read>,
   ): HandledDuplexStream<Read, Write> {
     if (this.#status !== MultiplexerStatus.Idle) {
       throw new Error('Channels must be added before starting the multiplexer');
@@ -217,8 +217,8 @@ export class StreamMultiplexer {
 
     const { stream, receiveInput } = this.#makeChannel<Read, Write>(
       channelName,
-      validateInput,
       handleRead,
+      validateInput,
     );
 
     // We downcast some properties in order to store all records in one place.
@@ -237,14 +237,14 @@ export class StreamMultiplexer {
    * write method that forwards messages to the underlying duplex stream.
    *
    * @param channelName - The channel name. Must be unique.
-   * @param validateInput - The channel's input validator.
    * @param handleRead - The channel's drain handler.
+   * @param validateInput - The channel's input validator.
    * @returns The channel stream and its `receiveInput` method.
    */
   #makeChannel<Read extends Json, Write extends Json>(
     channelName: ChannelName,
-    validateInput: ValidateInput<Read>,
     handleRead: HandleRead<Read>,
+    validateInput?: ValidateInput<Read>,
   ): {
     stream: HandledDuplexStream<Read, Write>;
     receiveInput: ReceiveInput;

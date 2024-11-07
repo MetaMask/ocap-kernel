@@ -229,8 +229,8 @@ describe('MessagePortMultiplexer', () => {
     const handleRead = vi.fn();
     multiplexer.addChannel<number, number>(
       '1',
-      (value: unknown): value is number => typeof value === 'number',
       handleRead,
+      (value: unknown): value is number => typeof value === 'number',
     );
 
     const drainP = multiplexer.drainAll();

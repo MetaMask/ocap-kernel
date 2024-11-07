@@ -34,13 +34,11 @@ export class Supervisor {
     this.#multiplexer = multiplexer;
     this.#commandStream = multiplexer.addChannel(
       'command',
-      isVatCommand,
       this.handleMessage.bind(this),
+      isVatCommand,
     );
     this.#capTpStream = multiplexer.addChannel(
       'capTp',
-      // The streams already enforce that the values are JSON.
-      (_value): _value is Json => true,
       // eslint-disable-next-line no-void
       async (content): Promise<void> => void this.capTp?.dispatch(content),
     );
