@@ -18,7 +18,6 @@
  * @module StreamMultiplexer
  */
 
-import type { Json } from '@metamask/utils';
 import { isObject } from '@metamask/utils';
 
 import type { DuplexStream } from './BaseDuplexStream.js';
@@ -33,23 +32,23 @@ import { makeDoneResult } from './utils.js';
 /**
  * A duplex stream that can maybe be synchronized.
  */
-type SynchronizableDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
-> = DuplexStream<Read, Write> & {
+type SynchronizableDuplexStream<Read, Write = Read> = DuplexStream<
+  Read,
+  Write
+> & {
   synchronize?: () => Promise<void>;
 };
 
 /**
  * The read stream implementation for {@link StreamMultiplexer} channels.
  */
-class ChannelReader<Read extends Json> extends BaseReader<Read> {
+class ChannelReader<Read> extends BaseReader<Read> {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(args: BaseReaderArgs<Read>) {
     super(args);
   }
 
-  static make<Read extends Json>(
+  static make<Read>(
     args: BaseReaderArgs<Read>,
   ): [ChannelReader<Read>, ReceiveInput] {
     const channel = new ChannelReader<Read>(args);
@@ -65,7 +64,7 @@ type ChannelName = string;
  */
 export type MultiplexEnvelope = {
   channel: ChannelName;
-  payload: Json;
+  payload: unknown;
 };
 
 /**
@@ -83,13 +82,13 @@ export const isMultiplexEnvelope = (
   typeof value.channel === 'string' &&
   typeof value.payload !== 'undefined';
 
-type HandleRead<Read extends Json> = (value: Read) => void | Promise<void>;
+type HandleRead<Read> = (value: Read) => void | Promise<void>;
 
 /**
  * A duplex stream whose `drain` method does not accept a callback. We say it is
  * "handled" because in practice the callback is bound to the `drain` method.
  */
-export type HandledDuplexStream<Read extends Json, Write extends Json> = Omit<
+export type HandledDuplexStream<Read, Write> = Omit<
   DuplexStream<Read, Write>,
   'drain'
 > & {
@@ -102,7 +101,7 @@ enum MultiplexerStatus {
   Done = 2,
 }
 
-type ChannelRecord<Read extends Json, Write extends Json = Read> = {
+type ChannelRecord<Read, Write = Read> = {
   channelName: ChannelName;
   stream: HandledDuplexStream<Read, Write>;
   receiveInput: ReceiveInput;
@@ -113,7 +112,7 @@ export class StreamMultiplexer {
 
   readonly #name: string;
 
-  readonly #channels: Map<ChannelName, ChannelRecord<Json, Json>>;
+  readonly #channels: Map<ChannelName, ChannelRecord<unknown, unknown>>;
 
   readonly #stream: SynchronizableDuplexStream<
     MultiplexEnvelope,
@@ -203,7 +202,7 @@ export class StreamMultiplexer {
    * @param handleRead - The channel's drain handler.
    * @returns The channel stream.
    */
-  addChannel<Read extends Json, Write extends Json>(
+  addChannel<Read, Write>(
     channelName: ChannelName,
     validateInput: ValidateInput<Read>,
     handleRead: HandleRead<Read>,
@@ -224,7 +223,7 @@ export class StreamMultiplexer {
     // We downcast some properties in order to store all records in one place.
     this.#channels.set(channelName, {
       channelName,
-      stream: stream as unknown as HandledDuplexStream<Json, Json>,
+      stream: stream as HandledDuplexStream<unknown, unknown>,
       receiveInput,
     });
 
@@ -241,7 +240,7 @@ export class StreamMultiplexer {
    * @param handleRead - The channel's drain handler.
    * @returns The channel stream and its `receiveInput` method.
    */
-  #makeChannel<Read extends Json, Write extends Json>(
+  #makeChannel<Read, Write>(
     channelName: ChannelName,
     validateInput: ValidateInput<Read>,
     handleRead: HandleRead<Read>,
@@ -261,7 +260,7 @@ export class StreamMultiplexer {
     });
 
     const write = async (
-      payload: Json,
+      payload: Write,
     ): Promise<IteratorResult<undefined, undefined>> => {
       if (isDone) {
         return makeDoneResult();
@@ -312,7 +311,7 @@ export class StreamMultiplexer {
     }
     this.#status = MultiplexerStatus.Done;
 
-    const end = async <Read extends Json, Write extends Json>(
+    const end = async <Read, Write>(
       stream: DuplexStream<Read, Write>,
     ): Promise<unknown> =>
       error === undefined ? stream.return() : stream.throw(error);

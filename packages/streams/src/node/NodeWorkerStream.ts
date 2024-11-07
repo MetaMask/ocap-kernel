@@ -2,8 +2,6 @@
  * @module Node Worker streams
  */
 
-import type { Json } from '@metamask/utils';
-
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
@@ -38,7 +36,7 @@ type NodePort = {
  * - {@link NodeWorkerWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class NodeWorkerReader<Read extends Json> extends BaseReader<Read> {
+export class NodeWorkerReader<Read> extends BaseReader<Read> {
   constructor(
     port: NodePort,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
@@ -64,7 +62,7 @@ harden(NodeWorkerReader);
  * - {@link NodeWorkerReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class NodeWorkerWriter<Write extends Json> extends BaseWriter<Write> {
+export class NodeWorkerWriter<Write> extends BaseWriter<Write> {
   constructor(
     port: NodePort,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -82,8 +80,8 @@ export class NodeWorkerWriter<Write extends Json> extends BaseWriter<Write> {
 harden(NodeWorkerWriter);
 
 export class NodeWorkerDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
+  Read,
+  Write = Read,
 > extends BaseDuplexStream<
   Read,
   NodeWorkerReader<Read>,
@@ -108,7 +106,7 @@ export class NodeWorkerDuplexStream<
     super(reader, writer);
   }
 
-  static async make<Read extends Json, Write extends Json = Read>(
+  static async make<Read, Write = Read>(
     port: NodePort,
     validateInput?: ValidateInput<Read>,
   ): Promise<NodeWorkerDuplexStream<Read, Write>> {

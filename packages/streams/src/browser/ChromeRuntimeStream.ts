@@ -14,7 +14,6 @@
  * @module ChromeRuntime streams
  */
 
-import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
 import {
@@ -66,7 +65,7 @@ const isMessageEnvelope = (
  * - {@link ChromeRuntimeWriter} for the corresponding writable stream.
  * - The module-level documentation for more details.
  */
-export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
+export class ChromeRuntimeReader<Read> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
 
   readonly #target: ChromeRuntimeStreamTarget;
@@ -146,7 +145,7 @@ harden(ChromeRuntimeReader);
  * - {@link ChromeRuntimeReader} for the corresponding readable stream.
  * - The module-level documentation for more details.
  */
-export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
+export class ChromeRuntimeWriter<Write> extends BaseWriter<Write> {
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeStreamTarget,
@@ -179,8 +178,8 @@ harden(ChromeRuntimeWriter);
  * - {@link ChromeRuntimeWriter} for the corresponding writable stream.
  */
 export class ChromeRuntimeDuplexStream<
-  Read extends Json,
-  Write extends Json = Read,
+  Read,
+  Write = Read,
 > extends BaseDuplexStream<
   Read,
   ChromeRuntimeReader<Read>,
@@ -221,7 +220,7 @@ export class ChromeRuntimeDuplexStream<
     harden(this);
   }
 
-  static async make<Read extends Json, Write extends Json = Read>(
+  static async make<Read, Write = Read>(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,
     remoteTarget: ChromeRuntimeStreamTarget,

@@ -93,29 +93,6 @@ describe('BaseReader', () => {
       }
     });
 
-    it('throws after receiving non-Dispatchable input, before read is enqueued', async () => {
-      const reader = new TestReader();
-
-      const badMessage = Symbol('foo');
-      await reader.receiveInput(badMessage);
-
-      await expect(reader.next()).rejects.toThrow(
-        'TestReader: Message cannot be processed (must be JSON-serializable)',
-      );
-    });
-
-    it('throws after receiving non-Dispatchable input, after read is enqueued', async () => {
-      const reader = new TestReader();
-
-      const nextP = reader.next();
-      const badMessage = Symbol('foo');
-      await reader.receiveInput(badMessage);
-
-      await expect(nextP).rejects.toThrow(
-        'TestReader: Message cannot be processed (must be JSON-serializable)',
-      );
-    });
-
     it('throws after receiving marshaled error, before read is enqueued', async () => {
       const reader = new TestReader();
 

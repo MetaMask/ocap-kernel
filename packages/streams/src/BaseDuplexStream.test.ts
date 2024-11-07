@@ -3,7 +3,7 @@ import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.js';
-import { makeDoneResult, makePendingResult } from './utils.js';
+import { makePendingResult, makeStreamDoneSignal } from './utils.js';
 import { TestDuplexStream } from '../test/stream-mocks.js';
 
 describe('BaseDuplexStream', () => {
@@ -251,7 +251,7 @@ describe('BaseDuplexStream', () => {
       readerOnEnd,
     });
 
-    await duplexStream.receiveInput(makeDoneResult());
+    await duplexStream.receiveInput(makeStreamDoneSignal());
     expect(readerOnEnd).toHaveBeenCalledOnce();
   });
 
