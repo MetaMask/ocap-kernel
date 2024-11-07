@@ -3,7 +3,7 @@ import type {
   KernelCommandReply,
   ClusterConfig,
 } from '@ocap/kernel';
-import { Kernel } from '@ocap/kernel';
+import { isKernelCommand, Kernel } from '@ocap/kernel';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
@@ -13,6 +13,7 @@ import type { MultiplexEnvelope } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
+import { isKernelControlCommand } from './messages.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
@@ -75,30 +76,29 @@ async function main(): Promise<void> {
   );
   const kvStore = await makeSQLKVStore();
 
-  // Create kernel channel for kernel commands
-  const kernelStream = multiplexer.addChannel<
+  // This stream is drained by the kernel.
+  const kernelStream = multiplexer.createChannel<
     KernelCommand,
     KernelCommandReply
-  >('kernel', () => {
-    // The kernel will handle commands through its own drain method
-  });
+  >('kernel', isKernelCommand);
 
-  // Create and initialize kernel
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init();
 
-  // Create panel channel for panel control messages
-  const panelStream = multiplexer.addChannel<
+  // We have to drain this stream here.
+  const panelStream = multiplexer.createChannel<
     KernelControlCommand,
     KernelControlReply
-  >('panel', async (message) => {
-    const reply = await handlePanelMessage(kernel, message);
-    await panelStream.write(reply);
-  });
+  >('panel', isKernelControlCommand);
 
   // Run default kernel lifecycle
   await kernel.launchSubcluster(defaultSubcluster);
 
-  // Start multiplexer
-  await multiplexer.drainAll();
+  await Promise.all([
+    multiplexer.start(),
+    panelStream.drain(async (message) => {
+      const reply = await handlePanelMessage(kernel, message);
+      await panelStream.write(reply);
+    }),
+  ]);
 }

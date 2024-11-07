@@ -1,9 +1,5 @@
 import '@ocap/shims/endoify';
-import type {
-  VatId,
-  VatWorkerServiceCommandReply,
-  VatConfig,
-} from '@ocap/kernel';
+import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { delay } from '@ocap/test-utils';
 import type { Logger } from '@ocap/utils';
@@ -50,7 +46,7 @@ describe('ExtensionVatWorkerClient', () => {
     "calls logger.error when receiving a $method reply it wasn't waiting for",
     async ({ method }) => {
       const errorSpy = vi.spyOn(clientLogger, 'error');
-      const unexpectedReply: VatWorkerServiceCommandReply = {
+      const unexpectedReply: VatWorkerServiceReply = {
         id: 'm9',
         payload: {
           method,

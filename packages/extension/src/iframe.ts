@@ -1,6 +1,8 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
-import { Supervisor } from '@ocap/kernel';
+import type { Json } from '@metamask/utils';
+import { isVatCommand, Supervisor } from '@ocap/kernel';
+import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { MessagePortMultiplexer, receiveMessagePort } from '@ocap/streams';
 
 main().catch(console.error);
@@ -20,7 +22,18 @@ async function main(): Promise<void> {
     { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
   );
 
-  const supervisor = new Supervisor({ id: 'iframe', multiplexer, bootstrap });
+  const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
+    'command',
+    isVatCommand,
+  );
+  const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
+  const supervisor = new Supervisor({
+    id: 'iframe',
+    commandStream,
+    capTpStream,
+    bootstrap,
+  });
 
   console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
+  await multiplexer.start();
 }

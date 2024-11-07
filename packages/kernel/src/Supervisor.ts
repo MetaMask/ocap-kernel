@@ -2,28 +2,27 @@ import { makeCapTP } from '@endo/captp';
 import { importBundle } from '@endo/import-bundle';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
-import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
 import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { isVatCommand, VatCommandMethod } from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import type { UserCodeStartFn, VatConfig } from './types.js';
 import { isVatConfig } from './types.js';
 
 type SupervisorConstructorProps = {
   id: string;
-  multiplexer: StreamMultiplexer;
+  commandStream: DuplexStream<VatCommand, VatCommandReply>;
+  capTpStream: DuplexStream<Json, Json>;
   bootstrap?: unknown;
 };
 
 export class Supervisor {
   readonly id: string;
 
-  readonly #multiplexer: StreamMultiplexer;
+  readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
 
-  readonly #commandStream: HandledDuplexStream<VatCommand, VatCommandReply>;
-
-  readonly #capTpStream: HandledDuplexStream<Json, Json>;
+  readonly #capTpStream: DuplexStream<Json, Json>;
 
   readonly #defaultCompartment = new Compartment({ URL });
 
@@ -33,22 +32,23 @@ export class Supervisor {
 
   #loaded: boolean = false;
 
-  constructor({ id, multiplexer, bootstrap }: SupervisorConstructorProps) {
+  constructor({
+    id,
+    commandStream,
+    capTpStream,
+    bootstrap,
+  }: SupervisorConstructorProps) {
     this.id = id;
     this.#bootstrap = bootstrap;
-    this.#multiplexer = multiplexer;
-    this.#commandStream = multiplexer.addChannel(
-      'command',
-      this.handleMessage.bind(this),
-      isVatCommand,
-    );
-    this.#capTpStream = multiplexer.addChannel(
-      'capTp',
-      // eslint-disable-next-line no-void
-      async (content): Promise<void> => void this.capTp?.dispatch(content),
-    );
+    this.#commandStream = commandStream;
+    this.#capTpStream = capTpStream;
 
-    multiplexer.drainAll().catch((error) => {
+    Promise.all([
+      this.#commandStream.drain(this.handleMessage.bind(this)),
+      this.#capTpStream.drain((content): void => {
+        this.capTp?.dispatch(content);
+      }),
+    ]).catch((error) => {
       console.error(
         `Unexpected read error from Supervisor "${this.id}"`,
         error,
@@ -61,7 +61,10 @@ export class Supervisor {
    * Terminates the Supervisor.
    */
   async terminate(): Promise<void> {
-    await this.#multiplexer.return();
+    await Promise.all([
+      this.#commandStream.return(),
+      this.#capTpStream.return(),
+    ]);
   }
 
   /**

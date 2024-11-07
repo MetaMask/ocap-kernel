@@ -1,11 +1,11 @@
 import '@ocap/shims/endoify';
+import type { Json } from '@metamask/utils';
 import {
   StreamReadError,
   VatAlreadyExistsError,
   VatNotFoundError,
   toError,
 } from '@ocap/errors';
-import { StreamMultiplexer } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
@@ -14,6 +14,7 @@ import type { KVStore, KernelStore } from './kernel-store.js';
 import { makeKernelStore } from './kernel-store.js';
 import {
   isKernelCommand,
+  isVatCommandReply,
   KernelCommandMethod,
   VatCommandMethod,
 } from './messages/index.js';
@@ -21,6 +22,7 @@ import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
+  VatCommandReply,
 } from './messages/index.js';
 import type {
   VatId,
@@ -69,7 +71,7 @@ export class Kernel {
   async #receiveMessages(): Promise<void> {
     for await (const message of this.#stream) {
       if (!isKernelCommand(message)) {
-        this.#logger.debug('Received unexpected message', message);
+        this.#logger.error('Received unexpected message', message);
         continue;
       }
 
@@ -190,12 +192,14 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const stream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = new Vat({
-      vatId,
-      vatConfig,
-      multiplexer: new StreamMultiplexer(stream),
-    });
+    const multiplexer = await this.#vatWorkerService.launch(vatId, vatConfig);
+    multiplexer.start().catch((error) => this.#logger.error(error));
+    const commandStream = multiplexer.createChannel<
+      VatCommandReply,
+      VatCommand
+    >('command', isVatCommandReply);
+    const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
+    const vat = new Vat({ vatId, vatConfig, commandStream, capTpStream });
     this.#vats.set(vat.vatId, vat);
     await vat.init();
     return vat;

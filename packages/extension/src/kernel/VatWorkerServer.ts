@@ -7,11 +7,7 @@ import {
   isVatWorkerServiceCommand,
   VatWorkerServiceCommandMethod,
 } from '@ocap/kernel';
-import type {
-  VatWorkerServiceCommandReply,
-  VatId,
-  VatConfig,
-} from '@ocap/kernel';
+import type { VatWorkerServiceReply, VatId, VatConfig } from '@ocap/kernel';
 import type { Logger } from '@ocap/utils';
 import { makeHandledCallback, makeLogger } from '@ocap/utils';
 
@@ -29,7 +25,7 @@ export class ExtensionVatWorkerServer {
 
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
 
-  readonly #postMessage: PostMessage<VatWorkerServiceCommandReply>;
+  readonly #postMessage: PostMessage<VatWorkerServiceReply>;
 
   readonly #addListener: AddListener;
 
@@ -51,7 +47,7 @@ export class ExtensionVatWorkerServer {
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker server]'.
    */
   constructor(
-    postMessage: PostMessage<VatWorkerServiceCommandReply>,
+    postMessage: PostMessage<VatWorkerServiceReply>,
     addListener: (listener: (event: MessageEvent<unknown>) => void) => void,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,

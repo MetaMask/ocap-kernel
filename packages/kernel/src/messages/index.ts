@@ -22,11 +22,11 @@ export type { VatCommand, VatCommandReply } from './vat.js';
 export {
   VatWorkerServiceCommandMethod,
   isVatWorkerServiceCommand,
-  isVatWorkerServiceCommandReply,
+  isVatWorkerServiceReply,
 } from './vat-worker-service.js';
 export type {
   VatWorkerServiceCommand,
-  VatWorkerServiceCommandReply,
+  VatWorkerServiceReply,
 } from './vat-worker-service.js';
 
 // Syscalls.

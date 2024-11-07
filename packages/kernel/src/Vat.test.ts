@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+import type { Json } from '@metamask/utils';
 import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
@@ -10,9 +11,8 @@ import { makeLogger, stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages/index.js';
+import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
-import type { VatConfig } from './types.js';
 import { Vat } from './Vat.js';
 
 vi.mock('@endo/eventual-send', () => ({
@@ -33,12 +33,22 @@ const makeVat = async (
     MultiplexEnvelope,
     MultiplexEnvelope
   >(() => undefined);
-  const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
+  const multiplexer = await TestMultiplexer.make(stream);
+  const commandStream = multiplexer.createChannel<VatCommandReply, VatCommand>(
+    'command',
+    isVatCommandReply,
+  );
+  const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
+  multiplexer.start().catch((error) => {
+    throw error;
+  });
+  await multiplexer.synchronizeChannels('command', 'capTp');
   return {
     vat: new Vat({
       vatId: 'v0',
-      vatConfig,
-      multiplexer: new TestMultiplexer(stream),
+      vatConfig: { sourceSpec: 'not-really-there.js' },
+      commandStream,
+      capTpStream,
       logger,
     }),
     stream,
