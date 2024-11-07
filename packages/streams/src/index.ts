@@ -23,6 +23,12 @@ export {
   PostMessageReader,
   PostMessageWriter,
 } from './browser/PostMessageStream.js';
+export {
+  NodeWorkerReader,
+  NodeWorkerWriter,
+  NodeWorkerDuplexStream,
+  NodeWorkerMultiplexer,
+} from './node/NodeWorkerStream.js';
 export type {
   PostMessageEnvelope,
   PostMessageTarget,
