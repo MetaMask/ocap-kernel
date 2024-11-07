@@ -130,7 +130,6 @@ export class Supervisor {
     id: VatCommandReply['id'],
     payload: VatCommandReply['payload'],
   ): Promise<void> {
-    console.log('replyToMessage', id, payload);
     await this.#commandStream.write({ id, payload });
   }
 
