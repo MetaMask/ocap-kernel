@@ -1,6 +1,6 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { define } from '@metamask/superstruct';
-import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
+import type { StreamMultiplexer } from '@ocap/streams';
 
 export type VatId = `v${number}`;
 
@@ -38,7 +38,7 @@ export type VatWorkerService = {
    */
   launch: (
     vatId: VatId,
-  ) => Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>>;
+  ) => Promise<StreamMultiplexer>;
   /**
    * Terminate a worker identified by its vat id.
    *

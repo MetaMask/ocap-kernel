@@ -1,0 +1,55 @@
+import type { VatWorkerService, VatId } from '@ocap/kernel';
+import { NodeWorkerMultiplexer } from '@ocap/streams';
+import type { StreamMultiplexer } from '@ocap/streams';
+import { makeLogger } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
+import { Worker as NodeWorker } from 'node:worker_threads';
+
+// Worker file loads from the built dist directory, requires rebuild after change
+// Note: Worker runs in same process and may be subject to spectre-style attacks
+const workerFileURL = new URL('../../dist/vat/inside.mjs', import.meta.url)
+  .pathname;
+
+export class NodejsVatWorkerService implements VatWorkerService {
+  // eslint-disable-next-line no-unused-private-class-members
+  readonly #logger: Logger;
+
+  workers = new Map<
+    VatId,
+    { worker: NodeWorker; multiplexer: StreamMultiplexer }
+  >();
+
+  /**
+   * The vat worker service, intended to be constructed in
+   * the kernel worker.
+   *
+   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   */
+  constructor(logger?: Logger) {
+    this.#logger = logger ?? makeLogger('[vat worker service]');
+  }
+
+  async launch(vatId: VatId): Promise<StreamMultiplexer> {
+    const worker = new NodeWorker(workerFileURL);
+    const multiplexer = new NodeWorkerMultiplexer(worker);
+    this.workers.set(vatId, { worker, multiplexer });
+    return multiplexer;
+  }
+
+  async terminate(vatId: VatId): Promise<undefined> {
+    const workerEntry = this.workers.get(vatId);
+    assert(workerEntry, `No worker found for vatId ${vatId}`);
+    const { worker, multiplexer } = workerEntry;
+    await multiplexer.return();
+    await worker.terminate();
+    this.workers.delete(vatId);
+    return undefined;
+  }
+
+  async terminateAll(): Promise<void> {
+    for (const vatId of this.workers.keys()) {
+      await this.terminate(vatId);
+    }
+  }
+}
+harden(NodejsVatWorkerService);

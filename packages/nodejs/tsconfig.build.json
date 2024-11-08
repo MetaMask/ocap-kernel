@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": "./",
+    "emitDeclarationOnly": false,
+    "lib": ["DOM", "ES2022"],
+    "noEmit": true,
+    "rootDir": "./src",
+    "types": ["chrome", "ses"]
+  },
+  "references": [
+    { "path": "../shims/tsconfig.build.json" },
+    { "path": "../streams/tsconfig.build.json" },
+    { "path": "../kernel/tsconfig.build.json" },
+    { "path": "../utils/tsconfig.build.json" }
+  ],
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*-trusted-prelude.js",
+    "./src/env/dev-console.js"
+  ]
+}

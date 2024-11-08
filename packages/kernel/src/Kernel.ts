@@ -25,7 +25,7 @@ import type { VatId, VatWorkerService } from './types.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
-  readonly #stream: DuplexStream<KernelCommand, KernelCommandReply>;
+  readonly #stream: DuplexStream<KernelCommand, KernelCommandReply> | null;
 
   readonly #vats: Map<VatId, Vat>;
 
@@ -36,7 +36,7 @@ export class Kernel {
   readonly #logger: Logger;
 
   constructor(
-    stream: DuplexStream<KernelCommand, KernelCommandReply>,
+    stream: DuplexStream<KernelCommand, KernelCommandReply> | null,
     vatWorkerService: VatWorkerService,
     storage: KVStore,
     logger?: Logger,
@@ -61,6 +61,9 @@ export class Kernel {
   }
 
   async #receiveMessages(): Promise<void> {
+    if (this.#stream === null) {
+      return;
+    }
     for await (const message of this.#stream) {
       if (!isKernelCommand(message)) {
         this.#logger.debug('Received unexpected message', message);
@@ -131,6 +134,9 @@ export class Kernel {
   }
 
   async #reply(message: KernelCommandReply): Promise<void> {
+    if (this.#stream === null) {
+      throw new Error('Stream is not available');
+    }
     await this.#stream.write(message);
   }
 
@@ -184,8 +190,8 @@ export class Kernel {
     if (this.#vats.has(id)) {
       throw new VatAlreadyExistsError(id);
     }
-    const stream = await this.#vatWorkerService.launch(id);
-    const vat = new Vat({ id, multiplexer: new StreamMultiplexer(stream) });
+    const multiplexer = await this.#vatWorkerService.launch(id);
+    const vat = new Vat({ id, multiplexer });
     this.#vats.set(vat.id, vat);
     await vat.init();
     return vat;

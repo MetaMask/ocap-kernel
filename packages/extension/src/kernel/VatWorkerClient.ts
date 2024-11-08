@@ -11,8 +11,6 @@ import type {
   VatId,
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
-import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
-import { isMultiplexEnvelope, MessagePortDuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeHandledCallback, makeLogger } from '@ocap/utils';
 
@@ -20,6 +18,8 @@ import type { AddListener, PostMessage } from './vat-worker-service.js';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
+import type { StreamMultiplexer } from '@ocap/streams';
+import { MessagePortMultiplexer } from '@ocap/streams';
 
 type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 
@@ -75,7 +75,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
 
   async launch(
     vatId: VatId,
-  ): Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>> {
+  ): Promise<StreamMultiplexer> {
     return this.#sendMessage({
       method: VatWorkerServiceCommandMethod.launch,
       params: { vatId },
@@ -120,18 +120,15 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     }
 
     switch (method) {
-      case VatWorkerServiceCommandMethod.launch:
+      case VatWorkerServiceCommandMethod.launch: {
         if (!port) {
           this.#logger.error('Expected a port with message reply', event);
           return;
         }
-        promise.resolve(
-          new MessagePortDuplexStream<MultiplexEnvelope, MultiplexEnvelope>(
-            port,
-            isMultiplexEnvelope,
-          ),
-        );
+        const multiplexer = new MessagePortMultiplexer(port);
+        promise.resolve(multiplexer);
         break;
+      }
       case VatWorkerServiceCommandMethod.terminate:
       case VatWorkerServiceCommandMethod.terminateAll:
         // If we were caching streams on the client this would be a good place
