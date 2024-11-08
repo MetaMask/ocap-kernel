@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import type { NonEmptyArray } from '@metamask/utils';
 import { VatAlreadyExistsError, VatDeletedError } from '@ocap/errors';
-import type { VatId } from '@ocap/kernel';
+import type { VatId, VatConfig } from '@ocap/kernel';
 import { delay } from '@ocap/test-utils';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -44,9 +44,10 @@ describe('VatWorkerService', () => {
     mockTerminateWorker = vi.spyOn(mockWorker, 'terminate');
 
     const vatId: VatId = 'v0';
+    const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
 
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.launch(vatId);
+    client.launch(vatId, vatConfig);
     await delay(10);
     expect(mockLaunchWorker).toHaveBeenCalledOnce();
     expect(mockTerminateWorker).not.toHaveBeenCalled();
@@ -69,7 +70,7 @@ describe('VatWorkerService', () => {
     // launch many workers
     for (let i = 0; i < mockWorkers.length; i++) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      client.launch(`v${i}`);
+      client.launch(`v${i}`, { sourceSpec: 'not-really-there.js' });
     }
 
     await delay(10);
@@ -100,11 +101,12 @@ describe('VatWorkerService', () => {
 
   it('throws when launching the same worker twice', async () => {
     const vatId: VatId = 'v0';
+    const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.launch(vatId);
+    client.launch(vatId, vatConfig);
     await delay(10);
-    await expect(async () => await client.launch(vatId)).rejects.toThrow(
-      VatAlreadyExistsError,
-    );
+    await expect(
+      async () => await client.launch(vatId, vatConfig),
+    ).rejects.toThrow(VatAlreadyExistsError);
   });
 });

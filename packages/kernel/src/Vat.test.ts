@@ -12,6 +12,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
+import type { VatConfig } from './types.js';
 import { Vat } from './Vat.js';
 
 vi.mock('@endo/eventual-send', () => ({
@@ -32,9 +33,11 @@ const makeVat = async (
     MultiplexEnvelope,
     MultiplexEnvelope
   >(() => undefined);
+  const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
   return {
     vat: new Vat({
-      id: 'v0',
+      vatId: 'v0',
+      vatConfig,
       multiplexer: new TestMultiplexer(stream),
       logger,
     }),
@@ -44,10 +47,11 @@ const makeVat = async (
 
 describe('Vat', () => {
   describe('init', () => {
-    it('initializes the vat and sends a ping message', async () => {
+    it('initializes the vat and sends ping & loadUserCode messages', async () => {
       const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
       const capTpMock = vi
         .spyOn(vat, 'makeCapTp')
@@ -59,12 +63,20 @@ describe('Vat', () => {
         method: VatCommandMethod.ping,
         params: null,
       });
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        method: VatCommandMethod.loadUserCode,
+        params: {
+          sourceSpec: 'not-really-there.js',
+        },
+      });
       expect(capTpMock).toHaveBeenCalled();
     });
 
     it('throws if the stream throws', async () => {
       const { vat, stream } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'sendMessage')
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const logErrorSpy = vi.spyOn(vat.logger, 'error');
@@ -175,6 +187,7 @@ describe('Vat', () => {
       const logSpy = vi.spyOn(logger, 'log');
       const { vat, stream } = await makeVat(logger);
       vi.spyOn(vat, 'sendMessage')
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
 

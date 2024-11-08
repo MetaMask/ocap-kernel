@@ -1,4 +1,8 @@
-import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
+import type {
+  KernelCommand,
+  KernelCommandReply,
+  ClusterConfig,
+} from '@ocap/kernel';
 import { Kernel } from '@ocap/kernel';
 import {
   MessagePortDuplexStream,
@@ -10,9 +14,36 @@ import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
-import { runVatLifecycle } from './run-vat-lifecycle.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+
+const bundleHost = 'http://localhost:3000'; // XXX placeholder
+const sampleBundle = 'sample-vat.bundle';
+const bundleURL = `${bundleHost}/${sampleBundle}`;
+
+const defaultSubcluster: ClusterConfig = {
+  bootstrap: 'alice',
+  vats: {
+    alice: {
+      bundleSpec: bundleURL,
+      parameters: {
+        name: 'Alice',
+      },
+    },
+    bob: {
+      bundleSpec: bundleURL,
+      parameters: {
+        name: 'Bob',
+      },
+    },
+    carol: {
+      bundleSpec: bundleURL,
+      parameters: {
+        name: 'Carol',
+      },
+    },
+  },
+};
 
 const logger = makeLogger('[kernel worker]');
 
@@ -66,8 +97,7 @@ async function main(): Promise<void> {
   });
 
   // Run default kernel lifecycle
-  await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
-  await kernel.launchVat({ id: 'v0' });
+  await kernel.launchSubcluster(defaultSubcluster);
 
   // Start multiplexer
   await multiplexer.drainAll();

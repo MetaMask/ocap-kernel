@@ -1,5 +1,5 @@
 import { createWindow } from '@metamask/snaps-utils';
-import type { VatId } from '@ocap/kernel';
+import type { VatId, VatConfig } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams';
 
 import type { VatWorker } from './vat-worker-service.js';
@@ -12,7 +12,7 @@ export const makeIframeVatWorker = (
 ): VatWorker => {
   const vatHtmlId = `ocap-iframe-${id}`;
   return {
-    launch: async () => {
+    launch: async (_vatConfig: VatConfig) => {
       const newWindow = await createWindow({
         uri: IFRAME_URI,
         id: vatHtmlId,

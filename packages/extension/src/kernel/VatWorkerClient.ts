@@ -10,6 +10,7 @@ import type {
   VatWorkerService,
   VatId,
   VatWorkerServiceCommand,
+  VatConfig,
 } from '@ocap/kernel';
 import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
 import { isMultiplexEnvelope, MessagePortDuplexStream } from '@ocap/streams';
@@ -75,10 +76,11 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
 
   async launch(
     vatId: VatId,
+    vatConfig: VatConfig,
   ): Promise<DuplexStream<MultiplexEnvelope, MultiplexEnvelope>> {
     return this.#sendMessage({
       method: VatWorkerServiceCommandMethod.launch,
-      params: { vatId },
+      params: { vatId, vatConfig },
     });
   }
 

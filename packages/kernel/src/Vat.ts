@@ -18,22 +18,25 @@ import type {
   VatCommandReply,
   VatCommand,
 } from './messages/index.js';
-import type { PromiseCallbacks, VatId } from './types.js';
+import type { PromiseCallbacks, VatId, VatConfig } from './types.js';
 
 type VatConstructorProps = {
-  id: VatId;
+  vatId: VatId;
+  vatConfig: VatConfig;
   multiplexer: StreamMultiplexer;
   logger?: Logger | undefined;
 };
 
 export class Vat {
-  readonly id: VatConstructorProps['id'];
+  readonly vatId: VatConstructorProps['vatId'];
 
   readonly #multiplexer: StreamMultiplexer;
 
   readonly #commandStream: HandledDuplexStream<VatCommandReply, VatCommand>;
 
   readonly #capTpStream: HandledDuplexStream<Json, Json>;
+
+  readonly #config: VatConstructorProps['vatConfig'];
 
   readonly logger: Logger;
 
@@ -44,9 +47,10 @@ export class Vat {
 
   capTp?: ReturnType<typeof makeCapTP>;
 
-  constructor({ id, multiplexer, logger }: VatConstructorProps) {
-    this.id = id;
-    this.logger = logger ?? makeLogger(`[vat ${id}]`);
+  constructor({ vatId, vatConfig, multiplexer, logger }: VatConstructorProps) {
+    this.vatId = vatId;
+    this.#config = vatConfig;
+    this.logger = logger ?? makeLogger(`[vat ${vatId}]`);
     this.#messageCounter = makeCounter();
     this.#multiplexer = multiplexer;
     this.#commandStream = multiplexer.addChannel(
@@ -88,14 +92,40 @@ export class Vat {
   async init(): Promise<unknown> {
     this.#multiplexer.drainAll().catch((error) => {
       this.logger.error(`Unexpected read error`, error);
-      throw new StreamReadError({ vatId: this.id }, error);
+      throw new StreamReadError({ vatId: this.vatId }, error);
     });
+    /*
+    this.#receiveMessages(this.#stream).catch((error) => {
+      this.logger.error(`Unexpected read error`, error);
+      throw new StreamReadError({ vatId: this.vatId }, error);
+    });
+    */
 
     await this.sendMessage({ method: VatCommandMethod.ping, params: null });
+    const loadResult = await this.sendMessage({
+      method: VatCommandMethod.loadUserCode,
+      params: this.#config,
+    });
+    console.log(`vat LoadUserCode result: `, loadResult);
     this.logger.debug('Created');
 
     return await this.makeCapTp();
   }
+
+  /**
+   * Receives messages from a vat.
+   *
+   * @param reader - The reader for the messages.
+   */
+  /*
+  async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
+    for await (const rawMessage of reader) {
+      console.log(`Vat received message ${JSON.stringify(rawMessage)}`);
+      this.logger.debug('Vat received message', rawMessage);
+      await this.streamEnvelopeReplyHandler.handle(rawMessage);
+    }
+  }
+  */
 
   /**
    * Make a CapTP connection.
@@ -104,10 +134,10 @@ export class Vat {
    */
   async makeCapTp(): Promise<unknown> {
     if (this.capTp !== undefined) {
-      throw new VatCapTpConnectionExistsError(this.id);
+      throw new VatCapTpConnectionExistsError(this.vatId);
     }
 
-    const ctp = makeCapTP(this.id, async (content: Json) => {
+    const ctp = makeCapTP(this.vatId, async (content: Json) => {
       this.logger.log('CapTP to vat', stringify(content));
       await this.#capTpStream.write(content);
     });
@@ -128,7 +158,7 @@ export class Vat {
    */
   async callCapTp(payload: CapTpPayload): Promise<unknown> {
     if (!this.capTp) {
-      throw new VatCapTpConnectionNotFoundError(this.id);
+      throw new VatCapTpConnectionNotFoundError(this.vatId);
     }
     return E(this.capTp.getBootstrap())[payload.method](...payload.params);
   }
@@ -141,7 +171,7 @@ export class Vat {
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
-      promiseCallback?.reject(new VatDeletedError(this.id));
+      promiseCallback?.reject(new VatDeletedError(this.vatId));
       this.unresolvedMessages.delete(messageId);
     }
   }
@@ -167,6 +197,6 @@ export class Vat {
    * @returns The message ID.
    */
   readonly #nextMessageId = (): VatCommand['id'] => {
-    return `${this.id}:${this.#messageCounter()}`;
+    return `${this.vatId}:${this.#messageCounter()}`;
   };
 }

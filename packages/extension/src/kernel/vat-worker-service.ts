@@ -1,5 +1,7 @@
+import type { VatConfig } from '@ocap/kernel';
+
 export type VatWorker = {
-  launch: () => Promise<[MessagePort, unknown]>;
+  launch: (vatConfig: VatConfig) => Promise<[MessagePort, unknown]>;
   terminate: () => Promise<void>;
 };
 

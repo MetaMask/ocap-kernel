@@ -1,5 +1,9 @@
 import '@ocap/shims/endoify';
-import type { VatId, VatWorkerServiceCommandReply } from '@ocap/kernel';
+import type {
+  VatId,
+  VatWorkerServiceCommandReply,
+  VatConfig,
+} from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { delay } from '@ocap/test-utils';
 import type { Logger } from '@ocap/utils';
@@ -66,8 +70,9 @@ describe('ExtensionVatWorkerClient', () => {
   it(`calls logger.error when receiving a ${VatWorkerServiceCommandMethod.launch} reply without a port`, async () => {
     const errorSpy = vi.spyOn(clientLogger, 'error');
     const vatId: VatId = 'v0';
+    const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.launch(vatId);
+    client.launch(vatId, vatConfig);
     const reply = {
       id: 'm1',
       payload: {

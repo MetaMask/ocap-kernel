@@ -33,3 +33,15 @@ ignores:
   - 'simple-git-hooks'
   - 'typedoc'
   - 'typescript'
+
+  # These are peer dependencies of various modules we actually do
+  # depend on, which have been elevated to full dependencies (even
+  # though we don't actually depend on them) in order to work around a
+  # bug in the bundler wherein it gets confused by absent peer
+  # dependencies.  These should be removed (both from here and from
+  # the declared dependencies in package.json) once KK fixes the
+  # bundler, which should be RSN.
+  - '@metamask/approval-controller'
+  - 'ava'
+  - 'webextension-polyfill'
+  - '@types/webextension-polyfill'

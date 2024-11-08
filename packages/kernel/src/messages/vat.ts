@@ -2,11 +2,13 @@ import {
   object,
   union,
   literal,
+  record,
   refine,
   string,
   is,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
+import { UnsafeJsonStruct } from '@metamask/utils';
 
 import { isVatId } from '../types.js';
 import type { VatId } from '../types.js';
@@ -26,6 +28,7 @@ export const VatTestCommandMethod = {
 export const VatCommandMethod = {
   ...VatTestCommandMethod,
   capTpInit: 'capTpInit',
+  loadUserCode: 'loadUserCode',
 } as const;
 
 const VatMessageIdStruct = refine(string(), 'VatMessageId', isVatMessageId);
@@ -47,6 +50,10 @@ export const VatMethodStructs = {
     method: literal(VatCommandMethod.capTpInit),
     params: literal(null),
   }),
+  [VatCommandMethod.loadUserCode]: object({
+    method: literal(VatCommandMethod.loadUserCode),
+    params: record(string(), UnsafeJsonStruct),
+  }),
 } as const;
 
 const VatCommandStruct = object({
@@ -55,6 +62,7 @@ const VatCommandStruct = object({
     VatMethodStructs.evaluate,
     VatMethodStructs.ping,
     VatMethodStructs.capTpInit,
+    VatMethodStructs.loadUserCode,
   ]),
 });
 
@@ -77,6 +85,10 @@ const VatReplyStructs = {
     method: literal(VatCommandMethod.capTpInit),
     params: string(),
   }),
+  [VatCommandMethod.loadUserCode]: object({
+    method: literal(VatCommandMethod.loadUserCode),
+    params: string(),
+  }),
 } as const;
 
 const VatCommandReplyStruct = object({
@@ -85,6 +97,7 @@ const VatCommandReplyStruct = object({
     VatReplyStructs.evaluate,
     VatReplyStructs.ping,
     VatReplyStructs.capTpInit,
+    VatReplyStructs.loadUserCode,
   ]),
 });
 

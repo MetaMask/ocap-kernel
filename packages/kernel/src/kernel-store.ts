@@ -58,7 +58,7 @@ import type {
   Message,
   PromiseState,
   KernelPromise,
-} from './kernel-types.js';
+} from './types.js';
 
 type StoredValue = {
   get(): string | undefined;

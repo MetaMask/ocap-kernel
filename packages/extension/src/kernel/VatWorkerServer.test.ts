@@ -77,7 +77,7 @@ describe('ExtensionVatWorkerServer', () => {
         id: 'm0',
         payload: {
           method: VatWorkerServiceCommandMethod.launch,
-          params: { vatId },
+          params: { vatId, vatConfig: { sourceSpec: 'bogus.js' } },
         },
       });
       clientPort.postMessage({

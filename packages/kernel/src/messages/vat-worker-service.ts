@@ -3,7 +3,7 @@ import type { Infer } from '@metamask/superstruct';
 import { MarshaledErrorStruct } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
-import { VatIdStruct, VatMessageIdStruct } from '../types.js';
+import { VatIdStruct, VatMessageIdStruct, VatConfigStruct } from '../types.js';
 
 export const VatWorkerServiceCommandMethod = {
   launch: 'launch',
@@ -16,7 +16,7 @@ const VatWorkerServiceCommandStruct = object({
   payload: union([
     object({
       method: literal(VatWorkerServiceCommandMethod.launch),
-      params: object({ vatId: VatIdStruct }),
+      params: object({ vatId: VatIdStruct, vatConfig: VatConfigStruct }),
     }),
     object({
       method: literal(VatWorkerServiceCommandMethod.terminate),

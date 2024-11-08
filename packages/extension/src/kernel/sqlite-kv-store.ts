@@ -11,10 +11,10 @@ import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 async function initDB(): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
   if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cwt');
+    return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cw');
   }
   console.warn(`OPFS not enabled, database will be ephemeral`);
-  return new sqlite3.oo1.DB('/testdb.sqlite', 'cwt');
+  return new sqlite3.oo1.DB('/testdb.sqlite', 'cw');
 }
 
 /**

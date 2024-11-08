@@ -1,4 +1,5 @@
 import { makeCapTP } from '@endo/captp';
+import { importBundle } from '@endo/import-bundle';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { HandledDuplexStream, StreamMultiplexer } from '@ocap/streams';
@@ -6,6 +7,8 @@ import { stringify } from '@ocap/utils';
 
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { isVatCommand, VatCommandMethod } from './messages/index.js';
+import type { UserCodeStartFn, VatConfig } from './types.js';
+import { isVatConfig } from './types.js';
 
 type SupervisorConstructorProps = {
   id: string;
@@ -27,6 +30,8 @@ export class Supervisor {
   readonly #bootstrap: unknown;
 
   capTp?: ReturnType<typeof makeCapTP>;
+
+  #loaded: boolean = false;
 
   constructor({ id, multiplexer, bootstrap }: SupervisorConstructorProps) {
     this.id = id;
@@ -96,14 +101,63 @@ export class Supervisor {
         });
         break;
       }
+
+      case VatCommandMethod.loadUserCode: {
+        if (this.#loaded) {
+          throw Error(
+            'Supervisor received LoadUserCode after user code already loaded',
+          );
+        }
+        this.#loaded = true;
+        const vatConfig: VatConfig = payload.params as VatConfig;
+        if (!isVatConfig(vatConfig)) {
+          throw Error(
+            'Supervisor received LoadUserCode with bad config parameter',
+          );
+        }
+        // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
+        if (!vatConfig.bundleSpec) {
+          throw Error(
+            'for now, only bundleSpec is support in vatConfig specifications',
+          );
+        }
+        console.log('Supervisor requested user code load:', vatConfig);
+        const { bundleSpec, parameters } = vatConfig;
+        // This is not code running under Node, you idiots
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        const fetched = await fetch(bundleSpec);
+        if (!fetched.ok) {
+          throw Error(
+            `fetch of user code ${bundleSpec} failed: ${fetched.status}`,
+          );
+        }
+        const bundle = await fetched.json();
+        const vatNS = await importBundle(bundle, {
+          endowments: {
+            console,
+          },
+        });
+        const { start }: { start: UserCodeStartFn } = vatNS;
+        if (start === undefined) {
+          throw Error(`vat module ${bundleSpec} has no start function`);
+        }
+        const rootObject = start(parameters);
+        await this.replyToMessage(id, {
+          method: VatCommandMethod.loadUserCode,
+          params: stringify(rootObject),
+        });
+        break;
+      }
+
       case VatCommandMethod.ping:
         await this.replyToMessage(id, {
           method: VatCommandMethod.ping,
           params: 'pong',
         });
         break;
+
       default:
-        console.error(
+        throw Error(
           'Supervisor received unexpected command method:',
           // @ts-expect-error Runtime does not respect "never".
           payload.method,

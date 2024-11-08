@@ -7,7 +7,11 @@ import {
   isVatWorkerServiceCommand,
   VatWorkerServiceCommandMethod,
 } from '@ocap/kernel';
-import type { VatWorkerServiceCommandReply, VatId } from '@ocap/kernel';
+import type {
+  VatWorkerServiceCommandReply,
+  VatId,
+  VatConfig,
+} from '@ocap/kernel';
 import type { Logger } from '@ocap/utils';
 import { makeHandledCallback, makeLogger } from '@ocap/utils';
 
@@ -86,11 +90,17 @@ export class ExtensionVatWorkerServer {
     };
 
     switch (method) {
-      case VatWorkerServiceCommandMethod.launch:
-        await this.#launch(params.vatId)
-          .then((port) => this.#postMessage({ id, payload }, [port]))
-          .catch(async (error) => handleError(error, params.vatId));
+      case VatWorkerServiceCommandMethod.launch: {
+        const { vatId, vatConfig } = params;
+        const replyParams = { vatId };
+        const replyPayload = { method, params: replyParams };
+        await this.#launch(vatId, vatConfig)
+          .then((port) =>
+            this.#postMessage({ id, payload: replyPayload }, [port]),
+          )
+          .catch(async (error) => handleError(error, vatId));
         break;
+      }
       case VatWorkerServiceCommandMethod.terminate:
         await this.#terminate(params.vatId)
           .then(() => this.#postMessage({ id, payload }))
@@ -113,12 +123,12 @@ export class ExtensionVatWorkerServer {
     }
   }
 
-  async #launch(vatId: VatId): Promise<MessagePort> {
+  async #launch(vatId: VatId, vatConfig: VatConfig): Promise<MessagePort> {
     if (this.#vatWorkers.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
     const vatWorker = this.#makeWorker(vatId);
-    const [port] = await vatWorker.launch();
+    const [port] = await vatWorker.launch(vatConfig);
     this.#vatWorkers.set(vatId, vatWorker);
     return port;
   }

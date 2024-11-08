@@ -6,7 +6,10 @@ import {
 } from '@ocap/errors';
 import { describe, expect, it } from 'vitest';
 
-import type { VatWorkerServiceCommandReply } from './vat-worker-service.js';
+import type {
+  VatWorkerServiceCommand,
+  VatWorkerServiceCommandReply,
+} from './vat-worker-service.js';
 import {
   isVatWorkerServiceCommand,
   isVatWorkerServiceCommandReply,
@@ -14,18 +17,33 @@ import {
 } from './vat-worker-service.js';
 import type { VatId } from '../types.js';
 
-const launchPayload: VatWorkerServiceCommandReply['payload'] = harden({
+const launchPayload: VatWorkerServiceCommand['payload'] = harden({
+  method: VatWorkerServiceCommandMethod.launch,
+  params: { vatId: 'v0', vatConfig: { sourceSpec: 'bogus.js' } },
+});
+const launchReplyPayload: VatWorkerServiceCommandReply['payload'] = harden({
   method: VatWorkerServiceCommandMethod.launch,
   params: { vatId: 'v0' },
 });
-const terminatePayload: VatWorkerServiceCommandReply['payload'] = harden({
+
+const terminatePayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.terminate,
   params: { vatId: 'v0' },
 });
-const terminateAllPayload: VatWorkerServiceCommandReply['payload'] = harden({
+const terminateReplyPayload: VatWorkerServiceCommandReply['payload'] = harden({
+  method: VatWorkerServiceCommandMethod.terminate,
+  params: { vatId: 'v0' },
+});
+
+const terminateAllPayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.terminateAll,
   params: null,
 });
+const terminateAllReplyPayload: VatWorkerServiceCommandReply['payload'] =
+  harden({
+    method: VatWorkerServiceCommandMethod.terminateAll,
+    params: null,
+  });
 
 describe('isVatWorkerServiceCommand', () => {
   describe.each`
@@ -56,9 +74,9 @@ describe('isVatWorkerServiceCommandReply', () => {
 
   describe('launch', () => {
     const withMarshaledError = (vatId: VatId): unknown => ({
-      method: launchPayload.method,
+      method: launchReplyPayload.method,
       params: {
-        ...launchPayload.params,
+        ...launchReplyPayload.params,
         error: marshalError(new VatAlreadyExistsError(vatId)),
       },
     });
@@ -66,10 +84,14 @@ describe('isVatWorkerServiceCommandReply', () => {
       [
         true,
         'valid message id with valid payload',
-        { id: 'm0', payload: launchPayload },
+        { id: 'm0', payload: launchReplyPayload },
       ],
-      [false, 'invalid id', { id: 'vat-message-id', payload: launchPayload }],
-      [false, 'numerical id', { id: 1, payload: launchPayload }],
+      [
+        false,
+        'invalid id',
+        { id: 'vat-message-id', payload: launchReplyPayload },
+      ],
+      [false, 'numerical id', { id: 1, payload: launchReplyPayload }],
       [false, 'missing payload', { id: 'm0' }],
       [
         true,
@@ -79,7 +101,7 @@ describe('isVatWorkerServiceCommandReply', () => {
       [
         false,
         'valid message id with invalid error',
-        { id: 'm0', payload: withError(launchPayload, 404) },
+        { id: 'm0', payload: withError(launchReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
       expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);
@@ -88,9 +110,9 @@ describe('isVatWorkerServiceCommandReply', () => {
 
   describe('terminate', () => {
     const withMarshaledError = (vatId: VatId): unknown => ({
-      method: terminatePayload.method,
+      method: terminateReplyPayload.method,
       params: {
-        ...terminatePayload.params,
+        ...terminateReplyPayload.params,
         error: marshalError(new VatDeletedError(vatId)),
       },
     });
@@ -98,14 +120,14 @@ describe('isVatWorkerServiceCommandReply', () => {
       [
         true,
         'valid message id with valid payload',
-        { id: 'm0', payload: terminatePayload },
+        { id: 'm0', payload: terminateReplyPayload },
       ],
       [
         false,
         'invalid id',
-        { id: 'vat-message-id', payload: terminatePayload },
+        { id: 'vat-message-id', payload: terminateReplyPayload },
       ],
-      [false, 'numerical id', { id: 1, payload: terminatePayload }],
+      [false, 'numerical id', { id: 1, payload: terminateReplyPayload }],
       [false, 'missing payload', { id: 'm0' }],
       [
         true,
@@ -115,7 +137,7 @@ describe('isVatWorkerServiceCommandReply', () => {
       [
         false,
         'valid message id with invalid error',
-        { id: 'm0', payload: withError(terminatePayload, 404) },
+        { id: 'm0', payload: withError(terminateReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
       expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);
@@ -124,25 +146,25 @@ describe('isVatWorkerServiceCommandReply', () => {
 
   describe('terminateAll', () => {
     const withValidVatError = (vatId: VatId): unknown => ({
-      method: terminateAllPayload.method,
+      method: terminateAllReplyPayload.method,
       params: { vatId, error: marshalError(new VatDeletedError(vatId)) },
     });
     const withMarshaledError = (): unknown => ({
-      method: terminateAllPayload.method,
+      method: terminateAllReplyPayload.method,
       params: { error: marshalError(new Error('code: foobar')) },
     });
     it.each([
       [
         true,
         'valid message id with valid payload',
-        { id: 'm0', payload: terminateAllPayload },
+        { id: 'm0', payload: terminateAllReplyPayload },
       ],
       [
         false,
         'invalid id',
-        { id: 'vat-message-id', payload: terminateAllPayload },
+        { id: 'vat-message-id', payload: terminateAllReplyPayload },
       ],
-      [false, 'numerical id', { id: 1, payload: terminateAllPayload }],
+      [false, 'numerical id', { id: 1, payload: terminateAllReplyPayload }],
       [false, 'missing payload', { id: 'm0' }],
       [
         true,
@@ -157,7 +179,7 @@ describe('isVatWorkerServiceCommandReply', () => {
       [
         false,
         'valid message id with invalid error',
-        { id: 'm0', payload: withError(terminateAllPayload, 404) },
+        { id: 'm0', payload: withError(terminateAllReplyPayload, 404) },
       ],
     ])('returns %j for %j', (expectedResult, _, value) => {
       expect(isVatWorkerServiceCommandReply(value)).toBe(expectedResult);

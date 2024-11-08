@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';
 import type { KVStore } from './kernel-store.js';
-import type { Message } from './kernel-types.js';
+import type { Message } from './types.js';
 import { makeMapKVStore } from '../test/storage.js';
 
 /**

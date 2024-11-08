@@ -170,18 +170,14 @@ describe('Supervisor', () => {
 
     it('handles unknown message types', async () => {
       const { supervisor } = await makeSupervisor();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
 
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        // @ts-expect-error - unknown message type.
-        payload: { method: 'UnknownType' },
-      });
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Supervisor received unexpected command method:',
-        'UnknownType',
-      );
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          // @ts-expect-error - unknown message type.
+          payload: { method: 'UnknownType' },
+        }),
+      ).rejects.toThrow('Supervisor received unexpected command method:');
     });
   });
 
