@@ -13,6 +13,7 @@ describe('index', () => {
       'MessagePortDuplexStream',
       'MessagePortMultiplexer',
       'MessagePortReader',
+      'MessagePortReceiver',
       'MessagePortWriter',
       'PostMessageDuplexStream',
       'PostMessageMultiplexer',

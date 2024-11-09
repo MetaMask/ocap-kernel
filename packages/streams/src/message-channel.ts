@@ -14,28 +14,60 @@
  */
 
 import { makePromiseKit } from '@endo/promise-kit';
-import { isObject } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
+import type { Infer } from '@metamask/superstruct';
+import { literal, is, optional, string, object } from '@metamask/superstruct';
 
 export enum MessageType {
   Initialize = 'INIT_MESSAGE_CHANNEL',
   Acknowledge = 'ACK_MESSAGE_CHANNEL',
 }
 
-type InitializeMessage = { type: MessageType.Initialize };
-type AcknowledgeMessage = { type: MessageType.Acknowledge };
+const InitializeMessageStruct = object({
+  type: literal(MessageType.Initialize),
+  id: optional(string()),
+});
 
-const isInitMessage = (
+const AcknowledgeMessageStruct = object({
+  type: literal(MessageType.Acknowledge),
+  id: optional(string()),
+});
+
+type InitializeMessage = Infer<typeof InitializeMessageStruct>;
+type AcknowledgeMessage = Infer<typeof AcknowledgeMessageStruct>;
+
+const hasPort = (
   event: MessageEvent,
-): event is MessageEvent<InitializeMessage> =>
-  isObject(event.data) &&
-  event.data.type === MessageType.Initialize &&
+): event is MessageEvent<unknown> & { ports: [MessagePort] } =>
   Array.isArray(event.ports) &&
   event.ports.length === 1 &&
   event.ports[0] instanceof MessagePort;
 
+const isInitMessage = (
+  event: MessageEvent,
+): event is MessageEvent<InitializeMessage> =>
+  is(event.data, InitializeMessageStruct) && hasPort(event);
+
 const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
-  isObject(value) && value.type === MessageType.Acknowledge;
+  is(value, AcknowledgeMessageStruct);
+
+type InitializeMessageChannelParams<Result = MessagePort> = {
+  /**
+   * A bound method for posting a message to the receiving realm.
+   * Must be able to transfer a message port.
+   */
+  postMessage: (message: unknown, transfer: Transferable[]) => void;
+
+  /**
+   * A function that receives the local message port and returns a value.
+   * Returns the local message port by default.
+   */
+  portHandler?: (port: MessagePort) => Result;
+
+  /**
+   * A unique identifier for the request.
+   */
+  requestId?: string;
+};
 
 /**
  * Creates a message channel and sends one of the ports to the receiving realm. The
@@ -43,31 +75,30 @@ const isAckMessage = (value: unknown): value is AcknowledgeMessage =>
  * receive the remote message port. Rejects if the first message received over the
  * channel is not an {@link AcknowledgeMessage}.
  *
+ * A request id must be specified if used with {@link MessagePortReceiver}, but must
+ * **not** be specified if used with {@link receiveMessagePort}.
+ *
  * A `portHandler` function can be specified to synchronously perform any work with
  * the local message port before the promise resolves.
  *
- * @param postMessage - A bound method for posting a message to the receiving realm.
- * Must be able to transfer a message port.
- * @param portHandler - A function that receives the local message port and returns a
- * value. Returns the local message port by default.
+ * @param params - Options bag.
+ * @param params.postMessage - A bound method for posting a message to the receiving
+ * realm. Must be able to transfer a message port.
+ * @param params.portHandler - A function that receives the local message port and
+ * returns a value. Returns the local message port by default.
+ * @param params.requestId - A unique identifier for the request.
  * @returns A promise that resolves with the value returned by `portHandler`.
  */
-export async function initializeMessageChannel<Result = MessagePort>(
-  postMessage: (message: unknown, transfer: Transferable[]) => void,
-  portHandler: (port: MessagePort) => Result = (port) => port as Result,
-): Promise<Result> {
+export async function initializeMessageChannel<Result = MessagePort>({
+  postMessage,
+  portHandler = (port) => port as Result,
+  requestId,
+}: InitializeMessageChannelParams<Result>): Promise<Result> {
   const { port1, port2 } = new MessageChannel();
 
-  const { promise, resolve, reject } = makePromiseKit<Result>();
+  const { promise, resolve } = makePromiseKit<Result>();
   const listener = (message: MessageEvent): void => {
-    if (!isAckMessage(message.data)) {
-      reject(
-        new Error(
-          `Received unexpected message via message port:\n${stringify(
-            message.data,
-          )}`,
-        ),
-      );
+    if (!isAckMessage(message.data) || message.data.id !== requestId) {
       return;
     }
 
@@ -80,42 +111,60 @@ export async function initializeMessageChannel<Result = MessagePort>(
 
   const initMessage: InitializeMessage = {
     type: MessageType.Initialize,
+    id: requestId,
   };
   postMessage(initMessage, [port2]);
 
-  return promise.catch((error) => {
-    port1.close();
-    port1.removeEventListener('message', listener);
-    throw error;
-  });
+  return await promise;
 }
 
 type Listener = (message: MessageEvent) => void;
+
+type ReceiveMessagePortParams<Result = MessagePort> = {
+  /**
+   * A bound method to add a message event listener to the sending realm.
+   */
+  addListener: (listener: Listener) => void;
+
+  /**
+   * A bound method to remove a message event listener from the sending realm.
+   */
+  removeListener: (listener: Listener) => void;
+
+  /**
+   * A function that receives the message port and returns a value.
+   * Returns the message port by default.
+   */
+  portHandler?: (port: MessagePort) => Result;
+};
 
 /**
  * Receives a message port from the sending realm, and sends an {@link AcknowledgeMessage}
  * over the port. Should be called in a script _without_ the `async` attribute on startup.
  * The sending realm must call {@link initializeMessageChannel} to send the message port
  * after this realm has loaded. Ignores any message events dispatched on the local
- * realm that are not an {@link InitializeMessage}.
+ * realm that are not an {@link InitializeMessage}, or who specify a request `id`. In
+ * other words, the sending side must not specify a request `id` if this function is
+ * used.
  *
  * A `portHandler` function can be specified to synchronously perform any work with the
  * received port before the promise resolves.
  *
- * @param addListener - A bound method to add a message event listener to the sending
- * realm.
- * @param removeListener - A bound method to remove a message event listener from the
+ * @param params - Options bag.
+ * @param params.addListener - A bound method to add a message event listener to the
  * sending realm.
- * @param portHandler - A function that receives the message port and returns a value.
- * Returns the message port by default.
+ * @param params.removeListener - A bound method to remove a message event listener from
+ * the sending realm.
+ * @param params.portHandler - A function that receives the message port and returns a
+ * value. Returns the message port by default.
  * @returns A promise that resolves with the value returned by `portHandler`.
  */
-export async function receiveMessagePort<Result = MessagePort>(
-  addListener: (listener: Listener) => void,
-  removeListener: (listener: Listener) => void,
-  portHandler: (port: MessagePort) => Result = (port) => port as Result,
-): Promise<Result> {
-  const { promise, resolve } = makePromiseKit<Result>();
+export async function receiveMessagePort<Result = MessagePort>({
+  addListener,
+  removeListener,
+  portHandler = (port) => port as Result,
+}: ReceiveMessagePortParams<Result>): Promise<Result> {
+  const { promise, resolve, reject } = makePromiseKit<Result>();
 
   const listener = (message: MessageEvent): void => {
     if (!isInitMessage(message)) {
@@ -123,12 +172,102 @@ export async function receiveMessagePort<Result = MessagePort>(
     }
     removeListener(listener);
 
+    if (message.data.id !== undefined) {
+      reject(
+        new Error(
+          'Received init message with request id. Use MessagePortReceiver instead.',
+        ),
+      );
+      return;
+    }
+
     const port = message.ports[0] as MessagePort;
-    const ackMessage: AcknowledgeMessage = { type: MessageType.Acknowledge };
+    const ackMessage: AcknowledgeMessage = {
+      type: MessageType.Acknowledge,
+    };
     port.postMessage(ackMessage);
     resolve(portHandler(port));
   };
 
   addListener(listener);
   return promise;
+}
+
+type PendingRequest = {
+  resolve: (result: MessagePort) => void;
+  reject: (error: Error) => void;
+};
+
+export class MessagePortReceiver {
+  readonly #listener: Listener;
+
+  readonly #pendingRequests: Map<string, PendingRequest>;
+
+  readonly #receivedPorts: Map<string, MessagePort>;
+
+  readonly #removeListener: (listener: Listener) => void;
+
+  constructor(
+    addListener: (listener: Listener) => void,
+    removeListener: (listener: Listener) => void,
+  ) {
+    this.#pendingRequests = new Map();
+    this.#receivedPorts = new Map();
+    this.#listener = this.#handleMessage.bind(this);
+    this.#removeListener = removeListener;
+    addListener(this.#listener);
+  }
+
+  async receivePort(requestId: string): Promise<MessagePort> {
+    const receivedPort = this.#receivedPorts.get(requestId);
+    if (receivedPort !== undefined) {
+      this.#acknowledgePort(receivedPort, requestId);
+      this.#receivedPorts.delete(requestId);
+      return Promise.resolve(receivedPort);
+    }
+
+    return new Promise((resolve, reject) => {
+      this.#pendingRequests.set(requestId, { resolve, reject });
+    });
+  }
+
+  #acknowledgePort(port: MessagePort, requestId: string): void {
+    const ackMessage: AcknowledgeMessage = {
+      type: MessageType.Acknowledge,
+      id: requestId,
+    };
+    port.postMessage(ackMessage);
+  }
+
+  #handleMessage(message: MessageEvent): void {
+    if (!isInitMessage(message)) {
+      return;
+    }
+
+    const { id } = message.data;
+    if (id === undefined) {
+      console.error('Received init message with undefined request id');
+      return;
+    }
+
+    const port = message.ports[0] as MessagePort;
+    const pending = this.#pendingRequests.get(id);
+    if (pending === undefined) {
+      this.#receivedPorts.set(id, port);
+      return;
+    }
+
+    this.#acknowledgePort(port, id);
+    pending.resolve(port);
+    this.#pendingRequests.delete(id);
+  }
+
+  destroy(): void {
+    this.#removeListener(this.#listener);
+    const error = new Error('MessagePortReceiver destroyed');
+    for (const { reject } of this.#pendingRequests.values()) {
+      reject(error);
+    }
+    this.#pendingRequests.clear();
+  }
 }
