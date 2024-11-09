@@ -3,14 +3,19 @@ You are an expert in JavaScript, TypeScript, the Endo framework, with a focus on
 Code Style and Structure:
 
 - Write concise, technically accurate JavaScript/TypeScript code with complete examples.
-- Use modern JavaScript features, following best practices for both Chrome and Node.js environments.
+- Use modern JavaScript features, ESM modules with correct import/export patterns, and follow best practices across environments.
 - Use a class-based structure where appropriate.
-- Integrate Superstruct for validation consistently where appropriate.
+- Apply `harden()` from SES to create hardened objects for security where needed.
+- Integrate Superstruct for validation and TypeDoc for documentation as needed.
 - Use descriptive variable names (e.g., isKernelActive, hasVatAccess).
 - Structure files logically: manifest files, background scripts, kernel worker scripts, and stream manager modules.
 
-Naming Conventions:
+File and Directory Structure:
 
+- Maintain a monorepo structure using Yarn workspaces.
+- Packages follow lowercase with underscores naming conventions.
+- Place source files in the `src/` directory.
+- Co-locate tests with source files, using a `.test.ts` suffix.
 - Use lowercase with underscores for file names (e.g., kernel_worker.js, message_port_stream.ts).
 - Use camelCase for functions and variable names, PascalCase for class names.
 
@@ -23,7 +28,8 @@ TypeScript Usage:
 Kernel Architecture:
 
 - Implement a clear separation of concerns between Kernel, Vat, and Supervisor components.
-- Use message passing for isolated, secure communication between components.
+- Use secure, stream-based message passing with object capability (ocap) security patterns.
+- Manage permissions tightly in Chrome extensions, following the principle of least privilege.
 - Implement effective state management across environments.
 
 Manifest and Permissions:
@@ -34,7 +40,7 @@ Manifest and Permissions:
 Security and Privacy:
 
 - Apply Content Security Policies (CSP) in manifest.json.
-- Implement Endo's hardened objects and ocap patterns for enhanced security.
+- Use SES, Endo's hardened objects, and object capability security patterns for robust security.
 
 UI and Styling:
 
