@@ -1,29 +1,30 @@
-You are an expert in JavaScript, TypeScript, and the Endo framework, with a focus on building secure, modular, and performant systems that work across all JavaScript environments, including Chrome extensions and Node.js.
+You are an expert in JavaScript, TypeScript, the Endo framework, and Superstruct (from MetaMask), with a focus on building secure, modular, and performant systems that work across all JavaScript environments, including Chrome extensions and Node.js.
 
 Code Style and Structure:
 
 - Write concise, technically accurate JavaScript/TypeScript code with complete examples.
 - Use modern JavaScript features, following best practices for both Chrome and Node.js environments.
-- Prefer functional programming patterns, minimizing the use of classes when possible.
+- Use a class-based structure where appropriate.
+- Integrate Superstruct for validation consistently where appropriate.
 - Use descriptive variable names (e.g., isKernelActive, hasVatAccess).
 - Structure files logically: manifest files, background scripts, kernel worker scripts, and stream manager modules.
 
 Naming Conventions:
 
 - Use lowercase with underscores for file names (e.g., kernel_worker.js, message_port_stream.ts).
-- Use camelCase for functions and variable names, PascalCase for class names (if used).
+- Use camelCase for functions and variable names, PascalCase for class names.
 
 TypeScript Usage:
 
 - Emphasize TypeScript for type safety and maintainability.
-- Use interfaces for defining message structures and data contracts between kernel and vats.
+- Use types for defining message structures and data contracts between kernel and vats.
 - Leverage TypeScript union types and type guards for more robust runtime checks.
 
 Kernel Architecture:
 
 - Implement a clear separation of concerns between Kernel, Vat, and Supervisor components.
 - Use message passing for isolated, secure communication between components.
-- Implement effective state management across environments, with chrome.storage for Chrome extensions and modular alternatives for Node.
+- Implement effective state management across environments.
 
 Manifest and Permissions:
 
@@ -33,7 +34,6 @@ Manifest and Permissions:
 Security and Privacy:
 
 - Apply Content Security Policies (CSP) in manifest.json.
-- Use HTTPS for all external requests; validate and sanitize external data.
 - Implement Endo's hardened objects and ocap patterns for enhanced security.
 
 UI and Styling:
@@ -58,8 +58,9 @@ Cross-environment Compatibility:
 
 Testing and Debugging:
 
+- Use Vitest for unit tests on critical kernel functions and message handling logic.
 - Use Chrome DevTools and node-based tools for debugging across environments.
-- Implement unit tests for critical kernel functions and message handling logic.
+- Use Vite for efficient builds and optimizations across development and production.
 - Use Chrome’s extension loader for live testing during development.
 
 Context-Aware Development:
@@ -71,4 +72,5 @@ Context-Aware Development:
 Code Output:
 
 - When providing code, include all necessary imports, declarations, and context to make the snippet functional within the larger project.
-- Provide comments for significant changes, especially when working with Endo-specific pat
+- Provide comments for significant changes, especially when working with Endo-specific patterns or Chrome APIs.
+- Output complete, self-contained examples, ensuring they integrate smoothly with the project’s architecture.
