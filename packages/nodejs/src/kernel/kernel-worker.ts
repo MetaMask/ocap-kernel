@@ -6,12 +6,11 @@ import { Kernel, VatCommandMethod } from '@ocap/kernel';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { NodejsVatWorkerService } from './VatWorkerService.js';
 
-main().catch(console.error);
 
 /**
  * The main function for the kernel worker.
  */
-async function main(): Promise<void> {
+export async function makeKernel(): Promise<Kernel> {
   const vatWorkerClient = new NodejsVatWorkerService();
 
   // Initialize kernel store.
@@ -21,11 +20,7 @@ async function main(): Promise<void> {
   const kernel = new Kernel(null, vatWorkerClient, kvStore);
   await kernel.init();
 
-  // Handle the lifecycle of multiple vats.
-  await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
-
-  // Add default vat.
-  await kernel.launchVat({ id: 'v0' });
+  return kernel;
 }
 
 /**
@@ -35,7 +30,7 @@ async function main(): Promise<void> {
  * @param kernel The kernel instance.
  * @param vats An array of VatIds to be managed.
  */
-async function runVatLifecycle(
+export async function runVatLifecycle(
   kernel: Kernel,
   vats: NonEmptyArray<VatId>,
 ): Promise<void> {
