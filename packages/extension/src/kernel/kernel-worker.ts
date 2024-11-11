@@ -31,6 +31,7 @@ async function main(): Promise<void> {
     MultiplexEnvelope,
     MultiplexEnvelope
   >(port);
+
   const multiplexer = new StreamMultiplexer(
     baseStream,
     'KernelWorkerMultiplexer',

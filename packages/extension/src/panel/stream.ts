@@ -42,11 +42,16 @@ export async function setupStream(): Promise<
       }
 
       if (message.method === 'sendMessage') {
-        if (typeof message.params === 'object' && 'error' in message.params) {
-          showOutput(stringify(message.params.error, 0), 'error');
-        } else {
-          showOutput(stringify(message.params, 2), 'info');
+        const { params } = message;
+
+        // Handle error responses
+        if (isErrorResponse(params)) {
+          showOutput(stringify(params.error, 0), 'error');
+          return;
         }
+
+        // Handle successful responses
+        showOutput(stringify(params, 2), 'info');
       }
     })
     .catch((error) => {
@@ -76,4 +81,18 @@ export async function setupStatusPolling(
   };
 
   await fetchStatus();
+}
+
+type ErrorResponse = {
+  error: unknown;
+};
+
+/**
+ * Checks if a value is an error response.
+ *
+ * @param value - The value to check.
+ * @returns Whether the value is an error response.
+ */
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  return typeof value === 'object' && value !== null && 'error' in value;
 }
