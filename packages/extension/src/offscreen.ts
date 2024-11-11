@@ -158,7 +158,6 @@ function setupPopupStream(
           onStreamCreated(stream);
 
           return stream.drain(async (message) => {
-            logger.log('sending message to kernel from popup', message);
             await panelChannel.write(message);
           });
         })

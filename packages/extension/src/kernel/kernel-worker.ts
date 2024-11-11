@@ -47,9 +47,8 @@ async function main(): Promise<void> {
   const kernelStream = multiplexer.addChannel<
     KernelCommand,
     KernelCommandReply
-  >('kernel', async (command) => {
+  >('kernel', async () => {
     // The kernel will handle commands through its own drain method
-    logger.log('Kernel received command:', command);
   });
 
   // Create and initialize kernel
@@ -61,7 +60,6 @@ async function main(): Promise<void> {
     KernelControlCommand,
     KernelControlReply
   >('panel', async (message) => {
-    logger.log('Kernel received panel message:', message);
     const reply = await handlePanelMessage(kernel, message);
     await panelStream.write(reply);
   });
