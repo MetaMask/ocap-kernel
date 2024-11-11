@@ -16,7 +16,7 @@ import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 const logger = makeLogger('[kernel worker]');
 
-main().catch((error) => logger.error('Kernel worker error:', error));
+main().catch(logger.error);
 
 /**
  *

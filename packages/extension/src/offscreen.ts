@@ -85,21 +85,6 @@ async function main(): Promise<void> {
 }
 
 /**
- * Creates and sets up communication with the background script.
- *
- * @returns A duplex stream for background communication
- */
-async function setupBackgroundStream(): Promise<
-  ChromeRuntimeDuplexStream<KernelCommand, KernelCommandReply>
-> {
-  return ChromeRuntimeDuplexStream.make<KernelCommand, KernelCommandReply>(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Background,
-  );
-}
-
-/**
  * Creates and initializes the kernel worker.
  *
  * @returns The message port stream for worker communication
@@ -132,6 +117,20 @@ async function setupKernelWorker(): Promise<
   return workerStream;
 }
 
+/**
+ * Creates and sets up communication with the background script.
+ *
+ * @returns A duplex stream for background communication
+ */
+async function setupBackgroundStream(): Promise<
+  ChromeRuntimeDuplexStream<KernelCommand, KernelCommandReply>
+> {
+  return ChromeRuntimeDuplexStream.make<KernelCommand, KernelCommandReply>(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Background,
+  );
+}
 /**
  * Sets up the popup communication stream.
  *
