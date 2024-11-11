@@ -72,28 +72,6 @@ export async function setupStream(): Promise<
   return sendMessage;
 }
 
-/**
- * Setup status polling.
- *
- * @param sendMessage - A function for sending messages.
- */
-export async function setupStatusPolling(
-  sendMessage: (message: KernelControlCommand) => Promise<void>,
-): Promise<void> {
-  const fetchStatus = async (): Promise<void> => {
-    await sendMessage({
-      method: 'getStatus',
-      params: null,
-    });
-
-    setTimeout(() => {
-      fetchStatus().catch(logger.error);
-    }, 1000);
-  };
-
-  await fetchStatus();
-}
-
 type ErrorResponse = {
   error: unknown;
 };

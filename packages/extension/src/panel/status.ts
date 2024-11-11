@@ -2,11 +2,34 @@ import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
 import { buttons } from './buttons.js';
-import type { KernelStatus } from '../kernel/messages.js';
+import { logger } from './shared.js';
+import type { KernelControlCommand, KernelStatus } from '../kernel/messages.js';
 
 const statusDisplay = document.getElementById('status-display') as HTMLElement;
 const vatId = document.getElementById('vat-id') as HTMLSelectElement;
 const newVatId = document.getElementById('new-vat-id') as HTMLInputElement;
+
+/**
+ * Setup status polling.
+ *
+ * @param sendMessage - A function for sending messages.
+ */
+export async function setupStatusPolling(
+  sendMessage: (message: KernelControlCommand) => Promise<void>,
+): Promise<void> {
+  const fetchStatus = async (): Promise<void> => {
+    await sendMessage({
+      method: 'getStatus',
+      params: null,
+    });
+
+    setTimeout(() => {
+      fetchStatus().catch(logger.error);
+    }, 1000);
+  };
+
+  await fetchStatus();
+}
 
 /**
  * Update the status display with the current status.
