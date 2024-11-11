@@ -4,4 +4,4 @@ export type { KVStore } from './kernel-store.js';
 export { Vat } from './Vat.js';
 export { Supervisor } from './Supervisor.js';
 export type { VatId, VatWorkerService } from './types.js';
-export { isVatId } from './types.js';
+export { isVatId, VatIdStruct } from './types.js';

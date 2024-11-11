@@ -1,9 +1,10 @@
-import { ClusterCommandMethod, isVatId } from '@ocap/kernel';
+import { KernelCommandMethod, VatCommandMethod, isVatId } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
 import { vatId } from './buttons.js';
 import type { KernelControlCommand } from '../kernel/messages.js';
+import { KernelControlMethod } from '../kernel/messages.js';
 
 const outputBox = document.getElementById('output-box') as HTMLElement;
 const messageOutput = document.getElementById(
@@ -18,16 +19,16 @@ const messageTemplates = document.getElementById(
 const sendButton = document.getElementById('send-message') as HTMLButtonElement;
 
 export const commonMessages: Record<string, KernelCommand> = {
-  Ping: { method: ClusterCommandMethod.Ping, params: null },
+  Ping: { method: VatCommandMethod.ping, params: null },
   Evaluate: {
-    method: ClusterCommandMethod.Evaluate,
+    method: VatCommandMethod.evaluate,
     params: `[1,2,3].join(',')`,
   },
   KVSet: {
-    method: ClusterCommandMethod.KVSet,
+    method: KernelCommandMethod.kvSet,
     params: { key: 'foo', value: 'bar' },
   },
-  KVGet: { method: ClusterCommandMethod.KVGet, params: 'foo' },
+  KVGet: { method: KernelCommandMethod.kvGet, params: 'foo' },
 };
 
 /**
@@ -68,16 +69,14 @@ export function setupTemplateHandlers(
 
   sendButton.addEventListener('click', () => {
     (async () => {
-      const params: KernelControlCommand['params'] = {
-        payload: JSON.parse(messageContent.value),
+      const command: KernelControlCommand = {
+        method: KernelControlMethod.sendMessage,
+        params: {
+          payload: JSON.parse(messageContent.value),
+          ...(isVatId(vatId.value) ? { id: vatId.value } : {}),
+        },
       };
-      if (isVatId(vatId.value)) {
-        params.id = vatId.value;
-      }
-      await sendMessage({
-        method: 'sendMessage',
-        params,
-      });
+      await sendMessage(command);
     })().catch((error) => showOutput(String(error), 'error'));
   });
 

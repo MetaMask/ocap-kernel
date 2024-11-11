@@ -5,7 +5,9 @@ import {
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
+  StreamMultiplexer,
 } from '@ocap/streams';
+import type { HandledDuplexStream, MultiplexEnvelope } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel/iframe-vat-worker.js';
@@ -21,143 +23,156 @@ const logger = makeLogger('[offscreen]');
 main().catch(logger.error);
 
 /**
- * The main function for the offscreen script.
+ * Main function to initialize the offscreen page.
  */
 async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  const backgroundStream = await ChromeRuntimeDuplexStream.make(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Background,
+  const backgroundStream = await setupBackgroundStream();
+
+  const workerStream = await setupKernelWorker();
+
+  // Create multiplexer for worker communication
+  const multiplexer = new StreamMultiplexer(
+    workerStream,
+    'OffscreenMultiplexer',
   );
 
-  const kernelWorker = await makeKernelWorker();
+  // Add kernel channel
+  const kernelChannel = multiplexer.addChannel<
+    KernelCommandReply,
+    KernelCommand
+  >('kernel', async (reply) => {
+    if (isKernelCommandReply(reply)) {
+      await backgroundStream.write(reply);
+    }
+  });
 
-  setupPopupStream();
+  let popupStream: ChromeRuntimeDuplexStream<
+    KernelControlCommand,
+    KernelControlReply
+  > | null = null;
 
-  /**
-   * Reply to a command from the background script.
-   *
-   * @param commandReply - The reply to send.
-   */
-  const replyToBackground = async (
-    commandReply: KernelCommandReply,
-  ): Promise<void> => {
-    await backgroundStream.write(commandReply);
-  };
+  // Add panel channel
+  const panelChannel = multiplexer.addChannel<
+    KernelControlReply,
+    KernelControlCommand
+  >('panel', async (reply) => {
+    if (isKernelControlReply(reply) && popupStream) {
+      await popupStream.write(reply);
+    }
+  });
 
-  // Handle messages from the background service worker and the kernel SQLite worker.
+  // Setup popup communication
+  setupPopupStream(panelChannel, (stream) => {
+    popupStream = stream;
+  });
+
+  // Handle messages from the background script and the multiplexer
   await Promise.all([
-    kernelWorker.receiveMessages(),
+    multiplexer.drainAll(),
     (async () => {
       for await (const message of backgroundStream) {
         if (!isKernelCommand(message)) {
           logger.error('Offscreen received unexpected message', message);
           continue;
         }
-
-        await kernelWorker.sendMessage(message);
+        await kernelChannel.write(message);
       }
     })(),
   ]);
+}
 
-  /**
-   * Make the SQLite kernel worker.
-   *
-   * @returns An object with methods to send and receive messages from the kernel worker.
-   */
-  async function makeKernelWorker(): Promise<{
-    sendMessage: (message: KernelCommand) => Promise<void>;
-    receiveMessages: () => Promise<void>;
-    worker: Worker;
-  }> {
-    const worker = new Worker('kernel-worker.js', { type: 'module' });
+/**
+ * Creates and sets up communication with the background script.
+ *
+ * @returns A duplex stream for background communication
+ */
+async function setupBackgroundStream(): Promise<
+  ChromeRuntimeDuplexStream<KernelCommand, KernelCommandReply>
+> {
+  return ChromeRuntimeDuplexStream.make<KernelCommand, KernelCommandReply>(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Background,
+  );
+}
 
-    const workerStream = await initializeMessageChannel((message, transfer) =>
-      worker.postMessage(message, transfer),
-    ).then(async (port) =>
-      MessagePortDuplexStream.make<KernelCommandReply, KernelCommand>(port),
-    );
+/**
+ * Creates and initializes the kernel worker.
+ *
+ * @returns The message port stream for worker communication
+ */
+async function setupKernelWorker(): Promise<
+  MessagePortDuplexStream<MultiplexEnvelope, MultiplexEnvelope>
+> {
+  const worker = new Worker('kernel-worker.js', { type: 'module' });
 
-    const vatWorkerServer = new ExtensionVatWorkerServer(
-      (message, transfer?) =>
-        transfer
-          ? worker.postMessage(message, transfer)
-          : worker.postMessage(message),
-      (listener) => worker.addEventListener('message', listener),
-      (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
-    );
+  const port = await initializeMessageChannel((message, transfer) =>
+    worker.postMessage(message, transfer),
+  );
 
-    vatWorkerServer.start();
+  const workerStream = await MessagePortDuplexStream.make<
+    MultiplexEnvelope,
+    MultiplexEnvelope
+  >(port);
 
-    const receiveMessages = async (): Promise<void> => {
-      // For the time being, the only messages that come from the kernel worker are replies to actions
-      // initiated from the console, so just forward these replies to the console.  This will need to
-      // change once this offscreen script is providing services to the kernel worker that don't
-      // involve the user.
-      for await (const message of workerStream) {
-        if (!isKernelCommandReply(message)) {
-          logger.error('Kernel sent unexpected reply', message);
-          continue;
-        }
+  const vatWorkerServer = new ExtensionVatWorkerServer(
+    (message, transfer?) =>
+      transfer
+        ? worker.postMessage(message, transfer)
+        : worker.postMessage(message),
+    (listener) => worker.addEventListener('message', listener),
+    (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
+  );
 
-        await replyToBackground(message);
-      }
-    };
+  vatWorkerServer.start();
 
-    const sendMessage = async (message: KernelCommand): Promise<void> => {
-      await workerStream.write(message);
-    };
+  return workerStream;
+}
 
-    return {
-      sendMessage,
-      receiveMessages,
-      worker,
-    };
-  }
+/**
+ * Sets up the popup communication stream.
+ *
+ * @param panelChannel - The panel channel from the multiplexer
+ * @param onStreamCreated - Callback to handle the created stream
+ */
+function setupPopupStream(
+  panelChannel: HandledDuplexStream<KernelControlReply, KernelControlCommand>,
+  onStreamCreated: (
+    stream: ChromeRuntimeDuplexStream<
+      KernelControlCommand,
+      KernelControlReply
+    > | null,
+  ) => void,
+): void {
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name === 'popup') {
+      ChromeRuntimeDuplexStream.make<KernelControlCommand, KernelControlReply>(
+        chrome.runtime,
+        ChromeRuntimeTarget.Offscreen,
+        ChromeRuntimeTarget.Popup,
+      )
+        .then(async (stream) => {
+          // Close the stream when the popup is closed
+          port.onDisconnect.addListener(() => {
+            // eslint-disable-next-line promise/no-nesting
+            stream.return().catch(console.error);
+            onStreamCreated(null);
+          });
 
-  /**
-   * Set up the popup stream.
-   */
-  function setupPopupStream(): void {
-    // Set up the stream to the popup every time the popup shows.
-    // This is necessary because the stream is closed when the popup is closed.
-    chrome.runtime.onConnect.addListener((port) => {
-      if (port.name === 'popup') {
-        ChromeRuntimeDuplexStream.make<
-          KernelControlCommand,
-          KernelControlReply
-        >(
-          chrome.runtime,
-          ChromeRuntimeTarget.Offscreen,
-          ChromeRuntimeTarget.Popup,
-        )
-          .then(async (stream) => {
-            const replyToPopup = (event: MessageEvent): void => {
-              if (isKernelControlReply(event.data)) {
-                // eslint-disable-next-line promise/no-nesting
-                stream.write(event.data).catch(logger.error);
-              }
-            };
+          onStreamCreated(stream);
 
-            kernelWorker.worker.addEventListener('message', replyToPopup);
-
-            // Close the stream when the popup is closed
-            port.onDisconnect.addListener(() => {
-              // eslint-disable-next-line promise/no-nesting
-              stream.return().catch(console.error);
-              kernelWorker.worker.removeEventListener('message', replyToPopup);
-            });
-
-            return stream.drain(async (message) => {
-              logger.log('sending message to kernel from popup', message);
-              kernelWorker.worker.postMessage(message);
-            });
-          })
-          .catch(logger.error);
-      }
-    });
-  }
+          return stream.drain(async (message) => {
+            logger.log('sending message to kernel from popup', message);
+            await panelChannel.write(message);
+          });
+        })
+        .catch((error) => {
+          logger.error(error);
+          onStreamCreated(null);
+        });
+    }
+  });
 }

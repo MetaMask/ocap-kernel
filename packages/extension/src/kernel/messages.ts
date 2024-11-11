@@ -1,59 +1,107 @@
-import { isObject } from '@metamask/utils';
+import {
+  object,
+  union,
+  literal,
+  boolean,
+  array,
+  type,
+  is,
+} from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import type { KernelCommand, VatId } from '@ocap/kernel';
-import { makeMessageKit, messageType, isVatId } from '@ocap/kernel';
+import { UnsafeJsonStruct } from '@metamask/utils';
+import type { VatId } from '@ocap/kernel';
+import { VatIdStruct } from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
+
+export const KernelControlMethod = {
+  launchVat: 'launchVat',
+  restartVat: 'restartVat',
+  terminateVat: 'terminateVat',
+  terminateAllVats: 'terminateAllVats',
+  getStatus: 'getStatus',
+  sendMessage: 'sendMessage',
+} as const;
 
 export type KernelStatus = {
   isRunning: boolean;
   activeVats: VatId[];
 };
 
+const KernelStatusStruct = type({
+  isRunning: boolean(),
+  activeVats: array(VatIdStruct),
+});
+
 export const isKernelStatus: TypeGuard<KernelStatus> = (
   value,
-): value is KernelStatus =>
-  isObject(value) &&
-  typeof value.isRunning === 'boolean' &&
-  Array.isArray(value.activeVats) &&
-  value.activeVats.every((id) => isVatId(id));
+): value is KernelStatus => is(value, KernelStatusStruct);
 
-const kernelControlCommand = {
-  LaunchVat: messageType<{ id: VatId }, null>(
-    (send) => isObject(send) && isVatId(send.id),
-    (reply) => reply === null,
-  ),
-  RestartVat: messageType<{ id: VatId }, null>(
-    (send) => isObject(send) && isVatId(send.id),
-    (reply) => reply === null,
-  ),
-  TerminateVat: messageType<{ id: VatId }, null>(
-    (send) => isObject(send) && isVatId(send.id),
-    (reply) => reply === null,
-  ),
-  TerminateAllVats: messageType<null, null>(
-    (send) => send === null,
-    (reply) => reply === null,
-  ),
-  GetStatus: messageType<null, KernelStatus>(
-    (send) => send === null,
-    isKernelStatus,
-  ),
-  SendMessage: messageType<{ id?: VatId; payload: KernelCommand }, Json>(
-    (send) =>
-      isObject(send) &&
-      (send.id === undefined || isVatId(send.id)) &&
-      isObject(send.payload),
-    (reply) => isObject(reply),
-  ),
-};
+const KernelControlCommandStruct = union([
+  object({
+    method: literal(KernelControlMethod.launchVat),
+    params: object({ id: VatIdStruct }),
+  }),
+  object({
+    method: literal(KernelControlMethod.restartVat),
+    params: object({ id: VatIdStruct }),
+  }),
+  object({
+    method: literal(KernelControlMethod.terminateVat),
+    params: object({ id: VatIdStruct }),
+  }),
+  object({
+    method: literal(KernelControlMethod.terminateAllVats),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.getStatus),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.sendMessage),
+    params: object({
+      id: union([VatIdStruct, literal(undefined)]),
+      payload: UnsafeJsonStruct,
+    }),
+  }),
+]);
 
-const kernelControlKit = makeMessageKit(kernelControlCommand);
+const KernelControlReplyStruct = union([
+  object({
+    method: literal(KernelControlMethod.launchVat),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.restartVat),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.terminateVat),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.terminateAllVats),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.getStatus),
+    params: KernelStatusStruct,
+  }),
+  object({
+    method: literal(KernelControlMethod.sendMessage),
+    params: UnsafeJsonStruct,
+  }),
+]);
 
-export const isKernelControlCommand: TypeGuard<KernelControlCommand> =
-  kernelControlKit.sendGuard;
+export type KernelControlCommand = Infer<typeof KernelControlCommandStruct> &
+  Json;
+export type KernelControlReply = Infer<typeof KernelControlReplyStruct> & Json;
 
-export const isKernelControlReply: TypeGuard<KernelControlReply> =
-  kernelControlKit.replyGuard;
+export const isKernelControlCommand: TypeGuard<KernelControlCommand> = (
+  value: unknown,
+): value is KernelControlCommand => is(value, KernelControlCommandStruct);
 
-export type KernelControlCommand = typeof kernelControlKit.send;
-export type KernelControlReply = typeof kernelControlKit.reply;
+export const isKernelControlReply: TypeGuard<KernelControlReply> = (
+  value: unknown,
+): value is KernelControlReply => is(value, KernelControlReplyStruct);

@@ -11,11 +11,13 @@ describe('index', () => {
       'Supervisor',
       'Vat',
       'VatCommandMethod',
+      'VatIdStruct',
       'VatWorkerServiceCommandMethod',
       'isKernelCommand',
       'isKernelCommandReply',
       'isVatCommand',
       'isVatCommandReply',
+      'isVatId',
       'isVatWorkerServiceCommand',
       'isVatWorkerServiceCommandReply',
     ]);
