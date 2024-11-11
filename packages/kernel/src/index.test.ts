@@ -8,6 +8,7 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'Kernel',
       'KernelCommandMethod',
+      'KernelSendMessageStruct',
       'Supervisor',
       'Vat',
       'VatCommandMethod',

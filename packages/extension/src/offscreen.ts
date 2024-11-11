@@ -29,7 +29,15 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  const backgroundStream = await setupBackgroundStream();
+  // Create stream for messages from the background script
+  const backgroundStream = await ChromeRuntimeDuplexStream.make<
+    KernelCommand,
+    KernelCommandReply
+  >(
+    chrome.runtime,
+    ChromeRuntimeTarget.Offscreen,
+    ChromeRuntimeTarget.Background,
+  );
 
   const workerStream = await setupKernelWorker();
 
@@ -117,20 +125,6 @@ async function setupKernelWorker(): Promise<
   return workerStream;
 }
 
-/**
- * Creates and sets up communication with the background script.
- *
- * @returns A duplex stream for background communication
- */
-async function setupBackgroundStream(): Promise<
-  ChromeRuntimeDuplexStream<KernelCommand, KernelCommandReply>
-> {
-  return ChromeRuntimeDuplexStream.make<KernelCommand, KernelCommandReply>(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Background,
-  );
-}
 /**
  * Sets up the popup communication stream.
  *

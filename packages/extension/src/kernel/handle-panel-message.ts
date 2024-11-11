@@ -1,6 +1,12 @@
+import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import { Kernel, isVatId, isKernelCommand, isVatCommand } from '@ocap/kernel';
-import { makeLogger, stringify } from '@ocap/utils';
+import {
+  Kernel,
+  isKernelCommand,
+  KernelSendMessageStruct,
+  isVatId,
+} from '@ocap/kernel';
+import { makeLogger } from '@ocap/utils';
 
 import type { KernelControlReply, KernelControlCommand } from './messages.js';
 import { KernelControlMethod } from './messages.js';
@@ -81,9 +87,7 @@ export async function handlePanelMessage(
           throw new Error('Vat ID required for this command');
         }
 
-        if (!isVatCommand(message.params)) {
-          throw new Error(`Invalid vat command: ${stringify(message.params)}`);
-        }
+        assert(message.params, KernelSendMessageStruct);
 
         const result = await kernel.sendMessage(
           message.params.id,

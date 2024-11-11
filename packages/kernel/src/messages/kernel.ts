@@ -11,10 +11,12 @@ import { UnsafeJsonStruct } from '@metamask/utils';
 import type { TypeGuard } from '@ocap/utils';
 
 import {
+  VatMethodStructs,
   VatTestCommandMethod,
   VatTestMethodStructs,
   VatTestReplyStructs,
 } from './vat.js';
+import { VatIdStruct } from '../types.js';
 
 export const KernelCommandMethod = {
   evaluate: VatTestCommandMethod.evaluate,
@@ -75,3 +77,12 @@ export const isKernelCommand: TypeGuard<KernelCommand> = (
 export const isKernelCommandReply: TypeGuard<KernelCommandReply> = (
   value: unknown,
 ): value is KernelCommandReply => is(value, KernelCommandReplyStruct);
+
+export const KernelSendMessageStruct = object({
+  id: VatIdStruct,
+  payload: union([
+    VatMethodStructs.evaluate,
+    VatMethodStructs.ping,
+    VatMethodStructs.capTpInit,
+  ]),
+});

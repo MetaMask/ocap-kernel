@@ -41,7 +41,7 @@ export const VatTestMethodStructs = {
   }),
 } as const;
 
-const VatMethodStructs = {
+export const VatMethodStructs = {
   ...VatTestMethodStructs,
   [VatCommandMethod.capTpInit]: object({
     method: literal(VatCommandMethod.capTpInit),

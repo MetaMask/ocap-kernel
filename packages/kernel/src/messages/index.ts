@@ -4,6 +4,7 @@ export {
   KernelCommandMethod,
   isKernelCommand,
   isKernelCommandReply,
+  KernelSendMessageStruct,
 } from './kernel.js';
 export type {
   CapTpPayload,
