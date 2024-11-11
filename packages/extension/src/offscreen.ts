@@ -141,30 +141,52 @@ function setupPopupStream(
   ) => void,
 ): void {
   chrome.runtime.onConnect.addListener((port) => {
-    if (port.name === 'popup') {
-      ChromeRuntimeDuplexStream.make<KernelControlCommand, KernelControlReply>(
-        chrome.runtime,
-        ChromeRuntimeTarget.Offscreen,
-        ChromeRuntimeTarget.Popup,
-      )
-        .then(async (stream) => {
-          // Close the stream when the popup is closed
-          port.onDisconnect.addListener(() => {
-            // eslint-disable-next-line promise/no-nesting
-            stream.return().catch(console.error);
-            onStreamCreated(null);
-          });
-
-          onStreamCreated(stream);
-
-          return stream.drain(async (message) => {
-            await panelChannel.write(message);
-          });
-        })
-        .catch((error) => {
-          logger.error(error);
-          onStreamCreated(null);
-        });
+    if (port.name !== 'popup') {
+      return;
     }
+
+    // Handle stream creation
+    handlePopupConnection(port, panelChannel, onStreamCreated).catch(
+      (error) => {
+        logger.error(error);
+        onStreamCreated(null);
+      },
+    );
+  });
+}
+
+/**
+ * Handles the popup connection.
+ *
+ * @param port - The port to connect to the popup.
+ * @param panelChannel - The panel channel from the multiplexer.
+ * @param onStreamCreated - Callback to handle the created stream.
+ */
+async function handlePopupConnection(
+  port: chrome.runtime.Port,
+  panelChannel: HandledDuplexStream<KernelControlReply, KernelControlCommand>,
+  onStreamCreated: (
+    stream: ChromeRuntimeDuplexStream<
+      KernelControlCommand,
+      KernelControlReply
+    > | null,
+  ) => void,
+): Promise<void> {
+  const stream = await ChromeRuntimeDuplexStream.make<
+    KernelControlCommand,
+    KernelControlReply
+  >(chrome.runtime, ChromeRuntimeTarget.Offscreen, ChromeRuntimeTarget.Popup);
+
+  // Setup cleanup for when popup closes
+  port.onDisconnect.addListener(() => {
+    stream.return().catch(console.error);
+    onStreamCreated(null);
+  });
+
+  onStreamCreated(stream);
+
+  // Start handling messages
+  await stream.drain(async (message) => {
+    await panelChannel.write(message);
   });
 }
