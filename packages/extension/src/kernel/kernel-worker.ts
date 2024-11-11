@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const kernelStream = multiplexer.addChannel<
     KernelCommand,
     KernelCommandReply
-  >('kernel', async () => {
+  >('kernel', () => {
     // The kernel will handle commands through its own drain method
   });
 
