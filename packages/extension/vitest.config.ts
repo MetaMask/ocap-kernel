@@ -24,6 +24,5 @@ export default defineConfig((configEnv) => {
     ),
   );
 
-  delete config.test.coverage.thresholds;
   return config;
 });

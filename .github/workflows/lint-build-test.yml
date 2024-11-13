@@ -129,7 +129,6 @@ jobs:
     strategy:
       matrix:
         node-version: [18.x, 20.x]
-        package-name: ${{ fromJson(needs.prepare.outputs.child-workspace-package-names) }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Node.js ${{ matrix.node-version }}
@@ -144,7 +143,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
-      - run: yarn workspace ${{ matrix.package-name }} run test
+      - run: yarn run test
       - name: Require clean working directory
         shell: bash
         run: |

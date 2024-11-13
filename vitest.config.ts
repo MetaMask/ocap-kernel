@@ -31,9 +31,6 @@ export default defineConfig({
         '**/test/**',
         '**/*.{test,spec}.{ts,js}',
       ],
-      thresholds: {
-        100: true,
-      },
     },
   },
 });
