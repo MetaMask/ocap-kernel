@@ -86,7 +86,6 @@ export class Vat {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<unknown> {
-    /* v8 ignore next 4: Not known to be possible. */
     this.#multiplexer.drainAll().catch((error) => {
       this.logger.error(`Unexpected read error`, error);
       throw new StreamReadError({ vatId: this.id }, error);

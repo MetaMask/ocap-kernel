@@ -1,19 +1,15 @@
-// eslint-disable-next-line spaced-comment
-/// <reference types="vitest" />
 import path from 'path';
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
 
 import viteConfig from './vite.config.js';
-import { getDefaultConfig } from '../../vitest.config.packages.js';
-
-const defaultConfig = getDefaultConfig();
+import defaultConfig from '../../vitest.config.js';
 
 export default defineConfig((configEnv) => {
   const config = mergeConfig(
     viteConfig(configEnv),
     mergeConfig(
       defaultConfig,
-      defineConfig({
+      defineProject({
         test: {
           pool: 'vmThreads',
           alias: [

@@ -17,7 +17,8 @@
     { "path": "../kernel" }
   ],
   "include": [
-    "../../vitest.config.packages.ts",
+    "../../vitest.config.ts",
+    "../../vitest.workspace.ts",
     "./scripts/build-constants.mjs",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",

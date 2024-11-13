@@ -11,7 +11,7 @@
     { "path": "../utils" }
   ],
   "include": [
-    "../../vitest.config.packages.ts",
+    "../../vitest.config.ts",
     "./src",
     "./test",
     "./vite.config.ts",

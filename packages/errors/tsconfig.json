@@ -7,7 +7,7 @@
   },
   "references": [{ "path": "../test-utils" }],
   "include": [
-    "../../vitest.config.packages.ts",
+    "../../vitest.config.ts",
     "./src",
     "./vite.config.ts",
     "./vitest.config.ts"

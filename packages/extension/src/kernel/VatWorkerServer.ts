@@ -104,7 +104,6 @@ export class ExtensionVatWorkerServer {
         );
         this.#postMessage({ id, payload });
         break;
-      /* v8 ignore next 6: Not known to be possible. */
       default:
         this.#logger.error(
           'Received message with unexpected method',

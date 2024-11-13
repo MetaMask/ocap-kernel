@@ -26,7 +26,6 @@ export const makeIframeVatWorker = (
     },
     terminate: async (): Promise<void> => {
       const iframe = document.getElementById(vatHtmlId);
-      /* v8 ignore next 6: Not known to be possible. */
       if (iframe === null) {
         console.error(
           `iframe of vat with id "${id}" already removed from DOM (#${vatHtmlId})`,

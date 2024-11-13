@@ -1,15 +1,10 @@
-// eslint-disable-next-line spaced-comment
-/// <reference types="vitest" />
+import { defineProject, mergeConfig } from 'vitest/config';
 
-import { defineConfig, mergeConfig } from 'vite';
-
-import { getDefaultConfig } from '../../vitest.config.packages.js';
-
-const defaultConfig = getDefaultConfig();
+import defaultConfig from '../../vitest.config.js';
 
 const config = mergeConfig(
   defaultConfig,
-  defineConfig({
+  defineProject({
     test: {
       pool: 'vmThreads',
     },

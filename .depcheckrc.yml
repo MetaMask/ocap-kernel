@@ -13,8 +13,8 @@ ignores:
   - '@ts-bridge/shims'
 
   # vitest
+  - 'vite'
   - '@types/vitest'
-  - '@vitest/coverage-v8'
   - '@vitest/coverage-istanbul'
   - 'playwright'
   - 'vitest'
