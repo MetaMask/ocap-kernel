@@ -27,8 +27,6 @@ export async function setupStream(): Promise<
     KernelControlCommand
   >(chrome.runtime, ChromeRuntimeTarget.Popup, ChromeRuntimeTarget.Offscreen);
 
-  console.log('offscreenStream', offscreenStream);
-
   // Cleanup stream on disconnect
   const cleanup = (): void => {
     offscreenStream.return().catch(logger.error);
