@@ -10,13 +10,15 @@ const outputBox = document.getElementById('output-box') as HTMLElement;
 const messageOutput = document.getElementById(
   'message-output',
 ) as HTMLPreElement;
-const messageContent = document.getElementById(
+export const messageContent = document.getElementById(
   'message-content',
 ) as HTMLInputElement;
 const messageTemplates = document.getElementById(
   'message-templates',
 ) as HTMLElement;
-const sendButton = document.getElementById('send-message') as HTMLButtonElement;
+export const sendButton = document.getElementById(
+  'send-message',
+) as HTMLButtonElement;
 
 export const commonMessages: Record<string, KernelCommand> = {
   Ping: { method: VatCommandMethod.ping, params: null },
