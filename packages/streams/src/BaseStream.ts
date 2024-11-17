@@ -91,7 +91,7 @@ harden(makeStreamBuffer);
  * A function that is called when a stream ends. Useful for cleanup, such as closing a
  * message port.
  */
-export type OnEnd = () => void | Promise<void>;
+export type OnEnd = (error?: Error) => void | Promise<void>;
 
 /**
  * A function that validates input to a readable stream.
@@ -209,7 +209,7 @@ export class BaseReader<Read> implements Reader<Read> {
    */
   async #end(error?: Error): Promise<void> {
     this.#buffer.end(error);
-    const onEndP = this.#onEnd?.();
+    const onEndP = this.#onEnd?.(error);
     this.#onEnd = undefined;
     await onEndP;
   }
@@ -333,9 +333,9 @@ export class BaseWriter<Write> implements Writer<Write> {
     }
   }
 
-  async #end(): Promise<void> {
+  async #end(error?: Error): Promise<void> {
     this.#isDone = true;
-    const onEndP = this.#onEnd?.();
+    const onEndP = this.#onEnd?.(error);
     this.#onEnd = undefined;
     await onEndP;
   }
@@ -398,7 +398,7 @@ export class BaseWriter<Write> implements Writer<Write> {
   ): Promise<IteratorResult<undefined, undefined>> {
     const result = this.#dispatch(error, hasFailed);
     if (!this.#isDone) {
-      await this.#end();
+      await this.#end(error);
     }
     return result;
   }

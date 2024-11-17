@@ -3,7 +3,6 @@ import {
   makeAck,
   makeDuplexStreamInputValidator,
 } from '../src/BaseDuplexStream.js';
-import type { DuplexStream } from '../src/BaseDuplexStream.js';
 import type {
   Dispatch,
   ReceiveInput,
@@ -126,26 +125,52 @@ export class TestDuplexStream<
   }
 }
 
+export const makeMultiplexEnvelope = (
+  channel: string,
+  payload: unknown,
+): MultiplexEnvelope => ({
+  channel,
+  payload,
+});
+
 export class TestMultiplexer extends StreamMultiplexer {
+  readonly #duplex: TestDuplexStream<MultiplexEnvelope>;
+
+  get duplex(): TestDuplexStream<MultiplexEnvelope> {
+    return this.#duplex;
+  }
+
   constructor(
-    duplex: DuplexStream<MultiplexEnvelope> = new TestDuplexStream(
+    duplex: TestDuplexStream<MultiplexEnvelope> = new TestDuplexStream(
       () => undefined,
     ),
   ) {
     super(duplex);
+    this.#duplex = duplex;
+  }
+
+  /**
+   * TestMultiplexer utility for synchronizing the specified channels by receiving acks.
+   *
+   * @param channelNames - The channel names.
+   */
+  async synchronizeChannels(...channelNames: string[]): Promise<void> {
+    await Promise.all(
+      channelNames.map(async (name) =>
+        this.duplex.receiveInput(makeMultiplexEnvelope(name, makeAck())),
+      ),
+    );
   }
 
   static async make(
     duplex?: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>,
-  ): Promise<
-    [TestMultiplexer, TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>]
-  > {
+  ): Promise<TestMultiplexer> {
     // We can't use the async factory for a parameter default
     // eslint-disable-next-line no-param-reassign
     duplex ??= await TestDuplexStream.make<
       MultiplexEnvelope,
       MultiplexEnvelope
     >(() => undefined);
-    return [new TestMultiplexer(duplex), duplex] as const;
+    return new TestMultiplexer(duplex);
   }
 }

@@ -91,9 +91,9 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
     super({
       validateInput,
-      onEnd: async () => {
+      onEnd: async (error) => {
         runtime.onMessage.removeListener(messageListener);
-        await onEnd?.();
+        await onEnd?.(error);
       },
     });
 
