@@ -25,7 +25,4 @@ export {
   PostMessageWriter,
 } from './browser/PostMessageStream.js';
 export { StreamMultiplexer, isMultiplexEnvelope } from './StreamMultiplexer.js';
-export type {
-  HandledDuplexStream,
-  MultiplexEnvelope,
-} from './StreamMultiplexer.js';
+export type { MultiplexEnvelope } from './StreamMultiplexer.js';

@@ -1,7 +1,8 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader } from '@endo/stream';
-import { isObject } from '@metamask/utils';
+import { is, literal, object } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import { stringify } from '@ocap/utils';
 
 import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.js';
@@ -12,31 +13,35 @@ export enum DuplexStreamSentinel {
   Ack = '@@Ack',
 }
 
-type DuplexStreamSyn = {
-  [DuplexStreamSentinel.Syn]: true;
-};
+const SynStruct = object({
+  [DuplexStreamSentinel.Syn]: literal(true),
+});
 
-const isSyn = (value: unknown): value is DuplexStreamSyn =>
-  isObject(value) && value[DuplexStreamSentinel.Syn] === true;
+type DuplexStreamSyn = Infer<typeof SynStruct>;
+
+export const isSyn = (value: unknown): value is DuplexStreamSyn =>
+  is(value, SynStruct);
 
 export const makeSyn = (): DuplexStreamSyn => ({
   [DuplexStreamSentinel.Syn]: true,
 });
 
-type DuplexStreamAck = {
-  [DuplexStreamSentinel.Ack]: true;
-};
+const AckStruct = object({
+  [DuplexStreamSentinel.Ack]: literal(true),
+});
+
+type DuplexStreamAck = Infer<typeof AckStruct>;
+
+export const isAck = (value: unknown): value is DuplexStreamAck =>
+  is(value, AckStruct);
 
 export const makeAck = (): DuplexStreamAck => ({
   [DuplexStreamSentinel.Ack]: true,
 });
 
-const isAck = (value: unknown): value is DuplexStreamAck =>
-  isObject(value) && value[DuplexStreamSentinel.Ack] === true;
+type DuplexStreamSignal = DuplexStreamSyn | DuplexStreamAck;
 
-type StreamSignal = DuplexStreamSyn | DuplexStreamAck;
-
-const isDuplexStreamSignal = (value: unknown): value is StreamSignal =>
+const isDuplexStreamSignal = (value: unknown): value is DuplexStreamSignal =>
   isSyn(value) || isAck(value);
 
 /**
@@ -44,7 +49,7 @@ const isDuplexStreamSignal = (value: unknown): value is StreamSignal =>
  * duplex stream implementations.
  *
  * Validators passed in by consumers must be augmented such that errors aren't
- * thrown for {@link StreamSignal} values.
+ * thrown for {@link DuplexStreamSignal} values.
  *
  * @param validateInput - The validator for the stream's input type.
  * @returns A validator for the stream's input type, or `undefined` if no

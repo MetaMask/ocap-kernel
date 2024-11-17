@@ -1,5 +1,4 @@
 import { delay } from '@ocap/test-utils';
-import { makeMultiplexEnvelope } from 'test/stream-mocks.js';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -9,6 +8,7 @@ import {
   PostMessageWriter,
 } from './PostMessageStream.js';
 import type { PostMessage } from './utils.js';
+import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
 import { StreamMultiplexer } from '../StreamMultiplexer.js';
@@ -253,20 +253,19 @@ describe('PostMessageMultiplexer', () => {
       setListener,
       removeListener,
     );
-    const handleRead = vi.fn();
-    multiplexer.addChannel<number, number>(
+    const ch1Handler = vi.fn();
+    const ch1 = multiplexer.createChannel<number, number>(
       '1',
-      handleRead,
       (value: unknown): value is number => typeof value === 'number',
     );
 
-    const drainP = multiplexer.drainAll();
+    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
     postMessageFn(makeAck());
     postMessageFn(makeMultiplexEnvelope('1', makeAck()));
     postMessageFn(makeMultiplexEnvelope('1', 42));
     postMessageFn(makeStreamDoneSignal());
 
     await drainP;
-    expect(handleRead).toHaveBeenCalledWith(42);
+    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });
