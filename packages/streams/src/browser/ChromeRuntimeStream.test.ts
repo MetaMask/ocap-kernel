@@ -398,20 +398,19 @@ describe('ChromeRuntimeMultiplexer', () => {
       ChromeRuntimeStreamTarget.Background,
       ChromeRuntimeStreamTarget.Offscreen,
     );
-    const handleRead = vi.fn();
-    multiplexer.addChannel<number, number>(
+    const ch1Handler = vi.fn();
+    const ch1 = multiplexer.createChannel<number, number>(
       '1',
-      handleRead,
       (value: unknown): value is number => typeof value === 'number',
     );
 
-    const drainP = multiplexer.drainAll();
+    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
     dispatchRuntimeMessage(makeAck());
     dispatchRuntimeMessage(makeMultiplexEnvelope('1', makeAck()));
     dispatchRuntimeMessage(makeMultiplexEnvelope('1', 42));
     dispatchRuntimeMessage(makeStreamDoneSignal());
 
     await drainP;
-    expect(handleRead).toHaveBeenCalledWith(42);
+    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

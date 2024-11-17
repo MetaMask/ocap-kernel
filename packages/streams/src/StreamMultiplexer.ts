@@ -6,14 +6,14 @@
  * validation logic.
  *
  * The multiplexer is constructed in an idle state, and must be explicitly "started"
- * via the `start()` or `drainAll()` methods. All channels must be added before the
- * multiplexer is started.
+ * via the `start()` method. Channels are backed up by the same implementation as other
+ * duplex streams, and are synchronized in the same way. Consequently, channels can be
+ * added at any time before  the multiplexer has ended, without message loss. Attempting
+ * to add channels after the multiplexer has ended will throw.
  *
- * Starting the multiplexer will synchronize the underlying duplex stream, if it is
- * synchronizable. Therefore, in order to prevent message loss, callers **should not**
- * synchronize the underlying duplex stream before passing it to the multiplexer. For
- * the same reason, the multiplexer will throw if any channels are added after it has
- * started.
+ * While channels can be added in arbitrary order, the multiplexer and its channels end
+ * jointly or not at all. This is to say, if the underlying duplex stream or a channel
+ * ends, all streams associated with the multiplexer will end.
  *
  * @module StreamMultiplexer
  */
@@ -22,6 +22,7 @@ import { isObject } from '@metamask/utils';
 
 import {
   BaseDuplexStream,
+  isSyn,
   makeDuplexStreamInputValidator,
 } from './BaseDuplexStream.js';
 import type { DuplexStream } from './BaseDuplexStream.js';
@@ -69,23 +70,16 @@ class Channel<Read, Write>
     Write,
     ChannelWriter<Write>
   >
-  implements HandledDuplexStream<Read, Write>
+  implements DuplexStream<Read, Write>
 {
-  readonly #handleRead: HandleRead<Read>;
-
-  constructor(
-    reader: ChannelReader<Read>,
-    writer: ChannelWriter<Write>,
-    handleRead: HandleRead<Read>,
-  ) {
+  constructor(reader: ChannelReader<Read>, writer: ChannelWriter<Write>) {
     super(reader, writer);
-    this.#handleRead = handleRead;
     // Forgive us for this async side effect
     this.synchronize().catch(async (error) => this.throw(error));
   }
 
-  async drain(): Promise<void> {
-    return this.synchronize().then(async () => super.drain(this.#handleRead));
+  async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
+    return this.synchronize().then(async () => super.drain(handler));
   }
 }
 
@@ -115,19 +109,6 @@ export const isMultiplexEnvelope = (
   typeof value.channel === 'string' &&
   typeof value.payload !== 'undefined';
 
-type HandleRead<Read> = (value: Read) => void | Promise<void>;
-
-/**
- * A duplex stream whose `drain` method does not accept a callback. We say it is
- * "handled" because in practice the callback is bound to the `drain` method.
- */
-export type HandledDuplexStream<Read, Write> = Omit<
-  DuplexStream<Read, Write>,
-  'drain'
-> & {
-  drain: () => Promise<void>;
-};
-
 enum MultiplexerStatus {
   Idle = 0,
   Running = 1,
@@ -136,7 +117,7 @@ enum MultiplexerStatus {
 
 type ChannelRecord<Read, Write = Read> = {
   channelName: ChannelName;
-  stream: HandledDuplexStream<Read, Write>;
+  stream: DuplexStream<Read, Write>;
   receiveInput: ReceiveInput;
 };
 
@@ -153,9 +134,7 @@ export class StreamMultiplexer<Payload = unknown> {
   >;
 
   /**
-   * Creates a new multiplexer over the specified duplex stream. If the duplex stream
-   * is synchronizable, it will be synchronized by the multiplexer and **should not**
-   * be synchronized by the caller.
+   * Creates a new multiplexer over the specified duplex stream.
    *
    * @param stream - The underlying duplex stream.
    * @param name - The multiplexer name.
@@ -174,37 +153,11 @@ export class StreamMultiplexer<Payload = unknown> {
   }
 
   /**
-   * Starts the multiplexer and drains all of its channels. Use either this method or
-   * {@link start} to drain the multiplexer.
-   *
-   * @returns A promise resolves when the multiplexer and its channels have ended.
-   */
-  async drainAll(): Promise<void> {
-    if (this.#channels.size === 0) {
-      throw new Error(`${this.#name} has no channels`);
-    }
-
-    const promise = Promise.all([
-      this.start(),
-      ...Array.from(this.#channels.values()).map(async ({ stream }) =>
-        stream.drain(),
-      ),
-    ]).then(async () => this.#end());
-
-    // Set up cleanup and prevent unhandled rejections. The caller is still expected to
-    // handle rejections.
-    promise.catch(async (error) => this.#end(error));
-
-    return promise;
-  }
-
-  /**
    * Idempotently starts the multiplexer by draining the underlying duplex stream and
    * forwarding messages to the appropriate channels. Ends the multiplexer if the duplex
-   * stream ends. Use either this method or {@link drainAll} to drain the multiplexer.
+   * stream ends.
    *
-   * If the duplex stream is synchronizable, it will be synchronized by the multiplexer
-   * and **should not** be synchronized by the caller.
+   * If the duplex stream is synchronizable, it will be synchronized by the multiplexer.
    */
   async start(): Promise<void> {
     if (this.#status !== MultiplexerStatus.Idle) {
@@ -217,6 +170,11 @@ export class StreamMultiplexer<Payload = unknown> {
     for await (const envelope of this.#stream) {
       const channel = this.#channels.get(envelope.channel);
       if (channel === undefined) {
+        // The other side is trying to establish a channel before us.
+        if (isSyn(envelope.payload)) {
+          continue;
+        }
+
         await this.#end(
           new Error(
             `${this.#name} received message for unknown channel: ${envelope.channel}`,
@@ -230,21 +188,18 @@ export class StreamMultiplexer<Payload = unknown> {
   }
 
   /**
-   * Adds a channel to the multiplexer. Must be called before starting the
-   * multiplexer.
+   * Adds a channel to the multiplexer.
    *
    * @param channelName - The channel name. Must be unique.
-   * @param handleRead - The channel's drain handler.
    * @param validateInput - The channel's input validator.
    * @returns The channel stream.
    */
-  addChannel<Read extends Payload, Write extends Payload = Read>(
+  createChannel<Read extends Payload, Write extends Payload = Read>(
     channelName: ChannelName,
-    handleRead: HandleRead<Read>,
     validateInput?: ValidateInput<Read>,
-  ): HandledDuplexStream<Read, Write> {
-    if (this.#status !== MultiplexerStatus.Idle) {
-      throw new Error('Channels must be added before starting the multiplexer');
+  ): DuplexStream<Read, Write> {
+    if (this.#status === MultiplexerStatus.Done) {
+      throw new Error('Multiplexer has ended');
     }
     if (this.#channels.has(channelName)) {
       throw new Error(`Channel "${channelName}" already exists.`);
@@ -252,14 +207,13 @@ export class StreamMultiplexer<Payload = unknown> {
 
     const { stream, receiveInput } = this.#makeChannel<Read, Write>(
       channelName,
-      handleRead,
       validateInput,
     );
 
     // We downcast some properties in order to store all records in one place.
     this.#channels.set(channelName, {
       channelName,
-      stream: stream as HandledDuplexStream<unknown, unknown>,
+      stream: stream as DuplexStream<unknown, unknown>,
       receiveInput,
     });
 
@@ -267,21 +221,17 @@ export class StreamMultiplexer<Payload = unknown> {
   }
 
   /**
-   * Constructs a channel. Channels are objects that implement the {@link HandledDuplexStream}
-   * interface. Internally, they are backed up by a {@link ChannelReader} and a wrapped
-   * write method that forwards messages to the underlying duplex stream.
+   * Constructs a channel. Channels are synchronized {@link DuplexStream} objects.
    *
    * @param channelName - The channel name. Must be unique.
-   * @param handleRead - The channel's drain handler.
    * @param validateInput - The channel's input validator.
    * @returns The channel stream and its `receiveInput` method.
    */
   #makeChannel<Read extends Payload, Write extends Payload = Read>(
     channelName: ChannelName,
-    handleRead: HandleRead<Read>,
     validateInput?: ValidateInput<Read>,
   ): {
-    stream: HandledDuplexStream<Read, Write>;
+    stream: DuplexStream<Read, Write>;
     receiveInput: ReceiveInput;
   } {
     const [reader, receiveInput] = ChannelReader.make<Read>({
@@ -306,7 +256,7 @@ export class StreamMultiplexer<Payload = unknown> {
     });
 
     return {
-      stream: new Channel(reader, writer, handleRead),
+      stream: new Channel(reader, writer),
       receiveInput,
     };
   }
