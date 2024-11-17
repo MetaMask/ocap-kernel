@@ -20,14 +20,18 @@
 
 import { isObject } from '@metamask/utils';
 
+import {
+  BaseDuplexStream,
+  makeDuplexStreamInputValidator,
+} from './BaseDuplexStream.js';
 import type { DuplexStream } from './BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
   ValidateInput,
   ReceiveInput,
 } from './BaseStream.js';
-import { BaseReader } from './BaseStream.js';
-import { makeDoneResult } from './utils.js';
+import { BaseReader, BaseWriter } from './BaseStream.js';
+import type { Dispatchable } from './utils.js';
 
 /**
  * A duplex stream that can maybe be synchronized.
@@ -53,6 +57,35 @@ class ChannelReader<Read> extends BaseReader<Read> {
   ): [ChannelReader<Read>, ReceiveInput] {
     const channel = new ChannelReader<Read>(args);
     return [channel, channel.getReceiveInput()] as const;
+  }
+}
+
+class ChannelWriter<Write> extends BaseWriter<Write> {}
+
+class Channel<Read, Write>
+  extends BaseDuplexStream<
+    Read,
+    ChannelReader<Read>,
+    Write,
+    ChannelWriter<Write>
+  >
+  implements HandledDuplexStream<Read, Write>
+{
+  readonly #handleRead: HandleRead<Read>;
+
+  constructor(
+    reader: ChannelReader<Read>,
+    writer: ChannelWriter<Write>,
+    handleRead: HandleRead<Read>,
+  ) {
+    super(reader, writer);
+    this.#handleRead = handleRead;
+    // Forgive us for this async side effect
+    this.synchronize().catch(async (error) => this.throw(error));
+  }
+
+  async drain(): Promise<void> {
+    return this.synchronize().then(async () => super.drain(this.#handleRead));
   }
 }
 
@@ -116,7 +149,7 @@ export class StreamMultiplexer<Payload = unknown> {
 
   readonly #stream: SynchronizableDuplexStream<
     MultiplexEnvelope<Payload>,
-    MultiplexEnvelope<Payload>
+    MultiplexEnvelope<Payload | Dispatchable<Payload>>
   >;
 
   /**
@@ -130,7 +163,7 @@ export class StreamMultiplexer<Payload = unknown> {
   constructor(
     stream: SynchronizableDuplexStream<
       MultiplexEnvelope<Payload>,
-      MultiplexEnvelope<Payload>
+      MultiplexEnvelope<Payload | Dispatchable<Payload>>
     >,
     name?: string,
   ) {
@@ -251,54 +284,31 @@ export class StreamMultiplexer<Payload = unknown> {
     stream: HandledDuplexStream<Read, Write>;
     receiveInput: ReceiveInput;
   } {
-    let isDone = false;
-
     const [reader, receiveInput] = ChannelReader.make<Read>({
-      validateInput,
+      validateInput: makeDuplexStreamInputValidator(validateInput),
       name: `${this.#name}#${channelName}`,
-      onEnd: async () => {
-        isDone = true;
-        await this.#end();
+      onEnd: async (error) => {
+        await this.#end(error);
       },
     });
 
-    const write = async (
-      payload: Write,
-    ): Promise<IteratorResult<undefined, undefined>> => {
-      if (isDone) {
-        return makeDoneResult();
-      }
-
-      const writeP = this.#stream.write({
-        channel: channelName,
-        payload,
-      });
-      writeP.catch(async (error) => {
-        isDone = true;
-        await reader.throw(error);
-      });
-      return writeP;
-    };
-
-    const drain = async (): Promise<void> => {
-      for await (const value of reader) {
-        await handleRead(value);
-      }
-    };
-
-    // Create and return the DuplexStream interface
-    const stream: HandledDuplexStream<Read, Write> = {
-      next: reader.next.bind(reader),
-      return: reader.return.bind(reader),
-      throw: reader.throw.bind(reader),
-      write,
-      drain,
-      [Symbol.asyncIterator]() {
-        return stream;
+    const writer = new ChannelWriter<Write>({
+      name: `${this.#name}#${channelName}`,
+      onDispatch: async (payload) => {
+        await this.#stream.write({
+          channel: channelName,
+          payload,
+        });
       },
-    };
+      onEnd: async (error) => {
+        await this.#end(error);
+      },
+    });
 
-    return { stream, receiveInput };
+    return {
+      stream: new Channel(reader, writer, handleRead),
+      receiveInput,
+    };
   }
 
   /**

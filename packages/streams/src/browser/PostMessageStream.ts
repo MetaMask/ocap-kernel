@@ -45,9 +45,9 @@ export class PostMessageReader<Read> extends BaseReader<Read> {
 
     super({
       validateInput,
-      onEnd: async () => {
+      onEnd: async (error) => {
         removeListener(onMessage);
-        await onEnd?.();
+        await onEnd?.(error);
       },
     });
 
@@ -79,8 +79,8 @@ export class PostMessageWriter<Write> extends BaseWriter<Write> {
     super({
       name,
       onDispatch: (value: Dispatchable<Write>) => postMessageFn(value),
-      onEnd: async () => {
-        await onEnd?.();
+      onEnd: async (error) => {
+        await onEnd?.(error);
       },
     });
     harden(this);

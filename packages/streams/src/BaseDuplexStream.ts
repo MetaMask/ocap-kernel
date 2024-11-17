@@ -61,7 +61,12 @@ enum SynchronizationStatus {
   Idle = 0,
   Pending = 1,
   Complete = 2,
+  Failed = 3,
 }
+
+const isEnded = (status: SynchronizationStatus): boolean =>
+  status === SynchronizationStatus.Complete ||
+  status === SynchronizationStatus.Failed;
 
 /**
  * The base of a duplex stream. Essentially a {@link BaseReader} with a `write()` method.
@@ -117,6 +122,7 @@ export abstract class BaseDuplexStream<
     // reject before reads or writes occur, in which case there are no handlers.
     this.#syncKit.promise.catch(() => undefined);
 
+    // Next and write only work if synchronization completes.
     this.next = async () =>
       this.#synchronizationStatus === SynchronizationStatus.Complete
         ? reader.next()
@@ -143,7 +149,6 @@ export abstract class BaseDuplexStream<
     if (this.#synchronizationStatus !== SynchronizationStatus.Idle) {
       return this.#syncKit.promise;
     }
-    this.#synchronizationStatus = SynchronizationStatus.Pending;
 
     try {
       await this.#performSynchronization();
@@ -166,30 +171,28 @@ export abstract class BaseDuplexStream<
    * near future.
    */
   async #performSynchronization(): Promise<void> {
-    const { resolve, reject } = this.#syncKit;
-
+    this.#synchronizationStatus = SynchronizationStatus.Pending;
     let receivedSyn = false;
 
     // @ts-expect-error See docstring.
     await this.#writer.next(makeSyn());
 
-    while (this.#synchronizationStatus !== SynchronizationStatus.Complete) {
+    while (this.#synchronizationStatus === SynchronizationStatus.Pending) {
       const result = await this.#reader.next();
-      if (isAck(result.value) || result.done) {
-        this.#synchronizationStatus = SynchronizationStatus.Complete;
-        resolve();
+      if (isAck(result.value)) {
+        this.#completeSynchronization();
       } else if (isSyn(result.value)) {
         if (receivedSyn) {
-          reject(
+          this.#failSynchronization(
             new Error('Received duplicate SYN message during synchronization'),
           );
-          break;
+        } else {
+          receivedSyn = true;
+          // @ts-expect-error See docstring.
+          await this.#writer.next(makeAck());
         }
-        receivedSyn = true;
-        // @ts-expect-error See docstring.
-        await this.#writer.next(makeAck());
       } else {
-        reject(
+        this.#failSynchronization(
           new Error(
             `Received unexpected message during synchronization: ${stringify(result)}`,
           ),
@@ -197,6 +200,24 @@ export abstract class BaseDuplexStream<
         break;
       }
     }
+  }
+
+  #completeSynchronization(): void {
+    if (isEnded(this.#synchronizationStatus)) {
+      return;
+    }
+
+    this.#synchronizationStatus = SynchronizationStatus.Complete;
+    this.#syncKit.resolve();
+  }
+
+  #failSynchronization(error: Error): void {
+    if (isEnded(this.#synchronizationStatus)) {
+      return;
+    }
+
+    this.#synchronizationStatus = SynchronizationStatus.Failed;
+    this.#syncKit.reject(error);
   }
 
   [Symbol.asyncIterator](): typeof this {
@@ -220,19 +241,21 @@ export abstract class BaseDuplexStream<
    * @returns The final result for this stream.
    */
   async return(): Promise<IteratorResult<Read, undefined>> {
+    this.#completeSynchronization();
     await Promise.all([this.#writer.return(), this.#reader.return()]);
     return makeDoneResult();
   }
 
   /**
-   * Writes the error to the stream, and closes the stream. Idempotent.
+   * Closes the stream with an error. Idempotent.
    *
-   * @param error - The error to write.
+   * @param error - The error to close the stream with.
    * @returns The final result for this stream.
    */
   async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
+    this.#failSynchronization(error);
     // eslint-disable-next-line promise/no-promise-in-callback
-    await Promise.all([this.#writer.throw(error), this.#reader.return()]);
+    await Promise.all([this.#writer.throw(error), this.#reader.throw(error)]);
     return makeDoneResult();
   }
 }

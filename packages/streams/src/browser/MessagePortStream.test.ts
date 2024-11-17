@@ -1,4 +1,5 @@
 import { delay } from '@ocap/test-utils';
+import { makeMultiplexEnvelope } from 'test/stream-mocks.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -235,7 +236,8 @@ describe('MessagePortMultiplexer', () => {
 
     const drainP = multiplexer.drainAll();
     port2.postMessage(makeAck());
-    port2.postMessage({ channel: '1', payload: 42 });
+    port2.postMessage(makeMultiplexEnvelope('1', makeAck()));
+    port2.postMessage(makeMultiplexEnvelope('1', 42));
     port2.postMessage(makeStreamDoneSignal());
 
     await drainP;

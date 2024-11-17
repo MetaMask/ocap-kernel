@@ -54,11 +54,11 @@ export class MessagePortReader<Read> extends BaseReader<Read> {
   ) {
     super({
       validateInput,
-      onEnd: async () => {
+      onEnd: async (error) => {
         // eslint-disable-next-line @typescript-eslint/no-use-before-define
         port.removeEventListener('message', onMessage);
         port.close();
-        await onEnd?.();
+        await onEnd?.(error);
       },
     });
 
@@ -94,9 +94,9 @@ export class MessagePortWriter<Write> extends BaseWriter<Write> {
     super({
       name,
       onDispatch: (value: Dispatchable<Write>) => port.postMessage(value),
-      onEnd: async () => {
+      onEnd: async (error) => {
         port.close();
-        await onEnd?.();
+        await onEnd?.(error);
       },
     });
     port.start();

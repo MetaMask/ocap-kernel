@@ -10,6 +10,7 @@ import {
   ChromeRuntimeDuplexStream,
   ChromeRuntimeMultiplexer,
 } from './ChromeRuntimeStream.js';
+import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
 import type { ChromeRuntime } from '../chrome.js';
@@ -406,7 +407,8 @@ describe('ChromeRuntimeMultiplexer', () => {
 
     const drainP = multiplexer.drainAll();
     dispatchRuntimeMessage(makeAck());
-    dispatchRuntimeMessage({ channel: '1', payload: 42 });
+    dispatchRuntimeMessage(makeMultiplexEnvelope('1', makeAck()));
+    dispatchRuntimeMessage(makeMultiplexEnvelope('1', 42));
     dispatchRuntimeMessage(makeStreamDoneSignal());
 
     await drainP;
