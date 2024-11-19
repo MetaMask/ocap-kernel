@@ -11,6 +11,7 @@ export default defineConfig((configEnv) => {
       defaultConfig,
       defineProject({
         test: {
+          name: 'extension',
           pool: 'vmThreads',
           alias: [
             {

@@ -7,6 +7,7 @@ const config = mergeConfig(
   defaultConfig,
   defineProject({
     test: {
+      name: 'errors',
       pool: 'vmThreads',
       setupFiles: path.resolve('../shims/src/endoify.js'),
     },

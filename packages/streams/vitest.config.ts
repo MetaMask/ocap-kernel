@@ -8,6 +8,7 @@ export default mergeConfig(
   defaultConfig,
   defineProject({
     test: {
+      name: 'streams',
       setupFiles: '../shims/src/endoify.js',
       browser: {
         provider: 'playwright',

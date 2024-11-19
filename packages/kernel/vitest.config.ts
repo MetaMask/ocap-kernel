@@ -7,6 +7,7 @@ const config = mergeConfig(
   defaultConfig,
   defineProject({
     test: {
+      name: 'kernel',
       pool: 'vmThreads',
       alias: [
         {

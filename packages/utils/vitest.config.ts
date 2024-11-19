@@ -6,6 +6,7 @@ export default mergeConfig(
   defaultConfig,
   defineProject({
     test: {
+      name: 'utils',
       setupFiles: '../test-utils/src/env/mock-endo.ts',
     },
   }),
