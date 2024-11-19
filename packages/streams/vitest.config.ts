@@ -4,7 +4,7 @@ import defaultConfig from '../../vitest.config.js';
 
 delete defaultConfig.test?.environment;
 
-export default mergeConfig(
+const config = mergeConfig(
   defaultConfig,
   defineProject({
     test: {
@@ -20,3 +20,7 @@ export default mergeConfig(
     },
   }),
 );
+
+config.test.coverage.thresholds = true;
+
+export default config;

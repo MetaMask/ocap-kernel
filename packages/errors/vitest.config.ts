@@ -14,4 +14,6 @@ const config = mergeConfig(
   }),
 );
 
+config.test.coverage.thresholds = true;
+
 export default config;
