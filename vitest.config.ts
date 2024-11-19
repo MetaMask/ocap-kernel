@@ -31,6 +31,45 @@ export default defineConfig({
         '**/test/**',
         '**/*.{test,spec}.{ts,js}',
       ],
+      thresholds: {
+        autoUpdate: true,
+        'packages/errors/**': {
+          statements: 100,
+          functions: 100,
+          branches: 92.59,
+          lines: 100,
+        },
+        'packages/extension/**': {
+          statements: 35.08,
+          functions: 22.03,
+          branches: 50.9,
+          lines: 35.26,
+        },
+        'packages/kernel/**': {
+          statements: 83.92,
+          functions: 90,
+          branches: 69.66,
+          lines: 83.92,
+        },
+        'packages/shims/**': {
+          statements: 0,
+          functions: 0,
+          branches: 0,
+          lines: 0,
+        },
+        'packages/streams/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
+        'packages/utils/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
+      },
     },
   },
 });
