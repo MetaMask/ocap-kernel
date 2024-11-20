@@ -1,11 +1,15 @@
 import fs from 'fs/promises';
-import path from 'path';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 /**
  * Setup the DOM for the tests.
  */
 export async function setupPanelDOM(): Promise<void> {
-  const htmlPath = path.resolve(import.meta.dirname, '../src/popup.html');
+  const htmlPath = path.resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../src/popup.html',
+  );
   const html = await fs.readFile(htmlPath, 'utf-8');
   document.body.innerHTML = html;
 
