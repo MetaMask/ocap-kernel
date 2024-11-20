@@ -263,6 +263,16 @@ export abstract class BaseDuplexStream<
     await Promise.all([this.#writer.throw(error), this.#reader.throw(error)]);
     return makeDoneResult();
   }
+
+  /**
+   * Closes the stream. Syntactic sugar for `throw(error)` or `return()`. Idempotent.
+   *
+   * @param error - The error to close the stream with.
+   * @returns The final result for this stream.
+   */
+  async end(error?: Error): Promise<IteratorResult<Read, undefined>> {
+    return error ? this.throw(error) : this.return();
+  }
 }
 harden(BaseDuplexStream);
 
@@ -271,7 +281,7 @@ harden(BaseDuplexStream);
  */
 export type DuplexStream<Read, Write = Read> = Pick<
   BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>,
-  'next' | 'write' | 'drain' | 'return' | 'throw'
+  'next' | 'write' | 'drain' | 'return' | 'throw' | 'end'
 > & {
   [Symbol.asyncIterator]: () => DuplexStream<Read, Write>;
 };

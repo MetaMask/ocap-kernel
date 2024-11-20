@@ -253,6 +253,24 @@ describe('BaseReader', () => {
       expect(await throwP).toStrictEqual(makeDoneResult());
     });
   });
+
+  describe('end', () => {
+    it('calls return() if no error is provided', async () => {
+      const reader = new TestReader();
+      const nextP = reader.next();
+      expect(await reader.end()).toStrictEqual(makeDoneResult());
+      expect(await nextP).toStrictEqual(makeDoneResult());
+    });
+
+    it('calls throw() if an error is provided', async () => {
+      const reader = new TestReader();
+      const nextP = reader.next();
+      expect(await reader.end(new Error('foo'))).toStrictEqual(
+        makeDoneResult(),
+      );
+      await expect(nextP).rejects.toThrow('foo');
+    });
+  });
 });
 
 describe('BaseWriter', () => {
@@ -384,6 +402,20 @@ describe('BaseWriter', () => {
       await expect(
         async () => await writer.throw(new Error('thrownError')),
       ).rejects.toThrow('onEndError');
+    });
+  });
+
+  describe('end', () => {
+    it('calls return() if no error is provided', async () => {
+      const writer = new TestWriter({ onDispatch: () => undefined });
+      expect(await writer.end()).toStrictEqual(makeDoneResult());
+    });
+
+    it('calls throw() if an error is provided', async () => {
+      const writer = new TestWriter({ onDispatch: () => undefined });
+      expect(await writer.end(new Error('foo'))).toStrictEqual(
+        makeDoneResult(),
+      );
     });
   });
 });
