@@ -72,6 +72,25 @@ describe('handlePanelMessage', () => {
       });
     });
 
+    it('should handle invalid vat ID', async () => {
+      const { handlePanelMessage } = await import('./handle-panel-message');
+      const kernel = await import('@ocap/kernel');
+      const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
+      isVatIdSpy.mockReturnValue(false);
+
+      const message: KernelControlCommand = {
+        method: 'launchVat',
+        params: { id: 'invalid' as VatId },
+      };
+
+      const response = await handlePanelMessage(mockKernel, message);
+
+      expect(response).toStrictEqual({
+        method: 'launchVat',
+        params: { error: 'Vat ID is invalid' },
+      });
+    });
+
     it('should handle restartVat command', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
@@ -88,6 +107,26 @@ describe('handlePanelMessage', () => {
       });
     });
 
+    it('should handle invalid vat ID for restartVat command', async () => {
+      const { handlePanelMessage } = await import('./handle-panel-message');
+
+      const kernel = await import('@ocap/kernel');
+      const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
+      isVatIdSpy.mockReturnValue(false);
+
+      const message: KernelControlCommand = {
+        method: 'restartVat',
+        params: { id: 'invalid' as VatId },
+      };
+
+      const response = await handlePanelMessage(mockKernel, message);
+
+      expect(response).toStrictEqual({
+        method: 'restartVat',
+        params: { error: 'Vat ID is required' },
+      });
+    });
+
     it('should handle terminateVat command', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
@@ -101,6 +140,25 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         method: 'terminateVat',
         params: null,
+      });
+    });
+
+    it('should handle invalid vat ID for terminateVat command', async () => {
+      const { handlePanelMessage } = await import('./handle-panel-message');
+      const kernel = await import('@ocap/kernel');
+      const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
+      isVatIdSpy.mockReturnValue(false);
+
+      const message: KernelControlCommand = {
+        method: 'terminateVat',
+        params: { id: 'invalid' as VatId },
+      };
+
+      const response = await handlePanelMessage(mockKernel, message);
+
+      expect(response).toStrictEqual({
+        method: 'terminateVat',
+        params: { error: 'Vat ID is required' },
       });
     });
 
@@ -277,7 +335,7 @@ describe('handlePanelMessage', () => {
       const response = await handlePanelMessage(mockKernel, message);
 
       expect(response).toStrictEqual({
-        method: 'sendMessage',
+        method: 'unknownMethod',
         params: { error: 'Unknown method' },
       });
     });
@@ -295,7 +353,7 @@ describe('handlePanelMessage', () => {
       const response = await handlePanelMessage(mockKernel, message);
 
       expect(response).toStrictEqual({
-        method: 'sendMessage',
+        method: 'launchVat',
         params: { error: 'Kernel error' },
       });
 
@@ -304,7 +362,7 @@ describe('handlePanelMessage', () => {
       const response2 = await handlePanelMessage(mockKernel, message);
 
       expect(response2).toStrictEqual({
-        method: 'sendMessage',
+        method: 'launchVat',
         params: { error: 'error' },
       });
     });

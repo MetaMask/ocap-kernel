@@ -6,6 +6,7 @@ import {
   array,
   type,
   is,
+  string,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
@@ -70,23 +71,23 @@ const KernelControlCommandStruct = union([
 const KernelControlReplyStruct = union([
   object({
     method: literal(KernelControlMethod.launchVat),
-    params: literal(null),
+    params: union([literal(null), object({ error: string() })]),
   }),
   object({
     method: literal(KernelControlMethod.restartVat),
-    params: literal(null),
+    params: union([literal(null), object({ error: string() })]),
   }),
   object({
     method: literal(KernelControlMethod.terminateVat),
-    params: literal(null),
+    params: union([literal(null), object({ error: string() })]),
   }),
   object({
     method: literal(KernelControlMethod.terminateAllVats),
-    params: literal(null),
+    params: union([literal(null), object({ error: string() })]),
   }),
   object({
     method: literal(KernelControlMethod.getStatus),
-    params: KernelStatusStruct,
+    params: union([KernelStatusStruct, object({ error: string() })]),
   }),
   object({
     method: literal(KernelControlMethod.sendMessage),

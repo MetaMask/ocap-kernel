@@ -27,16 +27,25 @@ export async function handlePanelMessage(
   try {
     switch (message.method) {
       case KernelControlMethod.launchVat: {
+        if (!isVatId(message.params.id)) {
+          throw new Error('Vat ID is invalid');
+        }
         await kernel.launchVat({ id: message.params.id });
         return { method: KernelControlMethod.launchVat, params: null };
       }
 
       case KernelControlMethod.restartVat: {
+        if (!isVatId(message.params.id)) {
+          throw new Error('Vat ID is required');
+        }
         await kernel.restartVat(message.params.id);
         return { method: KernelControlMethod.restartVat, params: null };
       }
 
       case KernelControlMethod.terminateVat: {
+        if (!isVatId(message.params.id)) {
+          throw new Error('Vat ID is required');
+        }
         await kernel.terminateVat(message.params.id);
         return { method: KernelControlMethod.terminateVat, params: null };
       }
@@ -107,10 +116,10 @@ export async function handlePanelMessage(
   } catch (error) {
     logger.error('Error handling message:', error);
     return {
-      method: KernelControlMethod.sendMessage,
+      method: message.method,
       params: {
         error: error instanceof Error ? error.message : String(error),
-      } as Json,
-    };
+      },
+    } as KernelControlReply;
   }
 }
