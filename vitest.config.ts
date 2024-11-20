@@ -40,10 +40,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 53.78,
-          functions: 41.74,
-          branches: 56.03,
-          lines: 53.82,
+          statements: 56.55,
+          functions: 45.63,
+          branches: 70.53,
+          lines: 56.62,
         },
         'packages/kernel/**': {
           statements: 83.97,
