@@ -2,6 +2,7 @@ import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
 import { handleKernelMessage } from './messages.js';
 import { logger } from './shared.js';
+import { isKernelControlReply } from '../kernel/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
@@ -22,7 +23,12 @@ export async function setupStream(): Promise<
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
     KernelControlReply,
     KernelControlCommand
-  >(chrome.runtime, ChromeRuntimeTarget.Popup, ChromeRuntimeTarget.Offscreen);
+  >(
+    chrome.runtime,
+    ChromeRuntimeTarget.Popup,
+    ChromeRuntimeTarget.Offscreen,
+    isKernelControlReply,
+  );
 
   // Cleanup stream on disconnect
   const cleanup = (): void => {
