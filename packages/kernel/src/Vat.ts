@@ -90,12 +90,10 @@ export class Vat {
         this.logger.log('CapTP from vat', stringify(content));
         this.capTp?.dispatch(content);
       }),
-    ])
-      /* v8 ignore next 4: Not known to be possible. */
-      .catch((error) => {
-        this.logger.error(`Unexpected read error`, error);
-        throw new StreamReadError({ vatId: this.vatId }, error);
-      });
+    ]).catch(async (error) => {
+      this.logger.error(`Unexpected read error`, error);
+      await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
+    });
 
     await this.sendMessage({ method: VatCommandMethod.ping, params: null });
     const loadResult = await this.sendMessage({
@@ -161,16 +159,19 @@ export class Vat {
 
   /**
    * Terminates the vat.
+   *
+   * @param error - The error to terminate the vat with.
    */
-  async terminate(): Promise<void> {
+  async terminate(error?: Error): Promise<void> {
+    // eslint-disable-next-line promise/no-promise-in-callback
     await Promise.all([
-      this.#commandStream.return(),
-      this.#capTpStream.return(),
+      this.#commandStream.end(error),
+      this.#capTpStream.end(error),
     ]);
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
-      promiseCallback?.reject(new VatDeletedError(this.vatId));
+      promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
       this.unresolvedMessages.delete(messageId);
     }
   }

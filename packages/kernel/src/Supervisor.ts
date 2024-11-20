@@ -48,22 +48,27 @@ export class Supervisor {
       this.#capTpStream.drain((content): void => {
         this.capTp?.dispatch(content);
       }),
-    ]).catch((error) => {
+    ]).catch(async (error) => {
       console.error(
         `Unexpected read error from Supervisor "${this.id}"`,
         error,
       );
-      throw new StreamReadError({ supervisorId: this.id }, error);
+      await this.terminate(
+        new StreamReadError({ supervisorId: this.id }, error),
+      );
     });
   }
 
   /**
    * Terminates the Supervisor.
+   *
+   * @param error - The error to terminate the Supervisor with.
    */
-  async terminate(): Promise<void> {
+  async terminate(error?: Error): Promise<void> {
+    // eslint-disable-next-line promise/no-promise-in-callback
     await Promise.all([
-      this.#commandStream.return(),
-      this.#capTpStream.return(),
+      this.#commandStream.end(error),
+      this.#capTpStream.end(error),
     ]);
   }
 
