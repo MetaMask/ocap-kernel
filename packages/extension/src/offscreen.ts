@@ -1,4 +1,4 @@
-import { isKernelCommand, isKernelCommandReply } from '@ocap/kernel';
+import { isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
@@ -80,15 +80,9 @@ async function main(): Promise<void> {
   // Handle messages from the background script and the multiplexer
   await Promise.all([
     multiplexer.drainAll(),
-    (async () => {
-      for await (const message of backgroundStream) {
-        if (!isKernelCommand(message)) {
-          logger.error('Offscreen received unexpected message', message);
-          continue;
-        }
-        await kernelChannel.write(message);
-      }
-    })(),
+    backgroundStream.drain(async (message) => {
+      await kernelChannel.write(message);
+    }),
   ]);
 }
 
