@@ -16,6 +16,7 @@ vi.mock('@ocap/kernel', () => ({
 
 describe('status', () => {
   beforeEach(async () => {
+    vi.resetAllMocks();
     vi.resetModules();
     await setupPanelDOM();
   });
