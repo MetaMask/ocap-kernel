@@ -248,6 +248,16 @@ export class BaseReader<Read> implements Reader<Read> {
     await this.#end(error);
     return makeDoneResult();
   }
+
+  /**
+   * Closes the stream. Syntactic sugar for `return()` or `throw(error)`. Idempotent.
+   *
+   * @param error - The error to close the stream with.
+   * @returns The final result for this stream.
+   */
+  async end(error?: Error): Promise<IteratorResult<Read, undefined>> {
+    return error ? this.throw(error) : this.return();
+  }
 }
 harden(BaseReader);
 
@@ -381,6 +391,16 @@ export class BaseWriter<Write> implements Writer<Write> {
       await this.#throw(error);
     }
     return makeDoneResult();
+  }
+
+  /**
+   * Closes the stream. Syntactic sugar for `return()` or `throw(error)`. Idempotent.
+   *
+   * @param error - The error to close the stream with.
+   * @returns The final result for this stream.
+   */
+  async end(error?: Error): Promise<IteratorResult<undefined, undefined>> {
+    return error ? this.throw(error) : this.return();
   }
 
   /**

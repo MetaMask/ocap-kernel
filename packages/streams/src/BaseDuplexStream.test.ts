@@ -3,7 +3,11 @@ import { stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.js';
-import { makePendingResult, makeStreamDoneSignal } from './utils.js';
+import {
+  makeDoneResult,
+  makePendingResult,
+  makeStreamDoneSignal,
+} from './utils.js';
 import { TestDuplexStream } from '../test/stream-mocks.js';
 
 describe('BaseDuplexStream', () => {
@@ -266,5 +270,23 @@ describe('BaseDuplexStream', () => {
 
     await expect(duplexStream.write(42)).rejects.toThrow('foo');
     expect(writerOnEnd).toHaveBeenCalledOnce();
+  });
+
+  describe('end', () => {
+    it('calls return() if no error is provided', async () => {
+      const duplexStream = await TestDuplexStream.make(() => undefined);
+      const nextP = duplexStream.next();
+      expect(await duplexStream.end()).toStrictEqual(makeDoneResult());
+      expect(await nextP).toStrictEqual(makeDoneResult());
+    });
+
+    it('calls throw() if an error is provided', async () => {
+      const duplexStream = await TestDuplexStream.make(() => undefined);
+      const nextP = duplexStream.next();
+      expect(await duplexStream.end(new Error('foo'))).toStrictEqual(
+        makeDoneResult(),
+      );
+      await expect(nextP).rejects.toThrow('foo');
+    });
   });
 });

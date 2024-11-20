@@ -274,16 +274,11 @@ export class StreamMultiplexer<Payload = unknown> {
     }
     this.#status = MultiplexerStatus.Done;
 
-    const end = async <Read, Write>(
-      stream: DuplexStream<Read, Write>,
-    ): Promise<unknown> =>
-      error === undefined ? stream.return() : stream.throw(error);
-
     // eslint-disable-next-line promise/no-promise-in-callback
     await Promise.all([
-      end(this.#stream),
+      this.#stream.end(error),
       ...Array.from(this.#channels.values()).map(async (channel) =>
-        end(channel.stream),
+        channel.stream.end(error),
       ),
     ]);
   }

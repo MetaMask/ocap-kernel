@@ -31,6 +31,14 @@ export class TestReader<Read = number> extends BaseReader<Read> {
   getReceiveInput(): ReceiveInput {
     return super.getReceiveInput();
   }
+
+  async return(): Promise<IteratorResult<Read, undefined>> {
+    return super.return();
+  }
+
+  async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
+    return super.throw(error);
+  }
 }
 
 export class TestWriter<Write = number> extends BaseWriter<Write> {
