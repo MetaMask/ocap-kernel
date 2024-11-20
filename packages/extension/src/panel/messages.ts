@@ -3,8 +3,16 @@ import type { KernelCommand } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
 import { vatId } from './buttons.js';
-import type { KernelControlCommand } from '../kernel/messages.js';
-import { KernelControlMethod } from '../kernel/messages.js';
+import { updateStatusDisplay } from './status.js';
+import {
+  KernelControlMethod,
+  isKernelControlReply,
+  isKernelStatus,
+} from '../kernel/messages.js';
+import type {
+  KernelControlCommand,
+  KernelControlReply,
+} from '../kernel/messages.js';
 
 const outputBox = document.getElementById('output-box') as HTMLElement;
 const messageOutput = document.getElementById(
@@ -89,4 +97,40 @@ export function setupTemplateHandlers(
   vatId.addEventListener('change', () => {
     sendButton.textContent = vatId.value ? 'Send to Vat' : 'Send';
   });
+}
+
+/**
+ * Handle a kernel message.
+ *
+ * @param message - The message to handle.
+ */
+export function handleKernelMessage(message: KernelControlReply): void {
+  if (!isKernelControlReply(message) || message.params === null) {
+    return;
+  }
+
+  if (isKernelStatus(message.params)) {
+    updateStatusDisplay(message.params);
+    return;
+  }
+
+  if (isErrorResponse(message.params)) {
+    showOutput(stringify(message.params.error, 0), 'error');
+  } else {
+    showOutput(stringify(message.params, 2), 'info');
+  }
+}
+
+type ErrorResponse = {
+  error: unknown;
+};
+
+/**
+ * Checks if a value is an error response.
+ *
+ * @param value - The value to check.
+ * @returns Whether the value is an error response.
+ */
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  return typeof value === 'object' && value !== null && 'error' in value;
 }

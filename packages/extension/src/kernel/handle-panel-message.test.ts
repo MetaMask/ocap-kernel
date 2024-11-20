@@ -30,7 +30,6 @@ describe('handlePanelMessage', () => {
   let mockKernel: Kernel;
 
   beforeEach(() => {
-    vi.resetAllMocks();
     vi.resetModules();
 
     // Create mock kernel

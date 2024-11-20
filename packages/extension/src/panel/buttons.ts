@@ -4,6 +4,7 @@ import { logger } from './shared.js';
 import type { KernelControlCommand } from '../kernel/messages.js';
 
 export const vatId = document.getElementById('vat-id') as HTMLSelectElement;
+export const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
 export const newVatId = document.getElementById(
   'new-vat-id',
 ) as HTMLInputElement;
@@ -12,7 +13,7 @@ export const buttons: Record<
   string,
   {
     element: HTMLButtonElement;
-    command: () => KernelControlCommand | undefined;
+    command: () => KernelControlCommand;
   }
 > = {
   launchVat: {
@@ -55,10 +56,7 @@ export function setupButtonHandlers(
 ): void {
   Object.values(buttons).forEach((button) => {
     button.element.addEventListener('click', () => {
-      const message = button.command();
-      if (message) {
-        sendMessage(message).catch(logger.error);
-      }
+      sendMessage(button.command()).catch(logger.error);
     });
   });
 }

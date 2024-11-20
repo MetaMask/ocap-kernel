@@ -5,7 +5,6 @@ import { setupPanelDOM } from '../../test/panel-utils.js';
 
 describe('buttons', () => {
   beforeEach(async () => {
-    vi.resetAllMocks();
     vi.resetModules();
     await setupPanelDOM();
   });

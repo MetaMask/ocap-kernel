@@ -1,10 +1,7 @@
 import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
 
-import { showOutput } from './messages.js';
+import { handleKernelMessage } from './messages.js';
 import { logger } from './shared.js';
-import { updateStatusDisplay } from './status.js';
-import { isKernelControlReply, isKernelStatus } from '../kernel/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
@@ -41,47 +38,9 @@ export async function setupStream(): Promise<
   };
 
   // Handle messages from the offscreen script
-  offscreenStream
-    .drain((message) => {
-      if (!isKernelControlReply(message) || message.params === null) {
-        return;
-      }
-
-      if (isKernelStatus(message.params)) {
-        updateStatusDisplay(message.params);
-        return;
-      }
-
-      if (message.method === 'sendMessage') {
-        const { params } = message;
-
-        // Handle error responses
-        if (isErrorResponse(params)) {
-          showOutput(stringify(params.error, 0), 'error');
-          return;
-        }
-
-        // Handle successful responses
-        showOutput(stringify(params, 2), 'info');
-      }
-    })
-    .catch((error) => {
-      logger.error('error draining offscreen stream', error);
-    });
+  offscreenStream.drain(handleKernelMessage).catch((error) => {
+    logger.error('error draining offscreen stream', error);
+  });
 
   return sendMessage;
-}
-
-type ErrorResponse = {
-  error: unknown;
-};
-
-/**
- * Checks if a value is an error response.
- *
- * @param value - The value to check.
- * @returns Whether the value is an error response.
- */
-function isErrorResponse(value: unknown): value is ErrorResponse {
-  return typeof value === 'object' && value !== null && 'error' in value;
 }

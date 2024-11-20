@@ -23,7 +23,7 @@ const logger = makeLogger('[offscreen]');
 main().catch(logger.error);
 
 /**
- * Main function to initialize the offscreen page.
+ * Main function to initialize the offscreen document.
  */
 async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.

@@ -16,7 +16,6 @@ vi.mock('@ocap/kernel', () => ({
 
 describe('status', () => {
   beforeEach(async () => {
-    vi.resetAllMocks();
     vi.resetModules();
     await setupPanelDOM();
   });
@@ -51,7 +50,8 @@ describe('status', () => {
 
   describe('updateStatusDisplay', () => {
     it('should display running status with active vats', async () => {
-      const { updateStatusDisplay } = await import('./status');
+      const { updateStatusDisplay, statusDisplay } = await import('./status');
+
       const activeVats: VatId[] = ['v0', 'v1', 'v2'];
 
       updateStatusDisplay({
@@ -59,26 +59,25 @@ describe('status', () => {
         activeVats,
       });
 
-      const statusDisplay = document.getElementById('status-display');
       expect(statusDisplay?.textContent).toBe(
         `Active Vats (3): ["v0","v1","v2"]`,
       );
     });
 
     it('should display not running status', async () => {
-      const { updateStatusDisplay } = await import('./status');
+      const { updateStatusDisplay, statusDisplay } = await import('./status');
 
       updateStatusDisplay({
         isRunning: false,
         activeVats: [],
       });
 
-      const statusDisplay = document.getElementById('status-display');
       expect(statusDisplay?.textContent).toBe('Kernel is not running');
     });
 
     it('should update vat select options', async () => {
       const { updateStatusDisplay } = await import('./status');
+      const { vatSelect } = await import('./buttons');
       const activeVats: VatId[] = ['v0', 'v1'];
 
       updateStatusDisplay({
@@ -86,7 +85,6 @@ describe('status', () => {
         activeVats,
       });
 
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
       expect(vatSelect.options).toHaveLength(3); // Including empty option
       expect(vatSelect.options[1]?.value).toBe('v0');
       expect(vatSelect.options[2]?.value).toBe('v1');
@@ -94,8 +92,7 @@ describe('status', () => {
 
     it('should preserve selected vat if still active', async () => {
       const { updateStatusDisplay } = await import('./status');
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
-
+      const { vatSelect } = await import('./buttons');
       // First update
       updateStatusDisplay({
         isRunning: true,
@@ -114,7 +111,7 @@ describe('status', () => {
 
     it('should clear selection if selected vat becomes inactive', async () => {
       const { updateStatusDisplay } = await import('./status');
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+      const { vatSelect } = await import('./buttons');
 
       // First update and selection
       updateStatusDisplay({
@@ -134,7 +131,8 @@ describe('status', () => {
 
     it('should skip vat select update if vats have not changed', async () => {
       const { updateStatusDisplay } = await import('./status');
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+      const { vatSelect } = await import('./buttons');
+
       const activeVats: VatId[] = ['v0', 'v1'];
 
       // First update
@@ -164,7 +162,7 @@ describe('status', () => {
 
     it('should update vat select if vats are same but in different order', async () => {
       const { updateStatusDisplay } = await import('./status');
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+      const { vatSelect } = await import('./buttons');
 
       // First update
       updateStatusDisplay({
@@ -192,10 +190,7 @@ describe('status', () => {
   describe('setupVatListeners', () => {
     it('should update button states on vat id input', async () => {
       const { setupVatListeners } = await import('./status');
-      const { buttons } = await import('./buttons');
-      const newVatId = document.getElementById(
-        'new-vat-id',
-      ) as HTMLInputElement;
+      const { buttons, newVatId } = await import('./buttons');
 
       setupVatListeners();
 
@@ -212,8 +207,7 @@ describe('status', () => {
 
     it('should update button states on vat selection change', async () => {
       const { setupVatListeners } = await import('./status');
-      const { buttons } = await import('./buttons');
-      const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+      const { buttons, vatSelect } = await import('./buttons');
 
       setupVatListeners();
 
@@ -228,6 +222,79 @@ describe('status', () => {
       vatSelect.dispatchEvent(new Event('change'));
       expect(buttons.restartVat?.element.disabled).toBe(false);
       expect(buttons.terminateVat?.element.disabled).toBe(false);
+    });
+  });
+
+  describe('updateButtonStates', () => {
+    it('should disable launch button when new vat ID is empty', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatId } = await import('./buttons');
+      newVatId.value = '';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+    });
+
+    it('should enable launch button when new vat ID is non-empty', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatId } = await import('./buttons');
+      newVatId.value = 'test-vat';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(false);
+    });
+
+    it('should disable restart and terminate buttons based on vat selection', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, vatSelect } = await import('./buttons');
+
+      vatSelect.value = '';
+      updateButtonStates(true);
+      expect(buttons.restartVat?.element.disabled).toBe(true);
+      expect(buttons.terminateVat?.element.disabled).toBe(true);
+    });
+
+    it('should enable restart and terminate buttons based on vat selection', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, vatSelect } = await import('./buttons');
+
+      const option = document.createElement('option');
+      option.value = 'v1';
+      option.text = 'v1';
+      vatSelect.add(option);
+
+      vatSelect.value = 'v1';
+      updateButtonStates(true);
+      expect(buttons.restartVat?.element.disabled).toBe(false);
+      expect(buttons.terminateVat?.element.disabled).toBe(false);
+    });
+
+    it('should disable terminate all button when no vats exist', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons } = await import('./buttons');
+      updateButtonStates(false);
+      expect(buttons.terminateAllVats?.element.disabled).toBe(true);
+    });
+
+    it('should enable terminate all button when vats exist', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons } = await import('./buttons');
+      updateButtonStates(true);
+      expect(buttons.terminateAllVats?.element.disabled).toBe(false);
+    });
+
+    it('should handle missing buttons', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons } = await import('./buttons');
+
+      // @ts-expect-error - testing undefined state
+      buttons.launchVat = undefined;
+      // @ts-expect-error - testing undefined state
+      buttons.restartVat = undefined;
+      // @ts-expect-error - testing undefined state
+      buttons.terminateVat = undefined;
+      // @ts-expect-error - testing undefined state
+      buttons.terminateAllVats = undefined;
+
+      expect(() => updateButtonStates(true)).not.toThrow();
     });
   });
 });

@@ -5,10 +5,15 @@ import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { setupPanelDOM } from '../../test/panel-utils.js';
+import type { KernelControlReply } from '../kernel/messages.js';
 
 const isVatId = vi.fn(
   (input: unknown): input is VatId => typeof input === 'string',
 );
+
+vi.mock('./status', () => ({
+  updateStatusDisplay: vi.fn(),
+}));
 
 // Mock kernel imports
 vi.mock('@ocap/kernel', () => ({
@@ -26,7 +31,6 @@ vi.mock('@ocap/kernel', () => ({
 
 describe('messages', () => {
   beforeEach(async () => {
-    vi.resetAllMocks();
     vi.resetModules();
     await setupPanelDOM();
   });
@@ -213,6 +217,58 @@ describe('messages', () => {
       const output = document.getElementById('message-output');
       expect(output?.textContent).toBe(error.toString());
       expect(output?.className).toBe('error');
+    });
+  });
+
+  describe('handleKernelMessage', () => {
+    it('should ignore invalid kernel control replies', async () => {
+      const { handleKernelMessage } = await import('./messages');
+      const invalidMessage = { method: 'invalid' };
+      handleKernelMessage(invalidMessage as KernelControlReply);
+      const output = document.getElementById('message-output');
+      expect(output?.textContent).toBe('');
+    });
+
+    it('should handle kernel status updates', async () => {
+      const { handleKernelMessage } = await import('./messages');
+      const { updateStatusDisplay } = await import('./status');
+      const statusMessage: KernelControlReply = {
+        method: 'getStatus',
+        params: {
+          isRunning: true,
+          activeVats: ['v0'],
+        },
+      };
+      handleKernelMessage(statusMessage);
+      expect(updateStatusDisplay).toHaveBeenCalledWith(statusMessage.params);
+    });
+
+    it('should display error responses from sendMessage', async () => {
+      const { handleKernelMessage } = await import('./messages');
+      const errorMessage: KernelControlReply = {
+        method: 'sendMessage',
+        params: {
+          error: 'Test error message',
+        },
+      };
+      handleKernelMessage(errorMessage);
+      const output = document.getElementById('message-output');
+      expect(output?.textContent).toBe('"Test error message"');
+      expect(output?.className).toBe('error');
+    });
+
+    it('should display successful responses from sendMessage', async () => {
+      const { handleKernelMessage } = await import('./messages');
+      const successMessage: KernelControlReply = {
+        method: 'sendMessage',
+        params: {
+          result: 'Success',
+        },
+      };
+      handleKernelMessage(successMessage);
+      const output = document.getElementById('message-output');
+      expect(output?.textContent).toBe('{\n  "result": "Success"\n}');
+      expect(output?.className).toBe('info');
     });
   });
 });
