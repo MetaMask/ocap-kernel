@@ -106,6 +106,7 @@ export function setupTemplateHandlers(
  */
 export function handleKernelMessage(message: KernelControlReply): void {
   if (!isKernelControlReply(message) || message.params === null) {
+    showOutput('');
     return;
   }
 

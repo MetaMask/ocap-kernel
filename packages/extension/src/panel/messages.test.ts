@@ -62,6 +62,19 @@ describe('messages', () => {
       const outputBox = document.getElementById('output-box');
       expect(outputBox?.style.display).toBe('none');
     });
+
+    it('should properly reset all properties when message is empty', async () => {
+      const { showOutput } = await import('./messages');
+
+      showOutput('');
+
+      const output = document.getElementById('message-output');
+      const outputBox = document.getElementById('output-box');
+
+      expect(output?.textContent).toBe('');
+      expect(output?.className).toBe('info');
+      expect(outputBox?.style.display).toBe('none');
+    });
   });
 
   describe('setupTemplateHandlers', () => {
