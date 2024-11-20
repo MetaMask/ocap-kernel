@@ -15,13 +15,18 @@ describe('buttons', () => {
 
   describe('button commands', () => {
     it('should generate correct launch vat command', async () => {
-      const { buttons, newVatId } = await import('./buttons');
-      newVatId.value = 'v1';
+      const { buttons, newVatName } = await import('./buttons');
+      newVatName.value = 'Alice';
       const command = buttons.launchVat?.command();
 
       expect(command).toStrictEqual({
         method: 'launchVat',
-        params: { id: 'v1' },
+        params: {
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+          parameters: {
+            name: 'Alice',
+          },
+        },
       });
     });
 
@@ -61,9 +66,9 @@ describe('buttons', () => {
   describe('setupButtonHandlers', () => {
     it('should set up click handlers for all buttons', async () => {
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const { buttons, newVatId, vatDropdown, setupButtonHandlers } =
+      const { buttons, newVatName, vatDropdown, setupButtonHandlers } =
         await import('./buttons');
-      newVatId.value = 'v1';
+      newVatName.value = 'Alice';
       vatDropdown.value = 'v1';
 
       setupButtonHandlers(sendMessage);

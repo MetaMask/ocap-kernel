@@ -1,19 +1,22 @@
 import type { NonEmptyArray } from '@metamask/utils';
-import { Kernel, VatCommandMethod } from '@ocap/kernel';
-import type { VatId } from '@ocap/kernel';
+import { Kernel /*, VatCommandMethod */ } from '@ocap/kernel';
+import type { /* VatId, */ VatConfig } from '@ocap/kernel';
+
+// XXX This is temporarily disabled until vat restart is once again a thing
 
 /**
  * Runs the full lifecycle of an array of vats
  *
- * @param kernel - The kernel instance.
- * @param vats - The vats to run the lifecycle for.
+ * @param _kernel - The kernel instance.
+ * @param _vats - The vats to run the lifecycle for.
  */
 export async function runVatLifecycle(
-  kernel: Kernel,
-  vats: NonEmptyArray<VatId>,
+  _kernel: Kernel,
+  _vats: NonEmptyArray<VatConfig>,
 ): Promise<void> {
+  /*
   console.time(`Created vats: ${vats.join(', ')}`);
-  await Promise.all(vats.map(async (id) => kernel.launchVat({ id })));
+  await Promise.all(vats.map(async (config) => kernel.launchVat(config)));
   console.timeEnd(`Created vats: ${vats.join(', ')}`);
 
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
@@ -39,4 +42,5 @@ export async function runVatLifecycle(
   console.timeEnd(`Terminated vats: ${vatIds}`);
 
   console.log(`Kernel has ${kernel.getVatIds().length} vats`);
+  */
 }

@@ -1,7 +1,7 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { buttons, vatDropdown, newVatId } from './buttons.js';
+import { buttons, vatDropdown, newVatName } from './buttons.js';
 import { logger } from './shared.js';
 import type { KernelControlCommand, KernelStatus } from '../kernel/messages.js';
 
@@ -49,7 +49,7 @@ export function updateStatusDisplay(status: KernelStatus): void {
  * Setup listeners for vat ID input and change events.
  */
 export function setupVatListeners(): void {
-  newVatId.addEventListener('input', () => {
+  newVatName.addEventListener('input', () => {
     updateButtonStates(vatDropdown.options.length > 1);
   });
 
@@ -109,7 +109,7 @@ function updatevatDropdown(activeVats: VatId[]): void {
 export function updateButtonStates(hasVats: boolean): void {
   // Launch button - enabled only when new vat ID is not empty
   if (buttons.launchVat) {
-    buttons.launchVat.element.disabled = !newVatId.value.trim();
+    buttons.launchVat.element.disabled = !newVatName.value.trim();
   }
 
   // Restart and terminate buttons - enabled when a vat is selected

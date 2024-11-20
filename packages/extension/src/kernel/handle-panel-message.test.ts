@@ -1,6 +1,6 @@
 import '../../../test-utils/src/env/mock-endo.ts';
 import { define, literal, object } from '@metamask/superstruct';
-import type { Kernel, KernelCommand, VatId } from '@ocap/kernel';
+import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
@@ -16,7 +16,9 @@ vi.mock('@ocap/utils', () => ({
 vi.mock('@ocap/kernel', () => ({
   isKernelCommand: () => true,
   isVatId: () => true,
+  isVatConfig: () => true,
   VatIdStruct: define<VatId>('VatId', () => true),
+  VatConfigStruct: define<VatConfig>('VatConfig', () => true),
   KernelSendMessageStruct: object({
     id: literal('v0'),
     payload: object({
@@ -60,34 +62,36 @@ describe('handlePanelMessage', () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
         method: 'launchVat',
-        params: { id: 'v0' },
+        params: { sourceSpec: 'bogus.js' },
       };
 
       const response = await handlePanelMessage(mockKernel, message);
 
-      expect(mockKernel.launchVat).toHaveBeenCalledWith({ id: 'v0' });
+      expect(mockKernel.launchVat).toHaveBeenCalledWith({
+        sourceSpec: 'bogus.js',
+      });
       expect(response).toStrictEqual({
         method: 'launchVat',
         params: null,
       });
     });
 
-    it('should handle invalid vat ID', async () => {
+    it('should handle invalid vat configuration', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const kernel = await import('@ocap/kernel');
-      const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
-      isVatIdSpy.mockReturnValue(false);
+      const isVatConfigSpy = vi.spyOn(kernel, 'isVatConfig');
+      isVatConfigSpy.mockReturnValue(false);
 
       const message: KernelControlCommand = {
         method: 'launchVat',
-        params: { id: 'invalid' as VatId },
+        params: { bogus: 'bogus.js' } as unknown as VatConfig,
       };
 
       const response = await handlePanelMessage(mockKernel, message);
 
       expect(response).toStrictEqual({
         method: 'launchVat',
-        params: { error: 'Valid vat id required' },
+        params: { error: 'Valid vat config required' },
       });
     });
 
@@ -347,7 +351,7 @@ describe('handlePanelMessage', () => {
 
       const message: KernelControlCommand = {
         method: 'launchVat',
-        params: { id: 'v0' },
+        params: { sourceSpec: 'bogus.js' },
       };
 
       const response = await handlePanelMessage(mockKernel, message);

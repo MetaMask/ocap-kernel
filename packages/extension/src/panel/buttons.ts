@@ -6,9 +6,13 @@ import type { KernelControlCommand } from '../kernel/messages.js';
 export const vatDropdown = document.getElementById(
   'vat-dropdown',
 ) as HTMLSelectElement;
-export const newVatId = document.getElementById(
-  'new-vat-id',
+export const newVatName = document.getElementById(
+  'new-vat-name',
 ) as HTMLInputElement;
+
+const bundleHost = 'http://localhost:3000'; // XXX placeholder
+const sampleBundle = 'sample-vat.bundle';
+const bundleURL = `${bundleHost}/${sampleBundle}`;
 
 export const buttons: Record<
   string,
@@ -21,7 +25,12 @@ export const buttons: Record<
     element: document.getElementById('launch-vat') as HTMLButtonElement,
     command: () => ({
       method: 'launchVat',
-      params: { id: newVatId.value as VatId },
+      params: {
+        bundleSpec: bundleURL,
+        parameters: {
+          name: newVatName.value,
+        },
+      },
     }),
   },
   restartVat: {

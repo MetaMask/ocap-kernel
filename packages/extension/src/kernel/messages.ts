@@ -12,7 +12,7 @@ import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
-import { VatIdStruct } from '@ocap/kernel';
+import { VatConfigStruct, VatIdStruct } from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
 export const KernelControlMethod = {
@@ -41,7 +41,7 @@ export const isKernelStatus: TypeGuard<KernelStatus> = (
 const KernelControlCommandStruct = union([
   object({
     method: literal(KernelControlMethod.launchVat),
-    params: object({ id: VatIdStruct }),
+    params: VatConfigStruct,
   }),
   object({
     method: literal(KernelControlMethod.restartVat),

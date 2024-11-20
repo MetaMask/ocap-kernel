@@ -191,18 +191,18 @@ describe('status', () => {
   describe('setupVatListeners', () => {
     it('should update button states on vat id input', async () => {
       const { setupVatListeners } = await import('./status');
-      const { buttons, newVatId } = await import('./buttons');
+      const { buttons, newVatName } = await import('./buttons');
 
       setupVatListeners();
 
       // Empty input
-      newVatId.value = '';
-      newVatId.dispatchEvent(new Event('input'));
+      newVatName.value = '';
+      newVatName.dispatchEvent(new Event('input'));
       expect(buttons.launchVat?.element.disabled).toBe(true);
 
       // Non-empty input
-      newVatId.value = 'v3';
-      newVatId.dispatchEvent(new Event('input'));
+      newVatName.value = 'Bob';
+      newVatName.dispatchEvent(new Event('input'));
       expect(buttons.launchVat?.element.disabled).toBe(false);
     });
 
@@ -229,16 +229,16 @@ describe('status', () => {
   describe('updateButtonStates', () => {
     it('should disable launch button when new vat ID is empty', async () => {
       const { updateButtonStates } = await import('./status');
-      const { buttons, newVatId } = await import('./buttons');
-      newVatId.value = '';
+      const { buttons, newVatName } = await import('./buttons');
+      newVatName.value = '';
       updateButtonStates(true);
       expect(buttons.launchVat?.element.disabled).toBe(true);
     });
 
     it('should enable launch button when new vat ID is non-empty', async () => {
       const { updateButtonStates } = await import('./status');
-      const { buttons, newVatId } = await import('./buttons');
-      newVatId.value = 'test-vat';
+      const { buttons, newVatName } = await import('./buttons');
+      newVatName.value = 'test-vat';
       updateButtonStates(true);
       expect(buttons.launchVat?.element.disabled).toBe(false);
     });

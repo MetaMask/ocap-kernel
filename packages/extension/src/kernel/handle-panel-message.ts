@@ -5,6 +5,7 @@ import {
   isKernelCommand,
   KernelSendMessageStruct,
   isVatId,
+  isVatConfig,
 } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 
@@ -27,10 +28,10 @@ export async function handlePanelMessage(
   try {
     switch (message.method) {
       case KernelControlMethod.launchVat: {
-        if (!isVatId(message.params.id)) {
-          throw new Error('Valid vat id required');
+        if (!isVatConfig(message.params)) {
+          throw new Error('Valid vat config required');
         }
-        await kernel.launchVat({ id: message.params.id });
+        await kernel.launchVat(message.params);
         return { method: KernelControlMethod.launchVat, params: null };
       }
 

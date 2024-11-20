@@ -1,6 +1,6 @@
 import '../../../test-utils/src/env/mock-endo.ts';
 import { define } from '@metamask/superstruct';
-import type { VatId } from '@ocap/kernel';
+import type { VatId, VatConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -11,6 +11,10 @@ const isVatId = vi.fn(
   (input: unknown): input is VatId => typeof input === 'string',
 );
 
+const isVatConfig = vi.fn(
+  (input: unknown): input is VatConfig => typeof input === 'object',
+);
+
 vi.mock('./status', () => ({
   updateStatusDisplay: vi.fn(),
 }));
@@ -18,6 +22,7 @@ vi.mock('./status', () => ({
 // Mock kernel imports
 vi.mock('@ocap/kernel', () => ({
   isVatId,
+  isVatConfig,
   VatCommandMethod: {
     ping: 'ping',
     evaluate: 'evaluate',
@@ -27,6 +32,7 @@ vi.mock('@ocap/kernel', () => ({
     kvGet: 'kvGet',
   },
   VatIdStruct: define<VatId>('VatId', isVatId),
+  VatConfigStruct: define<VatConfig>('VatConfig', isVatConfig),
 }));
 
 describe('messages', () => {
