@@ -133,7 +133,7 @@ h4 {
   margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xl);
 }
 
-#vat-id {
+#vat-select {
   width: 60px;
 }
 

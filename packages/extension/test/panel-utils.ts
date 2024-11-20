@@ -14,9 +14,11 @@ export async function setupPanelDOM(): Promise<void> {
   document.body.innerHTML = html;
 
   // Add test option to select
-  const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+  const vatDropdown = document.getElementById(
+    'vat-dropdown',
+  ) as HTMLSelectElement;
   const option = document.createElement('option');
   option.value = 'v0';
   option.text = 'v0';
-  vatSelect.appendChild(option);
+  vatDropdown.appendChild(option);
 }

@@ -3,8 +3,9 @@ import type { VatId } from '@ocap/kernel';
 import { logger } from './shared.js';
 import type { KernelControlCommand } from '../kernel/messages.js';
 
-export const vatId = document.getElementById('vat-id') as HTMLSelectElement;
-export const vatSelect = document.getElementById('vat-id') as HTMLSelectElement;
+export const vatDropdown = document.getElementById(
+  'vat-dropdown',
+) as HTMLSelectElement;
 export const newVatId = document.getElementById(
   'new-vat-id',
 ) as HTMLInputElement;
@@ -27,14 +28,14 @@ export const buttons: Record<
     element: document.getElementById('restart-vat') as HTMLButtonElement,
     command: () => ({
       method: 'restartVat',
-      params: { id: vatId.value as VatId },
+      params: { id: vatDropdown.value as VatId },
     }),
   },
   terminateVat: {
     element: document.getElementById('terminate-vat') as HTMLButtonElement,
     command: () => ({
       method: 'terminateVat',
-      params: { id: vatId.value as VatId },
+      params: { id: vatDropdown.value as VatId },
     }),
   },
   terminateAllVats: {

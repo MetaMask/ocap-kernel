@@ -1,7 +1,7 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { buttons, vatSelect, newVatId } from './buttons.js';
+import { buttons, vatDropdown, newVatId } from './buttons.js';
 import { logger } from './shared.js';
 import type { KernelControlCommand, KernelStatus } from '../kernel/messages.js';
 
@@ -42,7 +42,7 @@ export function updateStatusDisplay(status: KernelStatus): void {
     ? `Active Vats (${activeVats.length}): ${stringify(activeVats, 0)}`
     : 'Kernel is not running';
 
-  updateVatSelect(activeVats);
+  updatevatDropdown(activeVats);
 }
 
 /**
@@ -50,11 +50,11 @@ export function updateStatusDisplay(status: KernelStatus): void {
  */
 export function setupVatListeners(): void {
   newVatId.addEventListener('input', () => {
-    updateButtonStates(vatSelect.options.length > 1);
+    updateButtonStates(vatDropdown.options.length > 1);
   });
 
-  vatSelect.addEventListener('change', () => {
-    updateButtonStates(vatSelect.options.length > 1);
+  vatDropdown.addEventListener('change', () => {
+    updateButtonStates(vatDropdown.options.length > 1);
   });
 }
 
@@ -63,9 +63,9 @@ export function setupVatListeners(): void {
  *
  * @param activeVats - Array of active vat IDs
  */
-function updateVatSelect(activeVats: VatId[]): void {
+function updatevatDropdown(activeVats: VatId[]): void {
   // Compare current options with new vats
-  const currentVats = Array.from(vatSelect.options)
+  const currentVats = Array.from(vatDropdown.options)
     .slice(1) // Skip the default empty option
     .map((option) => option.value as VatId);
 
@@ -75,11 +75,11 @@ function updateVatSelect(activeVats: VatId[]): void {
   }
 
   // Store current selection
-  const currentSelection = vatSelect.value;
+  const currentSelection = vatDropdown.value;
 
   // Clear existing options except the default one
-  while (vatSelect.options.length > 1) {
-    vatSelect.remove(1);
+  while (vatDropdown.options.length > 1) {
+    vatDropdown.remove(1);
   }
 
   // Add new options
@@ -87,14 +87,14 @@ function updateVatSelect(activeVats: VatId[]): void {
     const option = document.createElement('option');
     option.value = id;
     option.text = id;
-    vatSelect.add(option);
+    vatDropdown.add(option);
   });
 
   // Restore selection if it still exists
   if (activeVats.includes(currentSelection as VatId)) {
-    vatSelect.value = currentSelection;
+    vatDropdown.value = currentSelection;
   } else {
-    vatSelect.value = '';
+    vatDropdown.value = '';
   }
 
   // Update button states
@@ -114,10 +114,10 @@ export function updateButtonStates(hasVats: boolean): void {
 
   // Restart and terminate buttons - enabled when a vat is selected
   if (buttons.restartVat) {
-    buttons.restartVat.element.disabled = !vatSelect.value;
+    buttons.restartVat.element.disabled = !vatDropdown.value;
   }
   if (buttons.terminateVat) {
-    buttons.terminateVat.element.disabled = !vatSelect.value;
+    buttons.terminateVat.element.disabled = !vatDropdown.value;
   }
 
   // Terminate all - enabled only when vats exist

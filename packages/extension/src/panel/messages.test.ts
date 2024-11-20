@@ -112,7 +112,7 @@ describe('messages', () => {
     it('should send message when send button is clicked', async () => {
       const { setupTemplateHandlers, messageContent, sendButton } =
         await import('./messages');
-      const { vatId } = await import('./buttons.js');
+      const { vatDropdown } = await import('./buttons.js');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       isVatId.mockReturnValue(true);
 
@@ -120,7 +120,7 @@ describe('messages', () => {
 
       // Setup test data
       messageContent.value = '{"method":"ping","params":null}';
-      vatId.value = 'v0';
+      vatDropdown.value = 'v0';
 
       sendButton.dispatchEvent(new Event('click'));
 
@@ -138,7 +138,7 @@ describe('messages', () => {
     it('should send message without vat id when send button is clicked', async () => {
       const { setupTemplateHandlers, messageContent, sendButton } =
         await import('./messages');
-      const { vatId } = await import('./buttons.js');
+      const { vatDropdown } = await import('./buttons.js');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       isVatId.mockReturnValue(false);
 
@@ -146,7 +146,7 @@ describe('messages', () => {
 
       messageContent.value =
         '{"method":"kvSet","params":{"key":"test","value":"test"}}';
-      vatId.value = '';
+      vatDropdown.value = '';
 
       sendButton.dispatchEvent(new Event('click'));
 
@@ -180,23 +180,23 @@ describe('messages', () => {
 
     it('should update send button text based on vat selection', async () => {
       const { setupTemplateHandlers } = await import('./messages');
+      const { vatDropdown } = await import('./buttons');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
 
       setupTemplateHandlers(sendMessage);
 
-      const vatId = document.getElementById('vat-id') as HTMLSelectElement;
       const sendButton = document.getElementById(
         'send-message',
       ) as HTMLButtonElement;
 
       // With vat selected
-      vatId.value = 'v0';
-      vatId.dispatchEvent(new Event('change'));
+      vatDropdown.value = 'v0';
+      vatDropdown.dispatchEvent(new Event('change'));
       expect(sendButton.textContent).toBe('Send to Vat');
 
       // Without vat selected
-      vatId.value = '';
-      vatId.dispatchEvent(new Event('change'));
+      vatDropdown.value = '';
+      vatDropdown.dispatchEvent(new Event('change'));
       expect(sendButton.textContent).toBe('Send');
     });
 

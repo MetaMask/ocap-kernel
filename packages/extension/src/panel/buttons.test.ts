@@ -26,8 +26,8 @@ describe('buttons', () => {
     });
 
     it('should generate correct restart vat command', async () => {
-      const { buttons, vatId } = await import('./buttons');
-      vatId.value = 'v0';
+      const { buttons, vatDropdown } = await import('./buttons');
+      vatDropdown.value = 'v0';
       const command = buttons.restartVat?.command();
 
       expect(command).toStrictEqual({
@@ -37,8 +37,8 @@ describe('buttons', () => {
     });
 
     it('should generate correct terminate vat command', async () => {
-      const { buttons, vatId } = await import('./buttons');
-      vatId.value = 'v0';
+      const { buttons, vatDropdown } = await import('./buttons');
+      vatDropdown.value = 'v0';
       const command = buttons.terminateVat?.command();
 
       expect(command).toStrictEqual({
@@ -61,11 +61,10 @@ describe('buttons', () => {
   describe('setupButtonHandlers', () => {
     it('should set up click handlers for all buttons', async () => {
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const { buttons, newVatId, vatId, setupButtonHandlers } = await import(
-        './buttons'
-      );
+      const { buttons, newVatId, vatDropdown, setupButtonHandlers } =
+        await import('./buttons');
       newVatId.value = 'v1';
-      vatId.value = 'v1';
+      vatDropdown.value = 'v1';
 
       setupButtonHandlers(sendMessage);
 

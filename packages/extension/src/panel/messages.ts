@@ -2,7 +2,7 @@ import { KernelCommandMethod, VatCommandMethod, isVatId } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { vatId } from './buttons.js';
+import { vatDropdown } from './buttons.js';
 import { updateStatusDisplay } from './status.js';
 import {
   KernelControlMethod,
@@ -83,7 +83,7 @@ export function setupTemplateHandlers(
         method: KernelControlMethod.sendMessage,
         params: {
           payload: JSON.parse(messageContent.value),
-          ...(isVatId(vatId.value) ? { id: vatId.value } : {}),
+          ...(isVatId(vatDropdown.value) ? { id: vatDropdown.value } : {}),
         },
       };
       await sendMessage(command);
@@ -94,8 +94,8 @@ export function setupTemplateHandlers(
     sendButton.disabled = !messageContent.value.trim();
   });
 
-  vatId.addEventListener('change', () => {
-    sendButton.textContent = vatId.value ? 'Send to Vat' : 'Send';
+  vatDropdown.addEventListener('change', () => {
+    sendButton.textContent = vatDropdown.value ? 'Send to Vat' : 'Send';
   });
 }
 
