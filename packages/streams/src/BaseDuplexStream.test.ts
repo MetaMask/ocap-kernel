@@ -223,6 +223,23 @@ describe('BaseDuplexStream', () => {
     expect(onDispatch).toHaveBeenCalledWith(message);
   });
 
+  it('pipes to another duplex stream', async () => {
+    const duplexStream = await TestDuplexStream.make(() => undefined);
+    const onDispatch = vi.fn();
+    const sink = await TestDuplexStream.make(onDispatch);
+
+    const pipeP = duplexStream.pipe(sink);
+    await duplexStream.receiveInput(42);
+    await duplexStream.receiveInput(43);
+    await duplexStream.return();
+    await pipeP;
+
+    expect(onDispatch).toHaveBeenCalledWith(42);
+    expect(onDispatch).toHaveBeenLastCalledWith(43);
+
+    await sink.return();
+  });
+
   it('return calls ends both the reader and writer', async () => {
     const readerOnEnd = vi.fn();
     const writerOnEnd = vi.fn();

@@ -241,6 +241,17 @@ export abstract class BaseDuplexStream<
   }
 
   /**
+   * Pipes the stream to another duplex stream.
+   *
+   * @param sink - The duplex stream to pipe to.
+   */
+  async pipe<Read2>(sink: DuplexStream<Read2, Read>): Promise<void> {
+    await this.drain(async (value) => {
+      await sink.write(value);
+    });
+  }
+
+  /**
    * Closes the stream. Idempotent.
    *
    * @returns The final result for this stream.
@@ -281,7 +292,7 @@ harden(BaseDuplexStream);
  */
 export type DuplexStream<Read, Write = Read> = Pick<
   BaseDuplexStream<Read, BaseReader<Read>, Write, BaseWriter<Write>>,
-  'next' | 'write' | 'drain' | 'return' | 'throw' | 'end'
+  'next' | 'write' | 'drain' | 'pipe' | 'return' | 'throw' | 'end'
 > & {
   [Symbol.asyncIterator]: () => DuplexStream<Read, Write>;
 };
