@@ -87,7 +87,7 @@ describe('handlePanelMessage', () => {
 
       expect(response).toStrictEqual({
         method: 'launchVat',
-        params: { error: 'Vat ID is invalid' },
+        params: { error: 'Valid vat id required' },
       });
     });
 
@@ -123,7 +123,7 @@ describe('handlePanelMessage', () => {
 
       expect(response).toStrictEqual({
         method: 'restartVat',
-        params: { error: 'Vat ID is required' },
+        params: { error: 'Valid vat id required' },
       });
     });
 
@@ -158,7 +158,7 @@ describe('handlePanelMessage', () => {
 
       expect(response).toStrictEqual({
         method: 'terminateVat',
-        params: { error: 'Vat ID is required' },
+        params: { error: 'Valid vat id required' },
       });
     });
 

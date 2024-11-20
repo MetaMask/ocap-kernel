@@ -28,7 +28,7 @@ export async function handlePanelMessage(
     switch (message.method) {
       case KernelControlMethod.launchVat: {
         if (!isVatId(message.params.id)) {
-          throw new Error('Vat ID is invalid');
+          throw new Error('Valid vat id required');
         }
         await kernel.launchVat({ id: message.params.id });
         return { method: KernelControlMethod.launchVat, params: null };
@@ -36,7 +36,7 @@ export async function handlePanelMessage(
 
       case KernelControlMethod.restartVat: {
         if (!isVatId(message.params.id)) {
-          throw new Error('Vat ID is required');
+          throw new Error('Valid vat id required');
         }
         await kernel.restartVat(message.params.id);
         return { method: KernelControlMethod.restartVat, params: null };
@@ -44,7 +44,7 @@ export async function handlePanelMessage(
 
       case KernelControlMethod.terminateVat: {
         if (!isVatId(message.params.id)) {
-          throw new Error('Vat ID is required');
+          throw new Error('Valid vat id required');
         }
         await kernel.terminateVat(message.params.id);
         return { method: KernelControlMethod.terminateVat, params: null };

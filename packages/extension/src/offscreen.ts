@@ -51,12 +51,13 @@ async function main(): Promise<void> {
   const kernelChannel = multiplexer.addChannel<
     KernelCommandReply,
     KernelCommand
-  >('kernel', async (reply) => {
-    if (isKernelCommandReply(reply)) {
+  >(
+    'kernel',
+    async (reply) => {
       await backgroundStream.write(reply);
-    }
-  });
-
+    },
+    isKernelCommandReply,
+  );
   let popupStream: ChromeRuntimeDuplexStream<
     KernelControlCommand,
     KernelControlReply
@@ -66,12 +67,15 @@ async function main(): Promise<void> {
   const panelChannel = multiplexer.addChannel<
     KernelControlReply,
     KernelControlCommand
-  >('panel', async (reply) => {
-    if (isKernelControlReply(reply) && popupStream) {
-      await popupStream.write(reply);
-    }
-  });
-
+  >(
+    'panel',
+    async (reply) => {
+      if (popupStream) {
+        await popupStream.write(reply);
+      }
+    },
+    isKernelControlReply,
+  );
   // Setup popup communication
   setupPopupStream(panelChannel, (stream) => {
     popupStream = stream;
