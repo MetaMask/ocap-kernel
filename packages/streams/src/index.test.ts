@@ -19,6 +19,7 @@ describe('index', () => {
       'PostMessageReader',
       'PostMessageWriter',
       'StreamMultiplexer',
+      'TransformStream',
       'initializeMessageChannel',
       'isMultiplexEnvelope',
       'receiveMessagePort',

@@ -8,8 +8,8 @@
 
 import type { OnMessage, PostMessage } from './utils.js';
 import {
-  BaseDuplexStream,
   makeDuplexStreamInputValidator,
+  SynchronizableDuplexStream,
 } from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
@@ -97,12 +97,7 @@ harden(PostMessageWriter);
 export class PostMessageDuplexStream<
   Read,
   Write = Read,
-> extends BaseDuplexStream<
-  Read,
-  PostMessageReader<Read>,
-  Write,
-  PostMessageWriter<Write>
-> {
+> extends SynchronizableDuplexStream<Read, Write> {
   constructor(
     postMessageFn: PostMessage,
     setListener: SetListener,

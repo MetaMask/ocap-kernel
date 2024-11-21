@@ -1,5 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { Reader, Writer } from '@endo/stream';
+import type { Reader as EndoReader, Writer as EndoWriter } from '@endo/stream';
 import { stringify } from '@ocap/utils';
 
 import type { Dispatchable, PromiseCallbacks, Writable } from './utils.js';
@@ -120,7 +120,7 @@ export type BaseReaderArgs<Read> = {
  * The result of any value received before the stream ends is guaranteed to be observable
  * by the consumer.
  */
-export class BaseReader<Read> implements Reader<Read> {
+export class BaseReader<Read> implements EndoReader<Read> {
   /**
    * A buffer for managing backpressure (writes > reads) and "suction" (reads > writes) for a stream.
    * Modeled on `AsyncQueue` from `@endo/stream`, but with arrays under the hood instead of a promise chain.
@@ -261,6 +261,13 @@ export class BaseReader<Read> implements Reader<Read> {
 }
 harden(BaseReader);
 
+export type Reader<Read> = Pick<
+  BaseReader<Read>,
+  'next' | 'return' | 'throw' | 'end'
+> & {
+  [Symbol.asyncIterator]: () => Reader<Read>;
+};
+
 export type Dispatch<Yield> = (
   value: Dispatchable<Yield>,
 ) => void | Promise<void>;
@@ -274,7 +281,7 @@ export type BaseWriterArgs<Write> = {
 /**
  * The base of a writable async iterator stream.
  */
-export class BaseWriter<Write> implements Writer<Write> {
+export class BaseWriter<Write> implements EndoWriter<Write> {
   #isDone: boolean = false;
 
   readonly #name: string = 'BaseWriter';
@@ -424,3 +431,10 @@ export class BaseWriter<Write> implements Writer<Write> {
   }
 }
 harden(BaseWriter);
+
+export type Writer<Write> = Pick<
+  BaseWriter<Write>,
+  'next' | 'return' | 'throw' | 'end'
+> & {
+  [Symbol.asyncIterator]: () => Writer<Write>;
+};

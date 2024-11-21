@@ -1,7 +1,7 @@
 import {
-  BaseDuplexStream,
   makeAck,
   makeDuplexStreamInputValidator,
+  SynchronizableDuplexStream,
 } from '../src/BaseDuplexStream.js';
 import type {
   Dispatch,
@@ -63,7 +63,7 @@ type TestDuplexStreamOptions<Read = number> = {
 export class TestDuplexStream<
   Read = number,
   Write = Read,
-> extends BaseDuplexStream<Read, TestReader<Read>, Write, TestWriter<Write>> {
+> extends SynchronizableDuplexStream<Read, Write> {
   readonly #onDispatch: Dispatch<Write>;
 
   readonly #receiveInput: ReceiveInput;
@@ -124,7 +124,7 @@ export class TestDuplexStream<
    * @returns A synchronized TestDuplexStream.
    */
   static async make<Read = number, Write = Read>(
-    onDispatch: Dispatch<Write>,
+    onDispatch: Dispatch<Write> = () => undefined,
     opts: TestDuplexStreamOptions<Read> = {},
   ): Promise<TestDuplexStream<Read, Write>> {
     const stream = new TestDuplexStream<Read, Write>(onDispatch, opts);

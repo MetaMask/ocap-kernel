@@ -1,4 +1,3 @@
-import type { Reader, Writer } from '@endo/stream';
 import type { Struct } from '@metamask/superstruct';
 import {
   any,
@@ -17,8 +16,6 @@ import {
 } from '@metamask/utils';
 import { isMarshaledError, marshalError, unmarshalError } from '@ocap/errors';
 import { stringify } from '@ocap/utils';
-
-export type { Reader, Writer };
 
 export type PromiseCallbacks = {
   resolve: (value: unknown) => void;

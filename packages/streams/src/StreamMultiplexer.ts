@@ -21,9 +21,9 @@
 import { isObject } from '@metamask/utils';
 
 import {
-  BaseDuplexStream,
   isSyn,
   makeDuplexStreamInputValidator,
+  SynchronizableDuplexStream,
 } from './BaseDuplexStream.js';
 import type { DuplexStream } from './BaseDuplexStream.js';
 import type {
@@ -33,16 +33,6 @@ import type {
 } from './BaseStream.js';
 import { BaseReader, BaseWriter } from './BaseStream.js';
 import type { Dispatchable } from './utils.js';
-
-/**
- * A duplex stream that can maybe be synchronized.
- */
-type SynchronizableDuplexStream<Read, Write = Read> = DuplexStream<
-  Read,
-  Write
-> & {
-  synchronize?: () => Promise<void>;
-};
 
 /**
  * The read stream implementation for {@link StreamMultiplexer} channels.
@@ -64,12 +54,7 @@ class ChannelReader<Read> extends BaseReader<Read> {
 class ChannelWriter<Write> extends BaseWriter<Write> {}
 
 class Channel<Read, Write>
-  extends BaseDuplexStream<
-    Read,
-    ChannelReader<Read>,
-    Write,
-    ChannelWriter<Write>
-  >
+  extends SynchronizableDuplexStream<Read, Write>
   implements DuplexStream<Read, Write>
 {
   constructor(reader: ChannelReader<Read>, writer: ChannelWriter<Write>) {

@@ -2,7 +2,7 @@ export {
   initializeMessageChannel,
   receiveMessagePort,
 } from './message-channel.js';
-export type { Reader, Writer } from './utils.js';
+export type { Reader, Writer } from './BaseStream.js';
 export type { DuplexStream } from './BaseDuplexStream.js';
 export {
   MessagePortDuplexStream,
@@ -26,3 +26,4 @@ export {
 } from './browser/PostMessageStream.js';
 export { StreamMultiplexer, isMultiplexEnvelope } from './StreamMultiplexer.js';
 export type { MultiplexEnvelope } from './StreamMultiplexer.js';
+export { TransformStream } from './TransformStream.js';

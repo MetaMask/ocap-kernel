@@ -18,8 +18,8 @@ import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
 import {
-  BaseDuplexStream,
   makeDuplexStreamInputValidator,
+  SynchronizableDuplexStream,
 } from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
@@ -183,12 +183,7 @@ harden(ChromeRuntimeWriter);
 export class ChromeRuntimeDuplexStream<
   Read extends Json,
   Write extends Json = Read,
-> extends BaseDuplexStream<
-  Read,
-  ChromeRuntimeReader<Read>,
-  Write,
-  ChromeRuntimeWriter<Write>
-> {
+> extends SynchronizableDuplexStream<Read, Write> {
   constructor(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeStreamTarget,

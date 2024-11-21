@@ -21,8 +21,8 @@
 
 import type { OnMessage } from './utils.js';
 import {
-  BaseDuplexStream,
   makeDuplexStreamInputValidator,
+  SynchronizableDuplexStream,
 } from '../BaseDuplexStream.js';
 import type {
   BaseReaderArgs,
@@ -108,12 +108,7 @@ harden(MessagePortWriter);
 export class MessagePortDuplexStream<
   Read,
   Write = Read,
-> extends BaseDuplexStream<
-  Read,
-  MessagePortReader<Read>,
-  Write,
-  MessagePortWriter<Write>
-> {
+> extends SynchronizableDuplexStream<Read, Write> {
   constructor(port: MessagePort, validateInput?: ValidateInput<Read>) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, {
