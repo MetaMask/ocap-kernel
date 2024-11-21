@@ -51,7 +51,6 @@ const config = createConfig([
           allowExpressions: true,
         },
       ],
-      'no-useless-return': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
 
       // Replace this tseslint rule with "verbatimModuleSyntax" tsconfig
