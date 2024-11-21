@@ -9,11 +9,6 @@ const config = mergeConfig(
     test: {
       name: 'errors',
       setupFiles: path.resolve('../shims/src/endoify.js'),
-      poolMatchGlobs: [
-        ['**/marshal/*.test.ts', 'threads'],
-        ['**/utils/*.test.ts', 'threads'],
-        ['**/*.test.ts', 'forks'],
-      ],
     },
   }),
 );

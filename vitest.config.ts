@@ -14,12 +14,12 @@ export default defineConfig({
 
   test: {
     environment: 'node',
-    isolate: false,
+    pool: 'forks',
+    isolate: true,
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
     reporters: ['basic'],
-    // pool: 'threads',
     coverage: {
       enabled: true,
       provider: 'istanbul',
