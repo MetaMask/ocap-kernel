@@ -13,7 +13,8 @@ export default defineConfig({
   },
 
   test: {
-    environment: 'jsdom',
+    environment: 'node',
+    pool: 'threads',
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,

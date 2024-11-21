@@ -8,6 +8,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'extension',
+      environment: 'jsdom',
       pool: 'vmThreads',
       alias: [
         {
