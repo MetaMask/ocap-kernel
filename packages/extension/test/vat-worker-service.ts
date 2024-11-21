@@ -4,9 +4,9 @@ import { makeCounter } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { vi } from 'vitest';
 
-import type { VatWorker } from '../src/kernel/vat-worker-service.js';
-import { ExtensionVatWorkerClient } from '../src/kernel/VatWorkerClient.js';
-import { ExtensionVatWorkerServer } from '../src/kernel/VatWorkerServer.js';
+import type { VatWorker } from '../src/kernel-integration/vat-worker-service.js';
+import { ExtensionVatWorkerClient } from '../src/kernel-integration/VatWorkerClient.js';
+import { ExtensionVatWorkerServer } from '../src/kernel-integration/VatWorkerServer.js';
 
 const getMockMakeWorker = (
   nWorkers: number = 1,

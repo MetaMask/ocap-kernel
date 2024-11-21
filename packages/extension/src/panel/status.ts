@@ -3,7 +3,10 @@ import { stringify } from '@ocap/utils';
 
 import { buttons, vatDropdown, newVatName } from './buttons.js';
 import { logger } from './shared.js';
-import type { KernelControlCommand, KernelStatus } from '../kernel/messages.js';
+import type {
+  KernelControlCommand,
+  KernelStatus,
+} from '../kernel-integration/messages.js';
 
 export const statusDisplay = document.getElementById(
   'status-display',

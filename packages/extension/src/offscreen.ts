@@ -10,13 +10,13 @@ import {
 import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './kernel/iframe-vat-worker.js';
-import { isKernelControlReply } from './kernel/messages.js';
+import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
+import { isKernelControlReply } from './kernel-integration/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
-} from './kernel/messages.js';
-import { ExtensionVatWorkerServer } from './kernel/VatWorkerServer.js';
+} from './kernel-integration/messages.js';
+import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
 
 const logger = makeLogger('[offscreen]');
 

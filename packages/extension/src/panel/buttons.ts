@@ -1,7 +1,7 @@
 import type { VatId } from '@ocap/kernel';
 
 import { logger } from './shared.js';
-import type { KernelControlCommand } from '../kernel/messages.js';
+import type { KernelControlCommand } from '../kernel-integration/messages.js';
 
 export const vatDropdown = document.getElementById(
   'vat-dropdown',

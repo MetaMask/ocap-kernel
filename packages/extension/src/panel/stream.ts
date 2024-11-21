@@ -2,11 +2,11 @@ import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
 import { handleKernelMessage } from './messages.js';
 import { logger } from './shared.js';
-import { isKernelControlReply } from '../kernel/messages.js';
+import { isKernelControlReply } from '../kernel-integration/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
-} from '../kernel/messages.js';
+} from '../kernel-integration/messages.js';
 
 /**
  * Setup the stream for sending and receiving messages.

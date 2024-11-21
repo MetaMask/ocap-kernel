@@ -5,7 +5,7 @@ import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { setupPanelDOM } from '../../test/panel-utils.js';
-import type { KernelControlReply } from '../kernel/messages.js';
+import type { KernelControlReply } from '../kernel-integration/messages.js';
 
 const isVatId = vi.fn(
   (input: unknown): input is VatId => typeof input === 'string',

@@ -8,11 +8,11 @@ import {
   KernelControlMethod,
   isKernelControlReply,
   isKernelStatus,
-} from '../kernel/messages.js';
+} from '../kernel-integration/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
-} from '../kernel/messages.js';
+} from '../kernel-integration/messages.js';
 
 const outputBox = document.getElementById('output-box') as HTMLElement;
 const messageOutput = document.getElementById(
