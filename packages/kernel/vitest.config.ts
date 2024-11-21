@@ -8,7 +8,6 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'kernel',
-      pool: 'vmThreads',
       alias: [
         {
           find: '@ocap/shims/endoify',

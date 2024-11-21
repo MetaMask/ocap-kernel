@@ -8,8 +8,12 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'errors',
-      pool: 'vmThreads',
       setupFiles: path.resolve('../shims/src/endoify.js'),
+      poolMatchGlobs: [
+        ['**/marshal/*.test.ts', 'threads'],
+        ['**/utils/*.test.ts', 'threads'],
+        ['**/*.test.ts', 'forks'],
+      ],
     },
   }),
 );

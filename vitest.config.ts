@@ -13,11 +13,13 @@ export default defineConfig({
   },
 
   test: {
-    environment: 'jsdom',
+    environment: 'node',
+    isolate: false,
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
     reporters: ['basic'],
+    // pool: 'threads',
     coverage: {
       enabled: true,
       provider: 'istanbul',

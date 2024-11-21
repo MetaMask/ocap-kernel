@@ -7,7 +7,6 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'shims',
-      pool: 'vmThreads',
     },
   }),
 );

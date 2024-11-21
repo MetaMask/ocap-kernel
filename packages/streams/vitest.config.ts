@@ -10,6 +10,7 @@ const config = mergeConfig(
     test: {
       name: 'streams',
       setupFiles: '../shims/src/endoify.js',
+      pool: 'forks',
       browser: {
         provider: 'playwright',
         name: 'chromium',
