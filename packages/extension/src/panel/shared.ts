@@ -1,3 +1,22 @@
 import { makeLogger } from '@ocap/utils';
 
 export const logger = makeLogger('[Kernel Panel]');
+
+/**
+ * Validates a URL
+ *
+ * @param url - The URL to validate
+ * @returns Whether the URL is valid
+ */
+export function isValidUrl(url?: string): boolean {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.pathname.trim().toLowerCase().endsWith('.bundle');
+  } catch {
+    return false;
+  }
+}

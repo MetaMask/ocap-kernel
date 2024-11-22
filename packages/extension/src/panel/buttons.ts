@@ -9,10 +9,9 @@ export const vatDropdown = document.getElementById(
 export const newVatName = document.getElementById(
   'new-vat-name',
 ) as HTMLInputElement;
-
-const bundleHost = 'http://localhost:3000'; // XXX placeholder
-const sampleBundle = 'sample-vat.bundle';
-const bundleURL = `${bundleHost}/${sampleBundle}`;
+export const bundleUrl = document.getElementById(
+  'bundle-url',
+) as HTMLInputElement;
 
 export const buttons: Record<
   string,
@@ -26,7 +25,7 @@ export const buttons: Record<
     command: () => ({
       method: 'launchVat',
       params: {
-        bundleSpec: bundleURL,
+        bundleSpec: bundleUrl.value,
         parameters: {
           name: newVatName.value,
         },

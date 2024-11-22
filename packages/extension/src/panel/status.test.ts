@@ -189,19 +189,22 @@ describe('status', () => {
   });
 
   describe('setupVatListeners', () => {
-    it('should update button states on vat id input', async () => {
+    it('should update launch vat button state', async () => {
       const { setupVatListeners } = await import('./status');
-      const { buttons, newVatName } = await import('./buttons');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
 
       setupVatListeners();
 
-      // Empty input
       newVatName.value = '';
       newVatName.dispatchEvent(new Event('input'));
       expect(buttons.launchVat?.element.disabled).toBe(true);
 
-      // Non-empty input
       newVatName.value = 'Bob';
+      newVatName.dispatchEvent(new Event('input'));
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+
+      newVatName.value = 'Alice';
+      bundleUrl.value = 'http://localhost:3000/sample-vat.bundle';
       newVatName.dispatchEvent(new Event('input'));
       expect(buttons.launchVat?.element.disabled).toBe(false);
     });
@@ -235,10 +238,28 @@ describe('status', () => {
       expect(buttons.launchVat?.element.disabled).toBe(true);
     });
 
-    it('should enable launch button when new vat ID is non-empty', async () => {
+    it('should not enable launch button when new vat ID is non-empty', async () => {
       const { updateButtonStates } = await import('./status');
       const { buttons, newVatName } = await import('./buttons');
       newVatName.value = 'test-vat';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+    });
+
+    it('should not enable launch button when bundle URL is invalid', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
+      newVatName.value = 'test-vat';
+      bundleUrl.value = 'not-a-url';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+    });
+
+    it('should enable launch button when new vat ID and bundle URL is valid', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
+      newVatName.value = 'test-vat';
+      bundleUrl.value = 'http://example.com/test.bundle';
       updateButtonStates(true);
       expect(buttons.launchVat?.element.disabled).toBe(false);
     });
@@ -296,6 +317,30 @@ describe('status', () => {
       buttons.terminateAllVats = undefined;
 
       expect(() => updateButtonStates(true)).not.toThrow();
+    });
+
+    it('should disable launch button when bundle URL is invalid', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
+
+      newVatName.value = 'test-vat';
+      bundleUrl.value = 'not-a-url';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+
+      bundleUrl.value = 'http://example.com/not-bundle';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(true);
+    });
+
+    it('should enable launch button when bundle URL is valid', async () => {
+      const { updateButtonStates } = await import('./status');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
+
+      newVatName.value = 'test-vat';
+      bundleUrl.value = 'http://example.com/test.bundle';
+      updateButtonStates(true);
+      expect(buttons.launchVat?.element.disabled).toBe(false);
     });
   });
 });

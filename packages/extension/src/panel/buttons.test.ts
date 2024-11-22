@@ -15,8 +15,9 @@ describe('buttons', () => {
 
   describe('button commands', () => {
     it('should generate correct launch vat command', async () => {
-      const { buttons, newVatName } = await import('./buttons');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
       newVatName.value = 'Alice';
+      bundleUrl.value = 'http://localhost:3000/sample-vat.bundle';
       const command = buttons.launchVat?.command();
 
       expect(command).toStrictEqual({
@@ -66,20 +67,24 @@ describe('buttons', () => {
   describe('setupButtonHandlers', () => {
     it('should set up click handlers for all buttons', async () => {
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-      const { buttons, newVatName, vatDropdown, setupButtonHandlers } =
-        await import('./buttons');
+      const {
+        buttons,
+        newVatName,
+        vatDropdown,
+        bundleUrl,
+        setupButtonHandlers,
+      } = await import('./buttons');
       newVatName.value = 'Alice';
-      vatDropdown.value = 'v1';
+      bundleUrl.value = 'http://example.com/test.bundle';
+      vatDropdown.value = 'v0';
 
       setupButtonHandlers(sendMessage);
 
-      // Test each button click
-      await Promise.all(
-        Object.values(buttons).map(async (button) => {
-          button.element.click();
-          expect(sendMessage).toHaveBeenCalledWith(button.command());
-        }),
-      );
+      for (const button of Object.values(buttons)) {
+        button.element.disabled = false;
+        button.element.click();
+        expect(sendMessage).toHaveBeenCalledWith(button.command());
+      }
 
       expect(sendMessage).toHaveBeenCalledTimes(Object.keys(buttons).length);
     });

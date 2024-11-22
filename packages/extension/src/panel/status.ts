@@ -1,8 +1,8 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { buttons, vatDropdown, newVatName } from './buttons.js';
-import { logger } from './shared.js';
+import { buttons, vatDropdown, newVatName, bundleUrl } from './buttons.js';
+import { isValidUrl, logger } from './shared.js';
 import type {
   KernelControlCommand,
   KernelStatus,
@@ -53,6 +53,19 @@ export function updateStatusDisplay(status: KernelStatus): void {
  */
 export function setupVatListeners(): void {
   newVatName.addEventListener('input', () => {
+    updateButtonStates(vatDropdown.options.length > 1);
+  });
+
+  bundleUrl.addEventListener('input', (event) => {
+    const input = event.target as HTMLInputElement;
+    const url = input.value.trim();
+    input.setCustomValidity('');
+
+    if (!isValidUrl(url)) {
+      input.setCustomValidity('Please enter a valid URL ending with .bundle');
+    }
+
+    input.reportValidity();
     updateButtonStates(vatDropdown.options.length > 1);
   });
 
@@ -110,20 +123,20 @@ function updatevatDropdown(activeVats: VatId[]): void {
  * @param hasVats - Whether any vats exist
  */
 export function updateButtonStates(hasVats: boolean): void {
-  // Launch button - enabled only when new vat ID is not empty
   if (buttons.launchVat) {
-    buttons.launchVat.element.disabled = !newVatName.value.trim();
+    const hasValidName = newVatName.value.trim().length > 0;
+    const hasValidUrl = isValidUrl(bundleUrl.value);
+    buttons.launchVat.element.disabled = !hasValidName || !hasValidUrl;
   }
 
-  // Restart and terminate buttons - enabled when a vat is selected
   if (buttons.restartVat) {
     buttons.restartVat.element.disabled = !vatDropdown.value;
   }
+
   if (buttons.terminateVat) {
     buttons.terminateVat.element.disabled = !vatDropdown.value;
   }
 
-  // Terminate all - enabled only when vats exist
   if (buttons.terminateAllVats) {
     buttons.terminateAllVats.element.disabled = !hasVats;
   }

@@ -114,6 +114,10 @@ select {
   width: 80px;
 }
 
+#bundle-url {
+  width: 140px;
+}
+
 #status-display {
   background: var(--color-gray-100);
   padding: var(--spacing-md) var(--spacing-lg);
