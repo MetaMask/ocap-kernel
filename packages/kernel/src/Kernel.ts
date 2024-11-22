@@ -149,7 +149,7 @@ export class Kernel {
   async restartVat(vatId: VatId): Promise<Vat> {
     const state = this.#vatStateService.get(vatId);
     if (!state) {
-      throw new Error(`No state found for vat ${vatId}`);
+      throw new VatNotFoundError(vatId);
     }
 
     await this.terminateVat(vatId);
