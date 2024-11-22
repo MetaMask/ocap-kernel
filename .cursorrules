@@ -68,6 +68,9 @@ Testing and Debugging:
 - Use Chrome DevTools and node-based tools for debugging across environments.
 - Use Vite for efficient builds and optimizations across development and production.
 - Use Chrome’s extension loader for live testing during development.
+- Use toStrictEqual() instead of toEqual() for deep object comparisons in tests.
+- Whenever possible, use `it.each()` for parameterized tests.
+- Never use `any` in tests.
 
 Context-Aware Development:
 
