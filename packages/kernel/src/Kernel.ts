@@ -30,6 +30,7 @@ import type {
   ClusterConfig,
   VatConfig,
 } from './types.js';
+import { VatStateService } from './vat-state-service.js';
 import { Vat } from './Vat.js';
 
 export class Kernel {
@@ -43,6 +44,8 @@ export class Kernel {
 
   readonly #logger: Logger;
 
+  readonly #vatStateService: VatStateService;
+
   constructor(
     stream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
@@ -54,6 +57,7 @@ export class Kernel {
     this.#vatWorkerService = vatWorkerService;
     this.#storage = makeKernelStore(rawStorage);
     this.#logger = logger ?? makeLogger('[ocap kernel]');
+    this.#vatStateService = new VatStateService();
   }
 
   async init(): Promise<void> {
@@ -68,6 +72,139 @@ export class Kernel {
     });
   }
 
+  /**
+   * Evaluate a string in the default iframe.
+   *
+   * @param vatId - The ID of the vat to send the message to.
+   * @param source - The source string to evaluate.
+   * @returns The result of the evaluation, or an error message.
+   */
+  async evaluate(vatId: VatId, source: string): Promise<string> {
+    try {
+      const result = await this.sendMessage(vatId, {
+        method: VatCommandMethod.evaluate,
+        params: source,
+      });
+      return String(result);
+    } catch (error) {
+      if (error instanceof Error) {
+        return `Error: ${error.message}`;
+      }
+      return `Error: Unknown error during evaluation.`;
+    }
+  }
+
+  kvGet(key: string): string | undefined {
+    return this.#storage.kv.get(key);
+  }
+
+  kvSet(key: string, value: string): void {
+    this.#storage.kv.set(key, value);
+  }
+
+  /**
+   * Gets the vat IDs.
+   *
+   * @returns An array of vat IDs.
+   */
+  getVatIds(): VatId[] {
+    return Array.from(this.#vats.keys());
+  }
+
+  /**
+   * Launches a vat.
+   *
+   * @param vatConfig - Configuration for the new vat.
+   * @returns A promise that resolves the vat.
+   */
+  async launchVat(vatConfig: VatConfig): Promise<Vat> {
+    const vatId = this.#storage.getNextVatId();
+    if (this.#vats.has(vatId)) {
+      throw new VatAlreadyExistsError(vatId);
+    }
+    return this.#initVat(vatId, vatConfig);
+  }
+
+  /**
+   * Launches a sub-cluster of vats.
+   *
+   * @param config - Configuration object for sub-cluster.
+   * @returns A record of the vats launched.
+   */
+  async launchSubcluster(config: ClusterConfig): Promise<Record<string, Vat>> {
+    const vats: Record<string, Vat> = {};
+    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
+      const vat = await this.launchVat(vatConfig);
+      vats[vatName] = vat;
+    }
+    return vats;
+  }
+
+  /**
+   * Restarts a vat.
+   *
+   * @param vatId - The ID of the vat.
+   * @returns A promise that resolves the restarted vat.
+   */
+  async restartVat(vatId: VatId): Promise<Vat> {
+    const state = this.#vatStateService.getVatState(vatId);
+    if (!state) {
+      throw new Error(`No state found for vat ${vatId}`);
+    }
+
+    await this.terminateVat(vatId);
+    const vat = await this.#initVat(vatId, state.config);
+    return vat;
+  }
+
+  /**
+   * Terminate a vat.
+   *
+   * @param id - The ID of the vat.
+   */
+  async terminateVat(id: VatId): Promise<void> {
+    const vat = this.#getVat(id);
+    await vat.terminate();
+    await this.#vatWorkerService.terminate(id).catch(console.error);
+    this.#vats.delete(id);
+  }
+
+  /**
+   * Terminate all vats.
+   */
+  async terminateAllVats(): Promise<void> {
+    await Promise.all(
+      this.getVatIds().map(async (id) => {
+        const vat = this.#getVat(id);
+        await vat.terminate();
+        this.#vats.delete(id);
+      }),
+    );
+    await this.#vatWorkerService.terminateAll();
+  }
+
+  /**
+   * Send a message to a vat.
+   *
+   * @param id - The id of the vat to send the message to.
+   * @param command - The command to send.
+   * @returns A promise that resolves the response to the message.
+   */
+  async sendMessage(
+    id: VatId,
+    command: VatCommand['payload'],
+  ): Promise<unknown> {
+    const vat = this.#getVat(id);
+    return vat.sendMessage(command);
+  }
+
+  // --------------------------------------------------------------------------
+  // Private methods
+  // --------------------------------------------------------------------------
+
+  /**
+   * Receives messages from the stream.
+   */
   async #receiveMessages(): Promise<void> {
     for await (const message of this.#stream) {
       if (!isKernelCommand(message)) {
@@ -138,60 +275,23 @@ export class Kernel {
     }
   }
 
+  /**
+   * Replies to a message.
+   *
+   * @param message - The message to reply to.
+   */
   async #reply(message: KernelCommandReply): Promise<void> {
     await this.#stream.write(message);
   }
 
   /**
-   * Evaluate a string in the default iframe.
+   * Initializes a vat.
    *
-   * @param vatId - The ID of the vat to send the message to.
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  async evaluate(vatId: VatId, source: string): Promise<string> {
-    try {
-      const result = await this.sendMessage(vatId, {
-        method: VatCommandMethod.evaluate,
-        params: source,
-      });
-      return String(result);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
-  }
-
-  kvGet(key: string): string | undefined {
-    return this.#storage.kv.get(key);
-  }
-
-  kvSet(key: string, value: string): void {
-    this.#storage.kv.set(key, value);
-  }
-
-  /**
-   * Gets the vat IDs.
-   *
-   * @returns An array of vat IDs.
-   */
-  getVatIds(): VatId[] {
-    return Array.from(this.#vats.keys());
-  }
-
-  /**
-   * Launches a vat.
-   *
-   * @param vatConfig - Configuration for the new vat.
+   * @param vatId - The ID of the vat.
+   * @param vatConfig - The configuration of the vat.
    * @returns A promise that resolves the vat.
    */
-  async launchVat(vatConfig: VatConfig): Promise<Vat> {
-    const vatId = this.#storage.getNextVatId();
-    if (this.#vats.has(vatId)) {
-      throw new VatAlreadyExistsError(vatId);
-    }
+  async #initVat(vatId: VatId, vatConfig: VatConfig): Promise<Vat> {
     const multiplexer = await this.#vatWorkerService.launch(vatId, vatConfig);
     multiplexer.start().catch((error) => this.#logger.error(error));
     const commandStream = multiplexer.createChannel<
@@ -201,77 +301,11 @@ export class Kernel {
     const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
     const vat = new Vat({ vatId, vatConfig, commandStream, capTpStream });
     this.#vats.set(vat.vatId, vat);
+    this.#vatStateService.saveVatState(vatId, {
+      config: vatConfig,
+    });
     await vat.init();
     return vat;
-  }
-
-  /**
-   * Launches a sub-cluster of vats.
-   *
-   * @param config - Configuration object for sub-cluster.
-   * @returns A record of the vats launched.
-   */
-  async launchSubcluster(config: ClusterConfig): Promise<Record<string, Vat>> {
-    const vats: Record<string, Vat> = {};
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const vat = await this.launchVat(vatConfig);
-      vats[vatName] = vat;
-    }
-    return vats;
-  }
-
-  /**
-   * Restarts a vat.
-   *
-   * @param id - The ID of the vat.
-   */
-  async restartVat(id: VatId): Promise<void> {
-    await this.terminateVat(id);
-    // XXX TODO the following line has been hacked up to enable a successful
-    // build, but is entirely wrong.  Restart expressed this way loses the original vat
-    // ID and configuration.
-    await this.launchVat({ sourceSpec: 'not-really-there.js' });
-  }
-
-  /**
-   * Terminate a vat.
-   *
-   * @param id - The ID of the vat.
-   */
-  async terminateVat(id: VatId): Promise<void> {
-    const vat = this.#getVat(id);
-    await vat.terminate();
-    await this.#vatWorkerService.terminate(id).catch(console.error);
-    this.#vats.delete(id);
-  }
-
-  /**
-   * Terminate all vats.
-   */
-  async terminateAllVats(): Promise<void> {
-    await Promise.all(
-      this.getVatIds().map(async (id) => {
-        const vat = this.#getVat(id);
-        await vat.terminate();
-        this.#vats.delete(id);
-      }),
-    );
-    await this.#vatWorkerService.terminateAll();
-  }
-
-  /**
-   * Send a message to a vat.
-   *
-   * @param id - The id of the vat to send the message to.
-   * @param command - The command to send.
-   * @returns A promise that resolves the response to the message.
-   */
-  async sendMessage(
-    id: VatId,
-    command: VatCommand['payload'],
-  ): Promise<unknown> {
-    const vat = this.#getVat(id);
-    return vat.sendMessage(command);
   }
 
   /**
