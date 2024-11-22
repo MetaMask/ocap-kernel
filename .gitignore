@@ -76,3 +76,6 @@ node_modules/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Ignore all .bundle files in the extensions directory
+packages/extension/**/*.bundle
