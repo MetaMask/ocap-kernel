@@ -1,4 +1,3 @@
-import '@ocap/shims/endoify';
 import type { Json } from '@metamask/utils';
 import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';

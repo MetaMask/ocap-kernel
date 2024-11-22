@@ -8,4 +8,5 @@ lockdown({
   dateTaming: 'unsafe',
   domainTaming: 'unsafe',
   overrideTaming: 'severe',
+  stackFiltering: 'verbose',
 });

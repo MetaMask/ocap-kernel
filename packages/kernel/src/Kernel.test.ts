@@ -1,5 +1,3 @@
-import '@ocap/shims/endoify';
-
 import { VatNotFoundError } from '@ocap/errors';
 import type {
   MessagePortDuplexStream,

@@ -1,5 +1,3 @@
-import '@ocap/shims/endoify';
-
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';

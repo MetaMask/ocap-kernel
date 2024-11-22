@@ -8,6 +8,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'kernel',
+      setupFiles: path.resolve('../shims/src/endoify.js'),
       alias: [
         {
           find: '@ocap/shims/endoify',

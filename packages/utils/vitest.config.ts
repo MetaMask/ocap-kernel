@@ -1,3 +1,4 @@
+import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
@@ -7,7 +8,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'utils',
-      setupFiles: '../test-utils/src/env/mock-endo.ts',
+      setupFiles: path.resolve('../shims/src/endoify.js'),
     },
   }),
 );
