@@ -16,15 +16,20 @@ import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
+  makeStreamErrorSignal,
 } from '../utils.js';
 
 // This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makePostMessageMock = () => {
   const listeners: ((event: MessageEvent) => void)[] = [];
-  const postMessageFn = vi.fn((message: unknown, ports: MessagePort[] = []) => {
+  const postMessageFn = vi.fn((message: unknown) => {
     listeners.forEach((listener) =>
-      listener({ data: message, ports } as unknown as MessageEvent<unknown>),
+      listener(
+        message instanceof MessageEvent
+          ? message
+          : new MessageEvent('message', { data: message }),
+      ),
     );
   });
   const setListener = vi.fn((listener: (event: MessageEvent) => void) => {
@@ -39,19 +44,74 @@ const makePostMessageMock = () => {
 describe('PostMessageReader', () => {
   it('constructs a PostMessageReader', () => {
     const { setListener, removeListener } = makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
+    });
     expect(reader).toBeInstanceOf(PostMessageReader);
   });
 
   it('emits messages received from postMessage', async () => {
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
+    });
 
     const message = { foo: 'bar' };
 
     postMessageFn(message);
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
+  });
+
+  it('can yield MessageEvents directly', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const reader = new PostMessageReader<MessageEvent>({
+      setListener,
+      removeListener,
+      messageEventMode: 'event',
+    });
+
+    const message = new MessageEvent('message', { data: 'bar' });
+
+    postMessageFn(message);
+    expect(await reader.next()).toStrictEqual(makePendingResult(message));
+  });
+
+  it('handles stream done signals normally when yielding MessageEvents', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const reader = new PostMessageReader<MessageEvent>({
+      setListener,
+      removeListener,
+      messageEventMode: 'event',
+    });
+
+    postMessageFn(
+      new MessageEvent('message', { data: makeStreamDoneSignal() }),
+    );
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+  });
+
+  it('handles stream error signals normally when yielding MessageEvents', async () => {
+    const { postMessageFn, setListener, removeListener } =
+      makePostMessageMock();
+    const reader = new PostMessageReader<MessageEvent>({
+      setListener,
+      removeListener,
+      messageEventMode: 'event',
+    });
+
+    const nextP = reader.next();
+
+    postMessageFn(
+      new MessageEvent('message', {
+        data: makeStreamErrorSignal(new Error('foo')),
+      }),
+    );
+    await expect(nextP).rejects.toThrow('foo');
   });
 
   it('calls validateInput with received input if specified', async () => {
@@ -60,7 +120,9 @@ describe('PostMessageReader', () => {
       .mockReturnValue(true) as unknown as ValidateInput<number>;
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
       validateInput,
     });
 
@@ -76,7 +138,9 @@ describe('PostMessageReader', () => {
     const validateInput = (() => {
       throw new Error('foo');
     }) as unknown as ValidateInput<number>;
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
       validateInput,
     });
 
@@ -88,7 +152,10 @@ describe('PostMessageReader', () => {
   it('removes its listener when it ends', async () => {
     const { postMessageFn, setListener, removeListener, listeners } =
       makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
+    });
     expect(listeners).toHaveLength(1);
 
     const message = makeStreamDoneSignal();
@@ -99,26 +166,13 @@ describe('PostMessageReader', () => {
     expect(listeners).toHaveLength(0);
   });
 
-  it('ignores messages with ports', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
-    const { port1 } = new MessageChannel();
-
-    postMessageFn(makeDoneResult(), [port1]);
-    postMessageFn({ foo: 'bar' });
-    await delay(10);
-
-    expect(await reader.next()).toStrictEqual(
-      makePendingResult({ foo: 'bar' }),
-    );
-  });
-
   it('calls onEnd once when ending', async () => {
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
     const onEnd = vi.fn();
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const reader = new PostMessageReader({
+      setListener,
+      removeListener,
       onEnd,
     });
 
@@ -168,12 +222,12 @@ describe('PostMessageDuplexStream', () => {
   ) => {
     const { postMessageFn, setListener, removeListener } = postMessageMock;
 
-    const duplexStreamP = PostMessageDuplexStream.make(
-      sendMessage,
+    const duplexStreamP = PostMessageDuplexStream.make({
+      postMessageFn: sendMessage,
       setListener,
       removeListener,
       validateInput,
-    );
+    });
     postMessageFn(makeAck());
     await delay(10);
 
@@ -236,11 +290,11 @@ describe('PostMessageMultiplexer', () => {
   it('constructs a PostMessageMultiplexer', () => {
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer(
+    const multiplexer = new PostMessageMultiplexer({
       postMessageFn,
       setListener,
       removeListener,
-    );
+    });
 
     expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
   });
@@ -248,11 +302,11 @@ describe('PostMessageMultiplexer', () => {
   it('can create and drain channels', async () => {
     const { postMessageFn, setListener, removeListener } =
       makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer(
+    const multiplexer = new PostMessageMultiplexer({
       postMessageFn,
       setListener,
       removeListener,
-    );
+    });
     const ch1Handler = vi.fn();
     const ch1 = multiplexer.createChannel<number, number>(
       '1',
