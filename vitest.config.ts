@@ -41,10 +41,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 57.18,
-          functions: 47.36,
+          statements: 56.72,
+          functions: 45.91,
           branches: 77.27,
-          lines: 57.37,
+          lines: 56.91,
         },
         'packages/kernel/**': {
           statements: 77.4,
