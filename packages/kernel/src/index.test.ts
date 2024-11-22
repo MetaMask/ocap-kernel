@@ -1,4 +1,3 @@
-import '@ocap/shims/endoify';
 import { describe, it, expect } from 'vitest';
 
 import * as indexModule from './index.js';

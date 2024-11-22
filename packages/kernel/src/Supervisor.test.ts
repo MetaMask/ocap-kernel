@@ -1,4 +1,3 @@
-import '@ocap/shims/endoify';
 import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';

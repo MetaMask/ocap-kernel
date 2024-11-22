@@ -1,4 +1,3 @@
-import '@ocap/shims/endoify';
 import {
   VatCapTpConnectionExistsError,
   VatCapTpConnectionNotFoundError,
