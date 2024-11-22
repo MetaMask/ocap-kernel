@@ -148,7 +148,19 @@ describe('Kernel', () => {
   });
 
   describe('restartVat()', () => {
-    it('restarts a vat while preserving ID and config', async () => {
+    it('preserves vat state across multiple restarts', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await kernel.launchVat(mockVatConfig);
+      await kernel.restartVat('v1');
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      await kernel.restartVat('v1');
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      expect(terminateMock).toHaveBeenCalledTimes(2);
+      expect(launchWorkerMock).toHaveBeenCalledTimes(3); // initial + 2 restarts
+      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
+    });
+
+    it('restarts a vat', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
@@ -163,22 +175,9 @@ describe('Kernel', () => {
 
     it('throws error when restarting non-existent vat', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
-      await expect(kernel.restartVat('v999')).rejects.toThrow(
-        'No state found for vat v999',
-      );
+      await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
       expect(terminateMock).not.toHaveBeenCalled();
       expect(launchWorkerMock).not.toHaveBeenCalled();
-    });
-
-    it('preserves vat state across multiple restarts', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
-      await kernel.launchVat(mockVatConfig);
-      await kernel.restartVat('v1');
-      await kernel.restartVat('v1');
-      expect(terminateMock).toHaveBeenCalledTimes(2);
-      expect(launchWorkerMock).toHaveBeenCalledTimes(3);
-      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
 
     it('handles restart failure during termination', async () => {
