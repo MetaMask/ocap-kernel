@@ -16,11 +16,18 @@ export const statusDisplay = document.getElementById(
  * Setup status polling.
  *
  * @param sendMessage - A function for sending messages.
+ * @returns A function to stop the polling.
  */
 export async function setupStatusPolling(
   sendMessage: (message: KernelControlCommand) => Promise<void>,
-): Promise<void> {
+): Promise<() => void> {
+  let isPolling = true;
+
   const fetchStatus = async (): Promise<void> => {
+    if (!isPolling) {
+      return;
+    }
+
     await sendMessage({
       method: 'getStatus',
       params: null,
@@ -32,6 +39,10 @@ export async function setupStatusPolling(
   };
 
   await fetchStatus();
+
+  return () => {
+    isPolling = false;
+  };
 }
 
 /**
