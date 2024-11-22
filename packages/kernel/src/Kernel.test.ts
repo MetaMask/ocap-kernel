@@ -148,16 +148,56 @@ describe('Kernel', () => {
   });
 
   describe('restartVat()', () => {
-    // Disabling this test for now, as vat restart is not currently a thing
-    it.todo('restarts a vat', async () => {
+    it('restarts a vat while preserving ID and config', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
       expect(terminateMock).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
+      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       expect(initMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws error when restarting non-existent vat', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await expect(kernel.restartVat('v999')).rejects.toThrow(
+        'No state found for vat v999',
+      );
+      expect(terminateMock).not.toHaveBeenCalled();
+      expect(launchWorkerMock).not.toHaveBeenCalled();
+    });
+
+    it('preserves vat state across multiple restarts', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await kernel.launchVat(mockVatConfig);
+      await kernel.restartVat('v1');
+      await kernel.restartVat('v1');
+      expect(terminateMock).toHaveBeenCalledTimes(2);
+      expect(launchWorkerMock).toHaveBeenCalledTimes(3);
+      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+    });
+
+    it('handles restart failure during termination', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await kernel.launchVat(mockVatConfig);
+      terminateMock.mockRejectedValueOnce(new Error('Termination failed'));
+      await expect(kernel.restartVat('v1')).rejects.toThrow(
+        'Termination failed',
+      );
+      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles restart failure during launch', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await kernel.launchVat(mockVatConfig);
+      launchWorkerMock.mockRejectedValueOnce(new Error('Launch failed'));
+      await expect(kernel.restartVat('v1')).rejects.toThrow('Launch failed');
+      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(kernel.getVatIds()).toStrictEqual([]);
     });
   });
 
