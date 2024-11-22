@@ -147,7 +147,7 @@ export class Kernel {
    * @returns A promise that resolves the restarted vat.
    */
   async restartVat(vatId: VatId): Promise<Vat> {
-    const state = this.#vatStateService.getVatState(vatId);
+    const state = this.#vatStateService.get(vatId);
     if (!state) {
       throw new Error(`No state found for vat ${vatId}`);
     }
@@ -291,7 +291,6 @@ export class Kernel {
    * @param vatConfig - The configuration of the vat.
    * @returns A promise that resolves the vat.
    */
-<<<<<<< HEAD
   async #initVat(vatId: VatId, vatConfig: VatConfig): Promise<Vat> {
     const multiplexer = await this.#vatWorkerService.launch(vatId, vatConfig);
     multiplexer.start().catch((error) => this.#logger.error(error));
@@ -302,124 +301,14 @@ export class Kernel {
     const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
     const vat = new Vat({ vatId, vatConfig, commandStream, capTpStream });
     this.#vats.set(vat.vatId, vat);
-    this.#vatStateService.saveVatState(vatId, {
+    this.#vatStateService.set(vatId, {
       config: vatConfig,
     });
-=======
-  async launchVat(vatConfig: VatConfig): Promise<Vat> {
-    const vatId = this.#storage.getNextVatId();
-    if (this.#vats.has(vatId)) {
-      throw new VatAlreadyExistsError(vatId);
-    }
-
-    const stream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = new Vat({
-      vatId,
-      vatConfig,
-      multiplexer: new StreamMultiplexer(stream),
-    });
-
-    this.#vatStateService.set(vatId, { config: vatConfig });
-    this.#vats.set(vat.vatId, vat);
->>>>>>> b905815 (refactor vat state service)
     await vat.init();
     return vat;
   }
 
   /**
-<<<<<<< HEAD
-=======
-   * Launches a sub-cluster of vats.
-   *
-   * @param config - Configuration object for sub-cluster.
-   * @returns A record of the vats launched.
-   */
-  async launchSubcluster(config: ClusterConfig): Promise<Record<string, Vat>> {
-    const vats: Record<string, Vat> = {};
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const vat = await this.launchVat(vatConfig);
-      vats[vatName] = vat;
-    }
-    return vats;
-  }
-
-  /**
-   * Restarts a vat.
-   *
-   * @param vatId - The ID of the vat.
-   */
-  async restartVat(vatId: VatId): Promise<void> {
-    const state = this.#vatStateService.get(vatId);
-    if (!state) {
-      throw new VatNotFoundError(vatId);
-    }
-
-    await this.terminateVat(vatId, false);
-
-    try {
-      const stream = await this.#vatWorkerService.launch(vatId, state.config);
-      const vat = new Vat({
-        vatId,
-        vatConfig: state.config,
-        multiplexer: new StreamMultiplexer(stream),
-      });
-
-      this.#vats.set(vatId, vat);
-      await vat.init();
-    } catch (error) {
-      this.#vatStateService.delete(vatId);
-      throw error;
-    }
-  }
-
-  /**
-   * Terminate a vat.
-   *
-   * @param vatId - The ID of the vat.
-   * @param deleteState - Whether to delete the vat state (defaults to true).
-   */
-  async terminateVat(vatId: VatId, deleteState = true): Promise<void> {
-    const vat = this.#getVat(vatId);
-    await vat.terminate();
-    await this.#vatWorkerService.terminate(vatId).catch(console.error);
-    this.#vats.delete(vatId);
-    if (deleteState) {
-      this.#vatStateService.delete(vatId);
-    }
-  }
-
-  /**
-   * Terminate all vats.
-   */
-  async terminateAllVats(): Promise<void> {
-    await Promise.all(
-      this.getVatIds().map(async (vatId) => {
-        const vat = this.#getVat(vatId);
-        await vat.terminate();
-        this.#vats.delete(vatId);
-        this.#vatStateService.delete(vatId);
-      }),
-    );
-    await this.#vatWorkerService.terminateAll();
-  }
-
-  /**
-   * Send a message to a vat.
-   *
-   * @param id - The id of the vat to send the message to.
-   * @param command - The command to send.
-   * @returns A promise that resolves the response to the message.
-   */
-  async sendMessage(
-    id: VatId,
-    command: VatCommand['payload'],
-  ): Promise<unknown> {
-    const vat = this.#getVat(id);
-    return vat.sendMessage(command);
-  }
-
-  /**
->>>>>>> b905815 (refactor vat state service)
    * Gets a vat.
    *
    * @param vatId - The ID of the vat.
