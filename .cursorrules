@@ -1,85 +1,94 @@
-You are an expert in JavaScript, TypeScript, the Endo framework, with a focus on building secure, modular, and performant systems that work across all JavaScript environments, including Chrome extensions and Node.js.
 
 Code Style and Structure:
-
-- Write concise, technically accurate JavaScript/TypeScript code with complete examples.
-- Use modern JavaScript features, ESM modules with correct import/export patterns, and follow best practices across environments.
-- Use a class-based structure where appropriate.
-- Apply `harden()` from SES to create hardened objects for security where needed.
-- Integrate Superstruct for validation and TypeDoc for documentation as needed.
-- Use descriptive variable names (e.g., isKernelActive, hasVatAccess).
-- Structure files logically: manifest files, background scripts, kernel worker scripts, and stream manager modules.
+- Write concise, accurate JavaScript/TypeScript with modern ES Module syntax.
+- Use a class-based structure where applicable.
+- Use `harden()` from SES for object security.
+- Integrate Superstruct for validation and TypeDoc for documentation.
+- Use descriptive variable names (`isKernelActive`, `hasVatAccess`).
+- Follow consistent naming conventions:
+  - CamelCase for functions and variables.
+  - PascalCase for class names.
+  - File names: lowercase with underscores (e.g., `kernel_worker.js`).
+- Structure files logically:
+  - `src/` for source files.
+  - `.test.ts` suffix for test files co-located with source files.
 
 File and Directory Structure:
-
 - Maintain a monorepo structure using Yarn workspaces.
-- Packages follow lowercase with underscores naming conventions.
-- Place source files in the `src/` directory.
-- Co-locate tests with source files, using a `.test.ts` suffix.
-- Use lowercase with underscores for file names (e.g., kernel_worker.js, message_port_stream.ts).
-- Use camelCase for functions and variable names, PascalCase for class names.
+- Use lowercase with underscores for package names and file names.
+- Co-locate tests with source files in the `src/` directory.
+- Separate test utilities into a dedicated `test-utils` package.
 
 TypeScript Usage:
-
-- Emphasize TypeScript for type safety and maintainability.
-- Use types for defining message structures and data contracts between kernel and vats.
-- Leverage TypeScript union types and type guards for more robust runtime checks.
+- Prioritize TypeScript for type safety and maintainability.
+- Use types for defining message structures and data contracts.
+- Leverage union types and type guards for robust runtime checks.
+- Use `Readonly<T>` for immutable data structures.
+- Follow strict mode settings for TypeScript.
 
 Kernel Architecture:
-
-- Implement a clear separation of concerns between Kernel, Vat, and Supervisor components.
-- Use secure, stream-based message passing with object capability (ocap) security patterns.
-- Manage permissions tightly in Chrome extensions, following the principle of least privilege.
-- Implement effective state management across environments.
+- Ensure clear separation of concerns between Kernel, Vat, and Supervisor components.
+- Implement secure, stream-based message passing with ocap security patterns.
+- Manage permissions tightly in Chrome extensions using the principle of least privilege.
+- Optimize state management across all environments.
 
 Manifest and Permissions:
-
-- Use the latest manifest version (v3) for Chrome, following the principle of least privilege for permissions.
-- Implement optional permissions where possible and necessary.
+- Use the latest manifest version (v3) for Chrome.
+- Minimize permissions in `manifest.json`, using optional permissions where feasible.
 
 Security and Privacy:
-
-- Apply Content Security Policies (CSP) in manifest.json.
-- Use SES, Endo's hardened objects, and object capability security patterns for robust security.
+- Apply Content Security Policies (CSP) in `manifest.json`.
+- Utilize SES, Endo's hardened objects, and ocap security patterns.
 
 UI and Styling:
-
-- Create responsive designs for any UI components, such as popups or settings.
+- Create responsive designs for UI components like popups or settings.
 - Use Flexbox or CSS Grid for layout consistency.
 
 Performance Optimization:
-
-- Minimize resource usage in background scripts; use event-driven pages over persistent ones when possible.
-- Optimize message handling in kernel components to minimize performance impact, especially in Chrome extensions.
+- Use event-driven background pages to minimize resource usage.
+- Optimize message handling in kernel components for Chrome extensions.
 
 Browser API and Endo Framework Usage:
-
-- Utilize Chrome and Endo APIs effectively, following Chrome’s best practices and ensuring secure object capability principles in Endo.
-- Implement robust error handling and validation for all API calls.
+- Utilize Chrome and Endo APIs with robust error handling and validation.
+- Follow Chrome's best practices and secure object capability principles.
 
 Cross-environment Compatibility:
+- Ensure seamless functionality across Chrome extensions, Node.js CLI, and other environments.
+- Implement graceful degradation for environment-specific features.
 
-- Ensure code functions seamlessly in Chrome extensions, Node.js CLI, and other JavaScript environments.
-- Implement graceful degradation for features specific to Chrome or Node environments.
+Code Style and Testing:
+- Never use the `any` type.
+- Use explicit return types for all functions.
+- Prefer `toStrictEqual()` for deep object comparisons in tests.
+- Use `it.each()` for parameterized tests.
+- Use descriptive test blocks with proper nesting.
+- Mock functions with `vi.fn()` and explicit return types.
+
+Type Safety:
+- Use union types and type guards.
+- Define interfaces for all data structures.
+- Avoid redundant type declarations.
+
+Error Handling:
+- Use structured error classes with inheritance, error codes, and messages.
+- Implement error marshaling and unmarshaling.
+- Use type guards for error checking.
+
+Documentation:
+- Use JSDoc and TypeDoc for public APIs.
+- Include examples and document error cases.
 
 Testing and Debugging:
-
-- Use Vitest for unit tests on critical kernel functions and message handling logic.
-- Use Chrome DevTools and node-based tools for debugging across environments.
-- Use Vite for efficient builds and optimizations across development and production.
-- Use Chrome’s extension loader for live testing during development.
-- Use toStrictEqual() instead of toEqual() for deep object comparisons in tests.
-- Whenever possible, use `it.each()` for parameterized tests.
-- Never use `any` in tests.
+- Aim for high test coverage, including unit and integration tests.
+- Mock external dependencies properly.
+- Use Chrome DevTools and node-based tools for debugging.
+- Use Vite for efficient builds in development and production.
 
 Context-Aware Development:
-
-- Always consider the full project context and integration when generating code or answering questions.
-- Avoid redundant code or conflicting implementations; prioritize modular, reusable components.
-- Align new code with the existing project structure to maintain consistency.
+- Align new code with existing project structure for consistency.
+- Prioritize modular, reusable components.
 
 Code Output:
-
-- When providing code, include all necessary imports, declarations, and context to make the snippet functional within the larger project.
-- Provide comments for significant changes, especially when working with Endo-specific patterns or Chrome APIs.
-- Output complete, self-contained examples, ensuring they integrate smoothly with the project’s architecture.
+- Provide complete, self-contained examples.
+- Include necessary imports and context for code snippets.
+- Document significant changes, especially for Endo-specific patterns or Chrome APIs.
