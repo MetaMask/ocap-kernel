@@ -12,7 +12,11 @@ import {
   StreamMultiplexer,
   PostMessageDuplexStream,
 } from '@ocap/streams';
-import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
+import type {
+  DuplexStream,
+  MultiplexEnvelope,
+  PostMessageTarget,
+} from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
@@ -104,13 +108,7 @@ async function makeKernelWorker(): Promise<{
 
   const kernelServiceStream: VatWorkerServerStream =
     new PostMessageDuplexStream({
-      postMessageFn: (message, transfer) =>
-        transfer === undefined
-          ? worker.postMessage(message)
-          : worker.postMessage(message, transfer),
-      setListener: (listener) => worker.addEventListener('message', listener),
-      removeListener: (listener) =>
-        worker.removeEventListener('message', listener),
+      messageTarget: worker as PostMessageTarget,
       messageEventMode: 'event',
       validateInput: (
         message,

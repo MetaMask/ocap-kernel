@@ -11,7 +11,7 @@ import {
   receiveMessagePort,
   StreamMultiplexer,
 } from '@ocap/streams';
-import type { MultiplexEnvelope } from '@ocap/streams';
+import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
@@ -64,16 +64,8 @@ async function main(): Promise<void> {
 
   const kernelServiceStream: VatWorkerClientStream =
     new PostMessageDuplexStream({
-      postMessageFn: (message, transfer) => {
-        transfer === undefined
-          ? globalThis.postMessage(message)
-          : // @ts-expect-error Wrong types for globalThis (we're in a worker)
-            globalThis.postMessage(message, transfer);
-      },
-      setListener: (listener) =>
-        globalThis.addEventListener('message', listener),
-      removeListener: (listener) =>
-        globalThis.removeEventListener('message', listener),
+      // This will only work in a dedicated WebWorker.
+      messageTarget: globalThis as PostMessageTarget,
       messageEventMode: 'event',
       validateInput: (
         message,

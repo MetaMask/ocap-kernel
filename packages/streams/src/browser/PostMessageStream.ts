@@ -22,12 +22,14 @@ import { BaseReader, BaseWriter } from '../BaseStream.js';
 import { isSignalLike } from '../utils.js';
 import type { Dispatchable } from '../utils.js';
 
-type SetListener = (onMessage: OnMessage) => void;
-type RemoveListener = (onMessage: OnMessage) => void;
+export type PostMessageTarget = {
+  addEventListener: (type: 'message', listener: OnMessage) => void;
+  removeEventListener: (type: 'message', listener: OnMessage) => void;
+  postMessage: PostMessage;
+};
 
 type PostMessageReaderArgs<Read> = BaseReaderArgs<Read> & {
-  setListener: SetListener;
-  removeListener: RemoveListener;
+  messageTarget: PostMessageTarget;
 } & (Read extends MessageEvent
     ? {
         messageEventMode: 'event';
@@ -46,10 +48,9 @@ type PostMessageReaderArgs<Read> = BaseReaderArgs<Read> & {
  */
 export class PostMessageReader<Read> extends BaseReader<Read> {
   constructor({
-    setListener,
-    removeListener,
     validateInput,
     onEnd,
+    messageTarget,
     messageEventMode = 'data',
   }: PostMessageReaderArgs<Read>) {
     // eslint-disable-next-line prefer-const
@@ -58,7 +59,7 @@ export class PostMessageReader<Read> extends BaseReader<Read> {
     super({
       validateInput,
       onEnd: async (error) => {
-        removeListener(onMessage);
+        messageTarget.removeEventListener('message', onMessage);
         await onEnd?.(error);
       },
     });
@@ -73,7 +74,7 @@ export class PostMessageReader<Read> extends BaseReader<Read> {
           : messageEvent;
       receiveInput(value).catch(async (error) => this.throw(error));
     };
-    setListener(onMessage);
+    messageTarget.addEventListener('message', onMessage);
 
     harden(this);
   }
@@ -101,15 +102,15 @@ export class PostMessageWriter<Write> extends BaseWriter<
   PostMessageEnvelope<Write>
 > {
   constructor(
-    postMessageFn: PostMessage,
+    messageTarget: PostMessageTarget,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
     super({
       name,
       onDispatch: (value: Dispatchable<PostMessageEnvelope<Write>>) =>
         isPostMessageEnvelope(value)
-          ? postMessageFn(value.payload, value.transfer)
-          : postMessageFn(value),
+          ? messageTarget.postMessage(value.payload, value.transfer)
+          : messageTarget.postMessage(value),
       onEnd: async (error) => {
         await onEnd?.(error);
       },
@@ -119,9 +120,7 @@ export class PostMessageWriter<Write> extends BaseWriter<
 }
 harden(PostMessageWriter);
 
-type PostMessageDuplexStreamArgs<Read> = {
-  postMessageFn: PostMessage;
-} & PostMessageReaderArgs<Read>;
+type PostMessageDuplexStreamArgs<Read> = PostMessageReaderArgs<Read>;
 
 /**
  * A duplex stream over a {@link PostMessage} function.
@@ -139,19 +138,20 @@ export class PostMessageDuplexStream<
   PostMessageWriter<Write>
 > {
   constructor({
-    postMessageFn,
+    messageTarget,
     validateInput,
     ...args
   }: PostMessageDuplexStreamArgs<Read>) {
     let writer: PostMessageWriter<Write>; // eslint-disable-line prefer-const
     const reader = new PostMessageReader<Read>({
       ...args,
+      messageTarget,
       validateInput: makeDuplexStreamInputValidator(validateInput),
       onEnd: async () => {
         await writer.return();
       },
     } as PostMessageReaderArgs<Read>);
-    writer = new PostMessageWriter<Write>(postMessageFn, {
+    writer = new PostMessageWriter<Write>(messageTarget, {
       name: 'PostMessageDuplexStream',
       onEnd: async () => {
         await reader.return();
