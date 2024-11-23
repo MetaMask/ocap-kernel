@@ -10,6 +10,7 @@ vi.mock('../../kernel-integration/messages.js', () => ({
     sendMessage: 'sendMessage',
     terminateAllVats: 'terminateAllVats',
     clearState: 'clearState',
+    reload: 'reload',
     launchVat: 'launchVat',
   },
 }));
@@ -184,6 +185,42 @@ describe('useKernelActions', () => {
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
           'Failed to clear state',
+          'error',
+        );
+      });
+    });
+  });
+
+  describe('reload', () => {
+    it('sends reload command', async () => {
+      const { useKernelActions } = await import('./useKernelActions.js');
+      const { result } = renderHook(() => useKernelActions());
+
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      result.current.reload();
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'reload',
+          params: null,
+        });
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Default sub-cluster reloaded',
+        'success',
+      );
+    });
+
+    it('logs error on failure', async () => {
+      const { useKernelActions } = await import('./useKernelActions.js');
+      const { result } = renderHook(() => useKernelActions());
+
+      mockSendMessage.mockRejectedValueOnce(new Error());
+
+      result.current.reload();
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          'Failed to reload',
           'error',
         );
       });

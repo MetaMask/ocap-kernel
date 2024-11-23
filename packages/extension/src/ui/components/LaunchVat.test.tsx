@@ -24,6 +24,7 @@ describe('LaunchVat Component', () => {
       sendKernelCommand: vi.fn(),
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
+      reload: vi.fn(),
     });
   });
 

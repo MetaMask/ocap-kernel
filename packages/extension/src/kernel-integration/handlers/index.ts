@@ -2,6 +2,7 @@ import { clearStateHandler } from './clear-state.js';
 import { executeDBQueryHandler } from './execute-db-query.js';
 import { getStatusHandler } from './get-status.js';
 import { launchVatHandler } from './launch-vat.js';
+import { reloadConfigHandler } from './reload-config.js';
 import { restartVatHandler } from './restart-vat.js';
 import { sendMessageHandler } from './send-message.js';
 import { terminateAllVatsHandler } from './terminate-all-vats.js';
@@ -13,6 +14,7 @@ export const handlers = [
   sendMessageHandler,
   executeDBQueryHandler,
   launchVatHandler,
+  reloadConfigHandler,
   restartVatHandler,
   terminateVatHandler,
   terminateAllVatsHandler,

@@ -1,5 +1,5 @@
-import type { Json } from '@metamask/utils';
 import type { MultiplexEnvelope } from '@ocap/streams';
+import '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
 import { delay, stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
@@ -23,16 +23,14 @@ const makeVatSupervisor = async (
     'command',
     isVatCommand,
   );
-  const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
   multiplexer.start().catch((error) => {
     throw error;
   });
-  await multiplexer.synchronizeChannels('command', 'capTp');
+  await multiplexer.synchronizeChannels('command');
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
       commandStream,
-      capTpStream,
     }),
     stream,
   };
@@ -93,54 +91,6 @@ describe('VatSupervisor', () => {
       expect(replySpy).toHaveBeenCalledWith('v0:0', {
         method: VatCommandMethod.ping,
         params: 'pong',
-      });
-    });
-
-    it('handles CapTpInit messages', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        payload: { method: VatCommandMethod.capTpInit, params: null },
-      });
-
-      expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.capTpInit,
-        params: '~~~ CapTP Initialized ~~~',
-      });
-    });
-
-    it('handles CapTP messages', async () => {
-      const handleWrite = vi.fn();
-      const { supervisor } = await makeVatSupervisor(handleWrite);
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        payload: { method: VatCommandMethod.capTpInit, params: null },
-      });
-
-      const capTpQuestion = {
-        type: 'CTP_BOOTSTRAP',
-        epoch: 0,
-        questionID: 'q-1',
-      };
-      expect(supervisor.capTp?.dispatch(capTpQuestion)).toBe(true);
-
-      await delay(10);
-
-      const capTpPayload = {
-        type: 'CTP_RETURN',
-        epoch: 0,
-        answerID: 'q-1',
-        result: {
-          body: '{"@qclass":"undefined"}',
-          slots: [],
-        },
-      };
-      expect(handleWrite).toHaveBeenCalledWith({
-        channel: 'capTp',
-        payload: capTpPayload,
       });
     });
 

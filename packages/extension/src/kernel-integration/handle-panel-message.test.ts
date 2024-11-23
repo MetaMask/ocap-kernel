@@ -51,9 +51,10 @@ describe('handlePanelMessage', () => {
     mockKVStore = {
       get: vi.fn(),
       getRequired: vi.fn(),
+      getNextKey: vi.fn(),
       set: vi.fn(),
       delete: vi.fn(),
-      truncate: vi.fn(),
+      clear: vi.fn(),
       executeQuery: vi.fn(),
     };
 
@@ -63,6 +64,7 @@ describe('handlePanelMessage', () => {
       restartVat: vi.fn().mockResolvedValue(undefined),
       terminateVat: vi.fn().mockResolvedValue(undefined),
       terminateAllVats: vi.fn().mockResolvedValue(undefined),
+      clearStorage: vi.fn().mockResolvedValue(undefined),
       getVatIds: vi.fn().mockReturnValue(['v0', 'v1']),
       getVats: vi.fn().mockReturnValue([
         {

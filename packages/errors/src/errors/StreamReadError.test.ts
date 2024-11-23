@@ -7,22 +7,21 @@ import type { MarshaledOcapError } from '../types.js';
 
 describe('StreamReadError', () => {
   const mockVatId = 'mockVatId';
-  const mockSupervisorId = 'mockSupervisorId';
   const mockOriginalError = new Error('Original error');
 
   it('creates a StreamReadError for VatSupervisor with the correct properties', () => {
     const error = new StreamReadError(
-      { supervisorId: mockSupervisorId },
+      { vatId: mockVatId },
       { cause: mockOriginalError },
     );
     expect(error).toBeInstanceOf(StreamReadError);
     expect(error.code).toBe(ErrorCode.StreamReadError);
     expect(error.message).toBe('Unexpected stream read error.');
-    expect(error.data).toStrictEqual({ supervisorId: mockSupervisorId });
+    expect(error.data).toStrictEqual({ vatId: mockVatId });
     expect(error.cause).toBe(mockOriginalError);
   });
 
-  it('creates a StreamReadError for Vat with the correct properties', () => {
+  it('creates a StreamReadError for VatHandle with the correct properties', () => {
     const error = new StreamReadError(
       { vatId: mockVatId },
       { cause: mockOriginalError },
@@ -46,7 +45,7 @@ describe('StreamReadError', () => {
     expect(error.cause).toBe(mockOriginalError);
   });
 
-  it('unmarshals a valid marshaled StreamReadError for Vat', () => {
+  it('unmarshals a valid marshaled StreamReadError for VatHandle', () => {
     const data = { vatId: mockVatId };
     const marshaledError: MarshaledOcapError = {
       [ErrorSentinel]: true,
@@ -77,7 +76,7 @@ describe('StreamReadError', () => {
   });
 
   it('unmarshals a valid marshaled StreamReadError for VatSupervisor', () => {
-    const data = { supervisorId: mockSupervisorId };
+    const data = { vatId: mockVatId };
     const marshaledError: MarshaledOcapError = {
       [ErrorSentinel]: true,
       message: 'Unexpected stream read error.',
@@ -100,7 +99,7 @@ describe('StreamReadError', () => {
     expect(unmarshaledError.message).toBe('Unexpected stream read error.');
     expect(unmarshaledError.stack).toBe('customStack');
     expect(unmarshaledError.data).toStrictEqual({
-      supervisorId: mockSupervisorId,
+      vatId: mockVatId,
     });
     expect(unmarshaledError.cause).toBeInstanceOf(Error);
     expect((unmarshaledError.cause as Error).message).toBe('Original error');
@@ -119,27 +118,6 @@ describe('StreamReadError', () => {
       StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
     ).toThrow(
       'At path: data -- Expected the value to satisfy a union of `object | object | object`, but received: "invalid data"',
-    );
-  });
-
-  it('throws when both vatId and supervisorId are present in data', () => {
-    const marshaledError: MarshaledOcapError = {
-      [ErrorSentinel]: true,
-      message: 'Unexpected stream read error.',
-      stack: 'customStack',
-      code: ErrorCode.StreamReadError,
-      data: { supervisorId: mockSupervisorId, vatId: mockVatId },
-      cause: {
-        [ErrorSentinel]: true,
-        message: 'Original error',
-        stack: 'bar',
-      },
-    };
-
-    expect(() =>
-      StreamReadError.unmarshal(marshaledError, unmarshalErrorOptions),
-    ).toThrow(
-      'At path: data -- Expected the value to satisfy a union of `object | object | object`, but received: [object Object]',
     );
   });
 });

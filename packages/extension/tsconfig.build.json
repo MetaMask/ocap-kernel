@@ -23,6 +23,7 @@
     "./src/**/*.tsx",
     "./src/**/*.module.css",
     "./src/**/*-trusted-prelude.js",
-    "./src/env/dev-console.js"
+    "./src/env/dev-console.js",
+    "../../types"
   ]
 }

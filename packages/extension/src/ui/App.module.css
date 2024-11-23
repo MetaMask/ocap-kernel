@@ -289,7 +289,8 @@ div + .sent {
 }
 
 .rightPanel {
-  position: relative;
+  position: sticky;
+  top: var(--spacing-lg);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - var(--spacing-xl) * 2);

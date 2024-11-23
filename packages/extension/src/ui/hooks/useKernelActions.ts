@@ -13,6 +13,7 @@ export function useKernelActions(): {
   sendKernelCommand: () => void;
   terminateAllVats: () => void;
   clearState: () => void;
+  reload: () => void;
   launchVat: (bundleUrl: string, vatName: string) => void;
 } {
   const { sendMessage, logMessage, messageContent, selectedVatId } =
@@ -58,6 +59,18 @@ export function useKernelActions(): {
   }, [sendMessage, logMessage]);
 
   /**
+   * Reloads the kernel default sub-cluster.
+   */
+  const reload = useCallback(() => {
+    sendMessage({
+      method: KernelControlMethod.reload,
+      params: null,
+    })
+      .then(() => logMessage('Default sub-cluster reloaded', 'success'))
+      .catch(() => logMessage('Failed to reload', 'error'));
+  }, [sendMessage, logMessage]);
+
+  /**
    * Launches a vat.
    */
   const launchVat = useCallback(
@@ -81,6 +94,7 @@ export function useKernelActions(): {
     sendKernelCommand,
     terminateAllVats,
     clearState,
+    reload,
     launchVat,
   };
 }

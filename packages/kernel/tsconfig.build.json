@@ -12,5 +12,5 @@
     { "path": "../utils/tsconfig.build.json" },
     { "path": "../errors/tsconfig.build.json" }
   ],
-  "include": ["./src"]
+  "include": ["./src", "../../types"]
 }

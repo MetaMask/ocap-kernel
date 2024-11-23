@@ -1,14 +1,30 @@
+import { E } from '@endo/eventual-send';
+import { Far } from '@endo/marshal';
+
 /**
- * Start function for generic test vat.
+ * Build function for generic test vat.
  *
+ * @param {unknown} _vatPowers - Special powers granted to this vat (not used here).
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
+ * @param {unknown} _baggage - Root of vat's persistent state (not used here).
  * @returns {unknown} The root object for the new vat.
  */
-export function start(parameters) {
+export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
-  console.log(`start vat root object "${name}"`);
-  return {
-    name,
-    stuff: `initialized with ${JSON.stringify(parameters)}`,
-  };
+  console.log(`buildRootObject "${name}"`);
+
+  return Far('root', {
+    async bootstrap(vats) {
+      console.log(`vat ${name} is bootstrap`);
+      const pb = E(vats.bob).hello(name);
+      const pc = E(vats.carol).hello(name);
+      console.log(`vat ${name} got "hello" answer from Bob: '${await pb}'`);
+      console.log(`vat ${name} got "hello" answer from Carol: '${await pc}'`);
+    },
+    hello(from) {
+      const message = `vat ${name} got "hello" from ${from}`;
+      console.log(message);
+      return message;
+    },
+  });
 }

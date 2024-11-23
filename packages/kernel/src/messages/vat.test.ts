@@ -41,28 +41,6 @@ describe('isVatCommandReply', () => {
       expected: true,
     },
     {
-      name: 'capTpInit reply',
-      value: {
-        id: 'v0:789',
-        payload: {
-          method: VatCommandMethod.capTpInit,
-          params: 'initialized',
-        },
-      },
-      expected: true,
-    },
-    {
-      name: 'loadUserCode reply',
-      value: {
-        id: 'v0:101',
-        payload: {
-          method: VatCommandMethod.loadUserCode,
-          params: 'loaded',
-        },
-      },
-      expected: true,
-    },
-    {
       name: 'invalid id format',
       value: {
         id: 'invalid-id',

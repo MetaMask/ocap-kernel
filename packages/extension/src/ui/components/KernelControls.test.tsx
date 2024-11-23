@@ -27,6 +27,7 @@ const mockUseKernelActions = (overrides = {}): void => {
   vi.mocked(useKernelActions).mockReturnValue({
     terminateAllVats: vi.fn(),
     clearState: vi.fn(),
+    reload: vi.fn(),
     sendKernelCommand: vi.fn(),
     launchVat: vi.fn(),
     ...overrides,
@@ -103,5 +104,17 @@ describe('KernelControls', () => {
     const clearButton = screen.getByRole('button', { name: 'Clear All State' });
     await userEvent.click(clearButton);
     expect(clearState).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls reload when "Reload Default Sub-Cluster" button is clicked', async () => {
+    const reload = vi.fn();
+    mockUseKernelActions({ reload });
+    mockUseVats();
+    render(<KernelControls />);
+    const reloadButton = screen.getByRole('button', {
+      name: 'Reload Default Sub-Cluster',
+    });
+    await userEvent.click(reloadButton);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

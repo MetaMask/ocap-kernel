@@ -12,8 +12,6 @@ describe('index', () => {
       'MarshaledOcapErrorStruct',
       'StreamReadError',
       'VatAlreadyExistsError',
-      'VatCapTpConnectionExistsError',
-      'VatCapTpConnectionNotFoundError',
       'VatDeletedError',
       'VatNotFoundError',
       'isMarshaledError',

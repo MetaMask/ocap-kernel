@@ -8,6 +8,7 @@
     "verbatimModuleSyntax": true
   },
   "files": [],
+  "include": ["./types"],
   "references": [
     { "path": "./packages/cli" },
     { "path": "./packages/errors" },

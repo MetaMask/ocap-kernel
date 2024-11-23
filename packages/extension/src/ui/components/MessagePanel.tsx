@@ -24,6 +24,7 @@ const getLogTypeIcon = (type: OutputType): string => {
       return '⚠';
     case 'success':
       return '✓';
+    case 'sent':
     default:
       return '→';
   }

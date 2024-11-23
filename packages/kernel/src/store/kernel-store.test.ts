@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';
-import type { KVStore } from './kernel-store.js';
+import type { KVStore } from './sqlite-kv-store.js';
 import { makeMapKVStore } from '../../test/storage.js';
-import type { Message } from '../types.js';
+// XXX Once the packaging of liveslots is fixed this should be imported from there
+import type { Message } from '../ag-types.js';
+import type { RunQueueItem } from '../types.js';
 
 /**
  * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they
@@ -15,6 +17,18 @@ import type { Message } from '../types.js';
  */
 function mm(str: string): Message {
   return str as unknown as Message;
+}
+
+/**
+ * Mock RunQueueItem: A stupid TS hack to allow trivial use of plain strings
+ * as if they were RunQueueItems, since, for testing purposes here, all
+ * that's necessary to be a "message" is to be stringifiable.
+ *
+ * @param str - A string.
+ * @returns The same string coerced to type RunQueueItem.
+ */
+function tm(str: string): RunQueueItem {
+  return str as unknown as RunQueueItem;
 }
 
 describe('kernel store', () => {
@@ -41,6 +55,8 @@ describe('kernel store', () => {
       const ks = makeKernelStore(mockKVStore);
       expect(Object.keys(ks).sort()).toStrictEqual([
         'addClistEntry',
+        'addPromiseSubscriber',
+        'allocateErefForKref',
         'decRefCount',
         'deleteKernelObject',
         'deleteKernelPromise',
@@ -57,11 +73,15 @@ describe('kernel store', () => {
         'getOwner',
         'getRefCount',
         'incRefCount',
+        'initEndpoint',
         'initKernelObject',
         'initKernelPromise',
         'krefToEref',
         'kv',
         'reset',
+        'resolveKernelPromise',
+        'runQueueLength',
+        'setPromiseDecider',
       ]);
     });
   });
@@ -99,16 +119,14 @@ describe('kernel store', () => {
     it('manages kernel promises', () => {
       const ks = makeKernelStore(mockKVStore);
       const kp1 = {
-        decider: 'v23',
         state: 'unresolved',
         subscribers: [],
       };
       const kp2 = {
-        decider: 'r47',
         state: 'unresolved',
         subscribers: [],
       };
-      expect(ks.initKernelPromise('v23')).toStrictEqual(['kp1', kp1]);
+      expect(ks.initKernelPromise()).toStrictEqual(['kp1', kp1]);
       expect(ks.getRefCount('kp1')).toBe(1);
       expect(ks.incRefCount('kp1')).toBe(2);
       ks.incRefCount('kp1');
@@ -117,7 +135,7 @@ describe('kernel store', () => {
       ks.decRefCount('kp1');
       ks.decRefCount('kp1');
       expect(ks.getRefCount('kp1')).toBe(0);
-      expect(ks.initKernelPromise('r47')).toStrictEqual(['kp2', kp2]);
+      expect(ks.initKernelPromise()).toStrictEqual(['kp2', kp2]);
       expect(ks.getKernelPromise('kp1')).toStrictEqual(kp1);
       expect(ks.getKernelPromise('kp2')).toStrictEqual(kp2);
       ks.enqueuePromiseMessage('kp1', mm('first message to kp1'));
@@ -144,37 +162,37 @@ describe('kernel store', () => {
     });
     it('manages the run queue', () => {
       const ks = makeKernelStore(mockKVStore);
-      ks.enqueueRun(mm('first message'));
-      ks.enqueueRun(mm('second message'));
+      ks.enqueueRun(tm('first message'));
+      ks.enqueueRun(tm('second message'));
       expect(ks.dequeueRun()).toBe('first message');
-      ks.enqueueRun(mm('third message'));
+      ks.enqueueRun(tm('third message'));
       expect(ks.dequeueRun()).toBe('second message');
       expect(ks.dequeueRun()).toBe('third message');
       expect(ks.dequeueRun()).toBeUndefined();
-      ks.enqueueRun(mm('fourth message'));
+      ks.enqueueRun(tm('fourth message'));
       expect(ks.dequeueRun()).toBe('fourth message');
       expect(ks.dequeueRun()).toBeUndefined();
     });
     it('manages clists', () => {
       const ks = makeKernelStore(mockKVStore);
-      ks.addClistEntry('v2', 'ko42', 'vo-63');
-      ks.addClistEntry('v2', 'ko51', 'vo-74');
-      ks.addClistEntry('v2', 'kp60', 'vp+85');
+      ks.addClistEntry('v2', 'ko42', 'o-63');
+      ks.addClistEntry('v2', 'ko51', 'o-74');
+      ks.addClistEntry('v2', 'kp60', 'p+85');
       ks.addClistEntry('r7', 'ko42', 'ro+11');
       ks.addClistEntry('r7', 'kp61', 'rp-99');
-      expect(ks.krefToEref('v2', 'ko42')).toBe('vo-63');
-      expect(ks.erefToKref('v2', 'vo-63')).toBe('ko42');
-      expect(ks.krefToEref('v2', 'ko51')).toBe('vo-74');
-      expect(ks.erefToKref('v2', 'vo-74')).toBe('ko51');
-      expect(ks.krefToEref('v2', 'kp60')).toBe('vp+85');
-      expect(ks.erefToKref('v2', 'vp+85')).toBe('kp60');
+      expect(ks.krefToEref('v2', 'ko42')).toBe('o-63');
+      expect(ks.erefToKref('v2', 'o-63')).toBe('ko42');
+      expect(ks.krefToEref('v2', 'ko51')).toBe('o-74');
+      expect(ks.erefToKref('v2', 'o-74')).toBe('ko51');
+      expect(ks.krefToEref('v2', 'kp60')).toBe('p+85');
+      expect(ks.erefToKref('v2', 'p+85')).toBe('kp60');
       expect(ks.krefToEref('r7', 'ko42')).toBe('ro+11');
       expect(ks.erefToKref('r7', 'ro+11')).toBe('ko42');
       expect(ks.krefToEref('r7', 'kp61')).toBe('rp-99');
       expect(ks.erefToKref('r7', 'rp-99')).toBe('kp61');
       ks.forgetKref('v2', 'ko42');
       expect(ks.krefToEref('v2', 'ko42')).toBeUndefined();
-      expect(ks.erefToKref('v2', 'vo-63')).toBeUndefined();
+      expect(ks.erefToKref('v2', 'o-63')).toBeUndefined();
       ks.forgetEref('r7', 'rp-99');
       expect(ks.krefToEref('r7', 'kp61')).toBeUndefined();
       expect(ks.erefToKref('r7', 'rp-99')).toBeUndefined();
@@ -182,15 +200,15 @@ describe('kernel store', () => {
   });
 
   describe('reset', () => {
-    it('truncates store and resets counters', () => {
+    it('clears store and resets counters', () => {
       const ks = makeKernelStore(mockKVStore);
       ks.getNextVatId();
       ks.getNextVatId();
       ks.getNextRemoteId();
       const koId = ks.initKernelObject('v1');
-      const [kpId] = ks.initKernelPromise('v1');
-      ks.addClistEntry('v1', koId, 'vo-1');
-      ks.enqueueRun(mm('test message'));
+      const [kpId] = ks.initKernelPromise();
+      ks.addClistEntry('v1', koId, 'o-1');
+      ks.enqueueRun(tm('test message'));
       ks.reset();
       expect(ks.getNextVatId()).toBe('v1');
       expect(ks.getNextRemoteId()).toBe('r1');

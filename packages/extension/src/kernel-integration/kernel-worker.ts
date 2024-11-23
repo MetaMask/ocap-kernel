@@ -3,7 +3,7 @@ import type {
   KernelCommandReply,
   ClusterConfig,
 } from '@ocap/kernel';
-import { isKernelCommand, Kernel } from '@ocap/kernel';
+import { isKernelCommand, Kernel, makeSQLKVStore } from '@ocap/kernel';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
@@ -15,7 +15,6 @@ import { makeLogger } from '@ocap/utils';
 import { handlePanelMessage } from './handle-panel-message.js';
 import { isKernelControlCommand } from './messages.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
-import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 const bundleHost = 'http://localhost:3000'; // XXX placeholder
@@ -92,12 +91,24 @@ async function main(): Promise<void> {
 
   await Promise.all([
     vatWorkerClient.start(),
-    // Run default kernel lifecycle
-    kernel.launchSubcluster(defaultSubcluster),
     multiplexer.start(),
     panelStream.drain(async (message) => {
       const reply = await handlePanelMessage(kernel, kvStore, message);
       await panelStream.write(reply);
     }),
+    // XXX We are mildly concerned that there's a small chance that a race here
+    // could cause startup to flake non-deterministically. If the invocation
+    // here of `launchSubcluster` turns out to depend on aspects of the IPC
+    // setup completing successfully but those pieces aren't ready in time, then
+    // it could get stuck.  Current experience suggests this is not a problem,
+    // but as yet have only an intuitive sense (i.e., promises, yay) why this
+    // might be true rather than a principled explanation that it is necessarily
+    // true. Hence this comment to serve as a marker if some problem crops up
+    // with startup wedging and some poor soul is reading through the code
+    // trying to diagnose it.
+    (async () => {
+      const roots = await kernel.launchSubcluster(defaultSubcluster);
+      console.log(`Subcluster launched: ${JSON.stringify(roots)}`);
+    })(),
   ]);
 }

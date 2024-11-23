@@ -1,6 +1,4 @@
 export type { OcapError, MarshaledError } from './types.js';
-export { VatCapTpConnectionExistsError } from './errors/VatCapTpConnectionExistsError.js';
-export { VatCapTpConnectionNotFoundError } from './errors/VatCapTpConnectionNotFoundError.js';
 export { VatAlreadyExistsError } from './errors/VatAlreadyExistsError.js';
 export { VatDeletedError } from './errors/VatDeletedError.js';
 export { VatNotFoundError } from './errors/VatNotFoundError.js';

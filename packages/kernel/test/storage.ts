@@ -1,4 +1,4 @@
-import type { KVStore } from '../src/store/kernel-store.js';
+import type { KVStore } from '../src/store/sqlite-kv-store.js';
 
 /**
  * A mock key/value store realized as a Map<string, string>.
@@ -24,10 +24,13 @@ export function makeMapKVStore(): KVStore {
 
   return {
     get: map.get.bind(map),
+    getNextKey: (_key: string): string | undefined => {
+      throw Error(`mock store does not (yet) support getNextKey`);
+    },
     getRequired,
     set: map.set.bind(map),
     delete: map.delete.bind(map),
-    truncate: map.clear.bind(map),
+    clear: map.clear.bind(map),
     executeQuery: () => [],
   };
 }

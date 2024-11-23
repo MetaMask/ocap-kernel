@@ -16,6 +16,7 @@ describe('KernelControlMethod', () => {
       'terminateVat',
       'terminateAllVats',
       'getStatus',
+      'reload',
       'sendMessage',
       'clearState',
       'executeDBQuery',

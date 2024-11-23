@@ -6,7 +6,7 @@ import { useVats } from '../hooks/useVats.js';
  * @returns A panel for controlling the kernel.
  */
 export const KernelControls: React.FC = () => {
-  const { terminateAllVats, clearState } = useKernelActions();
+  const { terminateAllVats, clearState, reload } = useKernelActions();
   const { vats } = useVats();
 
   return (
@@ -18,6 +18,9 @@ export const KernelControls: React.FC = () => {
       )}
       <button className={styles.buttonDanger} onClick={clearState}>
         Clear All State
+      </button>
+      <button className={styles.buttonDanger} onClick={reload}>
+        Reload Default Sub-Cluster
       </button>
     </div>
   );

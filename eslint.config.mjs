@@ -47,7 +47,7 @@ const config = createConfig([
   },
 
   {
-    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'],
     extends: [metamaskTypescriptConfig],
     rules: {
       '@typescript-eslint/explicit-function-return-type': [
@@ -65,6 +65,10 @@ const config = createConfig([
       // option and "import-x/consistent-type-specifiers" rule.
       '@typescript-eslint/consistent-type-imports': 'off',
       'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+
+      // This should only be enable for JavaScript files.
+      // Ref: https://github.com/import-js/eslint-plugin-import/issues/2215#issuecomment-911245486
+      'import-x/unambiguous': 'off',
     },
   },
 

@@ -65,6 +65,7 @@
     "@ts-bridge/shims": "^0.1.1",
     "@types/lodash": "^4.17.7",
     "@types/node": "^22.10.1",
+    "@types/setimmediate": "^1.0.4",
     "@types/webextension-polyfill": "^0",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
@@ -123,8 +124,10 @@
     "cookie": "^0.7.0"
   },
   "dependencies": {
+    "@agoric/internal": "0.4.0-u18.0",
     "@metamask/approval-controller": "^7.1.1",
     "ava": "^6.2.0",
+    "setimmediate": "^1.0.5",
     "webextension-polyfill": "^0.12.0"
   }
 }

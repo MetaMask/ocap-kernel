@@ -6,16 +6,16 @@ export {
   isKernelCommandReply,
   KernelSendMessageStruct,
 } from './kernel.js';
-export type {
-  CapTpPayload,
-  KernelCommand,
-  KernelCommandReply,
-} from './kernel.js';
+export type { KernelCommand, KernelCommandReply } from './kernel.js';
 
 // Vat commands.
 
 export { VatCommandMethod, isVatCommand, isVatCommandReply } from './vat.js';
-export type { VatCommand, VatCommandReply } from './vat.js';
+export type {
+  VatCommand,
+  VatCommandReply,
+  VatCommandReturnType,
+} from './vat.js';
 
 // Vat worker service commands.
 
@@ -31,5 +31,3 @@ export type {
 
 // Message resolver.
 export { MessageResolver } from './message-resolver.js';
-
-// Syscalls.

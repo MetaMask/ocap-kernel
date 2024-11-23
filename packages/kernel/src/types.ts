@@ -1,3 +1,4 @@
+import type { CapData } from '@endo/marshal';
 import type { PromiseKit } from '@endo/promise-kit';
 import {
   define,
@@ -6,11 +7,16 @@ import {
   object,
   optional,
   string,
+  array,
   union,
+  literal,
 } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { StreamMultiplexer } from '@ocap/streams';
+
+// XXX Once the packaging of liveslots is fixed, this should be imported from there
+import type { Message } from './ag-types.js';
 
 export type VatId = `v${string}`;
 export type RemoteId = `r${string}`;
@@ -22,20 +28,79 @@ type InnerKRef = `${RefTypeTag}${string}`;
 type InnerERef = `${RefTypeTag}${RefDirectionTag}${string}`;
 
 export type KRef = `k${InnerKRef}`;
-export type VRef = `v${InnerERef}`;
+export type VRef = `${InnerERef}`;
 export type RRef = `r${InnerERef}`;
 export type ERef = VRef | RRef;
+export type Ref = KRef | ERef;
 
-type CapData = {
-  body: string;
-  slots: string[];
+export const ROOT_OBJECT_VREF: VRef = 'o+0';
+
+export const CapDataStruct = object({
+  body: string(),
+  slots: array(string()),
+});
+
+export type RunQueueItemSend = {
+  type: 'send';
+  target: KRef;
+  message: Message;
 };
 
-export type Message = {
-  target: ERef | KRef;
-  method: string;
-  params: CapData;
+export type RunQueueItemNotify = {
+  type: 'notify';
+  vatId: VatId;
+  kpid: KRef;
 };
+
+export type RunQueueItem = RunQueueItemSend | RunQueueItemNotify;
+
+export const MessageStruct = object({
+  methargs: CapDataStruct,
+  result: union([string(), literal(undefined), literal(null)]),
+});
+
+const RunQueueItemType = {
+  send: 'send',
+  notify: 'notify',
+  dropExports: 'dropExports',
+  retireExports: 'retireExports',
+  retireImports: 'retireImports',
+  bringOutYourDead: 'bringOutYourDead',
+} as const;
+
+const RunQueueItemStructs = {
+  [RunQueueItemType.send]: object({
+    type: literal(RunQueueItemType.send),
+    target: string(),
+    message: MessageStruct,
+  }),
+  [RunQueueItemType.notify]: object({
+    type: literal(RunQueueItemType.notify),
+    vatId: string(),
+    kpid: string(),
+  }),
+  [RunQueueItemType.dropExports]: object({
+    type: literal(RunQueueItemType.dropExports),
+  }),
+  [RunQueueItemType.retireExports]: object({
+    type: literal(RunQueueItemType.retireExports),
+  }),
+  [RunQueueItemType.retireImports]: object({
+    type: literal(RunQueueItemType.retireImports),
+  }),
+  [RunQueueItemType.bringOutYourDead]: object({
+    type: literal(RunQueueItemType.bringOutYourDead),
+  }),
+};
+
+export const RunQueueItemStruct = union([
+  RunQueueItemStructs.send,
+  RunQueueItemStructs.notify,
+  RunQueueItemStructs.dropExports,
+  RunQueueItemStructs.retireExports,
+  RunQueueItemStructs.retireImports,
+  RunQueueItemStructs.bringOutYourDead,
+]);
 
 // Per-endpoint persistent state
 type EndpointState<IdType> = {
@@ -68,7 +133,7 @@ export type KernelPromise = {
   state: PromiseState;
   decider?: EndpointId;
   subscribers?: EndpointId[];
-  value?: CapData;
+  value?: CapData<KRef>;
 };
 
 export type KernelState = {

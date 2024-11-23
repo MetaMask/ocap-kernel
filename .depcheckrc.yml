@@ -38,6 +38,9 @@ ignores:
   - 'typedoc'
   - 'typescript'
   - 'typescript-plugin-css-modules'
+  - '@agoric/internal'
+  - 'setimmediate'
+  - '@types/setimmediate'
 
   # Used by @ocap/nodejs to build the sqlite3 bindings
   - 'node-gyp'

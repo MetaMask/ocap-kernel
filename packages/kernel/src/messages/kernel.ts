@@ -1,13 +1,5 @@
-import {
-  object,
-  union,
-  literal,
-  string,
-  is,
-  array,
-} from '@metamask/superstruct';
+import { object, union, literal, string, is } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import { UnsafeJsonStruct } from '@metamask/utils';
 import type { TypeGuard } from '@ocap/utils';
 
 import {
@@ -20,24 +12,12 @@ import { VatIdStruct } from '../types.js';
 
 export const KernelCommandMethod = {
   evaluate: VatTestCommandMethod.evaluate,
-  capTpCall: 'capTpCall',
   kvSet: 'kvSet',
   kvGet: 'kvGet',
   ping: VatTestCommandMethod.ping,
 } as const;
 
-const CapTpPayloadStruct = object({
-  method: string(),
-  params: array(UnsafeJsonStruct),
-});
-
-export type CapTpPayload = Infer<typeof CapTpPayloadStruct>;
-
 const KernelCommandStruct = union([
-  object({
-    method: literal(KernelCommandMethod.capTpCall),
-    params: CapTpPayloadStruct,
-  }),
   object({
     method: literal(KernelCommandMethod.kvSet),
     params: object({ key: string(), value: string() }),
@@ -51,10 +31,6 @@ const KernelCommandStruct = union([
 ]);
 
 const KernelCommandReplyStruct = union([
-  object({
-    method: literal(KernelCommandMethod.capTpCall),
-    params: string(),
-  }),
   object({
     method: literal(KernelCommandMethod.kvSet),
     params: string(),
@@ -80,9 +56,5 @@ export const isKernelCommandReply: TypeGuard<KernelCommandReply> = (
 
 export const KernelSendMessageStruct = object({
   id: VatIdStruct,
-  payload: union([
-    VatMethodStructs.evaluate,
-    VatMethodStructs.ping,
-    VatMethodStructs.capTpInit,
-  ]),
+  payload: union([VatMethodStructs.evaluate, VatMethodStructs.ping]),
 });

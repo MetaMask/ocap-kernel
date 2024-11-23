@@ -8,5 +8,11 @@
     { "path": "../streams" },
     { "path": "../utils" }
   ],
-  "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]
+  "include": [
+    "./src",
+    "./test",
+    "./vite.config.ts",
+    "./vitest.config.ts",
+    "../../types"
+  ]
 }

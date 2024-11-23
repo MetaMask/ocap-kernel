@@ -40,6 +40,7 @@
     "./test/**/*.ts",
     "./vite-plugins/*.ts",
     "./vite.config.ts",
-    "./vitest.config.ts"
+    "./vitest.config.ts",
+    "../../types"
   ]
 }

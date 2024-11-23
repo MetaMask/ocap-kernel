@@ -55,6 +55,7 @@ describe('MessagePanel Component', () => {
       sendKernelCommand,
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
+      reload: vi.fn(),
       launchVat: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue({
