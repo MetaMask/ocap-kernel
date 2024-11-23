@@ -2,12 +2,10 @@ import type {
   KernelCommand,
   KernelCommandReply,
   ClusterConfig,
-  VatWorkerServiceReply,
 } from '@ocap/kernel';
-import { isKernelCommand, isVatWorkerServiceReply, Kernel } from '@ocap/kernel';
+import { isKernelCommand, Kernel } from '@ocap/kernel';
 import {
   MessagePortDuplexStream,
-  PostMessageDuplexStream,
   receiveMessagePort,
   StreamMultiplexer,
 } from '@ocap/streams';
@@ -19,7 +17,6 @@ import { isKernelControlCommand } from './messages.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
-import type { VatWorkerClientStream } from './VatWorkerClient.js';
 
 const bundleHost = 'http://localhost:3000'; // XXX placeholder
 const sampleBundle = 'sample-vat.bundle';
@@ -62,18 +59,6 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  const kernelServiceStream: VatWorkerClientStream =
-    new PostMessageDuplexStream({
-      // This will only work in a dedicated WebWorker.
-      messageTarget: globalThis as PostMessageTarget,
-      messageEventMode: 'event',
-      validateInput: (
-        message,
-      ): message is MessageEvent<VatWorkerServiceReply> =>
-        message instanceof MessageEvent &&
-        isVatWorkerServiceReply(message.data),
-    });
-
   const baseStream = await MessagePortDuplexStream.make<
     MultiplexEnvelope,
     MultiplexEnvelope
@@ -85,7 +70,9 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel dependencies
-  const vatWorkerClient = new ExtensionVatWorkerClient(kernelServiceStream);
+  const vatWorkerClient = ExtensionVatWorkerClient.make(
+    globalThis as PostMessageTarget,
+  );
   const kvStore = await makeSQLKVStore();
 
   // This stream is drained by the kernel.

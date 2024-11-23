@@ -1,7 +1,10 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
-import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
+import {
+  isVatWorkerServiceReply,
+  VatWorkerServiceCommandMethod,
+} from '@ocap/kernel';
 import type {
   VatWorkerService,
   VatId,
@@ -9,8 +12,8 @@ import type {
   VatConfig,
   VatWorkerServiceReply,
 } from '@ocap/kernel';
-import { MessagePortMultiplexer } from '@ocap/streams';
-import type { PostMessageDuplexStream, StreamMultiplexer } from '@ocap/streams';
+import { MessagePortMultiplexer, PostMessageDuplexStream } from '@ocap/streams';
+import type { PostMessageTarget, StreamMultiplexer } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 
@@ -38,10 +41,16 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
   readonly #messageCounter = makeCounter();
 
   /**
+   * **ATTN:** Prefer {@link ExtensionVatWorkerClient.make} over constructing
+   * this class directly.
+   *
    * The client end of the vat worker service, intended to be constructed in
    * the kernel worker. Sends launch and terminate worker requests to the
    * server and wraps the launch response in a DuplexStream for consumption
    * by the kernel.
+   *
+   * Note that {@link ExtensionVatWorkerClient.start} must be called to start
+   * the client.
    *
    * @see {@link ExtensionVatWorkerServer} for the other end of the service.
    *
@@ -53,6 +62,34 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     this.#logger = logger ?? makeLogger('[vat worker client]');
   }
 
+  /**
+   * Create a new {@link ExtensionVatWorkerClient}. Does not start the client.
+   *
+   * @param messageTarget - The target to use for posting and receiving messages.
+   * @param logger - An optional {@link Logger}.
+   * @returns A new {@link ExtensionVatWorkerClient}.
+   */
+  static make(
+    messageTarget: PostMessageTarget,
+    logger?: Logger,
+  ): ExtensionVatWorkerClient {
+    const stream: VatWorkerClientStream = new PostMessageDuplexStream({
+      messageTarget,
+      messageEventMode: 'event',
+      validateInput: (
+        message,
+      ): message is MessageEvent<VatWorkerServiceReply> =>
+        message instanceof MessageEvent &&
+        isVatWorkerServiceReply(message.data),
+    });
+    return new ExtensionVatWorkerClient(stream, logger);
+  }
+
+  /**
+   * Start the client. Must be called after construction.
+   *
+   * @returns A promise that fulfills when the client has stopped.
+   */
   async start(): Promise<void> {
     return this.#stream
       .synchronize()

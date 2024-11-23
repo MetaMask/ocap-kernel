@@ -2,6 +2,7 @@ import '@ocap/test-utils/mock-endoify';
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { MessagePortMultiplexer } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
@@ -67,6 +68,15 @@ describe('ExtensionVatWorkerClient', () => {
     const client = new ExtensionVatWorkerClient(
       {} as unknown as VatWorkerClientStream,
     );
+    expect(client).toBeDefined();
+  });
+
+  it('constructs using static factory method', () => {
+    const client = ExtensionVatWorkerClient.make({
+      postMessage: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as PostMessageTarget);
     expect(client).toBeDefined();
   });
 

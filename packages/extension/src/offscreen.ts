@@ -1,16 +1,11 @@
-import { isKernelCommandReply, isVatWorkerServiceCommand } from '@ocap/kernel';
-import type {
-  KernelCommandReply,
-  KernelCommand,
-  VatWorkerServiceCommand,
-} from '@ocap/kernel';
+import { isKernelCommandReply } from '@ocap/kernel';
+import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
   StreamMultiplexer,
-  PostMessageDuplexStream,
 } from '@ocap/streams';
 import type {
   DuplexStream,
@@ -26,7 +21,6 @@ import type {
   KernelControlReply,
 } from './kernel-integration/messages.js';
 import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
-import type { VatWorkerServerStream } from './kernel-integration/VatWorkerServer.js';
 
 const logger = makeLogger('[offscreen]');
 
@@ -106,19 +100,8 @@ async function makeKernelWorker(): Promise<{
     MultiplexEnvelope
   >(port);
 
-  const kernelServiceStream: VatWorkerServerStream =
-    new PostMessageDuplexStream({
-      messageTarget: worker as PostMessageTarget,
-      messageEventMode: 'event',
-      validateInput: (
-        message,
-      ): message is MessageEvent<VatWorkerServiceCommand> =>
-        message instanceof MessageEvent &&
-        isVatWorkerServiceCommand(message.data),
-    });
-
-  const vatWorkerServer = new ExtensionVatWorkerServer(
-    kernelServiceStream,
+  const vatWorkerServer = ExtensionVatWorkerServer.make(
+    worker as PostMessageTarget,
     (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
   );
 

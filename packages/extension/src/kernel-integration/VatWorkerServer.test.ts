@@ -2,6 +2,7 @@ import '@ocap/test-utils/mock-endoify';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';
+import type { PostMessageTarget } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
@@ -68,6 +69,18 @@ describe('ExtensionVatWorkerServer', () => {
         () => ({}) as unknown as VatWorker,
       ),
     ).toBeDefined();
+  });
+
+  it('constructs using static factory method', () => {
+    const server = ExtensionVatWorkerServer.make(
+      {
+        postMessage: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      } as unknown as PostMessageTarget,
+      () => ({}) as unknown as VatWorker,
+    );
+    expect(server).toBeDefined();
   });
 
   describe('message handling', () => {

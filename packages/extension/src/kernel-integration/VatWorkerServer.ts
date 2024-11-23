@@ -1,12 +1,16 @@
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
+import {
+  isVatWorkerServiceCommand,
+  VatWorkerServiceCommandMethod,
+} from '@ocap/kernel';
 import type {
   VatWorkerServiceReply,
   VatId,
   VatConfig,
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
-import type { PostMessageDuplexStream } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
@@ -34,10 +38,16 @@ export class ExtensionVatWorkerServer {
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
   /**
+   * **ATTN:** Prefer {@link ExtensionVatWorkerServer.make} over constructing
+   * this class directly.
+   *
    * The server end of the vat worker service, intended to be constructed in
    * the offscreen document. Listens for launch and terminate worker requests
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
+   *
+   * Note that {@link ExtensionVatWorkerServer.start} must be called to start
+   * the server.
    *
    * @see {@link ExtensionVatWorkerClient} for the other end of the service.
    *
@@ -55,6 +65,37 @@ export class ExtensionVatWorkerServer {
     this.#logger = logger ?? makeLogger('[vat worker server]');
   }
 
+  /**
+   * Create a new {@link ExtensionVatWorkerServer}. Does not start the server.
+   *
+   * @param messageTarget - The target to use for posting and receiving messages.
+   * @param makeWorker - A method for making a {@link VatWorker}.
+   * @param logger - An optional {@link Logger}.
+   * @returns A new {@link ExtensionVatWorkerServer}.
+   */
+  static make(
+    messageTarget: PostMessageTarget,
+    makeWorker: (vatId: VatId) => VatWorker,
+    logger?: Logger,
+  ): ExtensionVatWorkerServer {
+    const stream: VatWorkerServerStream = new PostMessageDuplexStream({
+      messageTarget,
+      messageEventMode: 'event',
+      validateInput: (
+        message,
+      ): message is MessageEvent<VatWorkerServiceCommand> =>
+        message instanceof MessageEvent &&
+        isVatWorkerServiceCommand(message.data),
+    });
+
+    return new ExtensionVatWorkerServer(stream, makeWorker, logger);
+  }
+
+  /**
+   * Start the server. Must be called after construction.
+   *
+   * @returns A promise that fulfills when the server has stopped.
+   */
   async start(): Promise<void> {
     return this.#stream
       .synchronize()
