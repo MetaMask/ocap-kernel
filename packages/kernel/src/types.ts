@@ -47,7 +47,7 @@ type EndpointState<IdType> = {
   kRefToERef: Map<KRef, ERef>;
 };
 
-type VatKernelState = {
+type KernelVatState = {
   messagePort: typeof MessagePort;
   state: EndpointState<VatId>;
   source: string;
@@ -72,7 +72,7 @@ export type KernelPromise = {
 };
 
 export type KernelState = {
-  vats: Map<VatId, VatKernelState>;
+  vats: Map<VatId, KernelVatState>;
   remotes: Map<RemoteId, RemoteState>;
   kernelPromises: Map<KRef, KernelPromise>;
 };
