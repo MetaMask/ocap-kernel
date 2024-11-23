@@ -1,6 +1,6 @@
 import { object, union, optional, is, literal } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import { MarshaledErrorStruct } from '@ocap/errors';
+import { ErrorStruct } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
 import { VatIdStruct, VatMessageIdStruct, VatConfigStruct } from '../types.js';
@@ -39,7 +39,7 @@ const VatWorkerServiceCommandReplyStruct = object({
       ]),
       params: object({
         vatId: VatIdStruct,
-        error: optional(MarshaledErrorStruct),
+        error: optional(ErrorStruct),
       }),
     }),
     object({
@@ -48,7 +48,7 @@ const VatWorkerServiceCommandReplyStruct = object({
         literal(null),
         object({
           vatId: optional(VatIdStruct),
-          error: MarshaledErrorStruct,
+          error: ErrorStruct,
         }),
       ]),
     }),

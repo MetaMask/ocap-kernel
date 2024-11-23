@@ -1,4 +1,4 @@
-import '../../../test-utils/src/env/mock-endo.ts';
+import '@ocap/test-utils/mock-endoify';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { setupPanelDOM } from '../../test/panel-utils.js';

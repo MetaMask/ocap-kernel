@@ -3,15 +3,12 @@ import { describe, it, expect, vi } from 'vitest';
 
 import {
   PostMessageDuplexStream,
-  PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
 import type { PostMessage } from './utils.js';
-import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
-import { StreamMultiplexer } from '../StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
@@ -195,8 +192,8 @@ describe('PostMessageWriter', () => {
     const { postMessageFn } = makePostMessageMock();
     const writer = new PostMessageWriter(postMessageFn);
     const message = { foo: 'bar' };
-    await writer.next(message);
-    expect(postMessageFn).toHaveBeenCalledWith(message);
+    await writer.next({ payload: message, transfer: [] });
+    expect(postMessageFn).toHaveBeenCalledWith(message, []);
   });
 
   it('calls onEnd once when ending', async () => {
@@ -267,9 +264,9 @@ describe('PostMessageDuplexStream', () => {
         }),
     );
 
-    await expect(duplexStream.write(42)).rejects.toThrow(
-      'PostMessageDuplexStream experienced a dispatch failure',
-    );
+    await expect(
+      duplexStream.write({ payload: 42, transfer: [] }),
+    ).rejects.toThrow('PostMessageDuplexStream experienced a dispatch failure');
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
@@ -281,45 +278,9 @@ describe('PostMessageDuplexStream', () => {
     const readP = duplexStream.next();
     postMessageFn(makeStreamDoneSignal());
     await delay(10);
-    expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
+    expect(
+      await duplexStream.write({ payload: 42, transfer: [] }),
+    ).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
-  });
-});
-
-describe('PostMessageMultiplexer', () => {
-  it('constructs a PostMessageMultiplexer', () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer({
-      postMessageFn,
-      setListener,
-      removeListener,
-    });
-
-    expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
-  });
-
-  it('can create and drain channels', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer({
-      postMessageFn,
-      setListener,
-      removeListener,
-    });
-    const ch1Handler = vi.fn();
-    const ch1 = multiplexer.createChannel<number, number>(
-      '1',
-      (value: unknown): value is number => typeof value === 'number',
-    );
-
-    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
-    postMessageFn(makeAck());
-    postMessageFn(makeMultiplexEnvelope('1', makeAck()));
-    postMessageFn(makeMultiplexEnvelope('1', 42));
-    postMessageFn(makeStreamDoneSignal());
-
-    await drainP;
-    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

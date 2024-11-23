@@ -3,21 +3,22 @@
  * over a [postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
  * function.
  *
+ * Due to its close coupling with the browser PostMessage API, this stream does not
+ * support multiplexing.
+ *
  * @module PostMessage streams
  */
+
+import { isObject } from '@metamask/utils';
 
 import type { OnMessage, PostMessage } from './utils.js';
 import {
   BaseDuplexStream,
+  isDuplexStreamSignal,
   makeDuplexStreamInputValidator,
 } from '../BaseDuplexStream.js';
 import type { BaseReaderArgs, BaseWriterArgs } from '../BaseStream.js';
 import { BaseReader, BaseWriter } from '../BaseStream.js';
-import {
-  isMultiplexEnvelope,
-  StreamMultiplexer,
-} from '../StreamMultiplexer.js';
-import type { MultiplexEnvelope } from '../StreamMultiplexer.js';
 import { isSignalLike } from '../utils.js';
 import type { Dispatchable } from '../utils.js';
 
@@ -65,7 +66,9 @@ export class PostMessageReader<Read> extends BaseReader<Read> {
     const receiveInput = super.getReceiveInput();
     onMessage = (messageEvent) => {
       const value =
-        isSignalLike(messageEvent.data) || messageEventMode === 'data'
+        messageEventMode === 'data' ||
+        isSignalLike(messageEvent.data) ||
+        isDuplexStreamSignal(messageEvent.data)
           ? messageEvent.data
           : messageEvent;
       receiveInput(value).catch(async (error) => this.throw(error));
@@ -77,19 +80,36 @@ export class PostMessageReader<Read> extends BaseReader<Read> {
 }
 harden(PostMessageReader);
 
+export type PostMessageEnvelope<Write> = {
+  payload: Write;
+  transfer: Transferable[];
+};
+
+const isPostMessageEnvelope = <Write>(
+  value: unknown,
+): value is PostMessageEnvelope<Write> =>
+  isObject(value) &&
+  typeof value.payload !== 'undefined' &&
+  Array.isArray(value.transfer);
+
 /**
  * A writable stream over a {@link PostMessage} function.
  *
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
-export class PostMessageWriter<Write> extends BaseWriter<Write> {
+export class PostMessageWriter<Write> extends BaseWriter<
+  PostMessageEnvelope<Write>
+> {
   constructor(
     postMessageFn: PostMessage,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
     super({
       name,
-      onDispatch: (value: Dispatchable<Write>) => postMessageFn(value),
+      onDispatch: (value: Dispatchable<PostMessageEnvelope<Write>>) =>
+        isPostMessageEnvelope(value)
+          ? postMessageFn(value.payload, value.transfer)
+          : postMessageFn(value),
       onEnd: async (error) => {
         await onEnd?.(error);
       },
@@ -115,7 +135,7 @@ export class PostMessageDuplexStream<
 > extends BaseDuplexStream<
   Read,
   PostMessageReader<Read>,
-  Write,
+  PostMessageEnvelope<Write>,
   PostMessageWriter<Write>
 > {
   constructor({
@@ -149,32 +169,3 @@ export class PostMessageDuplexStream<
   }
 }
 harden(PostMessageDuplexStream);
-
-type PostMessageMultiplexerArgs = Omit<
-  PostMessageDuplexStreamArgs<MultiplexEnvelope>,
-  'validateInput' | 'messageEventMode'
-> & {
-  name?: string;
-};
-
-/**
- * A multiplexer over a {@link PostMessage} function. The multiplexer cannot
- * be used with `messageEventMode: 'event'` because it needs to operate on
- * multiplex envelopes directly.
- *
- * @see {@link PostMessageDuplexStream} for the corresponding duplex stream.
- */
-export class PostMessageMultiplexer extends StreamMultiplexer {
-  constructor({ name, ...args }: PostMessageMultiplexerArgs) {
-    super(
-      new PostMessageDuplexStream({
-        ...args,
-        messageEventMode: 'data',
-        validateInput: isMultiplexEnvelope,
-      }),
-      name,
-    );
-    harden(this);
-  }
-}
-harden(PostMessageMultiplexer);

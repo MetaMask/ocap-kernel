@@ -1,11 +1,16 @@
-import { isKernelCommandReply } from '@ocap/kernel';
-import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
+import { isKernelCommandReply, isVatWorkerServiceCommand } from '@ocap/kernel';
+import type {
+  KernelCommandReply,
+  KernelCommand,
+  VatWorkerServiceCommand,
+} from '@ocap/kernel';
 import {
   ChromeRuntimeTarget,
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
   StreamMultiplexer,
+  PostMessageDuplexStream,
 } from '@ocap/streams';
 import type { DuplexStream, MultiplexEnvelope } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
@@ -17,6 +22,7 @@ import type {
   KernelControlReply,
 } from './kernel-integration/messages.js';
 import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
+import type { VatWorkerServerStream } from './kernel-integration/VatWorkerServer.js';
 
 const logger = makeLogger('[offscreen]');
 
@@ -48,7 +54,7 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
-  const workerMultiplexer = await makeKernelWorker();
+  const { workerMultiplexer, vatWorkerServer } = await makeKernelWorker();
 
   const kernelChannel = workerMultiplexer.createChannel<
     KernelCommandReply,
@@ -67,6 +73,7 @@ async function main(): Promise<void> {
   // Handle messages from the background script and the multiplexer
   await Promise.all([
     workerMultiplexer.start(),
+    vatWorkerServer.start(),
     kernelChannel.pipe(backgroundStream),
     backgroundStream.pipe(kernelChannel),
     panelChannel.drain(async (value) => {
@@ -80,7 +87,10 @@ async function main(): Promise<void> {
  *
  * @returns The message port stream for worker communication
  */
-async function makeKernelWorker(): Promise<StreamMultiplexer> {
+async function makeKernelWorker(): Promise<{
+  workerMultiplexer: StreamMultiplexer;
+  vatWorkerServer: ExtensionVatWorkerServer;
+}> {
   const worker = new Worker('kernel-worker.js', { type: 'module' });
 
   const port = await initializeMessageChannel((message, transfer) =>
@@ -92,18 +102,35 @@ async function makeKernelWorker(): Promise<StreamMultiplexer> {
     MultiplexEnvelope
   >(port);
 
+  const kernelServiceStream: VatWorkerServerStream =
+    new PostMessageDuplexStream({
+      postMessageFn: (message, transfer) =>
+        transfer === undefined
+          ? worker.postMessage(message)
+          : worker.postMessage(message, transfer),
+      setListener: (listener) => worker.addEventListener('message', listener),
+      removeListener: (listener) =>
+        worker.removeEventListener('message', listener),
+      messageEventMode: 'event',
+      validateInput: (
+        message,
+      ): message is MessageEvent<VatWorkerServiceCommand> =>
+        message instanceof MessageEvent &&
+        isVatWorkerServiceCommand(message.data),
+    });
+
   const vatWorkerServer = new ExtensionVatWorkerServer(
-    (message, transfer?) =>
-      transfer
-        ? worker.postMessage(message, transfer)
-        : worker.postMessage(message),
-    (listener) => worker.addEventListener('message', listener),
+    kernelServiceStream,
     (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
   );
 
-  vatWorkerServer.start();
-
-  return new StreamMultiplexer(workerStream, 'OffscreenMultiplexer');
+  return {
+    workerMultiplexer: new StreamMultiplexer(
+      workerStream,
+      'OffscreenMultiplexer',
+    ),
+    vatWorkerServer,
+  };
 }
 
 /**

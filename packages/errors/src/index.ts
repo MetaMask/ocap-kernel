@@ -8,6 +8,7 @@ export { StreamReadError } from './errors/StreamReadError.js';
 export {
   ErrorCode,
   ErrorSentinel,
+  ErrorStruct,
   MarshaledErrorStruct,
   MarshaledOcapErrorStruct,
 } from './constants.js';
