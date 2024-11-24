@@ -1,4 +1,4 @@
-import '../../../test-utils/src/env/mock-endo.ts';
+import '@ocap/test-utils/mock-endoify';
 import { describe, expect, it } from 'vitest';
 
 import { isValidUrl } from './shared.js';
