@@ -2,8 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './test/e2e',
-  fullyParallel: true,
-  retries: 2,
+  retries: 1,
   use: {
     trace: 'on-first-retry',
   },
@@ -16,6 +15,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'yarn build',
+    command: 'yarn start:server',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
   },
 });

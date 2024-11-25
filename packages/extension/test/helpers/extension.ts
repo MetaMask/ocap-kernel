@@ -28,15 +28,22 @@ export const makeLoadExtension = async (): Promise<{
     '../../dist',
   );
 
+  const browserArgs = [
+    `--disable-extensions-except=${extensionPath}`,
+    `--load-extension=${extensionPath}`,
+    '--lang=en-US',
+  ];
+
+  // eslint-disable-next-line n/no-process-env
+  const isDebugging = process.env.npm_lifecycle_event === 'test:e2e:debug';
+  if (!isDebugging) {
+    browserArgs.push(`--headless=new`);
+  }
+
   // Launch the browser with the extension
   const browserContext = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-      '--lang=en-US',
-      '--headless=false',
-    ],
+    args: browserArgs,
   });
 
   // Wait for the extension to be loaded
