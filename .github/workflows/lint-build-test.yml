@@ -155,7 +155,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [prepare, build]
+    needs: [prepare]
     strategy:
       matrix:
         node-version: [20.x]
