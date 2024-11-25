@@ -32,9 +32,8 @@ async function run() {
   }
 }
 
-process.exitCode = 1;
 run().catch((problem) => {
   console.error('Failed with', problem);
   // eslint-disable-next-line n/no-process-exit
-  process.exit(process.exitCode || 1);
+  process.exit(1);
 });
