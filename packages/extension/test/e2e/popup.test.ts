@@ -1,12 +1,23 @@
 import { test, expect } from '@playwright/test';
+import type { Page, BrowserContext } from '@playwright/test';
 
-import { createExtension } from '../helpers/extension';
+import { makeLoadExtension } from '../helpers/extension';
 
-test.describe('Extension Popup', () => {
+test.describe('Kernel Panel', () => {
+  let extensionContext: BrowserContext;
+  let popupPage: Page;
+
+  test.beforeAll(async () => {
+    const extension = await makeLoadExtension();
+    extensionContext = extension.browserContext;
+    popupPage = extension.popupPage;
+  });
+
+  test.afterAll(async () => {
+    await extensionContext.close();
+  });
+
   test('should load popup with kernel panel', async () => {
-    // Create and setup the extension
-    const { popupPage } = await createExtension();
-    debugger;
     // Wait for the panel to be loaded
     await popupPage.waitForSelector('.kernel-panel');
 

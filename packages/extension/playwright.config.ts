@@ -4,7 +4,6 @@ export default defineConfig({
   testDir: './test/e2e',
   fullyParallel: true,
   retries: 2,
-  reporter: 'html',
   use: {
     trace: 'on-first-retry',
   },
