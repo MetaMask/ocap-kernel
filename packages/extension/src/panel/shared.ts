@@ -8,7 +8,7 @@ export const logger = makeLogger('[Kernel Panel]');
  * @param url - The URL to validate
  * @returns Whether the URL is valid
  */
-export function isValidUrl(url?: string): boolean {
+export function isValidBundleUrl(url?: string): boolean {
   if (!url) {
     return false;
   }

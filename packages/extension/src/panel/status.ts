@@ -2,7 +2,7 @@ import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
 import { buttons, vatDropdown, newVatName, bundleUrl } from './buttons.js';
-import { isValidUrl, logger } from './shared.js';
+import { isValidBundleUrl, logger } from './shared.js';
 import type {
   KernelControlCommand,
   KernelStatus,
@@ -72,7 +72,7 @@ export function setupVatListeners(): void {
     const url = input.value.trim();
     input.setCustomValidity('');
 
-    if (!isValidUrl(url)) {
+    if (!isValidBundleUrl(url)) {
       input.setCustomValidity('Please enter a valid URL ending with .bundle');
     }
 
@@ -136,7 +136,7 @@ function updatevatDropdown(activeVats: VatId[]): void {
 export function updateButtonStates(hasVats: boolean): void {
   if (buttons.launchVat) {
     const hasValidName = newVatName.value.trim().length > 0;
-    const hasValidUrl = isValidUrl(bundleUrl.value);
+    const hasValidUrl = isValidBundleUrl(bundleUrl.value);
     buttons.launchVat.element.disabled = !hasValidName || !hasValidUrl;
   }
 

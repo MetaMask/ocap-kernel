@@ -1,9 +1,9 @@
 import '@ocap/test-utils/mock-endoify';
 import { describe, expect, it } from 'vitest';
 
-import { isValidUrl } from './shared.js';
+import { isValidBundleUrl } from './shared.js';
 
-describe('isValidUrl', () => {
+describe('isValidBundleUrl', () => {
   it.each([
     ['http://example.com/file.bundle', true, 'valid HTTP URL with .bundle'],
     [
@@ -41,6 +41,6 @@ describe('isValidUrl', () => {
     ],
     ['https://subdomain.example.com/file.bundle', true, 'URL with subdomain'],
   ] as const)('%s -> %s (%s)', (input, expected, _description) => {
-    expect(isValidUrl(input)).toBe(expected);
+    expect(isValidBundleUrl(input)).toBe(expected);
   });
 });
