@@ -196,6 +196,7 @@ describe('status', () => {
       setupVatListeners();
 
       newVatName.value = '';
+      bundleUrl.value = '';
       newVatName.dispatchEvent(new Event('input'));
       expect(buttons.launchVat?.element.disabled).toBe(true);
 
