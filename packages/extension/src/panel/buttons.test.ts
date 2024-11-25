@@ -1,7 +1,7 @@
 import '@ocap/test-utils/mock-endoify';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { setupPanelDOM } from '../../test/panel-utils.js';
+import { setupPanelDOM } from '../../test/helpers/panel-utils.js';
 
 describe('buttons', () => {
   beforeEach(async () => {

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 export async function setupPanelDOM(): Promise<void> {
   const htmlPath = path.resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../src/popup.html',
+    '../../src/popup.html',
   );
   const html = await fs.readFile(htmlPath, 'utf-8');
   document.body.innerHTML = html;

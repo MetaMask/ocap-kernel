@@ -3,7 +3,7 @@ import { define } from '@metamask/superstruct';
 import type { VatId } from '@ocap/kernel';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { setupPanelDOM } from '../../test/panel-utils.js';
+import { setupPanelDOM } from '../../test/helpers/panel-utils.js';
 
 const isVatId = vi.fn(
   (input: unknown): input is VatId => typeof input === 'string',

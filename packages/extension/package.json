@@ -31,11 +31,14 @@
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
     "test": "vitest run --config vitest.config.ts",
-    "test:build": "node ./test/build-tests.mjs",
+    "test:build": "node ./test/build/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.ts"
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.6",
@@ -60,6 +63,7 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/test-utils": "workspace:^",
+    "@playwright/test": "^1.49.0",
     "@types/chrome": "^0.0.268",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
@@ -76,6 +80,7 @@
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^7.1.0",
     "jsdom": "^24.1.1",
+    "playwright": "^1.49.0",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
     "typedoc": "^0.26.8",

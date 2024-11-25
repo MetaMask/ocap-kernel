@@ -7,7 +7,7 @@
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
+    "types": ["chrome", "ses", "vitest", "vitest/jsdom", "@playwright/test"]
   },
   "references": [
     { "path": "../shims" },
@@ -20,6 +20,7 @@
     "../../vitest.config.ts",
     "../../vitest.workspace.ts",
     "./scripts/build-constants.mjs",
+    "./playwright.config.ts",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./src/env/dev-console.js",

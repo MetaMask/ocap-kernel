@@ -4,7 +4,7 @@ import type { VatId, VatConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { setupPanelDOM } from '../../test/panel-utils.js';
+import { setupPanelDOM } from '../../test/helpers/panel-utils.js';
 import type { KernelControlReply } from '../kernel-integration/messages.js';
 
 const isVatId = vi.fn(
