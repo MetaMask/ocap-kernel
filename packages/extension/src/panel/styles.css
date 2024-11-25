@@ -111,7 +111,11 @@ select {
 }
 
 #new-vat-name {
-  width: 80px;
+  width: 95px;
+}
+
+#bundle-url {
+  width: 139px;
 }
 
 #status-display {
