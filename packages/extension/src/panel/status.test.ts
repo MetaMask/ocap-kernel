@@ -232,16 +232,18 @@ describe('status', () => {
   describe('updateButtonStates', () => {
     it('should disable launch button when new vat ID is empty', async () => {
       const { updateButtonStates } = await import('./status');
-      const { buttons, newVatName } = await import('./buttons');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
       newVatName.value = '';
+      bundleUrl.value = '';
       updateButtonStates(true);
       expect(buttons.launchVat?.element.disabled).toBe(true);
     });
 
     it('should not enable launch button when new vat ID is non-empty', async () => {
       const { updateButtonStates } = await import('./status');
-      const { buttons, newVatName } = await import('./buttons');
+      const { buttons, newVatName, bundleUrl } = await import('./buttons');
       newVatName.value = 'test-vat';
+      bundleUrl.value = '';
       updateButtonStates(true);
       expect(buttons.launchVat?.element.disabled).toBe(true);
     });
