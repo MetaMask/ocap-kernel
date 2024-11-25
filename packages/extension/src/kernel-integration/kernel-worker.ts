@@ -9,7 +9,7 @@ import {
   receiveMessagePort,
   StreamMultiplexer,
 } from '@ocap/streams';
-import type { MultiplexEnvelope } from '@ocap/streams';
+import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
@@ -70,9 +70,8 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel dependencies
-  const vatWorkerClient = new ExtensionVatWorkerClient(
-    (message) => globalThis.postMessage(message),
-    (listener) => globalThis.addEventListener('message', listener),
+  const vatWorkerClient = ExtensionVatWorkerClient.make(
+    globalThis as PostMessageTarget,
   );
   const kvStore = await makeSQLKVStore();
 
@@ -91,10 +90,10 @@ async function main(): Promise<void> {
     KernelControlReply
   >('panel', isKernelControlCommand);
 
-  // Run default kernel lifecycle
-  await kernel.launchSubcluster(defaultSubcluster);
-
   await Promise.all([
+    vatWorkerClient.start(),
+    // Run default kernel lifecycle
+    kernel.launchSubcluster(defaultSubcluster),
     multiplexer.start(),
     panelStream.drain(async (message) => {
       const reply = await handlePanelMessage(kernel, message);

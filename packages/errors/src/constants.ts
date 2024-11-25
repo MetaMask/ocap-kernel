@@ -1,9 +1,24 @@
 import type { Struct } from '@metamask/superstruct';
-import { lazy, literal, optional, string, union } from '@metamask/superstruct';
+import {
+  define,
+  lazy,
+  literal,
+  optional,
+  string,
+  union,
+} from '@metamask/superstruct';
 import { JsonStruct, object } from '@metamask/utils';
 import type { NonEmptyArray } from '@metamask/utils';
 
 import type { MarshaledError, MarshaledOcapError } from './types.js';
+
+/**
+ * Struct to validate plain {@link Error} objects.
+ */
+export const ErrorStruct = define<Error>(
+  'Error',
+  (value) => value instanceof Error,
+);
 
 /**
  * Enum defining all error codes for Ocap errors.

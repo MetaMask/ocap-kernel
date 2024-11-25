@@ -10,6 +10,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./mock-endoify": "./src/env/mock-endoify.ts",
     "./package.json": "./package.json",
     "./streams": "./src/streams.ts"
   },

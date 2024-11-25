@@ -3,126 +3,166 @@ import { describe, it, expect, vi } from 'vitest';
 
 import {
   PostMessageDuplexStream,
-  PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
 } from './PostMessageStream.js';
+import type { PostMessageTarget } from './PostMessageStream.js';
 import type { PostMessage } from './utils.js';
-import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
-import { StreamMultiplexer } from '../StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
+  makeStreamErrorSignal,
 } from '../utils.js';
 
-// This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const makePostMessageMock = () => {
-  const listeners: ((event: MessageEvent) => void)[] = [];
-  const postMessageFn = vi.fn((message: unknown, ports: MessagePort[] = []) => {
+const makeMockMessageTarget = () => {
+  const listeners: ((payload: unknown) => void)[] = [];
+  const postMessage = vi.fn((message: unknown, _transfer?: Transferable[]) => {
     listeners.forEach((listener) =>
-      listener({ data: message, ports } as unknown as MessageEvent<unknown>),
+      listener(
+        message instanceof MessageEvent
+          ? message
+          : new MessageEvent('message', { data: message }),
+      ),
     );
   });
-  const setListener = vi.fn((listener: (event: MessageEvent) => void) => {
-    listeners.push(listener);
-  });
-  const removeListener = vi.fn((listener: (event: MessageEvent) => void) => {
-    listeners.splice(listeners.indexOf(listener), 1);
-  });
-  return { postMessageFn, setListener, removeListener, listeners };
+  const addEventListener = vi.fn(
+    (_type: 'message', listener: (event: MessageEvent) => void) => {
+      listeners.push(listener as (payload: unknown) => void);
+    },
+  );
+  const removeEventListener = vi.fn(
+    (_type: 'message', listener: (event: MessageEvent) => void) => {
+      listeners.splice(
+        listeners.indexOf(listener as (payload: unknown) => void),
+        1,
+      );
+    },
+  );
+  return { postMessage, addEventListener, removeEventListener, listeners };
 };
 
 describe('PostMessageReader', () => {
   it('constructs a PostMessageReader', () => {
-    const { setListener, removeListener } = makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
+    const reader = new PostMessageReader({
+      messageTarget: makeMockMessageTarget(),
+    });
     expect(reader).toBeInstanceOf(PostMessageReader);
   });
 
   it('emits messages received from postMessage', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader({
+      messageTarget,
+    });
 
     const message = { foo: 'bar' };
 
-    postMessageFn(message);
+    messageTarget.postMessage(message);
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
+  });
+
+  it('can yield MessageEvents directly', async () => {
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader<MessageEvent>({
+      messageTarget,
+      messageEventMode: 'event',
+    });
+
+    const message = new MessageEvent('message', { data: 'bar' });
+
+    messageTarget.postMessage(message);
+    expect(await reader.next()).toStrictEqual(makePendingResult(message));
+  });
+
+  it('handles stream done signals normally when yielding MessageEvents', async () => {
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader<MessageEvent>({
+      messageTarget,
+      messageEventMode: 'event',
+    });
+
+    messageTarget.postMessage(
+      new MessageEvent('message', { data: makeStreamDoneSignal() }),
+    );
+    expect(await reader.next()).toStrictEqual(makeDoneResult());
+  });
+
+  it('handles stream error signals normally when yielding MessageEvents', async () => {
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader<MessageEvent>({
+      messageTarget,
+      messageEventMode: 'event',
+    });
+
+    const nextP = reader.next();
+
+    messageTarget.postMessage(
+      new MessageEvent('message', {
+        data: makeStreamErrorSignal(new Error('foo')),
+      }),
+    );
+    await expect(nextP).rejects.toThrow('foo');
   });
 
   it('calls validateInput with received input if specified', async () => {
     const validateInput = vi
       .fn()
       .mockReturnValue(true) as unknown as ValidateInput<number>;
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader({
+      messageTarget,
       validateInput,
     });
 
     const message = { foo: 'bar' };
-    postMessageFn(message);
+    messageTarget.postMessage(message);
     expect(await reader.next()).toStrictEqual(makePendingResult(message));
     expect(validateInput).toHaveBeenCalledWith(message);
   });
 
   it('throws if validateInput throws', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
+    const messageTarget = makeMockMessageTarget();
     const validateInput = (() => {
       throw new Error('foo');
     }) as unknown as ValidateInput<number>;
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const reader = new PostMessageReader({
+      messageTarget,
       validateInput,
     });
 
-    postMessageFn(42);
+    messageTarget.postMessage(42);
     await expect(reader.next()).rejects.toThrow('foo');
     expect(await reader.next()).toStrictEqual(makeDoneResult());
   });
 
   it('removes its listener when it ends', async () => {
-    const { postMessageFn, setListener, removeListener, listeners } =
-      makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
-    expect(listeners).toHaveLength(1);
+    const messageTarget = makeMockMessageTarget();
+    const reader = new PostMessageReader({
+      messageTarget,
+    });
+    expect(messageTarget.listeners).toHaveLength(1);
 
     const message = makeStreamDoneSignal();
-    postMessageFn(message);
+    messageTarget.postMessage(message);
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
-    expect(removeListener).toHaveBeenCalled();
-    expect(listeners).toHaveLength(0);
-  });
-
-  it('ignores messages with ports', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const reader = new PostMessageReader(setListener, removeListener);
-    const { port1 } = new MessageChannel();
-
-    postMessageFn(makeDoneResult(), [port1]);
-    postMessageFn({ foo: 'bar' });
-    await delay(10);
-
-    expect(await reader.next()).toStrictEqual(
-      makePendingResult({ foo: 'bar' }),
-    );
+    expect(messageTarget.removeEventListener).toHaveBeenCalled();
+    expect(messageTarget.listeners).toHaveLength(0);
   });
 
   it('calls onEnd once when ending', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
+    const messageTarget = makeMockMessageTarget();
     const onEnd = vi.fn();
-    const reader = new PostMessageReader(setListener, removeListener, {
+    const reader = new PostMessageReader({
+      messageTarget,
       onEnd,
     });
 
-    postMessageFn(makeStreamDoneSignal());
+    messageTarget.postMessage(makeStreamDoneSignal());
 
     expect(await reader.next()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -133,22 +173,22 @@ describe('PostMessageReader', () => {
 
 describe('PostMessageWriter', () => {
   it('constructs a PostMessageWriter', () => {
-    const writer = new PostMessageWriter(() => undefined);
+    const writer = new PostMessageWriter(makeMockMessageTarget());
     expect(writer).toBeInstanceOf(PostMessageWriter);
   });
 
   it('writes messages to postMessage', async () => {
-    const { postMessageFn } = makePostMessageMock();
-    const writer = new PostMessageWriter(postMessageFn);
+    const messageTarget = makeMockMessageTarget();
+    const writer = new PostMessageWriter(messageTarget);
     const message = { foo: 'bar' };
-    await writer.next(message);
-    expect(postMessageFn).toHaveBeenCalledWith(message);
+    await writer.next({ payload: message, transfer: [] });
+    expect(messageTarget.postMessage).toHaveBeenCalledWith(message, []);
   });
 
   it('calls onEnd once when ending', async () => {
-    const { postMessageFn } = makePostMessageMock();
+    const messageTarget = makeMockMessageTarget();
     const onEnd = vi.fn();
-    const writer = new PostMessageWriter(postMessageFn, { onEnd });
+    const writer = new PostMessageWriter(messageTarget, { onEnd });
 
     expect(await writer.return()).toStrictEqual(makeDoneResult());
     expect(onEnd).toHaveBeenCalledTimes(1);
@@ -158,30 +198,33 @@ describe('PostMessageWriter', () => {
 });
 
 describe('PostMessageDuplexStream', () => {
-  const makeDuplexStream = async (
-    sendMessage: PostMessage,
-    postMessageMock: ReturnType<
-      typeof makePostMessageMock
-    > = makePostMessageMock(),
-    validateInput?: ValidateInput<number>,
+  const makeDuplexStream = async ({
+    messageTarget = makeMockMessageTarget(),
+    postRemoteMessage = vi.fn(),
+    validateInput,
+  }: {
+    messageTarget?: PostMessageTarget;
+    postRemoteMessage?: PostMessage;
+    validateInput?: ValidateInput<number>;
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  ) => {
-    const { postMessageFn, setListener, removeListener } = postMessageMock;
-
-    const duplexStreamP = PostMessageDuplexStream.make(
-      sendMessage,
-      setListener,
-      removeListener,
+  } = {}) => {
+    const postLocalMessage = messageTarget.postMessage;
+    const duplexStreamP = PostMessageDuplexStream.make({
+      messageTarget: { ...messageTarget, postMessage: postRemoteMessage },
       validateInput,
-    );
-    postMessageFn(makeAck());
+    });
+    postLocalMessage(makeAck());
     await delay(10);
 
-    return [await duplexStreamP, postMessageFn] as const;
+    return {
+      duplexStream: await duplexStreamP,
+      messageTarget,
+      postLocalMessage,
+    };
   };
 
   it('constructs a PostMessageDuplexStream', async () => {
-    const [duplexStream] = await makeDuplexStream(() => undefined);
+    const { duplexStream } = await makeDuplexStream();
 
     expect(duplexStream).toBeInstanceOf(PostMessageDuplexStream);
     expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
@@ -191,81 +234,44 @@ describe('PostMessageDuplexStream', () => {
     const validateInput = vi
       .fn()
       .mockReturnValue(true) as unknown as ValidateInput<number>;
-    const postMessageMock = makePostMessageMock();
-    const [duplexStream] = await makeDuplexStream(
-      () => undefined,
-      postMessageMock,
+    const mockMessageTarget = makeMockMessageTarget();
+    const { duplexStream } = await makeDuplexStream({
+      messageTarget: mockMessageTarget,
+      postRemoteMessage: vi.fn(),
       validateInput,
-    );
+    });
 
-    postMessageMock.postMessageFn(42);
+    mockMessageTarget.postMessage(42);
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
     expect(validateInput).toHaveBeenCalledWith(42);
   });
 
   it('ends the reader when the writer ends', async () => {
-    const [duplexStream] = await makeDuplexStream(
-      vi
-        .fn()
-        .mockImplementationOnce(() => undefined)
-        .mockImplementationOnce(() => {
-          throw new Error('foo');
-        }),
-    );
+    const postRemoteMessage = vi
+      .fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error('foo');
+      });
+    const { duplexStream } = await makeDuplexStream({
+      postRemoteMessage,
+    });
 
-    await expect(duplexStream.write(42)).rejects.toThrow(
-      'PostMessageDuplexStream experienced a dispatch failure',
-    );
+    await expect(
+      duplexStream.write({ payload: 42, transfer: [] }),
+    ).rejects.toThrow('PostMessageDuplexStream experienced a dispatch failure');
     expect(await duplexStream.next()).toStrictEqual(makeDoneResult());
   });
 
   it('ends the writer when the reader ends', async () => {
-    const [duplexStream, postMessageFn] = await makeDuplexStream(
-      () => undefined,
-    );
+    const { duplexStream, postLocalMessage } = await makeDuplexStream();
 
     const readP = duplexStream.next();
-    postMessageFn(makeStreamDoneSignal());
+    postLocalMessage(makeStreamDoneSignal());
     await delay(10);
-    expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
+    expect(
+      await duplexStream.write({ payload: 42, transfer: [] }),
+    ).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
-  });
-});
-
-describe('PostMessageMultiplexer', () => {
-  it('constructs a PostMessageMultiplexer', () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer(
-      postMessageFn,
-      setListener,
-      removeListener,
-    );
-
-    expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
-  });
-
-  it('can create and drain channels', async () => {
-    const { postMessageFn, setListener, removeListener } =
-      makePostMessageMock();
-    const multiplexer = new PostMessageMultiplexer(
-      postMessageFn,
-      setListener,
-      removeListener,
-    );
-    const ch1Handler = vi.fn();
-    const ch1 = multiplexer.createChannel<number, number>(
-      '1',
-      (value: unknown): value is number => typeof value === 'number',
-    );
-
-    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
-    postMessageFn(makeAck());
-    postMessageFn(makeMultiplexEnvelope('1', makeAck()));
-    postMessageFn(makeMultiplexEnvelope('1', 42));
-    postMessageFn(makeStreamDoneSignal());
-
-    await drainP;
-    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

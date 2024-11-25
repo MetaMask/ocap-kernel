@@ -1,88 +1,120 @@
-import {
-  VatAlreadyExistsError,
-  VatDeletedError,
-  marshalError,
-} from '@ocap/errors';
+import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import {
   isVatWorkerServiceCommand,
   VatWorkerServiceCommandMethod,
 } from '@ocap/kernel';
-import type { VatWorkerServiceReply, VatId, VatConfig } from '@ocap/kernel';
-import type { Logger } from '@ocap/utils';
-import { makeHandledCallback, makeLogger } from '@ocap/utils';
-
 import type {
-  AddListener,
-  PostMessage,
-  VatWorker,
-} from './vat-worker-service.js';
+  VatWorkerServiceReply,
+  VatId,
+  VatConfig,
+  VatWorkerServiceCommand,
+} from '@ocap/kernel';
+import { PostMessageDuplexStream } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams';
+import type { Logger } from '@ocap/utils';
+import { makeLogger } from '@ocap/utils';
+
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
+export type VatWorker = {
+  launch: (vatConfig: VatConfig) => Promise<[MessagePort, unknown]>;
+  terminate: () => Promise<void>;
+};
+
+export type VatWorkerServerStream = PostMessageDuplexStream<
+  MessageEvent<VatWorkerServiceCommand>,
+  VatWorkerServiceReply
+>;
+
 export class ExtensionVatWorkerServer {
   readonly #logger;
 
+  readonly #stream: VatWorkerServerStream;
+
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
-
-  readonly #postMessage: PostMessage<VatWorkerServiceReply>;
-
-  readonly #addListener: AddListener;
 
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
-  #running = false;
-
   /**
+   * **ATTN:** Prefer {@link ExtensionVatWorkerServer.make} over constructing
+   * this class directly.
+   *
    * The server end of the vat worker service, intended to be constructed in
    * the offscreen document. Listens for launch and terminate worker requests
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
    *
+   * Note that {@link ExtensionVatWorkerServer.start} must be called to start
+   * the server.
+   *
    * @see {@link ExtensionVatWorkerClient} for the other end of the service.
    *
-   * @param postMessage - A method for posting a message to the client.
-   * @param addListener - A method for registering a listener for messages from the client.
+   * @param stream - The stream to use for communication with the client.
    * @param makeWorker - A method for making a {@link VatWorker}.
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker server]'.
    */
   constructor(
-    postMessage: PostMessage<VatWorkerServiceReply>,
-    addListener: (listener: (event: MessageEvent<unknown>) => void) => void,
+    stream: VatWorkerServerStream,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
   ) {
-    this.#postMessage = postMessage;
-    this.#addListener = addListener;
+    this.#stream = stream;
     this.#makeWorker = makeWorker;
     this.#logger = logger ?? makeLogger('[vat worker server]');
   }
 
-  start(): void {
-    if (this.#running) {
-      throw new Error('VatWorkerServer already running.');
-    }
-    this.#addListener(makeHandledCallback(this.#handleMessage.bind(this)));
-    this.#running = true;
+  /**
+   * Create a new {@link ExtensionVatWorkerServer}. Does not start the server.
+   *
+   * @param messageTarget - The target to use for posting and receiving messages.
+   * @param makeWorker - A method for making a {@link VatWorker}.
+   * @param logger - An optional {@link Logger}.
+   * @returns A new {@link ExtensionVatWorkerServer}.
+   */
+  static make(
+    messageTarget: PostMessageTarget,
+    makeWorker: (vatId: VatId) => VatWorker,
+    logger?: Logger,
+  ): ExtensionVatWorkerServer {
+    const stream: VatWorkerServerStream = new PostMessageDuplexStream({
+      messageTarget,
+      messageEventMode: 'event',
+      validateInput: (
+        message,
+      ): message is MessageEvent<VatWorkerServiceCommand> =>
+        message instanceof MessageEvent &&
+        isVatWorkerServiceCommand(message.data),
+    });
+
+    return new ExtensionVatWorkerServer(stream, makeWorker, logger);
   }
 
-  async #handleMessage(event: MessageEvent<unknown>): Promise<void> {
-    if (!isVatWorkerServiceCommand(event.data)) {
-      // This happens when other messages pass through the same channel.
-      this.#logger.debug('Received unexpected message', event.data);
-      return;
-    }
+  /**
+   * Start the server. Must be called after construction.
+   *
+   * @returns A promise that fulfills when the server has stopped.
+   */
+  async start(): Promise<void> {
+    return this.#stream
+      .synchronize()
+      .then(async () => this.#stream.drain(this.#handleMessage.bind(this)));
+  }
 
+  async #handleMessage(
+    event: MessageEvent<VatWorkerServiceCommand>,
+  ): Promise<void> {
     const { id, payload } = event.data;
     const { method, params } = payload;
 
     const handleError = (error: Error, vatId: VatId): void => {
       this.#logger.error(`Error handling ${method} for vatId ${vatId}`, error);
-      this.#postMessage({
+      // eslint-disable-next-line promise/no-promise-in-callback
+      this.#sendMessage({
         id,
-        payload: { method, params: { vatId, error: marshalError(error) } },
-      });
-      throw error;
+        payload: { method, params: { vatId, error } },
+      }).catch(() => undefined);
     };
 
     switch (method) {
@@ -91,15 +123,15 @@ export class ExtensionVatWorkerServer {
         const replyParams = { vatId };
         const replyPayload = { method, params: replyParams };
         await this.#launch(vatId, vatConfig)
-          .then((port) =>
-            this.#postMessage({ id, payload: replyPayload }, [port]),
+          .then(async (port) =>
+            this.#sendMessage({ id, payload: replyPayload }, port),
           )
           .catch(async (error) => handleError(error, vatId));
         break;
       }
       case VatWorkerServiceCommandMethod.terminate:
         await this.#terminate(params.vatId)
-          .then(() => this.#postMessage({ id, payload }))
+          .then(async () => this.#sendMessage({ id, payload }))
           .catch(async (error) => handleError(error, params.vatId));
         break;
       case VatWorkerServiceCommandMethod.terminateAll:
@@ -108,7 +140,7 @@ export class ExtensionVatWorkerServer {
             this.#terminate(vatId).catch((error) => handleError(error, vatId)),
           ),
         );
-        this.#postMessage({ id, payload });
+        await this.#sendMessage({ id, payload });
         break;
       default:
         this.#logger.error(
@@ -117,6 +149,16 @@ export class ExtensionVatWorkerServer {
           method.valueOf(),
         );
     }
+  }
+
+  async #sendMessage(
+    message: VatWorkerServiceReply,
+    port?: MessagePort,
+  ): Promise<void> {
+    await this.#stream.write({
+      payload: message,
+      transfer: port ? [port] : [],
+    });
   }
 
   async #launch(vatId: VatId, vatConfig: VatConfig): Promise<MessagePort> {
@@ -132,7 +174,7 @@ export class ExtensionVatWorkerServer {
   async #terminate(vatId: VatId): Promise<void> {
     const vatWorker = this.#vatWorkers.get(vatId);
     if (!vatWorker) {
-      throw new VatDeletedError(vatId);
+      throw new VatNotFoundError(vatId);
     }
     await vatWorker.terminate();
     this.#vatWorkers.delete(vatId);

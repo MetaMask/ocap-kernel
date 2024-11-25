@@ -3,28 +3,40 @@
  * over a [postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
  * function.
  *
+ * Due to its close coupling with the browser PostMessage API, this stream does not
+ * support multiplexing.
+ *
  * @module PostMessage streams
  */
+
+import { isObject } from '@metamask/utils';
 
 import type { OnMessage, PostMessage } from './utils.js';
 import {
   BaseDuplexStream,
+  isDuplexStreamSignal,
   makeDuplexStreamInputValidator,
 } from '../BaseDuplexStream.js';
-import type {
-  BaseReaderArgs,
-  BaseWriterArgs,
-  ValidateInput,
-} from '../BaseStream.js';
+import type { BaseReaderArgs, BaseWriterArgs } from '../BaseStream.js';
 import { BaseReader, BaseWriter } from '../BaseStream.js';
-import {
-  isMultiplexEnvelope,
-  StreamMultiplexer,
-} from '../StreamMultiplexer.js';
+import { isSignalLike } from '../utils.js';
 import type { Dispatchable } from '../utils.js';
 
-type SetListener = (onMessage: OnMessage) => void;
-type RemoveListener = (onMessage: OnMessage) => void;
+export type PostMessageTarget = {
+  addEventListener: (type: 'message', listener: OnMessage) => void;
+  removeEventListener: (type: 'message', listener: OnMessage) => void;
+  postMessage: PostMessage;
+};
+
+type PostMessageReaderArgs<Read> = BaseReaderArgs<Read> & {
+  messageTarget: PostMessageTarget;
+} & (Read extends MessageEvent
+    ? {
+        messageEventMode: 'event';
+      }
+    : {
+        messageEventMode?: 'data' | undefined;
+      });
 
 /**
  * A readable stream over a {@link PostMessage} function.
@@ -35,50 +47,70 @@ type RemoveListener = (onMessage: OnMessage) => void;
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
 export class PostMessageReader<Read> extends BaseReader<Read> {
-  constructor(
-    setListener: SetListener,
-    removeListener: RemoveListener,
-    { validateInput, onEnd }: BaseReaderArgs<Read> = {},
-  ) {
+  constructor({
+    validateInput,
+    onEnd,
+    messageTarget,
+    messageEventMode = 'data',
+  }: PostMessageReaderArgs<Read>) {
     // eslint-disable-next-line prefer-const
     let onMessage: OnMessage;
 
     super({
       validateInput,
       onEnd: async (error) => {
-        removeListener(onMessage);
+        messageTarget.removeEventListener('message', onMessage);
         await onEnd?.(error);
       },
     });
 
     const receiveInput = super.getReceiveInput();
     onMessage = (messageEvent) => {
-      if (messageEvent.ports && messageEvent.ports.length > 0) {
-        return;
-      }
-
-      receiveInput(messageEvent.data).catch(async (error) => this.throw(error));
+      const value =
+        messageEventMode === 'data' ||
+        isSignalLike(messageEvent.data) ||
+        isDuplexStreamSignal(messageEvent.data)
+          ? messageEvent.data
+          : messageEvent;
+      receiveInput(value).catch(async (error) => this.throw(error));
     };
-    setListener(onMessage);
+    messageTarget.addEventListener('message', onMessage);
 
     harden(this);
   }
 }
 harden(PostMessageReader);
 
+export type PostMessageEnvelope<Write> = {
+  payload: Write;
+  transfer: Transferable[];
+};
+
+const isPostMessageEnvelope = <Write>(
+  value: unknown,
+): value is PostMessageEnvelope<Write> =>
+  isObject(value) &&
+  typeof value.payload !== 'undefined' &&
+  Array.isArray(value.transfer);
+
 /**
  * A writable stream over a {@link PostMessage} function.
  *
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
-export class PostMessageWriter<Write> extends BaseWriter<Write> {
+export class PostMessageWriter<Write> extends BaseWriter<
+  PostMessageEnvelope<Write>
+> {
   constructor(
-    postMessageFn: PostMessage,
+    messageTarget: PostMessageTarget,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
     super({
       name,
-      onDispatch: (value: Dispatchable<Write>) => postMessageFn(value),
+      onDispatch: (value: Dispatchable<PostMessageEnvelope<Write>>) =>
+        isPostMessageEnvelope(value)
+          ? messageTarget.postMessage(value.payload, value.transfer)
+          : messageTarget.postMessage(value),
       onEnd: async (error) => {
         await onEnd?.(error);
       },
@@ -87,6 +119,8 @@ export class PostMessageWriter<Write> extends BaseWriter<Write> {
   }
 }
 harden(PostMessageWriter);
+
+type PostMessageDuplexStreamArgs<Read> = PostMessageReaderArgs<Read>;
 
 /**
  * A duplex stream over a {@link PostMessage} function.
@@ -100,24 +134,24 @@ export class PostMessageDuplexStream<
 > extends BaseDuplexStream<
   Read,
   PostMessageReader<Read>,
-  Write,
+  PostMessageEnvelope<Write>,
   PostMessageWriter<Write>
 > {
-  constructor(
-    postMessageFn: PostMessage,
-    setListener: SetListener,
-    removeListener: RemoveListener,
-    validateInput?: ValidateInput<Read>,
-  ) {
+  constructor({
+    messageTarget,
+    validateInput,
+    ...args
+  }: PostMessageDuplexStreamArgs<Read>) {
     let writer: PostMessageWriter<Write>; // eslint-disable-line prefer-const
-    const reader = new PostMessageReader<Read>(setListener, removeListener, {
-      name: 'PostMessageDuplexStream',
+    const reader = new PostMessageReader<Read>({
+      ...args,
+      messageTarget,
       validateInput: makeDuplexStreamInputValidator(validateInput),
       onEnd: async () => {
         await writer.return();
       },
-    });
-    writer = new PostMessageWriter<Write>(postMessageFn, {
+    } as PostMessageReaderArgs<Read>);
+    writer = new PostMessageWriter<Write>(messageTarget, {
       name: 'PostMessageDuplexStream',
       onEnd: async () => {
         await reader.return();
@@ -127,40 +161,11 @@ export class PostMessageDuplexStream<
   }
 
   static async make<Read, Write = Read>(
-    postMessageFn: PostMessage,
-    setListener: SetListener,
-    removeListener: RemoveListener,
-    validateInput?: ValidateInput<Read>,
+    args: PostMessageDuplexStreamArgs<Read>,
   ): Promise<PostMessageDuplexStream<Read, Write>> {
-    const stream = new PostMessageDuplexStream<Read, Write>(
-      postMessageFn,
-      setListener,
-      removeListener,
-      validateInput,
-    );
+    const stream = new PostMessageDuplexStream<Read, Write>(args);
     await stream.synchronize();
     return stream;
   }
 }
 harden(PostMessageDuplexStream);
-
-export class PostMessageMultiplexer extends StreamMultiplexer {
-  constructor(
-    postMessageFn: PostMessage,
-    setListener: SetListener,
-    removeListener: RemoveListener,
-    name?: string,
-  ) {
-    super(
-      new PostMessageDuplexStream(
-        postMessageFn,
-        setListener,
-        removeListener,
-        isMultiplexEnvelope,
-      ),
-      name,
-    );
-    harden(this);
-  }
-}
-harden(PostMessageMultiplexer);

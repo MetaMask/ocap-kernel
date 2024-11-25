@@ -20,9 +20,12 @@ export {
 } from './browser/ChromeRuntimeStream.js';
 export {
   PostMessageDuplexStream,
-  PostMessageMultiplexer,
   PostMessageReader,
   PostMessageWriter,
+} from './browser/PostMessageStream.js';
+export type {
+  PostMessageEnvelope,
+  PostMessageTarget,
 } from './browser/PostMessageStream.js';
 export { StreamMultiplexer, isMultiplexEnvelope } from './StreamMultiplexer.js';
 export type { MultiplexEnvelope } from './StreamMultiplexer.js';

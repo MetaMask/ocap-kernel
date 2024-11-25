@@ -1,87 +1,208 @@
-import '@ocap/shims/endoify';
+import '@ocap/test-utils/mock-endoify';
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
+import { MessagePortMultiplexer } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
-import { makeTestClient } from '../../test/vat-worker-service.js';
+import type { VatWorkerClientStream } from './VatWorkerClient.js';
+import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-describe('ExtensionVatWorkerClient', () => {
-  let serverPort: MessagePort;
-  let clientPort: MessagePort;
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
+vi.mock('@ocap/kernel', () => ({
+  VatWorkerServiceCommandMethod: {
+    launch: 'launch',
+    terminate: 'terminate',
+    terminateAll: 'terminateAll',
+  },
+}));
 
-  let clientLogger: Logger;
+const makeVatConfig = (sourceSpec: string = 'bogus.js'): VatConfig => ({
+  sourceSpec,
+});
 
-  let client: ExtensionVatWorkerClient;
-
-  beforeEach(() => {
-    const serviceMessageChannel = new MessageChannel();
-    serverPort = serviceMessageChannel.port1;
-    clientPort = serviceMessageChannel.port2;
-
-    clientLogger = makeLogger('[test client]');
-    client = makeTestClient(clientPort, clientLogger);
+const makeMessageEvent = (
+  messageId: `m${number}`,
+  payload: VatWorkerServiceReply['payload'],
+  port?: MessagePort,
+): MessageEvent =>
+  new MessageEvent('message', {
+    data: { id: messageId, payload },
+    ports: port ? [port] : [],
   });
 
-  it('calls logger.debug when receiving an unexpected message', async () => {
-    const debugSpy = vi.spyOn(clientLogger, 'debug');
-    const unexpectedMessage = 'foobar';
-    serverPort.postMessage(unexpectedMessage);
-    await delay(100);
-    expect(debugSpy).toHaveBeenCalledOnce();
-    expect(debugSpy).toHaveBeenLastCalledWith(
-      'Received unexpected message',
-      unexpectedMessage,
-    );
-  });
-
-  it.each`
-    method
-    ${VatWorkerServiceCommandMethod.launch}
-    ${VatWorkerServiceCommandMethod.terminate}
-  `(
-    "calls logger.error when receiving a $method reply it wasn't waiting for",
-    async ({ method }) => {
-      const errorSpy = vi.spyOn(clientLogger, 'error');
-      const unexpectedReply: VatWorkerServiceReply = {
-        id: 'm9',
-        payload: {
-          method,
-          params: { vatId: 'v0' },
-        },
-      };
-      serverPort.postMessage(unexpectedReply);
-      await delay(100);
-      expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy).toHaveBeenLastCalledWith(
-        'Received unexpected reply',
-        unexpectedReply,
-      );
+const makeLaunchReply = (messageId: `m${number}`, vatId: VatId): MessageEvent =>
+  makeMessageEvent(
+    messageId,
+    {
+      method: VatWorkerServiceCommandMethod.launch,
+      params: { vatId },
     },
+    new MessageChannel().port1,
   );
 
-  it(`calls logger.error when receiving a ${VatWorkerServiceCommandMethod.launch} reply without a port`, async () => {
-    const errorSpy = vi.spyOn(clientLogger, 'error');
-    const vatId: VatId = 'v0';
-    const vatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.launch(vatId, vatConfig);
-    const reply = {
-      id: 'm1',
-      payload: {
-        method: VatWorkerServiceCommandMethod.launch,
-        params: { vatId: 'v0' },
-      },
-    };
-    serverPort.postMessage(reply);
-    await delay(100);
-    expect(errorSpy).toHaveBeenCalledOnce();
-    expect(errorSpy.mock.lastCall?.[0]).toBe(
-      'Expected a port with message reply',
+const makeTerminateReply = (
+  messageId: `m${number}`,
+  vatId: VatId,
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: VatWorkerServiceCommandMethod.terminate,
+    params: { vatId },
+  });
+
+const makeTerminateAllReply = (messageId: `m${number}`): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: VatWorkerServiceCommandMethod.terminateAll,
+    params: null,
+  });
+
+describe('ExtensionVatWorkerClient', () => {
+  it('constructs with default logger', () => {
+    const client = new ExtensionVatWorkerClient(
+      {} as unknown as VatWorkerClientStream,
     );
-    expect(errorSpy.mock.lastCall?.[1]).toMatchObject({ data: reply });
+    expect(client).toBeDefined();
+  });
+
+  it('constructs using static factory method', () => {
+    const client = ExtensionVatWorkerClient.make({
+      postMessage: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as PostMessageTarget);
+    expect(client).toBeDefined();
+  });
+
+  describe('message handling', () => {
+    let stream: TestDuplexStream;
+    let clientLogger: Logger;
+    let client: ExtensionVatWorkerClient;
+
+    beforeEach(async () => {
+      stream = await TestDuplexStream.make(() => undefined);
+      clientLogger = makeLogger('[test client]');
+      client = new ExtensionVatWorkerClient(
+        stream as unknown as VatWorkerClientStream,
+        clientLogger,
+      );
+      client.start().catch((error) => {
+        throw error;
+      });
+    });
+
+    it('logs error for unexpected methods', async () => {
+      const errorSpy = vi.spyOn(clientLogger, 'error');
+      client.launch('v0', makeVatConfig()).catch((error) => {
+        throw error;
+      });
+      // @ts-expect-error Destructive testing.
+      await stream.receiveInput(makeMessageEvent('m1', { method: 'foo' }));
+      await delay(10);
+
+      expect(errorSpy).toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Received message with unexpected method',
+        'foo',
+      );
+    });
+
+    it('rejects pending promises for error replies', async () => {
+      const resultP = client.launch('v0', makeVatConfig());
+
+      await stream.receiveInput(
+        makeMessageEvent('m1', {
+          method: VatWorkerServiceCommandMethod.launch,
+          params: { vatId: 'v0', error: new Error('foo') },
+        }),
+      );
+
+      await expect(resultP).rejects.toThrow('foo');
+    });
+
+    it.each`
+      method
+      ${VatWorkerServiceCommandMethod.launch}
+      ${VatWorkerServiceCommandMethod.terminate}
+    `(
+      "calls logger.error when receiving a $method reply it wasn't waiting for",
+      async ({ method }) => {
+        const errorSpy = vi.spyOn(clientLogger, 'error');
+        const unexpectedReply = makeMessageEvent('m9', {
+          method,
+          params: { vatId: 'v0' },
+        });
+
+        await stream.receiveInput(unexpectedReply);
+        await delay(10);
+
+        expect(errorSpy).toHaveBeenCalledOnce();
+        expect(errorSpy).toHaveBeenLastCalledWith(
+          'Received unexpected reply',
+          unexpectedReply.data,
+        );
+      },
+    );
+
+    describe('launch', () => {
+      it('resolves with a MessagePortMultiplexer when receiving a launch reply', async () => {
+        const vatId: VatId = 'v0';
+        const vatConfig = makeVatConfig();
+        const result = client.launch(vatId, vatConfig);
+
+        await delay(10);
+        await stream.receiveInput(makeLaunchReply('m1', vatId));
+
+        expect(await result).toBeInstanceOf(MessagePortMultiplexer);
+      });
+
+      it('logs error when receiving reply without a port', async () => {
+        const errorSpy = vi.spyOn(clientLogger, 'error');
+        const vatId: VatId = 'v0';
+        const vatConfig = makeVatConfig();
+        client.launch(vatId, vatConfig).catch((error) => {
+          throw error;
+        });
+        const reply = makeMessageEvent('m1', {
+          method: VatWorkerServiceCommandMethod.launch,
+          params: { vatId },
+        });
+
+        await stream.receiveInput(reply);
+        await delay(10);
+
+        expect(errorSpy).toHaveBeenCalledOnce();
+        expect(errorSpy.mock.lastCall?.[0]).toBe(
+          'Expected a port with message reply',
+        );
+        expect(errorSpy.mock.lastCall?.[1]).toBe(reply);
+      });
+    });
+
+    describe('terminate', () => {
+      it('resolves when receiving a terminate reply', async () => {
+        const result = client.terminate('v0');
+        await stream.receiveInput(makeTerminateReply('m1', 'v0'));
+        await delay(10);
+
+        expect(await result).toBeUndefined();
+      });
+    });
+
+    describe('terminateAll', () => {
+      it('resolves when receiving a terminateAll reply', async () => {
+        const result = client.terminateAll();
+        await stream.receiveInput(makeTerminateAllReply('m1'));
+        await delay(10);
+
+        expect(await result).toBeUndefined();
+      });
+    });
   });
 });

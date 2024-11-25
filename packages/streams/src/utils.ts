@@ -1,13 +1,6 @@
 import type { Reader, Writer } from '@endo/stream';
-import type { Struct } from '@metamask/superstruct';
-import {
-  any,
-  is,
-  literal,
-  record,
-  refine,
-  string,
-} from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+import { is, literal } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import {
   hasProperty,
@@ -24,12 +17,6 @@ export type PromiseCallbacks = {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
 };
-
-const PlainObject = refine(
-  record(string(), any()),
-  'PlainObject',
-  (value) => !Array.isArray(value),
-);
 
 /**
  * Check if the given value is a valid {@link Json} value, i.e., a value that is
@@ -51,29 +38,24 @@ export enum StreamSentinel {
   Done = '@@StreamDone',
 }
 
-type StreamError = {
-  [StreamSentinel.Error]: true;
-  error: Json;
-};
-
-type StreamDone = {
-  [StreamSentinel.Done]: true;
-};
-
 export const StreamDoneSymbol = Symbol('StreamDone');
 
-export type StreamSignal = StreamError | StreamDone;
-
-const StreamErrorStruct: Struct<StreamError> = object({
-  [StreamSentinel.Error]: literal(true),
-  error: PlainObject,
-}) as Struct<StreamError>;
-
-const StreamDoneStruct: Struct<StreamDone> = object({
+const StreamDoneStruct = object({
   [StreamSentinel.Done]: literal(true),
 });
 
-const isSignalLike = (value: unknown): value is StreamSignal =>
+const StreamErrorStruct = object({
+  [StreamSentinel.Error]: literal(true),
+  error: UnsafeJsonStruct,
+});
+
+type StreamDone = Infer<typeof StreamDoneStruct>;
+
+type StreamError = Infer<typeof StreamErrorStruct>;
+
+export type StreamSignal = StreamError | StreamDone;
+
+export const isSignalLike = (value: unknown): value is StreamSignal =>
   isObject(value) &&
   (hasProperty(value, StreamSentinel.Error) ||
     hasProperty(value, StreamSentinel.Done));

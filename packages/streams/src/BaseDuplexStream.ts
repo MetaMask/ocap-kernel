@@ -41,8 +41,9 @@ export const makeAck = (): DuplexStreamAck => ({
 
 type DuplexStreamSignal = DuplexStreamSyn | DuplexStreamAck;
 
-const isDuplexStreamSignal = (value: unknown): value is DuplexStreamSignal =>
-  isSyn(value) || isAck(value);
+export const isDuplexStreamSignal = (
+  value: unknown,
+): value is DuplexStreamSignal => isSyn(value) || isAck(value);
 
 /**
  * Make a validator for input to a duplex stream. Constructor helper for concrete

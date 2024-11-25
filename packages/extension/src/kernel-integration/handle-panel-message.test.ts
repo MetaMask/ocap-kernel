@@ -1,4 +1,4 @@
-import '../../../test-utils/src/env/mock-endo.ts';
+import '@ocap/test-utils/mock-endoify';
 import { define, literal, object } from '@metamask/superstruct';
 import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
