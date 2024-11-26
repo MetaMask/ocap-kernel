@@ -73,7 +73,6 @@ test.describe('Kernel Panel', () => {
 
   test('should launch a new vat', async () => {
     const initialCount = await getCurrentVatCount();
-
     await expect(popupPage.locator('#launch-vat')).toBeDisabled();
     await popupPage.fill('#new-vat-name', 'test-vat');
     await popupPage.fill(
@@ -82,7 +81,6 @@ test.describe('Kernel Panel', () => {
     );
     await expect(popupPage.locator('#launch-vat')).toBeEnabled();
     await popupPage.click('#launch-vat');
-
     await expect(popupPage.locator('#status-display')).toContainText(
       `Active Vats (${initialCount + 1})`,
     );
