@@ -166,7 +166,6 @@ export class Supervisor {
           );
         }
         const bundle = await fetched.json();
-        console.log('Supervisor bundle baggage:', this.#baggage);
         const vatNS = await importBundle(bundle, {
           endowments: {
             console,
