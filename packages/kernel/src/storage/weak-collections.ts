@@ -117,7 +117,7 @@ export class WeakCollection<Key extends string, Value extends object> {
   async init(key: Key, value: Value): Promise<void> {
     const keyString = this.#makeKey(key);
     await this.#store.set(keyString, {
-      body: JSON.stringify(getSafeJson(value)),
+      body: JSON.stringify(getSafeJson(value)), // TODO: Better serialization
       slots: [],
     } satisfies StoredEntry);
     await this.#incRefCount(key);

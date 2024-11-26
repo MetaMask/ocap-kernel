@@ -1,3 +1,5 @@
+import { getSafeJson } from '@metamask/utils';
+
 import type { VatStore } from './vat-store';
 
 // Collection metadata keys use this prefix
@@ -115,7 +117,7 @@ export class Collection<Key extends string, Value> {
   async init(key: Key, value: Value): Promise<void> {
     const keyString = this.#makeKey(key);
     await this.#store.set(keyString, {
-      body: JSON.stringify(value),
+      body: JSON.stringify(getSafeJson(value)), // TODO: Better serialization
       slots: [],
     } satisfies StoredEntry);
     this.#metadata.entryCount += 1;
