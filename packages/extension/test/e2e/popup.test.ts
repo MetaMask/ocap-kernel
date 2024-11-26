@@ -63,9 +63,13 @@ test.describe('Kernel Panel', () => {
     await expect(popupPage.locator('#launch-vat')).toBeEnabled();
   });
 
-  test('should handle empty vat list', async () => {
+  test('should handle vat buttons state', async () => {
+    await popupPage.selectOption('#vat-dropdown', '');
     await expect(popupPage.locator('#restart-vat')).toBeDisabled();
     await expect(popupPage.locator('#terminate-vat')).toBeDisabled();
+    await popupPage.selectOption('#vat-dropdown', 'v1');
+    await expect(popupPage.locator('#restart-vat')).toBeEnabled();
+    await expect(popupPage.locator('#terminate-vat')).toBeEnabled();
   });
 
   test('should launch a new vat', async () => {
