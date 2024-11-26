@@ -51,8 +51,6 @@ test.describe('Kernel Panel', () => {
   });
 
   test('should validate bundle URL format', async () => {
-    await popupPage.fill('#new-vat-name', '');
-    await popupPage.fill('#bundle-url', '');
     await popupPage.fill('#new-vat-name', 'test-vat');
     await popupPage.fill('#bundle-url', 'invalid-url');
     await expect(popupPage.locator('#launch-vat')).toBeDisabled();
@@ -66,7 +64,6 @@ test.describe('Kernel Panel', () => {
   });
 
   test('should handle empty vat list', async () => {
-    await popupPage.selectOption('#vat-dropdown', '');
     await expect(popupPage.locator('#restart-vat')).toBeDisabled();
     await expect(popupPage.locator('#terminate-vat')).toBeDisabled();
   });
