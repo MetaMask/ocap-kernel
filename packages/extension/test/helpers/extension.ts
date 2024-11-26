@@ -19,6 +19,7 @@ export const makeLoadExtension = async (): Promise<{
 }> => {
   // eslint-disable-next-line n/no-process-env
   const workerIndex = process.env.TEST_WORKER_INDEX ?? '0';
+  // Separate user data dir for each worker to avoid conflicts
   const userDataDir = path.join(sessionPath, workerIndex);
   await rm(userDataDir, { recursive: true, force: true });
 
@@ -35,8 +36,8 @@ export const makeLoadExtension = async (): Promise<{
   ];
 
   // eslint-disable-next-line n/no-process-env
-  const isDebugging = process.env.npm_lifecycle_event === 'test:e2e:debug';
-  if (!isDebugging) {
+  const isHeadless = process.env.npm_lifecycle_event === 'test:e2e';
+  if (isHeadless) {
     browserArgs.push(`--headless=new`);
   }
 
