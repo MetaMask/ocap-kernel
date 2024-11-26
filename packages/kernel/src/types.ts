@@ -199,4 +199,6 @@ export type ClusterConfig = {
   bundles?: VatConfigTable;
 };
 
-export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
+export type UserCodeStartFn = (
+  parameters?: Record<string, Json>,
+) => Promise<object>;

@@ -8,7 +8,7 @@ import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KVStore } from './kernel-store.js';
-import { Kernel } from './Kernel.js';
+import { Kernel } from './kernel.js';
 import type {
   KernelCommand,
   KernelCommandReply,

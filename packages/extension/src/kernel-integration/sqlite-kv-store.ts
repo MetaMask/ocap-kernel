@@ -110,5 +110,6 @@ export async function makeSQLKVStore(
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
+    has: (key) => kvGet(key, false) !== undefined,
   };
 }

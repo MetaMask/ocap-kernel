@@ -1,54 +1,107 @@
+/* eslint-disable no-undef */
+
 /**
  * Start function for storage vat.
  *
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {object} options - Additional options.
- * @param {Baggage} options.baggage - The baggage to use for storage.
- * @param {Function} options.provideObject - The function to use to provide objects.
- * @param {Function} options.provideCollection - The function to use to provide collections.
  * @returns {unknown} The root object for the new vat.
  */
-export function start(
-  parameters,
-  { baggage, provideObject, provideCollection },
-) {
-  const name = parameters?.name ?? 'anonymous';
-  console.log(`start vat root object "${name}"`);
+export async function start(parameters) {
+  const name = parameters?.name ?? 'storage';
+  console.log(`Starting storage vat "${name}"`);
 
-  // Initialize our persistent state
-  const state = provideObject(baggage, 'state', {
+  const preferences = await provideCollection(baggage, 'preferences');
+  const sessions = await provideWeakCollection(baggage, 'sessions');
+  const stats = await provideObject(baggage, 'stats', {
     initialized: Date.now(),
     lastAccessed: null,
+    preferencesCount: 0,
+    activeSessions: 0,
   });
-
-  // Create a collection for storing key-value pairs
-  const store = provideCollection(baggage, 'store');
 
   return {
     name,
 
-    async set(key, value) {
-      await store.init(key, value);
-      state.lastAccessed = Date.now();
+    // User preferences management
+    async setPreference(userId, key, value) {
+      const userPreferences = (await preferences.get(userId)) || {};
+      userPreferences[key] = value;
+      await preferences.init(userId, userPreferences);
+      stats.preferencesCount += 1;
+      stats.lastAccessed = Date.now();
       return true;
     },
 
-    async get(key) {
-      const value = await store.get(key);
-      state.lastAccessed = Date.now();
-      return value;
+    async getPreference(userId, key) {
+      const userPreferences = await preferences.get(userId);
+      stats.lastAccessed = Date.now();
+      return userPreferences?.[key];
     },
 
-    async delete(key) {
-      await store.delete(key);
-      state.lastAccessed = Date.now();
+    async getAllPreferences(userId) {
+      const userPreferences = await preferences.get(userId);
+      stats.lastAccessed = Date.now();
+      return userPreferences || {};
+    },
+
+    async clearPreferences(userId) {
+      await preferences.delete(userId);
+      stats.preferencesCount = Math.max(0, stats.preferencesCount - 1);
+      stats.lastAccessed = Date.now();
       return true;
     },
 
+    // Session management
+    async createSession(sessionId, data) {
+      await sessions.init(sessionId, {
+        created: Date.now(),
+        lastAccessed: Date.now(),
+        ...data,
+      });
+      stats.activeSessions += 1;
+      return true;
+    },
+
+    async updateSession(sessionId, data) {
+      const session = await sessions.get(sessionId);
+      if (!session) {
+        return false;
+      }
+
+      await sessions.init(sessionId, {
+        ...session,
+        ...data,
+        lastAccessed: Date.now(),
+      });
+      return true;
+    },
+
+    async getSession(sessionId) {
+      const session = await sessions.get(sessionId);
+      if (session) {
+        await this.updateSession(sessionId, { lastAccessed: Date.now() });
+      }
+      return session;
+    },
+
+    async keepSessionAlive(sessionId) {
+      await sessions.addRef(sessionId);
+      return true;
+    },
+
+    async releaseSession(sessionId) {
+      await sessions.removeRef(sessionId);
+      stats.activeSessions = Math.max(0, stats.activeSessions - 1);
+      return true;
+    },
+
+    // Stats and diagnostics
     getStats() {
       return {
-        initialized: state.initialized,
-        lastAccessed: state.lastAccessed,
+        initialized: stats.initialized,
+        lastAccessed: stats.lastAccessed,
+        preferencesCount: stats.preferencesCount,
+        activeSessions: stats.activeSessions,
       };
     },
   };

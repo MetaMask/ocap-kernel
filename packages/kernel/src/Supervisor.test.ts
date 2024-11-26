@@ -7,7 +7,8 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { isVatCommand, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { Supervisor } from './Supervisor.js';
+import { Supervisor } from './supervisor.js';
+import { makeMapKVStore } from '../test/storage.js';
 
 const makeSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
@@ -29,11 +30,14 @@ const makeSupervisor = async (
     throw error;
   });
   await multiplexer.synchronizeChannels('command', 'capTp');
+
+  const kvStore = makeMapKVStore();
   return {
     supervisor: new Supervisor({
       id: 'test-id',
       commandStream,
       capTpStream,
+      kvStore,
     }),
     stream,
   };

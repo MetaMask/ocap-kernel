@@ -1,3 +1,5 @@
+import { getSafeJson } from '@metamask/utils';
+
 import type { KVStore } from '../kernel-store';
 import type { VatId } from '../types';
 
@@ -16,7 +18,7 @@ export class VatStore {
   }
 
   async set(key: string, value: unknown): Promise<void> {
-    this.#store.set(this.#makeKey(key), JSON.stringify(value));
+    this.#store.set(this.#makeKey(key), JSON.stringify(getSafeJson(value)));
   }
 
   async get(key: string): Promise<unknown> {

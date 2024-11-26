@@ -5,11 +5,16 @@ import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
+import type { KVStore } from './kernel-store.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
-import { Baggage } from './storage/baggage';
-import { provideObject, provideCollection } from './storage/providers';
-import { VatStore } from './storage/vatstore';
+import { Baggage } from './storage/baggage.js';
+import {
+  provideObject,
+  provideCollection,
+  provideWeakCollection,
+} from './storage/providers.js';
+import { VatStore } from './storage/vat-store.js';
 import type { UserCodeStartFn, VatConfig } from './types.js';
 import { isVatConfig } from './types.js';
 
@@ -18,6 +23,7 @@ type SupervisorConstructorProps = {
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   capTpStream: DuplexStream<Json, Json>;
   bootstrap?: unknown;
+  kvStore: KVStore;
 };
 
 export class Supervisor {
@@ -37,36 +43,43 @@ export class Supervisor {
 
   readonly #store: VatStore;
 
-  readonly #baggage: Baggage;
+  #baggage: Baggage | undefined;
 
   constructor({
     id,
     commandStream,
     capTpStream,
     bootstrap,
+    kvStore,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#bootstrap = bootstrap;
     this.#commandStream = commandStream;
     this.#capTpStream = capTpStream;
-
-    Promise.all([
-      this.#commandStream.drain(this.handleMessage.bind(this)),
-      this.#capTpStream.drain((content): void => {
-        this.capTp?.dispatch(content);
-      }),
-    ]).catch(async (error) => {
-      console.error(
-        `Unexpected read error from Supervisor "${this.id}"`,
-        error,
-      );
-      await this.terminate(
-        new StreamReadError({ supervisorId: this.id }, error),
-      );
-    });
-
     this.#store = new VatStore(`v${id}`, kvStore);
-    this.#baggage = new Baggage(this.#store);
+
+    Baggage.create(this.#store)
+      .then(async (baggage) => {
+        this.#baggage = baggage;
+
+        console.log('Supervisor baggage', this.#baggage);
+
+        return Promise.all([
+          this.#commandStream.drain(this.handleMessage.bind(this)),
+          this.#capTpStream.drain((content): void => {
+            this.capTp?.dispatch(content);
+          }),
+        ]);
+      })
+      .catch(async (error) => {
+        console.error(
+          `Unexpected read error from Supervisor "${this.id}"`,
+          error,
+        );
+        await this.terminate(
+          new StreamReadError({ supervisorId: this.id }, error),
+        );
+      });
   }
 
   /**
@@ -150,19 +163,23 @@ export class Supervisor {
           );
         }
         const bundle = await fetched.json();
+        console.log('Supervisor bundle baggage:', this.#baggage);
         const vatNS = await importBundle(bundle, {
           endowments: {
             console,
             baggage: this.#baggage,
             provideObject,
             provideCollection,
+            provideWeakCollection,
+            Date,
           },
         });
         const { start }: { start: UserCodeStartFn } = vatNS;
         if (start === undefined) {
           throw Error(`vat module ${bundleSpec} has no start function`);
         }
-        const rootObject = start(parameters);
+        const rootObject = await start(parameters);
+        console.log('Supervisor root object:', rootObject);
         await this.replyToMessage(id, {
           method: VatCommandMethod.loadUserCode,
           params: stringify(rootObject),

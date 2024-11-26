@@ -1,8 +1,8 @@
 export * from './messages/index.js';
-export { Kernel } from './Kernel.js';
+export { Kernel } from './kernel.js';
 export type { KVStore } from './kernel-store.js';
 export { Vat } from './Vat.js';
-export { Supervisor } from './Supervisor.js';
+export { Supervisor } from './supervisor.js';
 export type {
   VatId,
   VatWorkerService,

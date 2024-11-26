@@ -1,8 +1,14 @@
-import type { VatStore } from './vatstore';
+import type { VatStore } from './vat-store';
 
 // Collection metadata keys use this prefix
 const COLLECTION_PREFIX = 'vc';
 
+/**
+ * Metadata structure for collections that tracks:
+ * - Number of entries
+ * - Next available ordinal
+ * - Schema information for stored data
+ */
 type CollectionMetadata = {
   entryCount: number;
   nextOrdinal: number;
@@ -13,12 +19,29 @@ type CollectionMetadata = {
   };
 };
 
-// Add type for stored entries
+/**
+ * Structure for entries stored in the collection.
+ */
 export type StoredEntry = {
+  /** JSON-serialized data */
   body: string;
+  /** References to capability slots */
   slots: unknown[];
 };
 
+/**
+ * Collection provides persistent key-value storage within a vat.
+ * It maintains metadata about stored entries and handles serialization/deserialization.
+ *
+ * Features:
+ * - Persistent storage across vat restarts
+ * - Entry counting and metadata tracking
+ * - JSON serialization of values
+ * - Support for capability slots
+ *
+ * @template Key - Must be string for now
+ * @template Value - The type of values stored in the collection
+ */
 export class Collection<Key extends string, Value> {
   readonly #id: number;
 
@@ -28,10 +51,18 @@ export class Collection<Key extends string, Value> {
 
   #metadata: CollectionMetadata;
 
+  /**
+   * Creates a new Collection instance.
+   *
+   * @param id - Unique identifier for this collection
+   * @param store - VatStore instance for persistence
+   * @param label - Human-readable label for the collection
+   */
   constructor(id: number, store: VatStore, label: string) {
     this.#id = id;
     this.#store = store;
     this.#label = label;
+    // Initialize metadata with default values
     this.#metadata = {
       entryCount: 0,
       nextOrdinal: 1,
@@ -47,6 +78,14 @@ export class Collection<Key extends string, Value> {
     });
   }
 
+  /**
+   * Generates a storage key for a collection entry.
+   * Format: vc.<collection_id>.s<key>
+   *
+   * @param key - The key to generate a storage key for
+   * @returns The generated storage key
+   * @throws If key is not a string
+   */
   #makeKey(key: Key): string {
     if (typeof key === 'string') {
       return `${COLLECTION_PREFIX}.${this.#id}.s${key}`;
@@ -54,10 +93,25 @@ export class Collection<Key extends string, Value> {
     throw new Error('Only string keys are supported');
   }
 
+  /**
+   * Generates the storage key for collection metadata.
+   * Format: vc.<collection_id>.|metadata
+   *
+   * @returns The metadata storage key
+   */
   #makeMetadataKey(): string {
     return `${COLLECTION_PREFIX}.${this.#id}.|metadata`;
   }
 
+  /**
+   * Initializes or updates a value in the collection.
+   * - Serializes the value to JSON
+   * - Updates entry count
+   * - Persists metadata changes
+   *
+   * @param key - The key to store under
+   * @param value - The value to store
+   */
   async init(key: Key, value: Value): Promise<void> {
     const keyString = this.#makeKey(key);
     await this.#store.set(keyString, {
@@ -68,6 +122,12 @@ export class Collection<Key extends string, Value> {
     await this.#saveMetadata();
   }
 
+  /**
+   * Retrieves and deserializes a value from the collection.
+   *
+   * @param key - The key to retrieve
+   * @returns The deserialized value, or undefined if not found
+   */
   async get(key: Key): Promise<Value | undefined> {
     const keyString = this.#makeKey(key);
     const entry = (await this.#store.get(keyString)) as StoredEntry | undefined;
@@ -77,6 +137,14 @@ export class Collection<Key extends string, Value> {
     return JSON.parse(entry.body);
   }
 
+  /**
+   * Deletes an entry from the collection.
+   * - Removes the stored value
+   * - Updates entry count
+   * - Persists metadata changes
+   *
+   * @param key - The key to delete
+   */
   async delete(key: Key): Promise<void> {
     const keyString = this.#makeKey(key);
     await this.#store.delete(keyString);
@@ -84,10 +152,16 @@ export class Collection<Key extends string, Value> {
     await this.#saveMetadata();
   }
 
+  /**
+   * Persists the current metadata state.
+   */
   async #saveMetadata(): Promise<void> {
     await this.#store.set(this.#makeMetadataKey(), this.#metadata);
   }
 
+  /**
+   * Loads metadata from storage or initializes default metadata.
+   */
   async #loadMetadata(): Promise<void> {
     const metadata = await this.#store.get(this.#makeMetadataKey());
     if (metadata) {
@@ -98,11 +172,20 @@ export class Collection<Key extends string, Value> {
     }
   }
 
-  // Expose collection info
+  /**
+   * Gets the collection's label.
+   *
+   * @returns The collection's label
+   */
   get label(): string {
     return this.#label;
   }
 
+  /**
+   * Gets the current number of entries in the collection.
+   *
+   * @returns The number of entries in the collection
+   */
   get size(): number {
     return this.#metadata.entryCount;
   }

@@ -5,6 +5,8 @@ import { isVatCommand, Supervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { MessagePortMultiplexer, receiveMessagePort } from '@ocap/streams';
 
+import { makeSQLKVStore } from './kernel-integration/sqlite-kv-store.js';
+
 main().catch(console.error);
 
 /**
@@ -22,6 +24,8 @@ async function main(): Promise<void> {
     { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
   );
 
+  const kvStore = await makeSQLKVStore(`[supervisor-iframe]`);
+
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
     isVatCommand,
@@ -32,6 +36,7 @@ async function main(): Promise<void> {
     commandStream,
     capTpStream,
     bootstrap,
+    kvStore,
   });
 
   console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
