@@ -7,6 +7,9 @@ import { stringify } from '@ocap/utils';
 
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
+import { Baggage } from './storage/baggage';
+import { provideObject, provideCollection } from './storage/providers';
+import { VatStore } from './storage/vatstore';
 import type { UserCodeStartFn, VatConfig } from './types.js';
 import { isVatConfig } from './types.js';
 
@@ -31,6 +34,10 @@ export class Supervisor {
   capTp?: ReturnType<typeof makeCapTP>;
 
   #loaded: boolean = false;
+
+  readonly #store: VatStore;
+
+  readonly #baggage: Baggage;
 
   constructor({
     id,
@@ -57,6 +64,9 @@ export class Supervisor {
         new StreamReadError({ supervisorId: this.id }, error),
       );
     });
+
+    this.#store = new VatStore(`v${id}`, kvStore);
+    this.#baggage = new Baggage(this.#store);
   }
 
   /**
@@ -143,6 +153,9 @@ export class Supervisor {
         const vatNS = await importBundle(bundle, {
           endowments: {
             console,
+            baggage: this.#baggage,
+            provideObject,
+            provideCollection,
           },
         });
         const { start }: { start: UserCodeStartFn } = vatNS;

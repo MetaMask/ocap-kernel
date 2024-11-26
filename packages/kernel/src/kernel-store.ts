@@ -77,6 +77,7 @@ export type KVStore = {
   getRequired(key: string): string;
   set(key: string, value: string): void;
   delete(key: string): void;
+  has(key: string): boolean;
 };
 
 /**
