@@ -42,7 +42,7 @@ export default defineConfig({
         },
         'packages/extension/**': {
           statements: 57.17,
-          functions: 49.52,
+          functions: 50,
           branches: 75.86,
           lines: 57.36,
         },
