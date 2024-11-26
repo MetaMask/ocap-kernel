@@ -58,28 +58,31 @@ export class Supervisor {
     this.#capTpStream = capTpStream;
     this.#store = new VatStore(`v${id}`, kvStore);
 
-    Baggage.create(this.#store)
-      .then(async (baggage) => {
-        this.#baggage = baggage;
+    this.#initializeBaggage().catch((error) => {
+      console.error('Failed to initialize baggage:', error);
+    });
 
-        console.log('Supervisor baggage', this.#baggage);
+    Promise.all([
+      this.#commandStream.drain(this.handleMessage.bind(this)),
+      this.#capTpStream.drain((content): void => {
+        this.capTp?.dispatch(content);
+      }),
+    ]).catch(async (error) => {
+      console.error(
+        `Unexpected read error from Supervisor "${this.id}"`,
+        error,
+      );
+      await this.terminate(
+        new StreamReadError({ supervisorId: this.id }, error),
+      );
+    });
+  }
 
-        return Promise.all([
-          this.#commandStream.drain(this.handleMessage.bind(this)),
-          this.#capTpStream.drain((content): void => {
-            this.capTp?.dispatch(content);
-          }),
-        ]);
-      })
-      .catch(async (error) => {
-        console.error(
-          `Unexpected read error from Supervisor "${this.id}"`,
-          error,
-        );
-        await this.terminate(
-          new StreamReadError({ supervisorId: this.id }, error),
-        );
-      });
+  /**
+   * Initializes the baggage for the Supervisor.
+   */
+  async #initializeBaggage(): Promise<void> {
+    this.#baggage = await Baggage.create(this.#store);
   }
 
   /**
