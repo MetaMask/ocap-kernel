@@ -9,11 +9,7 @@ import type { KVStore } from './kernel-store.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
 import { Baggage } from './storage/baggage.js';
-import {
-  provideObject,
-  provideCollection,
-  provideWeakCollection,
-} from './storage/providers.js';
+import { provideObject } from './storage/providers.js';
 import { VatStore } from './storage/vat-store.js';
 import type { UserCodeStartFn, VatConfig } from './types.js';
 import { isVatConfig } from './types.js';
@@ -171,8 +167,6 @@ export class Supervisor {
             console,
             baggage: this.#baggage,
             provideObject,
-            provideCollection,
-            provideWeakCollection,
             Date,
           },
         });
