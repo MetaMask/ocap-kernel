@@ -10,8 +10,8 @@ export async function start(parameters) {
   const name = parameters?.name ?? 'storage';
   console.log(`Starting storage vat "${name}"`);
 
-  const preferences = await provideCollection(baggage, 'preferences');
-  const sessions = await provideWeakCollection(baggage, 'sessions');
+  const preferences = await baggage.createCollection('preferences');
+  const sessions = await baggage.createWeakCollection('sessions');
   const stats = await provideObject(baggage, 'stats', {
     initialized: Date.now(),
     lastAccessed: null,
