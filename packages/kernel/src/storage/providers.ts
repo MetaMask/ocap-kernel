@@ -20,3 +20,5 @@ export async function provideObject<Value extends Record<string, unknown>>(
   await baggage.set(name, initial);
   return initial;
 }
+
+export type ProvideObject = typeof provideObject;

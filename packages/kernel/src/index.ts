@@ -10,3 +10,5 @@ export type {
   VatConfig,
 } from './types.js';
 export { isVatId, VatIdStruct, isVatConfig, VatConfigStruct } from './types.js';
+export type { Baggage } from './storage/baggage.js';
+export type { ProvideObject } from './storage/providers';
