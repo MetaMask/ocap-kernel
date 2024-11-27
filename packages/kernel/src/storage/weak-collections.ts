@@ -1,5 +1,3 @@
-import { getSafeJson } from '@metamask/utils';
-
 import type { StoredEntry } from './collections';
 import type { VatStore } from './vat-store';
 
@@ -115,11 +113,13 @@ export class WeakCollection<Key extends string, Value extends object> {
    * @param value - The object to store
    */
   async init(key: Key, value: Value): Promise<void> {
+    const entry: StoredEntry<Value> = {
+      value,
+      timestamp: Date.now(),
+    };
+
     const keyString = this.#makeKey(key);
-    await this.#store.set(keyString, {
-      body: JSON.stringify(getSafeJson(value)), // TODO: Better serialization
-      slots: [],
-    } satisfies StoredEntry);
+    await this.#store.set(keyString, entry);
     await this.#incRefCount(key);
   }
 
@@ -131,11 +131,10 @@ export class WeakCollection<Key extends string, Value extends object> {
    */
   async get(key: Key): Promise<Value | undefined> {
     const keyString = this.#makeKey(key);
-    const entry = (await this.#store.get(keyString)) as StoredEntry | undefined;
-    if (!entry) {
-      return undefined;
-    }
-    return JSON.parse(entry.body);
+    const entry = (await this.#store.get(keyString)) as
+      | StoredEntry<Value>
+      | undefined;
+    return entry?.value;
   }
 
   /**

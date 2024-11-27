@@ -2,8 +2,9 @@ import { Collection } from './collections';
 import type { VatStore } from './vat-store';
 import { WeakCollection } from './weak-collections';
 
-const BAGGAGE_ID = 'baggageID';
-const NEXT_COLLECTION_ID = 'nextCollectionId';
+export const BAGGAGE_ID = 'baggageID';
+export const NEXT_COLLECTION_ID = 'nextCollectionId';
+export const STORAGE_VERSION = '1.0.0';
 
 /**
  * Baggage provides persistent storage capabilities for vats.
@@ -32,8 +33,11 @@ export class Baggage {
    */
   static async create(store: VatStore): Promise<Baggage> {
     const baggage = new Baggage(store);
-    await store.set(BAGGAGE_ID, 'o+d6/1');
-    await store.set(NEXT_COLLECTION_ID, 2);
+    await store.set(BAGGAGE_ID, STORAGE_VERSION);
+    if (!(await store.has(NEXT_COLLECTION_ID))) {
+      await store.set(NEXT_COLLECTION_ID, 2);
+    }
+    await baggage.#ensureInitialized();
     return baggage;
   }
 
@@ -48,7 +52,6 @@ export class Baggage {
     // Collection ID 1 is reserved for baggage's own storage
     this.#collection = new Collection(1, store, 'baggage');
     this.#nextId = 2;
-    console.log('Baggage constructor', this.#collection);
   }
 
   /**
@@ -58,7 +61,8 @@ export class Baggage {
    */
   async #ensureInitialized(): Promise<void> {
     const nextId = await this.#store.get(NEXT_COLLECTION_ID);
-    this.#nextId = nextId ? Number(nextId) : 2;
+    const parsedId = nextId ? Number(nextId) : 2;
+    this.#nextId = !nextId || !Number.isFinite(parsedId) ? 2 : parsedId;
   }
 
   /**

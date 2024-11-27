@@ -1,5 +1,3 @@
-import { getSafeJson } from '@metamask/utils';
-
 import type { VatStore } from './vat-store';
 
 // Collection metadata keys use this prefix
@@ -13,22 +11,16 @@ const COLLECTION_PREFIX = 'vc';
  */
 type CollectionMetadata = {
   entryCount: number;
-  nextOrdinal: number;
-  schemata: {
-    label: string;
-    body: string;
-    slots: unknown[];
-  };
+  label: string;
+  version: string;
 };
 
 /**
  * Structure for entries stored in the collection.
  */
-export type StoredEntry = {
-  /** JSON-serialized data */
-  body: string;
-  /** References to capability slots */
-  slots: unknown[];
+export type StoredEntry<Value> = {
+  value: Value;
+  timestamp: number;
 };
 
 /**
@@ -67,12 +59,8 @@ export class Collection<Key extends string, Value> {
     // Initialize metadata with default values
     this.#metadata = {
       entryCount: 0,
-      nextOrdinal: 1,
-      schemata: {
-        label,
-        body: '#[{"#tag":"match:scalar","payload":"#undefined"}]',
-        slots: [],
-      },
+      label,
+      version: '1.0.0',
     };
     // Load existing metadata if it exists
     this.#loadMetadata().catch((error) => {
@@ -115,11 +103,13 @@ export class Collection<Key extends string, Value> {
    * @param value - The value to store
    */
   async init(key: Key, value: Value): Promise<void> {
+    const entry: StoredEntry<Value> = {
+      value,
+      timestamp: Date.now(),
+    };
+
     const keyString = this.#makeKey(key);
-    await this.#store.set(keyString, {
-      body: JSON.stringify(getSafeJson(value)), // TODO: Better serialization
-      slots: [],
-    } satisfies StoredEntry);
+    await this.#store.set(keyString, entry);
     this.#metadata.entryCount += 1;
     await this.#saveMetadata();
   }
@@ -132,11 +122,10 @@ export class Collection<Key extends string, Value> {
    */
   async get(key: Key): Promise<Value | undefined> {
     const keyString = this.#makeKey(key);
-    const entry = (await this.#store.get(keyString)) as StoredEntry | undefined;
-    if (!entry) {
-      return undefined;
-    }
-    return JSON.parse(entry.body);
+    const entry = (await this.#store.get(keyString)) as
+      | StoredEntry<Value>
+      | undefined;
+    return entry?.value;
   }
 
   /**
