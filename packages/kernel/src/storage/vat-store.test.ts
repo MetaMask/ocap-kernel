@@ -56,10 +56,12 @@ describe('VatStore', () => {
       expect(await vatStore.get('key')).toBe('value');
     });
 
-    it('should handle JSON parsing errors gracefully', async () => {
+    it('should handle JSON parsing errors', async () => {
       // Directly set invalid JSON in the store
       mockKVStore.set(`${mockVatId}.vs.invalid`, '{invalid json}');
-      await expect(async () => vatStore.get('invalid')).rejects.toThrow(Error);
+      await expect(async () => vatStore.get('invalid')).rejects.toThrow(
+        `Expected property name or '}' in JSON at position 1`,
+      );
     });
   });
 
