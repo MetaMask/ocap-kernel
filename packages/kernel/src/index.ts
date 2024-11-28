@@ -8,6 +8,8 @@ export type {
   VatWorkerService,
   ClusterConfig,
   VatConfig,
+  UserCodeExports,
+  UserCodeStartFn,
 } from './types.js';
 export { isVatId, VatIdStruct, isVatConfig, VatConfigStruct } from './types.js';
 export type { Baggage } from './storage/baggage.js';

@@ -23,34 +23,10 @@
  * @module storage-vat
  */
 
-import type { Baggage, ProvideObject } from '@ocap/kernel';
+import type { Baggage, ProvideObject, UserCodeExports } from '@ocap/kernel';
 
 declare const baggage: Baggage;
 declare const provideObject: ProvideObject;
-
-type StorageVatInterface = {
-  name: string;
-  setPreference: (
-    userId: string,
-    key: string,
-    value: unknown,
-  ) => Promise<boolean>;
-  getPreference: (userId: string, key: string) => Promise<unknown>;
-  getAllPreferences: (userId: string) => Promise<Record<string, unknown>>;
-  clearPreferences: (userId: string) => Promise<boolean>;
-  createSession: (
-    sessionId: string,
-    data: Record<string, unknown>,
-  ) => Promise<boolean>;
-  updateSession: (
-    sessionId: string,
-    data: Record<string, unknown>,
-  ) => Promise<boolean>;
-  getSession: (sessionId: string) => Promise<Record<string, unknown> | null>;
-  keepSessionAlive: (sessionId: string) => Promise<boolean>;
-  releaseSession: (sessionId: string) => Promise<boolean>;
-  getStats: () => StatsValues;
-};
 
 type StatsValues = {
   initialized: number;
@@ -68,7 +44,7 @@ type StatsValues = {
  */
 export async function start(parameters: {
   name?: string;
-}): Promise<StorageVatInterface> {
+}): Promise<UserCodeExports> {
   const name = parameters?.name ?? 'storage';
   console.log(`Starting storage vat "${name}"`);
 
@@ -197,15 +173,17 @@ export async function start(parameters: {
 
   return {
     name,
-    setPreference,
-    getPreference,
-    getAllPreferences,
-    clearPreferences,
-    createSession,
-    updateSession,
-    getSession,
-    keepSessionAlive,
-    releaseSession,
-    getStats,
-  };
+    methods: {
+      setPreference,
+      getPreference,
+      getAllPreferences,
+      clearPreferences,
+      createSession,
+      updateSession,
+      getSession,
+      keepSessionAlive,
+      releaseSession,
+      getStats,
+    },
+  } as UserCodeExports;
 }

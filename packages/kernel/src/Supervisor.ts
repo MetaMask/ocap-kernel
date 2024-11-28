@@ -1,5 +1,9 @@
 import { makeCapTP } from '@endo/captp';
+import { makeExo } from '@endo/exo';
 import { importBundle } from '@endo/import-bundle';
+import { M } from '@endo/patterns';
+import { makePromiseKit } from '@endo/promise-kit';
+import type { PromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
@@ -18,7 +22,6 @@ type SupervisorConstructorProps = {
   id: string;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   capTpStream: DuplexStream<Json, Json>;
-  bootstrap?: unknown;
   kvStore: KVStore;
 };
 
@@ -31,7 +34,7 @@ export class Supervisor {
 
   readonly #defaultCompartment = new Compartment({ URL });
 
-  readonly #bootstrap: unknown;
+  #bootstrap: unknown;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -41,18 +44,19 @@ export class Supervisor {
 
   #baggage: Baggage | undefined;
 
+  capTpPromiseKit: PromiseKit<void> | undefined;
+
   constructor({
     id,
     commandStream,
     capTpStream,
-    bootstrap,
     kvStore,
   }: SupervisorConstructorProps) {
     this.id = id;
-    this.#bootstrap = bootstrap;
     this.#commandStream = commandStream;
     this.#capTpStream = capTpStream;
     this.#store = new VatStore(`v${id}`, kvStore);
+    this.capTpPromiseKit = makePromiseKit();
 
     this.#initializeBaggage().catch((error) => {
       console.error('Failed to initialize baggage:', error);
@@ -120,11 +124,7 @@ export class Supervisor {
         break;
       }
       case VatCommandMethod.capTpInit: {
-        this.capTp = makeCapTP(
-          'iframe',
-          async (content: Json) => this.#capTpStream.write(content),
-          this.#bootstrap,
-        );
+        await this.#capTpInit();
         await this.replyToMessage(id, {
           method: VatCommandMethod.capTpInit,
           params: '~~~ CapTP Initialized ~~~',
@@ -133,49 +133,7 @@ export class Supervisor {
       }
 
       case VatCommandMethod.loadUserCode: {
-        if (this.#loaded) {
-          throw Error(
-            'Supervisor received LoadUserCode after user code already loaded',
-          );
-        }
-        this.#loaded = true;
-        const vatConfig: VatConfig = payload.params as VatConfig;
-        if (!isVatConfig(vatConfig)) {
-          throw Error(
-            'Supervisor received LoadUserCode with bad config parameter',
-          );
-        }
-        // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
-        if (!vatConfig.bundleSpec) {
-          throw Error(
-            'for now, only bundleSpec is support in vatConfig specifications',
-          );
-        }
-        console.log('Supervisor requested user code load:', vatConfig);
-        const { bundleSpec, parameters } = vatConfig;
-        // This is not code running under Node, you idiots
-        // eslint-disable-next-line n/no-unsupported-features/node-builtins
-        const fetched = await fetch(bundleSpec);
-        if (!fetched.ok) {
-          throw Error(
-            `fetch of user code ${bundleSpec} failed: ${fetched.status}`,
-          );
-        }
-        const bundle = await fetched.json();
-        const vatNS = await importBundle(bundle, {
-          endowments: {
-            console,
-            baggage: this.#baggage,
-            provideObject,
-            Date,
-          },
-        });
-        const { start }: { start: UserCodeStartFn } = vatNS;
-        if (start === undefined) {
-          throw Error(`vat module ${bundleSpec} has no start function`);
-        }
-        const rootObject = await start(parameters);
-        console.log('Supervisor root object:', rootObject);
+        const rootObject = await this.#loadUserCode(payload);
         await this.replyToMessage(id, {
           method: VatCommandMethod.loadUserCode,
           params: stringify(rootObject),
@@ -225,5 +183,81 @@ export class Supervisor {
       // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       return `Error: ${(error as { message?: string }).message || 'Unknown'}`;
     }
+  }
+
+  /**
+   * Load user code.
+   *
+   * @param payload - The payload to load user code with.
+   * @returns The loaded user code.
+   */
+  async #loadUserCode(payload: VatCommand['payload']): Promise<unknown> {
+    if (this.#loaded) {
+      throw Error(
+        'Supervisor received LoadUserCode after user code already loaded',
+      );
+    }
+    this.#loaded = true;
+    const vatConfig: VatConfig = payload.params as VatConfig;
+    if (!isVatConfig(vatConfig)) {
+      throw Error('Supervisor received LoadUserCode with bad config parameter');
+    }
+    // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
+    if (!vatConfig.bundleSpec) {
+      throw Error(
+        'for now, only bundleSpec is support in vatConfig specifications',
+      );
+    }
+
+    const { bundleSpec, parameters } = vatConfig;
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    const fetched = await fetch(bundleSpec);
+    if (!fetched.ok) {
+      throw Error(`fetch of user code ${bundleSpec} failed: ${fetched.status}`);
+    }
+    const bundle = await fetched.json();
+    const vatNS = await importBundle(bundle, {
+      endowments: {
+        console,
+        baggage: this.#baggage,
+        provideObject,
+        Date,
+      },
+    });
+
+    // Start User Code
+    const { start }: { start: UserCodeStartFn } = vatNS;
+    if (start === undefined) {
+      throw Error(`vat module ${bundleSpec} has no start function`);
+    }
+    const vatObject = await start(parameters);
+    if (typeof vatObject.name !== 'string') {
+      throw Error('Vat object must have a .name property');
+    }
+
+    // Create the bootstrap object for the CapTP connection
+    this.#bootstrap = makeExo(
+      vatObject.name,
+      M.interface(vatObject.name, {}, { defaultGuards: 'passable' }),
+      vatObject.methods ?? {},
+    );
+    this.capTpPromiseKit?.resolve();
+
+    return vatObject;
+  }
+
+  /**
+   * Initialize the CapTP connection.
+   */
+  async #capTpInit(): Promise<void> {
+    // Wait for the bootstrap to be set by the user code
+    await this.capTpPromiseKit?.promise;
+
+    this.capTp = makeCapTP(
+      'iframe',
+      async (content: Json) => this.#capTpStream.write(content),
+      this.#bootstrap,
+    );
+    console.log('Supervisor initialized CapTP:', this.capTp, this.#bootstrap);
   }
 }
