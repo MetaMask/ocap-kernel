@@ -18,12 +18,17 @@ export class VatStore {
   }
 
   async set(key: string, value: unknown): Promise<void> {
-    this.#store.set(this.#makeKey(key), JSON.stringify(getSafeJson(value)));
+    const safeValue = JSON.stringify(getSafeJson(value));
+    this.#store.set(this.#makeKey(key), safeValue);
   }
 
   async get(key: string): Promise<unknown> {
     const value = this.#store.get(this.#makeKey(key));
-    return value ? JSON.parse(value) : undefined;
+    try {
+      return value ? JSON.parse(value) : undefined;
+    } catch {
+      throw new Error(`Failed to parse stored value for key "${key}"`);
+    }
   }
 
   async has(key: string): Promise<boolean> {

@@ -60,7 +60,7 @@ describe('VatStore', () => {
       // Directly set invalid JSON in the store
       mockKVStore.set(`${mockVatId}.vs.invalid`, '{invalid json}');
       await expect(async () => vatStore.get('invalid')).rejects.toThrow(
-        `Expected property name or '}' in JSON at position 1`,
+        'Failed to parse stored value for key "invalid"',
       );
     });
   });
