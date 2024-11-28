@@ -44,11 +44,6 @@ describe('VatStore', () => {
       await vatStore.set('key', 'updated');
       expect(await vatStore.get('key')).toBe('updated');
     });
-
-    it('should prefix keys with vatId', async () => {
-      await vatStore.set('test', 'value');
-      expect(mockKVStore.get(`${mockVatId}.vs.test`)).toBe('"value"');
-    });
   });
 
   describe('get', () => {

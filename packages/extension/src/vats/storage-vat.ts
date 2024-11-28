@@ -1,9 +1,34 @@
+/**
+ * Storage Vat - Persistent Data Management System
+ *
+ * This vat provides a persistent storage system with two main functionalities:
+ * 1. User Preferences Storage: A permanent key-value store for user-specific settings
+ *    and preferences that persist across sessions.
+ * 2. Session Management: A temporary storage system for managing active sessions,
+ *    implemented as a weak collection that allows sessions to be garbage collected
+ *    when no longer referenced.
+ *
+ * Sessions are temporary storage containers that:
+ * - Have a defined lifecycle (creation, updates, and release)
+ * - Automatically track creation and last accessed timestamps
+ * - Can be kept alive through explicit reference management
+ * - Are automatically cleaned up when all references are released
+ *
+ * The vat also maintains statistics about its usage, including:
+ * - Initialization time
+ * - Last access timestamp
+ * - Count of stored preferences
+ * - Number of active sessions
+ *
+ * @module storage-vat
+ */
+
 import type { Baggage, ProvideObject } from '@ocap/kernel';
 
 declare const baggage: Baggage;
 declare const provideObject: ProvideObject;
 
-type StorageVatResult = {
+type StorageVatInterface = {
   name: string;
   setPreference: (
     userId: string,
@@ -43,7 +68,7 @@ type StatsValues = {
  */
 export async function start(parameters: {
   name?: string;
-}): Promise<StorageVatResult> {
+}): Promise<StorageVatInterface> {
   const name = parameters?.name ?? 'storage';
   console.log(`Starting storage vat "${name}"`);
 
