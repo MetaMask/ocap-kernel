@@ -10,6 +10,11 @@ import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { Supervisor } from './Supervisor.js';
 import { makeMapKVStore } from '../test/storage.js';
 
+vi.mock('@endo/import-bundle', () => ({
+  importBundle: vi.fn((code) => code),
+}));
+vi.mock('@endo/exo');
+
 const makeSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
 ): Promise<{
@@ -105,6 +110,35 @@ describe('Supervisor', () => {
       const { supervisor } = await makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {
+                  ping: () => 'pong',
+                },
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      // First we need to load user code to set the bootstrap object
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.loadUserCode,
+          params: {
+            bundleSpec: 'http://example.com/bundle.js',
+            parameters: {},
+          },
+        },
+      });
+
       await supervisor.handleMessage({
         id: 'v0:0',
         payload: { method: VatCommandMethod.capTpInit, params: null },
@@ -119,6 +153,35 @@ describe('Supervisor', () => {
     it('handles CapTP messages', async () => {
       const handleWrite = vi.fn();
       const { supervisor } = await makeSupervisor(handleWrite);
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {
+                  ping: () => 'pong',
+                },
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      // First we need to load user code to set the bootstrap object
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.loadUserCode,
+          params: {
+            bundleSpec: 'http://example.com/bundle.js',
+            parameters: {},
+          },
+        },
+      });
 
       await supervisor.handleMessage({
         id: 'v0:0',

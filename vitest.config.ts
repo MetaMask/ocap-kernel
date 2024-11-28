@@ -41,16 +41,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 50.45,
-          functions: 44.82,
-          branches: 68.75,
-          lines: 50.56,
+          statements: 50.22,
+          functions: 44.44,
+          branches: 67.69,
+          lines: 50.34,
         },
         'packages/kernel/**': {
-          statements: 83.47,
+          statements: 87.01,
           functions: 91.59,
-          branches: 70.67,
-          lines: 83.64,
+          branches: 74.45,
+          lines: 87.19,
         },
         'packages/shims/**': {
           statements: 0,
