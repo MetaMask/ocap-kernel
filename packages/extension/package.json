@@ -44,8 +44,6 @@
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.6",
-    "@endo/exo": "^1.5.4",
-    "@endo/patterns": "^1.4.4",
     "@endo/promise-kit": "^1.1.6",
     "@metamask/snaps-utils": "^8.3.0",
     "@metamask/superstruct": "^3.1.0",
