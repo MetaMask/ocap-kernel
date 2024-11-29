@@ -55,7 +55,6 @@ describe('method-schema', () => {
         schema: {
           name: 'test',
           parameters: ['param1', 'param2'],
-          description: 'Test method',
         },
         expected: true,
         description: 'validates complete schema',
@@ -64,7 +63,6 @@ describe('method-schema', () => {
         schema: {
           name: 'test',
           parameters: [],
-          description: undefined,
         },
         expected: true,
         description: 'validates schema with undefined optional field',
@@ -103,15 +101,6 @@ describe('method-schema', () => {
         },
         expected: false,
         description: 'rejects non-string parameters',
-      },
-      {
-        schema: {
-          name: 'test',
-          parameters: [],
-          description: 123,
-        },
-        expected: false,
-        description: 'rejects invalid description type',
       },
       {
         schema: {

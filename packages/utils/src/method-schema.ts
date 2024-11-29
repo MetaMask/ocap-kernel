@@ -1,17 +1,15 @@
-import { object, string, array, optional, is } from '@metamask/superstruct';
+import { object, string, array, is } from '@metamask/superstruct';
 
 import type { TypeGuard } from './types.js';
 
 export type MethodSchema = {
   name: string;
   parameters: string[];
-  description?: string;
 };
 
 export const MethodSchemaStruct = object({
   name: string(),
   parameters: array(string()),
-  description: optional(string()),
 });
 
 /**
@@ -55,7 +53,6 @@ export function generateMethodSchema(
     return {
       name,
       parameters,
-      description: `Method ${name}`,
     };
   });
 }
