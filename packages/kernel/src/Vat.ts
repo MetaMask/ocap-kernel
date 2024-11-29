@@ -18,6 +18,7 @@ import type {
   VatCommandReply,
   VatCommand,
 } from './messages/index.js';
+import type { VatCommandReturnType } from './messages/vat.js';
 import type { PromiseCallbacks, VatId, VatConfig } from './types.js';
 
 type VatConstructorProps = {
@@ -41,8 +42,10 @@ export class Vat {
 
   readonly #messageCounter: () => number;
 
-  readonly unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
-    new Map();
+  readonly unresolvedMessages: Map<
+    VatCommand['id'],
+    PromiseCallbacks<VatCommandReturnType[VatCommand['payload']['method']]>
+  > = new Map();
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -182,11 +185,24 @@ export class Vat {
    * @param payload - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(payload: VatCommand['payload']): Promise<unknown> {
+  async sendMessage<Method extends VatCommand['payload']['method']>(
+    payload: Extract<VatCommand['payload'], { method: Method }>,
+  ): Promise<VatCommandReturnType[Method]> {
     this.logger.debug('Sending message to vat', payload);
-    const { promise, reject, resolve } = makePromiseKit();
+    const { promise, reject, resolve } =
+      makePromiseKit<VatCommandReturnType[Method]>();
     const messageId = this.#nextMessageId();
-    this.unresolvedMessages.set(messageId, { reject, resolve });
+
+    // Create a type-safe resolver that handles the ERef wrapper
+    const safeResolve = (value: unknown): void => {
+      resolve(value as VatCommandReturnType[Method]);
+    };
+
+    this.unresolvedMessages.set(messageId, {
+      resolve: safeResolve,
+      reject,
+    });
+
     await this.#commandStream.write({ id: messageId, payload });
     return promise;
   }

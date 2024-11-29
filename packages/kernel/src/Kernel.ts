@@ -24,6 +24,7 @@ import type {
   VatCommand,
   VatCommandReply,
 } from './messages/index.js';
+import type { VatCommandReturnType } from './messages/vat.js';
 import type {
   VatId,
   VatWorkerService,
@@ -190,10 +191,10 @@ export class Kernel {
    * @param command - The command to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(
+  async sendMessage<Method extends VatCommand['payload']['method']>(
     id: VatId,
-    command: VatCommand['payload'],
-  ): Promise<unknown> {
+    command: Extract<VatCommand['payload'], { method: Method }>,
+  ): Promise<VatCommandReturnType[Method]> {
     const vat = this.#getVat(id);
     return vat.sendMessage(command);
   }

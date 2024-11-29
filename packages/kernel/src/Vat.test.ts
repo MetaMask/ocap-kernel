@@ -60,8 +60,8 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
       const capTpMock = vi
         .spyOn(vat, 'makeCapTp')
         .mockResolvedValueOnce(undefined);
@@ -84,8 +84,8 @@ describe('Vat', () => {
     it('throws if the stream throws', async () => {
       const { vat, stream } = await makeVat();
       vi.spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const logErrorSpy = vi.spyOn(vat.logger, 'error');
@@ -181,7 +181,7 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('');
       await vat.makeCapTp();
       expect(sendMessageMock).toHaveBeenCalledWith({
         method: VatCommandMethod.capTpInit,
@@ -194,9 +194,9 @@ describe('Vat', () => {
       const logSpy = vi.spyOn(logger, 'log');
       const { vat, stream } = await makeVat(logger);
       vi.spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
 
       await vat.init();
 
@@ -240,7 +240,7 @@ describe('Vat', () => {
 
     it('calls CapTP method with parameters using eventual send', async () => {
       const { vat } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce('');
       await vat.makeCapTp();
 
       const eventualSend = await import('@endo/eventual-send');
