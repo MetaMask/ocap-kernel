@@ -1,16 +1,14 @@
 import { object, string, array, is } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 
 import type { TypeGuard } from './types.js';
-
-export type MethodSchema = {
-  name: string;
-  parameters: string[];
-};
 
 export const MethodSchemaStruct = object({
   name: string(),
   parameters: array(string()),
 });
+
+export type MethodSchema = Infer<typeof MethodSchemaStruct>;
 
 /**
  * Extract parameter names from a function string.
