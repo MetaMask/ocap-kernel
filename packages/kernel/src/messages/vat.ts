@@ -6,9 +6,11 @@ import {
   refine,
   string,
   is,
+  array,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
+import { MethodSchemaStruct } from '@ocap/utils';
 
 import { isVatId } from '../types.js';
 import type { VatId } from '../types.js';
@@ -29,6 +31,7 @@ export const VatCommandMethod = {
   ...VatTestCommandMethod,
   capTpInit: 'capTpInit',
   loadUserCode: 'loadUserCode',
+  getMethodSchema: 'getMethodSchema',
 } as const;
 
 const VatMessageIdStruct = refine(string(), 'VatMessageId', isVatMessageId);
@@ -54,6 +57,10 @@ export const VatMethodStructs = {
     method: literal(VatCommandMethod.loadUserCode),
     params: record(string(), UnsafeJsonStruct),
   }),
+  [VatCommandMethod.getMethodSchema]: object({
+    method: literal(VatCommandMethod.getMethodSchema),
+    params: literal(null),
+  }),
 } as const;
 
 const VatCommandStruct = object({
@@ -63,6 +70,7 @@ const VatCommandStruct = object({
     VatMethodStructs.ping,
     VatMethodStructs.capTpInit,
     VatMethodStructs.loadUserCode,
+    VatMethodStructs.getMethodSchema,
   ]),
 });
 
@@ -89,6 +97,10 @@ const VatReplyStructs = {
     method: literal(VatCommandMethod.loadUserCode),
     params: string(),
   }),
+  [VatCommandMethod.getMethodSchema]: object({
+    method: literal(VatCommandMethod.getMethodSchema),
+    params: array(MethodSchemaStruct),
+  }),
 } as const;
 
 const VatCommandReplyStruct = object({
@@ -98,6 +110,7 @@ const VatCommandReplyStruct = object({
     VatReplyStructs.ping,
     VatReplyStructs.capTpInit,
     VatReplyStructs.loadUserCode,
+    VatReplyStructs.getMethodSchema,
   ]),
 });
 

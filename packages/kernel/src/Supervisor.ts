@@ -7,7 +7,8 @@ import type { PromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
+import { generateMethodSchema, stringify } from '@ocap/utils';
+import type { MethodSchema } from '@ocap/utils';
 
 import type { KVStore } from './kernel-store.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
@@ -45,6 +46,8 @@ export class Supervisor {
   #baggage: Baggage | undefined;
 
   capTpPromiseKit: PromiseKit<void> | undefined;
+
+  methodSchema: MethodSchema[] = [];
 
   constructor({
     id,
@@ -131,7 +134,6 @@ export class Supervisor {
         });
         break;
       }
-
       case VatCommandMethod.loadUserCode: {
         const rootObject = await this.#loadUserCode(payload);
         await this.replyToMessage(id, {
@@ -140,7 +142,13 @@ export class Supervisor {
         });
         break;
       }
-
+      case VatCommandMethod.getMethodSchema: {
+        await this.replyToMessage(id, {
+          method: VatCommandMethod.getMethodSchema,
+          params: this.methodSchema,
+        });
+        break;
+      }
       case VatCommandMethod.ping:
         await this.replyToMessage(id, {
           method: VatCommandMethod.ping,
@@ -234,6 +242,8 @@ export class Supervisor {
     if (typeof vatObject.name !== 'string') {
       throw Error('Vat object must have a .name property');
     }
+
+    this.methodSchema = generateMethodSchema(vatObject.methods ?? {});
 
     // Create the bootstrap object for the CapTP connection
     this.#bootstrap = makeExo(
