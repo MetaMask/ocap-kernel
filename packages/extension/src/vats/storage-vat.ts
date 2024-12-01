@@ -20,6 +20,10 @@
  * - Count of stored preferences
  * - Number of active sessions
  *
+ * NOTE: In a production environment, the currentUserId would typically be provided
+ * by the kernel's user context management system. For this implementation, we're
+ * using a static default user ID for testing and development purposes.
+ *
  * @module storage-vat
  */
 
@@ -48,6 +52,15 @@ export async function start(parameters: {
   const name = parameters?.name ?? 'storage';
   console.log(`Starting storage vat "${name}"`);
 
+  // Utility for generating session IDs
+  const generateSessionId = (): string => {
+    return `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  };
+
+  // TODO: Replace with proper kernel user context
+  const currentUserId = 'default-user-001';
+  const currentSessionId = generateSessionId();
+
   // Create collection for user preferences
   const preferences =
     await baggage.createCollection<Record<string, unknown>>('preferences');
@@ -64,24 +77,20 @@ export async function start(parameters: {
 
   // User preferences management
   const setPreference = async (
-    userId: string,
     key: string,
     value: unknown,
   ): Promise<boolean> => {
-    const userPreferences = (await preferences.get(userId)) ?? {};
+    const userPreferences = (await preferences.get(currentUserId)) ?? {};
     userPreferences[key] = value;
-    await preferences.init(userId, userPreferences);
+    await preferences.init(currentUserId, userPreferences);
     stats.preferencesCount += 1;
     stats.lastAccessed = Date.now();
     return true;
   };
 
-  // Get a preference for a user
-  const getPreference = async (
-    userId: string,
-    key: string,
-  ): Promise<unknown> => {
-    const userPreferences = await preferences.get(userId);
+  // Get a preference for the current user
+  const getPreference = async (key: string): Promise<unknown> => {
+    const userPreferences = await preferences.get(currentUserId);
     stats.lastAccessed = Date.now();
     return userPreferences?.[key];
   };
@@ -107,15 +116,17 @@ export async function start(parameters: {
   const createSession = async (
     sessionId: string,
     data: Record<string, unknown>,
-  ): Promise<boolean> => {
+  ): Promise<string> => {
     await sessions.init(sessionId, {
       created: Date.now(),
       lastAccessed: Date.now(),
       ...data,
     });
     stats.activeSessions += 1;
-    return true;
+    return sessionId;
   };
+
+  const getSessionId = (): string => currentSessionId;
 
   // Update a session
   const updateSession = async (
@@ -171,6 +182,9 @@ export async function start(parameters: {
     };
   };
 
+  // Create a session for the current user
+  await createSession(currentSessionId, { userId: currentUserId });
+
   return {
     name,
     methods: {
@@ -179,6 +193,7 @@ export async function start(parameters: {
       getAllPreferences,
       clearPreferences,
       createSession,
+      getSessionId,
       updateSession,
       getSession,
       keepSessionAlive,
