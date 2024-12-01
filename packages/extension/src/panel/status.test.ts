@@ -27,11 +27,10 @@ describe('status', () => {
   });
 
   describe('setupStatusPolling', () => {
-    // TODO: Fix this flaky test
-    it.todo('should start polling for status', async () => {
+    it('should start polling for status', async () => {
+      vi.useFakeTimers();
       const { setupStatusPolling } = await import('./status');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-      vi.useFakeTimers();
 
       // Start polling and get cleanup function
       const cleanup = await setupStatusPolling(sendMessage);
