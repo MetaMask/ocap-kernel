@@ -31,21 +31,18 @@ describe('status', () => {
       vi.useFakeTimers();
       const { setupStatusPolling } = await import('./status');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
-
-      // Start polling and get cleanup function
       const cleanup = await setupStatusPolling(sendMessage);
-
-      // First immediate call
       expect(sendMessage).toHaveBeenCalledWith({
         method: 'getStatus',
         params: null,
       });
-
+      // Advance timers to trigger the next poll
       await vi.advanceTimersByTimeAsync(1000);
-
+      // Wait for any pending promises to resolve
+      await Promise.resolve();
       expect(sendMessage).toHaveBeenCalledTimes(2);
-
       cleanup();
+      vi.clearAllTimers();
     });
   });
 
