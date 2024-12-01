@@ -54,7 +54,7 @@ export async function start(parameters: {
 
   // Utility for generating session IDs
   const generateSessionId = (): string => {
-    return `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    return `session_${Date.now()}`;
   };
 
   // TODO: Replace with proper kernel user context
@@ -92,7 +92,9 @@ export async function start(parameters: {
   const getPreference = async (key: string): Promise<unknown> => {
     const userPreferences = await preferences.get(currentUserId);
     stats.lastAccessed = Date.now();
-    return userPreferences?.[key];
+    // We need to return "null" else the capTP will not be able to serialize the value
+    // and the stream will fail, causing the multiplexer to end.
+    return userPreferences?.[key] ?? null;
   };
 
   // Get all preferences for a user
