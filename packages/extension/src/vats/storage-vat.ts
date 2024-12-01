@@ -98,17 +98,15 @@ export async function start(parameters: {
   };
 
   // Get all preferences for a user
-  const getAllPreferences = async (
-    userId: string,
-  ): Promise<Record<string, unknown>> => {
-    const userPreferences = await preferences.get(userId);
+  const getAllPreferences = async (): Promise<Record<string, unknown>> => {
+    const userPreferences = await preferences.get(currentUserId);
     stats.lastAccessed = Date.now();
     return userPreferences ?? {};
   };
 
   // Clear all preferences for a user
-  const clearPreferences = async (userId: string): Promise<boolean> => {
-    await preferences.delete(userId);
+  const clearPreferences = async (): Promise<boolean> => {
+    await preferences.delete(currentUserId);
     stats.preferencesCount = Math.max(0, stats.preferencesCount - 1);
     stats.lastAccessed = Date.now();
     return true;
