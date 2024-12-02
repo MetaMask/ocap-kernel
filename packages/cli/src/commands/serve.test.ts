@@ -1,7 +1,9 @@
 import '@ocap/shims/endoify';
-import { makeCounter } from '@ocap/utils';
+import { isObject, hasProperty } from '@metamask/utils';
+import { makeCounter, stringify } from '@ocap/utils';
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
+import nodeFetch from 'node-fetch';
 import { join, resolve } from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -44,16 +46,15 @@ describe('serve', async () => {
         },
         dir: root,
       });
-      const requestBundle = async (
-        path: string,
-      ): Promise<{ content: string }> =>
-        // TODO: mock
-        await fetch(`http://localhost:${port}/${path}`).then(async (resp) => {
-          if (resp.ok) {
-            return resp.json();
-          }
-          throw new Error(resp.statusText, { cause: resp.status });
-        });
+      const requestBundle = async (path: string): Promise<unknown> =>
+        await nodeFetch(`http://localhost:${port}/${path}`).then(
+          async (resp) => {
+            if (resp.ok) {
+              return resp.json();
+            }
+            throw new Error(resp.statusText, { cause: resp.status });
+          },
+        );
       return {
         listen,
         requestBundle,
@@ -74,8 +75,18 @@ describe('serve', async () => {
           .then(({ content }) => createHash('sha256').update(content).digest());
 
         const receivedBundleHash = await requestBundle(bundleName).then(
-          ({ content }) =>
-            createHash('sha256').update(Buffer.from(content)).digest(),
+          (json) => {
+            if (
+              !isObject(json) ||
+              !hasProperty(json, 'content') ||
+              typeof json.content !== 'string'
+            ) {
+              return `Received unexpected response from server: ${stringify(json)}`;
+            }
+            return createHash('sha256')
+              .update(Buffer.from(json.content))
+              .digest();
+          },
         );
 
         expect(receivedBundleHash.toString('hex')).toStrictEqual(
@@ -92,9 +103,13 @@ describe('serve', async () => {
       const script = testBundleSpecs[0]?.script as string;
 
       const { close } = await listen();
-      await expect(requestBundle(script))
-        .rejects.toMatchObject({ cause: 404 })
-        .finally(async () => await close());
+      try {
+        await expect(requestBundle(script)).rejects.toMatchObject({
+          cause: 404,
+        });
+      } finally {
+        await close();
+      }
     });
 
     it('only serves files in the target dir', async () => {
@@ -103,9 +118,13 @@ describe('serve', async () => {
       const extraneousBundle = resolve(testBundleRoot, '../test.bundle');
 
       const { close } = await listen();
-      await expect(requestBundle(extraneousBundle))
-        .rejects.toMatchObject({ cause: 404 })
-        .finally(async () => await close());
+      try {
+        await expect(requestBundle(extraneousBundle)).rejects.toMatchObject({
+          cause: 404,
+        });
+      } finally {
+        await close();
+      }
     });
   });
 });

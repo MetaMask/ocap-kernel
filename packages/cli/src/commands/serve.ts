@@ -123,5 +123,5 @@ export function getServer(config: Config) {
     });
   };
 
-  return { listen, getResponse };
+  return { listen };
 }
