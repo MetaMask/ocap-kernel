@@ -7,16 +7,15 @@ import { open } from 'fs/promises';
  * @returns A promise that resolves to true iff a file exists at the given path
  */
 export async function exists(path: string): Promise<boolean> {
-  return open(path, 'wx')
-    .then(async (file) => {
-      // if the file opens, it didn't exist yet
-      await file.close();
-      return false;
-    })
-    .catch((error) => {
-      if (error.code === 'EEXIST') {
-        return true;
-      }
-      throw error;
-    });
+   try {
+    const file = await open(path, 'wx');
+    // if the file opens, it didn't exist yet
+    await file.close();
+    return false;
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      return true;
+    }
+    throw error;
+  }
 }
