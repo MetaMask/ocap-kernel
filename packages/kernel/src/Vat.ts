@@ -192,17 +192,7 @@ export class Vat {
     const { promise, reject, resolve } =
       makePromiseKit<VatCommandReturnType[Method]>();
     const messageId = this.#nextMessageId();
-
-    // Create a type-safe resolver that handles the ERef wrapper
-    const safeResolve = (value: unknown): void => {
-      resolve(value as VatCommandReturnType[Method]);
-    };
-
-    this.unresolvedMessages.set(messageId, {
-      resolve: safeResolve,
-      reject,
-    });
-
+    this.unresolvedMessages.set(messageId, { reject, resolve });
     await this.#commandStream.write({ id: messageId, payload });
     return promise;
   }
