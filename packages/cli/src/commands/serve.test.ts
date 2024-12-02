@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+import type { BundleSourceResult } from '@endo/bundle-source';
 import { isObject, hasProperty } from '@metamask/utils';
 import { makeCounter, stringify } from '@ocap/utils';
 import { createHash } from 'crypto';
@@ -9,6 +10,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getServer } from './serve.js';
 import { getTestBundles } from '../../test/bundles.js';
+
+const isBundleSourceResult = (
+  value: unknown,
+): value is BundleSourceResult<'endoZipBase64'> =>
+  isObject(value) &&
+  hasProperty(value, 'moduleFormat') &&
+  value.moduleFormat === 'endoZipBase64' &&
+  hasProperty(value, 'endoZipBase64') &&
+  typeof value.endoZipBase64 === 'string' &&
+  hasProperty(value, 'endoZipBase64Sha512') &&
+  typeof value.endoZipBase64Sha512 === 'string';
 
 describe('serve', async () => {
   beforeEach(() => {
@@ -70,28 +82,33 @@ describe('serve', async () => {
       const { close } = await listen();
 
       try {
-        const expectedBundleHash = await readFile(bundlePath)
-          .then((content) => JSON.parse(content.toString()))
-          .then(({ content }) => createHash('sha256').update(content).digest());
-
-        const receivedBundleHash = await requestBundle(bundleName).then(
-          (json) => {
-            if (
-              !isObject(json) ||
-              !hasProperty(json, 'content') ||
-              typeof json.content !== 'string'
-            ) {
-              return `Received unexpected response from server: ${stringify(json)}`;
+        const expectedBundleHash = await readFile(bundlePath).then(
+          (content) => {
+            const json = JSON.parse(content.toString());
+            if (!isBundleSourceResult(json)) {
+              throw new Error(
+                [
+                  `Could not read expected bundle ${bundlePath}`,
+                  `Parsed JSON: ${stringify(json)}`,
+                ].join('\n'),
+              );
             }
-            return createHash('sha256')
-              .update(Buffer.from(json.content))
-              .digest();
+            return json.endoZipBase64Sha512;
           },
         );
 
-        expect(receivedBundleHash.toString('hex')).toStrictEqual(
-          expectedBundleHash.toString('hex'),
+        const receivedBundleHash = await requestBundle(bundleName).then(
+          (json) => {
+            if (!isBundleSourceResult(json)) {
+              return `Received unexpected response from server: ${stringify(json)}`;
+            }
+            return createHash('sha512')
+              .update(Buffer.from(json.endoZipBase64))
+              .digest('hex');
+          },
         );
+
+        expect(receivedBundleHash).toStrictEqual(expectedBundleHash);
       } finally {
         await close();
       }
