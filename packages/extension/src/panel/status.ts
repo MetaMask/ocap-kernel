@@ -22,6 +22,7 @@ export async function setupStatusPolling(
   sendMessage: (message: KernelControlCommand) => Promise<void>,
 ): Promise<() => void> {
   let isPolling = true;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const fetchStatus = async (): Promise<void> => {
     if (!isPolling) {
@@ -33,7 +34,7 @@ export async function setupStatusPolling(
       params: null,
     });
 
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
       fetchStatus().catch(logger.error);
     }, 1000);
   };
@@ -42,6 +43,9 @@ export async function setupStatusPolling(
 
   return () => {
     isPolling = false;
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
   };
 }
 
