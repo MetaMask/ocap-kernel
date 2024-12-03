@@ -4,10 +4,15 @@
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
     "outDir": "./dist",
+    "emitDeclarationOnly": false,
     "rootDir": "./src",
-    "types": ["ses", "node"]
+    "types": ["ses", "node"],
+    "noEmit": true
   },
-  "references": [],
+  "references": [
+    { "path": "../utils/tsconfig.build.json" },
+    { "path": "../shims/tsconfig.build.json" }
+  ],
   "files": [],
   "include": ["./src"]
 }

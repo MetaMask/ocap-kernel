@@ -12,9 +12,9 @@ import {
   afterEach,
 } from 'vitest';
 
-import { createBundle, createBundleDir } from './bundle.js';
+import { createBundleFile, createBundleDir } from './bundle.js';
 import { getTestBundles } from '../../test/bundles.js';
-import { exists } from '../../test/file.js';
+import { fileExists } from '../../test/file.js';
 
 describe('bundle', async () => {
   beforeEach(() => {
@@ -32,20 +32,20 @@ describe('bundle', async () => {
   beforeAll(deleteTestBundles);
   afterEach(deleteTestBundles);
 
-  describe('createBundle', () => {
+  describe('createBundleFile', () => {
     it.for(testBundleSpecs)(
       'bundles a single file: $name',
       async ({ script, expected, bundle }, ctx) => {
-        if (!(await exists(expected))) {
+        if (!(await fileExists(expected))) {
           // this test case has no expected bundle
           // reporting handled in `describe('[meta]'` above
           ctx.skip();
         }
-        ctx.expect(await exists(bundle)).toBe(false);
+        ctx.expect(await fileExists(bundle)).toBe(false);
 
-        await createBundle(script);
+        await createBundleFile(script);
 
-        ctx.expect(await exists(bundle)).toBe(true);
+        ctx.expect(await fileExists(bundle)).toBe(true);
 
         const expectedBundleContent = await readFile(expected);
         const bundleContent = await readFile(bundle);
@@ -61,7 +61,7 @@ describe('bundle', async () => {
     );
 
     it('throws an error if supplied path is a directory', async () => {
-      await expect(createBundle(testBundleRoot)).rejects.toThrow(
+      await expect(createBundleFile(testBundleRoot)).rejects.toThrow(
         /cannot be called on directory/u,
       );
     });

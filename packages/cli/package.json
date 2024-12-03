@@ -17,8 +17,6 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "build:app": "vite build",
-    "bundle": "tsx src/bundle.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh utils",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",

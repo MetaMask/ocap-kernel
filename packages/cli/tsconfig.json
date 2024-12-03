@@ -3,14 +3,14 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["DOM", "ES2022"],
-    "types": ["ses", "vitest", "node"]
+    "types": ["ses", "vitest", "node"],
+    "noEmit": true
   },
   "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
   "include": [
     "../../vitest.config.ts",
-    "./src",
+    "./src/**/*.ts",
     "./test",
-    "./vite.config.ts",
     "./vitest.config.ts"
   ]
 }

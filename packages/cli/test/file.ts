@@ -7,7 +7,7 @@ import { open } from 'fs/promises';
  * @param path - The path to check
  * @returns A promise that resolves to true iff a file exists at the given path
  */
-export async function exists(path: string): Promise<boolean> {
+export async function fileExists(path: string): Promise<boolean> {
   try {
     const file = await open(path, 'wx');
     // if the file opens, it didn't exist yet

@@ -5,13 +5,27 @@ import { lstat, writeFile } from 'node:fs/promises';
 import { resolve, parse, format, join } from 'node:path';
 
 /**
+ * Check if the target path is a directory.
+ *
+ * @param target The path to check.
+ * @returns A promise which resolves to true if the target path is a directory.
+ */
+async function isDirectory(target: string): Promise<boolean> {
+  return (await lstat(target)).isDirectory();
+}
+
+/**
  * Create a bundle given path to an entry point.
  *
  * @param sourcePath - Path to the source file that is the root of the bundle.
+ * @param check - Whether to check if the sourcePath is a directory. Defaults to true.
  * @returns A promise that resolves when the bundle has been written.
  */
-export async function createBundle(sourcePath: string): Promise<void> {
-  if ((await lstat(sourcePath)).isDirectory()) {
+export async function createBundleFile(
+  sourcePath: string,
+  check: boolean = true,
+): Promise<void> {
+  if (check && (await isDirectory(sourcePath))) {
     throw new Error('createBundle cannot be called on directory', {
       cause: { sourcePath },
     });
@@ -31,16 +45,33 @@ export async function createBundle(sourcePath: string): Promise<void> {
  * Create a bundle given path to an entry point.
  *
  * @param sourceDir - Path to a directory of source files to bundle.
+ * @param check - Whether to check if the sourceDir is a directory. Defaults to true.
  * @returns A promise that resolves when the bundles have been written.
  */
-export async function createBundleDir(sourceDir: string): Promise<void> {
-  if (!(await lstat(sourceDir)).isDirectory()) {
+export async function createBundleDir(
+  sourceDir: string,
+  check: boolean = true,
+): Promise<void> {
+  if (check && !(await isDirectory(sourceDir))) {
     throw new Error('createBundleDir must be called on directory', {
       cause: { sourceDir },
     });
   }
   console.log('bundling dir', sourceDir);
   for (const source of await glob(join(sourceDir, '**/*.js'))) {
-    await createBundle(source);
+    await createBundleFile(source);
   }
+}
+
+/**
+ * Bundle a target file or every file in the target directory.
+ *
+ * @param target The file or directory to apply the bundler to.
+ * @returns A promise that resolves when bundling is done.
+ */
+export async function createBundle(target: string): Promise<void> {
+  await ((await isDirectory(target)) ? createBundleDir : createBundleFile)(
+    target,
+    false,
+  );
 }
