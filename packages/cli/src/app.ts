@@ -7,8 +7,10 @@ import { defaultConfig } from './config.js';
 
 await yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')
+  .demandCommand(1)
+  .strict()
   .command(
-    'bundle [targets..]',
+    'bundle <targets..>',
     'Bundle user code to be used in a vat',
     (_yargs) =>
       _yargs.option('targets', {
@@ -24,7 +26,7 @@ await yargs(hideBin(process.argv))
     },
   )
   .command(
-    'serve <dir>',
+    'serve <dir> [-p port]',
     'Serve bundled user code by filename',
     (_yargs) =>
       _yargs
