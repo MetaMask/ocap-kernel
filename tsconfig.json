@@ -10,6 +10,7 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "./packages/cli" },
     { "path": "./packages/errors" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel" },
