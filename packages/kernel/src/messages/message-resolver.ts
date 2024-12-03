@@ -4,18 +4,18 @@ import { makeCounter } from '@ocap/utils';
 import type { PromiseCallbacks } from '../types.js';
 
 export class MessageResolver {
-  readonly prefix: string;
+  readonly #prefix: string;
 
   readonly unresolvedMessages = new Map<string, PromiseCallbacks>();
 
   readonly #messageCounter = makeCounter();
 
   constructor(prefix: string) {
-    this.prefix = prefix;
+    this.#prefix = prefix;
   }
 
   async createMessage<Method>(
-    callback: (messageId: string) => Promise<void>,
+    sendMessage: (messageId: string) => Promise<void>,
   ): Promise<Method> {
     const { promise, reject, resolve } = makePromiseKit<Method>();
     const messageId = this.#nextMessageId();
@@ -25,8 +25,7 @@ export class MessageResolver {
       reject,
     });
 
-    // eslint-disable-next-line n/callback-return
-    callback(messageId).catch(console.error);
+    sendMessage(messageId).catch(console.error);
     return promise;
   }
 
@@ -48,6 +47,6 @@ export class MessageResolver {
   }
 
   #nextMessageId(): string {
-    return `${this.prefix}:${this.#messageCounter()}`;
+    return `${this.#prefix}:${this.#messageCounter()}`;
   }
 }
