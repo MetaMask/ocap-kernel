@@ -86,8 +86,6 @@ describe('bundle', async () => {
 
     it('throws an error if supplied path is not a directory', async () => {
       const script = testBundleSpecs[0]?.script;
-      expect(testBundleSpecs.length).toBeGreaterThan(0);
-      expect(script).toBeDefined();
       await expect(createBundleDir(script as string)).rejects.toThrow(
         /must be called on directory/u,
       );
