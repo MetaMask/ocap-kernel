@@ -14,8 +14,18 @@ export type {
 
 // Vat commands.
 
-export { VatCommandMethod, isVatCommand, isVatCommandReply } from './vat.js';
-export type { VatCommand, VatCommandReply } from './vat.js';
+export {
+  VatCommandMethod,
+  VatStorageMethod,
+  isVatCommand,
+  isVatCommandReply,
+} from './vat.js';
+export type {
+  VatCommand,
+  VatCommandParams,
+  VatCommandReply,
+  VatCommandReturnType,
+} from './vat.js';
 
 // Vat worker service commands.
 
@@ -28,5 +38,8 @@ export type {
   VatWorkerServiceCommand,
   VatWorkerServiceReply,
 } from './vat-worker-service.js';
+
+// Message resolver.
+export { MessageResolver } from './message-resolver.js';
 
 // Syscalls.

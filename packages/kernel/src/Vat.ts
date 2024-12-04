@@ -1,6 +1,5 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
-import { makePromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import {
   VatCapTpConnectionExistsError,
@@ -10,16 +9,18 @@ import {
 } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger, makeCounter, stringify } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
 
-import { VatCommandMethod } from './messages/index.js';
+import type { KVStore } from './kernel-store.js';
+import { MessageResolver, VatCommandMethod } from './messages/index.js';
 import type {
   CapTpPayload,
   VatCommandReply,
+  VatCommandReturnType,
   VatCommand,
 } from './messages/index.js';
-import type { VatCommandReturnType } from './messages/vat.js';
-import type { PromiseCallbacks, VatId, VatConfig } from './types.js';
+import { isVatStorageMethod, VatStorageMethod } from './messages/vat.js';
+import type { VatId, VatConfig } from './types.js';
 
 type VatConstructorProps = {
   vatId: VatId;
@@ -27,25 +28,23 @@ type VatConstructorProps = {
   commandStream: DuplexStream<VatCommandReply, VatCommand>;
   capTpStream: DuplexStream<Json, Json>;
   logger?: Logger | undefined;
+  store: KVStore;
 };
 
 export class Vat {
   readonly vatId: VatConstructorProps['vatId'];
 
-  readonly #commandStream: DuplexStream<VatCommandReply, VatCommand>;
+  readonly #commandStream: VatConstructorProps['commandStream'];
 
-  readonly #capTpStream: DuplexStream<Json, Json>;
+  readonly #capTpStream: VatConstructorProps['capTpStream'];
 
   readonly #config: VatConstructorProps['vatConfig'];
 
   readonly logger: Logger;
 
-  readonly #messageCounter: () => number;
+  readonly #resolver: MessageResolver;
 
-  readonly unresolvedMessages: Map<
-    VatCommand['id'],
-    PromiseCallbacks<VatCommandReturnType[VatCommand['payload']['method']]>
-  > = new Map();
+  readonly #store: KVStore;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -55,38 +54,16 @@ export class Vat {
     commandStream,
     capTpStream,
     logger,
+    store,
   }: VatConstructorProps) {
     this.vatId = vatId;
     this.#config = vatConfig;
     this.logger = logger ?? makeLogger(`[vat ${vatId}]`);
-    this.#messageCounter = makeCounter();
     this.#commandStream = commandStream;
     this.#capTpStream = capTpStream;
-  }
+    this.#resolver = new MessageResolver(vatId);
+    this.#store = store;
 
-  /**
-   * Handle a message from the parent window.
-   *
-   * @param vatMessage - The vat message to handle.
-   * @param vatMessage.id - The id of the message.
-   * @param vatMessage.payload - The payload to handle.
-   */
-  async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
-    const promiseCallbacks = this.unresolvedMessages.get(id);
-    if (promiseCallbacks === undefined) {
-      this.logger.error(`No unresolved message with id "${id}".`);
-    } else {
-      this.unresolvedMessages.delete(id);
-      promiseCallbacks.resolve(payload.params);
-    }
-  }
-
-  /**
-   * Initializes the vat.
-   *
-   * @returns A promise that resolves when the vat is initialized.
-   */
-  async init(): Promise<unknown> {
     Promise.all([
       this.#commandStream.drain(this.handleMessage.bind(this)),
       this.#capTpStream.drain(async (content): Promise<void> => {
@@ -97,32 +74,68 @@ export class Vat {
       this.logger.error(`Unexpected read error`, error);
       await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
     });
-
-    await this.sendMessage({ method: VatCommandMethod.ping, params: null });
-    const loadResult = await this.sendMessage({
-      method: VatCommandMethod.loadUserCode,
-      params: this.#config,
-    });
-    console.log(`vat LoadUserCode result: `, loadResult);
-    this.logger.debug('Created');
-
-    return await this.makeCapTp();
   }
 
   /**
-   * Receives messages from a vat.
+   * Handle a message from the parent window.
    *
-   * @param reader - The reader for the messages.
+   * @param vatMessage - The vat message to handle.
+   * @param vatMessage.id - The id of the message.
+   * @param vatMessage.payload - The payload to handle.
    */
-  /*
-  async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
-    for await (const rawMessage of reader) {
-      console.log(`Vat received message ${JSON.stringify(rawMessage)}`);
-      this.logger.debug('Vat received message', rawMessage);
-      await this.streamEnvelopeReplyHandler.handle(rawMessage);
+  async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
+    if (isVatStorageMethod(payload)) {
+      switch (payload.params.method) {
+        case VatStorageMethod.get:
+          // eslint-disable-next-line no-case-declarations
+          const value = this.#store.get(payload.params.params) ?? '';
+          await this.#commandStream.write({
+            id,
+            payload: {
+              method: payload.method,
+              params: {
+                method: payload.params.method,
+                params: value,
+              },
+            },
+          });
+          break;
+        case VatStorageMethod.set:
+          this.#store.set(
+            payload.params.params.key,
+            payload.params.params.value,
+          );
+          await this.#commandStream.write({ id, payload });
+          break;
+        case VatStorageMethod.delete:
+          this.#store.delete(payload.params.params);
+          await this.#commandStream.write({ id, payload });
+          break;
+        default:
+          throw new Error(`Unknown storage method: ${payload.method}`);
+      }
+    } else {
+      this.#resolver.handleResponse(id, payload.params);
     }
   }
-  */
+
+  /**
+   * Initializes the vat.
+   *
+   * @returns A promise that resolves when the vat is initialized.
+   */
+  async init(): Promise<unknown> {
+    await this.sendMessage({ method: VatCommandMethod.ping, params: null });
+    const loadResult = await this.sendMessage({
+      method: VatCommandMethod.initSupervisor,
+      params: {
+        vatId: this.vatId,
+        config: this.#config,
+      },
+    });
+    this.logger.log(`vat LoadUserCode result: `, loadResult);
+    return await this.makeCapTp();
+  }
 
   /**
    * Make a CapTP connection.
@@ -172,11 +185,8 @@ export class Vat {
       this.#capTpStream.end(error),
     ]);
 
-    // Handle orphaned messages
-    for (const [messageId, promiseCallback] of this.unresolvedMessages) {
-      promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
-      this.unresolvedMessages.delete(messageId);
-    }
+    const terminationError = error ?? new VatDeletedError(this.vatId);
+    this.#resolver.terminateAll(terminationError);
   }
 
   /**
@@ -189,20 +199,8 @@ export class Vat {
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
     this.logger.debug('Sending message to vat', payload);
-    const { promise, reject, resolve } =
-      makePromiseKit<VatCommandReturnType[Method]>();
-    const messageId = this.#nextMessageId();
-    this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.#commandStream.write({ id: messageId, payload });
-    return promise;
+    return this.#resolver.createMessage(async (messageId) => {
+      await this.#commandStream.write({ id: messageId, payload });
+    });
   }
-
-  /**
-   * Gets the next message ID.
-   *
-   * @returns The message ID.
-   */
-  readonly #nextMessageId = (): VatCommand['id'] => {
-    return `${this.vatId}:${this.#messageCounter()}`;
-  };
 }

@@ -8,7 +8,7 @@ import {
 } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger, stringify } from '@ocap/utils';
+import { makeLogger } from '@ocap/utils';
 
 import type { KVStore, KernelStore } from './kernel-store.js';
 import { makeKernelStore } from './kernel-store.js';
@@ -16,9 +16,9 @@ import {
   isKernelCommand,
   isVatCommandReply,
   KernelCommandMethod,
-  VatCommandMethod,
 } from './messages/index.js';
 import type {
+  CapTpPayload,
   KernelCommand,
   KernelCommandReply,
   VatCommand,
@@ -71,28 +71,6 @@ export class Kernel {
       // since they occur after the constructor has returned.
       throw new StreamReadError({ kernelId: 'kernel' }, error);
     });
-  }
-
-  /**
-   * Evaluate a string in the default iframe.
-   *
-   * @param vatId - The ID of the vat to send the message to.
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  async evaluate(vatId: VatId, source: string): Promise<string> {
-    try {
-      const result = await this.sendMessage(vatId, {
-        method: VatCommandMethod.evaluate,
-        params: source,
-      });
-      return String(result);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
   }
 
   kvGet(key: string): string | undefined {
@@ -199,6 +177,18 @@ export class Kernel {
     return vat.sendMessage(command);
   }
 
+  /**
+   * Call a CapTP method.
+   *
+   * @param id - The ID of the vat to call the method on.
+   * @param params - The parameters to call the method with.
+   * @returns The result of the method call.
+   */
+  async callCapTp(id: VatId, params: CapTpPayload): Promise<unknown> {
+    const vat = this.#getVat(id);
+    return vat.callCapTp(params);
+  }
+
   // --------------------------------------------------------------------------
   // Private methods
   // --------------------------------------------------------------------------
@@ -215,31 +205,9 @@ export class Kernel {
 
       const { method, params } = message;
 
-      let vat: Vat;
-
       switch (method) {
         case KernelCommandMethod.ping:
           await this.#reply({ method, params: 'pong' });
-          break;
-        case KernelCommandMethod.evaluate:
-          if (!this.#vats.size) {
-            throw new Error('No vats available to call');
-          }
-          vat = this.#vats.values().next().value as Vat;
-          await this.#reply({
-            method,
-            params: await this.evaluate(vat.vatId, params),
-          });
-          break;
-        case KernelCommandMethod.capTpCall:
-          if (!this.#vats.size) {
-            throw new Error('No vats available to call');
-          }
-          vat = this.#vats.values().next().value as Vat;
-          await this.#reply({
-            method,
-            params: stringify(await vat.callCapTp(params)),
-          });
           break;
         case KernelCommandMethod.kvSet:
           this.kvSet(params.key, params.value);
@@ -300,7 +268,13 @@ export class Kernel {
       VatCommand
     >('command', isVatCommandReply);
     const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
-    const vat = new Vat({ vatId, vatConfig, commandStream, capTpStream });
+    const vat = new Vat({
+      vatId,
+      vatConfig,
+      commandStream,
+      capTpStream,
+      store: this.#storage.kv,
+    });
     this.#vats.set(vat.vatId, vat);
     this.#vatStateService.set(vatId, {
       config: vatConfig,
