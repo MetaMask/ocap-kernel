@@ -54,9 +54,9 @@ select,
 input {
   height: var(--input-height);
   padding: 0 var(--spacing-lg);
+  font-size: var(--font-size-sm);
   border-radius: var(--border-radius);
   border: 1px solid var(--color-gray-300);
-  font-size: var(--font-size-sm);
   margin: var(--spacing-xs);
   background-color: var(--color-white);
   transition: background-color var(--transition-speed);
@@ -96,6 +96,16 @@ button.yellow {
 
 button.red:hover:not(:disabled) {
   color: var(--color-white);
+  background-color: var(--color-black);
+}
+
+button.blue {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+}
+
+button.blue:hover:not(:disabled) {
   background-color: var(--color-black);
 }
 
@@ -205,4 +215,39 @@ button.text-button:hover {
 
 .success {
   color: var(--color-success);
+}
+
+#vat-methods {
+  margin: var(--spacing-lg) calc(var(--spacing-md) * -2);
+  padding: var(--spacing-md) calc(var(--spacing-md) * 2 + var(--spacing-xs));
+  border-bottom: 1px solid var(--color-gray-300);
+  border-top: 1px solid var(--color-gray-300);
+  background: var(--color-gray-100);
+}
+
+#method-params {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-sm);
+}
+
+.param-field {
+  margin: var(--spacing-sm) 0;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.param-field input {
+  flex: 1;
+  margin: 0;
+}
+
+#method-dropdown {
+  margin: 0;
+}
+
+#execute-method {
+  margin: var(--spacing-sm) 0 0;
+  width: 100%;
 }

@@ -7,7 +7,8 @@ import type { PromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
+import { generateMethodSchema, stringify } from '@ocap/utils';
+import type { MethodSchema } from '@ocap/utils';
 
 import type {
   VatCommand,
@@ -42,6 +43,8 @@ export class Supervisor {
   #baggage: Baggage | undefined;
 
   capTpPromiseKit: PromiseKit<void> | undefined;
+
+  methodSchema: MethodSchema[] = [];
 
   #resolver: MessageResolver | undefined;
 
@@ -131,6 +134,13 @@ export class Supervisor {
         await this.replyToMessage(id, {
           method: VatCommandMethod.initSupervisor,
           params: stringify(rootObject),
+        });
+        break;
+      }
+      case VatCommandMethod.getMethodSchema: {
+        await this.replyToMessage(id, {
+          method: VatCommandMethod.getMethodSchema,
+          params: this.methodSchema,
         });
         break;
       }
@@ -229,6 +239,8 @@ export class Supervisor {
     if (typeof vatObject.name !== 'string') {
       throw Error('Vat object must have a .name property');
     }
+
+    this.methodSchema = generateMethodSchema(vatObject.methods ?? {});
 
     // Create the bootstrap object for the CapTP connection
     this.#bootstrap = makeExo(

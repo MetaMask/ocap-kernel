@@ -13,6 +13,7 @@ import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { VatId } from '@ocap/kernel';
 import { VatConfigStruct, VatIdStruct } from '@ocap/kernel';
+import { MethodSchemaStruct } from '@ocap/utils';
 import type { TypeGuard } from '@ocap/utils';
 
 export const KernelControlMethod = {
@@ -22,6 +23,8 @@ export const KernelControlMethod = {
   terminateAllVats: 'terminateAllVats',
   getStatus: 'getStatus',
   sendMessage: 'sendMessage',
+  capTpCall: 'capTpCall',
+  getVatSchema: 'getVatSchema',
 } as const;
 
 export type KernelStatus = {
@@ -33,10 +36,6 @@ const KernelStatusStruct = type({
   isRunning: boolean(),
   activeVats: array(VatIdStruct),
 });
-
-export const isKernelStatus: TypeGuard<KernelStatus> = (
-  value,
-): value is KernelStatus => is(value, KernelStatusStruct);
 
 const KernelControlCommandStruct = union([
   object({
@@ -66,6 +65,18 @@ const KernelControlCommandStruct = union([
       payload: UnsafeJsonStruct,
     }),
   }),
+  object({
+    method: literal(KernelControlMethod.capTpCall),
+    params: object({
+      id: VatIdStruct,
+      method: string(),
+      params: array(UnsafeJsonStruct),
+    }),
+  }),
+  object({
+    method: literal(KernelControlMethod.getVatSchema),
+    params: object({ id: VatIdStruct }),
+  }),
 ]);
 
 const KernelControlReplyStruct = union([
@@ -93,6 +104,14 @@ const KernelControlReplyStruct = union([
     method: literal(KernelControlMethod.sendMessage),
     params: UnsafeJsonStruct,
   }),
+  object({
+    method: literal(KernelControlMethod.capTpCall),
+    params: UnsafeJsonStruct,
+  }),
+  object({
+    method: literal(KernelControlMethod.getVatSchema),
+    params: array(MethodSchemaStruct),
+  }),
 ]);
 
 export type KernelControlCommand = Infer<typeof KernelControlCommandStruct> &
@@ -106,3 +125,7 @@ export const isKernelControlCommand: TypeGuard<KernelControlCommand> = (
 export const isKernelControlReply: TypeGuard<KernelControlReply> = (
   value: unknown,
 ): value is KernelControlReply => is(value, KernelControlReplyStruct);
+
+export const isKernelStatus: TypeGuard<KernelStatus> = (
+  value,
+): value is KernelStatus => is(value, KernelStatusStruct);

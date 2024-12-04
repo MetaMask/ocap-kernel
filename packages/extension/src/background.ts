@@ -37,20 +37,6 @@ async function main(): Promise<void> {
 
   // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
   Object.defineProperties(globalThis.kernel, {
-    capTpCall: {
-      value: async (method: string, params: Json[]) =>
-        sendClusterCommand({
-          method: KernelCommandMethod.capTpCall,
-          params: { method, params },
-        }),
-    },
-    evaluate: {
-      value: async (source: string) =>
-        sendClusterCommand({
-          method: KernelCommandMethod.evaluate,
-          params: source,
-        }),
-    },
     ping: {
       value: async () =>
         sendClusterCommand({
@@ -94,8 +80,6 @@ async function main(): Promise<void> {
     }
 
     switch (message.method) {
-      case KernelCommandMethod.evaluate:
-      case KernelCommandMethod.capTpCall:
       case KernelCommandMethod.ping:
       case KernelCommandMethod.kvGet:
       case KernelCommandMethod.kvSet:

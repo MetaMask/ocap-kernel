@@ -12,6 +12,12 @@ export const newVatName = document.getElementById(
 export const bundleUrl = document.getElementById(
   'bundle-url',
 ) as HTMLInputElement;
+export const methodDropdown = document.getElementById(
+  'method-dropdown',
+) as HTMLSelectElement;
+export const executeMethodButton = document.getElementById(
+  'execute-method',
+) as HTMLButtonElement;
 
 export const buttons: Record<
   string,

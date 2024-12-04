@@ -5,8 +5,10 @@ import {
   refine,
   string,
   is,
+  array,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
+import { MethodSchemaStruct } from '@ocap/utils';
 
 import {
   isSupervisorId,
@@ -27,6 +29,7 @@ export const VatCommandMethod = {
   ping: 'ping',
   capTpInit: 'capTpInit',
   initSupervisor: 'initSupervisor',
+  getMethodSchema: 'getMethodSchema',
   storage: 'storage',
 } as const;
 
@@ -79,6 +82,10 @@ export const VatMethodStructs = {
       config: VatConfigStruct,
     }),
   }),
+  [VatCommandMethod.getMethodSchema]: object({
+    method: literal(VatCommandMethod.getMethodSchema),
+    params: literal(null),
+  }),
   [VatCommandMethod.storage]: VatStorageMethodStruct,
 } as const;
 
@@ -88,6 +95,7 @@ const VatCommandStruct = object({
     VatMethodStructs.ping,
     VatMethodStructs.capTpInit,
     VatMethodStructs.initSupervisor,
+    VatMethodStructs.getMethodSchema,
     VatMethodStructs.storage,
   ]),
 });
@@ -107,6 +115,10 @@ export const VatReplyStructs = {
     method: literal(VatCommandMethod.initSupervisor),
     params: string(),
   }),
+  [VatCommandMethod.getMethodSchema]: object({
+    method: literal(VatCommandMethod.getMethodSchema),
+    params: array(MethodSchemaStruct),
+  }),
   [VatCommandMethod.storage]: VatStorageMethodStruct,
 } as const;
 
@@ -116,6 +128,7 @@ const VatCommandReplyStruct = object({
     VatReplyStructs.ping,
     VatReplyStructs.capTpInit,
     VatReplyStructs.initSupervisor,
+    VatReplyStructs.getMethodSchema,
     VatReplyStructs.storage,
   ]),
 });
