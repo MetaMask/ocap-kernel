@@ -39,6 +39,7 @@ const makeSupervisor = async (
     supervisor: new Supervisor({
       commandStream,
       capTpStream,
+      bootstrap: {},
     }),
     stream,
   };
