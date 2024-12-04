@@ -1,5 +1,5 @@
 import { setupButtonHandlers } from './panel/buttons.js';
-import { setupTemplateHandlers } from './panel/messages.js';
+import { setupMessageHandlers } from './panel/messages.js';
 import { logger } from './panel/shared.js';
 import { setupStatusPolling, setupVatListeners } from './panel/status.js';
 import { setupStream } from './panel/stream.js';
@@ -9,11 +9,9 @@ import { setupStream } from './panel/stream.js';
  */
 async function main(): Promise<void> {
   const sendMessage = await setupStream();
-
   setupVatListeners();
   setupButtonHandlers(sendMessage);
-  setupTemplateHandlers(sendMessage);
-
+  setupMessageHandlers(sendMessage);
   await setupStatusPolling(sendMessage);
 }
 

@@ -39,7 +39,7 @@ export async function setupStream(): Promise<
 
   // Send messages to the offscreen script
   const sendMessage = async (message: KernelControlCommand): Promise<void> => {
-    logger.log('sending message', message);
+    logger.debug('sending message', message);
     await offscreenStream.write(message);
   };
 

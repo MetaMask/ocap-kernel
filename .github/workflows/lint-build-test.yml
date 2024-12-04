@@ -175,6 +175,7 @@ jobs:
       - run: yarn --immutable
       - run: yarn build
       - run: yarn bundle ./packages/extension/src/vats/sample-vat.ts
+      - run: yarn bundle ./packages/extension/src/vats/storage-vat.ts
       - run: yarn test:e2e
       - name: Require clean working directory
         shell: bash

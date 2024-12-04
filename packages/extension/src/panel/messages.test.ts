@@ -83,14 +83,14 @@ describe('messages', () => {
     });
   });
 
-  describe('setupTemplateHandlers', () => {
+  describe('setupMessageHandlers', () => {
     it('should create template buttons with correct messages', async () => {
-      const { setupTemplateHandlers, commonMessages } = await import(
+      const { setupMessageHandlers, commonMessages } = await import(
         './messages'
       );
       const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       const templates = document.querySelectorAll('.template');
       expect(templates).toHaveLength(Object.keys(commonMessages).length);
@@ -106,14 +106,14 @@ describe('messages', () => {
 
     it('should update message content when template button is clicked', async () => {
       const {
-        setupTemplateHandlers,
+        setupMessageHandlers,
         commonMessages,
         messageContent,
         sendButton,
       } = await import('./messages');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       const firstTemplateName = Object.keys(commonMessages)[0] as string;
       const firstTemplate = document.querySelector(
@@ -129,13 +129,14 @@ describe('messages', () => {
     });
 
     it('should send message when send button is clicked', async () => {
-      const { setupTemplateHandlers, messageContent, sendButton } =
-        await import('./messages');
+      const { setupMessageHandlers, messageContent, sendButton } = await import(
+        './messages'
+      );
       const { vatDropdown } = await import('./buttons.js');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       isVatId.mockReturnValue(true);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       // Setup test data
       messageContent.value = '{"method":"ping","params":null}';
@@ -155,13 +156,14 @@ describe('messages', () => {
     });
 
     it('should send message without vat id when send button is clicked', async () => {
-      const { setupTemplateHandlers, messageContent, sendButton } =
-        await import('./messages');
+      const { setupMessageHandlers, messageContent, sendButton } = await import(
+        './messages'
+      );
       const { vatDropdown } = await import('./buttons.js');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       isVatId.mockReturnValue(false);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       messageContent.value =
         '{"method":"kvSet","params":{"key":"test","value":"test"}}';
@@ -180,11 +182,12 @@ describe('messages', () => {
     });
 
     it('should handle send button state based on message content', async () => {
-      const { setupTemplateHandlers, messageContent, sendButton } =
-        await import('./messages');
+      const { setupMessageHandlers, messageContent, sendButton } = await import(
+        './messages'
+      );
       const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       // Empty content should disable button
       messageContent.value = '';
@@ -198,11 +201,11 @@ describe('messages', () => {
     });
 
     it('should update send button text based on vat selection', async () => {
-      const { setupTemplateHandlers } = await import('./messages');
+      const { setupMessageHandlers } = await import('./messages');
       const { vatDropdown } = await import('./buttons');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       const sendButton = document.getElementById(
         'send-message',
@@ -220,12 +223,13 @@ describe('messages', () => {
     });
 
     it('should handle send errors correctly', async () => {
-      const { setupTemplateHandlers, messageContent, sendButton } =
-        await import('./messages');
+      const { setupMessageHandlers, messageContent, sendButton } = await import(
+        './messages'
+      );
       const error = new Error('Test error');
       const sendMessage = vi.fn().mockRejectedValue(error);
 
-      setupTemplateHandlers(sendMessage);
+      setupMessageHandlers(sendMessage);
 
       messageContent.value = '{"method":"ping","params":null}';
       sendButton.dispatchEvent(new Event('click'));
@@ -236,6 +240,60 @@ describe('messages', () => {
       const output = document.getElementById('message-output');
       expect(output?.textContent).toBe(error.toString());
       expect(output?.className).toBe('error');
+    });
+
+    it('should handle vat schema request when vat is selected', async () => {
+      const { setupMessageHandlers } = await import('./messages');
+      const { vatDropdown } = await import('./buttons');
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      isVatId.mockReturnValue(true);
+
+      setupMessageHandlers(sendMessage);
+
+      // Select a vat
+      vatDropdown.value = 'v0';
+      vatDropdown.dispatchEvent(new Event('change'));
+
+      expect(sendMessage).toHaveBeenCalledWith({
+        method: 'getVatSchema',
+        params: { id: 'v0' },
+      });
+    });
+
+    it('should not request vat schema when no vat is selected', async () => {
+      const { setupMessageHandlers } = await import('./messages');
+      const { vatDropdown } = await import('./buttons');
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+      isVatId.mockReturnValue(false);
+
+      setupMessageHandlers(sendMessage);
+
+      // Clear vat selection
+      vatDropdown.value = '';
+      vatDropdown.dispatchEvent(new Event('change'));
+
+      expect(sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should not send message when execute method has no payload', async () => {
+      const { setupMessageHandlers } = await import('./messages');
+      const { executeMethodButton } = await import('./buttons');
+      const { getCapTpCallPayload } = await import('./vat-methods');
+      const sendMessage = vi.fn().mockResolvedValue(undefined);
+
+      // Mock getCapTpCallPayload to return null
+      vi.mock('./vat-methods', () => ({
+        getCapTpCallPayload: vi.fn().mockReturnValue(null),
+        updateMethodDropdown: vi.fn(),
+        updateMethodParams: vi.fn(),
+      }));
+
+      setupMessageHandlers(sendMessage);
+
+      executeMethodButton.dispatchEvent(new Event('click'));
+
+      expect(getCapTpCallPayload).toHaveBeenCalled();
+      expect(sendMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -288,6 +346,23 @@ describe('messages', () => {
       const output = document.getElementById('message-output');
       expect(output?.textContent).toBe('{\n  "result": "Success"\n}');
       expect(output?.className).toBe('info');
+    });
+
+    it('should handle vat schema updates', async () => {
+      const { handleKernelMessage } = await import('./messages');
+      const { updateMethodDropdown } = await import('./vat-methods');
+
+      const schemaMessage: KernelControlReply = {
+        method: 'getVatSchema',
+        params: [
+          { name: 'test1', parameters: ['param1', 'param2'] },
+          { name: 'test2', parameters: ['param3', 'param4'] },
+        ],
+      };
+
+      handleKernelMessage(schemaMessage);
+
+      expect(updateMethodDropdown).toHaveBeenCalledWith(schemaMessage.params);
     });
   });
 });

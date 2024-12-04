@@ -32,7 +32,6 @@ describe('status', () => {
       const { setupStatusPolling } = await import('./status');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       const cleanup = await setupStatusPolling(sendMessage);
-      // First immediate call
       expect(sendMessage).toHaveBeenCalledWith({
         method: 'getStatus',
         params: null,
@@ -225,6 +224,43 @@ describe('status', () => {
       vatDropdown.dispatchEvent(new Event('change'));
       expect(buttons.restartVat?.element.disabled).toBe(false);
       expect(buttons.terminateVat?.element.disabled).toBe(false);
+    });
+
+    it('should validate bundle URL input', async () => {
+      const { setupVatListeners } = await import('./status');
+      const { bundleUrl } = await import('./buttons');
+
+      setupVatListeners();
+
+      // Test invalid URL
+      bundleUrl.value = 'not-a-url';
+      bundleUrl.dispatchEvent(new Event('input'));
+      expect(bundleUrl.validity.valid).toBe(false);
+      expect(bundleUrl.validationMessage).toBe(
+        'Please enter a valid URL ending with .bundle',
+      );
+
+      // Test URL without .bundle extension
+      bundleUrl.value = 'http://example.com/file.js';
+      bundleUrl.dispatchEvent(new Event('input'));
+      expect(bundleUrl.validity.valid).toBe(false);
+      expect(bundleUrl.validationMessage).toBe(
+        'Please enter a valid URL ending with .bundle',
+      );
+
+      // Test valid URL with .bundle extension
+      bundleUrl.value = 'http://example.com/test.bundle';
+      bundleUrl.dispatchEvent(new Event('input'));
+      expect(bundleUrl.validity.valid).toBe(true);
+      expect(bundleUrl.validationMessage).toBe('');
+
+      // Test empty URL
+      bundleUrl.value = '';
+      bundleUrl.dispatchEvent(new Event('input'));
+      expect(bundleUrl.validity.valid).toBe(false);
+      expect(bundleUrl.validationMessage).toBe(
+        'Please enter a valid URL ending with .bundle',
+      );
     });
   });
 

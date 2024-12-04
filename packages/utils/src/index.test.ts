@@ -13,6 +13,8 @@ describe('index', () => {
         'isPrimitive',
         'isTypedArray',
         'isTypedObject',
+        'generateMethodSchema',
+        'isMethodSchema',
       ]),
     );
   });

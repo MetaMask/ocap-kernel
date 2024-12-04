@@ -239,6 +239,142 @@ describe('Supervisor', () => {
     });
   });
 
+  describe('method schema', () => {
+    it('initializes with empty method schema', async () => {
+      const { supervisor } = await makeSupervisor();
+      expect(supervisor.methodSchema).toStrictEqual([]);
+    });
+
+    it('generates method schema when loading user code', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {
+                  simpleMethod: (param1: string, param2: number) =>
+                    `${param1} ${param2}`,
+                  optionalParam: (param?: string) => param,
+                  noParams: () => 'test',
+                },
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
+
+      expect(supervisor.methodSchema).toHaveLength(3);
+      expect(supervisor.methodSchema).toStrictEqual([
+        { name: 'simpleMethod', parameters: ['param1', 'param2'] },
+        { name: 'optionalParam', parameters: ['param'] },
+        { name: 'noParams', parameters: [] },
+      ]);
+    });
+
+    it('handles empty methods object when loading user code', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {},
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
+
+      expect(supervisor.methodSchema).toStrictEqual([]);
+    });
+
+    it('handles undefined methods when loading user code', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
+
+      expect(supervisor.methodSchema).toStrictEqual([]);
+    });
+
+    it('responds to getMethodSchema command', async () => {
+      const { supervisor } = await makeSupervisor();
+      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
+
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: { method: VatCommandMethod.getMethodSchema, params: null },
+      });
+
+      expect(replySpy).toHaveBeenCalledWith('v0:0', {
+        method: VatCommandMethod.getMethodSchema,
+        params: [],
+      });
+    });
+  });
+
   describe('error handling', () => {
     it('throws error for unexpected command methods', async () => {
       const { supervisor } = await makeSupervisor();

@@ -1,8 +1,15 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { buttons, vatDropdown, newVatName, bundleUrl } from './buttons.js';
+import {
+  buttons,
+  vatDropdown,
+  newVatName,
+  bundleUrl,
+  methodDropdown,
+} from './buttons.js';
 import { isValidBundleUrl, logger } from './shared.js';
+import { updateMethodParams } from './vat-methods.js';
 import type {
   KernelControlCommand,
   KernelStatus,
@@ -60,7 +67,7 @@ export function updateStatusDisplay(status: KernelStatus): void {
     ? `Active Vats (${activeVats.length}): ${stringify(activeVats, 0)}`
     : 'Kernel is not running';
 
-  updatevatDropdown(activeVats);
+  updateVatDropdown(activeVats);
 }
 
 /**
@@ -86,7 +93,11 @@ export function setupVatListeners(): void {
 
   vatDropdown.addEventListener('change', () => {
     updateButtonStates(vatDropdown.options.length > 1);
+    updateMethodParams();
   });
+
+  // Update method params when method selection changes
+  methodDropdown.addEventListener('change', updateMethodParams);
 }
 
 /**
@@ -94,7 +105,7 @@ export function setupVatListeners(): void {
  *
  * @param activeVats - Array of active vat IDs
  */
-function updatevatDropdown(activeVats: VatId[]): void {
+function updateVatDropdown(activeVats: VatId[]): void {
   // Compare current options with new vats
   const currentVats = Array.from(vatDropdown.options)
     .slice(1) // Skip the default empty option

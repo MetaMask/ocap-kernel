@@ -1,12 +1,14 @@
 import '@ocap/test-utils/mock-endoify';
 import { define, literal, object } from '@metamask/superstruct';
 import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
+import type { MethodSchema } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
 
 // Mock logger
 vi.mock('@ocap/utils', () => ({
+  MethodSchemaStruct: define<MethodSchema>('MethodSchema', () => true),
   makeLogger: () => ({
     error: vi.fn(),
   }),

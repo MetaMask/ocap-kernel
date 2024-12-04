@@ -6,6 +6,7 @@ import {
   KernelSendMessageStruct,
   isVatId,
   isVatConfig,
+  VatCommandMethod,
 } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 
@@ -106,6 +107,32 @@ export async function handlePanelMessage(
 
         return {
           method: KernelControlMethod.sendMessage,
+          params: { result } as Json,
+        };
+      }
+
+      case KernelControlMethod.getVatSchema: {
+        const result = await kernel.sendMessage(message.params.id, {
+          method: VatCommandMethod.getMethodSchema,
+          params: null,
+        });
+
+        return {
+          method: KernelControlMethod.getVatSchema,
+          params: result,
+        };
+      }
+
+      case KernelControlMethod.capTpCall: {
+        if (!isVatId(message.params.id)) {
+          throw new Error('Valid vat id required');
+        }
+        const result = await kernel.callCapTp(message.params.id, {
+          method: message.params.method,
+          params: message.params.params,
+        });
+        return {
+          method: KernelControlMethod.capTpCall,
           params: { result } as Json,
         };
       }

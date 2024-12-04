@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import { makeLoadExtension } from '../helpers/extension';
+import { makeLoadExtension } from '../helpers/extension.js';
 
-test.describe('Kernel Panel', () => {
+test.describe('Vat Lifecycle', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 

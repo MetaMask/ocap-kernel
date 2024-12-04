@@ -2,8 +2,9 @@ import { KernelCommandMethod, VatCommandMethod, isVatId } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { vatDropdown } from './buttons.js';
+import { executeMethodButton, vatDropdown } from './buttons.js';
 import { updateStatusDisplay } from './status.js';
+import { getCapTpCallPayload, updateMethodDropdown } from './vat-methods.js';
 import {
   KernelControlMethod,
   isKernelControlReply,
@@ -57,9 +58,10 @@ export function showOutput(
  *
  * @param sendMessage - The function to send messages to the kernel.
  */
-export function setupTemplateHandlers(
+export function setupMessageHandlers(
   sendMessage: (message: KernelControlCommand) => Promise<void>,
 ): void {
+  // Handle template buttons
   Object.keys(commonMessages).forEach((templateName) => {
     const button = document.createElement('button');
     button.className = 'text-button template';
@@ -73,6 +75,7 @@ export function setupTemplateHandlers(
     messageTemplates.appendChild(button);
   });
 
+  // Handle send button
   sendButton.addEventListener('click', () => {
     (async () => {
       const command: KernelControlCommand = {
@@ -86,12 +89,37 @@ export function setupTemplateHandlers(
     })().catch((error) => showOutput(String(error), 'error'));
   });
 
+  // Handle message content input
   messageContent.addEventListener('input', () => {
     sendButton.disabled = !messageContent.value.trim();
   });
 
+  // Handle vat dropdown change
   vatDropdown.addEventListener('change', () => {
     sendButton.textContent = vatDropdown.value ? 'Send to Vat' : 'Send';
+    updateMethodDropdown();
+    // Load Vat schema
+    (async () => {
+      const vatId = vatDropdown.value;
+      if (!isVatId(vatId)) {
+        return;
+      }
+      await sendMessage({
+        method: KernelControlMethod.getVatSchema,
+        params: { id: vatId },
+      });
+    })().catch((error) => showOutput(String(error), 'error'));
+  });
+
+  // Handle execute method button
+  executeMethodButton.addEventListener('click', () => {
+    (async () => {
+      const payload = getCapTpCallPayload();
+      if (!payload) {
+        return;
+      }
+      await sendMessage(payload);
+    })().catch((error) => showOutput(String(error), 'error'));
   });
 }
 
@@ -101,13 +129,19 @@ export function setupTemplateHandlers(
  * @param message - The message to handle.
  */
 export function handleKernelMessage(message: KernelControlReply): void {
-  if (!isKernelControlReply(message) || message.params === null) {
-    showOutput('');
+  if (isKernelStatus(message.params)) {
+    updateStatusDisplay(message.params);
     return;
   }
 
-  if (isKernelStatus(message.params)) {
-    updateStatusDisplay(message.params);
+  showOutput('');
+
+  if (!isKernelControlReply(message) || message.params === null) {
+    return;
+  }
+
+  if (message.method === KernelControlMethod.getVatSchema) {
+    updateMethodDropdown(message.params);
     return;
   }
 
