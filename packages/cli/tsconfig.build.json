@@ -6,8 +6,7 @@
     "outDir": "./dist",
     "emitDeclarationOnly": false,
     "rootDir": "./src",
-    "types": ["ses", "node"],
-    "noEmit": true
+    "types": ["ses", "node"]
   },
   "references": [
     { "path": "../utils/tsconfig.build.json" },
