@@ -13,6 +13,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { Vat } from './Vat.js';
+import { makeMapKVStore } from '../test/storage.js';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({
@@ -28,6 +29,7 @@ const makeVat = async (
   vat: Vat;
   stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
 }> => {
+  const store = makeMapKVStore();
   const stream = await TestDuplexStream.make<
     MultiplexEnvelope,
     MultiplexEnvelope
@@ -48,6 +50,7 @@ const makeVat = async (
       vatConfig: { sourceSpec: 'not-really-there.js' },
       commandStream,
       capTpStream,
+      store,
       logger,
     }),
     stream,
@@ -73,9 +76,12 @@ describe('Vat', () => {
         params: null,
       });
       expect(sendMessageMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.loadUserCode,
+        method: VatCommandMethod.initSupervisor,
         params: {
-          sourceSpec: 'not-really-there.js',
+          vatId: 'v0',
+          config: {
+            sourceSpec: 'not-really-there.js',
+          },
         },
       });
       expect(capTpMock).toHaveBeenCalled();
@@ -127,14 +133,19 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const mockMessageId = 'v0:1';
       const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.evaluate,
+        method: VatCommandMethod.ping,
         params: 'test-response',
       };
 
       // Create a pending message first
       const messagePromise = vat.sendMessage({
-        method: VatCommandMethod.evaluate,
-        params: 'test-input',
+        method: VatCommandMethod.ping,
+        params: null,
+      });
+
+      await vat.handleMessage({
+        id: mockMessageId,
+        payload: mockPayload,
       });
 
       // Handle the response

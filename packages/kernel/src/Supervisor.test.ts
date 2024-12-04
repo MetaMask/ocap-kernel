@@ -9,6 +9,10 @@ import { isVatCommand, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { Supervisor } from './Supervisor.js';
 
+vi.mock('@endo/import-bundle', () => ({
+  importBundle: vi.fn((code) => code),
+}));
+
 const makeSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
 ): Promise<{
@@ -29,11 +33,12 @@ const makeSupervisor = async (
     throw error;
   });
   await multiplexer.synchronizeChannels('command', 'capTp');
+
   return {
     supervisor: new Supervisor({
-      id: 'test-id',
       commandStream,
       capTpStream,
+      bootstrap: {},
     }),
     stream,
   };
@@ -44,7 +49,7 @@ describe('Supervisor', () => {
     it('initializes the Supervisor correctly', async () => {
       const { supervisor } = await makeSupervisor();
       expect(supervisor).toBeInstanceOf(Supervisor);
-      expect(supervisor.id).toBe('test-id');
+      expect(supervisor.supervisorId).toBe('vNull_supervisor');
     });
 
     it('throws if the stream throws', async () => {
@@ -53,7 +58,7 @@ describe('Supervisor', () => {
       await stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        `Unexpected read error from Supervisor "${supervisor.supervisorId}"`,
         expect.any(Error),
       );
     });
@@ -71,7 +76,7 @@ describe('Supervisor', () => {
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        `Unexpected read error from Supervisor "${supervisor.supervisorId}"`,
         new Error(
           `TestMultiplexer#command: Message failed type validation:\n${stringify(
             {
@@ -101,6 +106,38 @@ describe('Supervisor', () => {
       const { supervisor } = await makeSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {
+                  ping: () => 'pong',
+                },
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      // First we need to load user code to set the bootstrap object
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
+
       await supervisor.handleMessage({
         id: 'v0:0',
         payload: { method: VatCommandMethod.capTpInit, params: null },
@@ -115,6 +152,38 @@ describe('Supervisor', () => {
     it('handles CapTP messages', async () => {
       const handleWrite = vi.fn();
       const { supervisor } = await makeSupervisor(handleWrite);
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                name: 'testVat',
+                methods: {
+                  ping: () => 'pong',
+                },
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      // First we need to load user code to set the bootstrap object
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
 
       await supervisor.handleMessage({
         id: 'v0:0',
@@ -145,39 +214,6 @@ describe('Supervisor', () => {
       });
     });
 
-    it('handles Evaluate messages', async () => {
-      const { supervisor } = await makeSupervisor();
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        payload: { method: VatCommandMethod.evaluate, params: '2 + 2' },
-      });
-
-      expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.evaluate,
-        params: '4',
-      });
-    });
-
-    it('logs error on invalid Evaluate messages', async () => {
-      const { supervisor } = await makeSupervisor();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        // @ts-expect-error - invalid params type.
-        payload: { method: VatCommandMethod.evaluate, params: null },
-      });
-
-      expect(replySpy).not.toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Supervisor received command with unexpected params',
-        'null',
-      );
-    });
-
     it('handles unknown message types', async () => {
       const { supervisor } = await makeSupervisor();
 
@@ -203,23 +239,201 @@ describe('Supervisor', () => {
     });
   });
 
-  describe('evaluate', () => {
-    it('evaluates code correctly', async () => {
+  describe('error handling', () => {
+    it('throws error for unexpected command methods', async () => {
       const { supervisor } = await makeSupervisor();
-      const result = supervisor.evaluate('1 + 1');
-      expect(result).toBe(2);
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'test',
+          payload: {
+            // @ts-expect-error Testing invalid method
+            method: 'invalidMethod',
+            params: null,
+          },
+        }),
+      ).rejects.toThrow('Supervisor received unexpected command method:');
+    });
+  });
+
+  describe('loadUserCode', () => {
+    it('throws error if user code is already loaded', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // First load
+      await supervisor.handleMessage({
+        id: 'v0:0',
+        payload: {
+          method: VatCommandMethod.initSupervisor,
+          params: {
+            vatId: 'v0',
+            config: {
+              bundleSpec: 'http://example.com/bundle.js',
+              parameters: {},
+            },
+          },
+        },
+      });
+
+      // Second load attempt
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:1',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              config: {
+                bundleSpec: 'http://example.com/bundle.js',
+                parameters: {},
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'Supervisor received LoadUserCode after user code already loaded',
+      );
     });
 
-    it('returns an error message when evaluation fails', async () => {
+    it('throws error for invalid vat config', async () => {
       const { supervisor } = await makeSupervisor();
-      const result = supervisor.evaluate('invalidCode!');
-      expect(result).toBe("Error: Unexpected token '!'");
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              // @ts-expect-error - invalid config
+              config: { invalid: 'config' },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'Supervisor received LoadUserCode with bad config parameter',
+      );
     });
 
-    it('returns unknown when no error message is given', async () => {
+    it('throws error when bundleSpec is missing', async () => {
       const { supervisor } = await makeSupervisor();
-      const result = supervisor.evaluate('throw new Error("")');
-      expect(result).toBe('Error: Unknown');
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              config: {
+                bundleName: 'testVat',
+                parameters: {},
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'for now, only bundleSpec is support in vatConfig specifications',
+      );
+    });
+
+    it('throws error when fetch fails', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: false,
+            status: 404,
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              config: {
+                bundleSpec: 'http://example.com/bundle.js',
+                parameters: {},
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'fetch of user code http://example.com/bundle.js failed: 404',
+      );
+    });
+
+    it('throws error when start function is missing', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({}), // Empty bundle with no start function
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              config: {
+                bundleSpec: 'http://example.com/bundle.js',
+                parameters: {},
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'vat module http://example.com/bundle.js has no start function',
+      );
+    });
+
+    it('throws error when vat object has no name property', async () => {
+      const { supervisor } = await makeSupervisor();
+
+      // eslint-disable-next-line vitest/prefer-spy-on, n/no-unsupported-features/node-builtins
+      global.fetch = vi.fn(
+        async () =>
+          Promise.resolve({
+            ok: true,
+            json: async () => ({
+              start: () => ({
+                // Missing name property
+                methods: {},
+              }),
+            }),
+            // eslint-disable-next-line n/no-unsupported-features/node-builtins
+          }) as unknown as Response,
+      );
+
+      await expect(
+        supervisor.handleMessage({
+          id: 'v0:0',
+          payload: {
+            method: VatCommandMethod.initSupervisor,
+            params: {
+              vatId: 'v0',
+              config: {
+                bundleSpec: 'http://example.com/bundle.js',
+                parameters: {},
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow('Vat object must have a .name property');
     });
   });
 });

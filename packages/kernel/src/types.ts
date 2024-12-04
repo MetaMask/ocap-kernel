@@ -13,6 +13,7 @@ import { UnsafeJsonStruct } from '@metamask/utils';
 import type { StreamMultiplexer } from '@ocap/streams';
 
 export type VatId = `v${string}`;
+export type SupervisorId = `v${string}_supervisor`;
 export type RemoteId = `r${string}`;
 export type EndpointId = VatId | RemoteId;
 
@@ -80,7 +81,13 @@ export type KernelState = {
 export const isVatId = (value: unknown): value is VatId =>
   typeof value === 'string' &&
   value.at(0) === 'v' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  /^\d+$/u.test(value.slice(1));
+
+export const isSupervisorId = (value: unknown): value is SupervisorId =>
+  typeof value === 'string' &&
+  value.at(0) === 'v' &&
+  value.endsWith('_supervisor') &&
+  /^\d+$/u.test(value.slice(1, -11));
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
 
@@ -89,7 +96,7 @@ export type VatMessageId = `m${number}`;
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
   typeof value === 'string' &&
   value.at(0) === 'm' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  /^\d+$/u.test(value.slice(1));
 
 export const VatMessageIdStruct = define<VatMessageId>(
   'VatMessageId',
@@ -199,4 +206,8 @@ export type ClusterConfig = {
   bundles?: VatConfigTable;
 };
 
-export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
+export type UserCodeExports = {
+  name: string;
+};
+
+export type UserCodeStartFn = (parameters: unknown) => UserCodeExports;

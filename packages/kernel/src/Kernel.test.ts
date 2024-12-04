@@ -48,7 +48,7 @@ describe('Kernel', () => {
 
     launchWorkerMock = vi.spyOn(mockWorkerService, 'launch').mockResolvedValue({
       start: async () => Promise.resolve(),
-      createChannel: () => undefined,
+      createChannel: () => mockStream,
     } as unknown as StreamMultiplexer);
     terminateWorkerMock = vi
       .spyOn(mockWorkerService, 'terminate')

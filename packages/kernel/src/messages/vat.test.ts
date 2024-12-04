@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { isVatCommand, isVatCommandReply, VatCommandMethod } from './vat.js';
+import {
+  isVatCommand,
+  isVatCommandReply,
+  VatCommandMethod,
+  isVatMessageStreamId,
+} from './vat.js';
 
 describe('isVatCommand', () => {
-  const payload = { method: VatCommandMethod.evaluate, params: '3 + 3' };
+  const payload = { method: VatCommandMethod.ping, params: null };
 
   it.each`
     value                                | expectedResult | description
@@ -18,17 +23,6 @@ describe('isVatCommand', () => {
 
 describe('isVatCommandReply', () => {
   it.each([
-    {
-      name: 'evaluate reply',
-      value: {
-        id: 'v0:123',
-        payload: {
-          method: VatCommandMethod.evaluate,
-          params: 'some result',
-        },
-      },
-      expected: true,
-    },
     {
       name: 'ping reply',
       value: {
@@ -47,17 +41,6 @@ describe('isVatCommandReply', () => {
         payload: {
           method: VatCommandMethod.capTpInit,
           params: 'initialized',
-        },
-      },
-      expected: true,
-    },
-    {
-      name: 'loadUserCode reply',
-      value: {
-        id: 'v0:101',
-        payload: {
-          method: VatCommandMethod.loadUserCode,
-          params: 'loaded',
         },
       },
       expected: true,
@@ -98,5 +81,34 @@ describe('isVatCommandReply', () => {
     },
   ])('should return $expected for $name', ({ value, expected }) => {
     expect(isVatCommandReply(value)).toBe(expected);
+  });
+});
+
+describe('isVatMessageStreamId', () => {
+  it.each([
+    ['v0:1', true, 'valid vat message id'],
+    ['v123:456', true, 'valid vat message id with larger numbers'],
+    ['v1_supervisor:789', true, 'valid supervisor message id'],
+    [
+      'v123_supervisor:456',
+      true,
+      'valid supervisor message id with larger numbers',
+    ],
+    ['v01:1', true, 'valid vat id with leading zero'],
+    ['v1:01', true, 'message number with leading zero'],
+    ['v:1', false, 'invalid vat id part'],
+    ['v1.2:1', false, 'invalid vat id with decimal'],
+    ['v1_super:1', false, 'invalid supervisor suffix'],
+    ['x1:1', false, 'invalid prefix'],
+    ['v1:', false, 'missing number part'],
+    ['v1:abc', false, 'non-numeric message number'],
+    ['v1:1.2', false, 'decimal message number'],
+    ['v1:-1', false, 'negative message number'],
+    ['', false, 'empty string'],
+    [123, false, 'non-string value'],
+    [null, false, 'null value'],
+    [undefined, false, 'undefined value'],
+  ])('returns %s for %s', (value, expected, _description) => {
+    expect(isVatMessageStreamId(value)).toBe(expected);
   });
 });
