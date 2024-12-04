@@ -34,9 +34,8 @@ describe('ProxyStore', () => {
       const expectedValue = 'testValue';
       // Mock resolver to return expected value
       vi.spyOn(mockResolver, 'createMessage').mockImplementation(
-        async (callback) => {
-          // eslint-disable-next-line n/no-callback-literal, n/callback-return
-          callback('msg1').catch(() => undefined);
+        async (sendMessage) => {
+          sendMessage('msg1').catch(() => undefined);
           return { params: expectedValue };
         },
       );
@@ -70,9 +69,8 @@ describe('ProxyStore', () => {
       const testKey = 'testKey';
       const testValue = 'testValue';
       vi.spyOn(mockResolver, 'createMessage').mockImplementation(
-        async (callback) => {
-          // eslint-disable-next-line n/no-callback-literal, n/callback-return
-          callback('msg1').catch(() => undefined);
+        async (sendMessage) => {
+          sendMessage('msg1').catch(() => undefined);
           return undefined;
         },
       );
@@ -100,9 +98,8 @@ describe('ProxyStore', () => {
     it('should send correct delete command', async () => {
       const testKey = 'testKey';
       vi.spyOn(mockResolver, 'createMessage').mockImplementation(
-        async (callback) => {
-          // eslint-disable-next-line n/no-callback-literal, n/callback-return
-          callback('msg1').catch(() => undefined);
+        async (sendMessage) => {
+          sendMessage('msg1').catch(() => undefined);
           return undefined;
         },
       );
