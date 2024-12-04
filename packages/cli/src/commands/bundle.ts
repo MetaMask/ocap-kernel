@@ -1,18 +1,10 @@
 import '@endo/init';
 import bundleSource from '@endo/bundle-source';
 import { glob } from 'glob';
-import { lstat, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { resolve, parse, format, join } from 'node:path';
 
-/**
- * Check if the target path is a directory.
- *
- * @param target The path to check.
- * @returns A promise which resolves to true if the target path is a directory.
- */
-async function isDirectory(target: string): Promise<boolean> {
-  return (await lstat(target)).isDirectory();
-}
+import { isDirectory } from '../file.js';
 
 /**
  * Create a bundle given path to an entry point.

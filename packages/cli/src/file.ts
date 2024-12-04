@@ -1,0 +1,45 @@
+import { isObject } from '@metamask/utils';
+import { copyFile, lstat, access } from 'fs/promises';
+
+/**
+ * Check if the target path is a directory.
+ *
+ * @param target The path to check.
+ * @returns A promise which resolves to true if the target path is a directory.
+ */
+export async function isDirectory(target: string): Promise<boolean> {
+  return (await lstat(target)).isDirectory();
+}
+
+/**
+ * Asynchronously copy file(s) from source to destination.
+ *
+ * @param source - Where to copy file(s) from.
+ * @param destination - Where to copy file(s) to.
+ * @returns A promise that resolves when copying is complete.
+ */
+export async function cp(source: string, destination: string): Promise<void> {
+  if (await isDirectory(source)) {
+    throw new Error('Directory cp not implemented.');
+  }
+  await copyFile(source, destination);
+}
+
+/**
+ * Asynchronously check if a file exists.
+ *
+ * @param path - The path to check
+ * @returns A promise that resolves to true iff a file exists at the given path
+ */
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    // if the file can be accessed, it didn't exist yet
+    await access(path);
+    return false;
+  } catch (error) {
+    if (isObject(error) && error.code === 'EEXIST') {
+      return true;
+    }
+    throw error;
+  }
+}

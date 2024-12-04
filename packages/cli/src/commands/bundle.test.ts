@@ -14,7 +14,7 @@ import {
 
 import { createBundleFile, createBundleDir } from './bundle.js';
 import { getTestBundles } from '../../test/bundles.js';
-import { fileExists } from '../../test/file.js';
+import { fileExists } from '../file.js';
 
 describe('bundle', async () => {
   beforeEach(() => {
@@ -85,9 +85,12 @@ describe('bundle', async () => {
     });
 
     it('throws an error if supplied path is not a directory', async () => {
-      await expect(
-        createBundleDir(testBundleSpecs[0]?.script as string),
-      ).rejects.toThrow(/must be called on directory/u);
+      const script = testBundleSpecs[0]?.script;
+      expect(testBundleSpecs.length).toBeGreaterThan(0);
+      expect(script).toBeDefined();
+      await expect(createBundleDir(script as string)).rejects.toThrow(
+        /must be called on directory/u,
+      );
     });
   });
 });
