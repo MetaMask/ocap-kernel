@@ -35,6 +35,7 @@
   "dependencies": {
     "@endo/bundle-source": "^3.5.0",
     "@endo/init": "^1.1.6",
+    "@endo/promise-kit": "^1.1.6",
     "@metamask/snaps-utils": "^8.3.0",
     "@ocap/shims": "workspace:^",
     "@ocap/utils": "workspace:^",
@@ -50,6 +51,7 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@metamask/utils": "^9.3.0",
+    "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.5.1",
     "@ts-bridge/shims": "^0.1.1",
     "@types/serve-handler": "^6",

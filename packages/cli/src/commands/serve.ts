@@ -12,11 +12,12 @@ import type { Config } from '../config.js';
  * Get a static server for development purposes.
  *
  * @param config - The config object.
+ * @param onGetResponse - An optional hook to call when getResponse() is called.
  * @returns An object with a `listen` method that returns a promise that
  * resolves when the server is listening.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function getServer(config: Config) {
+export function getServer(config: Config, onGetResponse?: () => void) {
   if (!config.dir) {
     throw new Error(`Config option 'dir' must be specified.`);
   }
@@ -37,11 +38,19 @@ export function getServer(config: Config) {
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
+    onGetResponse?.();
+
     const pathname =
       request.url &&
       request.headers.host &&
       new URL(request.url, `http://${request.headers.host}`).pathname;
     const path = pathname?.slice(1);
+
+    if (path === 'ping') {
+      response.statusCode = 200;
+      response.end();
+      return;
+    }
 
     if (!isAllowedPath(path)) {
       response.statusCode = 404;
