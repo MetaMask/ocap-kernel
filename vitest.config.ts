@@ -47,10 +47,10 @@ export default defineConfig({
           lines: 57.14,
         },
         'packages/kernel/**': {
-          statements: 88.53,
+          statements: 88.62,
           functions: 92.48,
-          branches: 79.19,
-          lines: 88.71,
+          branches: 80.26,
+          lines: 88.8,
         },
         'packages/shims/**': {
           statements: 0,
