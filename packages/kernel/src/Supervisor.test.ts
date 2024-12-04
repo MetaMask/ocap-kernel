@@ -12,6 +12,7 @@ import { Supervisor } from './Supervisor.js';
 vi.mock('@endo/import-bundle', () => ({
   importBundle: vi.fn((code) => code),
 }));
+vi.mock('@endo/exo');
 
 const makeSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
@@ -38,7 +39,6 @@ const makeSupervisor = async (
     supervisor: new Supervisor({
       commandStream,
       capTpStream,
-      bootstrap: {},
     }),
     stream,
   };

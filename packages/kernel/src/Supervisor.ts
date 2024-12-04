@@ -1,5 +1,9 @@
 import { makeCapTP } from '@endo/captp';
+import { makeExo } from '@endo/exo';
 import { importBundle } from '@endo/import-bundle';
+import { M } from '@endo/patterns';
+import { makePromiseKit } from '@endo/promise-kit';
+import type { PromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
@@ -27,7 +31,7 @@ export class Supervisor {
 
   readonly #defaultCompartment = new Compartment({ URL });
 
-  readonly #bootstrap: unknown;
+  #bootstrap: unknown;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -37,20 +41,20 @@ export class Supervisor {
 
   #baggage: Baggage | undefined;
 
+  capTpPromiseKit: PromiseKit<void> | undefined;
+
   #resolver: MessageResolver | undefined;
 
   constructor({
     commandStream,
     capTpStream,
-    bootstrap,
   }: {
     commandStream: DuplexStream<VatCommand, VatCommandReply>;
     capTpStream: DuplexStream<Json, Json>;
-    bootstrap: unknown;
   }) {
     this.#commandStream = commandStream;
     this.#capTpStream = capTpStream;
-    this.#bootstrap = bootstrap;
+    this.capTpPromiseKit = makePromiseKit();
 
     Promise.all([
       this.#commandStream.drain(this.handleMessage.bind(this)),
@@ -226,6 +230,14 @@ export class Supervisor {
       throw Error('Vat object must have a .name property');
     }
 
+    // Create the bootstrap object for the CapTP connection
+    this.#bootstrap = makeExo(
+      vatObject.name,
+      M.interface(vatObject.name, {}, { defaultGuards: 'passable' }),
+      vatObject.methods ?? {},
+    );
+    this.capTpPromiseKit?.resolve();
+
     return vatObject;
   }
 
@@ -233,6 +245,9 @@ export class Supervisor {
    * Initialize the CapTP connection.
    */
   async #capTpInit(): Promise<void> {
+    // Wait for the bootstrap to be set by the user code
+    await this.capTpPromiseKit?.promise;
+
     this.capTp = makeCapTP(
       'iframe',
       async (content: Json) => this.#capTpStream.write(content),
