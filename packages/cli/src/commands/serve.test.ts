@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getServer } from './serve.js';
 import { getTestBundles } from '../../test/bundles.js';
+import { defaultConfig } from '../config.js';
 
 const isBundleSourceResult = (
   value: unknown,
@@ -29,11 +30,13 @@ describe('serve', async () => {
 
   const { testBundleRoot, testBundleSpecs } = await getTestBundles();
 
+  const getServerPort = makeCounter(defaultConfig.server.port);
+
   describe('getServer', () => {
     it('returns an object with a listen property', () => {
       const server = getServer({
         server: {
-          port: 3000,
+          port: getServerPort(),
         },
         dir: testBundleRoot,
       });
@@ -42,13 +45,13 @@ describe('serve', async () => {
     });
 
     it(`throws if 'dir' is not specified`, () => {
-      expect(() => getServer({ server: { port: 3000 } })).toThrow(/dir/u);
+      expect(() => getServer({ server: { port: getServerPort() } })).toThrow(
+        /dir/u,
+      );
     });
   });
 
   describe('server', () => {
-    const getServerPort = makeCounter(3000);
-
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const makeServer = (root: string = testBundleRoot) => {
       const port = getServerPort();
@@ -58,22 +61,20 @@ describe('serve', async () => {
         },
         dir: root,
       });
-      const requestBundle = async (path: string): Promise<unknown> =>
-        await nodeFetch(`http://localhost:${port}/${path}`).then(
-          async (resp) => {
-            if (resp.ok) {
-              return resp.json();
-            }
-            throw new Error(resp.statusText, { cause: resp.status });
-          },
-        );
+      const requestBundle = async (path: string): Promise<unknown> => {
+        const resp = await nodeFetch(`http://localhost:${port}/${path}`);
+        if (resp.ok) {
+          return resp.json();
+        }
+        throw new Error(resp.statusText, { cause: resp.status });
+      };
       return {
         listen,
         requestBundle,
       };
     };
 
-    it.sequential('serves bundles', async () => {
+    it('serves bundles', async () => {
       const bundleName = 'test.bundle';
       const bundleRoot = join(testBundleRoot, '..');
       const bundlePath = join(bundleRoot, bundleName);
@@ -82,35 +83,34 @@ describe('serve', async () => {
       const { close } = await listen();
 
       try {
-        const expectedBundleHash = await readFile(bundlePath).then(
-          (content) => {
-            const json = JSON.parse(content.toString());
-            if (!isBundleSourceResult(json)) {
-              throw new Error(
-                [
-                  `Could not read expected bundle ${bundlePath}`,
-                  `Parsed JSON: ${stringify(json)}`,
-                ].join('\n'),
-              );
-            }
-            return json.endoZipBase64Sha512;
-          },
-        );
+        const bundleData = await readFile(bundlePath);
+        const expectedBundleContent = JSON.parse(bundleData.toString());
+        if (!isBundleSourceResult(expectedBundleContent)) {
+          throw new Error(
+            [
+              `Could not read expected bundle ${bundlePath}`,
+              `Parsed JSON: ${stringify(expectedBundleContent)}`,
+            ].join('\n'),
+          );
+        }
+        const expectedBundleHash = expectedBundleContent.endoZipBase64Sha512;
 
-        const receivedBundleHash = await requestBundle(bundleName).then(
-          (json) => {
-            if (!isBundleSourceResult(json)) {
-              return `Received unexpected response from server: ${stringify(json)}`;
-            }
-            return createHash('sha512')
-              .update(Buffer.from(json.endoZipBase64))
-              .digest('hex');
-          },
-        );
+        const receivedBundleContent = await requestBundle(bundleName);
+        if (!isBundleSourceResult(receivedBundleContent)) {
+          throw new Error(
+            `Received unexpected response from server: ${stringify(receivedBundleContent)}`,
+          );
+        }
+        const receivedBundleHash = createHash('sha512')
+          .update(Buffer.from(receivedBundleContent.endoZipBase64))
+          .digest('hex');
 
         expect(receivedBundleHash).toStrictEqual(expectedBundleHash);
       } finally {
-        await close();
+        await Promise.race([
+          new Promise((_resolve) => setTimeout(_resolve, 400)),
+          close(),
+        ]);
       }
     });
 

@@ -50,9 +50,11 @@ export async function createBundleDir(
     });
   }
   console.log('bundling dir', sourceDir);
-  for (const source of await glob(join(sourceDir, '**/*.js'))) {
-    await createBundleFile(source);
-  }
+  await Promise.all(
+    (await glob(join(sourceDir, '*.js'))).map(
+      async (source) => await createBundleFile(source),
+    ),
+  );
 }
 
 /**
