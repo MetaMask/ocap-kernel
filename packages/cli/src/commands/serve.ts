@@ -4,15 +4,12 @@ import { createServer } from 'http';
 import type { AddressInfo } from 'net';
 import { resolve as resolvePath } from 'path';
 import serveMiddleware from 'serve-handler';
+import { promisify } from 'util';
 
 import type { Config } from '../config.js';
 
 /**
  * Get a static server for development purposes.
- *
- * Note: We're intentionally not using `webpack-dev-server` here because it
- * adds a lot of extra stuff to the output that we don't need, and it's
- * difficult to customize.
  *
  * @param config - The config object.
  * @returns An object with a `listen` method that returns a promise that
@@ -102,18 +99,7 @@ export function getServer(config: Config) {
     }>((resolve, reject) => {
       try {
         server.listen(port, () => {
-          const close = async (): Promise<void> => {
-            await new Promise<void>((_resolve, _reject) => {
-              server.close((closeError) => {
-                if (closeError) {
-                  return _reject(closeError);
-                }
-
-                return _resolve();
-              });
-            });
-          };
-
+          const close = promisify(server.close.bind(server));
           const address = server.address() as AddressInfo;
           resolve({ port: address.port, server, close });
         });
