@@ -1,5 +1,3 @@
-import { makeExo } from '@endo/exo';
-import { M } from '@endo/patterns';
 import type { Json } from '@metamask/utils';
 import { isVatCommand, Supervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
@@ -16,12 +14,6 @@ async function main(): Promise<void> {
     (listener) => removeEventListener('message', listener),
   ).then(async (port) => new MessagePortMultiplexer(port));
 
-  const bootstrap = makeExo(
-    'TheGreatFrangooly',
-    M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
-    { whatIsTheGreatFrangooly: () => 'Crowned with Chaos' },
-  );
-
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
     isVatCommand,
@@ -30,7 +22,6 @@ async function main(): Promise<void> {
   const supervisor = new Supervisor({
     commandStream,
     capTpStream,
-    bootstrap,
   });
 
   console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
