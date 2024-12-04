@@ -5,6 +5,21 @@ import bundleSource from '@endo/bundle-source';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+run().catch((problem) => {
+  console.error('Failed with', problem);
+  process.exitCode = 1;
+});
+
+/**
+ * Run program at top level.
+ */
+async function run() {
+  const argv = process.argv.splice(2);
+  for (const vatPath of argv) {
+    await createBundle(vatPath);
+  }
+}
+
 /**
  * Create a bundle given path to an entry point.
  *
@@ -21,19 +36,3 @@ async function createBundle(sourcePath) {
   await writeFile(bundlePath, bundleString);
   console.log(`wrote ${bundlePath}: ${bundleString.length} bytes`);
 }
-
-/**
- * Run program at top level.
- */
-async function run() {
-  const argv = process.argv.splice(2);
-  for (const vatPath of argv) {
-    await createBundle(vatPath);
-  }
-}
-
-run().catch((problem) => {
-  console.error('Failed with', problem);
-  // eslint-disable-next-line n/no-process-exit
-  process.exit(1);
-});
