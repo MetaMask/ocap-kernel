@@ -149,8 +149,7 @@ describe('Supervisor', () => {
       });
     });
 
-    // TODO: Will be fixed on the next PR
-    it.fails('handles CapTP messages', async () => {
+    it('handles CapTP messages', async () => {
       const handleWrite = vi.fn();
       const { supervisor } = await makeSupervisor(handleWrite);
 
