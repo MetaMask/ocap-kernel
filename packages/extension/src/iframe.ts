@@ -28,7 +28,6 @@ async function main(): Promise<void> {
   );
   const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
   const supervisor = new Supervisor({
-    id: 'iframe',
     commandStream,
     capTpStream,
     bootstrap,

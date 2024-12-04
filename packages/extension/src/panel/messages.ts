@@ -30,10 +30,6 @@ export const sendButton = document.getElementById(
 
 export const commonMessages: Record<string, KernelCommand> = {
   Ping: { method: VatCommandMethod.ping, params: null },
-  Evaluate: {
-    method: VatCommandMethod.evaluate,
-    params: `[1,2,3].join(',')`,
-  },
   KVSet: {
     method: KernelCommandMethod.kvSet,
     params: { key: 'foo', value: 'bar' },

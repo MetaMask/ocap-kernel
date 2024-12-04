@@ -14,6 +14,7 @@ describe('index', () => {
       'VatCommandMethod',
       'VatConfigStruct',
       'VatIdStruct',
+      'VatStorageMethod',
       'VatWorkerServiceCommandMethod',
       'isKernelCommand',
       'isKernelCommandReply',
