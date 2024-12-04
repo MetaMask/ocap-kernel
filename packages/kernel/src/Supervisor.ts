@@ -92,10 +92,6 @@ export class Supervisor {
       this.#capTpStream.end(error),
     ]);
 
-    if (error) {
-      this.#resolver?.terminateAll(error);
-    }
-
     const terminationError = error ?? new Error('Supervisor terminated');
     this.#resolver?.terminateAll(terminationError);
   }

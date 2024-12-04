@@ -215,7 +215,7 @@ describe('Supervisor', () => {
       });
     });
 
-    it('handles unknown message types', async () => {
+    it('throws error for unexpected message types', async () => {
       const { supervisor } = await makeSupervisor();
 
       await expect(

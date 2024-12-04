@@ -86,8 +86,7 @@ export class Vat {
   async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
     if (isVatStorageMethod(payload)) {
       switch (payload.params.method) {
-        case VatStorageMethod.get:
-          // eslint-disable-next-line no-case-declarations
+        case VatStorageMethod.get: {
           const value = this.#store.get(payload.params.params) ?? '';
           await this.#commandStream.write({
             id,
@@ -100,6 +99,7 @@ export class Vat {
             },
           });
           break;
+        }
         case VatStorageMethod.set:
           this.#store.set(
             payload.params.params.key,

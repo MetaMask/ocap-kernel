@@ -192,7 +192,7 @@ describe('WeakCollection', () => {
       const errorCollection = new WeakCollection(1, invalidStore, 'error-test');
       await expect(async () =>
         errorCollection.init('key', { test: 'value' }),
-      ).rejects.toThrow(Error);
+      ).rejects.toThrow('Storage error');
     });
 
     it('should validate input types', async () => {
