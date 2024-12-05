@@ -19,7 +19,6 @@
     "build:dev": "yarn build:vite:dev && yarn test:build",
     "build:vite": "vite build --config vite.config.ts",
     "build:vite:dev": "yarn build:vite --mode development",
-    "bundle": "node ../../scripts/bundle-vat.js",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
     "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
@@ -37,10 +36,10 @@
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "yarn start:server & playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
-    "start:server": "npx http-server ./src/vats -p 3000 -a localhost --cors -y"
+    "start:server": "yarn ocap serve ./src/vats -p 3000 -h 10000"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.6",
