@@ -29,7 +29,7 @@ await yargs(hideBin(process.argv))
     },
   )
   .command(
-    'serve <dir> [-p port] [options]',
+    'serve <dir> [options]',
     'Serve bundled user code by filename',
     (_yargs) =>
       _yargs
@@ -37,7 +37,7 @@ await yargs(hideBin(process.argv))
           type: 'string',
           dir: true,
           required: true,
-          describe: 'A directory of files to bundle',
+          describe: 'A directory containing bundle files to serve',
         })
         .option('port', {
           alias: 'p',
@@ -50,7 +50,7 @@ await yargs(hideBin(process.argv))
           array: false,
           default: 0,
           describe:
-            'How long the server keeps running after receiving its last request. Set to 0 to disable.',
+            'How long the server keeps running after receiving its last request. Set to 0 to disable',
         }),
     async (args) => {
       const appName = 'bundle server';
