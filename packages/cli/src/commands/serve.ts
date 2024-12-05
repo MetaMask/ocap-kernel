@@ -17,7 +17,7 @@ import type { Config } from '../config.js';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getServer(config: Config) {
-  if (typeof config.dir === 'undefined' || !config.dir) {
+  if (!config.dir) {
     throw new Error(`Config option 'dir' must be specified.`);
   }
   const bundleRoot = resolvePath(config.dir);
