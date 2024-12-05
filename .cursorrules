@@ -67,7 +67,8 @@ Code Style and Testing:
 - Mock functions with `vi.fn()` and explicit return types.
 
 Type Safety:
-- Use union types and type guards.
+- Prefer `@metamask/superstruct` when defining object types.
+- Use runtime type guards, not type assertions.
 - Define interfaces for all data structures.
 - Avoid redundant type declarations.
 
