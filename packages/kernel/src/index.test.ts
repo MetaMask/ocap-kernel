@@ -9,7 +9,7 @@ describe('index', () => {
       'KernelCommandMethod',
       'KernelSendMessageStruct',
       'MessageResolver',
-      'Supervisor',
+      'VatSupervisor',
       'Vat',
       'VatCommandMethod',
       'VatConfigStruct',

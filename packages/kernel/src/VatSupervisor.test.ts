@@ -7,12 +7,12 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { isVatCommand, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { Supervisor } from './Supervisor.js';
+import { VatSupervisor } from './VatSupervisor.js';
 
-const makeSupervisor = async (
+const makeVatSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
 ): Promise<{
-  supervisor: Supervisor;
+  supervisor: VatSupervisor;
   stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
 }> => {
   const stream = await TestDuplexStream.make<
@@ -30,7 +30,7 @@ const makeSupervisor = async (
   });
   await multiplexer.synchronizeChannels('command', 'capTp');
   return {
-    supervisor: new Supervisor({
+    supervisor: new VatSupervisor({
       id: 'test-id',
       commandStream,
       capTpStream,
@@ -39,21 +39,21 @@ const makeSupervisor = async (
   };
 };
 
-describe('Supervisor', () => {
+describe('VatSupervisor', () => {
   describe('init', () => {
-    it('initializes the Supervisor correctly', async () => {
-      const { supervisor } = await makeSupervisor();
-      expect(supervisor).toBeInstanceOf(Supervisor);
+    it('initializes the VatSupervisor correctly', async () => {
+      const { supervisor } = await makeVatSupervisor();
+      expect(supervisor).toBeInstanceOf(VatSupervisor);
       expect(supervisor.id).toBe('test-id');
     });
 
     it('throws if the stream throws', async () => {
-      const { supervisor, stream } = await makeSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        `Unexpected read error from VatSupervisor "${supervisor.id}"`,
         expect.any(Error),
       );
     });
@@ -61,7 +61,7 @@ describe('Supervisor', () => {
 
   describe('handleMessage', () => {
     it('throws if receiving an unexpected message', async () => {
-      const { supervisor, stream } = await makeSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor();
 
       const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput({
@@ -71,7 +71,7 @@ describe('Supervisor', () => {
       await delay(10);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from Supervisor "${supervisor.id}"`,
+        `Unexpected read error from VatSupervisor "${supervisor.id}"`,
         new Error(
           `TestMultiplexer#command: Message failed type validation:\n${stringify(
             {
@@ -83,7 +83,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Ping messages', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -98,7 +98,7 @@ describe('Supervisor', () => {
     });
 
     it('handles CapTpInit messages', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -114,7 +114,7 @@ describe('Supervisor', () => {
 
     it('handles CapTP messages', async () => {
       const handleWrite = vi.fn();
-      const { supervisor } = await makeSupervisor(handleWrite);
+      const { supervisor } = await makeVatSupervisor(handleWrite);
 
       await supervisor.handleMessage({
         id: 'v0:0',
@@ -146,7 +146,7 @@ describe('Supervisor', () => {
     });
 
     it('handles Evaluate messages', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -161,7 +161,7 @@ describe('Supervisor', () => {
     });
 
     it('logs error on invalid Evaluate messages', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const consoleErrorSpy = vi.spyOn(console, 'error');
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
@@ -173,13 +173,13 @@ describe('Supervisor', () => {
 
       expect(replySpy).not.toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Supervisor received command with unexpected params',
+        'VatSupervisor received command with unexpected params',
         'null',
       );
     });
 
     it('handles unknown message types', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
 
       await expect(
         supervisor.handleMessage({
@@ -187,13 +187,13 @@ describe('Supervisor', () => {
           // @ts-expect-error - unknown message type.
           payload: { method: 'UnknownType' },
         }),
-      ).rejects.toThrow('Supervisor received unexpected command method:');
+      ).rejects.toThrow('VatSupervisor received unexpected command method:');
     });
   });
 
   describe('terminate', () => {
     it('terminates correctly', async () => {
-      const { supervisor, stream } = await makeSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor();
 
       await supervisor.terminate();
       expect(await stream.next()).toStrictEqual({
@@ -205,19 +205,19 @@ describe('Supervisor', () => {
 
   describe('evaluate', () => {
     it('evaluates code correctly', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const result = supervisor.evaluate('1 + 1');
       expect(result).toBe(2);
     });
 
     it('returns an error message when evaluation fails', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const result = supervisor.evaluate('invalidCode!');
       expect(result).toBe("Error: Unexpected token '!'");
     });
 
     it('returns unknown when no error message is given', async () => {
-      const { supervisor } = await makeSupervisor();
+      const { supervisor } = await makeVatSupervisor();
       const result = supervisor.evaluate('throw new Error("")');
       expect(result).toBe('Error: Unknown');
     });

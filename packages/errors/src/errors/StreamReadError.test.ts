@@ -10,7 +10,7 @@ describe('StreamReadError', () => {
   const mockSupervisorId = 'mockSupervisorId';
   const mockOriginalError = new Error('Original error');
 
-  it('creates a StreamReadError for Supervisor with the correct properties', () => {
+  it('creates a StreamReadError for VatSupervisor with the correct properties', () => {
     const error = new StreamReadError(
       { supervisorId: mockSupervisorId },
       { cause: mockOriginalError },
@@ -76,7 +76,7 @@ describe('StreamReadError', () => {
     expect((unmarshaledError.cause as Error).message).toBe('Original error');
   });
 
-  it('unmarshals a valid marshaled StreamReadError for Supervisor', () => {
+  it('unmarshals a valid marshaled StreamReadError for VatSupervisor', () => {
     const data = { supervisorId: mockSupervisorId };
     const marshaledError: MarshaledOcapError = {
       [ErrorSentinel]: true,

@@ -12,7 +12,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { Vat } from './Vat.js';
+import { VatHandle } from './VatHandle.js';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({
@@ -25,7 +25,7 @@ vi.mock('@endo/eventual-send', () => ({
 const makeVat = async (
   logger?: Logger,
 ): Promise<{
-  vat: Vat;
+  vat: VatHandle;
   stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
 }> => {
   const stream = await TestDuplexStream.make<
@@ -43,7 +43,7 @@ const makeVat = async (
   });
   await multiplexer.synchronizeChannels('command', 'capTp');
   return {
-    vat: new Vat({
+    vat: new VatHandle({
       vatId: 'v0',
       vatConfig: { sourceSpec: 'not-really-there.js' },
       commandStream,

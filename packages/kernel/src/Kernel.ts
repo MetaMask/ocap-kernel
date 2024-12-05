@@ -10,8 +10,6 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, stringify } from '@ocap/utils';
 
-import type { KVStore, KernelStore } from './kernel-store.js';
-import { makeKernelStore } from './kernel-store.js';
 import {
   isKernelCommand,
   isVatCommandReply,
@@ -25,19 +23,21 @@ import type {
   VatCommandReply,
 } from './messages/index.js';
 import type { VatCommandReturnType } from './messages/vat.js';
+import { makeKernelStore } from './store/kernel-store.js';
+import type { KVStore, KernelStore } from './store/kernel-store.js';
+import { VatStateService } from './store/vat-state-service.js';
 import type {
   VatId,
   VatWorkerService,
   ClusterConfig,
   VatConfig,
 } from './types.js';
-import { VatStateService } from './vat-state-service.js';
-import { Vat } from './Vat.js';
+import { VatHandle } from './VatHandle.js';
 
 export class Kernel {
   readonly #stream: DuplexStream<KernelCommand, KernelCommandReply>;
 
-  readonly #vats: Map<VatId, Vat>;
+  readonly #vats: Map<VatId, VatHandle>;
 
   readonly #vatWorkerService: VatWorkerService;
 
@@ -118,7 +118,7 @@ export class Kernel {
    * @param vatConfig - Configuration for the new vat.
    * @returns A promise that resolves the vat.
    */
-  async launchVat(vatConfig: VatConfig): Promise<Vat> {
+  async launchVat(vatConfig: VatConfig): Promise<VatHandle> {
     const vatId = this.#storage.getNextVatId();
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
@@ -132,8 +132,10 @@ export class Kernel {
    * @param config - Configuration object for sub-cluster.
    * @returns A record of the vats launched.
    */
-  async launchSubcluster(config: ClusterConfig): Promise<Record<string, Vat>> {
-    const vats: Record<string, Vat> = {};
+  async launchSubcluster(
+    config: ClusterConfig,
+  ): Promise<Record<string, VatHandle>> {
+    const vats: Record<string, VatHandle> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
       const vat = await this.launchVat(vatConfig);
       vats[vatName] = vat;
@@ -147,7 +149,7 @@ export class Kernel {
    * @param vatId - The ID of the vat.
    * @returns A promise that resolves the restarted vat.
    */
-  async restartVat(vatId: VatId): Promise<Vat> {
+  async restartVat(vatId: VatId): Promise<VatHandle> {
     const state = this.#vatStateService.get(vatId);
     if (!state) {
       throw new VatNotFoundError(vatId);
@@ -215,7 +217,7 @@ export class Kernel {
 
       const { method, params } = message;
 
-      let vat: Vat;
+      let vat: VatHandle;
 
       switch (method) {
         case KernelCommandMethod.ping:
@@ -225,7 +227,7 @@ export class Kernel {
           if (!this.#vats.size) {
             throw new Error('No vats available to call');
           }
-          vat = this.#vats.values().next().value as Vat;
+          vat = this.#vats.values().next().value as VatHandle;
           await this.#reply({
             method,
             params: await this.evaluate(vat.vatId, params),
@@ -235,7 +237,7 @@ export class Kernel {
           if (!this.#vats.size) {
             throw new Error('No vats available to call');
           }
-          vat = this.#vats.values().next().value as Vat;
+          vat = this.#vats.values().next().value as VatHandle;
           await this.#reply({
             method,
             params: stringify(await vat.callCapTp(params)),
@@ -292,7 +294,7 @@ export class Kernel {
    * @param vatConfig - The configuration of the vat.
    * @returns A promise that resolves the vat.
    */
-  async #initVat(vatId: VatId, vatConfig: VatConfig): Promise<Vat> {
+  async #initVat(vatId: VatId, vatConfig: VatConfig): Promise<VatHandle> {
     const multiplexer = await this.#vatWorkerService.launch(vatId, vatConfig);
     multiplexer.start().catch((error) => this.#logger.error(error));
     const commandStream = multiplexer.createChannel<
@@ -300,7 +302,12 @@ export class Kernel {
       VatCommand
     >('command', isVatCommandReply);
     const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
-    const vat = new Vat({ vatId, vatConfig, commandStream, capTpStream });
+    const vat = new VatHandle({
+      vatId,
+      vatConfig,
+      commandStream,
+      capTpStream,
+    });
     this.#vats.set(vat.vatId, vat);
     this.#vatStateService.set(vatId, {
       config: vatConfig,
@@ -315,7 +322,7 @@ export class Kernel {
    * @param vatId - The ID of the vat.
    * @returns The vat.
    */
-  #getVat(vatId: VatId): Vat {
+  #getVat(vatId: VatId): VatHandle {
     const vat = this.#vats.get(vatId);
     if (vat === undefined) {
       throw new VatNotFoundError(vatId);

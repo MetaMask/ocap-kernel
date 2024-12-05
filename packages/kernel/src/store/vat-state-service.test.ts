@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import type { VatId, VatConfig } from './types';
-import { VatStateService } from './vat-state-service';
+import { VatStateService } from './vat-state-service.js';
+import type { VatId, VatConfig } from '../types.js';
 
 describe('VatStateService', () => {
   let vatStateService: VatStateService;

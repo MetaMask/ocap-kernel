@@ -1,7 +1,7 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import type { Json } from '@metamask/utils';
-import { isVatCommand, Supervisor } from '@ocap/kernel';
+import { isVatCommand, VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { MessagePortMultiplexer, receiveMessagePort } from '@ocap/streams';
 
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     isVatCommand,
   );
   const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
-  const supervisor = new Supervisor({
+  const supervisor = new VatSupervisor({
     id: 'iframe',
     commandStream,
     capTpStream,

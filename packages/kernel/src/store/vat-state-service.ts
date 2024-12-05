@@ -1,4 +1,4 @@
-import type { VatId, VatConfig } from './types.js';
+import type { VatId, VatConfig } from '../types.js';
 
 export type VatState = {
   config: VatConfig;

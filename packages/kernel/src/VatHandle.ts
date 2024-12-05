@@ -20,22 +20,14 @@ import type {
 import type { VatCommandReturnType } from './messages/vat.js';
 import type { VatId, VatConfig } from './types.js';
 
-type VatConstructorProps = {
-  vatId: VatId;
-  vatConfig: VatConfig;
-  commandStream: DuplexStream<VatCommandReply, VatCommand>;
-  capTpStream: DuplexStream<Json, Json>;
-  logger?: Logger | undefined;
-};
-
-export class Vat {
-  readonly vatId: VatConstructorProps['vatId'];
+export class VatHandle {
+  readonly vatId: VatId;
 
   readonly #commandStream: DuplexStream<VatCommandReply, VatCommand>;
 
   readonly #capTpStream: DuplexStream<Json, Json>;
 
-  readonly #config: VatConstructorProps['vatConfig'];
+  readonly #config: VatConfig;
 
   readonly logger: Logger;
 
@@ -49,7 +41,13 @@ export class Vat {
     commandStream,
     capTpStream,
     logger,
-  }: VatConstructorProps) {
+  }: {
+    vatId: VatId;
+    vatConfig: VatConfig;
+    commandStream: DuplexStream<VatCommandReply, VatCommand>;
+    capTpStream: DuplexStream<Json, Json>;
+    logger?: Logger | undefined;
+  }) {
     this.vatId = vatId;
     this.#config = vatConfig;
     this.logger = logger ?? makeLogger(`[vat ${vatId}]`);

@@ -17,7 +17,7 @@ type SupervisorConstructorProps = {
   bootstrap?: unknown;
 };
 
-export class Supervisor {
+export class VatSupervisor {
   readonly id: string;
 
   readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
@@ -50,7 +50,7 @@ export class Supervisor {
       }),
     ]).catch(async (error) => {
       console.error(
-        `Unexpected read error from Supervisor "${this.id}"`,
+        `Unexpected read error from VatSupervisor "${this.id}"`,
         error,
       );
       await this.terminate(
@@ -60,9 +60,9 @@ export class Supervisor {
   }
 
   /**
-   * Terminates the Supervisor.
+   * Terminates the VatSupervisor.
    *
-   * @param error - The error to terminate the Supervisor with.
+   * @param error - The error to terminate the VatSupervisor with.
    */
   async terminate(error?: Error): Promise<void> {
     // eslint-disable-next-line promise/no-promise-in-callback
@@ -84,7 +84,7 @@ export class Supervisor {
       case VatCommandMethod.evaluate: {
         if (typeof payload.params !== 'string') {
           console.error(
-            'Supervisor received command with unexpected params',
+            'VatSupervisor received command with unexpected params',
             // @ts-expect-error Runtime does not respect "never".
             stringify(payload.params),
           );
@@ -113,14 +113,14 @@ export class Supervisor {
       case VatCommandMethod.loadUserCode: {
         if (this.#loaded) {
           throw Error(
-            'Supervisor received LoadUserCode after user code already loaded',
+            'VatSupervisor received LoadUserCode after user code already loaded',
           );
         }
         this.#loaded = true;
         const vatConfig: VatConfig = payload.params as VatConfig;
         if (!isVatConfig(vatConfig)) {
           throw Error(
-            'Supervisor received LoadUserCode with bad config parameter',
+            'VatSupervisor received LoadUserCode with bad config parameter',
           );
         }
         // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
@@ -129,7 +129,7 @@ export class Supervisor {
             'for now, only bundleSpec is support in vatConfig specifications',
           );
         }
-        console.log('Supervisor requested user code load:', vatConfig);
+        console.log('VatSupervisor requested user code load:', vatConfig);
         const { bundleSpec, parameters } = vatConfig;
         // This is not code running under Node, you idiots
         // eslint-disable-next-line n/no-unsupported-features/node-builtins
@@ -166,7 +166,7 @@ export class Supervisor {
 
       default:
         throw Error(
-          'Supervisor received unexpected command method:',
+          'VatSupervisor received unexpected command method:',
           // @ts-expect-error Runtime does not respect "never".
           payload.method,
         );

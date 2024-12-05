@@ -7,15 +7,15 @@ import type {
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KVStore } from './kernel-store.js';
 import { Kernel } from './Kernel.js';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
 } from './messages/index.js';
+import type { KVStore } from './store/kernel-store.js';
 import type { VatId, VatConfig, VatWorkerService } from './types.js';
-import { Vat } from './Vat.js';
+import { VatHandle } from './VatHandle.js';
 import { makeMapKVStore } from '../test/storage.js';
 
 describe('Kernel', () => {
@@ -54,9 +54,11 @@ describe('Kernel', () => {
       .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);
 
-    initMock = vi.spyOn(Vat.prototype, 'init').mockImplementation(vi.fn());
+    initMock = vi
+      .spyOn(VatHandle.prototype, 'init')
+      .mockImplementation(vi.fn());
     terminateMock = vi
-      .spyOn(Vat.prototype, 'terminate')
+      .spyOn(VatHandle.prototype, 'terminate')
       .mockImplementation(vi.fn());
 
     mockKVStore = makeMapKVStore();
@@ -124,7 +126,9 @@ describe('Kernel', () => {
     it('throws an error when a vat terminate method throws', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(Vat.prototype, 'terminate').mockRejectedValueOnce('Test error');
+      vi.spyOn(VatHandle.prototype, 'terminate').mockRejectedValueOnce(
+        'Test error',
+      );
       await expect(async () => kernel.terminateVat('v1')).rejects.toThrow(
         'Test error',
       );
@@ -204,7 +208,9 @@ describe('Kernel', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(Vat.prototype, 'sendMessage').mockResolvedValueOnce('test');
+      vi.spyOn(VatHandle.prototype, 'sendMessage').mockResolvedValueOnce(
+        'test',
+      );
       expect(
         await kernel.sendMessage(
           'v1',
@@ -224,7 +230,9 @@ describe('Kernel', () => {
     it('throws an error when sending a message to the vat throws', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(Vat.prototype, 'sendMessage').mockRejectedValueOnce('error');
+      vi.spyOn(VatHandle.prototype, 'sendMessage').mockRejectedValueOnce(
+        'error',
+      );
       await expect(async () =>
         kernel.sendMessage('v1', {} as VatCommand['payload']),
       ).rejects.toThrow('error');

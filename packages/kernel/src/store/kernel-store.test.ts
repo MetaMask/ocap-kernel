@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';
 import type { KVStore } from './kernel-store.js';
-import type { Message } from './types.js';
-import { makeMapKVStore } from '../test/storage.js';
+import { makeMapKVStore } from '../../test/storage.js';
+import type { Message } from '../types.js';
 
 /**
  * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they
