@@ -81,7 +81,7 @@ Documentation:
 
 Testing and Debugging:
 - Aim for high test coverage, including unit and integration tests.
-- Mock external dependencies properly.
+- Mock external dependencies using vitest's `vi.mock()`.
 - Use Chrome DevTools and node-based tools for debugging.
 - Use Vite for efficient builds in development and production.
 
