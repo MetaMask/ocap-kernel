@@ -11,6 +11,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "bin": {
+    "ocap": "packages/cli/dist/app.mjs"
+  },
   "scripts": {
     "build": "yarn run build:source",
     "build:clean": "yarn clean && yarn build",
