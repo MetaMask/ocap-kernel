@@ -7,9 +7,9 @@ Code Style and Structure:
 - Use TypeDoc for documentation.
 - Use verbose variable names (`isKernelActive`, `hasVatAccess`, `unresolvedMessages`).
 - Follow consistent naming conventions:
-  - CamelCase for functions and variables.
+  - camelCase for functions and variables.
   - PascalCase for class names.
-  - File names: lowercase with underscores (e.g., `kernel_worker.js`).
+  - kebab-case for file names (`kernel-worker.js`, `vat.js`).
 - Structure files logically:
   - Place packages' source files under `<package-root>/src/`.
   - `.test.ts` suffix for test files co-located with source files.
