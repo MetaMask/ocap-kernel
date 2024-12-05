@@ -3,8 +3,9 @@ Code Style and Structure:
 - Write concise, accurate JavaScript/TypeScript with modern ES Module syntax.
 - Use a class-based structure where applicable.
 - Use `harden()` from SES for object security.
-- Integrate Superstruct for validation and TypeDoc for documentation.
-- Use descriptive variable names (`isKernelActive`, `hasVatAccess`).
+- Use `@metamask/superstruct` for validation.
+- Use TypeDoc for documentation.
+- Use verbose variable names (`isKernelActive`, `hasVatAccess`, `unresolvedMessages`).
 - Follow consistent naming conventions:
   - CamelCase for functions and variables.
   - PascalCase for class names.
