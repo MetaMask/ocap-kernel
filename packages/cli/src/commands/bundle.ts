@@ -30,7 +30,7 @@ export async function createBundleFile(
   const bundle = await bundleSource(sourceFullPath);
   const bundleString = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleString);
-  console.log(`wrote ${bundlePath}: ${bundleString.length} bytes`);
+  console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
 }
 
 /**
