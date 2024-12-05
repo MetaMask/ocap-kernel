@@ -10,19 +10,9 @@ import { isDirectory } from '../file.js';
  * Create a bundle given path to an entry point.
  *
  * @param sourcePath - Path to the source file that is the root of the bundle.
- * @param check - Whether to check if the sourcePath is a directory. Defaults to true.
  * @returns A promise that resolves when the bundle has been written.
  */
-export async function createBundleFile(
-  sourcePath: string,
-  check: boolean = true,
-): Promise<void> {
-  if (check && (await isDirectory(sourcePath))) {
-    throw new Error('createBundle cannot be called on directory', {
-      cause: { sourcePath },
-    });
-  }
-
+export async function createBundleFile(sourcePath: string): Promise<void> {
   const sourceFullPath = resolve(sourcePath);
   console.log(sourceFullPath);
   const { dir, name } = parse(sourceFullPath);
@@ -37,18 +27,9 @@ export async function createBundleFile(
  * Create a bundle given path to an entry point.
  *
  * @param sourceDir - Path to a directory of source files to bundle.
- * @param check - Whether to check if the sourceDir is a directory. Defaults to true.
  * @returns A promise that resolves when the bundles have been written.
  */
-export async function createBundleDir(
-  sourceDir: string,
-  check: boolean = true,
-): Promise<void> {
-  if (check && !(await isDirectory(sourceDir))) {
-    throw new Error('createBundleDir must be called on directory', {
-      cause: { sourceDir },
-    });
-  }
+export async function createBundleDir(sourceDir: string): Promise<void> {
   console.log('bundling dir', sourceDir);
   await Promise.all(
     (await glob(join(sourceDir, '*.js'))).map(
@@ -66,6 +47,5 @@ export async function createBundleDir(
 export async function createBundle(target: string): Promise<void> {
   await ((await isDirectory(target)) ? createBundleDir : createBundleFile)(
     target,
-    false,
   );
 }
