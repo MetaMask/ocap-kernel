@@ -4,7 +4,7 @@ import {
   VatCapTpConnectionNotFoundError,
 } from '@ocap/errors';
 import type { MultiplexEnvelope } from '@ocap/streams';
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
 import { makeLogger, stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
@@ -60,8 +60,8 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
       const capTpMock = vi
         .spyOn(vat, 'makeCapTp')
         .mockResolvedValueOnce(undefined);
@@ -84,8 +84,8 @@ describe('Vat', () => {
     it('throws if the stream throws', async () => {
       const { vat, stream } = await makeVat();
       vi.spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
       vi.spyOn(vat, 'makeCapTp').mockResolvedValueOnce(undefined);
       await vat.init();
       const logErrorSpy = vi.spyOn(vat.logger, 'error');
@@ -105,61 +105,59 @@ describe('Vat', () => {
         method: VatCommandMethod.ping,
         params: null,
       } as VatCommand['payload'];
+
       const sendMessagePromise = vat.sendMessage(mockMessage);
-      vat.unresolvedMessages.get('v0:1')?.resolve('test-response');
+
+      // Simulate response using handleMessage instead of direct resolver access
+      await vat.handleMessage({
+        id: 'v0:1',
+        payload: {
+          method: VatCommandMethod.ping,
+          params: 'test-response',
+        },
+      });
+
       const result = await sendMessagePromise;
       expect(result).toBe('test-response');
     });
   });
 
   describe('handleMessage', () => {
-    it('resolves the payload when the message id exists in unresolvedMessages', async () => {
+    it('resolves the payload when the message id exists', async () => {
       const { vat } = await makeVat();
       const mockMessageId = 'v0:1';
       const mockPayload: VatCommandReply['payload'] = {
         method: VatCommandMethod.evaluate,
         params: 'test-response',
       };
-      const mockPromiseKit = { resolve: vi.fn(), reject: vi.fn() };
-      vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
-      await vat.handleMessage({ id: mockMessageId, payload: mockPayload });
-      expect(mockPromiseKit.resolve).toHaveBeenCalledWith('test-response');
-      expect(vat.unresolvedMessages.has(mockMessageId)).toBe(false);
-    });
 
-    it('logs an error when the message id does not exist in unresolvedMessages', async () => {
-      const { vat } = await makeVat();
-      const logErrorSpy = vi.spyOn(vat.logger, 'error');
-
-      const nonExistentMessageId = 'v0:9';
-      const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.ping,
-        params: 'pong',
-      };
-
-      await vat.handleMessage({
-        id: nonExistentMessageId,
-        payload: mockPayload,
+      // Create a pending message first
+      const messagePromise = vat.sendMessage({
+        method: VatCommandMethod.evaluate,
+        params: 'test-input',
       });
 
-      expect(logErrorSpy).toHaveBeenCalledWith(
-        `No unresolved message with id "${nonExistentMessageId}".`,
-      );
-      logErrorSpy.mockRestore();
+      // Handle the response
+      await vat.handleMessage({ id: mockMessageId, payload: mockPayload });
+
+      const result = await messagePromise;
+      expect(result).toBe('test-response');
     });
   });
 
   describe('terminate', () => {
-    it('terminates the vat and resolves/rejects unresolved messages', async () => {
+    it('terminates the vat and rejects unresolved messages', async () => {
       const { vat, stream } = await makeVat();
 
-      const mockMessageId = 'v0:1';
-      const mockPromiseKit = makePromiseKitMock().makePromiseKit();
-      const rejectSpy = vi.spyOn(mockPromiseKit, 'reject');
-      vat.unresolvedMessages.set(mockMessageId, mockPromiseKit);
+      // Create a pending message that should be rejected on terminate
+      const messagePromise = vat.sendMessage({
+        method: VatCommandMethod.ping,
+        params: null,
+      });
 
       await vat.terminate();
-      expect(rejectSpy).toHaveBeenCalledWith(expect.any(Error));
+
+      await expect(messagePromise).rejects.toThrow('Vat was deleted.');
       expect(await stream.next()).toStrictEqual({
         done: true,
         value: undefined,
@@ -181,7 +179,7 @@ describe('Vat', () => {
       const { vat } = await makeVat();
       const sendMessageMock = vi
         .spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('');
       await vat.makeCapTp();
       expect(sendMessageMock).toHaveBeenCalledWith({
         method: VatCommandMethod.capTpInit,
@@ -194,9 +192,9 @@ describe('Vat', () => {
       const logSpy = vi.spyOn(logger, 'log');
       const { vat, stream } = await makeVat(logger);
       vi.spyOn(vat, 'sendMessage')
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('')
+        .mockResolvedValueOnce('');
 
       await vat.init();
 
@@ -240,7 +238,7 @@ describe('Vat', () => {
 
     it('calls CapTP method with parameters using eventual send', async () => {
       const { vat } = await makeVat();
-      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce(undefined);
+      vi.spyOn(vat, 'sendMessage').mockResolvedValueOnce('');
       await vat.makeCapTp();
 
       const eventualSend = await import('@endo/eventual-send');

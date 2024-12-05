@@ -15,12 +15,14 @@
         </div>
 
         <div class="vat-controls">
+          <input type="text" id="new-vat-name" placeholder="Vat Name" />
           <input
-            type="text"
-            id="new-vat-name"
-            placeholder="Your Vat Name Here"
+            type="url"
+            id="bundle-url"
+            placeholder="Bundle URL"
+            value="http://localhost:3000/sample-vat.bundle"
           />
-          <button id="launch-vat">Launch Vat</button>
+          <button id="launch-vat" disabled>Launch Vat</button>
         </div>
 
         <div class="vat-controls">

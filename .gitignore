@@ -79,3 +79,9 @@ node_modules/
 
 # Ignore all .bundle files in the extensions directory
 packages/extension/**/*.bundle
+
+# Ignore playwright reports
+playwright-report
+
+# Ignore test results
+test-results

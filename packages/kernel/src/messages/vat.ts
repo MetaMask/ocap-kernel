@@ -108,3 +108,11 @@ export const isVatCommand = (value: unknown): value is VatCommand =>
 
 export const isVatCommandReply = (value: unknown): value is VatCommandReply =>
   is(value, VatCommandReplyStruct);
+
+export type VatReplyParams<Method extends keyof typeof VatReplyStructs> = Infer<
+  (typeof VatReplyStructs)[Method]
+>['params'];
+
+export type VatCommandReturnType = {
+  [Method in keyof typeof VatReplyStructs]: VatReplyParams<Method>;
+};

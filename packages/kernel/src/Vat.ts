@@ -1,6 +1,5 @@
 import { makeCapTP } from '@endo/captp';
 import { E } from '@endo/eventual-send';
-import { makePromiseKit } from '@endo/promise-kit';
 import type { Json } from '@metamask/utils';
 import {
   VatCapTpConnectionExistsError,
@@ -10,15 +9,16 @@ import {
 } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger, makeCounter, stringify } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
 
-import { VatCommandMethod } from './messages/index.js';
+import { MessageResolver, VatCommandMethod } from './messages/index.js';
 import type {
   CapTpPayload,
   VatCommandReply,
   VatCommand,
 } from './messages/index.js';
-import type { PromiseCallbacks, VatId, VatConfig } from './types.js';
+import type { VatCommandReturnType } from './messages/vat.js';
+import type { VatId, VatConfig } from './types.js';
 
 type VatConstructorProps = {
   vatId: VatId;
@@ -39,10 +39,7 @@ export class Vat {
 
   readonly logger: Logger;
 
-  readonly #messageCounter: () => number;
-
-  readonly unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
-    new Map();
+  readonly #resolver: MessageResolver;
 
   capTp?: ReturnType<typeof makeCapTP>;
 
@@ -56,9 +53,9 @@ export class Vat {
     this.vatId = vatId;
     this.#config = vatConfig;
     this.logger = logger ?? makeLogger(`[vat ${vatId}]`);
-    this.#messageCounter = makeCounter();
     this.#commandStream = commandStream;
     this.#capTpStream = capTpStream;
+    this.#resolver = new MessageResolver(vatId);
   }
 
   /**
@@ -69,13 +66,7 @@ export class Vat {
    * @param vatMessage.payload - The payload to handle.
    */
   async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
-    const promiseCallbacks = this.unresolvedMessages.get(id);
-    if (promiseCallbacks === undefined) {
-      this.logger.error(`No unresolved message with id "${id}".`);
-    } else {
-      this.unresolvedMessages.delete(id);
-      promiseCallbacks.resolve(payload.params);
-    }
+    this.#resolver.handleResponse(id, payload.params);
   }
 
   /**
@@ -105,21 +96,6 @@ export class Vat {
 
     return await this.makeCapTp();
   }
-
-  /**
-   * Receives messages from a vat.
-   *
-   * @param reader - The reader for the messages.
-   */
-  /*
-  async #receiveMessages(reader: Reader<StreamEnvelopeReply>): Promise<void> {
-    for await (const rawMessage of reader) {
-      console.log(`Vat received message ${JSON.stringify(rawMessage)}`);
-      this.logger.debug('Vat received message', rawMessage);
-      await this.streamEnvelopeReplyHandler.handle(rawMessage);
-    }
-  }
-  */
 
   /**
    * Make a CapTP connection.
@@ -169,11 +145,8 @@ export class Vat {
       this.#capTpStream.end(error),
     ]);
 
-    // Handle orphaned messages
-    for (const [messageId, promiseCallback] of this.unresolvedMessages) {
-      promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
-      this.unresolvedMessages.delete(messageId);
-    }
+    const terminationError = error ?? new VatDeletedError(this.vatId);
+    this.#resolver.terminateAll(terminationError);
   }
 
   /**
@@ -182,21 +155,12 @@ export class Vat {
    * @param payload - The message to send.
    * @returns A promise that resolves the response to the message.
    */
-  async sendMessage(payload: VatCommand['payload']): Promise<unknown> {
+  async sendMessage<Method extends VatCommand['payload']['method']>(
+    payload: Extract<VatCommand['payload'], { method: Method }>,
+  ): Promise<VatCommandReturnType[Method]> {
     this.logger.debug('Sending message to vat', payload);
-    const { promise, reject, resolve } = makePromiseKit();
-    const messageId = this.#nextMessageId();
-    this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.#commandStream.write({ id: messageId, payload });
-    return promise;
+    return this.#resolver.createMessage(async (messageId) => {
+      await this.#commandStream.write({ id: messageId, payload });
+    });
   }
-
-  /**
-   * Gets the next message ID.
-   *
-   * @returns The message ID.
-   */
-  readonly #nextMessageId = (): VatCommand['id'] => {
-    return `${this.vatId}:${this.#messageCounter()}`;
-  };
 }

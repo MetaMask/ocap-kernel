@@ -10,6 +10,7 @@ const config = mergeConfig(
       name: 'extension',
       environment: 'jsdom',
       pool: 'vmThreads',
+      exclude: ['**/test/e2e/**'],
       alias: [
         {
           find: '@ocap/shims/endoify',

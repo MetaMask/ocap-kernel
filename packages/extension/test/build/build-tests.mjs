@@ -5,7 +5,7 @@ import {
   buildDir,
   sourceDir,
   trustedPreludes,
-} from '../scripts/build-constants.mjs';
+} from '../../scripts/build-constants.mjs';
 
 const untransformedFiles = [
   {

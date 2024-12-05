@@ -1,8 +1,8 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 
-import { buttons, vatDropdown, newVatName } from './buttons.js';
-import { logger } from './shared.js';
+import { buttons, vatDropdown, newVatName, bundleUrl } from './buttons.js';
+import { isValidBundleUrl, logger } from './shared.js';
 import type {
   KernelControlCommand,
   KernelStatus,
@@ -16,22 +16,37 @@ export const statusDisplay = document.getElementById(
  * Setup status polling.
  *
  * @param sendMessage - A function for sending messages.
+ * @returns A function to stop the polling.
  */
 export async function setupStatusPolling(
   sendMessage: (message: KernelControlCommand) => Promise<void>,
-): Promise<void> {
+): Promise<() => void> {
+  let isPolling = true;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   const fetchStatus = async (): Promise<void> => {
+    if (!isPolling) {
+      return;
+    }
+
     await sendMessage({
       method: 'getStatus',
       params: null,
     });
 
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
       fetchStatus().catch(logger.error);
     }, 1000);
   };
 
   await fetchStatus();
+
+  return () => {
+    isPolling = false;
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  };
 }
 
 /**
@@ -53,6 +68,19 @@ export function updateStatusDisplay(status: KernelStatus): void {
  */
 export function setupVatListeners(): void {
   newVatName.addEventListener('input', () => {
+    updateButtonStates(vatDropdown.options.length > 1);
+  });
+
+  bundleUrl.addEventListener('input', (event) => {
+    const input = event.target as HTMLInputElement;
+    const url = input.value.trim();
+    input.setCustomValidity('');
+
+    if (!isValidBundleUrl(url)) {
+      input.setCustomValidity('Please enter a valid URL ending with .bundle');
+    }
+
+    input.reportValidity();
     updateButtonStates(vatDropdown.options.length > 1);
   });
 
@@ -110,20 +138,20 @@ function updatevatDropdown(activeVats: VatId[]): void {
  * @param hasVats - Whether any vats exist
  */
 export function updateButtonStates(hasVats: boolean): void {
-  // Launch button - enabled only when new vat ID is not empty
   if (buttons.launchVat) {
-    buttons.launchVat.element.disabled = !newVatName.value.trim();
+    const hasValidName = newVatName.value.trim().length > 0;
+    const hasValidUrl = isValidBundleUrl(bundleUrl.value);
+    buttons.launchVat.element.disabled = !hasValidName || !hasValidUrl;
   }
 
-  // Restart and terminate buttons - enabled when a vat is selected
   if (buttons.restartVat) {
     buttons.restartVat.element.disabled = !vatDropdown.value;
   }
+
   if (buttons.terminateVat) {
     buttons.terminateVat.element.disabled = !vatDropdown.value;
   }
 
-  // Terminate all - enabled only when vats exist
   if (buttons.terminateAllVats) {
     buttons.terminateAllVats.element.disabled = !hasVats;
   }

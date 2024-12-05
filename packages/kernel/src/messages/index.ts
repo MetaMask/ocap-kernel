@@ -29,4 +29,7 @@ export type {
   VatWorkerServiceReply,
 } from './vat-worker-service.js';
 
+// Message resolver.
+export { MessageResolver } from './message-resolver.js';
+
 // Syscalls.

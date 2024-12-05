@@ -47,7 +47,7 @@ type EndpointState<IdType> = {
   kRefToERef: Map<KRef, ERef>;
 };
 
-type VatState = {
+type KernelVatState = {
   messagePort: typeof MessagePort;
   state: EndpointState<VatId>;
   source: string;
@@ -72,7 +72,7 @@ export type KernelPromise = {
 };
 
 export type KernelState = {
-  vats: Map<VatId, VatState>;
+  vats: Map<VatId, KernelVatState>;
   remotes: Map<RemoteId, RemoteState>;
   kernelPromises: Map<KRef, KernelPromise>;
 };
@@ -176,9 +176,10 @@ export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
     return false;
   }
 
-  const { sourceSpec, bundleSpec, bundleName, creationOptions, parameters } =
-    value as Record<string, unknown>;
-  const specOnly = { sourceSpec, bundleSpec, bundleName };
+  const { creationOptions, parameters, ...specOnly } = value as Record<
+    string,
+    unknown
+  >;
 
   return (
     is(specOnly, UserCodeSpecStruct) &&
