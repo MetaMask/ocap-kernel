@@ -1,5 +1,6 @@
-import { mkdir, rm } from 'fs/promises';
+import { mkdir } from 'fs/promises';
 import { glob } from 'glob';
+import { tmpdir } from 'os';
 import { resolve, join, basename, format } from 'path';
 
 import { cp } from '../src/file.js';
@@ -7,15 +8,10 @@ import { cp } from '../src/file.js';
 const makeTestBundleRoot = async (): Promise<string> => {
   const testRoot = resolve(import.meta.url.split(':')[1] as string, '..');
 
-  // clean and remake test staging area
-  const stage = resolve(testRoot, 'stage');
-  await rm(stage, { recursive: true, force: true });
-  await mkdir(stage);
-
   // copy bundle targets to staging area
   const testBundleRoot = resolve(testRoot, 'bundles');
-  const stageBundleRoot = resolve(stage, 'bundles');
-  await mkdir(stageBundleRoot);
+  const stageBundleRoot = resolve(tmpdir(), 'test/bundles');
+  await mkdir(stageBundleRoot, { recursive: true });
   for (const ext of ['.js', '.expected']) {
     await Promise.all(
       (await glob(join(testBundleRoot, `*${ext}`))).map(async (filePath) => {
@@ -24,7 +20,10 @@ const makeTestBundleRoot = async (): Promise<string> => {
       }),
     );
   }
-  await cp(join(testRoot, 'test.bundle'), join(stage, 'test.bundle'));
+  await cp(
+    join(testRoot, 'test.bundle'),
+    join(stageBundleRoot, '../test.bundle'),
+  );
 
   // return the staging area, ready for testing
   return stageBundleRoot;

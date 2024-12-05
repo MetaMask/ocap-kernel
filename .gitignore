@@ -80,8 +80,6 @@ node_modules/
 # Ignore all .bundle files in the extensions directory
 packages/extension/**/*.bundle
 
-packages/cli/test/stage
-
 # Ignore playwright reports
 playwright-report
 

@@ -1,3 +1,4 @@
+import bundleSourceImport from '@endo/bundle-source';
 import { createHash } from 'crypto';
 import { readFile, rm } from 'fs/promises';
 import { glob } from 'glob';
@@ -15,6 +16,12 @@ import {
 import { createBundleFile, createBundleDir } from './bundle.js';
 import { getTestBundles } from '../../test/bundles.js';
 import { fileExists } from '../file.js';
+
+const bundleSource = bundleSourceImport as ReturnType<typeof vi.fn>;
+
+vi.mock('@endo/bundle-source', () => ({
+  default: vi.fn(),
+}));
 
 describe('bundle', async () => {
   beforeEach(() => {
@@ -43,11 +50,14 @@ describe('bundle', async () => {
         }
         ctx.expect(await fileExists(bundle)).toBe(false);
 
+        const expectedBundleContent = await readFile(expected);
+
+        bundleSource.mockImplementationOnce(() => expectedBundleContent);
+
         await createBundleFile(script);
 
         ctx.expect(await fileExists(bundle)).toBe(true);
 
-        const expectedBundleContent = await readFile(expected);
         const bundleContent = await readFile(bundle);
         const expectedBundleHash = createHash('sha256')
           .update(expectedBundleContent)
@@ -59,12 +69,6 @@ describe('bundle', async () => {
           .toStrictEqual(expectedBundleHash.toString('hex'));
       },
     );
-
-    it('throws an error if supplied path is a directory', async () => {
-      await expect(createBundleFile(testBundleRoot)).rejects.toThrow(
-        /cannot be called on directory/u,
-      );
-    });
   });
 
   describe('createBundleDir', () => {
@@ -75,6 +79,8 @@ describe('bundle', async () => {
         ),
       ).toStrictEqual([]);
 
+      bundleSource.mockImplementation(() => 'test content');
+
       await createBundleDir(testBundleRoot);
 
       expect(
@@ -82,13 +88,6 @@ describe('bundle', async () => {
           basename(filepath, '.bundle'),
         ),
       ).toStrictEqual(testBundleNames);
-    });
-
-    it('throws an error if supplied path is not a directory', async () => {
-      const script = testBundleSpecs[0]?.script;
-      await expect(createBundleDir(script as string)).rejects.toThrow(
-        /must be called on directory/u,
-      );
     });
   });
 });

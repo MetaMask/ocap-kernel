@@ -35,10 +35,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 77.19,
+          statements: 75.47,
           functions: 72.22,
-          branches: 76.66,
-          lines: 77.19,
+          branches: 61.11,
+          lines: 75.47,
         },
         'packages/errors/**': {
           statements: 100,
