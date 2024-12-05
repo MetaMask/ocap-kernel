@@ -10,7 +10,7 @@ Code Style and Structure:
   - PascalCase for class names.
   - File names: lowercase with underscores (e.g., `kernel_worker.js`).
 - Structure files logically:
-  - `src/` for source files.
+  - Place packages' source files under `<package-root>/src/`.
   - `.test.ts` suffix for test files co-located with source files.
 
 File and Directory Structure:
