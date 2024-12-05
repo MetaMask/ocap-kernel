@@ -1,5 +1,8 @@
 ---
 ignores:
+  # monorepo
+  - '@ocap/cli'
+
   # eslint and prettier
   - '@*/eslint-*'
   - '@typescript-eslint/*'
