@@ -16,8 +16,9 @@ Code Style and Structure:
 File and Directory Structure:
 - Maintain a monorepo structure using Yarn workspaces.
 - Use lowercase with underscores for package names and file names.
-- Co-locate tests with source files in the `src/` directory.
-- Separate test utilities into a dedicated `test-utils` package.
+- Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `kernel/src/kernel-worker.ts` should be tested in `kernel/src/kernel-worker.test.ts`).
+- Test utilities used by a single package should be separated into that package's `<package-root>/test/` directory
+- Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package.
 
 TypeScript Usage:
 - Prioritize TypeScript for type safety and maintainability.
