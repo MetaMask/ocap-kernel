@@ -174,7 +174,7 @@ jobs:
           cache: yarn
       - run: yarn --immutable
       - run: yarn build
-      - run: yarn bundle ./packages/extension/src/vats/sample-vat.js
+      - run: yarn ocap bundle ./packages/extension/src/vats/sample-vat.js
       - run: yarn test:e2e
       - name: Require clean working directory
         shell: bash
