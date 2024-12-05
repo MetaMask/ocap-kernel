@@ -77,14 +77,6 @@ describe('serve', async () => {
       };
     };
 
-    it('responds to ping', async () => {
-      const { listen, url } = makeServer(testBundleRoot);
-      const { close } = await listen();
-      const response = await nodeFetch(`${url}/ping`);
-      expect(response.ok).toBe(true);
-      await withTimeout(close(), 400).catch(console.error);
-    });
-
     it('serves bundles', async () => {
       const bundleName = 'test.bundle';
       const bundleRoot = join(testBundleRoot, '..');

@@ -46,12 +46,6 @@ export function getServer(config: Config, onGetResponse?: () => void) {
       new URL(request.url, `http://${request.headers.host}`).pathname;
     const path = pathname?.slice(1);
 
-    if (path === 'ping') {
-      response.statusCode = 200;
-      response.end();
-      return;
-    }
-
     if (!isAllowedPath(path)) {
       response.statusCode = 404;
       response.end();
