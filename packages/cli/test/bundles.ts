@@ -7,10 +7,11 @@ import { cp } from '../src/file.js';
 
 const makeTestBundleRoot = async (): Promise<string> => {
   const testRoot = resolve(import.meta.url.split(':')[1] as string, '..');
+  const stageRoot = resolve(tmpdir(), 'test');
 
   // copy bundle targets to staging area
   const testBundleRoot = resolve(testRoot, 'bundles');
-  const stageBundleRoot = resolve(tmpdir(), 'test/bundles');
+  const stageBundleRoot = resolve(stageRoot, 'bundles');
   await mkdir(stageBundleRoot, { recursive: true });
   for (const ext of ['.js', '.expected']) {
     await Promise.all(
@@ -20,10 +21,7 @@ const makeTestBundleRoot = async (): Promise<string> => {
       }),
     );
   }
-  await cp(
-    join(testRoot, 'test.bundle'),
-    join(stageBundleRoot, '../test.bundle'),
-  );
+  await cp(join(testRoot, 'test.bundle'), join(stageRoot, 'test.bundle'));
 
   // return the staging area, ready for testing
   return stageBundleRoot;
