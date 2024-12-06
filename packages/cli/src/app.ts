@@ -64,15 +64,16 @@ await yargs(hideBin(process.argv))
       };
       console.info(`starting ${appName} in ${resolvedDir} on ${url}`);
 
-      if (args.hangup === 0) {
+      const hangupTime = Number(args.hangup?.toString().split(',').at(-1));
+
+      if (hangupTime === 0) {
         const server = getServer(config);
         await server.listen();
       } else {
-        const parsedHangup = Number(args.hangup?.toString().split(',').at(-1));
         const { promise: hangup, reset: resetHangup } =
-          makeTimeoutWithReset(parsedHangup);
+          makeTimeoutWithReset(hangupTime);
         console.info(
-          `${appName} will auto hangup after ${parsedHangup}ms without a request`,
+          `${appName} will auto hangup after ${hangupTime}ms without a request`,
         );
 
         const server = getServer(config, resetHangup);
@@ -80,7 +81,7 @@ await yargs(hideBin(process.argv))
 
         await hangup;
         console.log(
-          `terminating ${appName} after ${parsedHangup}ms without a request`,
+          `terminating ${appName} after ${hangupTime}ms without a request`,
         );
         await withTimeout(close(), 400).catch(console.error);
       }
