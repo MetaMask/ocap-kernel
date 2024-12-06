@@ -1794,8 +1794,6 @@ __metadata:
   resolution: "@ocap/monorepo@workspace:."
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.16.4"
-    "@endo/bundle-source": "npm:^3.5.0"
-    "@endo/init": "npm:^1.1.6"
     "@lavamoat/allow-scripts": "npm:^3.0.4"
     "@lavamoat/preinstall-always-fail": "npm:^2.0.0"
     "@metamask/approval-controller": "npm:^7.1.1"
