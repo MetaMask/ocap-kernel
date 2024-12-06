@@ -16,12 +16,7 @@ function cleanup() {
     kill $SERVER_PID
   fi
 }
-# Ensures we close the server if tests fail
+# Ensure we always close the server
 trap cleanup EXIT
 
-# Run tests
 yarn test:e2e
-
-cleanup
-wait $SERVER_PID
-exit $?
