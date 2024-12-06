@@ -6,7 +6,6 @@ import { createBundle } from './commands/bundle.js';
 import { getServer } from './commands/serve.js';
 import { defaultConfig } from './config.js';
 import type { Config } from './config.js';
-import { makeTimeoutWithReset, withTimeout } from './utils.js';
 
 await yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')
@@ -43,14 +42,6 @@ await yargs(hideBin(process.argv))
           alias: 'p',
           type: 'number',
           default: defaultConfig.server.port,
-        })
-        .option('hangup', {
-          alias: 'h',
-          type: 'number',
-          array: false,
-          default: 0,
-          describe:
-            'How long the server keeps running after receiving its last request. Set to 0 to disable',
         }),
     async (args) => {
       const appName = 'bundle server';
@@ -63,28 +54,8 @@ await yargs(hideBin(process.argv))
         dir: resolvedDir,
       };
       console.info(`starting ${appName} in ${resolvedDir} on ${url}`);
-
-      const hangupTime = Number(args.hangup?.toString().split(',').at(-1));
-
-      if (hangupTime === 0) {
-        const server = getServer(config);
-        await server.listen();
-      } else {
-        const { promise: hangup, reset: resetHangup } =
-          makeTimeoutWithReset(hangupTime);
-        console.info(
-          `${appName} will auto hangup after ${hangupTime}ms without a request`,
-        );
-
-        const server = getServer(config, resetHangup);
-        const { close } = await server.listen();
-
-        await hangup;
-        console.log(
-          `terminating ${appName} after ${hangupTime}ms without a request`,
-        );
-        await withTimeout(close(), 400).catch(console.error);
-      }
+      const server = getServer(config);
+      await server.listen();
     },
   )
   .help('help')
