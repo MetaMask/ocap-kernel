@@ -62,6 +62,16 @@ describe('buttons', () => {
         params: null,
       });
     });
+
+    it('should generate correct clear state command', async () => {
+      const { buttons } = await import('./buttons');
+      const command = buttons.clearState?.command();
+
+      expect(command).toStrictEqual({
+        method: 'clearState',
+        params: null,
+      });
+    });
   });
 
   describe('setupButtonHandlers', () => {

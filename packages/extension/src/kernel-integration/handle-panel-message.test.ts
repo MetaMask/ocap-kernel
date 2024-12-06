@@ -54,6 +54,7 @@ describe('handlePanelMessage', () => {
         return undefined;
       }),
       kvSet: vi.fn(),
+      reset: vi.fn().mockResolvedValue(undefined),
     } as unknown as Kernel;
   });
 
@@ -368,6 +369,41 @@ describe('handlePanelMessage', () => {
       expect(response2).toStrictEqual({
         method: 'launchVat',
         params: { error: 'error' },
+      });
+    });
+  });
+
+  describe('clearState command', () => {
+    it('should handle clearState command', async () => {
+      const { handlePanelMessage } = await import('./handle-panel-message');
+      const message: KernelControlCommand = {
+        method: 'clearState',
+        params: null,
+      };
+
+      const response = await handlePanelMessage(mockKernel, message);
+
+      expect(mockKernel.reset).toHaveBeenCalled();
+      expect(response).toStrictEqual({
+        method: 'clearState',
+        params: null,
+      });
+    });
+
+    it('should handle clearState errors', async () => {
+      const { handlePanelMessage } = await import('./handle-panel-message');
+      vi.mocked(mockKernel.reset).mockRejectedValue(new Error('Reset failed'));
+
+      const message: KernelControlCommand = {
+        method: 'clearState',
+        params: null,
+      };
+
+      const response = await handlePanelMessage(mockKernel, message);
+
+      expect(response).toStrictEqual({
+        method: 'clearState',
+        params: { error: 'Reset failed' },
       });
     });
   });

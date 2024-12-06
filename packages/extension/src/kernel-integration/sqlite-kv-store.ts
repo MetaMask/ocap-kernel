@@ -113,7 +113,7 @@ export async function makeSQLKVStore(
    * Delete all entries from the database.
    */
   function kvTruncate(): void {
-    logger.debug('clearing all kernel state');
+    logger.log('clearing all kernel state');
     sqlKVTruncate.step();
     sqlKVTruncate.reset();
   }

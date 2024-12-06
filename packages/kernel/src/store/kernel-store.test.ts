@@ -61,6 +61,7 @@ describe('kernel store', () => {
         'initKernelPromise',
         'krefToEref',
         'kv',
+        'reset',
       ]);
     });
   });
@@ -177,6 +178,28 @@ describe('kernel store', () => {
       ks.forgetEref('r7', 'rp-99');
       expect(ks.krefToEref('r7', 'kp61')).toBeUndefined();
       expect(ks.erefToKref('r7', 'rp-99')).toBeUndefined();
+    });
+  });
+
+  describe('reset', () => {
+    it('truncates store and resets counters', () => {
+      const ks = makeKernelStore(mockKVStore);
+      ks.getNextVatId();
+      ks.getNextVatId();
+      ks.getNextRemoteId();
+      const koId = ks.initKernelObject('v1');
+      const [kpId] = ks.initKernelPromise('v1');
+      ks.addClistEntry('v1', koId, 'vo-1');
+      ks.enqueueRun(mm('test message'));
+      ks.reset();
+      expect(ks.getNextVatId()).toBe('v1');
+      expect(ks.getNextRemoteId()).toBe('r1');
+      expect(() => ks.getOwner(koId)).toThrow(`unknown kernel object ${koId}`);
+      expect(() => ks.getKernelPromise(kpId)).toThrow(
+        `unknown kernel promise ${kpId}`,
+      );
+      expect(ks.krefToEref('v1', koId)).toBeUndefined();
+      expect(ks.dequeueRun()).toBeUndefined();
     });
   });
 });
