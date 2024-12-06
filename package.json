@@ -50,8 +50,6 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.4",
-    "@endo/bundle-source": "^3.5.0",
-    "@endo/init": "^1.1.6",
     "@lavamoat/allow-scripts": "^3.0.4",
     "@lavamoat/preinstall-always-fail": "^2.0.0",
     "@metamask/auto-changelog": "^3.4.4",
