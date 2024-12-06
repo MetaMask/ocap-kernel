@@ -83,6 +83,14 @@ const config = createConfig([
   },
 
   {
+    files: ['**/scripts/**/*'],
+    rules: {
+      // Script files have reasonable cause to read from process.env
+      'n/no-process-env': 'off',
+    },
+  },
+
+  {
     languageOptions: {
       globals: {
         ...globals['shared-node-browser'],
