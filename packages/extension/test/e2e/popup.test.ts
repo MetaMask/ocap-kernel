@@ -19,21 +19,24 @@ test.describe('Kernel Panel', () => {
 
   test.beforeEach(async () => {
     await popupPage.waitForSelector('.kernel-panel');
+    await popupPage.click('#clear-state');
     await popupPage.fill('#new-vat-name', '');
     await popupPage.fill('#bundle-url', '');
     await popupPage.selectOption('#vat-dropdown', '');
   });
 
   /**
-   * Helper function to get current vat count.
+   * Launches a vat with the given name and bundle URL.
    *
-   * @returns The current number of active vats.
+   * @param name - The name of the vat to launch.
    */
-  async function getCurrentVatCount(): Promise<number> {
-    const statusText =
-      (await popupPage.locator('#status-display').textContent()) ?? '';
-    const match = statusText.match(/Active Vats \((\d+)\)/u);
-    return match ? parseInt(match[1] as string, 10) : 0;
+  async function launchVat(name: string = 'test-vat'): Promise<void> {
+    await popupPage.fill('#new-vat-name', name);
+    await popupPage.fill(
+      '#bundle-url',
+      'http://localhost:3000/sample-vat.bundle',
+    );
+    await popupPage.click('#launch-vat');
   }
 
   test('should load popup with kernel panel', async () => {
@@ -73,18 +76,11 @@ test.describe('Kernel Panel', () => {
   });
 
   test('should launch a new vat', async () => {
-    const initialCount = await getCurrentVatCount();
-    await expect(popupPage.locator('#launch-vat')).toBeDisabled();
-    await popupPage.fill('#new-vat-name', 'test-vat');
-    await popupPage.fill(
-      '#bundle-url',
-      'http://localhost:3000/sample-vat.bundle',
-    );
-    await expect(popupPage.locator('#launch-vat')).toBeEnabled();
-    await popupPage.click('#launch-vat');
+    await launchVat();
     await expect(popupPage.locator('#status-display')).toContainText(
-      `Active Vats (${initialCount + 1})`,
+      'Active Vats (1)',
     );
+    await expect(popupPage.locator('#vat-dropdown')).toContainText('v1');
   });
 
   test('should restart a vat', async () => {
@@ -97,17 +93,18 @@ test.describe('Kernel Panel', () => {
   });
 
   test('should terminate a vat', async () => {
-    const initialCount = await getCurrentVatCount();
+    await launchVat();
     await expect(popupPage.locator('#terminate-vat')).toBeDisabled();
     await popupPage.selectOption('#vat-dropdown', 'v1');
     await expect(popupPage.locator('#terminate-vat')).toBeEnabled();
     await popupPage.click('#terminate-vat');
     await expect(popupPage.locator('#status-display')).toContainText(
-      `Active Vats (${initialCount - 1})`,
+      'Active Vats (0)',
     );
   });
 
   test('should send a message to a vat', async () => {
+    await launchVat();
     await expect(popupPage.locator('#send-message')).toBeDisabled();
     await popupPage.fill('#message-content', '{"method":"ping","params":null}');
     await expect(popupPage.locator('#send-message')).toBeEnabled();
@@ -115,15 +112,36 @@ test.describe('Kernel Panel', () => {
     await expect(popupPage.locator('#message-output')).toContainText(
       'Vat ID required for this command',
     );
-    await popupPage.selectOption('#vat-dropdown', 'v2');
+    await popupPage.selectOption('#vat-dropdown', 'v1');
     await popupPage.click('#send-message');
     await expect(popupPage.locator('#message-output')).toContainText('pong');
   });
 
   test('should terminate all vats', async () => {
+    await launchVat();
+    await expect(popupPage.locator('#status-display')).toContainText(
+      'Active Vats (1): ["v1"]',
+    );
     await popupPage.click('#terminate-all');
     await expect(popupPage.locator('#status-display')).toContainText(
       'Active Vats (0)',
+    );
+  });
+
+  test('should clear kernel state', async () => {
+    await launchVat('test-vat-1');
+    await launchVat('test-vat-2');
+    await expect(popupPage.locator('#status-display')).toContainText(
+      'Active Vats (2): ["v1","v2"]',
+    );
+    await popupPage.click('#clear-state');
+    await expect(popupPage.locator('#status-display')).toContainText(
+      'Active Vats (0)',
+    );
+    await launchVat('test-vat-new');
+    await expect(popupPage.locator('#vat-dropdown')).toContainText('v1');
+    await expect(popupPage.locator('#status-display')).toContainText(
+      'Active Vats (1): ["v1"]',
     );
   });
 });
