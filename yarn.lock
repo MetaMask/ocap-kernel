@@ -1837,6 +1837,7 @@ __metadata:
     vite: "npm:^5.3.5"
     vite-tsconfig-paths: "npm:^4.3.2"
     vitest: "npm:^2.1.2"
+    vitest-fetch-mock: "npm:^0.4.2"
     webextension-polyfill: "npm:^0.12.0"
   languageName: unknown
   linkType: soft
@@ -1949,6 +1950,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vitest: "npm:^2.1.2"
+    vitest-fetch-mock: "npm:^0.4.2"
   languageName: unknown
   linkType: soft
 
@@ -9162,6 +9164,15 @@ __metadata:
   bin:
     vite: bin/vite.js
   checksum: 10/60dfb3912ba6367d2d128e798d899caae3f4ec58990657b9f679c4d9de21ddec7eba5f6ad3d4fa0e8ea31771d477521b8e757a622ecc54829d73cb7f7c146bc4
+  languageName: node
+  linkType: hard
+
+"vitest-fetch-mock@npm:^0.4.2":
+  version: 0.4.2
+  resolution: "vitest-fetch-mock@npm:0.4.2"
+  peerDependencies:
+    vitest: ">=2.0.0"
+  checksum: 10/caeba94669e16ee020c54ad6e0208d3ec0647c903c627d71cd4e566de83e03712cb9a10b28c72e65274be79761883b0d9125940886c1834bf50ca26faacdbe0d
   languageName: node
   linkType: hard
 

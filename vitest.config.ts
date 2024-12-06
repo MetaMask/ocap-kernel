@@ -1,3 +1,4 @@
+import path from 'path';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
@@ -9,7 +10,7 @@ export default defineConfig({
   ],
 
   optimizeDeps: {
-    include: ['@vitest/coverage-istanbul'],
+    include: ['@vitest/coverage-istanbul', 'vitest-fetch-mock'],
   },
 
   test: {
@@ -19,6 +20,9 @@ export default defineConfig({
     testTimeout: 2000,
     restoreMocks: true,
     reporters: ['basic'],
+    setupFiles: [
+      path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
+    ],
     coverage: {
       enabled: true,
       provider: 'istanbul',
@@ -35,10 +39,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 71.66,
+          statements: 73.33,
           functions: 76.19,
           branches: 61.11,
-          lines: 71.66,
+          lines: 73.33,
         },
         'packages/errors/**': {
           statements: 100,

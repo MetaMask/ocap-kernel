@@ -1,145 +1,165 @@
 import '@ocap/shims/endoify';
-import type { BundleSourceResult } from '@endo/bundle-source';
-import { isObject, hasProperty } from '@metamask/utils';
-import { makeCounter, stringify } from '@ocap/utils';
-import { createHash } from 'crypto';
-import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+
+import { makeCounter } from '@ocap/utils';
+import { createServer } from 'http';
+import type { IncomingMessage, Server, ServerResponse } from 'http';
+import serveMiddleware from 'serve-handler';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { getServer } from './serve.js';
-import { getTestBundles } from '../../test/bundles.js';
 import { defaultConfig } from '../config.js';
-import { withTimeout } from '../utils.js';
 
-const isBundleSourceResult = (
-  value: unknown,
-): value is BundleSourceResult<'endoZipBase64'> =>
-  isObject(value) &&
-  hasProperty(value, 'moduleFormat') &&
-  value.moduleFormat === 'endoZipBase64' &&
-  hasProperty(value, 'endoZipBase64') &&
-  typeof value.endoZipBase64 === 'string' &&
-  hasProperty(value, 'endoZipBase64Sha512') &&
-  typeof value.endoZipBase64Sha512 === 'string';
+vi.mock('http', () => ({
+  createServer: vi.fn((handler) => ({
+    listen: vi.fn((_port, handle) => handle()),
+    close: vi.fn((handle) => handle()),
+    address: vi.fn(() => ({ port: 3000 })),
+    handler,
+  })),
+}));
 
-describe('serve', async () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
+vi.mock('serve-handler', () => ({
+  default: vi.fn(),
+}));
 
-  const { testBundleRoot, testBundleSpecs } = await getTestBundles();
+vi.mock('@metamask/snaps-utils/node', () => ({
+  logError: vi.fn(),
+}));
 
+describe('serve', () => {
   const getServerPort = makeCounter(defaultConfig.server.port);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   describe('getServer', () => {
     it('returns an object with a listen property', () => {
       const server = getServer({
-        server: {
-          port: getServerPort(),
-        },
-        dir: testBundleRoot,
+        server: { port: getServerPort() },
+        dir: '/test/dir',
       });
-
       expect(server).toHaveProperty('listen');
     });
 
-    it(`throws if 'dir' is not specified`, () => {
+    it('throws if dir is not specified', () => {
       expect(() => getServer({ server: { port: getServerPort() } })).toThrow(
         /dir/u,
       );
     });
+
+    it('creates server with correct middleware configuration', () => {
+      const port = getServerPort();
+      getServer({
+        server: { port },
+        dir: '/test/dir',
+      });
+      expect(createServer).toHaveBeenCalledWith(expect.any(Function));
+    });
   });
 
-  describe('server', () => {
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    const makeServer = (root: string = testBundleRoot) => {
-      const port = getServerPort();
-      const { listen } = getServer({
-        server: {
-          port,
-        },
-        dir: root,
+  describe('path validation', () => {
+    it('allows .bundle files', async () => {
+      getServer({
+        server: { port: getServerPort() },
+        dir: '/test/dir',
       });
-      const url = `http://localhost:${port}`;
-      const requestBundle = async (path: string): Promise<unknown> => {
-        const resp = await fetch(`${url}/${path}`);
-        if (resp.ok) {
-          return resp.json();
-        }
-        throw new Error(resp.statusText, { cause: resp.status });
-      };
-      return {
-        listen,
-        requestBundle,
-      };
-    };
 
-    it('serves bundles', async () => {
-      const bundleName = 'test.bundle';
-      const bundleRoot = join(testBundleRoot, '..');
-      const bundlePath = join(bundleRoot, bundleName);
-      const { listen, requestBundle } = makeServer(bundleRoot);
+      const mockRequest = {
+        url: '/test.bundle',
+        headers: { host: 'localhost:3000' },
+      } as IncomingMessage;
 
-      const { close } = await listen();
+      const mockResponse = {
+        statusCode: 200,
+        end: vi.fn(),
+      } as unknown as ServerResponse;
 
-      try {
-        const bundleData = await readFile(bundlePath);
-        const expectedBundleContent = JSON.parse(bundleData.toString());
-        if (!isBundleSourceResult(expectedBundleContent)) {
-          throw new Error(
-            [
-              `Could not read expected bundle ${bundlePath}`,
-              `Parsed JSON: ${stringify(expectedBundleContent)}`,
-            ].join('\n'),
-          );
-        }
-        const expectedBundleHash = expectedBundleContent.endoZipBase64Sha512;
-
-        const receivedBundleContent = await requestBundle(bundleName);
-        if (!isBundleSourceResult(receivedBundleContent)) {
-          throw new Error(
-            `Received unexpected response from server: ${stringify(receivedBundleContent)}`,
-          );
-        }
-        const receivedBundleHash = createHash('sha512')
-          .update(Buffer.from(receivedBundleContent.endoZipBase64))
-          .digest('hex');
-
-        expect(receivedBundleHash).toStrictEqual(expectedBundleHash);
-      } finally {
-        await withTimeout(close(), 400).catch(console.error);
-      }
+      const handler = (createServer as unknown as Mock).mock.calls[0]?.[0];
+      await handler?.(mockRequest, mockResponse);
+      expect(mockResponse.statusCode).not.toBe(404);
+      expect(serveMiddleware).toHaveBeenCalled();
     });
 
-    it('only serves *.bundle files', async () => {
-      const { listen, requestBundle } = makeServer();
+    it('rejects non-bundle files', async () => {
+      getServer({
+        server: { port: getServerPort() },
+        dir: '/test/dir',
+      });
 
-      const script = testBundleSpecs[0]?.script as string;
+      const mockRequest = {
+        url: '/test.js',
+        headers: { host: 'localhost:3000' },
+      } as IncomingMessage;
 
-      const { close } = await listen();
-      try {
-        await expect(requestBundle(script)).rejects.toMatchObject({
-          cause: 404,
-        });
-      } finally {
-        await close();
-      }
+      const mockResponse = {
+        statusCode: 200,
+        end: vi.fn(),
+      } as unknown as ServerResponse;
+
+      const handler = (createServer as unknown as Mock).mock.calls[0]?.[0];
+      await handler(mockRequest, mockResponse);
+      expect(mockResponse.statusCode).toBe(404);
+      expect(mockResponse.end).toHaveBeenCalled();
+    });
+  });
+
+  describe('server listen', () => {
+    it('handles listen errors', async () => {
+      vi.mocked(createServer).mockReturnValueOnce({
+        listen: vi.fn(() => {
+          throw new Error('Listen failed');
+        }),
+        close: vi.fn(),
+        address: vi.fn(),
+      } as unknown as Server);
+      const server = getServer({
+        server: { port: getServerPort() },
+        dir: '/test/dir',
+      });
+      await expect(server.listen()).rejects.toThrow('Listen failed');
     });
 
-    it('only serves files in the target dir', async () => {
-      const { listen, requestBundle } = makeServer();
+    it('resolves with port and close function', async () => {
+      const server = getServer({
+        server: { port: getServerPort() },
+        dir: '/test/dir',
+      });
+      const result = await server.listen();
+      expect(result).toHaveProperty('port', 3000);
+      expect(result).toHaveProperty('close');
+      expect(typeof result.close).toBe('function');
+    });
+  });
 
-      const extraneousBundle = resolve(testBundleRoot, '../test.bundle');
+  describe('error handling', () => {
+    it('handles server errors with 500 status', async () => {
+      getServer({
+        server: { port: getServerPort() },
+        dir: '/test/dir',
+      });
 
-      const { close } = await listen();
-      try {
-        await expect(requestBundle(extraneousBundle)).rejects.toMatchObject({
-          cause: 404,
-        });
-      } finally {
-        await close();
-      }
+      const mockRequest = {
+        url: '/test.bundle',
+        headers: { host: 'localhost:3000' },
+      } as IncomingMessage;
+
+      const mockResponse = {
+        statusCode: 200,
+        end: vi.fn(),
+        setHeader: vi.fn(),
+        writeHead: vi.fn(),
+      } as unknown as ServerResponse;
+
+      vi.mocked(serveMiddleware).mockImplementationOnce(() => {
+        throw new Error('Server error');
+      });
+
+      const handler = (createServer as unknown as Mock).mock.calls[0]?.[0];
+      await handler(mockRequest, mockResponse);
+      expect(mockResponse.statusCode).toBe(500);
+      expect(mockResponse.end).toHaveBeenCalled();
     });
   });
 });

@@ -3,20 +3,14 @@ import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
+delete defaultConfig.test?.setupFiles;
+
 const config = mergeConfig(
   defaultConfig,
   defineProject({
-    build: {
-      ssr: true,
-      rollupOptions: {
-        output: {
-          esModule: true,
-        },
-      },
-    },
     test: {
-      name: 'cli',
-      exclude: ['**/test/integration/**'],
+      name: 'cli-integration',
+      include: ['**/test/integration/**'],
       alias: [
         {
           find: '@ocap/shims/endoify',
@@ -28,6 +22,7 @@ const config = mergeConfig(
   }),
 );
 
-config.test.coverage.thresholds = true;
+// Integration tests don't need coverage
+delete config.test.coverage;
 
 export default config;
