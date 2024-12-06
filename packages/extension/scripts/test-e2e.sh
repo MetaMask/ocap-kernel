@@ -4,8 +4,10 @@ set -x
 set -e
 set -o pipefail
 
+yarn ocap bundle "./src/vats"
+
 # Start the server in background and capture its PID
-yarn ocap serve ./src/vats & 
+yarn ocap serve "./src/vats" & 
 SERVER_PID=$!
 
 function cleanup() {
@@ -18,7 +20,8 @@ function cleanup() {
 trap cleanup EXIT
 
 # Run tests
-yarn playwright test
+yarn test:e2e
 
 cleanup
-exit "$(wait $SERVER_PID)"
+wait $SERVER_PID
+exit $?
