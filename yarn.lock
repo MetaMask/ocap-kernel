@@ -1606,7 +1606,6 @@ __metadata:
     "@arethetypeswrong/cli": "npm:^0.16.4"
     "@endo/bundle-source": "npm:^3.5.0"
     "@endo/init": "npm:^1.1.6"
-    "@endo/promise-kit": "npm:^1.1.6"
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"

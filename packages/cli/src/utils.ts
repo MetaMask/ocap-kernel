@@ -1,5 +1,3 @@
-import { makePromiseKit } from '@endo/promise-kit';
-
 /**
  * Wrap a promise with a timeout rejection.
  *
@@ -25,26 +23,4 @@ export async function withTimeout<Return>(
       ),
     ),
   ]) as Promise<Return>;
-}
-
-/**
- * Make a promise which resolves after a timeout and a reset method which resets the timeout.
- *
- * @param timeout How many ms to wait before the timeout completes.
- * @returns A reset method and a promise which resolves timeout ms after the last reset call.
- */
-export function makeTimeoutWithReset(timeout: number): {
-  reset: () => void;
-  promise: Promise<void>;
-} {
-  const { promise, resolve } = makePromiseKit<void>();
-  let timeoutId = setTimeout(() => resolve(), timeout);
-  const reset = (): void => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => resolve(), timeout);
-  };
-  return {
-    promise,
-    reset,
-  };
 }
