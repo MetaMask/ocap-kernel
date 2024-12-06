@@ -71,7 +71,6 @@ describe('serve', async () => {
         throw new Error(resp.statusText, { cause: resp.status });
       };
       return {
-        url,
         listen,
         requestBundle,
       };
