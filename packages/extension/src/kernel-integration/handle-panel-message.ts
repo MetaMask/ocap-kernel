@@ -66,6 +66,11 @@ export async function handlePanelMessage(
         };
       }
 
+      case KernelControlMethod.clearState: {
+        await kernel.reset();
+        return { method: KernelControlMethod.clearState, params: null };
+      }
+
       case KernelControlMethod.sendMessage: {
         if (!isKernelCommand(message.params.payload)) {
           throw new Error('Invalid command payload');

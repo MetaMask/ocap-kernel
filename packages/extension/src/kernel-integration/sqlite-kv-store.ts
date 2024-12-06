@@ -105,10 +105,24 @@ export async function makeSQLKVStore(
     sqlKVDelete.reset();
   }
 
+  const sqlKVTruncate = db.prepare(`
+    DELETE FROM kv
+  `);
+
+  /**
+   * Delete all entries from the database.
+   */
+  function kvTruncate(): void {
+    logger.debug('clearing all kernel state');
+    sqlKVTruncate.step();
+    sqlKVTruncate.reset();
+  }
+
   return {
     get: (key) => kvGet(key, false),
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
+    truncate: kvTruncate,
   };
 }

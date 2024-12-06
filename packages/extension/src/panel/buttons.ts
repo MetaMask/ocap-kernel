@@ -53,6 +53,13 @@ export const buttons: Record<
       params: null,
     }),
   },
+  clearState: {
+    element: document.getElementById('clear-state') as HTMLButtonElement,
+    command: () => ({
+      method: 'clearState',
+      params: null,
+    }),
+  },
 };
 
 /**

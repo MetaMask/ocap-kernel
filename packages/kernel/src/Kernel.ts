@@ -201,6 +201,14 @@ export class Kernel {
     return vat.sendMessage(command);
   }
 
+  /**
+   * Resets the kernel state.
+   */
+  async reset(): Promise<void> {
+    await this.terminateAllVats();
+    this.#storage.reset();
+  }
+
   // --------------------------------------------------------------------------
   // Private methods
   // --------------------------------------------------------------------------

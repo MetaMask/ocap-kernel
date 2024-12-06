@@ -22,6 +22,7 @@ export const KernelControlMethod = {
   terminateAllVats: 'terminateAllVats',
   getStatus: 'getStatus',
   sendMessage: 'sendMessage',
+  clearState: 'clearState',
 } as const;
 
 export type KernelStatus = {
@@ -53,6 +54,10 @@ const KernelControlCommandStruct = union([
   }),
   object({
     method: literal(KernelControlMethod.terminateAllVats),
+    params: literal(null),
+  }),
+  object({
+    method: literal(KernelControlMethod.clearState),
     params: literal(null),
   }),
   object({
@@ -92,6 +97,10 @@ const KernelControlReplyStruct = union([
   object({
     method: literal(KernelControlMethod.sendMessage),
     params: UnsafeJsonStruct,
+  }),
+  object({
+    method: literal(KernelControlMethod.clearState),
+    params: literal(null),
   }),
 ]);
 

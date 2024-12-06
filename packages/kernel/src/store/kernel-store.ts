@@ -77,6 +77,7 @@ export type KVStore = {
   getRequired(key: string): string;
   set(key: string, value: string): void;
   delete(key: string): void;
+  truncate(): void;
 };
 
 /**
@@ -266,7 +267,7 @@ export function makeKernelStore(kv: KVStore) {
   }
 
   /** Counter for allocating VatIDs */
-  const nextVatId = provideCachedStoredValue('nextVatId', '1');
+  let nextVatId = provideCachedStoredValue('nextVatId', '1');
   /**
    * Obtain an ID for a new vat.
    *
@@ -277,7 +278,7 @@ export function makeKernelStore(kv: KVStore) {
   }
 
   /** Counter for allocating RemoteIDs */
-  const nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+  let nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
   /**
    * Obtain an ID for a new remote connection.
    *
@@ -288,7 +289,7 @@ export function makeKernelStore(kv: KVStore) {
   }
 
   /** Counter for allocating kernel object IDs */
-  const nextObjectId = provideCachedStoredValue('nextObjectId', '1');
+  let nextObjectId = provideCachedStoredValue('nextObjectId', '1');
   /**
    * Obtain a KRef for the next unallocated kernel object.
    *
@@ -573,6 +574,16 @@ export function makeKernelStore(kv: KVStore) {
     }
   }
 
+  /**
+   * Truncate the kernel's persistent state.
+   */
+  function reset(): void {
+    kv.truncate();
+    nextVatId = provideCachedStoredValue('nextVatId', '1');
+    nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+    nextObjectId = provideCachedStoredValue('nextObjectId', '1');
+  }
+
   return harden({
     enqueueRun,
     dequeueRun,
@@ -594,6 +605,7 @@ export function makeKernelStore(kv: KVStore) {
     addClistEntry,
     forgetEref,
     forgetKref,
+    reset,
     kv,
   });
 }
