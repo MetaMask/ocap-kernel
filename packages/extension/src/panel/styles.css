@@ -94,6 +94,12 @@ button.yellow {
   border: none;
 }
 
+button.blue {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+}
+
 button.red:hover:not(:disabled) {
   color: var(--color-white);
   background-color: var(--color-black);
