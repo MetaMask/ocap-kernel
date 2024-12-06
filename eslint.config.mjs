@@ -112,6 +112,14 @@ const config = createConfig([
       // This prevents using Node.js and/or browser specific globals. We
       // currently use both in our codebase, so this rule is disabled.
       'no-restricted-globals': 'off',
+
+      // The fetch builtin has been supported since node 18.
+      'n/no-unsupported-features/node-builtins': [
+        'error',
+        {
+          ignores: ['fetch'],
+        },
+      ],
     },
   },
 

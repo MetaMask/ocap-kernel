@@ -4,7 +4,6 @@ import { isObject, hasProperty } from '@metamask/utils';
 import { makeCounter, stringify } from '@ocap/utils';
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
-import nodeFetch from 'node-fetch';
 import { join, resolve } from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -64,7 +63,7 @@ describe('serve', async () => {
       });
       const url = `http://localhost:${port}`;
       const requestBundle = async (path: string): Promise<unknown> => {
-        const resp = await nodeFetch(`${url}/${path}`);
+        const resp = await fetch(`${url}/${path}`);
         if (resp.ok) {
           return resp.json();
         }
