@@ -131,8 +131,6 @@ export class VatSupervisor {
         }
         console.log('VatSupervisor requested user code load:', vatConfig);
         const { bundleSpec, parameters } = vatConfig;
-        // This is not code running under Node, you idiots
-        // eslint-disable-next-line n/no-unsupported-features/node-builtins
         const fetched = await fetch(bundleSpec);
         if (!fetched.ok) {
           throw Error(

@@ -32,16 +32,25 @@ describe('status', () => {
       const { setupStatusPolling } = await import('./status');
       const sendMessage = vi.fn().mockResolvedValue(undefined);
       const cleanup = await setupStatusPolling(sendMessage);
-      // First immediate call
+
+      // First call should happen immediately
+      expect(sendMessage).toHaveBeenCalledTimes(1);
       expect(sendMessage).toHaveBeenCalledWith({
         method: 'getStatus',
         params: null,
       });
-      // Advance timers to trigger the next poll
-      await vi.advanceTimersByTimeAsync(1000);
-      // Wait for any pending promises to resolve
-      await Promise.resolve();
-      expect(sendMessage).toHaveBeenCalledTimes(2);
+
+      // Reset the mock to clearly track the next call
+      sendMessage.mockClear();
+
+      // Advance by slightly less than the polling interval
+      await vi.advanceTimersByTimeAsync(900);
+      expect(sendMessage).not.toHaveBeenCalled();
+
+      // Advance to just after the polling interval
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+
       cleanup();
       vi.clearAllTimers();
     });
