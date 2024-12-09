@@ -70,6 +70,6 @@ export default defineConfig(({ mode }) => ({
       silent: mode === 'development',
     }),
     viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
-    mode === 'development' && extensionDev(),
+    mode === 'development' && extensionDev({ extensionPath: buildDir }),
   ],
 }));

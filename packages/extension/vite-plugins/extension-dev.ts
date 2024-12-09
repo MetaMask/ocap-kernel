@@ -1,16 +1,21 @@
 /* eslint-disable require-atomic-updates */
 import { chromium } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
-import path from 'path';
 import type { Plugin as VitePlugin } from 'vite';
 
 /**
  * Vite plugin that opens the extension's popup in a browser context
  * and reloads the extension when the bundle is written.
  *
+ * @param options - Options for the plugin
+ * @param options.extensionPath - The directory of the built extension
  * @returns Vite plugin
  */
-export function extensionDev(): VitePlugin {
+export function extensionDev({
+  extensionPath,
+}: {
+  extensionPath: string;
+}): VitePlugin {
   const state = {
     browserContext: null as BrowserContext | null,
     popupPage: null as Page | null,
@@ -57,9 +62,6 @@ export function extensionDev(): VitePlugin {
    * @returns Promise that resolves when the browser context is launched
    */
   async function launchBrowserContext(): Promise<void> {
-    const outDir = 'dist';
-    const extensionPath = path.resolve(process.cwd(), outDir);
-
     // Launch Chrome with the extension loaded
     const browserContext = await chromium.launchPersistentContext('', {
       headless: false,
