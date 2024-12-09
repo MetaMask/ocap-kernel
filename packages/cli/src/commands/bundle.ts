@@ -2,21 +2,25 @@ import '@endo/init';
 import bundleSource from '@endo/bundle-source';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
-import { resolve, parse, format, join } from 'node:path';
+import { resolve, join } from 'node:path';
 
 import { isDirectory } from '../file.js';
+import { resolveBundlePath } from '../path.js';
 
 /**
  * Create a bundle given path to an entry point.
  *
  * @param sourcePath - Path to the source file that is the root of the bundle.
+ * @param destinationPath - Optional path to which to write the bundle.
+ *  If not provided, defaults to sourcePath with `.bundle` extension.
  * @returns A promise that resolves when the bundle has been written.
  */
-export async function createBundleFile(sourcePath: string): Promise<void> {
+export async function createBundleFile(
+  sourcePath: string,
+  destinationPath?: string,
+): Promise<void> {
   const sourceFullPath = resolve(sourcePath);
-  console.log(sourceFullPath);
-  const { dir, name } = parse(sourceFullPath);
-  const bundlePath = format({ dir, name, ext: '.bundle' });
+  const bundlePath = destinationPath ?? resolveBundlePath(sourceFullPath);
   const bundle = await bundleSource(sourceFullPath);
   const bundleString = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleString);
