@@ -4,9 +4,8 @@ import {
   VatCapTpConnectionNotFoundError,
 } from '@ocap/errors';
 import type { MultiplexEnvelope } from '@ocap/streams';
-import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
-import { makeLogger, stringify } from '@ocap/utils';
+import { delay, makeLogger, stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 

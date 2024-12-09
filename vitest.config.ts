@@ -51,8 +51,8 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 57.25,
-          functions: 50,
+          statements: 57.53,
+          functions: 50.96,
           branches: 75.63,
           lines: 57.43,
         },

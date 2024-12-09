@@ -1,5 +1,4 @@
-import { delay } from '@ocap/test-utils';
-import { stringify } from '@ocap/utils';
+import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { MessageEnvelope } from './ChromeRuntimeStream.js';

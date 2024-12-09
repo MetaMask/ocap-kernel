@@ -2,6 +2,7 @@ import type { Json } from '@metamask/utils';
 import { KernelCommandMethod, isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
+import { delay } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
@@ -18,7 +19,7 @@ async function main(): Promise<void> {
   });
 
   // Without this delay, sending messages via the chrome.runtime API can fail.
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await delay(50);
 
   const offscreenStream = await ChromeRuntimeDuplexStream.make(
     chrome.runtime,

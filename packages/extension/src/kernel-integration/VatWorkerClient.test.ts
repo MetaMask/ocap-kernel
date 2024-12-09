@@ -3,10 +3,9 @@ import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import { MessagePortMultiplexer } from '@ocap/streams';
 import type { PostMessageTarget } from '@ocap/streams';
-import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
+import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.js';

@@ -1,4 +1,5 @@
-import { delay, makePromiseKitMock } from '@ocap/test-utils';
+import { makePromiseKitMock } from '@ocap/test-utils';
+import { delay } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { makeAck, makeSyn } from './BaseDuplexStream.js';

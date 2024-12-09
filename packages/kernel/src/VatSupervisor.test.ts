@@ -1,8 +1,7 @@
 import type { Json } from '@metamask/utils';
 import type { MultiplexEnvelope } from '@ocap/streams';
-import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
-import { stringify } from '@ocap/utils';
+import { delay, stringify } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { isVatCommand, VatCommandMethod } from './messages/index.js';

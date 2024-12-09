@@ -12,7 +12,7 @@ import type {
   MultiplexEnvelope,
   PostMessageTarget,
 } from '@ocap/streams';
-import { makeLogger } from '@ocap/utils';
+import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
 import { isKernelControlReply } from './kernel-integration/messages.js';
@@ -40,7 +40,7 @@ type HandleStreamChange = (stream?: PopupStream | undefined) => void;
  */
 async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await delay(50);
 
   // Create stream for messages from the background script
   const backgroundStream = await ChromeRuntimeDuplexStream.make<

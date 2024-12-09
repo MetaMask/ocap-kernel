@@ -1,7 +1,7 @@
 import '@ocap/test-utils/mock-endoify';
 import { define } from '@metamask/superstruct';
 import type { VatId, VatConfig } from '@ocap/kernel';
-import { stringify } from '@ocap/utils';
+import { delay, stringify } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { setupPanelDOM } from '../../test/helpers/panel-utils.js';
@@ -231,7 +231,7 @@ describe('messages', () => {
       sendButton.dispatchEvent(new Event('click'));
 
       // Wait for error handling
-      await new Promise(process.nextTick);
+      await delay();
 
       const output = document.getElementById('message-output');
       expect(output?.textContent).toBe(error.toString());

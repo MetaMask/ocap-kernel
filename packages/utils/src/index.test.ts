@@ -4,15 +4,15 @@ import * as indexModule from './index.js';
 
 describe('index', () => {
   it('has the expected exports', () => {
-    expect(Object.keys(indexModule)).toStrictEqual(
+    expect(Object.keys(indexModule).sort()).toStrictEqual(
       expect.arrayContaining([
-        'makeCounter',
-        'makeLogger',
-        'makeHandledCallback',
-        'stringify',
+        'delay',
         'isPrimitive',
         'isTypedArray',
         'isTypedObject',
+        'makeCounter',
+        'makeLogger',
+        'stringify',
       ]),
     );
   });

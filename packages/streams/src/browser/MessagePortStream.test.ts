@@ -1,4 +1,4 @@
-import { delay } from '@ocap/test-utils';
+import { delay } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

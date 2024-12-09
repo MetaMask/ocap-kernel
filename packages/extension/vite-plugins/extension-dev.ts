@@ -4,6 +4,16 @@ import type { BrowserContext, Page } from '@playwright/test';
 import type { Plugin as VitePlugin } from 'vite';
 
 /**
+ * Delay for a given number of milliseconds.
+ * Declared in-line to avoid importing `@ocap/utils`, which assumes SES.
+ *
+ * @param ms - Number of milliseconds to delay
+ * @returns Promise that resolves after the delay
+ */
+const delay = async (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
  * Vite plugin that opens the extension's popup in a browser context
  * and reloads the extension when the bundle is written.
  *
@@ -47,16 +57,6 @@ export function extensionDev({
   };
 
   /**
-   * Delay for a given number of milliseconds.
-   *
-   * @param ms - Number of milliseconds to delay
-   * @returns Promise that resolves after the delay
-   */
-  async function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
    * Launch the browser context.
    *
    * @returns Promise that resolves when the browser context is launched
@@ -76,7 +76,7 @@ export function extensionDev({
     await Promise.all(pages.map(async (page) => await page.close()));
 
     // Wait for the extension to be loaded
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await delay(1000);
 
     const chromeExtensionURLIdMatcher = /^chrome-extension:\/\/([^/]+)/u;
     const serviceWorkers = browserContext.serviceWorkers();
