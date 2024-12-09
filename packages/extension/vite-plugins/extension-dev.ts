@@ -5,7 +5,8 @@ import path from 'path';
 import type { Plugin as VitePlugin } from 'vite';
 
 /**
- * Vite plugin for development of Chrome extensions.
+ * Vite plugin that opens the extension's popup in a browser context
+ * and reloads the extension when the bundle is written.
  *
  * @returns Vite plugin
  */
