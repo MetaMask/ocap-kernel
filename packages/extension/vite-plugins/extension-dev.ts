@@ -1,17 +1,8 @@
 /* eslint-disable require-atomic-updates */
+import { delay } from '@ocap/test-utils';
 import { chromium } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Plugin as VitePlugin } from 'vite';
-
-/**
- * Delay for a given number of milliseconds.
- * Declared in-line to avoid importing `@ocap/utils`, which assumes SES.
- *
- * @param ms - Number of milliseconds to delay
- * @returns Promise that resolves after the delay
- */
-const delay = async (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Vite plugin that opens the extension's popup in a browser context
