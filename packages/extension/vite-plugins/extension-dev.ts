@@ -90,6 +90,10 @@ export function extensionDev({
       return;
     }
 
+    // Open the extensions page for our extension
+    const extensionsPage = await browserContext.newPage();
+    await extensionsPage.goto(`chrome://extensions/?id=${extensionId}`);
+
     // Update state after all checks
     state.browserContext = browserContext;
     state.extensionId = extensionId;
