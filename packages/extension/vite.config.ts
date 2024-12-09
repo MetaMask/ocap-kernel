@@ -11,6 +11,7 @@ import {
   buildDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
+import { extensionDev } from './vite-plugins/extension-dev.js';
 import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude.js';
 import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.js';
 
@@ -69,5 +70,6 @@ export default defineConfig(({ mode }) => ({
       silent: mode === 'development',
     }),
     viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
+    mode === 'development' && extensionDev(),
   ],
 }));
