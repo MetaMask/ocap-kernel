@@ -18,11 +18,11 @@ import {
 } from '../StreamMultiplexer.js';
 import type { Dispatchable } from '../utils.js';
 
-type OnMessage = (message: unknown) => void;
+export type OnMessage = (message: unknown) => void;
 
-type NodePort = {
-  postMessage: (message: unknown) => void;
+export type NodePort = {
   on: (event: 'message', listener: OnMessage) => void;
+  postMessage: (message: unknown) => void;
 };
 
 /**
