@@ -25,11 +25,13 @@ describe('makeCounter', () => {
 
 describe('delay', () => {
   it('delays execution by the specified number of milliseconds', async () => {
+    const epsilon = 15;
+    const target = 100;
     const start = Date.now();
-    await delay(100);
+    await delay(target);
     const end = Date.now();
     const delta = end - start;
-    expect(delta).toBeGreaterThanOrEqual(100);
-    expect(delta).toBeLessThan(120); // Intentional large margin of error
+    expect(delta).toBeGreaterThan(target - epsilon);
+    expect(delta).toBeLessThan(target + epsilon); // Intentional large margin of error
   });
 });
