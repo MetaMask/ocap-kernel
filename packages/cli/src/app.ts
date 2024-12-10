@@ -4,8 +4,10 @@ import { hideBin } from 'yargs/helpers';
 
 import { createBundle } from './commands/bundle.js';
 import { getServer } from './commands/serve.js';
+import { watchDir } from './commands/watch.js';
 import { defaultConfig } from './config.js';
 import type { Config } from './config.js';
+import { withTimeout } from './utils.js';
 
 await yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')
@@ -56,6 +58,35 @@ await yargs(hideBin(process.argv))
       console.info(`starting ${appName} in ${resolvedDir} on ${url}`);
       const server = getServer(config);
       await server.listen();
+    },
+  )
+  .command(
+    'watch <dir>',
+    'Bundle all .js files in the target dirs and rebundle on change.',
+    (_yargs) =>
+      _yargs.option('dir', {
+        type: 'string',
+        dir: true,
+        required: true,
+        describe: 'The directory to watch',
+      }),
+    (args) => {
+      const { ready, error } = watchDir(args.dir);
+      let handleClose: undefined | (() => Promise<void>);
+
+      ready
+        .then((close) => {
+          handleClose = close;
+          console.info(`Watching ${args.dir}...`);
+          return undefined;
+        })
+        .catch(console.error);
+
+      error.catch(async (reason) => {
+        console.error(reason);
+        // If watching started, close the watcher.
+        return handleClose ? withTimeout(handleClose(), 400) : undefined;
+      });
     },
   )
   .help('help')

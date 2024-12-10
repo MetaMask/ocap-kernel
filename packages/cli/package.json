@@ -36,10 +36,12 @@
   "dependencies": {
     "@endo/bundle-source": "^3.5.0",
     "@endo/init": "^1.1.6",
+    "@endo/promise-kit": "^1.1.6",
     "@metamask/snaps-utils": "^8.3.0",
     "@ocap/shims": "workspace:^",
     "@ocap/utils": "workspace:^",
     "@types/node": "^22.10.1",
+    "chokidar": "^4.0.1",
     "glob": "^11.0.0",
     "serve-handler": "^6.1.6",
     "yargs": "^17.7.2"

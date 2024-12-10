@@ -1606,6 +1606,7 @@ __metadata:
     "@arethetypeswrong/cli": "npm:^0.16.4"
     "@endo/bundle-source": "npm:^3.5.0"
     "@endo/init": "npm:^1.1.6"
+    "@endo/promise-kit": "npm:^1.1.6"
     "@metamask/auto-changelog": "npm:^3.4.4"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
@@ -1623,6 +1624,7 @@ __metadata:
     "@typescript-eslint/parser": "npm:^8.8.1"
     "@typescript-eslint/utils": "npm:^8.8.1"
     "@vitest/eslint-plugin": "npm:^1.1.7"
+    chokidar: "npm:^4.0.1"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.12.0"
     eslint-config-prettier: "npm:^9.1.0"
@@ -3645,6 +3647,15 @@ __metadata:
     fsevents:
       optional: true
   checksum: 10/c327fb07704443f8d15f7b4a7ce93b2f0bc0e6cea07ec28a7570aa22cd51fcf0379df589403976ea956c369f25aa82d84561947e227cd925902e1751371658df
+  languageName: node
+  linkType: hard
+
+"chokidar@npm:^4.0.1":
+  version: 4.0.1
+  resolution: "chokidar@npm:4.0.1"
+  dependencies:
+    readdirp: "npm:^4.0.1"
+  checksum: 10/62749d2173a60cc5632d6c6e0b7024f33aadce47b06d02e55ad03c7b8daaaf2fc85d4296c047473d04387fd992dab9384cc5263c70a3dc3018b7ebecfb5b5217
   languageName: node
   linkType: hard
 
@@ -7673,6 +7684,13 @@ __metadata:
   dependencies:
     picomatch: "npm:^2.2.1"
   checksum: 10/196b30ef6ccf9b6e18c4e1724b7334f72a093d011a99f3b5920470f0b3406a51770867b3e1ae9711f227ef7a7065982f6ee2ce316746b2cb42c88efe44297fe7
+  languageName: node
+  linkType: hard
+
+"readdirp@npm:^4.0.1":
+  version: 4.0.2
+  resolution: "readdirp@npm:4.0.2"
+  checksum: 10/4ef93103307c7d5e42e78ecf201db58c984c4d66882a27c956250478b49c2444b1ff6aea8ce0f5e4157b2c07ce2fe870ad16c92ebd7c6ff30391ded6e42b9873
   languageName: node
   linkType: hard
 
