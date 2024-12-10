@@ -89,5 +89,55 @@ await yargs(hideBin(process.argv))
       });
     },
   )
+  .command(
+    'start <dir> [-p port]',
+    'Watch the target directory and serve from it on the given port.',
+    (_yargs) =>
+      _yargs
+        .option('dir', {
+          type: 'string',
+          dir: true,
+          required: true,
+          describe: 'A directory containing source files to bundle and serve',
+        })
+        .option('port', {
+          alias: 'p',
+          type: 'number',
+          default: defaultConfig.server.port,
+        }),
+    async (args) => {
+      const closeHandlers: (() => Promise<void>)[] = [];
+      const resolvedDir = path.resolve(args.dir);
+
+      await createBundle(resolvedDir);
+
+      const handleClose = async (): Promise<void> => {
+        await Promise.all(
+          closeHandlers.map(async (close) => withTimeout(close(), 400)),
+        );
+      };
+
+      const { ready: watchReady, error: watchError } = watchDir(resolvedDir);
+
+      watchError.catch(async (reason) => {
+        console.error(reason);
+        await handleClose();
+      });
+
+      const closeWatcher = await watchReady;
+      closeHandlers.push(closeWatcher);
+
+      const server = getServer({
+        server: {
+          port: args.port,
+        },
+        dir: resolvedDir,
+      });
+      const { close: closeServer, port } = await server.listen();
+      closeHandlers.push(closeServer);
+
+      console.info(`bundling and serving ${resolvedDir} on localhost:${port}`);
+    },
+  )
   .help('help')
   .parse();
