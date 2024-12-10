@@ -16,6 +16,10 @@ Watch the directory `dir` for changes to `.js` files. Any new or edited `<file>.
 
 Serve the `.bundle` files in `dir` on `localhost:<port>`.
 
+### `ocap start <dir> [-p port]`
+
+Bundle all `.js` files in the target dir, watch for changes to `.js` files and rebundle, and serve bundles from the target dir on the provided port.
+
 ## Contributing
 
 This package is part of a monorepo. Instructions for contributing can be found in the [monorepo README](https://github.com/MetaMask/ocap-kernel#readme).
