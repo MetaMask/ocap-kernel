@@ -29,7 +29,7 @@
     "lint:ts": "tsc --project tsconfig.lint.json",
     "publish:preview": "yarn npm publish --tag preview",
     "postinstall": "yarn playwright install chromium",
-    "start": "yarn build:vite:dev --watch",
+    "start": "./scripts/start.sh",
     "test": "vitest run --config vitest.config.ts",
     "test:build": "node ./test/build/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
