@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
-set -x
+# set -x
 set -e
 set -o pipefail
+
+# Check if CLI is built, if not, build all packages
+if [ ! -f "../cli/dist/app.mjs" ]; then
+  echo "Building packages first..."
+  (cd ../../ && yarn build)
+fi
 
 yarn ocap start "./src/vats" &
 OCAP_PID=$!
