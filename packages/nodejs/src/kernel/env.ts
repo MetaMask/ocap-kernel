@@ -41,7 +41,7 @@ async function fetchFile(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).self = globalThis;
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
+
 const globalFetch = globalThis.fetch;
 const wrappedFetchForSqliteWasm = async (
   url: string,

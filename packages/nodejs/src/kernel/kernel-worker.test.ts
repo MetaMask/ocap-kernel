@@ -1,12 +1,14 @@
-import { makeKernel } from './kernel-worker.js';
-import { runVatLifecycle } from './kernel-worker.js';
+import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
 import { describe, it, expect } from 'vitest';
 
-describe('Kernel Worker', () => {
+import { makeKernel, runVatLifecycle } from './kernel-worker.js';
 
+describe('Kernel Worker', () => {
   it('should handle the lifecycle of multiple vats', async () => {
+    const kernelChannel = new NodeMessageChannel();
+    const { port1: kernelPort } = kernelChannel;
     console.log('Creating kernel...');
-    const kernel = await makeKernel();
+    const kernel = await makeKernel(kernelPort);
     console.log('Kernel created.');
 
     console.log('Handling the lifecycle of multiple vats...');
@@ -24,5 +26,4 @@ describe('Kernel Worker', () => {
     console.log('Test passed.');
     expect(true).toBe(true);
   });
-
 });

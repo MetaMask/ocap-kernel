@@ -1,23 +1,31 @@
 import './env.js';
 import type { NonEmptyArray } from '@metamask/utils';
-import type { VatId } from '@ocap/kernel';
+import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
+import { NodeWorkerDuplexStream } from '@ocap/streams';
+import { MessagePort as NodeMessagePort } from 'worker_threads';
 
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { NodejsVatWorkerService } from './VatWorkerService.js';
 
-
 /**
  * The main function for the kernel worker.
+ *
+ * @param port - The kernel's end of a node:worker_threads MessageChannel
+ * @returns The kernel, initialized.
  */
-export async function makeKernel(): Promise<Kernel> {
+export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
+  const nodeStream = new NodeWorkerDuplexStream<
+    KernelCommand,
+    KernelCommandReply
+  >(port);
   const vatWorkerClient = new NodejsVatWorkerService();
 
   // Initialize kernel store.
   const kvStore = await makeSQLKVStore();
 
   // Create and start kernel.
-  const kernel = new Kernel(null, vatWorkerClient, kvStore);
+  const kernel = new Kernel(nodeStream, vatWorkerClient, kvStore);
   await kernel.init();
 
   return kernel;
@@ -35,7 +43,14 @@ export async function runVatLifecycle(
   vats: NonEmptyArray<VatId>,
 ): Promise<void> {
   console.time(`Created vats: ${vats.join(', ')}`);
-  await Promise.all(vats.map(async (id) => kernel.launchVat({ id })));
+  await Promise.all(
+    vats.map(async () =>
+      kernel.launchVat({
+        bundleName: 'sample-vat',
+        parameters: { name: 'Nodeen' },
+      }),
+    ),
+  );
   console.timeEnd(`Created vats: ${vats.join(', ')}`);
 
   console.log('Kernel vats:', kernel.getVatIds().join(', '));

@@ -4,9 +4,7 @@
 import path from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 
-import { getDefaultConfig } from '../../vitest.config.packages.js';
-
-const defaultConfig = getDefaultConfig();
+import defaultConfig from '../../vitest.config.js';
 
 const config = mergeConfig(
   defaultConfig,
