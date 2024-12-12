@@ -5,6 +5,7 @@ import { makeKernel, runVatLifecycle } from './kernel-worker.js';
 
 describe('Kernel Worker', () => {
   it('should handle the lifecycle of multiple vats', async () => {
+    console.log('started test');
     const kernelChannel = new NodeMessageChannel();
     const { port1: kernelPort } = kernelChannel;
     console.log('Creating kernel...');

@@ -9,6 +9,7 @@ import defaultConfig from '../../vitest.config.js';
 const config = mergeConfig(
   defaultConfig,
   defineConfig({
+    optimizeDeps: { include: ['better-sqlite3'] },
     test: {
       // pool: 'vmThreads',
       environment: 'node',

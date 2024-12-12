@@ -1,7 +1,11 @@
+import { hasProperty, isObject } from '@metamask/utils';
 import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
-import type { Database } from '@sqlite.org/sqlite-wasm';
-import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+import Sqlite from 'better-sqlite3';
+import { resolve } from 'path';
+
+const dbPath = resolve(new URL('../db/store.db', import.meta.url).pathname);
 
 // No changes made to this file, besides this comment.
 // If used, this file should be deduped with its copy
@@ -12,15 +16,16 @@ import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 /**
  * Ensure that SQLite is initialized.
  *
+ * @param logger - An optional logger to pass to the Sqlite constructor.
  * @returns The SQLite database object.
  */
-async function initDB(): Promise<Database> {
-  const sqlite3 = await sqlite3InitModule();
-  if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cwt');
-  }
-  console.warn(`OPFS not enabled, database will be ephemeral`);
-  return new sqlite3.oo1.DB('/testdb.sqlite', 'cwt');
+async function initDB(
+  logger?: ReturnType<typeof makeLogger>,
+): Promise<Sqlite.Database> {
+  console.log('dbPath:', dbPath);
+  return new Sqlite(dbPath, {
+    verbose: (logger ?? console).info,
+  });
 }
 
 /**
@@ -33,15 +38,17 @@ export async function makeSQLKVStore(
   label: string = '[sqlite]',
 ): Promise<KVStore> {
   const logger = makeLogger(label);
-  const db = await initDB();
+  const db = await initDB(logger);
 
-  db.exec(`
+  const sqlKVInit = db.prepare(`
     CREATE TABLE IF NOT EXISTS kv (
       key TEXT,
       value TEXT,
       PRIMARY KEY(key)
     )
   `);
+
+  sqlKVInit.run();
 
   const sqlKVGet = db.prepare(`
     SELECT value
@@ -57,22 +64,17 @@ export async function makeSQLKVStore(
    * @returns The value at that key.
    */
   function kvGet(key: string, required: boolean): string {
-    sqlKVGet.bind([key]);
-    if (sqlKVGet.step()) {
-      const result = sqlKVGet.getString(0);
-      if (result) {
-        sqlKVGet.reset();
-        logger.debug(`kernel get '${key}' as '${result}'`);
-        return result;
-      }
+    const result = sqlKVGet.get(key);
+    if (isObject(result) && hasProperty(result, 'value')) {
+      const value = result.value as string;
+      logger.debug(`kernel get '${key}' as '${value}'`);
+      return value;
     }
-    sqlKVGet.reset();
     if (required) {
       throw Error(`no record matching key '${key}'`);
-    } else {
-      // Sometimes, we really lean on TypeScript's unsoundness
-      return undefined as unknown as string;
     }
+    // Sometimes, we really lean on TypeScript's unsoundness
+    return undefined as unknown as string;
   }
 
   const sqlKVSet = db.prepare(`
@@ -89,9 +91,7 @@ export async function makeSQLKVStore(
    */
   function kvSet(key: string, value: string): void {
     logger.debug(`kernel set '${key}' to '${value}'`);
-    sqlKVSet.bind([key, value]);
-    sqlKVSet.step();
-    sqlKVSet.reset();
+    sqlKVSet.run(key, value);
   }
 
   const sqlKVDelete = db.prepare(`
@@ -106,13 +106,11 @@ export async function makeSQLKVStore(
    */
   function kvDelete(key: string): void {
     logger.debug(`kernel delete '${key}'`);
-    sqlKVDelete.bind([key]);
-    sqlKVDelete.step();
-    sqlKVDelete.reset();
+    sqlKVDelete.run(key);
   }
 
-  const sqlKVTruncate = db.prepare(`
-    TRUNCATE TABLE kv
+  const sqlKVDrop = db.prepare(`
+    DROP TABLE kv
   `);
 
   /**
@@ -120,8 +118,8 @@ export async function makeSQLKVStore(
    */
   function kvTruncate(): void {
     logger.debug(`kernel truncate`);
-    sqlKVTruncate.step();
-    sqlKVTruncate.reset();
+    sqlKVDrop.run();
+    sqlKVInit.run();
   }
 
   return {
@@ -129,6 +127,6 @@ export async function makeSQLKVStore(
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
-    truncate: kvTruncate,
+    truncate: db.transaction(kvTruncate),
   };
 }
