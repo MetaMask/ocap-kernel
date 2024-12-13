@@ -1,7 +1,7 @@
 import '@ocap/test-utils/mock-endoify';
 import { describe, expect, it } from 'vitest';
 
-import { isValidBundleUrl } from './shared.js';
+import { isValidBundleUrl } from './utils.js';
 
 describe('isValidBundleUrl', () => {
   it.each([

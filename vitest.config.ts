@@ -28,13 +28,13 @@ export default defineConfig({
       provider: 'istanbul',
       reporter: ['text', 'json', 'html'],
       reportsDirectory: './coverage',
-      include: ['**/src/**/*.ts'],
+      include: ['**/src/**/*.{ts,tsx}'],
       exclude: [
         '**/node_modules/**',
         '**/coverage/**',
         '**/dist/**',
         '**/test/**',
-        '**/*.{test,spec}.{ts,js}',
+        '**/*.{test,spec}.{ts,tsx,js,jsx}',
       ],
       thresholds: {
         autoUpdate: true,

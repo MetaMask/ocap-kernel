@@ -1,21 +1,27 @@
 import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
 
-import { handleKernelMessage } from './messages.js';
-import { logger } from './shared.js';
-import { isKernelControlReply } from '../kernel-integration/messages.js';
+import { logger } from './logger.js';
+import { isKernelControlReply } from '../../kernel-integration/messages.js';
 import type {
   KernelControlCommand,
   KernelControlReply,
-} from '../kernel-integration/messages.js';
+} from '../../kernel-integration/messages.js';
 
 /**
  * Setup the stream for sending and receiving messages.
  *
+ * @param handleKernelMessage - Callback to handle incoming messages
  * @returns A function for sending messages.
  */
-export async function setupStream(): Promise<
-  (message: KernelControlCommand) => Promise<void>
-> {
+export async function setupStream(
+  handleKernelMessage: (message: KernelControlReply) => void,
+): Promise<{
+  offscreenStream: ChromeRuntimeDuplexStream<
+    KernelControlReply,
+    KernelControlCommand
+  >;
+  sendMessage: (message: KernelControlCommand) => Promise<void>;
+}> {
   // Connect to the offscreen script
   const port = chrome.runtime.connect({ name: 'popup' });
 
@@ -32,7 +38,9 @@ export async function setupStream(): Promise<
 
   // Cleanup stream on disconnect
   const cleanup = (): void => {
-    offscreenStream.return().catch(logger.error);
+    offscreenStream.return().catch((error) => {
+      logger.error('error returning offscreen stream', error);
+    });
   };
   port.onDisconnect.addListener(cleanup);
   window.addEventListener('unload', cleanup);
@@ -48,5 +56,5 @@ export async function setupStream(): Promise<
     logger.error('error draining offscreen stream', error);
   });
 
-  return sendMessage;
+  return { offscreenStream, sendMessage };
 }

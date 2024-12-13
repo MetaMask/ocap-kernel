@@ -1,13 +1,14 @@
 {
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
+    "jsx": "react",
     "allowJs": true,
     "baseUrl": "./",
     "emitDeclarationOnly": false,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "rootDir": "./src",
-    "types": ["chrome", "ses"]
+    "types": ["chrome", "ses", "react", "react-dom"]
   },
   "references": [
     { "path": "../shims/tsconfig.build.json" },
@@ -17,6 +18,7 @@
   ],
   "include": [
     "./src/**/*.ts",
+    "./src/**/*.tsx",
     "./src/**/*-trusted-prelude.js",
     "./src/env/dev-console.js"
   ]

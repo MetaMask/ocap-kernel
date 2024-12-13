@@ -1,13 +1,22 @@
 {
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
+    "jsx": "react",
     "allowJs": true,
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome", "ses", "vitest", "vitest/jsdom", "@playwright/test"]
+    "types": [
+      "chrome",
+      "ses",
+      "vitest",
+      "vitest/jsdom",
+      "@playwright/test",
+      "react",
+      "react-dom"
+    ]
   },
   "references": [
     { "path": "../shims" },
@@ -22,6 +31,7 @@
     "./scripts/build-constants.mjs",
     "./playwright.config.ts",
     "./src/**/*.ts",
+    "./src/**/*.tsx",
     "./src/**/*-trusted-prelude.js",
     "./src/env/dev-console.js",
     "./test/**/*.ts",

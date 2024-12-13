@@ -1,7 +1,3 @@
-import { makeLogger } from '@ocap/utils';
-
-export const logger = makeLogger('[Kernel Panel]');
-
 /**
  * Validates a bundle URL.
  *
@@ -19,4 +15,18 @@ export function isValidBundleUrl(url?: string): boolean {
   } catch {
     return false;
   }
+}
+
+type ErrorResponse = {
+  error: unknown;
+};
+
+/**
+ * Checks if a value is an error response.
+ *
+ * @param value - The value to check.
+ * @returns Whether the value is an error response.
+ */
+export function isErrorResponse(value: unknown): value is ErrorResponse {
+  return typeof value === 'object' && value !== null && 'error' in value;
 }

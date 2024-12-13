@@ -1,6 +1,7 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
+import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
@@ -62,6 +63,7 @@ export default defineConfig(({ mode }) => ({
   },
 
   plugins: [
+    react(),
     htmlTrustedPrelude(),
     jsTrustedPrelude({ trustedPreludes }),
     viteStaticCopy({

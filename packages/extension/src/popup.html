@@ -1,60 +1,12 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
     <title>Kernel Panel</title>
     <link rel="stylesheet" href="./panel/styles.css" />
-    <script src="./popup.ts" type="module"></script>
   </head>
   <body>
-    <div id="panel-root">
-      <div class="kernel-panel">
-        <div class="kernel-status">
-          <h3>Kernel Status</h3>
-          <pre id="status-display"></pre>
-        </div>
-
-        <div class="vat-controls">
-          <input type="text" id="new-vat-name" placeholder="Vat Name" />
-          <input
-            type="url"
-            id="bundle-url"
-            placeholder="Bundle URL"
-            value="http://localhost:3000/sample-vat.bundle"
-          />
-          <button id="launch-vat" disabled>Launch Vat</button>
-        </div>
-
-        <div class="vat-controls">
-          <select id="vat-dropdown">
-            <option value="">Select Vat</option>
-          </select>
-          <button id="restart-vat">Restart Vat</button>
-          <button id="terminate-vat">Terminate Vat</button>
-        </div>
-
-        <div class="message-panel">
-          <h4>Send Message</h4>
-          <div id="message-templates"></div>
-          <div class="message-input-row">
-            <input
-              type="text"
-              id="message-content"
-              placeholder="Enter message (as JSON)"
-            />
-            <button id="send-message" disabled>Send</button>
-          </div>
-          <div id="output-box" style="display: none">
-            <h4>Output</h4>
-            <pre id="message-output"></pre>
-          </div>
-        </div>
-
-        <div class="kernel-controls">
-          <button class="blue" id="terminate-all">Terminate All Vats</button>
-          <button class="red" id="clear-state">Clear All State</button>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
+    <script type="module" src="./popup.tsx"></script>
   </body>
 </html>
