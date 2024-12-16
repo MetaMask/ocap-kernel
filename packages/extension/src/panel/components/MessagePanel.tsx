@@ -1,6 +1,5 @@
 import { VatCommandMethod, KernelCommandMethod } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
-import React from 'react';
 
 import { usePanelContext } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
@@ -22,8 +21,7 @@ const commonMessages: Record<string, KernelCommand> = {
  * @returns A panel for sending messages to the kernel.
  */
 export const MessagePanel: React.FC = () => {
-  const { messageContent, setMessageContent, outputMessage, outputType } =
-    usePanelContext();
+  const { messageContent, setMessageContent, panelLogs } = usePanelContext();
   const { sendKernelCommand } = useKernelActions();
 
   return (
@@ -44,19 +42,23 @@ export const MessagePanel: React.FC = () => {
         <input
           type="text"
           value={messageContent}
-          onChange={(error) => setMessageContent(error.target.value)}
+          onChange={(event) => setMessageContent(event.target.value)}
           placeholder="Enter message (as JSON)"
         />
         <button onClick={sendKernelCommand} disabled={!messageContent.trim()}>
           Send
         </button>
       </div>
-      {outputMessage && (
-        <div id="output-box">
-          <h4>Output</h4>
-          <pre className={outputType}>{outputMessage}</pre>
+      <div id="output-box">
+        <h4>Output</h4>
+        <div className="output-logs">
+          {panelLogs.map((log) => (
+            <div key={log.message} className={log.type}>
+              {log.message}
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 };

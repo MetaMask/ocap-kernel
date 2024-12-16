@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useVats } from '../hooks/useVats.js';
 
 /**

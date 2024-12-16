@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useKernelActions } from '../hooks/useKernelActions.js';
 
 /**

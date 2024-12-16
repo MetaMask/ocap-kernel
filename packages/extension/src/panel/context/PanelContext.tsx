@@ -1,74 +1,63 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { VatId } from '@ocap/kernel';
+import { stringify } from '@ocap/utils';
+import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type {
-  KernelControlCommand,
-  KernelStatus,
-} from '../../kernel-integration/messages.js';
-import { useMessageHandler } from '../hooks/useMessageHandler.js';
-import { useOutput } from '../hooks/useOutput.js';
-import type { OutputType } from '../hooks/useOutput.js';
+import type { KernelStatus } from '../../kernel-integration/messages.js';
 import { useStatusPolling } from '../hooks/useStatusPolling.js';
-import { setupStream } from '../services/stream.js';
+import { logger } from '../services/logger.js';
+import type { SendMessageFunction } from '../services/stream.js';
+import { isErrorResponse } from '../utils.js';
+
+export type OutputType = 'info' | 'success' | 'error';
+
+type PanelLog = {
+  message: string;
+  type: OutputType;
+};
 
 type PanelContextType = {
-  sendMessage: (message: KernelControlCommand) => Promise<void>;
+  sendMessage: SendMessageFunction;
   status: KernelStatus | null;
-  showOutput: (message: string, type?: OutputType) => void;
+  logMessage: (message: string, type?: OutputType) => void;
   setStatus: (status: KernelStatus) => void;
   messageContent: string;
   setMessageContent: (content: string) => void;
-  outputMessage: string;
-  outputType: string;
+  panelLogs: PanelLog[];
+  selectedVatId: VatId | undefined;
+  setSelectedVatId: (id: VatId | undefined) => void;
 };
 
 const PanelContext = createContext<PanelContextType | undefined>(undefined);
 
-export const PanelProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const {
-    messageContent,
-    setMessageContent,
-    outputMessage,
-    outputType,
-    showOutput,
-  } = useOutput();
-
+export const PanelProvider: React.FC<{
+  children: ReactNode;
+  sendMessage: SendMessageFunction;
+}> = ({ children, sendMessage }) => {
+  const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
+  const [messageContent, setMessageContent] = useState<string>('');
+  const [selectedVatId, setSelectedVatId] = useState<VatId | undefined>();
   const [status, setStatus] = useState<KernelStatus | null>(null);
-  const [sendMessage, setSendMessage] = useState<
-    ((message: KernelControlCommand) => Promise<void>) | undefined
-  >();
 
-  const handleKernelMessage = useMessageHandler(setStatus, showOutput);
+  const logMessage = (message: string, type: OutputType = 'info'): void => {
+    setPanelLogs((prevLogs) => [...prevLogs, { message, type }]);
+  };
 
-  // Initialize the stream and sendMessage
-  useEffect(() => {
-    setupStream(handleKernelMessage)
-      .then(({ sendMessage: sendMessageFn }) =>
-        setSendMessage(() => sendMessageFn),
-      )
-      .catch((error) => {
-        showOutput(`Error: ${String(error)}`, 'error');
-      });
-  }, [handleKernelMessage, showOutput]);
-
-  // Start polling when sendMessage is ready
-  useStatusPolling(setStatus, sendMessage, 1000);
-
-  const sendMessageWrapper = async (
-    message: KernelControlCommand,
-  ): Promise<void> => {
-    if (!sendMessage) {
-      return;
-    }
+  const sendMessageWrapper: SendMessageFunction = async (payload) => {
     try {
-      await sendMessage(message);
-      showOutput(`Sent: ${JSON.stringify(message)}`, 'info');
+      const response = await sendMessage(payload);
+      logMessage(`Sent: ${JSON.stringify(payload)}`, 'info');
+      if (isErrorResponse(response)) {
+        throw new Error(stringify(response.error, 0));
+      }
+      return response;
     } catch (error) {
-      showOutput(`Error: ${String(error)}`, 'error');
+      logger.error(`Error: ${String(error)}`, 'error');
+      throw error;
     }
   };
+
+  useStatusPolling(setStatus, sendMessage, 1000);
 
   return (
     <PanelContext.Provider
@@ -76,11 +65,12 @@ export const PanelProvider: React.FC<{ children: ReactNode }> = ({
         sendMessage: sendMessageWrapper,
         status,
         setStatus,
-        showOutput,
+        logMessage,
         messageContent,
         setMessageContent,
-        outputMessage,
-        outputType,
+        panelLogs,
+        selectedVatId,
+        setSelectedVatId,
       }}
     >
       {children}

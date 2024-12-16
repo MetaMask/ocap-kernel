@@ -4,8 +4,6 @@ import metamaskConfig, { createConfig } from '@metamask/eslint-config';
 import metamaskNodeConfig from '@metamask/eslint-config-nodejs';
 import metamaskTypescriptConfig from '@metamask/eslint-config-typescript';
 import metamaskVitestConfig from '@metamask/eslint-config-vitest';
-// eslint-disable-next-line import-x/no-unresolved
-import typescriptParser from '@typescript-eslint/parser';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
@@ -61,31 +59,23 @@ const config = createConfig([
       // option and "import-x/consistent-type-specifiers" rule.
       '@typescript-eslint/consistent-type-imports': 'off',
       'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+      // React rules
+      ...react.configs.flat?.['jsx-runtime']?.rules,
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      '@typescript-eslint/naming-convention': 'off',
     },
-  },
-
-  // Add React configuration
-  {
-    files: ['**/*.ts', '**/*.tsx'],
     // @ts-ignore
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
-      parser: typescriptParser,
       parserOptions: {
         ecmaFeatures: {
           jsx: true,
         },
         jsxPragma: null,
-        ecmaVersion: 'latest',
         sourceType: 'module',
         project: ['./packages/*/tsconfig.lint.json'],
       },
-    },
-    rules: {
-      ...react.configs.flat?.['jsx-runtime']?.rules,
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/naming-convention': 'off',
     },
     settings: {
       react: {

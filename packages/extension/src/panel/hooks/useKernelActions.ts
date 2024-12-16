@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import { KernelControlMethod } from '../../kernel-integration/messages.js';
 import { usePanelContext } from '../context/PanelContext.js';
-import { logger } from '../services/logger.js';
 
 /**
  * Hook for handling kernel actions.
@@ -14,38 +13,38 @@ export function useKernelActions(): {
   terminateAllVats: () => void;
   clearState: () => void;
 } {
-  const { sendMessage, showOutput, messageContent } = usePanelContext();
+  const { sendMessage, logMessage, messageContent, selectedVatId } =
+    usePanelContext();
 
-  // Send a message to the kernel
   const sendKernelCommand = useCallback(() => {
-    try {
-      const message = JSON.parse(messageContent);
-      sendMessage(message).catch(logger.error);
-    } catch (error) {
-      showOutput('Invalid JSON input', 'error');
-      logger.error('Failed to parse message content:', error);
-    }
-  }, [messageContent, sendMessage, showOutput]);
+    sendMessage({
+      method: KernelControlMethod.sendMessage,
+      params: {
+        payload: JSON.parse(messageContent),
+        ...(selectedVatId ? { id: selectedVatId } : {}),
+      },
+    })
+      .then((result) => logMessage(JSON.stringify(result, null, 2), 'success'))
+      .catch(() => logMessage('Failed to send message', 'error'));
+  }, [messageContent, selectedVatId, sendMessage, logMessage]);
 
-  // Terminate all vats
   const terminateAllVats = useCallback(() => {
     sendMessage({
       method: KernelControlMethod.terminateAllVats,
       params: null,
     })
-      .then(() => showOutput('All vats terminated', 'success'))
-      .catch(logger.error);
-  }, [sendMessage, showOutput]);
+      .then(() => logMessage('All vats terminated', 'success'))
+      .catch(() => logMessage('Failed to terminate all vats', 'error'));
+  }, [sendMessage, logMessage]);
 
-  // Clear the state of all vats
   const clearState = useCallback(() => {
     sendMessage({
       method: KernelControlMethod.clearState,
       params: null,
     })
-      .then(() => showOutput('State cleared', 'success'))
-      .catch(logger.error);
-  }, [sendMessage, showOutput]);
+      .then(() => logMessage('State cleared', 'success'))
+      .catch(() => logMessage('Failed to clear state', 'error'));
+  }, [sendMessage, logMessage]);
 
   return {
     sendKernelCommand,

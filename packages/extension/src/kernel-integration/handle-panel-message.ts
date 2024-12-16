@@ -25,93 +25,130 @@ export async function handlePanelMessage(
   kernel: Kernel,
   message: KernelControlCommand,
 ): Promise<KernelControlReply> {
+  const { method, params } = message.payload;
   try {
-    switch (message.method) {
+    switch (method) {
       case KernelControlMethod.launchVat: {
-        if (!isVatConfig(message.params)) {
+        if (!isVatConfig(params)) {
           throw new Error('Valid vat config required');
         }
-        await kernel.launchVat(message.params);
-        return { method: KernelControlMethod.launchVat, params: null };
+        await kernel.launchVat(params);
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.launchVat,
+            params: null,
+          },
+        };
       }
 
       case KernelControlMethod.restartVat: {
-        if (!isVatId(message.params.id)) {
+        if (!isVatId(params.id)) {
           throw new Error('Valid vat id required');
         }
-        await kernel.restartVat(message.params.id);
-        return { method: KernelControlMethod.restartVat, params: null };
+        await kernel.restartVat(params.id);
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.restartVat,
+            params: null,
+          },
+        };
       }
 
       case KernelControlMethod.terminateVat: {
-        if (!isVatId(message.params.id)) {
+        if (!isVatId(params.id)) {
           throw new Error('Valid vat id required');
         }
-        await kernel.terminateVat(message.params.id);
-        return { method: KernelControlMethod.terminateVat, params: null };
+        await kernel.terminateVat(params.id);
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.terminateVat,
+            params: null,
+          },
+        };
       }
 
       case KernelControlMethod.terminateAllVats: {
         await kernel.terminateAllVats();
-        return { method: KernelControlMethod.terminateAllVats, params: null };
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.terminateAllVats,
+            params: null,
+          },
+        };
       }
 
       case KernelControlMethod.getStatus: {
         return {
-          method: KernelControlMethod.getStatus,
-          params: {
-            isRunning: true, // TODO: Track actual kernel state
-            activeVats: kernel.getVatIds(),
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.getStatus,
+            params: {
+              isRunning: true, // TODO: Track actual kernel state
+              activeVats: kernel.getVatIds(),
+            },
           },
         };
       }
 
       case KernelControlMethod.clearState: {
         await kernel.reset();
-        return { method: KernelControlMethod.clearState, params: null };
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.clearState,
+            params: null,
+          },
+        };
       }
 
       case KernelControlMethod.sendMessage: {
-        if (!isKernelCommand(message.params.payload)) {
+        if (!isKernelCommand(params.payload)) {
           throw new Error('Invalid command payload');
         }
 
-        if (message.params.payload.method === 'kvGet') {
-          const result = kernel.kvGet(message.params.payload.params);
+        if (params.payload.method === 'kvGet') {
+          const result = kernel.kvGet(params.payload.params);
           if (!result) {
             throw new Error('Key not found');
           }
           return {
-            method: KernelControlMethod.sendMessage,
-            params: { result } as Json,
+            id: message.id,
+            payload: {
+              method: KernelControlMethod.sendMessage,
+              params: { result } as Json,
+            },
           };
         }
 
-        if (message.params.payload.method === 'kvSet') {
-          kernel.kvSet(
-            message.params.payload.params.key,
-            message.params.payload.params.value,
-          );
+        if (params.payload.method === 'kvSet') {
+          kernel.kvSet(params.payload.params.key, params.payload.params.value);
           return {
-            method: KernelControlMethod.sendMessage,
-            params: message.params.payload.params,
+            id: message.id,
+            payload: {
+              method: KernelControlMethod.sendMessage,
+              params: params.payload.params,
+            },
           };
         }
 
-        if (!isVatId(message.params.id)) {
+        if (!isVatId(params.id)) {
           throw new Error('Vat ID required for this command');
         }
 
-        assert(message.params, KernelSendMessageStruct);
+        assert(params, KernelSendMessageStruct);
 
-        const result = await kernel.sendMessage(
-          message.params.id,
-          message.params.payload,
-        );
+        const result = await kernel.sendMessage(params.id, params.payload);
 
         return {
-          method: KernelControlMethod.sendMessage,
-          params: { result } as Json,
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.sendMessage,
+            params: { result } as Json,
+          },
         };
       }
 
@@ -122,9 +159,12 @@ export async function handlePanelMessage(
   } catch (error) {
     logger.error('Error handling message:', error);
     return {
-      method: message.method,
-      params: {
-        error: error instanceof Error ? error.message : String(error),
+      id: message.id,
+      payload: {
+        method: KernelControlMethod.sendMessage,
+        params: {
+          error: error instanceof Error ? error.message : String(error),
+        },
       },
     } as KernelControlReply;
   }

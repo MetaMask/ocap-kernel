@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
-    "jsx": "react",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "allowJs": true,
     "baseUrl": "./",
     "emitDeclarationOnly": false,

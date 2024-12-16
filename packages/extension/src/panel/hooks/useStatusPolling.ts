@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 
-import type {
-  KernelControlCommand,
-  KernelStatus,
-} from '../../kernel-integration/messages.js';
+import type { StreamState } from './useStream.js';
+import { KernelControlMethod } from '../../kernel-integration/messages.js';
+import type { KernelStatus } from '../../kernel-integration/messages.js';
 import { logger } from '../services/logger.js';
+import { isErrorResponse } from '../utils.js';
 
 /**
  * Hook to start polling for kernel status
@@ -15,18 +15,28 @@ import { logger } from '../services/logger.js';
  */
 export const useStatusPolling = (
   setStatus: (status: KernelStatus) => void,
-  sendMessage?: (message: KernelControlCommand) => Promise<void>,
+  sendMessage: StreamState['sendMessage'],
   interval: number = 1000,
 ): void => {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Start polling for kernel status
   useEffect(() => {
     const fetchStatus = async (): Promise<void> => {
       if (!sendMessage) {
         return;
       }
-      await sendMessage({ method: 'getStatus', params: null });
+      try {
+        const status = await sendMessage({
+          method: KernelControlMethod.getStatus,
+          params: null,
+        });
+        if (isErrorResponse(status)) {
+          throw new Error(status.error);
+        }
+        setStatus(status);
+      } catch (error) {
+        logger.error('Failed to fetch status:', error);
+      }
     };
 
     pollingRef.current = setInterval(() => {

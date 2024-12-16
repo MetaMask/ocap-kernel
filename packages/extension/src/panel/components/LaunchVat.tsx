@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useVatForm } from '../hooks/useVatForm.js';
 
 /**
@@ -20,13 +18,13 @@ export const LaunchVat: React.FC = () => {
       <input
         type="text"
         value={newVatName}
-        onChange={(error) => setNewVatName(error.target.value)}
+        onChange={(event) => setNewVatName(event.target.value)}
         placeholder="Vat Name"
       />
       <input
         type="url"
         value={bundleUrl}
-        onChange={(error) => setBundleUrl(error.target.value)}
+        onChange={(event) => setBundleUrl(event.target.value)}
         placeholder="Bundle URL"
       />
       <button onClick={handleLaunch} disabled={isDisabled}>
