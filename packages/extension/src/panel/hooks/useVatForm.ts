@@ -48,9 +48,9 @@ export const useVatForm = (): {
         logMessage(`Launched vat "${newVatName}"`, 'success');
         return setNewVatName('');
       })
-      .catch((error) => {
-        console.error(`Failed to launch vat "${newVatName}":`, error);
-      });
+      .catch(() =>
+        logMessage(`Failed to launch vat "${newVatName}":`, 'error'),
+      );
   }, [bundleUrl, newVatName, sendMessage, setNewVatName, logMessage]);
 
   const isDisabled = !newVatName.trim() || !isValidBundleUrl(bundleUrl);
