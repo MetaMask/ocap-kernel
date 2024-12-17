@@ -160,7 +160,7 @@ export async function handlePanelMessage(
     return {
       id: message.id,
       payload: {
-        method: KernelControlMethod.sendMessage,
+        method,
         params: {
           error: error instanceof Error ? error.message : String(error),
         },

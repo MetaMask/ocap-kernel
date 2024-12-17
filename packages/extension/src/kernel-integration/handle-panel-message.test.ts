@@ -41,6 +41,16 @@ describe('handlePanelMessage', () => {
       terminateVat: vi.fn().mockResolvedValue(undefined),
       terminateAllVats: vi.fn().mockResolvedValue(undefined),
       getVatIds: vi.fn().mockReturnValue(['v0', 'v1']),
+      getVats: vi.fn().mockReturnValue([
+        {
+          id: 'v0',
+          config: { bundleSpec: 'http://localhost:3000/sample-vat.bundle' },
+        },
+        {
+          id: 'v1',
+          config: { bundleSpec: 'http://localhost:3000/sample-vat.bundle' },
+        },
+      ]),
       sendMessage: vi.fn((id: VatId, _message: KernelCommand) => {
         if (id === 'v0') {
           return 'success';
@@ -102,7 +112,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-2',
         payload: {
-          method: 'sendMessage',
+          method: 'launchVat',
           params: { error: 'Valid vat config required' },
         },
       });
@@ -149,7 +159,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-4',
         payload: {
-          method: 'sendMessage',
+          method: 'restartVat',
           params: { error: 'Valid vat id required' },
         },
       });
@@ -213,7 +223,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(mockKernel, message);
 
-      expect(mockKernel.getVatIds).toHaveBeenCalled();
+      expect(mockKernel.getVats).toHaveBeenCalled();
       expect(response).toStrictEqual({
         id: 'test-7',
         payload: {
