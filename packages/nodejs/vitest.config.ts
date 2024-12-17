@@ -5,7 +5,6 @@ import path from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 
 import defaultConfig from '../../vitest.config.js';
-import { sourceDir } from './scripts/build-constants.mjs';
 
 const config = mergeConfig(
   defaultConfig,

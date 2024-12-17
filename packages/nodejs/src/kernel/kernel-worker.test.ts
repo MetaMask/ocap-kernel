@@ -4,8 +4,6 @@ import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeKernel, runVatLifecycle } from './kernel-worker.js';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 vi.mock('node:process', () => ({
   exit: vi.fn((reason) => {
@@ -23,7 +21,7 @@ describe('Kernel Worker', () => {
     console.log('Kernel created.');
 
     console.log('Handling the lifecycle of multiple vats...');
-    await runVatLifecycle(kernel, ['v1']);//, 'v2', 'v3']);
+    await runVatLifecycle(kernel, ['v1']); //, 'v2', 'v3']);
     console.log('Lifecycle of multiple vats handled.');
 
     // console.log('Adding default vat...');

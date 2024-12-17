@@ -1,22 +1,26 @@
 import '@ocap/shims/endoify';
-import { describe, it, expect } from 'vitest';
 
-import { Worker as NodeWorker } from 'node:worker_threads';
 import { makePromiseKit } from '@endo/promise-kit';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { existsSync } from 'node:fs';
+import { Worker as NodeWorker } from 'node:worker_threads';
+import { describe, it, expect } from 'vitest';
+
 import type { Comms, Mode } from './comms.js';
 
-const workerFileURL = new URL('../../dist/node/node-worker.mjs', import.meta.url)
-.pathname;
+const workerFileURL = new URL(
+  '../../dist/node/node-worker.mjs',
+  import.meta.url,
+).pathname;
 
 describe('Node Worker', () => {
-  const makeWorker = (mode: Mode) => new NodeWorker(workerFileURL, {
-    env: {
-      COMMS: mode,
-    },
-    execArgv: process.env.VITEST ? ['--loader', 'tsx'] : undefined,
-  });
+  const makeWorker = (mode: Mode) =>
+    new NodeWorker(workerFileURL, {
+      env: {
+        COMMS: mode,
+      },
+      execArgv: process.env.VITEST ? ['--loader', 'tsx'] : undefined,
+    });
 
   it('communicates directly via worker.postMessage', async () => {
     const { resolve, promise } = makePromiseKit<string>();
@@ -49,7 +53,7 @@ describe('Node Worker', () => {
         break;
       }
     }
-    
+
     expect(await promise).toBe('pong');
   });
 });
