@@ -59,6 +59,7 @@ export function extensionDev({
     // Launch Chrome with the extension loaded
     const browserContext = await chromium.launchPersistentContext('', {
       headless: false,
+      ignoreDefaultArgs: ['--enable-automation'],
       args: [
         `--disable-extensions-except=${extensionPath}`,
         `--load-extension=${extensionPath}`,

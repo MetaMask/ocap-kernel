@@ -20,6 +20,9 @@ export const useStatusPolling = (
 ): void => {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  /**
+   * Effect to start polling for kernel status.
+   */
   useEffect(() => {
     const fetchStatus = async (): Promise<void> => {
       if (!sendMessage) {
@@ -42,6 +45,8 @@ export const useStatusPolling = (
     pollingRef.current = setInterval(() => {
       fetchStatus().catch(logger.error);
     }, interval);
+
+    fetchStatus().catch(logger.error);
 
     return () => {
       if (pollingRef.current) {

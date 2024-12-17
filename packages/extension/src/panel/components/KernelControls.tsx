@@ -1,17 +1,22 @@
+import styles from '../App.module.css';
 import { useKernelActions } from '../hooks/useKernelActions.js';
+import { useVats } from '../hooks/useVats.js';
 
 /**
  * @returns A panel for controlling the kernel.
  */
 export const KernelControls: React.FC = () => {
   const { terminateAllVats, clearState } = useKernelActions();
+  const { vats } = useVats();
 
   return (
-    <div className="kernel-controls">
-      <button className="blue" onClick={terminateAllVats}>
-        Terminate All Vats
-      </button>
-      <button className="red" onClick={clearState}>
+    <div className={styles.headerControls}>
+      {vats.length > 0 && (
+        <button className={styles.buttonWarning} onClick={terminateAllVats}>
+          Terminate All Vats
+        </button>
+      )}
+      <button className={styles.buttonDanger} onClick={clearState}>
         Clear All State
       </button>
     </div>

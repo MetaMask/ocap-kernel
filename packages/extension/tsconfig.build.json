@@ -9,7 +9,8 @@
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
     "rootDir": "./src",
-    "types": ["chrome", "ses", "react", "react-dom"]
+    "types": ["chrome", "ses", "react", "react-dom"],
+    "plugins": [{ "name": "typescript-plugin-css-modules" }]
   },
   "references": [
     { "path": "../shims/tsconfig.build.json" },
@@ -20,6 +21,7 @@
   "include": [
     "./src/**/*.ts",
     "./src/**/*.tsx",
+    "./src/**/*.module.css",
     "./src/**/*-trusted-prelude.js",
     "./src/env/dev-console.js"
   ]

@@ -1,3 +1,5 @@
+import styles from './App.module.css';
+import { KernelControls } from './components/KernelControls.js';
 import { LaunchVat } from './components/LaunchVat.jsx';
 import { MessagePanel } from './components/MessagePanel.jsx';
 import { VatTable } from './components/VatTable.jsx';
@@ -8,19 +10,37 @@ export const App: React.FC = () => {
   const { sendMessage, error } = useStream();
 
   if (error) {
-    return <div>Error connecting to kernel: {error.message}</div>;
+    return (
+      <div className={styles.panel}>
+        <div className={styles.error}>
+          Error connecting to kernel: {error.message}
+        </div>
+      </div>
+    );
   }
 
   if (!sendMessage) {
-    return <div>Connecting to kernel...</div>;
+    return (
+      <div className={styles.panel}>
+        <div>Connecting to kernel...</div>
+      </div>
+    );
   }
 
   return (
     <PanelProvider sendMessage={sendMessage}>
-      <div className="kernel-panel">
-        <LaunchVat />
-        <VatTable />
-        <MessagePanel />
+      <div className={styles.panel}>
+        <div className={styles.leftPanel}>
+          <div className={styles.headerSection}>
+            <h2>Kernel Vats</h2>
+            <KernelControls />
+          </div>
+          <VatTable />
+          <LaunchVat />
+        </div>
+        <div className={styles.rightPanel}>
+          <MessagePanel />
+        </div>
       </div>
     </PanelProvider>
   );

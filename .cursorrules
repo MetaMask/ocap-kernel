@@ -1,4 +1,5 @@
 Code style and structure:
+
 - Write concise, accurate JavaScript/TypeScript with modern ES Module syntax.
 - Always use TypeScript unless otherwise specified.
 - Use a class-based structure where applicable.
@@ -15,6 +16,7 @@ Code style and structure:
 - Use explicit return types for all functions.
 
 Testing and debugging:
+
 - Use `vitest` for testing.
 - Prefer `toStrictEqual()` for deep object comparisons in tests.
 - Use `it.each()` for parameterized tests.
@@ -24,6 +26,7 @@ Testing and debugging:
 - Mock external dependencies using vitest's `vi.mock()`.
 
 TypeScript usage:
+
 - Use types for defining message structures and data contracts. Do not use `interface` declarations.
 - Leverage union types and type guards for robust runtime checks.
 - Use `Readonly<T>` for immutable data structures.
@@ -32,6 +35,7 @@ TypeScript usage:
 - Prefer `#` private fields over `private` class fields.
 
 File and directory structure:
+
 - Maintain a monorepo structure using Yarn workspaces.
 - Place package source files under `<package-root>/src/`.
 - Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `kernel/src/kernel-worker.ts` should be tested in `kernel/src/kernel-worker.test.ts`).
@@ -40,44 +44,53 @@ File and directory structure:
 - Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package.
 
 Kernel architecture:
+
 - Ensure clear separation of concerns between Kernel, Vat, and Supervisor components.
 - Use streams from the `streams` package for message passing / IPC.
 
 Web extensions:
+
 - Use the latest manifest version (v3) for Chrome.
 - Minimize permissions in `manifest.json`, using optional permissions where feasible.
 - Apply Content Security Policies (CSP) in `manifest.json`.
 
 UI and styling:
+
 - Create responsive designs for UI components like popups or settings.
 - Use Flexbox or CSS Grid for layout consistency.
 - Use plain CSS, HTML, and JavaScript for UI components. Do not use React or other frameworks.
 
 Cross-environment compatibility:
+
 - Libraries should be platform-agnostic and run in any environment unless otherwise specified.
 - Packages like `extension` (browser) and `cli` (Node.js) are platform-specific.
 - Implement graceful degradation for environment-specific features.
 
 Type safety:
+
 - Prefer `@metamask/superstruct` when defining object types.
 - Use runtime type guards, not type assertions, when type narrowing is required.
 - Define object types for all data structures.
 - Avoid redundant type declarations.
 
 Error handling:
+
 - Use structured error classes with inheritance, error codes, and messages.
 - Implement error marshaling and unmarshaling.
 - Use type guards for error checking.
 
 Documentation:
+
 - Use JSDoc and TypeDoc for public APIs.
 - Include examples and document error cases.
 
 Context-aware development:
+
 - Align new code with existing project structure for consistency.
 - Prioritize modular, reusable components.
 
 Code output:
+
 - Provide complete, self-contained examples.
 - Include necessary imports and context for code snippets.
 - Document significant changes, especially for Endo-specific patterns or Chrome APIs.

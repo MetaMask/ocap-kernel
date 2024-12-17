@@ -16,6 +16,9 @@ export type StreamState = {
 export function useStream(): StreamState {
   const [state, setState] = useState<StreamState>({});
 
+  /**
+   * Effect to setup the stream and provide a sendMessage function.
+   */
   useEffect(() => {
     setupStream()
       .then(setState)

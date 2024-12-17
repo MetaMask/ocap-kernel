@@ -1,3 +1,4 @@
+import styles from '../App.module.css';
 import { useVats } from '../hooks/useVats.js';
 
 /**
@@ -6,23 +7,44 @@ import { useVats } from '../hooks/useVats.js';
 export const VatTable: React.FC = () => {
   const { vats, restartVat, terminateVat } = useVats();
 
+  if (vats.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="vat-management">
-      <h3>Active Vats</h3>
+    <div className={styles.vatTable}>
       <table>
         <thead>
           <tr>
-            <th>Name</th>
+            <th>#</th>
+            <th>ID</th>
+            <th>Source</th>
+            <th>Parameters</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {vats.map((vat) => (
+          {vats.map((vat, index) => (
             <tr key={vat.id}>
-              <td>{vat.name}</td>
+              <td>{index + 1}</td>
+              <td>{vat.id}</td>
+              <td>{vat.source}</td>
+              <td>{vat.parameters}</td>
               <td>
-                <button onClick={() => restartVat(vat.id)}>Restart</button>
-                <button onClick={() => terminateVat(vat.id)}>Terminate</button>
+                <div className={styles.tableActions}>
+                  <button
+                    className={styles.smallButton}
+                    onClick={() => restartVat(vat.id)}
+                  >
+                    Restart
+                  </button>
+                  <button
+                    className={styles.smallButton}
+                    onClick={() => terminateVat(vat.id)}
+                  >
+                    Terminate
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

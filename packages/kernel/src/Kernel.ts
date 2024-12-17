@@ -113,6 +113,33 @@ export class Kernel {
   }
 
   /**
+   * Gets the list of all vats.
+   *
+   * @returns An array of vats.
+   */
+  getVats(): {
+    id: VatId;
+    config: VatConfig;
+  }[] {
+    return Array.from(this.#vats.values()).reduce(
+      (
+        acc: {
+          id: VatId;
+          config: VatConfig;
+        }[],
+        vat,
+      ) => {
+        const state = this.#vatStateService.get(vat.vatId);
+        if (state?.config) {
+          acc.push({ id: vat.vatId, config: state.config });
+        }
+        return acc;
+      },
+      [],
+    );
+  }
+
+  /**
    * Launches a vat.
    *
    * @param vatConfig - Configuration for the new vat.

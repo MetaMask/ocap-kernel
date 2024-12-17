@@ -87,8 +87,7 @@ export async function handlePanelMessage(
           payload: {
             method: KernelControlMethod.getStatus,
             params: {
-              isRunning: true, // TODO: Track actual kernel state
-              activeVats: kernel.getVatIds(),
+              vats: kernel.getVats(),
             },
           },
         };

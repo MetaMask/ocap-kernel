@@ -37,6 +37,7 @@ ignores:
   - 'simple-git-hooks'
   - 'typedoc'
   - 'typescript'
+  - 'typescript-plugin-css-modules'
 
   # These are peer dependencies of various modules we actually do
   # depend on, which have been elevated to full dependencies (even

@@ -2,7 +2,6 @@ import {
   object,
   union,
   literal,
-  boolean,
   array,
   type,
   is,
@@ -11,7 +10,7 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { VatId } from '@ocap/kernel';
+import type { VatConfig, VatId } from '@ocap/kernel';
 import { VatConfigStruct, VatIdStruct } from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
@@ -26,13 +25,19 @@ export const KernelControlMethod = {
 } as const;
 
 export type KernelStatus = {
-  isRunning: boolean;
-  activeVats: VatId[];
+  vats: {
+    id: VatId;
+    config: VatConfig;
+  }[];
 };
 
 const KernelStatusStruct = type({
-  isRunning: boolean(),
-  activeVats: array(VatIdStruct),
+  vats: array(
+    object({
+      id: VatIdStruct,
+      config: VatConfigStruct,
+    }),
+  ),
 });
 
 // Command payload structs

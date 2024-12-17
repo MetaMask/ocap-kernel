@@ -1,4 +1,5 @@
 import type { VatId } from '@ocap/kernel';
+import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
 
 import { KernelControlMethod } from '../../kernel-integration/messages.js';
@@ -22,14 +23,22 @@ export const useVats = (): {
 
   const vats = useMemo(() => {
     return (
-      status?.activeVats.map((id) => ({
+      status?.vats.map(({ id, config }) => ({
         id,
-        name: id,
-        source: 'unknown',
+        source:
+          config?.bundleSpec ??
+          config?.sourceSpec ??
+          config?.bundleName ??
+          'unknown',
+        parameters: stringify(config?.parameters ?? {}, 0),
+        creationOptions: stringify(config?.creationOptions ?? {}, 0),
       })) ?? []
     );
   }, [status]);
 
+  /**
+   * Restarts a vat.
+   */
   const restartVat = useCallback(
     (id: VatId) => {
       sendMessage({
@@ -42,6 +51,9 @@ export const useVats = (): {
     [sendMessage, logMessage],
   );
 
+  /**
+   * Terminates a vat.
+   */
   const terminateVat = useCallback(
     (id: VatId) => {
       sendMessage({

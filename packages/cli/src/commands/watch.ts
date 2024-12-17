@@ -80,7 +80,7 @@ export function watchDir(dir: string): WatchDirReturn {
   const events = makeWatchEvents(watcher, readyResolve, throwError);
 
   for (const key of Object.keys(events)) {
-    watcher = watcher.on(key, events[key as keyof typeof events]);
+    watcher = watcher.on(key, events[key as keyof typeof events] as never);
   }
 
   return {
