@@ -5,14 +5,14 @@ import path from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 
 import defaultConfig from '../../vitest.config.js';
+import { sourceDir } from './scripts/build-constants.mjs';
 
 const config = mergeConfig(
   defaultConfig,
   defineConfig({
     optimizeDeps: { include: ['better-sqlite3'] },
     test: {
-      // pool: 'vmThreads',
-      environment: 'node',
+      pool: 'forks',
       alias: [
         {
           find: '@ocap/shims/endoify',

@@ -1,4 +1,13 @@
-import '@ocap/shims/endoify';
+import 'ses';
+import '@endo/eventual-send/shim.js';
+
+try {
+  lockdown();
+  console.debug('LOCKDOWN COMPLETED');
+} catch (problem: unknown) {
+  console.error('LOCKDOWN PROBLEM', problem);
+}
+
 import type { NonEmptyArray } from '@metamask/utils';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
@@ -42,18 +51,13 @@ export async function runVatLifecycle(
   kernel: Kernel,
   vats: NonEmptyArray<VatId>,
 ): Promise<void> {
+  console.log('runVatLifecycle Start...');
   console.time(`Created vats: ${vats.join(', ')}`);
-  /*
-  await Promise.all(
-    vats.map(async () =>
-      kernel.launchVat({
-        bundleName: 'sample-vat',
-        parameters: { name: 'Nodeen' },
-      }),
-    ),
-  );
-  console.timeEnd(`Created vats: ${vats.join(', ')}`);
-  */
+  const vat = await kernel.launchVat({
+    bundleSpec: 'sample-vat',
+    parameters: { name: 'Nodeen' },
+  });
+  console.timeEnd(`Created vat: ${vat.vatId}`);
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
 
   // Restart a randomly selected vat from the array.

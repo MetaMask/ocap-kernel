@@ -1,4 +1,15 @@
-import '@ocap/shims/endoify';
+//import 'ses';
+//import '@endo/eventual-send/shim.js';
+
+/*
+try {
+  lockdown();
+  console.debug('LOCKDOWN COMPLETED');
+} catch (problem: unknown) {
+  console.error('LOCKDOWN PROBLEM', problem);
+}
+*/
+
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import type { Json } from '@metamask/utils';
@@ -13,15 +24,17 @@ main().catch(console.error);
  * The main function for the iframe.
  */
 async function main(): Promise<void> {
-  assert(
-    parentPort !== null,
-    'Expected to run in Node Worker with parentPort.',
-  );
-  const multiplexer = new NodeWorkerMultiplexer(parentPort);
+  console.debug('vat INSIDE started MAIN');
+  if (!parentPort) {
+    console.error('Expected to run in Node Worker with parentPort.');
+    process.exit(-31);
+  }
+  const multiplexer = new NodeWorkerMultiplexer(parentPort, 'vat');
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
   );
   const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
+  await multiplexer.start();
   const bootstrap = makeExo(
     'TheGreatFrangooly',
     M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),

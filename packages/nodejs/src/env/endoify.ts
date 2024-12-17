@@ -1,0 +1,1 @@
+import '@ocap/shims/endoify';

@@ -1903,7 +1903,8 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
     "@typescript-eslint/parser": "npm:^8.8.1"
     "@typescript-eslint/utils": "npm:^8.8.1"
-    "@vitest/browser": "npm:2.1.3"
+    "@vitest/browser": "npm:2.1.4"
+    "@vitest/coverage-istanbul": "npm:2.1.4"
     better-sqlite3: "npm:^11.7.0"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.12.0"
@@ -2961,6 +2962,26 @@ __metadata:
   peerDependencies:
     vitest: 2.1.3
   checksum: 10/d1bad4a71ec55481ca14901da4871088c29432330f3b373ca110d6b5dac3ee2e1f67db1ed9d9e9255186e8eab206a0d717371e447deb9a160d1f813facfb24e5
+  languageName: node
+  linkType: hard
+
+"@vitest/coverage-istanbul@npm:2.1.4":
+  version: 2.1.4
+  resolution: "@vitest/coverage-istanbul@npm:2.1.4"
+  dependencies:
+    "@istanbuljs/schema": "npm:^0.1.3"
+    debug: "npm:^4.3.7"
+    istanbul-lib-coverage: "npm:^3.2.2"
+    istanbul-lib-instrument: "npm:^6.0.3"
+    istanbul-lib-report: "npm:^3.0.1"
+    istanbul-lib-source-maps: "npm:^5.0.6"
+    istanbul-reports: "npm:^3.1.7"
+    magicast: "npm:^0.3.5"
+    test-exclude: "npm:^7.0.1"
+    tinyrainbow: "npm:^1.2.0"
+  peerDependencies:
+    vitest: 2.1.4
+  checksum: 10/4ceacb4c6617c2cda85941827c2469b2b2d993ffb0851f90957ef5c172918625cdbe92721280d7812ddd80669065bf611b88fe9d006458107a162e91e7d7ac0c
   languageName: node
   linkType: hard
 
@@ -6668,7 +6689,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"magicast@npm:^0.3.4":
+"magicast@npm:^0.3.4, magicast@npm:^0.3.5":
   version: 0.3.5
   resolution: "magicast@npm:0.3.5"
   dependencies:

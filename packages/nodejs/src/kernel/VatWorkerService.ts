@@ -1,6 +1,7 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import type { VatWorkerService, VatId } from '@ocap/kernel';
 import { NodeWorkerMultiplexer } from '@ocap/streams';
-import type { StreamMultiplexer } from '@ocap/streams';
+import { StreamMultiplexer } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -30,10 +31,18 @@ export class NodejsVatWorkerService implements VatWorkerService {
   }
 
   async launch(vatId: VatId): Promise<StreamMultiplexer> {
-    const worker = new NodeWorker(workerFileURL);
-    const multiplexer = new NodeWorkerMultiplexer(worker);
-    this.workers.set(vatId, { worker, multiplexer });
-    return multiplexer;
+    const { promise, resolve } = makePromiseKit<StreamMultiplexer>();
+    this.#logger.debug('launching', vatId);
+    const worker = new NodeWorker(workerFileURL, {
+      execArgv: process.env.VITEST ? ['--loader', 'tsx'] : undefined,
+    });
+    worker.once('online', () => {
+      const multiplexer = new NodeWorkerMultiplexer(worker, 'vat');
+      this.workers.set(vatId, { worker, multiplexer });
+      resolve(multiplexer);
+      this.#logger.debug('launched', vatId);
+    });
+    return promise;
   }
 
   async terminate(vatId: VatId): Promise<undefined> {

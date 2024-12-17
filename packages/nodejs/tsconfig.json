@@ -18,6 +18,7 @@
   ],
   "include": [
     "../../vitest.config.packages.ts",
+    "../../vitest.workspace.ts",
     "./scripts/build-constants.mjs",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
@@ -26,6 +27,5 @@
     "./vite-plugins/*.ts",
     "./vite.config.ts",
     "./vitest.config.ts",
-    "../kernel/src/vat-worker-service.ts"
   ]
 }
