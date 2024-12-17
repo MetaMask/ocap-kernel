@@ -1,5 +1,5 @@
 import styles from './App.module.css';
-import { KernelControls } from './components/KernelControls.js';
+import { KernelControls } from './components/KernelControls.jsx';
 import { LaunchVat } from './components/LaunchVat.jsx';
 import { MessagePanel } from './components/MessagePanel.jsx';
 import { VatTable } from './components/VatTable.jsx';

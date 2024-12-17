@@ -59,13 +59,18 @@ const config = createConfig([
       // option and "import-x/consistent-type-specifiers" rule.
       '@typescript-eslint/consistent-type-imports': 'off',
       'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-      // React rules
+    },
+  },
+
+  {
+    files: ['*.tsx', '**/ui/**/*.ts'],
+    // @ts-expect-error - The createConfig types are wrong
+    plugins: { react, 'react-hooks': reactHooks },
+    rules: {
       ...react.configs.flat?.['jsx-runtime']?.rules,
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },
-    // @ts-expect-error - The createConfig types are wrong
-    plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       parserOptions: {
         ecmaFeatures: {
