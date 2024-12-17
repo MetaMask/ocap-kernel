@@ -1,3 +1,4 @@
+import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
 import { KernelControlMethod } from '../../kernel-integration/messages.js';
@@ -28,8 +29,8 @@ export function useKernelActions(): {
         ...(selectedVatId ? { id: selectedVatId } : {}),
       },
     })
-      .then((result) => logMessage(JSON.stringify(result, null, 2), 'success'))
-      .catch(() => logMessage('Failed to send message', 'error'));
+      .then((result) => logMessage(stringify(result, 0), 'received'))
+      .catch((error) => logMessage(error.message, 'error'));
   }, [messageContent, selectedVatId, sendMessage, logMessage]);
 
   /**

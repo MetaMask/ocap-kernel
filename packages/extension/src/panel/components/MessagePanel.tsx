@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.js';
+import type { OutputType } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
 
 const commonMessages: Record<string, KernelCommand> = {
@@ -12,6 +13,21 @@ const commonMessages: Record<string, KernelCommand> = {
     params: { key: 'foo', value: 'bar' },
   },
   KVGet: { method: KernelCommandMethod.kvGet, params: 'foo' },
+};
+
+const getLogTypeIcon = (type: OutputType): string => {
+  switch (type) {
+    case 'sent':
+      return '→';
+    case 'received':
+      return '←';
+    case 'error':
+      return '⚠';
+    case 'success':
+      return '✓';
+    default:
+      return '';
+  }
 };
 
 /**
@@ -32,11 +48,12 @@ export const MessagePanel: React.FC = () => {
 
   return (
     <div className={styles.outputSection}>
-      <h4 className={styles.outputHeader}>Output Log</h4>
+      <h4 className={styles.outputHeader}>Message History</h4>
       <div className={styles.messageOutput} ref={messageOutputRef}>
-        {panelLogs.map((log) => (
-          <div key={log.message} className={styles[log.type]}>
-            {log.message}
+        {panelLogs.map((log, index) => (
+          <div key={index} className={styles[log.type]}>
+            <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>
+            <span className={styles.logMessage}>{log.message}</span>
           </div>
         ))}
       </div>

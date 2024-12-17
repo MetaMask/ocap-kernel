@@ -1,6 +1,6 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { KernelStatus } from '../../kernel-integration/messages.js';
@@ -9,7 +9,7 @@ import { logger } from '../services/logger.js';
 import type { SendMessageFunction } from '../services/stream.js';
 import { isErrorResponse } from '../utils.js';
 
-export type OutputType = 'info' | 'success' | 'error';
+export type OutputType = 'sent' | 'received' | 'error' | 'success';
 
 type PanelLog = {
   message: string;
@@ -39,14 +39,14 @@ export const PanelProvider: React.FC<{
   const [selectedVatId, setSelectedVatId] = useState<VatId | undefined>();
   const [status, setStatus] = useState<KernelStatus | null>(null);
 
-  const logMessage = (message: string, type: OutputType = 'info'): void => {
+  const logMessage = (message: string, type: OutputType = 'received'): void => {
     setPanelLogs((prevLogs) => [...prevLogs, { message, type }]);
   };
 
   const sendMessageWrapper: SendMessageFunction = async (payload) => {
     try {
+      logMessage(stringify(payload, 0), 'sent');
       const response = await sendMessage(payload);
-      logMessage(`Sent: ${JSON.stringify(payload)}`, 'info');
       if (isErrorResponse(response)) {
         throw new Error(stringify(response.error, 0));
       }

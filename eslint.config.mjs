@@ -63,9 +63,8 @@ const config = createConfig([
       ...react.configs.flat?.['jsx-runtime']?.rules,
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/naming-convention': 'off',
     },
-    // @ts-ignore
+    // @ts-expect-error - The createConfig types are wrong
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       parserOptions: {
