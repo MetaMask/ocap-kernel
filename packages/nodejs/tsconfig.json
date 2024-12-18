@@ -10,7 +10,6 @@
     "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
   },
   "references": [
-    { "path": "../shims" },
     { "path": "../streams" },
     { "path": "../test-utils" },
     { "path": "../utils" },
@@ -26,6 +25,6 @@
     "./test/**/*.ts",
     "./vite-plugins/*.ts",
     "./vite.config.ts",
-    "./vitest.config.ts",
+    "./vitest.config.ts"
   ]
 }

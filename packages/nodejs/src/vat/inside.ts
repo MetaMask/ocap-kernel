@@ -1,14 +1,4 @@
-// import 'ses';
-// import '@endo/eventual-send/shim.js';
-
-/*
-try {
-  lockdown();
-  console.debug('LOCKDOWN COMPLETED');
-} catch (problem: unknown) {
-  console.error('LOCKDOWN PROBLEM', problem);
-}
-*/
+import '@ocap/shims/endoify';
 
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
@@ -18,6 +8,8 @@ import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { NodeWorkerMultiplexer } from '@ocap/streams';
 import { parentPort } from 'node:worker_threads';
 
+console.debug('vat INSIDE calling MAIN');
+
 main().catch(console.error);
 
 /**
@@ -26,8 +18,9 @@ main().catch(console.error);
 async function main(): Promise<void> {
   console.debug('vat INSIDE started MAIN');
   if (!parentPort) {
-    console.error('Expected to run in Node Worker with parentPort.');
-    process.exit(-31);
+    const errMsg = 'Expected to run in Node Worker with parentPort.';
+    console.error(errMsg);
+    throw new Error(errMsg);
   }
   const multiplexer = new NodeWorkerMultiplexer(parentPort, 'vat');
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(

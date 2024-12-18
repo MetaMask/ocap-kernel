@@ -1,6 +1,4 @@
-import 'ses';
-import '@endo/eventual-send/shim.js';
-
+import '@ocap/shims/endoify';
 import type { NonEmptyArray } from '@metamask/utils';
 import type { KernelCommand, KernelCommandReply, VatId } from '@ocap/kernel';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
@@ -10,20 +8,15 @@ import { MessagePort as NodeMessagePort } from 'worker_threads';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { NodejsVatWorkerService } from './VatWorkerService.js';
 
-try {
-  lockdown();
-  console.debug('LOCKDOWN COMPLETED');
-} catch (problem: unknown) {
-  console.error('LOCKDOWN PROBLEM', problem);
-}
-
 /**
  * The main function for the kernel worker.
  *
  * @param port - The kernel's end of a node:worker_threads MessageChannel
  * @returns The kernel, initialized.
  */
-export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
+export async function makeKernel(
+  port: NodeMessagePort,
+): Promise<Kernel | undefined> {
   const nodeStream = new NodeWorkerDuplexStream<
     KernelCommand,
     KernelCommandReply
