@@ -22,6 +22,7 @@ test.describe('Kernel Panel', () => {
     await popupPage.click('button:text("Clear All State")');
     await popupPage.fill('input[placeholder="Vat Name"]', '');
     await popupPage.fill('input[placeholder="Bundle URL"]', '');
+    await expect(popupPage.locator('#root')).toContainText('State cleared');
   });
 
   /**
@@ -36,6 +37,10 @@ test.describe('Kernel Panel', () => {
       'http://localhost:3000/sample-vat.bundle',
     );
     await popupPage.click('button:text("Launch Vat")');
+    await popupPage.pause();
+    await expect(popupPage.locator('#root')).toContainText(
+      `Launched vat "${name}"`,
+    );
   }
 
   test('should load popup with kernel panel', async () => {
@@ -96,6 +101,14 @@ test.describe('Kernel Panel', () => {
       'Terminated vat "v1"',
     );
     await expect(popupPage.locator('table')).not.toBeVisible();
+  });
+
+  test('should send a message to a vat', async () => {
+    await launchVat();
+    await expect(popupPage.locator('td button:text("Ping")')).toBeVisible();
+    await popupPage.click('td button:text("Ping")');
+    await expect(popupPage.locator('#root')).toContainText('"method": "ping",');
+    await expect(popupPage.locator('#root')).toContainText('{"result":"pong"}');
   });
 
   test('should terminate all vats', async () => {
