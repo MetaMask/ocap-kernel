@@ -14,9 +14,7 @@ import { NodejsVatWorkerService } from './VatWorkerService.js';
  * @param port - The kernel's end of a node:worker_threads MessageChannel
  * @returns The kernel, initialized.
  */
-export async function makeKernel(
-  port: NodeMessagePort,
-): Promise<Kernel | undefined> {
+export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
   const nodeStream = new NodeWorkerDuplexStream<
     KernelCommand,
     KernelCommandReply

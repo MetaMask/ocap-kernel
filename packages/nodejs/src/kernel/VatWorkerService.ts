@@ -24,7 +24,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
    *
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
    */
-  constructor(logger?: Logger, isTest: boolean = false) {
+  constructor(logger?: Logger) {
     this.#logger = logger ?? makeLogger('[vat worker service]');
   }
 
