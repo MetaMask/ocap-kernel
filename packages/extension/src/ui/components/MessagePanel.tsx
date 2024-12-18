@@ -1,5 +1,6 @@
 import { KernelCommandMethod } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
+import { stringify } from '@ocap/utils';
 import { useEffect, useRef } from 'react';
 
 import styles from '../App.module.css';
@@ -63,9 +64,7 @@ export const MessagePanel: React.FC = () => {
             <button
               key={name}
               className={styles.textButton}
-              onClick={() =>
-                setMessageContent(JSON.stringify(template, null, 2))
-              }
+              onClick={() => setMessageContent(stringify(template, 0))}
             >
               {name}
             </button>
