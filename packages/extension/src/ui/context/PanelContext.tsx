@@ -16,7 +16,7 @@ type PanelLog = {
   type: OutputType;
 };
 
-type PanelContextType = {
+export type PanelContextType = {
   sendMessage: SendMessageFunction;
   status: KernelStatus | null;
   logMessage: (message: string, type?: OutputType) => void;
@@ -60,7 +60,7 @@ export const PanelProvider: React.FC<{
       }
       return response;
     } catch (error) {
-      logger.error(`Error: ${String(error)}`, 'error');
+      logger.error(String(error), 'error');
       throw error;
     }
   };

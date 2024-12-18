@@ -18,8 +18,6 @@ const commonMessages: Record<string, KernelCommand> = {
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
-    case 'sent':
-      return '→';
     case 'received':
       return '←';
     case 'error':
@@ -27,7 +25,7 @@ const getLogTypeIcon = (type: OutputType): string => {
     case 'success':
       return '✓';
     default:
-      return '';
+      return '→';
   }
 };
 
@@ -57,7 +55,11 @@ export const MessagePanel: React.FC = () => {
         </button>
       </div>
       <div className={styles.messageOutput}>
-        <div className={styles.messageScrollWrapper} ref={messageScrollRef}>
+        <div
+          className={styles.messageScrollWrapper}
+          ref={messageScrollRef}
+          role="log"
+        >
           {panelLogs.map((log, index) => (
             <div key={index} className={styles[log.type]}>
               <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>

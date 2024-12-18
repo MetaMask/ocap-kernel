@@ -11,6 +11,7 @@ const config = mergeConfig(
       environment: 'jsdom',
       pool: 'vmThreads',
       exclude: ['**/test/e2e/**'],
+      setupFiles: path.resolve('./test/setup.ts'),
       alias: [
         {
           find: '@ocap/shims/endoify',
