@@ -45,7 +45,7 @@ export const PanelProvider: React.FC<{
 
   const sendMessageWrapper: SendMessageFunction = async (payload) => {
     try {
-      logMessage(stringify(payload, 0), 'sent');
+      logMessage(stringify(payload, 2), 'sent');
       const response = await sendMessage(payload);
       if (isErrorResponse(response)) {
         throw new Error(stringify(response.error, 0));

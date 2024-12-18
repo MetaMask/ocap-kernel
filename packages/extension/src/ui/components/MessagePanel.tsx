@@ -37,26 +37,28 @@ const getLogTypeIcon = (type: OutputType): string => {
 export const MessagePanel: React.FC = () => {
   const { messageContent, setMessageContent, panelLogs } = usePanelContext();
   const { sendKernelCommand } = useKernelActions();
-  const messageOutputRef = useRef<HTMLDivElement>(null);
+  const messageScrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to the bottom of the message output when the panel logs change
   useEffect(() => {
-    if (messageOutputRef.current) {
-      messageOutputRef.current.scrollTop =
-        messageOutputRef.current.scrollHeight;
+    if (messageScrollRef.current) {
+      messageScrollRef.current.scrollTop =
+        messageScrollRef.current.scrollHeight;
     }
   }, [panelLogs]);
 
   return (
     <div className={styles.outputSection}>
       <h4 className={styles.outputHeader}>Message History</h4>
-      <div className={styles.messageOutput} ref={messageOutputRef}>
-        {panelLogs.map((log, index) => (
-          <div key={index} className={styles[log.type]}>
-            <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>
-            <span className={styles.logMessage}>{log.message}</span>
-          </div>
-        ))}
+      <div className={styles.messageOutput}>
+        <div className={styles.messageScrollWrapper} ref={messageScrollRef}>
+          {panelLogs.map((log, index) => (
+            <div key={index} className={styles[log.type]}>
+              <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>
+              <span className={styles.logMessage}>{log.message}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className={styles.messageInputSection}>
         <div className={styles.messageTemplates}>

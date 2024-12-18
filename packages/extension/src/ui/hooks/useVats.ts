@@ -1,3 +1,4 @@
+import { VatCommandMethod } from '@ocap/kernel';
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
@@ -15,6 +16,7 @@ export const useVats = (): {
   vats: VatRecord[];
   selectedVatId: VatId | undefined;
   setSelectedVatId: (id: VatId | undefined) => void;
+  pingVat: (id: VatId) => void;
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
 } => {
@@ -35,6 +37,27 @@ export const useVats = (): {
       })) ?? []
     );
   }, [status]);
+
+  /**
+   * Pings a vat.
+   */
+  const pingVat = useCallback(
+    (id: VatId) => {
+      sendMessage({
+        method: KernelControlMethod.sendMessage,
+        params: {
+          id,
+          payload: {
+            method: VatCommandMethod.ping,
+            params: null,
+          },
+        },
+      })
+        .then((result) => logMessage(stringify(result, 0), 'received'))
+        .catch((error) => logMessage(error.message, 'error'));
+    },
+    [sendMessage, logMessage],
+  );
 
   /**
    * Restarts a vat.
@@ -70,6 +93,7 @@ export const useVats = (): {
     vats,
     selectedVatId,
     setSelectedVatId,
+    pingVat,
     restartVat,
     terminateVat,
   };
