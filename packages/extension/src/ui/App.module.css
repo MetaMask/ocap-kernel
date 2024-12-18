@@ -290,7 +290,7 @@ div + .sent {
   position: relative;
   display: flex;
   flex-direction: column;
-  max-height: 100vh;
+  max-height: calc(100vh - var(--spacing-xl) * 2);
 }
 
 .outputSection {
@@ -306,6 +306,9 @@ div + .sent {
   padding: var(--spacing-md);
   background: var(--color-gray-200);
   border-bottom: 1px solid var(--color-gray-300);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .messageOutput {

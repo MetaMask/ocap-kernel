@@ -35,7 +35,8 @@ const getLogTypeIcon = (type: OutputType): string => {
  * @returns A panel for sending messages to the kernel.
  */
 export const MessagePanel: React.FC = () => {
-  const { messageContent, setMessageContent, panelLogs } = usePanelContext();
+  const { messageContent, setMessageContent, panelLogs, clearLogs } =
+    usePanelContext();
   const { sendKernelCommand } = useKernelActions();
   const messageScrollRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +50,12 @@ export const MessagePanel: React.FC = () => {
 
   return (
     <div className={styles.outputSection}>
-      <h4 className={styles.outputHeader}>Message History</h4>
+      <div className={styles.outputHeader}>
+        <h4>Message History</h4>
+        <button className={styles.smallButton} onClick={clearLogs}>
+          Clear
+        </button>
+      </div>
       <div className={styles.messageOutput}>
         <div className={styles.messageScrollWrapper} ref={messageScrollRef}>
           {panelLogs.map((log, index) => (

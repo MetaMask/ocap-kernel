@@ -1,6 +1,6 @@
 import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { KernelStatus } from '../../kernel-integration/messages.js';
@@ -26,6 +26,7 @@ type PanelContextType = {
   panelLogs: PanelLog[];
   selectedVatId: VatId | undefined;
   setSelectedVatId: (id: VatId | undefined) => void;
+  clearLogs: () => void;
 };
 
 const PanelContext = createContext<PanelContextType | undefined>(undefined);
@@ -39,9 +40,16 @@ export const PanelProvider: React.FC<{
   const [selectedVatId, setSelectedVatId] = useState<VatId | undefined>();
   const [status, setStatus] = useState<KernelStatus | null>(null);
 
-  const logMessage = (message: string, type: OutputType = 'received'): void => {
-    setPanelLogs((prevLogs) => [...prevLogs, { message, type }]);
-  };
+  const logMessage = useCallback(
+    (message: string, type: OutputType = 'received'): void => {
+      setPanelLogs((prevLogs) => [...prevLogs, { message, type }]);
+    },
+    [],
+  );
+
+  const clearLogs = useCallback(() => {
+    setPanelLogs([]);
+  }, []);
 
   const sendMessageWrapper: SendMessageFunction = async (payload) => {
     try {
@@ -71,6 +79,7 @@ export const PanelProvider: React.FC<{
         panelLogs,
         selectedVatId,
         setSelectedVatId,
+        clearLogs,
       }}
     >
       {children}
