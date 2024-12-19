@@ -12,7 +12,7 @@ export const VatTable: React.FC = () => {
   }
 
   return (
-    <div className={styles.vatTable}>
+    <div className={styles.table}>
       <table>
         <thead>
           <tr>

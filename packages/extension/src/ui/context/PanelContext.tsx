@@ -51,19 +51,22 @@ export const PanelProvider: React.FC<{
     setPanelLogs([]);
   }, []);
 
-  const sendMessageWrapper: SendMessageFunction = async (payload) => {
-    try {
-      logMessage(stringify(payload, 2), 'sent');
-      const response = await sendMessage(payload);
-      if (isErrorResponse(response)) {
-        throw new Error(stringify(response.error, 0));
+  const sendMessageWrapper: SendMessageFunction = useCallback(
+    async (payload) => {
+      try {
+        logMessage(stringify(payload, 0), 'sent');
+        const response = await sendMessage(payload);
+        if (isErrorResponse(response)) {
+          throw new Error(stringify(response.error, 0));
+        }
+        return response;
+      } catch (error) {
+        logger.error(`Error: ${String(error)}`, 'error');
+        throw error;
       }
-      return response;
-    } catch (error) {
-      logger.error(String(error), 'error');
-      throw error;
-    }
-  };
+    },
+    [sendMessage],
+  );
 
   useStatusPolling(setStatus, sendMessage, 1000);
 

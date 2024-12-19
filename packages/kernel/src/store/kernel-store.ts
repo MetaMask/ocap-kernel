@@ -78,6 +78,7 @@ export type KVStore = {
   set(key: string, value: string): void;
   delete(key: string): void;
   truncate(): void;
+  executeQuery(sql: string): Record<string, string>[];
 };
 
 /**

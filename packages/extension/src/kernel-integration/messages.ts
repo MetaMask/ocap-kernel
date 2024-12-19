@@ -6,6 +6,7 @@ import {
   type,
   is,
   string,
+  record,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
@@ -22,6 +23,7 @@ export const KernelControlMethod = {
   getStatus: 'getStatus',
   sendMessage: 'sendMessage',
   clearState: 'clearState',
+  executeDBQuery: 'executeDBQuery',
 } as const;
 
 export type KernelStatus = {
@@ -73,6 +75,12 @@ const KernelCommandPayloadStructs = {
     method: literal(KernelControlMethod.clearState),
     params: literal(null),
   }),
+  [KernelControlMethod.executeDBQuery]: object({
+    method: literal(KernelControlMethod.executeDBQuery),
+    params: object({
+      sql: string(),
+    }),
+  }),
 } as const;
 
 const KernelReplyPayloadStructs = {
@@ -104,6 +112,13 @@ const KernelReplyPayloadStructs = {
     method: literal(KernelControlMethod.clearState),
     params: literal(null),
   }),
+  [KernelControlMethod.executeDBQuery]: object({
+    method: literal(KernelControlMethod.executeDBQuery),
+    params: union([
+      array(record(string(), string())),
+      object({ error: string() }),
+    ]),
+  }),
 } as const;
 
 const KernelControlCommandStruct = object({
@@ -116,6 +131,7 @@ const KernelControlCommandStruct = object({
     KernelCommandPayloadStructs.getStatus,
     KernelCommandPayloadStructs.sendMessage,
     KernelCommandPayloadStructs.clearState,
+    KernelCommandPayloadStructs.executeDBQuery,
   ]),
 });
 
@@ -129,6 +145,7 @@ const KernelControlReplyStruct = object({
     KernelReplyPayloadStructs.getStatus,
     KernelReplyPayloadStructs.sendMessage,
     KernelReplyPayloadStructs.clearState,
+    KernelReplyPayloadStructs.executeDBQuery,
   ]),
 });
 

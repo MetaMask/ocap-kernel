@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     kernel.launchSubcluster(defaultSubcluster),
     multiplexer.start(),
     panelStream.drain(async (message) => {
-      const reply = await handlePanelMessage(kernel, message);
+      const reply = await handlePanelMessage(kernel, kvStore, message);
       await panelStream.write(reply);
     }),
   ]);

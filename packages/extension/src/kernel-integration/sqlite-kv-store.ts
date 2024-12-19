@@ -118,11 +118,39 @@ export async function makeSQLKVStore(
     sqlKVTruncate.reset();
   }
 
+  /**
+   * Execute a SQL query.
+   *
+   * @param sql - The SQL query to execute.
+   * @returns An array of results.
+   */
+  function executeQuery(sql: string): Record<string, string>[] {
+    const stmt = db.prepare(sql);
+    const results: Record<string, string>[] = [];
+    try {
+      const { columnCount } = stmt;
+      while (stmt.step()) {
+        const row: Record<string, string> = {};
+        for (let i = 0; i < columnCount; i++) {
+          const columnName = stmt.getColumnName(i);
+          if (columnName) {
+            row[columnName] = String(stmt.get(i));
+          }
+        }
+        results.push(row);
+      }
+    } finally {
+      stmt.reset();
+    }
+    return results;
+  }
+
   return {
     get: (key) => kvGet(key, false),
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
     truncate: kvTruncate,
+    executeQuery,
   };
 }

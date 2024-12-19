@@ -1,6 +1,12 @@
 import '@ocap/test-utils/mock-endoify';
 import { define, literal, object } from '@metamask/superstruct';
-import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
+import type {
+  Kernel,
+  KernelCommand,
+  VatId,
+  VatConfig,
+  KVStore,
+} from '@ocap/kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
@@ -30,9 +36,19 @@ vi.mock('@ocap/kernel', () => ({
 
 describe('handlePanelMessage', () => {
   let mockKernel: Kernel;
+  let mockKVStore: KVStore;
 
   beforeEach(() => {
     vi.resetModules();
+
+    mockKVStore = {
+      get: vi.fn(),
+      getRequired: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      truncate: vi.fn(),
+      executeQuery: vi.fn(),
+    };
 
     // Create mock kernel
     mockKernel = {
@@ -79,7 +95,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.launchVat).toHaveBeenCalledWith({
         sourceSpec: 'bogus.js',
@@ -107,7 +127,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-2',
@@ -128,7 +152,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.restartVat).toHaveBeenCalledWith('v0');
       expect(response).toStrictEqual({
@@ -154,7 +182,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-4',
@@ -175,7 +207,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.terminateVat).toHaveBeenCalledWith('v0');
       expect(response).toStrictEqual({
@@ -197,7 +233,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.terminateAllVats).toHaveBeenCalled();
       expect(response).toStrictEqual({
@@ -221,7 +261,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.getVats).toHaveBeenCalled();
       expect(response).toStrictEqual({
@@ -262,7 +306,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.kvGet).toHaveBeenCalledWith('testKey');
       expect(response).toStrictEqual({
@@ -287,7 +335,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.kvGet).toHaveBeenCalledWith('nonexistentKey');
       expect(response).toStrictEqual({
@@ -314,7 +366,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.kvSet).toHaveBeenCalledWith('testKey', 'testValue');
       expect(response).toStrictEqual({
@@ -339,7 +395,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.sendMessage).toHaveBeenCalledWith('v0', {
         method: 'ping',
@@ -370,7 +430,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-12',
@@ -397,7 +461,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-13',
@@ -420,7 +488,11 @@ describe('handlePanelMessage', () => {
         },
       } as unknown as KernelControlCommand;
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-14',
@@ -444,7 +516,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-15',
@@ -456,7 +532,11 @@ describe('handlePanelMessage', () => {
 
       vi.mocked(mockKernel.launchVat).mockRejectedValue('error');
 
-      const response2 = await handlePanelMessage(mockKernel, message);
+      const response2 = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response2).toStrictEqual({
         id: 'test-15',
@@ -479,7 +559,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(mockKernel.reset).toHaveBeenCalled();
       expect(response).toStrictEqual({
@@ -503,7 +587,11 @@ describe('handlePanelMessage', () => {
         },
       };
 
-      const response = await handlePanelMessage(mockKernel, message);
+      const response = await handlePanelMessage(
+        mockKernel,
+        mockKVStore,
+        message,
+      );
 
       expect(response).toStrictEqual({
         id: 'test-17',

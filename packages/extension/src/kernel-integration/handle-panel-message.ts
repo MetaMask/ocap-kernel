@@ -7,6 +7,7 @@ import {
   isVatId,
   isVatConfig,
 } from '@ocap/kernel';
+import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 
 import type { KernelControlReply, KernelControlCommand } from './messages.js';
@@ -18,11 +19,13 @@ const logger = makeLogger('[kernel panel messages]');
  * Handles a message from the panel.
  *
  * @param kernel - The kernel instance.
+ * @param kvStore - The KV store instance.
  * @param message - The message to handle.
  * @returns The reply to the message.
  */
 export async function handlePanelMessage(
   kernel: Kernel,
+  kvStore: KVStore,
   message: KernelControlCommand,
 ): Promise<KernelControlReply> {
   const { method, params } = message.payload;
@@ -147,6 +150,16 @@ export async function handlePanelMessage(
           payload: {
             method: KernelControlMethod.sendMessage,
             params: { result } as Json,
+          },
+        };
+      }
+
+      case KernelControlMethod.executeDBQuery: {
+        return {
+          id: message.id,
+          payload: {
+            method: KernelControlMethod.executeDBQuery,
+            params: kvStore.executeQuery(params.sql),
           },
         };
       }

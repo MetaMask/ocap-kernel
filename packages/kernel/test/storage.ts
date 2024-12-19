@@ -28,5 +28,6 @@ export function makeMapKVStore(): KVStore {
     set: map.set.bind(map),
     delete: map.delete.bind(map),
     truncate: map.clear.bind(map),
+    executeQuery: () => [],
   };
 }

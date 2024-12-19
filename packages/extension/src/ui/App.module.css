@@ -20,12 +20,14 @@
 
   --font-size-xs: 12px;
   --font-size-sm: 13px;
+  --font-size-md: 14px;
 
   --border-radius: 3px;
   --input-height: 36px;
   --input-height-sm: 28px;
   --transition-speed: 0.1s;
   --select-arrow-size: 8px;
+  --bar-height: 40px;
 
   --message-output-height: 100px;
   --panel-min-width: 600px;
@@ -52,12 +54,12 @@ body > div {
     system-ui,
     -apple-system,
     sans-serif;
-  margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr var(--output-width);
   gap: var(--spacing-xxl);
   min-width: var(--panel-min-width);
   min-height: 100%;
+  background: var(--color-white);
 }
 
 /* Common form elements */
@@ -306,9 +308,13 @@ div + .sent {
   padding: var(--spacing-md);
   background: var(--color-gray-200);
   border-bottom: 1px solid var(--color-gray-300);
+<<<<<<< HEAD
   display: flex;
   justify-content: space-between;
   align-items: center;
+=======
+  height: var(--bar-height);
+>>>>>>> 1cb1471 (add database inspector)
 }
 
 .messageOutput {
@@ -338,31 +344,31 @@ div + .sent {
   gap: var(--spacing-sm);
 }
 
-.vatTable {
+.table {
   width: 100%;
   border: 1px solid var(--color-gray-300);
   border-radius: var(--border-radius);
   overflow: hidden;
 }
 
-.vatTable table {
+.table table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.vatTable th {
+.table th {
   background: var(--color-gray-200);
   padding: var(--spacing-md);
   text-align: left;
   font-weight: 600;
 }
 
-.vatTable td {
+.table td {
   padding: var(--spacing-sm) var(--spacing-md);
   border-top: 1px solid var(--color-gray-300);
 }
 
-.vatTable tr:hover {
+.table tr:hover {
   background: var(--color-gray-100);
 }
 
@@ -382,4 +388,107 @@ div + .sent {
     height: var(--message-output-height);
     flex: none;
   }
+}
+
+.dbInspector {
+  padding: var(--spacing-md);
+}
+
+.dbSection {
+  margin-bottom: var(--spacing-xl);
+}
+
+.dbSection h3 {
+  margin-bottom: var(--spacing-md);
+}
+
+.querySection {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-md);
+}
+
+.querySection .input {
+  flex: 1;
+  font-family: monospace;
+}
+
+.dbSectionTitle {
+  margin: var(--spacing-xxl) 0 var(--spacing-md);
+}
+
+.queryResults {
+  margin-top: var(--spacing-md);
+  overflow-x: auto;
+}
+
+.queryResults table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.queryResults th,
+.queryResults td {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-gray-300);
+  text-align: left;
+}
+
+.queryResults th {
+  background: var(--color-gray-200);
+}
+
+.tabButtons {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-gray-300);
+  margin-bottom: var(--spacing-xl);
+  height: var(--bar-height);
+  background: var(--color-gray-100);
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+}
+
+.tabButton {
+  padding: var(--spacing-md) var(--spacing-xl);
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-bottom: -1px;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  transition: background-color var(--transition-speed);
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
+  flex: 0 0 auto;
+  font-weight: 500;
+  color: var(--color-gray-600);
+}
+
+.activeTab {
+  background: var(--color-white);
+  border-color: var(--color-gray-300);
+  border-bottom: 1px solid var(--color-white);
+  color: var(--color-black);
+}
+
+.tabButton:hover:not(.activeTab) {
+  color: var(--color-primary);
+}
+
+.tableControls {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.select {
+  min-width: 200px;
+  height: var(--input-height);
+  padding: 0 var(--spacing-lg);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-gray-300);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-white);
+  cursor: pointer;
 }

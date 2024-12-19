@@ -1,13 +1,16 @@
+import { useState } from 'react';
+
 import styles from './App.module.css';
-import { KernelControls } from './components/KernelControls.jsx';
-import { LaunchVat } from './components/LaunchVat.jsx';
+import { DatabaseInspector } from './components/DatabaseInspector.jsx';
 import { MessagePanel } from './components/MessagePanel.jsx';
-import { VatTable } from './components/VatTable.jsx';
+import { Tabs } from './components/Tabs.jsx';
+import { VatManager } from './components/VatManager.jsx';
 import { PanelProvider } from './context/PanelContext.jsx';
 import { useStream } from './hooks/useStream.js';
 
 export const App: React.FC = () => {
   const { sendMessage, error } = useStream();
+  const [activeTab, setActiveTab] = useState('vats');
 
   if (error) {
     return (
@@ -31,12 +34,15 @@ export const App: React.FC = () => {
     <PanelProvider sendMessage={sendMessage}>
       <div className={styles.panel}>
         <div className={styles.leftPanel}>
-          <div className={styles.headerSection}>
-            <h2>Kernel Vats</h2>
-            <KernelControls />
-          </div>
-          <VatTable />
-          <LaunchVat />
+          <Tabs
+            tabs={[
+              { label: 'Vat Manager', value: 'vats' },
+              { label: 'Database Inspector', value: 'database' },
+            ]}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+          {activeTab === 'vats' ? <VatManager /> : <DatabaseInspector />}
         </div>
         <div className={styles.rightPanel}>
           <MessagePanel />
