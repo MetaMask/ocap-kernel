@@ -31,8 +31,8 @@ export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
   return kernel;
 }
 
-const sampleOne = <Ele>(from: Ele[]): Ele =>
-  from[Math.floor(Math.random() * from.length)];
+const sampleOne = <Ele>(from: NonEmptyArray<Ele>): Ele =>
+  from[Math.floor(Math.random() * from.length)] as Ele;
 
 /**
  * Runs the full lifecycle of an array of vats, including their creation,
@@ -60,7 +60,7 @@ export async function runVatLifecycle(
   console.timeEnd(`Created vats: ${vatLabel}`);
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
 
-  const knownVats = kernel.getVatIds();
+  const knownVats = kernel.getVatIds() as NonEmptyArray<VatId>;
 
   // Restart a randomly selected vat from the array.
   const vatToRestart = sampleOne(knownVats);
