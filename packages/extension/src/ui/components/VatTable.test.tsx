@@ -43,7 +43,6 @@ describe('VatTable Component', () => {
 
   beforeEach(() => {
     cleanup();
-    vi.clearAllMocks();
   });
 
   it('renders nothing when no vats are present', () => {

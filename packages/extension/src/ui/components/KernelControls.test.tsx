@@ -46,7 +46,6 @@ const mockUseVats = (vats: VatRecord[] = []): void => {
 
 describe('KernelControls', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     cleanup();
   });
 

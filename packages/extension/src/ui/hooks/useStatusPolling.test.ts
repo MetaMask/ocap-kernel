@@ -23,7 +23,6 @@ describe('useStatusPolling', () => {
   const mockInterval = 100;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.useFakeTimers();
   });
 

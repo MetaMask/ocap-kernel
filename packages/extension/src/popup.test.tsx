@@ -15,7 +15,6 @@ vi.mock('./ui/App.jsx', () => ({
 
 describe('popup', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     document.body.innerHTML = '';
   });
 

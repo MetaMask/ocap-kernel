@@ -46,7 +46,6 @@ describe('useVats', () => {
   };
 
   beforeEach(async () => {
-    vi.clearAllMocks();
     const { usePanelContext } = await import('../context/PanelContext.js');
     vi.mocked(usePanelContext).mockReturnValue({
       sendMessage: mockSendMessage,

@@ -50,7 +50,6 @@ describe('MessagePanel Component', () => {
   const setMessageContent = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
     cleanup();
     vi.mocked(useKernelActions).mockReturnValue({
       sendKernelCommand,
@@ -63,12 +62,6 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [],
       clearLogs,
-      sendMessage: vi.fn(),
-      status: 'idle',
-      logMessage: vi.fn(),
-      setStatus: vi.fn(),
-      selectedVatId: undefined,
-      setSelectedVatId: vi.fn(),
     } as unknown as PanelContextType);
     vi.mocked(stringify).mockImplementation((message) =>
       JSON.stringify(message),
@@ -100,12 +93,6 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [],
       clearLogs,
-      sendMessage: vi.fn(),
-      status: 'idle',
-      logMessage: vi.fn(),
-      setStatus: vi.fn(),
-      selectedVatId: undefined,
-      setSelectedVatId: vi.fn(),
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.js');
     render(<MessagePanel />);
@@ -135,12 +122,6 @@ describe('MessagePanel Component', () => {
         { type: 'success', message: 'Operation successful' },
       ],
       clearLogs,
-      sendMessage: vi.fn(),
-      status: 'idle',
-      logMessage: vi.fn(),
-      setStatus: vi.fn(),
-      selectedVatId: undefined,
-      setSelectedVatId: vi.fn(),
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.js');
     render(<MessagePanel />);
@@ -168,12 +149,6 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [],
       clearLogs,
-      sendMessage: vi.fn(),
-      status: 'idle',
-      logMessage: vi.fn(),
-      setStatus: vi.fn(),
-      selectedVatId: undefined,
-      setSelectedVatId: vi.fn(),
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.js');
     const { rerender } = render(<MessagePanel />);
@@ -192,12 +167,6 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [{ type: 'sent', message: 'New message' }],
       clearLogs,
-      sendMessage: vi.fn(),
-      status: 'idle',
-      logMessage: vi.fn(),
-      setStatus: vi.fn(),
-      selectedVatId: undefined,
-      setSelectedVatId: vi.fn(),
     } as unknown as PanelContextType);
     rerender(<MessagePanel />);
     expect(scrollWrapper.scrollTop).toBe(scrollWrapper.scrollHeight);

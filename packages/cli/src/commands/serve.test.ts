@@ -4,7 +4,7 @@ import { makeCounter } from '@ocap/utils';
 import { createServer } from 'http';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import serveMiddleware from 'serve-handler';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { getServer } from './serve.js';
@@ -29,10 +29,6 @@ vi.mock('@metamask/snaps-utils/node', () => ({
 
 describe('serve', () => {
   const getServerPort = makeCounter(defaultConfig.server.port);
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
 
   describe('getServer', () => {
     it('returns an object with a listen property', () => {

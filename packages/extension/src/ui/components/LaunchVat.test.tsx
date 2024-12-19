@@ -18,7 +18,6 @@ describe('LaunchVat Component', () => {
   const mockLaunchVat = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
     cleanup();
     vi.mocked(useKernelActions).mockReturnValue({
       launchVat: mockLaunchVat,

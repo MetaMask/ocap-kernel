@@ -45,7 +45,6 @@ vi.mock('./App.module.css', () => ({
 
 describe('App', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     cleanup();
   });
 
