@@ -24,10 +24,12 @@
     "lint:ts": "tsc --project tsconfig.lint.json",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
-    "test": "yarn build:sqlite3 && vitest run --config vitest.config.ts",
+    "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
-    "test:verbose": "yarn test --reporter verbose"
+    "test:verbose": "yarn test --reporter verbose",
+    "build:docs": "typedoc",
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.2.6",
@@ -76,9 +78,12 @@
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
     "vite": "^5.3.5",
-    "vitest": "^2.1.2"
+    "vitest": "2.1.4"
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "exports": {
+    "./package.json": "./package.json"
   }
 }

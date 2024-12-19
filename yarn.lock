@@ -1675,7 +1675,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
     yargs: "npm:^17.7.2"
   bin:
     ocap: ./dist/app.mjs
@@ -1718,7 +1718,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -1773,7 +1773,7 @@ __metadata:
     vite: "npm:^5.3.5"
     vite-plugin-checker: "npm:^0.8.0"
     vite-plugin-static-copy: "npm:^1.0.6"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -1816,7 +1816,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -1923,7 +1923,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -1958,7 +1958,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -2005,7 +2005,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -2034,7 +2034,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
     vitest-fetch-mock: "npm:^0.4.2"
   languageName: unknown
   linkType: soft
@@ -2075,7 +2075,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
-    vitest: "npm:^2.1.2"
+    vitest: "npm:2.1.4"
   languageName: unknown
   linkType: soft
 
@@ -2985,12 +2985,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitest/pretty-format@npm:2.1.4, @vitest/pretty-format@npm:^2.1.4":
+"@vitest/pretty-format@npm:2.1.4":
   version: 2.1.4
   resolution: "@vitest/pretty-format@npm:2.1.4"
   dependencies:
     tinyrainbow: "npm:^1.2.0"
   checksum: 10/434e6a7903f72a3796f26516ad728aca92724909e18fd3f2cd4b9b8b0ae2cc7b4cd86e92ab9f2ac7bc005c7a7ef0bcb9d768c0264b4b0625f1f0748cc615f1f6
+  languageName: node
+  linkType: hard
+
+"@vitest/pretty-format@npm:^2.1.4":
+  version: 2.1.8
+  resolution: "@vitest/pretty-format@npm:2.1.8"
+  dependencies:
+    tinyrainbow: "npm:^1.2.0"
+  checksum: 10/f0f60c007424194887ad398d202867d58d850154de327993925041e2972357544eea95a22e0bb3a62a470b006ff8de5f691d2078708dcd7f625e24f8a06b26e7
   languageName: node
   linkType: hard
 
@@ -8790,9 +8799,9 @@ __metadata:
   linkType: hard
 
 "std-env@npm:^3.7.0":
-  version: 3.7.0
-  resolution: "std-env@npm:3.7.0"
-  checksum: 10/6ee0cca1add3fd84656b0002cfbc5bfa20340389d9ba4720569840f1caa34bce74322aef4c93f046391583e50649d0cf81a5f8fe1d411e50b659571690a45f12
+  version: 3.8.0
+  resolution: "std-env@npm:3.8.0"
+  checksum: 10/034176196cfcaaab16dbdd96fc9e925a9544799fb6dc5a3e36fe43270f3a287c7f779d785b89edaf22cef2b5f1dcada2aae67430b8602e785ee74bdb3f671768
   languageName: node
   linkType: hard
 
@@ -9111,9 +9120,9 @@ __metadata:
   linkType: hard
 
 "tinypool@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "tinypool@npm:1.0.1"
-  checksum: 10/eaceb93784b8e27e60c0e3e2c7d11c29e1e79b2a025b2c232215db73b90fe22bd4753ad53fc8e801c2b5a63b94a823af549555d8361272bc98271de7dd4a9925
+  version: 1.0.2
+  resolution: "tinypool@npm:1.0.2"
+  checksum: 10/6109322f14b3763f65c8fa49fddab72cd3edd96b82dd50e05e63de74867329ff5353bff4377281ec963213d9314f37f4a353e9ee34bbac85fd4c1e4a568d6076
   languageName: node
   linkType: hard
 
@@ -9674,8 +9683,8 @@ __metadata:
   linkType: hard
 
 "vite@npm:^5.0.0, vite@npm:^5.3.5":
-  version: 5.4.9
-  resolution: "vite@npm:5.4.9"
+  version: 5.4.11
+  resolution: "vite@npm:5.4.11"
   dependencies:
     esbuild: "npm:^0.21.3"
     fsevents: "npm:~2.3.3"
@@ -9712,7 +9721,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10/60dfb3912ba6367d2d128e798d899caae3f4ec58990657b9f679c4d9de21ddec7eba5f6ad3d4fa0e8ea31771d477521b8e757a622ecc54829d73cb7f7c146bc4
+  checksum: 10/719c4dea896e9547958643354003c8c9ea98e5367196d98f5f46cffb3ec963fead3ea5853f5af941c79bbfb73583dec19bbb0d28d2f644b95d7f59c55e22919d
   languageName: node
   linkType: hard
 
@@ -9725,7 +9734,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:2.1.4, vitest@npm:^2.1.2":
+"vitest@npm:2.1.4":
   version: 2.1.4
   resolution: "vitest@npm:2.1.4"
   dependencies:
