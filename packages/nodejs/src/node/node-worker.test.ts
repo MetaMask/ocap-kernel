@@ -1,12 +1,11 @@
 import '@ocap/shims/endoify';
 
 import { makePromiseKit } from '@endo/promise-kit';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { existsSync } from 'node:fs';
+import { NodeWorkerDuplexStream, NodeWorkerMultiplexer } from '@ocap/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
 import { describe, it, expect } from 'vitest';
 
-import type { Comms, Mode } from './comms.js';
+import type { Mode } from './comms.js';
 
 const workerFileURL = new URL(
   '../../dist/node/node-worker.mjs',
@@ -14,18 +13,16 @@ const workerFileURL = new URL(
 ).pathname;
 
 describe('Node Worker', () => {
-  const makeWorker = (mode: Mode) =>
+  const makeWorker = (mode: Mode): NodeWorker =>
     new NodeWorker(workerFileURL, {
       env: {
         COMMS: mode,
       },
-      execArgv: process.env.VITEST ? ['--loader', 'tsx'] : undefined,
+      execArgv: ['--loader', 'tsx'],
     });
 
   it('communicates directly via worker.postMessage', async () => {
     const { resolve, promise } = makePromiseKit<string>();
-
-    expect(existsSync(workerFileURL), 'No workerFile found').toBe(true);
 
     const worker = makeWorker('direct');
 
@@ -36,15 +33,15 @@ describe('Node Worker', () => {
   });
 
   it('communicates via NodeWorkerStream', async () => {
-    const { resolve, promise } = makePromiseKit<string>();
+    const { resolve, promise, reject } = makePromiseKit<string>();
 
     const worker = makeWorker('strum');
     const stream = new NodeWorkerDuplexStream(worker);
-    worker.once('online', async () => {
-      console.debug('synchronizing node worker stream');
-      await stream.synchronize();
-      console.debug('sending ping to strum node worker');
-      await stream.write('ping');
+    worker.once('online', () => {
+      stream
+        .synchronize()
+        .then(async () => stream.write('ping'))
+        .catch(reject);
     });
 
     for await (const value of stream) {
@@ -53,6 +50,29 @@ describe('Node Worker', () => {
         break;
       }
     }
+
+    expect(await promise).toBe('pong');
+  });
+
+  it('communicates over NodeWorkerMultiplexer', async () => {
+    const { resolve, promise, reject } = makePromiseKit<string>();
+
+    const worker = makeWorker('plexed');
+    const multiplexer = new NodeWorkerMultiplexer(worker);
+    const testChannel = multiplexer.createChannel('test');
+    multiplexer.start().catch(reject);
+    worker.once('online', () => {
+      testChannel.write('ping').catch(reject);
+    });
+
+    testChannel
+      .drain(async (value: unknown) => {
+        console.debug('rebounded:', value);
+        if (typeof value === 'string') {
+          resolve(value);
+        }
+      })
+      .catch(reject);
 
     expect(await promise).toBe('pong');
   });

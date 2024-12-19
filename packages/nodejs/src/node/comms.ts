@@ -6,8 +6,9 @@ export type Mode = (typeof modes)[number];
 export type Comms = (port: WorkerPort) => Promise<void>;
 
 /**
+ * Run the pong end of ping-pong via on + postMessage.
  *
- * @param port
+ * @param port - The port to communicate over.
  */
 export async function direct(port: WorkerPort): Promise<void> {
   console.debug('direct communication init');
@@ -20,8 +21,9 @@ export async function direct(port: WorkerPort): Promise<void> {
 }
 
 /**
- *
- * @param port
+ * Run the pong end of ping-pong on a duplex stream.
+ 
+ * @param port - The port to communicate over.
  */
 export async function strum(port: WorkerPort): Promise<void> {
   console.log('streamed communication init');
@@ -36,20 +38,22 @@ export async function strum(port: WorkerPort): Promise<void> {
 }
 
 /**
+ * Run the pong end of ping-pong on a multiplexer.
  *
- * @param port
+ * @param port - The port to communicate over.
  */
 export async function plexed(port: WorkerPort): Promise<void> {
   console.log('plexed communication init');
   const multiplexer = new NodeWorkerMultiplexer(port);
   const testChannel = multiplexer.createChannel('test');
+  multiplexer.start().catch(console.error);
   testChannel
     .drain(async (message) => {
+      console.debug('testChannel drain:', message);
       if (message === 'ping') {
         await testChannel.write('pong');
       }
     })
     .catch(console.error);
-  await multiplexer.start();
   console.log('multiplexer started');
 }
