@@ -349,6 +349,7 @@ div + .sent {
   border: 1px solid var(--color-gray-300);
   border-radius: var(--border-radius);
   overflow: hidden;
+  margin-bottom: var(--spacing-md);
 }
 
 .table table {
@@ -391,11 +392,11 @@ div + .sent {
 }
 
 .dbInspector {
-  padding: var(--spacing-md);
+  padding-top: var(--spacing-md);
 }
 
 .dbSection {
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-xl);
   display: flex;
   flex-direction: row;
   gap: var(--spacing-xxl);
@@ -421,25 +422,14 @@ div + .sent {
   margin: var(--spacing-xxl) 0 var(--spacing-md);
 }
 
-.queryResults {
-  margin-top: var(--spacing-md);
-  overflow-x: auto;
+.dbInspector table td,
+.dbInspector table th {
+  height: var(--input-height);
 }
 
-.queryResults table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.queryResults th,
-.queryResults td {
-  padding: var(--spacing-sm);
-  border: 1px solid var(--color-gray-300);
-  text-align: left;
-}
-
-.queryResults th {
-  background: var(--color-gray-200);
+.dbInspector table td + td,
+.dbInspector table th + th {
+  border-left: 1px solid var(--color-gray-300);
 }
 
 .tabButtons {

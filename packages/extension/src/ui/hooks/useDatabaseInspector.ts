@@ -17,18 +17,15 @@ export function useDatabaseInspector(): {
   tableData: Record<string, string>[];
   refreshData: () => void;
   executeQuery: (sql: string) => void;
-  queryError: string | null;
 } {
   const { sendMessage, logMessage } = usePanelContext();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [tableData, setTableData] = useState<Record<string, string>[]>([]);
-  const [queryError, setQueryError] = useState<string | null>(null);
 
   // Execute a query and set the result as table data
   const executeQuery = useCallback(
     (sql: string): void => {
-      setQueryError(null);
       sendMessage({
         method: KernelControlMethod.executeDBQuery,
         params: { sql },
@@ -41,7 +38,7 @@ export function useDatabaseInspector(): {
           return result;
         })
         .catch((error) => {
-          setQueryError(`Failed to execute query: ${error}`);
+          logMessage(`Failed to execute query: ${error}`, 'error');
         });
     },
     [logMessage, sendMessage],
@@ -111,6 +108,5 @@ export function useDatabaseInspector(): {
     tableData,
     refreshData,
     executeQuery,
-    queryError,
   };
 }

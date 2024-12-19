@@ -15,7 +15,6 @@ export const DatabaseInspector: React.FC = () => {
     tableData,
     refreshData,
     executeQuery,
-    queryError,
   } = useDatabaseInspector();
 
   return (
@@ -60,7 +59,7 @@ export const DatabaseInspector: React.FC = () => {
         </div>
       </div>
 
-      <div className={styles.queryResults}>
+      <div id="queryResults" className={styles.table}>
         <table>
           <thead>
             <tr>
@@ -83,8 +82,6 @@ export const DatabaseInspector: React.FC = () => {
           </tbody>
         </table>
       </div>
-
-      {queryError && <div className={styles.error}>{queryError}</div>}
     </div>
   );
 };
