@@ -12,7 +12,7 @@ vi.mock('../hooks/useVats.js', () => ({
 
 vi.mock('../App.module.css', () => ({
   default: {
-    vatTable: 'vat-table',
+    table: 'table',
     tableActions: 'table-actions',
     smallButton: 'small-button',
   },
@@ -118,7 +118,7 @@ describe('VatTable Component', () => {
       ...mockActions,
     });
     render(<VatTable />);
-    expect(screen.getByRole('table').parentElement).toHaveClass('vat-table');
+    expect(screen.getByRole('table').parentElement).toHaveClass('table');
     expect(screen.getByRole('cell', { name: /ping/iu }).firstChild).toHaveClass(
       'table-actions',
     );

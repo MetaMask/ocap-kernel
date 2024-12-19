@@ -61,7 +61,7 @@ export const PanelProvider: React.FC<{
         }
         return response;
       } catch (error) {
-        logger.error(`Error: ${String(error)}`, 'error');
+        logger.error(String(error), 'error');
         throw error;
       }
     },
