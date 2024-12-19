@@ -24,7 +24,7 @@
     "lint:ts": "tsc --project tsconfig.lint.json",
     "publish:preview": "yarn npm publish --tag preview",
     "start": "yarn build:vite:dev --watch",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "yarn build:sqlite3 && vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose"
