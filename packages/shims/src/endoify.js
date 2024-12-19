@@ -7,5 +7,4 @@ lockdown({
   stackFiltering: 'verbose',
   domainTaming: 'unsafe',
   overrideTaming: 'severe',
-  stackFiltering: 'verbose',
 });
