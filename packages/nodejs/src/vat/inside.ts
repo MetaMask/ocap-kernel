@@ -6,28 +6,31 @@ import type { Json } from '@metamask/utils';
 import { VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { NodeWorkerMultiplexer } from '@ocap/streams';
+import { makeLogger } from '@ocap/utils';
 import { parentPort } from 'node:worker_threads';
 
-console.debug('vat INSIDE calling MAIN');
+// eslint-disable-next-line n/no-process-env
+const logger = makeLogger(`[${process.env.NODE_VAT_ID} (inside)]`);
 
-main().catch(console.error);
+main().catch(logger.error);
 
 /**
  * The main function for the iframe.
  */
 async function main(): Promise<void> {
-  console.debug('vat INSIDE started MAIN');
+  logger.debug('started main');
+
   if (!parentPort) {
     const errMsg = 'Expected to run in Node Worker with parentPort.';
-    console.error(errMsg);
+    logger.error(errMsg);
     throw new Error(errMsg);
   }
   const multiplexer = new NodeWorkerMultiplexer(parentPort, 'vat');
+  multiplexer.start().catch(logger.error);
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
   );
   const capTpStream = multiplexer.createChannel<Json, Json>('capTp');
-  await multiplexer.start();
   const bootstrap = makeExo(
     'TheGreatFrangooly',
     M.interface('TheGreatFrangooly', {}, { defaultGuards: 'passable' }),
@@ -41,5 +44,5 @@ async function main(): Promise<void> {
     bootstrap,
   });
 
-  console.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
+  logger.log(supervisor.evaluate('["Hello", "world!"].join(" ");'));
 }

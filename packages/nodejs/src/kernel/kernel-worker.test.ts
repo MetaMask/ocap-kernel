@@ -21,7 +21,7 @@ describe('Kernel Worker', () => {
     console.log('Kernel created.');
 
     console.log('Handling the lifecycle of multiple vats...');
-    await runVatLifecycle(kernel, ['v1']); //, 'v2', 'v3']);
+    await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
     console.log('Lifecycle of multiple vats handled.');
 
     // console.log('Adding default vat...');

@@ -43,12 +43,18 @@ export async function runVatLifecycle(
   vats: NonEmptyArray<VatId>,
 ): Promise<void> {
   console.log('runVatLifecycle Start...');
-  console.time(`Created vats: ${vats.join(', ')}`);
-  const vat = await kernel.launchVat({
-    bundleSpec: 'sample-vat',
-    parameters: { name: 'Nodeen' },
-  });
-  console.timeEnd(`Created vat: ${vat.vatId}`);
+  const vatLabel = vats.join(', ');
+  console.time(`Created vats: ${vatLabel}`);
+  await Promise.all(
+    vats.map(
+      async () =>
+        await kernel.launchVat({
+          bundleSpec: 'sample-vat',
+          parameters: { name: 'Nodeen' },
+        }),
+    ),
+  );
+  console.timeEnd(`Created vats: ${vatLabel}`);
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
 
   // Restart a randomly selected vat from the array.

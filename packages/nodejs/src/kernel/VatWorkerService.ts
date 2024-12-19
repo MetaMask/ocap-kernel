@@ -31,7 +31,11 @@ export class NodejsVatWorkerService implements VatWorkerService {
   async launch(vatId: VatId): Promise<StreamMultiplexer> {
     const { promise, resolve } = makePromiseKit<StreamMultiplexer>();
     this.#logger.debug('launching', vatId);
-    const worker = new NodeWorker(workerFileURL);
+    const worker = new NodeWorker(workerFileURL, {
+      env: {
+        NODE_VAT_ID: vatId,
+      },
+    });
     worker.once('online', () => {
       const multiplexer = new NodeWorkerMultiplexer(worker, 'vat');
       this.workers.set(vatId, { worker, multiplexer });
