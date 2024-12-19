@@ -38,6 +38,7 @@ export function useDatabaseInspector(): {
         params: { sql },
       })
         .then((result) => {
+          logMessage(stringify(result, 0), 'received');
           if (!isErrorResponse(result)) {
             setQueryResults(result);
           }
@@ -47,7 +48,7 @@ export function useDatabaseInspector(): {
           setQueryError(`Failed to execute query: ${error}`);
         });
     },
-    [sendMessage],
+    [logMessage, sendMessage],
   );
 
   // Fetch available tables
