@@ -59,7 +59,7 @@ export const DatabaseInspector: React.FC = () => {
         </div>
       </div>
 
-      <div id="queryResults" className={styles.table}>
+      <div className={styles.table}>
         <table>
           <thead>
             <tr>
