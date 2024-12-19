@@ -308,13 +308,10 @@ div + .sent {
   padding: var(--spacing-md);
   background: var(--color-gray-200);
   border-bottom: 1px solid var(--color-gray-300);
-<<<<<<< HEAD
   display: flex;
   justify-content: space-between;
   align-items: center;
-=======
   height: var(--bar-height);
->>>>>>> 1cb1471 (add database inspector)
 }
 
 .messageOutput {

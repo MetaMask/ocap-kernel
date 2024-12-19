@@ -48,6 +48,11 @@ export const DatabaseInspector: React.FC = () => {
             value={sqlQuery}
             onChange={(event) => setSqlQuery(event.target.value)}
             placeholder="Enter SQL query..."
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && sqlQuery.trim()) {
+                executeQuery(sqlQuery);
+              }
+            }}
           />
           <button
             className={styles.buttonPrimary}

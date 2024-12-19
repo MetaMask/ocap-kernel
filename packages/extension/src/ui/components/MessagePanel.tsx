@@ -87,6 +87,11 @@ export const MessagePanel: React.FC = () => {
             value={messageContent}
             onChange={(event) => setMessageContent(event.target.value)}
             placeholder="Enter message (as JSON)"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && messageContent.trim()) {
+                sendKernelCommand();
+              }
+            }}
           />
           <button
             className={styles.sendButton}
