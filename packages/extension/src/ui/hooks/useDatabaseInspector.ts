@@ -17,16 +17,12 @@ export function useDatabaseInspector(): {
   tableData: Record<string, string>[];
   refreshData: () => void;
   executeQuery: (sql: string) => void;
-  queryResults: Record<string, string>[];
   queryError: string | null;
 } {
   const { sendMessage, logMessage } = usePanelContext();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [tableData, setTableData] = useState<Record<string, string>[]>([]);
-  const [queryResults, setQueryResults] = useState<Record<string, string>[]>(
-    [],
-  );
   const [queryError, setQueryError] = useState<string | null>(null);
 
   // Execute a query and set the result as table data
@@ -40,7 +36,7 @@ export function useDatabaseInspector(): {
         .then((result) => {
           logMessage(stringify(result, 0), 'received');
           if (!isErrorResponse(result)) {
-            setQueryResults(result);
+            setTableData(result);
           }
           return result;
         })
@@ -115,7 +111,6 @@ export function useDatabaseInspector(): {
     tableData,
     refreshData,
     executeQuery,
-    queryResults,
     queryError,
   };
 }

@@ -395,7 +395,10 @@ div + .sent {
 }
 
 .dbSection {
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-xxl);
 }
 
 .dbSection h3 {
@@ -406,6 +409,7 @@ div + .sent {
   display: flex;
   flex-direction: row;
   gap: var(--spacing-md);
+  flex: 1;
 }
 
 .querySection .input {
@@ -479,16 +483,4 @@ div + .sent {
 .tableControls {
   display: flex;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-}
-
-.select {
-  min-width: 200px;
-  height: var(--input-height);
-  padding: 0 var(--spacing-lg);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--color-gray-300);
-  font-size: var(--font-size-sm);
-  background-color: var(--color-white);
-  cursor: pointer;
 }
