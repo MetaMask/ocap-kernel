@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { useDatabaseInspector } from './useDatabaseInspector.js';
@@ -53,9 +53,7 @@ describe('useDatabaseInspector', () => {
       const mockTables = [{ name: 'table1' }, { name: 'table2' }];
       mockSendMessage.mockResolvedValueOnce(mockTables);
       vi.mocked(isErrorResponse).mockReturnValue(false);
-
       renderHook(() => useDatabaseInspector());
-
       expect(mockSendMessage).toHaveBeenCalledWith({
         method: 'executeDBQuery',
         params: { sql: "SELECT name FROM sqlite_master WHERE type='table'" },
@@ -69,11 +67,9 @@ describe('useDatabaseInspector', () => {
       const mockTableData = [{ id: 1, name: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockTableData);
       vi.mocked(isErrorResponse).mockReturnValue(false);
-
       await act(async () => {
         result.current.setSelectedTable('testTable');
       });
-
       expect(result.current.selectedTable).toBe('testTable');
       expect(mockSendMessage).toHaveBeenCalledWith({
         method: 'executeDBQuery',
@@ -85,14 +81,10 @@ describe('useDatabaseInspector', () => {
       const mockTables = [{ name: 'table1' }, { name: 'table2' }];
       mockSendMessage.mockResolvedValueOnce(mockTables);
       vi.mocked(isErrorResponse).mockReturnValue(false);
-
       const { result } = renderHook(() => useDatabaseInspector());
-
-      await act(async () => {
-        // Wait for useEffect to complete
+      await waitFor(() => {
+        expect(result.current.selectedTable).toBe('table1');
       });
-
-      expect(result.current.selectedTable).toBe('table1');
     });
   });
 
@@ -102,11 +94,9 @@ describe('useDatabaseInspector', () => {
       const mockQueryResult = [{ id: 1, value: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockQueryResult);
       vi.mocked(isErrorResponse).mockReturnValue(false);
-
       await act(async () => {
         result.current.executeQuery('SELECT * FROM test');
       });
-
       expect(mockSendMessage).toHaveBeenCalledWith({
         method: 'executeDBQuery',
         params: { sql: 'SELECT * FROM test' },
@@ -121,11 +111,9 @@ describe('useDatabaseInspector', () => {
       const { result } = renderHook(() => useDatabaseInspector());
       const error = new Error('Query failed');
       mockSendMessage.mockRejectedValueOnce(error);
-
       await act(async () => {
         result.current.executeQuery('INVALID SQL');
       });
-
       expect(mockLogMessage).toHaveBeenCalledWith(
         'Failed to execute query: Error: Query failed',
         'error',
@@ -137,11 +125,9 @@ describe('useDatabaseInspector', () => {
       const errorResponse = { error: 'Invalid query' };
       mockSendMessage.mockResolvedValueOnce(errorResponse);
       vi.mocked(isErrorResponse).mockReturnValue(true);
-
       await act(async () => {
         result.current.executeQuery('SELECT * FROM test');
       });
-
       expect(result.current.tableData).toStrictEqual([]);
     });
   });
@@ -152,17 +138,13 @@ describe('useDatabaseInspector', () => {
       const mockTableData = [{ id: 1, name: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockTableData);
       vi.mocked(isErrorResponse).mockReturnValue(false);
-
       await act(async () => {
         result.current.setSelectedTable('testTable');
       });
-
       mockSendMessage.mockClear();
-
       await act(async () => {
         result.current.refreshData();
       });
-
       expect(mockSendMessage).toHaveBeenCalledWith({
         method: 'executeDBQuery',
         params: { sql: 'SELECT * FROM testTable' },
@@ -174,14 +156,11 @@ describe('useDatabaseInspector', () => {
       await act(async () => {
         result.current.setSelectedTable('testTable');
       });
-
       const error = new Error('Refresh failed');
       mockSendMessage.mockRejectedValueOnce(error);
-
       await act(async () => {
         result.current.refreshData();
       });
-
       expect(mockLogMessage).toHaveBeenCalledWith(
         'Failed to fetch data for table testTable: Error: Refresh failed',
         'error',
@@ -193,11 +172,9 @@ describe('useDatabaseInspector', () => {
     const { result } = renderHook(() => useDatabaseInspector());
     const error = new Error('Failed to fetch data');
     mockSendMessage.mockRejectedValueOnce(error);
-
     await act(async () => {
       result.current.setSelectedTable('testTable');
     });
-
     expect(mockLogMessage).toHaveBeenCalledWith(
       'Failed to fetch data for table testTable: Error: Failed to fetch data',
       'error',
