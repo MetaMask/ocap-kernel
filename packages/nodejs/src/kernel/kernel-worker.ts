@@ -31,6 +31,9 @@ export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
   return kernel;
 }
 
+const sampleOne = <Ele>(from: Ele[]): Ele =>
+  from[Math.floor(Math.random() * from.length)];
+
 /**
  * Runs the full lifecycle of an array of vats, including their creation,
  * restart, message passing, and termination.
@@ -49,7 +52,7 @@ export async function runVatLifecycle(
     vats.map(
       async () =>
         await kernel.launchVat({
-          bundleSpec: 'sample-vat',
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
           parameters: { name: 'Nodeen' },
         }),
     ),
@@ -57,14 +60,16 @@ export async function runVatLifecycle(
   console.timeEnd(`Created vats: ${vatLabel}`);
   console.log('Kernel vats:', kernel.getVatIds().join(', '));
 
+  const knownVats = kernel.getVatIds();
+
   // Restart a randomly selected vat from the array.
-  const vatToRestart = vats[Math.floor(Math.random() * vats.length)] as VatId;
+  const vatToRestart = sampleOne(knownVats);
   console.time(`Vat "${vatToRestart}" restart`);
   await kernel.restartVat(vatToRestart);
   console.timeEnd(`Vat "${vatToRestart}" restart`);
 
   // Send a "Ping" message to a randomly selected vat.
-  const vatToPing = vats[Math.floor(Math.random() * vats.length)] as VatId;
+  const vatToPing = sampleOne(knownVats);
   console.time(`Ping Vat "${vatToPing}"`);
   await kernel.sendMessage(vatToPing, {
     method: VatCommandMethod.ping,
