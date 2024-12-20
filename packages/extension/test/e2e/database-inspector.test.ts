@@ -35,7 +35,7 @@ test.describe('Database Inspector', () => {
     await expect(table).toBeVisible();
     const rows = table.locator('tr');
     const rowCount = await rows.count();
-    expect(rowCount).toBeGreaterThan(0);
+    expect(rowCount).toBeGreaterThan(1);
   });
 
   test('should refresh table data', async () => {
