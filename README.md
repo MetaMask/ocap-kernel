@@ -13,3 +13,7 @@ To get started:
   - Note that some packages, e.g. `extension` `shims`, have special build processes.
 
 Lint using `yarn lint` or `yarn lint:fix` from the root.
+
+### Adding new packages
+
+See [`scripts/create-package/README.md`](scripts/create-package/README.md).
