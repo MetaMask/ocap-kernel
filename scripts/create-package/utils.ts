@@ -120,10 +120,6 @@ export async function finalizeAndWriteData(
   // Add the new package to the lockfile.
   console.log('Running "yarn install"...');
   await execa('yarn', ['install'], { cwd: REPO_ROOT });
-
-  // Add the new package to the root readme content
-  console.log('Running "yarn update-readme-content"...');
-  await execa('yarn', ['update-readme-content'], { cwd: REPO_ROOT });
 }
 
 /**

@@ -145,11 +145,8 @@ describe('create-package/utils', () => {
       );
 
       // Postprocessing
-      expect(execa).toHaveBeenCalledTimes(2);
+      expect(execa).toHaveBeenCalledTimes(1);
       expect(execa).toHaveBeenCalledWith('yarn', ['install'], {
-        cwd: expect.any(String),
-      });
-      expect(execa).toHaveBeenCalledWith('yarn', ['update-readme-content'], {
         cwd: expect.any(String),
       });
     });
