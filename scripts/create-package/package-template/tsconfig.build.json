@@ -5,9 +5,9 @@
     "lib": ["DOM", "ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["ses"]
+    "types": []
   },
-  "references": [{ "path": "../errors/tsconfig.build.json" }],
+  "references": [],
   "files": [],
   "include": ["./src"]
 }
