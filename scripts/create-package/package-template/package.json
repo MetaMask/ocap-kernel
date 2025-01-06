@@ -1,12 +1,17 @@
 {
-  "name": "@ocap/errors",
+  "name": "PACKAGE_NAME",
   "version": "0.0.0",
   "private": true,
-  "description": "Ocap Kernel errors",
+  "description": "PACKAGE_DESCRIPTION",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/PACKAGE_DIRECTORY_NAME#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -42,10 +47,6 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
-  "dependencies": {
-    "@metamask/superstruct": "^3.1.0",
-    "@metamask/utils": "^11.0.1"
-  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.4",
     "@metamask/auto-changelog": "^3.4.4",
@@ -53,7 +54,6 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/cli": "workspace:^",
-    "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.5.1",
     "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
@@ -72,7 +72,6 @@
     "jsdom": "^24.1.1",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
-    "ses": "^1.9.0",
     "typedoc": "^0.26.8",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
@@ -80,6 +79,6 @@
     "vitest": "^2.1.2"
   },
   "engines": {
-    "node": "^20 || >=22"
+    "node": "NODE_VERSIONS"
   }
 }

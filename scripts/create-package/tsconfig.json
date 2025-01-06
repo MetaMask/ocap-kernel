@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["./*.ts", "../../vitest.config.ts"],
+  "exclude": ["./package-template"]
+}

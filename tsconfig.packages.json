@@ -1,24 +1,12 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "exactOptionalPropertyTypes": true,
-    "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2022"],
-    "module": "Preserve",
-    "moduleResolution": "Node10",
-    "noErrorTruncation": true,
-    "noUncheckedIndexedAccess": true,
     /**
      * Here we ensure that TypeScript resolves `@ocap/*` imports to the
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
       "@ocap/*": ["../*/src"]
-    },
-    "resolveJsonModule": true,
-    "strict": true,
-    "target": "ES2020",
-    "verbatimModuleSyntax": true,
-    "useUnknownInCatchVariables": true
+    }
   }
 }

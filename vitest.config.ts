@@ -3,15 +3,17 @@ import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [
-    // Resolve imports using the "paths" property of the relevant tsconfig.json,
-    // if possible.
-    tsconfigPathsPlugin(),
-  ],
-
   optimizeDeps: {
     include: ['@vitest/coverage-istanbul', 'vitest-fetch-mock'],
   },
+
+  plugins: [
+    // Resolve imports using the "paths" property of the relevant tsconfig.json,
+    // if possible.
+    tsconfigPathsPlugin({
+      skip: (dir) => dir === 'package-template',
+    }),
+  ],
 
   test: {
     environment: 'node',
@@ -30,11 +32,12 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['**/src/**/*.{ts,tsx}'],
       exclude: [
-        '**/node_modules/**',
         '**/coverage/**',
         '**/dist/**',
         '**/test/**',
+        '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
+        'scripts/create-package/package-template/**',
       ],
       thresholds: {
         autoUpdate: true,
@@ -75,6 +78,12 @@ export default defineConfig({
           lines: 100,
         },
         'packages/utils/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
+        'scripts/create-package/**': {
           statements: 100,
           functions: 100,
           branches: 100,

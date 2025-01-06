@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2022"],
+    "module": "Preserve",
+    "moduleResolution": "Node10",
+    "noErrorTruncation": true,
+    "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "target": "ES2020",
+    "verbatimModuleSyntax": true,
+    "useUnknownInCatchVariables": true
+  }
+}
