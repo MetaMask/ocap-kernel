@@ -43,7 +43,7 @@ export type PackageData = Readonly<{
 /**
  * Data parsed from relevant monorepo files.
  */
-type MonorepoFileData = {
+export type MonorepoFileData = {
   tsConfig: Tsconfig;
   tsConfigBuild: Tsconfig;
   nodeVersions: string;
@@ -120,6 +120,16 @@ export async function finalizeAndWriteData(
   // Add the new package to the lockfile.
   console.log('Running "yarn install"...');
   await execa('yarn', ['install'], { cwd: REPO_ROOT });
+
+  // Run constraints
+  console.log('Running "yarn constraints --fix"...');
+  try {
+    await execa('yarn', ['constraints', '--fix'], { cwd: REPO_ROOT });
+  } catch {
+    console.error(
+      'Warning: Failed to run "yarn constraints --fix". You will need to re-run it manually.',
+    );
+  }
 }
 
 /**

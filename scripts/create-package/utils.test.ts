@@ -2,12 +2,13 @@ import { execa } from 'execa';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { format as prettierFormat } from 'prettier';
-import { describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 
 import { MonorepoFile } from './constants';
 import * as fsUtils from './fs-utils';
-import type { PackageData } from './utils';
+import type { FileMap } from './fs-utils';
+import type { MonorepoFileData, PackageData } from './utils';
 import { finalizeAndWriteData, readMonorepoFiles } from './utils';
 
 vi.mock('fs', () => ({
@@ -69,24 +70,43 @@ describe('create-package/utils', () => {
   });
 
   describe('finalizeAndWriteData', () => {
-    it('should write the expected files', async () => {
-      const packageData: PackageData = {
-        name: '@ocap/foo',
-        description: 'A foo package.',
-        directoryName: 'foo',
-        nodeVersions: '>=18.0.0',
-        currentYear: '2023',
-      };
+    const getPackageData = (): PackageData => ({
+      name: '@ocap/foo',
+      description: 'A foo package.',
+      directoryName: 'foo',
+      nodeVersions: '>=18.0.0',
+      currentYear: '2023',
+    });
 
-      const monorepoFileData = {
-        tsConfig: {
-          references: [{ path: './packages/bar' }],
-        },
-        tsConfigBuild: {
-          references: [{ path: './packages/bar' }],
-        },
-        nodeVersions: '>=18.0.0',
-      };
+    const getMonorepoFileData = (): MonorepoFileData => ({
+      tsConfig: {
+        references: [{ path: './packages/bar' }],
+      },
+      tsConfigBuild: {
+        references: [{ path: './packages/bar' }],
+      },
+      nodeVersions: '>=18.0.0',
+    });
+
+    const getReadFilesResult = (): FileMap => ({
+      'src/index.ts': 'export default 42;',
+      'src/index.test.ts': 'export default 42;',
+      'mock1.file':
+        'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
+      'mock2.file': 'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME',
+      'mock3.file': 'PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
+    });
+
+    let consoleErrorSpy: MockInstance;
+
+    beforeEach(() => {
+      consoleErrorSpy = vi.spyOn(console, 'error');
+    });
+
+    it('should write the expected files', async () => {
+      const packageData = getPackageData();
+
+      const monorepoFileData = getMonorepoFileData();
 
       (fs.access as Mock).mockRejectedValueOnce(
         Object.assign(new Error(), {
@@ -94,14 +114,9 @@ describe('create-package/utils', () => {
         }),
       );
 
-      (fsUtils.readAllFiles as Mock).mockResolvedValueOnce({
-        'src/index.ts': 'export default 42;',
-        'src/index.test.ts': 'export default 42;',
-        'mock1.file':
-          'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
-        'mock2.file': 'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME',
-        'mock3.file': 'PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
-      });
+      (fsUtils.readAllFiles as Mock).mockResolvedValueOnce(
+        getReadFilesResult(),
+      );
 
       (prettierFormat as Mock).mockImplementation((input) => input);
 
@@ -145,10 +160,54 @@ describe('create-package/utils', () => {
       );
 
       // Postprocessing
-      expect(execa).toHaveBeenCalledTimes(1);
+      expect(execa).toHaveBeenCalledTimes(2);
       expect(execa).toHaveBeenCalledWith('yarn', ['install'], {
         cwd: expect.any(String),
       });
+      expect(execa).toHaveBeenCalledWith('yarn', ['constraints', '--fix'], {
+        cwd: expect.any(String),
+      });
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('should warn if constraints fail', async () => {
+      const packageData = getPackageData();
+
+      const monorepoFileData = getMonorepoFileData();
+
+      (fs.access as Mock).mockRejectedValueOnce(
+        Object.assign(new Error(), {
+          code: 'ENOENT',
+        }),
+      );
+
+      (fsUtils.readAllFiles as Mock).mockResolvedValueOnce(
+        getReadFilesResult(),
+      );
+
+      (prettierFormat as Mock).mockImplementation((input) => input);
+
+      (execa as Mock)
+        .mockResolvedValueOnce(undefined)
+        .mockImplementationOnce(() => {
+          console.log('FOOBAR');
+          throw new Error('foo');
+        });
+
+      await finalizeAndWriteData(packageData, monorepoFileData);
+
+      // Postprocessing
+      expect(execa).toHaveBeenCalledTimes(2);
+      expect(execa).toHaveBeenCalledWith('yarn', ['install'], {
+        cwd: expect.any(String),
+      });
+      expect(execa).toHaveBeenCalledWith('yarn', ['constraints', '--fix'], {
+        cwd: expect.any(String),
+      });
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Warning: Failed to run "yarn constraints --fix". You will need to re-run it manually.',
+      );
     });
 
     it('throws if the package directory already exists', async () => {
