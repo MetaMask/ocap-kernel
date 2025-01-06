@@ -2,7 +2,6 @@
   "files": [],
   "include": [],
   "references": [
-    // We exclude the extension and shims here due to their special build processes.
     { "path": "./packages/cli/tsconfig.build.json" },
     { "path": "./packages/errors/tsconfig.build.json" },
     { "path": "./packages/kernel/tsconfig.build.json" },

@@ -15,7 +15,7 @@ vi.mock('fs', () => ({
     mkdir: vi.fn(),
     readFile: vi.fn(),
     writeFile: vi.fn(),
-    stat: vi.fn(),
+    access: vi.fn(),
   },
 }));
 
@@ -71,7 +71,7 @@ describe('create-package/utils', () => {
   describe('finalizeAndWriteData', () => {
     it('should write the expected files', async () => {
       const packageData: PackageData = {
-        name: '@metamask/foo',
+        name: '@ocap/foo',
         description: 'A foo package.',
         directoryName: 'foo',
         nodeVersions: '>=18.0.0',
@@ -88,9 +88,11 @@ describe('create-package/utils', () => {
         nodeVersions: '>=18.0.0',
       };
 
-      (fs.stat as Mock).mockResolvedValueOnce({
-        isDirectory: () => false,
-      });
+      (fs.access as Mock).mockRejectedValueOnce(
+        Object.assign(new Error(), {
+          code: 'ENOENT',
+        }),
+      );
 
       (fsUtils.readAllFiles as Mock).mockResolvedValueOnce({
         'src/index.ts': 'export default 42;',
@@ -117,8 +119,8 @@ describe('create-package/utils', () => {
         {
           'src/index.ts': 'export default 42;',
           'src/index.test.ts': 'export default 42;',
-          'mock1.file': '2023 >=18.0.0 @metamask/foo A foo package. foo',
-          'mock2.file': '2023 >=18.0.0 @metamask/foo',
+          'mock1.file': '2023 >=18.0.0 @ocap/foo A foo package. foo',
+          'mock2.file': '2023 >=18.0.0 @ocap/foo',
           'mock3.file': 'A foo package. foo',
         },
       );
@@ -154,7 +156,7 @@ describe('create-package/utils', () => {
 
     it('throws if the package directory already exists', async () => {
       const packageData: PackageData = {
-        name: '@metamask/foo',
+        name: '@ocap/foo',
         description: 'A foo package.',
         directoryName: 'foo',
         nodeVersions: '20.0.0',
@@ -171,9 +173,7 @@ describe('create-package/utils', () => {
         nodeVersions: '20.0.0',
       };
 
-      (fs.stat as Mock).mockResolvedValueOnce({
-        isDirectory: () => true,
-      });
+      (fs.access as Mock).mockResolvedValueOnce(undefined);
 
       await expect(
         finalizeAndWriteData(packageData, monorepoFileData),

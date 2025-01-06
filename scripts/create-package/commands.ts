@@ -28,7 +28,7 @@ const defaultCommand: CommandModule = {
       .options({
         name: {
           alias: 'n',
-          describe: 'The package name. Will be prefixed with "@metamask/".',
+          describe: 'The package name. Will be prefixed with "@ocap/".',
           type: 'string',
           requiresArg: true,
         },
@@ -53,8 +53,8 @@ const defaultCommand: CommandModule = {
           throw new Error('Missing required argument: "description"');
         }
 
-        if (!args.name.startsWith('@metamask/')) {
-          args.name = `@metamask/${args.name}`;
+        if (!args.name.startsWith('@ocap/')) {
+          args.name = `@ocap/${args.name}`;
         }
 
         return true;
@@ -85,7 +85,7 @@ export async function createPackageHandler(
   const packageData: PackageData = {
     name: args.name,
     description: args.description,
-    directoryName: args.name.slice('@metamask/'.length),
+    directoryName: args.name.slice('@ocap/'.length),
     nodeVersions: monorepoFileData.nodeVersions,
     currentYear: new Date().getFullYear().toString(),
   };

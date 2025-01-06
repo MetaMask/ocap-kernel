@@ -109,12 +109,13 @@
     "allowScripts": {
       "$root$": true,
       "@lavamoat/preinstall-always-fail": false,
-      "vite>esbuild": false,
       "simple-git-hooks": false,
+      "tsx>esbuild": false,
+      "vite>esbuild": false,
+      "vite>sass>@parcel/watcher": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>edgedriver": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
-      "vitest>@vitest/mocker>msw": false,
-      "vite>sass>@parcel/watcher": false
+      "vitest>@vitest/mocker>msw": false
     }
   },
   "resolutions": {

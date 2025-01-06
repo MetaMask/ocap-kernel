@@ -8,8 +8,10 @@ import { MonorepoFile, Placeholder } from './constants';
 import type { FileMap } from './fs-utils';
 import { readAllFiles, writeFiles } from './fs-utils';
 
-const PACKAGE_TEMPLATE_DIR = path.join(__dirname, 'package-template');
-const REPO_ROOT = path.join(__dirname, '..', '..');
+const { dirname } = import.meta;
+
+const PACKAGE_TEMPLATE_DIR = path.join(dirname, 'package-template');
+const REPO_ROOT = path.join(dirname, '..', '..');
 const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
 const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);
@@ -94,7 +96,7 @@ export async function finalizeAndWriteData(
   monorepoFileData: MonorepoFileData,
 ): Promise<void> {
   const packagePath = path.join(PACKAGES_PATH, packageData.directoryName);
-  if ((await fs.stat(packagePath)).isDirectory()) {
+  if (await exists(packagePath)) {
     throw new Error(`The package directory already exists: ${packagePath}`);
   }
 
@@ -122,6 +124,25 @@ export async function finalizeAndWriteData(
   // Add the new package to the root readme content
   console.log('Running "yarn update-readme-content"...');
   await execa('yarn', ['update-readme-content'], { cwd: REPO_ROOT });
+}
+
+/**
+ * Checks if a file exists.
+ *
+ * @param filePath - The absolute path of the file to check.
+ * @returns Whether the file exists.
+ */
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error) {
+      return error.code !== 'ENOENT';
+    }
+    // Unexpected error
+    throw error;
+  }
 }
 
 /**

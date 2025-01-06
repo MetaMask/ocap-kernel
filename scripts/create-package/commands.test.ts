@@ -32,7 +32,7 @@ describe('create-package/commands', () => {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         _: [],
         $0: 'create-package',
-        name: '@metamask/new-package',
+        name: '@ocap/new-package',
         description: 'A new MetaMask package.',
       };
 
@@ -41,7 +41,7 @@ describe('create-package/commands', () => {
       expect(utils.finalizeAndWriteData).toHaveBeenCalledTimes(1);
       expect(utils.finalizeAndWriteData).toHaveBeenCalledWith(
         {
-          name: '@metamask/new-package',
+          name: '@ocap/new-package',
           description: 'A new MetaMask package.',
           directoryName: 'new-package',
           nodeVersions: '>=18.0.0',

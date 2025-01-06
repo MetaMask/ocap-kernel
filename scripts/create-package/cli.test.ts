@@ -34,7 +34,7 @@ function getParsedArgv(
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _: [],
     $0: 'create-package',
-    name: `@metamask/${name}`,
+    name: `@ocap/${name}`,
     description,
   };
 }
@@ -92,7 +92,7 @@ describe('create-package/cli', () => {
       );
     });
 
-    it('should handle names already prefixed with "@metamask/"', async () => {
+    it('should handle names already prefixed with "@ocap/"', async () => {
       const defaultCommand = commandMap.$0;
       vi.spyOn(defaultCommand, 'handler');
 
@@ -107,7 +107,7 @@ describe('create-package/cli', () => {
 
       expect(
         await cli(
-          getMockArgv('--name', '@metamask/foo', '--description', 'bar'),
+          getMockArgv('--name', '@ocap/foo', '--description', 'bar'),
           commands,
         ),
       ).toBeUndefined();
