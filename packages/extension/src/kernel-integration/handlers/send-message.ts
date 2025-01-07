@@ -1,57 +1,58 @@
-import type { Infer } from '@metamask/superstruct';
 import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import {
-  isKernelCommand,
-  isVatId,
-  KernelSendMessageStruct,
-} from '@ocap/kernel';
+import { isKernelCommand, KernelSendMessageStruct } from '@ocap/kernel';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
-import type { KernelCommandPayloadStructs } from '../messages.js';
+import type { CommandHandler, CommandParams } from '../command-registry.js';
+import {
+  KernelCommandPayloadStructs,
+  KernelControlMethod,
+} from '../messages.js';
 
-type SendMessageParams = Infer<
-  typeof KernelCommandPayloadStructs.sendMessage
->['params'];
+type SendMessageMethod = typeof KernelControlMethod.sendMessage;
 
-export const sendMessageHandler = {
-  validate: (params: unknown): params is SendMessageParams => {
-    return (
-      typeof params === 'object' &&
-      params !== null &&
-      'payload' in params &&
-      isKernelCommand(params.payload) &&
-      ('id' in params ? isVatId(params.id) : true)
-    );
+export const sendMessageHandler: CommandHandler<SendMessageMethod> = {
+  validate: (params: unknown): params is CommandParams[SendMessageMethod] => {
+    try {
+      assert(params, KernelCommandPayloadStructs.sendMessage.schema.params);
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   async execute(
     kernel: Kernel,
     _kvStore: KVStore,
-    params: SendMessageParams,
+    params: CommandParams[SendMessageMethod],
   ): Promise<Json> {
-    const { payload, id } = params;
+    if (!isKernelCommand(params.payload)) {
+      throw new Error('Invalid command payload');
+    }
 
-    if (payload.method === 'kvGet') {
-      const result = kernel.kvGet(payload.params);
+    if (params.payload.method === 'kvGet') {
+      const result = kernel.kvGet(params.payload.params);
       if (!result) {
         throw new Error('Key not found');
       }
       return { result };
     }
 
-    if (payload.method === 'kvSet') {
-      const { key, value } = payload.params as { key: string; value: string };
+    if (params.payload.method === 'kvSet') {
+      const { key, value } = params.payload.params as {
+        key: string;
+        value: string;
+      };
       kernel.kvSet(key, value);
-      return payload.params;
+      return params.payload.params;
     }
 
-    if (!id) {
+    if (!params.id) {
       throw new Error('Vat ID required for this command');
     }
 
     assert(params, KernelSendMessageStruct);
-    const result = await kernel.sendMessage(id, payload);
+    const result = await kernel.sendMessage(params.id, params.payload);
     return { result };
   },
 };

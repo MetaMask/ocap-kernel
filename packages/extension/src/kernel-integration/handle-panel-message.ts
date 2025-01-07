@@ -57,7 +57,7 @@ export async function handlePanelMessage(
         method,
         params: result,
       },
-    };
+    } as KernelControlReply;
   } catch (error) {
     logger.error('Error handling message:', error);
     return {
@@ -68,6 +68,6 @@ export async function handlePanelMessage(
           error: error instanceof Error ? error.message : String(error),
         },
       },
-    };
+    } as KernelControlReply;
   }
 }

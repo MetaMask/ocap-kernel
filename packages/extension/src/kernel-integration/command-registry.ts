@@ -1,14 +1,28 @@
+import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
-export type CommandHandler = {
+import type {
+  KernelCommandPayloadStructs,
+  KernelControlMethod,
+} from './messages.js';
+
+type KernelMethods = keyof typeof KernelControlMethod;
+
+export type CommandParams = {
+  [Method in KernelMethods]: Infer<
+    (typeof KernelCommandPayloadStructs)[Method]
+  >['params'];
+};
+
+export type CommandHandler<Method extends KernelMethods> = {
   /**
    * Validate the parameters.
    *
    * @param params - The parameters.
    * @returns Whether the parameters are valid.
    */
-  validate: (params: unknown) => boolean;
+  validate: (params: unknown) => params is CommandParams[Method];
 
   /**
    * Execute the command.
@@ -18,7 +32,11 @@ export type CommandHandler = {
    * @param params - The parameters.
    * @returns The result of the command.
    */
-  execute: (kernel: Kernel, kvStore: KVStore, params: unknown) => Promise<Json>;
+  execute: (
+    kernel: Kernel,
+    kvStore: KVStore,
+    params: CommandParams[Method],
+  ) => Promise<Json>;
 };
 
 export type Middleware = (
@@ -29,7 +47,7 @@ export type Middleware = (
  * A registry for kernel commands.
  */
 export class KernelCommandRegistry {
-  readonly #handlers = new Map<string, CommandHandler>();
+  readonly #handlers = new Map<KernelMethods, CommandHandler<KernelMethods>>();
 
   readonly #middlewares: Middleware[] = [];
 
@@ -39,8 +57,14 @@ export class KernelCommandRegistry {
    * @param method - The method name.
    * @param handler - The command handler.
    */
-  register(method: string, handler: CommandHandler): void {
-    this.#handlers.set(method, handler);
+  register<Method extends KernelMethods>(
+    method: Method,
+    handler: CommandHandler<Method>,
+  ): void {
+    this.#handlers.set(
+      method,
+      handler as unknown as CommandHandler<KernelMethods>,
+    );
   }
 
   /**
@@ -61,11 +85,11 @@ export class KernelCommandRegistry {
    * @param params - The parameters.
    * @returns The result.
    */
-  async execute(
+  async execute<Method extends KernelMethods>(
     kernel: Kernel,
     kvStore: KVStore,
-    method: string,
-    params: unknown,
+    method: Method,
+    params: CommandParams[Method],
   ): Promise<Json> {
     const handler = this.#handlers.get(method);
     if (!handler) {

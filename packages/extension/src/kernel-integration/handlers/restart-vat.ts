@@ -1,16 +1,29 @@
+import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import { isVatId } from '@ocap/kernel';
-import type { Kernel, KVStore, VatId } from '@ocap/kernel';
+import type { Kernel, KVStore } from '@ocap/kernel';
 
-export const restartVatHandler = {
-  validate: (params: unknown): boolean => {
-    return isVatId((params as { id: unknown })?.id);
+import type { CommandHandler, CommandParams } from '../command-registry.js';
+import {
+  KernelCommandPayloadStructs,
+  KernelControlMethod,
+} from '../messages.js';
+
+type RestartVatMethod = typeof KernelControlMethod.restartVat;
+
+export const restartVatHandler: CommandHandler<RestartVatMethod> = {
+  validate: (params: unknown): params is CommandParams[RestartVatMethod] => {
+    try {
+      assert(params, KernelCommandPayloadStructs.restartVat.schema.params);
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   async execute(
     kernel: Kernel,
     _kvStore: KVStore,
-    params: { id: VatId },
+    params: CommandParams[RestartVatMethod],
   ): Promise<Json> {
     await kernel.restartVat(params.id);
     return null;
