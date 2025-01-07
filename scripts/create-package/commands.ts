@@ -92,8 +92,4 @@ export async function createPackageHandler(
 
   await finalizeAndWriteData(packageData, monorepoFileData);
   console.log(`Created package "${packageData.name}"!`);
-  console.log();
-  console.log(
-    'ATTN: Remember to add coverage thresholds to the root vitest.config.ts file!',
-  );
 }
