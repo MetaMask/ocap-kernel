@@ -4,6 +4,9 @@ set -x
 set -e
 set -o pipefail
 
+# force build sqlite3 so it aligns with node version
+yarn build:sqlite3 -f
+
 # We borrow the vat definition from extension for now
 yarn ocap bundle "../extension/src/vats"
 
