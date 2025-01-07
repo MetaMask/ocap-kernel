@@ -20,4 +20,4 @@ function cleanup() {
 # Ensure we always close the server
 trap cleanup EXIT
 
-yarn test
+yarn test:e2e
