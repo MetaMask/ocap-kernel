@@ -3,6 +3,7 @@ import type { VatWorkerService, VatId } from '@ocap/kernel';
 import { NodeWorkerMultiplexer, StreamMultiplexer } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
+import { readFile } from 'node:fs/promises';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -31,11 +32,16 @@ export class NodejsVatWorkerService implements VatWorkerService {
   async launch(vatId: VatId): Promise<StreamMultiplexer> {
     const { promise, resolve } = makePromiseKit<StreamMultiplexer>();
     this.#logger.debug('launching', vatId);
+    this.#logger.debug('fileUrl', workerFileURL);
+    this.#logger.debug(
+      `fileContent\n===\n${(await readFile(workerFileURL)).toString()}\n===\n`,
+    );
     const worker = new NodeWorker(workerFileURL, {
       env: {
         NODE_VAT_ID: vatId,
       },
     });
+    this.#logger.debug('launched', vatId);
     worker.once('online', () => {
       const multiplexer = new NodeWorkerMultiplexer(worker, 'vat');
       this.workers.set(vatId, { worker, multiplexer });
