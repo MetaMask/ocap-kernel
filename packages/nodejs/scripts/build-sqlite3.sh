@@ -12,13 +12,13 @@ package_root=$(pwd)
 monorepo_root="$package_root/../.."
 
 while getopts ":ab:" opt; do
-  case $opt in
-    f) force="true";;
+  case $OPTARG in
+    f) force=1;;
     \?) echo "Invalid option: -$OPTARG"; exit 1;;
   esac
 done
 
-if ! [ "$force" -eq "true" ] && [ -f "node_modules/better-sqlite3/build/better_sqlite3.node" ]; then
+if ! [ "$force" = "1" ] && [ -f "node_modules/better-sqlite3/build/better_sqlite3.node" ]; then
   echo "Found better-sqlite3 bindings."
   exit 0
 fi
