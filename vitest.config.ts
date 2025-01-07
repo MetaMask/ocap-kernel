@@ -2,6 +2,8 @@ import path from 'path';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
+import coverageThresholds from './coverage-thresholds.json';
+
 export default defineConfig({
   optimizeDeps: {
     include: ['@vitest/coverage-istanbul', 'vitest-fetch-mock'],
@@ -41,54 +43,7 @@ export default defineConfig({
       ],
       thresholds: {
         autoUpdate: true,
-        'packages/cli/**': {
-          statements: 61.6,
-          functions: 63.41,
-          branches: 58.62,
-          lines: 61.6,
-        },
-        'packages/errors/**': {
-          statements: 100,
-          functions: 100,
-          branches: 92.59,
-          lines: 100,
-        },
-        'packages/extension/**': {
-          statements: 64.56,
-          functions: 65.83,
-          branches: 72.9,
-          lines: 64.55,
-        },
-        'packages/kernel/**': {
-          statements: 78.23,
-          functions: 87.87,
-          branches: 63.71,
-          lines: 78.44,
-        },
-        'packages/shims/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
-        },
-        'packages/streams/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
-        },
-        'packages/utils/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
-        },
-        'scripts/create-package/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
-        },
+        ...coverageThresholds,
       },
     },
   },

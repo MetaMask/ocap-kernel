@@ -44,6 +44,14 @@ describe('create-package/utils', () => {
     const packageJson = JSON.stringify({
       engines: { node: '>=18.0.0' },
     });
+    const coverageThresholds = JSON.stringify({
+      'packages/foo/**': {
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
+      },
+    });
 
     it('should read the expected monorepo files', async () => {
       (fs.readFile as Mock).mockImplementation(async (filePath: string) => {
@@ -54,6 +62,8 @@ describe('create-package/utils', () => {
             return tsConfigBuild;
           case MonorepoFile.PackageJson:
             return packageJson;
+          case MonorepoFile.CoverageThresholds:
+            return coverageThresholds;
           default:
             throw new Error(`Unexpected file: ${path.basename(filePath)}`);
         }
@@ -62,6 +72,7 @@ describe('create-package/utils', () => {
       const monorepoFileData = await readMonorepoFiles();
 
       expect(monorepoFileData).toStrictEqual({
+        coverageThresholds: JSON.parse(coverageThresholds),
         tsConfig: JSON.parse(tsConfig),
         tsConfigBuild: JSON.parse(tsConfigBuild),
         nodeVersions: '>=18.0.0',
@@ -86,6 +97,14 @@ describe('create-package/utils', () => {
         references: [{ path: './packages/bar' }],
       },
       nodeVersions: '>=18.0.0',
+      coverageThresholds: {
+        'packages/foo/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
+      },
     });
 
     const getReadFilesResult = (): FileMap => ({
@@ -141,8 +160,8 @@ describe('create-package/utils', () => {
       );
 
       // Writing monorepo files
-      expect(fs.writeFile).toHaveBeenCalledTimes(2);
-      expect(prettierFormat).toHaveBeenCalledTimes(2);
+      expect(fs.writeFile).toHaveBeenCalledTimes(3);
+      expect(prettierFormat).toHaveBeenCalledTimes(3);
       expect(fs.writeFile).toHaveBeenCalledWith(
         expect.stringMatching(/tsconfig\.json$/u),
         JSON.stringify({
@@ -156,6 +175,17 @@ describe('create-package/utils', () => {
             { path: './packages/bar' },
             { path: './packages/foo/tsconfig.build.json' },
           ],
+        }),
+      );
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        expect.stringMatching(/coverage-thresholds\.json$/u),
+        JSON.stringify({
+          'packages/foo/**': {
+            branches: 100,
+            functions: 100,
+            lines: 100,
+            statements: 100,
+          },
         }),
       );
 
@@ -219,15 +249,7 @@ describe('create-package/utils', () => {
         currentYear: '2023',
       };
 
-      const monorepoFileData = {
-        tsConfig: {
-          references: [{ path: './packages/bar' }],
-        },
-        tsConfigBuild: {
-          references: [{ path: './packages/bar' }],
-        },
-        nodeVersions: '20.0.0',
-      };
+      const monorepoFileData = getMonorepoFileData();
 
       (fs.access as Mock).mockResolvedValueOnce(undefined);
 

@@ -1,3 +1,5 @@
+import { number, object, assert, record, string } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import { execa } from 'execa';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -12,9 +14,13 @@ const { dirname } = import.meta;
 
 const PACKAGE_TEMPLATE_DIR = path.join(dirname, 'package-template');
 const REPO_ROOT = path.join(dirname, '..', '..');
+const REPO_COVERAGE_THRESHOLDS = path.join(
+  REPO_ROOT,
+  MonorepoFile.CoverageThresholds,
+);
+const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);
 const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
-const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);
 const PACKAGES_PATH = path.join(REPO_ROOT, 'packages');
 
 const allPlaceholdersRegex = new RegExp(
@@ -40,6 +46,18 @@ export type PackageData = Readonly<{
   currentYear: string;
 }>;
 
+const CoverageThresholdsSchema = record(
+  string(),
+  object({
+    statements: number(),
+    functions: number(),
+    branches: number(),
+    lines: number(),
+  }),
+);
+
+type CoverageThresholds = Infer<typeof CoverageThresholdsSchema>;
+
 /**
  * Data parsed from relevant monorepo files.
  */
@@ -47,6 +65,7 @@ export type MonorepoFileData = {
   tsConfig: Tsconfig;
   tsConfigBuild: Tsconfig;
   nodeVersions: string;
+  coverageThresholds: CoverageThresholds;
 };
 
 /**
@@ -78,6 +97,7 @@ export async function readMonorepoFiles(): Promise<MonorepoFileData> {
   ]);
 
   return {
+    coverageThresholds: await readCoverageThresholds(),
     tsConfig: JSON.parse(tsConfig) as Tsconfig,
     tsConfigBuild: JSON.parse(tsConfigBuild) as Tsconfig,
     nodeVersions: (JSON.parse(packageJson) as PackageJson).engines.node,
@@ -105,8 +125,11 @@ export async function finalizeAndWriteData(
   // Read and write package files
   await writeFiles(packagePath, await processTemplateFiles(packageData));
 
-  // Write monorepo files
+  // Update monorepo file content
   updateTsConfigs(packageData, monorepoFileData);
+  updateCoverageThresholds(packageData, monorepoFileData);
+
+  // Write monorepo files
   await writeJsonFile(
     REPO_TS_CONFIG,
     JSON.stringify(monorepoFileData.tsConfig),
@@ -114,6 +137,10 @@ export async function finalizeAndWriteData(
   await writeJsonFile(
     REPO_TS_CONFIG_BUILD,
     JSON.stringify(monorepoFileData.tsConfigBuild),
+  );
+  await writeJsonFile(
+    REPO_COVERAGE_THRESHOLDS,
+    JSON.stringify(monorepoFileData.coverageThresholds),
   );
 
   // Postprocess
@@ -193,6 +220,29 @@ function updateTsConfigs(
 }
 
 /**
+ * Updates the coverage thresholds file data in place to include the new package.
+ *
+ * @param packageData - The package data.
+ * @param monorepoFileData - The monorepo file data.
+ */
+function updateCoverageThresholds(
+  packageData: PackageData,
+  monorepoFileData: MonorepoFileData,
+): void {
+  const { coverageThresholds } = monorepoFileData;
+  coverageThresholds[`packages/${packageData.directoryName}/**`] = {
+    branches: 100,
+    functions: 100,
+    lines: 100,
+    statements: 100,
+  };
+  const sortedKeys = Object.keys(coverageThresholds).sort();
+  monorepoFileData.coverageThresholds = Object.fromEntries(
+    sortedKeys.map((key) => [key, coverageThresholds[key]]),
+  ) as CoverageThresholds;
+}
+
+/**
  * Reads the template files and updates them with the specified package data.
  *
  * @param packageData - The package data.
@@ -242,4 +292,17 @@ function processTemplateContent(
         throw new Error(`Unknown placeholder: ${match}`);
     }
   });
+}
+
+/**
+ * Reads the coverage thresholds file.
+ * Throws an error if the file is not valid.
+ *
+ * @returns The coverage thresholds.
+ */
+async function readCoverageThresholds(): Promise<CoverageThresholds> {
+  const content = await fs.readFile(REPO_COVERAGE_THRESHOLDS, 'utf-8');
+  const thresholds = JSON.parse(content) as CoverageThresholds;
+  assert(thresholds, CoverageThresholdsSchema);
+  return thresholds;
 }
