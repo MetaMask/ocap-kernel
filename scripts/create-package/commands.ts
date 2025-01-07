@@ -94,6 +94,6 @@ export async function createPackageHandler(
   console.log(`Created package "${packageData.name}"!`);
   console.log();
   console.log(
-    'ATTN: Remember to add coverage thresholds to the root vitest.config.ts file!',
+    '\x1b[33mNote:\x1b[0m \x1b[1mRemember to add coverage thresholds to the root vitest.config.ts file!\x1b[0m',
   );
 }
