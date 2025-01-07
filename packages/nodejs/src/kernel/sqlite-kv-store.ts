@@ -3,9 +3,18 @@ import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import Sqlite from 'better-sqlite3';
-import { resolve } from 'path';
+import { mkdir } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join, resolve } from 'path';
 
-const dbPath = resolve(new URL('../db/store.db', import.meta.url).pathname);
+const USE_TMPDIR = true;
+
+const dbRoot = join(
+  USE_TMPDIR ? tmpdir() : resolve(new URL('..', import.meta.url).pathname),
+  './db',
+);
+
+const dbPath = join(dbRoot, 'store.db');
 
 // No changes made to this file, besides this comment.
 // If used, this file should be deduped with its copy
@@ -23,6 +32,7 @@ async function initDB(
   logger?: ReturnType<typeof makeLogger>,
 ): Promise<Sqlite.Database> {
   console.log('dbPath:', dbPath);
+  await mkdir(dbRoot, { recursive: true });
   return new Sqlite(dbPath, {
     verbose: (logger ?? console).info,
   });

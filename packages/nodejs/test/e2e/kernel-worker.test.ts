@@ -3,7 +3,7 @@ import '@ocap/shims/endoify';
 import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
 import { describe, it, expect, vi } from 'vitest';
 
-import { makeKernel, runVatLifecycle } from './kernel-worker.js';
+import { makeKernel, runVatLifecycle } from '../../src/kernel/kernel-worker.js';
 
 vi.mock('node:process', () => ({
   exit: vi.fn((reason) => {
