@@ -1,4 +1,5 @@
-import type { Infer } from '@metamask/superstruct';
+import { assert } from '@metamask/superstruct';
+import type { Infer, Struct } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
@@ -17,12 +18,9 @@ export type CommandParams = {
 
 export type CommandHandler<Method extends KernelMethods> = {
   /**
-   * Validate the parameters.
-   *
-   * @param params - The parameters.
-   * @returns Whether the parameters are valid.
+   * Validation schema for the parameters.
    */
-  validate: (params: unknown) => params is CommandParams[Method];
+  schema: Struct<CommandParams[Method]>;
 
   /**
    * Execute the command.
@@ -101,9 +99,7 @@ export class KernelCommandRegistry {
       kv: KVStore,
       param: unknown,
     ): Promise<Json> => {
-      if (!handler.validate(param)) {
-        throw new Error('Invalid parameters');
-      }
+      assert(param, handler.schema);
       return handler.execute(k, kv, param);
     };
 

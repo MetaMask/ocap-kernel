@@ -1,4 +1,3 @@
-import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
@@ -11,14 +10,7 @@ import {
 type TerminateVatMethod = typeof KernelControlMethod.terminateVat;
 
 export const terminateVatHandler: CommandHandler<TerminateVatMethod> = {
-  validate: (params: unknown): params is CommandParams[TerminateVatMethod] => {
-    try {
-      assert(params, KernelCommandPayloadStructs.terminateVat.schema.params);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  schema: KernelCommandPayloadStructs.terminateVat.schema.params,
 
   async execute(
     kernel: Kernel,

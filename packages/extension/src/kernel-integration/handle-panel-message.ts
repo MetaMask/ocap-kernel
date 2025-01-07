@@ -21,6 +21,10 @@ const registry = new KernelCommandRegistry();
 registry.use(loggingMiddleware);
 
 // Register handlers
+registry.register(KernelControlMethod.getStatus, getStatusHandler);
+registry.register(KernelControlMethod.clearState, clearStateHandler);
+registry.register(KernelControlMethod.sendMessage, sendMessageHandler);
+registry.register(KernelControlMethod.executeDBQuery, executeDBQueryHandler);
 registry.register(KernelControlMethod.launchVat, launchVatHandler);
 registry.register(KernelControlMethod.restartVat, restartVatHandler);
 registry.register(KernelControlMethod.terminateVat, terminateVatHandler);
@@ -28,10 +32,6 @@ registry.register(
   KernelControlMethod.terminateAllVats,
   terminateAllVatsHandler,
 );
-registry.register(KernelControlMethod.getStatus, getStatusHandler);
-registry.register(KernelControlMethod.clearState, clearStateHandler);
-registry.register(KernelControlMethod.sendMessage, sendMessageHandler);
-registry.register(KernelControlMethod.executeDBQuery, executeDBQueryHandler);
 
 /**
  * Handles a message from the panel.

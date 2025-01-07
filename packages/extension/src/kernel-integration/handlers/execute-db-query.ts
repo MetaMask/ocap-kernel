@@ -1,4 +1,3 @@
-import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
@@ -11,16 +10,7 @@ import {
 type ExecuteDBQueryMethod = typeof KernelControlMethod.executeDBQuery;
 
 export const executeDBQueryHandler: CommandHandler<ExecuteDBQueryMethod> = {
-  validate: (
-    params: unknown,
-  ): params is CommandParams[ExecuteDBQueryMethod] => {
-    try {
-      assert(params, KernelCommandPayloadStructs.executeDBQuery.schema.params);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  schema: KernelCommandPayloadStructs.executeDBQuery.schema.params,
 
   async execute(
     _kernel: Kernel,

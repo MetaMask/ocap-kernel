@@ -1,4 +1,3 @@
-import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
@@ -11,14 +10,7 @@ import {
 type RestartVatMethod = typeof KernelControlMethod.restartVat;
 
 export const restartVatHandler: CommandHandler<RestartVatMethod> = {
-  validate: (params: unknown): params is CommandParams[RestartVatMethod] => {
-    try {
-      assert(params, KernelCommandPayloadStructs.restartVat.schema.params);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  schema: KernelCommandPayloadStructs.restartVat.schema.params,
 
   async execute(
     kernel: Kernel,

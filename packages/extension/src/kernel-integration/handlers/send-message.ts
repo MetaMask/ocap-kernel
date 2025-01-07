@@ -12,14 +12,7 @@ import {
 type SendMessageMethod = typeof KernelControlMethod.sendMessage;
 
 export const sendMessageHandler: CommandHandler<SendMessageMethod> = {
-  validate: (params: unknown): params is CommandParams[SendMessageMethod] => {
-    try {
-      assert(params, KernelCommandPayloadStructs.sendMessage.schema.params);
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  schema: KernelCommandPayloadStructs.sendMessage.schema.params,
 
   async execute(
     kernel: Kernel,
