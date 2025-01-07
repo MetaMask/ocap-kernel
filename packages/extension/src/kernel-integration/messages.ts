@@ -43,7 +43,7 @@ const KernelStatusStruct = type({
 });
 
 // Command payload structs
-const KernelCommandPayloadStructs = {
+export const KernelCommandPayloadStructs = {
   [KernelControlMethod.launchVat]: object({
     method: literal(KernelControlMethod.launchVat),
     params: VatConfigStruct,
@@ -83,7 +83,7 @@ const KernelCommandPayloadStructs = {
   }),
 } as const;
 
-const KernelReplyPayloadStructs = {
+export const KernelReplyPayloadStructs = {
   [KernelControlMethod.launchVat]: object({
     method: literal(KernelControlMethod.launchVat),
     params: union([literal(null), object({ error: string() })]),

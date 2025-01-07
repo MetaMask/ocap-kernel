@@ -1,19 +1,37 @@
-import { assert } from '@metamask/superstruct';
-import type { Json } from '@metamask/utils';
-import {
-  Kernel,
-  isKernelCommand,
-  KernelSendMessageStruct,
-  isVatId,
-  isVatConfig,
-} from '@ocap/kernel';
-import type { KVStore } from '@ocap/kernel';
+import type { Kernel, KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 
-import type { KernelControlReply, KernelControlCommand } from './messages.js';
+import { KernelCommandRegistry } from './command-registry.js';
+import { clearStateHandler } from './handlers/clear-state.js';
+import { executeDBQueryHandler } from './handlers/execute-db-query.js';
+import { getStatusHandler } from './handlers/get-status.js';
+import { launchVatHandler } from './handlers/launch-vat.js';
+import { restartVatHandler } from './handlers/restart-vat.js';
+import { sendMessageHandler } from './handlers/send-message.js';
+import { terminateAllVatsHandler } from './handlers/terminate-all-vats.js';
+import { terminateVatHandler } from './handlers/terminate-vat.js';
 import { KernelControlMethod } from './messages.js';
+import type { KernelControlCommand, KernelControlReply } from './messages.js';
+import { loggingMiddleware } from './middlewares/logging.js';
 
-const logger = makeLogger('[kernel panel messages]');
+const logger = makeLogger('[kernel-panel]');
+const registry = new KernelCommandRegistry();
+
+// Register middlewares
+registry.use(loggingMiddleware);
+
+// Register handlers
+registry.register(KernelControlMethod.launchVat, launchVatHandler);
+registry.register(KernelControlMethod.restartVat, restartVatHandler);
+registry.register(KernelControlMethod.terminateVat, terminateVatHandler);
+registry.register(
+  KernelControlMethod.terminateAllVats,
+  terminateAllVatsHandler,
+);
+registry.register(KernelControlMethod.getStatus, getStatusHandler);
+registry.register(KernelControlMethod.clearState, clearStateHandler);
+registry.register(KernelControlMethod.sendMessage, sendMessageHandler);
+registry.register(KernelControlMethod.executeDBQuery, executeDBQueryHandler);
 
 /**
  * Handles a message from the panel.
@@ -29,145 +47,17 @@ export async function handlePanelMessage(
   message: KernelControlCommand,
 ): Promise<KernelControlReply> {
   const { method, params } = message.payload;
+
   try {
-    switch (method) {
-      case KernelControlMethod.launchVat: {
-        if (!isVatConfig(params)) {
-          throw new Error('Valid vat config required');
-        }
-        await kernel.launchVat(params);
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.launchVat,
-            params: null,
-          },
-        };
-      }
+    const result = await registry.execute(kernel, kvStore, method, params);
 
-      case KernelControlMethod.restartVat: {
-        if (!isVatId(params.id)) {
-          throw new Error('Valid vat id required');
-        }
-        await kernel.restartVat(params.id);
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.restartVat,
-            params: null,
-          },
-        };
-      }
-
-      case KernelControlMethod.terminateVat: {
-        if (!isVatId(params.id)) {
-          throw new Error('Valid vat id required');
-        }
-        await kernel.terminateVat(params.id);
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.terminateVat,
-            params: null,
-          },
-        };
-      }
-
-      case KernelControlMethod.terminateAllVats: {
-        await kernel.terminateAllVats();
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.terminateAllVats,
-            params: null,
-          },
-        };
-      }
-
-      case KernelControlMethod.getStatus: {
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.getStatus,
-            params: {
-              vats: kernel.getVats(),
-            },
-          },
-        };
-      }
-
-      case KernelControlMethod.clearState: {
-        await kernel.reset();
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.clearState,
-            params: null,
-          },
-        };
-      }
-
-      case KernelControlMethod.sendMessage: {
-        if (!isKernelCommand(params.payload)) {
-          throw new Error('Invalid command payload');
-        }
-
-        if (params.payload.method === 'kvGet') {
-          const result = kernel.kvGet(params.payload.params);
-          if (!result) {
-            throw new Error('Key not found');
-          }
-          return {
-            id: message.id,
-            payload: {
-              method: KernelControlMethod.sendMessage,
-              params: { result } as Json,
-            },
-          };
-        }
-
-        if (params.payload.method === 'kvSet') {
-          kernel.kvSet(params.payload.params.key, params.payload.params.value);
-          return {
-            id: message.id,
-            payload: {
-              method: KernelControlMethod.sendMessage,
-              params: params.payload.params,
-            },
-          };
-        }
-
-        if (!isVatId(params.id)) {
-          throw new Error('Vat ID required for this command');
-        }
-
-        assert(params, KernelSendMessageStruct);
-
-        const result = await kernel.sendMessage(params.id, params.payload);
-
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.sendMessage,
-            params: { result } as Json,
-          },
-        };
-      }
-
-      case KernelControlMethod.executeDBQuery: {
-        return {
-          id: message.id,
-          payload: {
-            method: KernelControlMethod.executeDBQuery,
-            params: kvStore.executeQuery(params.sql),
-          },
-        };
-      }
-
-      default: {
-        throw new Error('Unknown method');
-      }
-    }
+    return {
+      id: message.id,
+      payload: {
+        method,
+        params: result,
+      },
+    };
   } catch (error) {
     logger.error('Error handling message:', error);
     return {
@@ -178,6 +68,6 @@ export async function handlePanelMessage(
           error: error instanceof Error ? error.message : String(error),
         },
       },
-    } as KernelControlReply;
+    };
   }
 }
