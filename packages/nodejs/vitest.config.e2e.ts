@@ -19,8 +19,8 @@ const config = mergeConfig(
           customResolver: (id) => ({ external: true, id }),
         },
       ],
-      include: ['./test/e2e'],
-      exclude: ['./src'],
+      include: ['./test/e2e/**/*.test.ts'],
+      exclude: ['./src/**/*'],
     },
   }),
 );
