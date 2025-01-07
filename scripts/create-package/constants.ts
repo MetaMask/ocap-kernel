@@ -2,7 +2,6 @@
  * The monorepo files that need to be parsed or modified.
  */
 export enum MonorepoFile {
-  CoverageThresholds = 'coverage-thresholds.json',
   PackageJson = 'package.json',
   TsConfig = 'tsconfig.json',
   TsConfigBuild = 'tsconfig.build.json',
