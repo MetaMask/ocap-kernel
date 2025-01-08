@@ -10,9 +10,9 @@ import {
 type ClearStateMethod = typeof KernelControlMethod.clearState;
 
 export const clearStateHandler: CommandHandler<ClearStateMethod> = {
+  method: KernelControlMethod.clearState,
   schema: KernelCommandPayloadStructs.clearState.schema.params,
-
-  async execute(kernel: Kernel): Promise<Json> {
+  implementation: async (kernel: Kernel): Promise<Json> => {
     await kernel.reset();
     return null;
   },

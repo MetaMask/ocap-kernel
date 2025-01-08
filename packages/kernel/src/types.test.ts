@@ -1,5 +1,3 @@
-// import { is } from '@metamask/superstruct';
-// import { UnsafeJsonStruct } from '@metamask/utils';
 import { describe, it, expect } from 'vitest';
 
 import { isVatConfig } from './types';

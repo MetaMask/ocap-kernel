@@ -10,9 +10,9 @@ import {
 type GetStatusMethod = typeof KernelControlMethod.getStatus;
 
 export const getStatusHandler: CommandHandler<GetStatusMethod> = {
+  method: KernelControlMethod.getStatus,
   schema: KernelCommandPayloadStructs.getStatus.schema.params,
-
-  async execute(kernel: Kernel): Promise<Json> {
+  implementation: async (kernel: Kernel): Promise<Json> => {
     return {
       vats: kernel.getVats(),
     };

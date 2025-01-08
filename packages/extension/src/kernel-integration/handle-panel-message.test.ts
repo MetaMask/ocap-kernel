@@ -15,16 +15,21 @@ import type { KernelControlCommand } from './messages.js';
 vi.mock('@ocap/utils', () => ({
   makeLogger: () => ({
     error: vi.fn(),
+    debug: vi.fn(),
   }),
 }));
 
+let isVatConfigMock = true;
+let isVatIdMock = true;
+
 // Mock kernel validation functions
+// because vitest needs to extend Error stack and under SES it fails
 vi.mock('@ocap/kernel', () => ({
   isKernelCommand: () => true,
-  isVatId: () => true,
-  isVatConfig: () => true,
-  VatIdStruct: define<VatId>('VatId', () => true),
-  VatConfigStruct: define<VatConfig>('VatConfig', () => true),
+  isVatId: () => isVatIdMock,
+  isVatConfig: () => isVatConfigMock,
+  VatIdStruct: define<VatId>('VatId', () => isVatIdMock),
+  VatConfigStruct: define<VatConfig>('VatConfig', () => isVatConfigMock),
   KernelSendMessageStruct: object({
     id: literal('v0'),
     payload: object({
@@ -41,6 +46,8 @@ describe('handlePanelMessage', () => {
   beforeEach(() => {
     vi.resetModules();
 
+    isVatConfigMock = true;
+    isVatIdMock = true;
     mockKVStore = {
       get: vi.fn(),
       getRequired: vi.fn(),
@@ -115,9 +122,7 @@ describe('handlePanelMessage', () => {
 
     it('should handle invalid vat configuration', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
-      const kernel = await import('@ocap/kernel');
-      const isVatConfigSpy = vi.spyOn(kernel, 'isVatConfig');
-      isVatConfigSpy.mockReturnValue(false);
+      isVatConfigMock = false;
 
       const message: KernelControlCommand = {
         id: 'test-2',
@@ -137,7 +142,10 @@ describe('handlePanelMessage', () => {
         id: 'test-2',
         payload: {
           method: 'launchVat',
-          params: { error: 'Valid vat config required' },
+          params: {
+            error:
+              'Expected a value of type `VatConfig`, but received: `[object Object]`',
+          },
         },
       });
     });
@@ -170,9 +178,7 @@ describe('handlePanelMessage', () => {
 
     it('should handle invalid vat ID for restartVat command', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
-      const kernel = await import('@ocap/kernel');
-      const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
-      isVatIdSpy.mockReturnValue(false);
+      isVatIdMock = false;
 
       const message: KernelControlCommand = {
         id: 'test-4',
@@ -192,7 +198,10 @@ describe('handlePanelMessage', () => {
         id: 'test-4',
         payload: {
           method: 'restartVat',
-          params: { error: 'Valid vat id required' },
+          params: {
+            error:
+              'At path: id -- Expected a value of type `VatId`, but received: `"invalid"`',
+          },
         },
       });
     });
@@ -498,7 +507,7 @@ describe('handlePanelMessage', () => {
         id: 'test-14',
         payload: {
           method: 'unknownMethod',
-          params: { error: 'Unknown method' },
+          params: { error: 'Unknown method: unknownMethod' },
         },
       });
     });

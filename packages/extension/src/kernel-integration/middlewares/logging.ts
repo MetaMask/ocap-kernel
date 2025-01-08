@@ -2,7 +2,7 @@ import { makeLogger } from '@ocap/utils';
 
 import type { Middleware } from '../command-registry.js';
 
-const logger = makeLogger('[kernel-commands]');
+export const logger = makeLogger('[kernel-commands]');
 
 export const loggingMiddleware: Middleware =
   (next) =>

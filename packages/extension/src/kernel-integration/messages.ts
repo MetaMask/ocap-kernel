@@ -26,6 +26,8 @@ export const KernelControlMethod = {
   executeDBQuery: 'executeDBQuery',
 } as const;
 
+export type KernelMethods = keyof typeof KernelControlMethod;
+
 export type KernelStatus = {
   vats: {
     id: VatId;

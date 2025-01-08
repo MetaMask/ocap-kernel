@@ -12,13 +12,13 @@ import {
 type SendMessageMethod = typeof KernelControlMethod.sendMessage;
 
 export const sendMessageHandler: CommandHandler<SendMessageMethod> = {
+  method: KernelControlMethod.sendMessage,
   schema: KernelCommandPayloadStructs.sendMessage.schema.params,
-
-  async execute(
+  implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
     params: CommandParams[SendMessageMethod],
-  ): Promise<Json> {
+  ): Promise<Json> => {
     if (!isKernelCommand(params.payload)) {
       throw new Error('Invalid command payload');
     }

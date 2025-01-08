@@ -10,13 +10,13 @@ import {
 type TerminateVatMethod = typeof KernelControlMethod.terminateVat;
 
 export const terminateVatHandler: CommandHandler<TerminateVatMethod> = {
+  method: KernelControlMethod.terminateVat,
   schema: KernelCommandPayloadStructs.terminateVat.schema.params,
-
-  async execute(
+  implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
     params: CommandParams[TerminateVatMethod],
-  ): Promise<Json> {
+  ): Promise<Json> => {
     await kernel.terminateVat(params.id);
     return null;
   },

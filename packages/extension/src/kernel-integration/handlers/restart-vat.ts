@@ -10,13 +10,13 @@ import {
 type RestartVatMethod = typeof KernelControlMethod.restartVat;
 
 export const restartVatHandler: CommandHandler<RestartVatMethod> = {
+  method: KernelControlMethod.restartVat,
   schema: KernelCommandPayloadStructs.restartVat.schema.params,
-
-  async execute(
+  implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
     params: CommandParams[RestartVatMethod],
-  ): Promise<Json> {
+  ): Promise<Json> => {
     await kernel.restartVat(params.id);
     return null;
   },

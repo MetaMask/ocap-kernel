@@ -10,13 +10,13 @@ import {
 type LaunchVatMethod = typeof KernelControlMethod.launchVat;
 
 export const launchVatHandler: CommandHandler<LaunchVatMethod> = {
+  method: KernelControlMethod.launchVat,
   schema: KernelCommandPayloadStructs.launchVat.schema.params,
-
-  async execute(
+  implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
     params: CommandParams[LaunchVatMethod],
-  ): Promise<Json> {
+  ): Promise<Json> => {
     await kernel.launchVat(params);
     return null;
   },

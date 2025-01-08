@@ -10,9 +10,9 @@ import {
 type TerminateAllVatsMethod = typeof KernelControlMethod.terminateAllVats;
 
 export const terminateAllVatsHandler: CommandHandler<TerminateAllVatsMethod> = {
+  method: KernelControlMethod.terminateAllVats,
   schema: KernelCommandPayloadStructs.terminateAllVats.schema.params,
-
-  async execute(kernel: Kernel): Promise<Json> {
+  implementation: async (kernel: Kernel): Promise<Json> => {
     await kernel.terminateAllVats();
     return null;
   },

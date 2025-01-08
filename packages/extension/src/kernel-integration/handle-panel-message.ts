@@ -2,15 +2,8 @@ import type { Kernel, KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 
 import { KernelCommandRegistry } from './command-registry.js';
-import { clearStateHandler } from './handlers/clear-state.js';
-import { executeDBQueryHandler } from './handlers/execute-db-query.js';
-import { getStatusHandler } from './handlers/get-status.js';
-import { launchVatHandler } from './handlers/launch-vat.js';
-import { restartVatHandler } from './handlers/restart-vat.js';
-import { sendMessageHandler } from './handlers/send-message.js';
-import { terminateAllVatsHandler } from './handlers/terminate-all-vats.js';
-import { terminateVatHandler } from './handlers/terminate-vat.js';
-import { KernelControlMethod } from './messages.js';
+import type { CommandHandler } from './command-registry.js';
+import { handlers } from './handlers/index.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
 import { loggingMiddleware } from './middlewares/logging.js';
 
@@ -21,16 +14,8 @@ const registry = new KernelCommandRegistry();
 registry.use(loggingMiddleware);
 
 // Register handlers
-registry.register(KernelControlMethod.getStatus, getStatusHandler);
-registry.register(KernelControlMethod.clearState, clearStateHandler);
-registry.register(KernelControlMethod.sendMessage, sendMessageHandler);
-registry.register(KernelControlMethod.executeDBQuery, executeDBQueryHandler);
-registry.register(KernelControlMethod.launchVat, launchVatHandler);
-registry.register(KernelControlMethod.restartVat, restartVatHandler);
-registry.register(KernelControlMethod.terminateVat, terminateVatHandler);
-registry.register(
-  KernelControlMethod.terminateAllVats,
-  terminateAllVatsHandler,
+handlers.forEach((handler) =>
+  registry.register(handler as CommandHandler<typeof handler.method>),
 );
 
 /**
