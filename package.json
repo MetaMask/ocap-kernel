@@ -34,6 +34,7 @@
     "test": "vitest run",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --coverage false",
+    "test:e2e:ci": "yarn workspaces foreach -A run test:e2e:ci",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest",
     "why:batch": "./scripts/why-batch.sh"

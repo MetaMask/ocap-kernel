@@ -39,6 +39,9 @@ ignores:
   - 'typescript'
   - 'typescript-plugin-css-modules'
 
+  # Used by @ocap/nodejs to build the sqlite3 bindings
+  - 'node-gyp'
+
   # These are peer dependencies of various modules we actually do
   # depend on, which have been elevated to full dependencies (even
   # though we don't actually depend on them) in order to work around a

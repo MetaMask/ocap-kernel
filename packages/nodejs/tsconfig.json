@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": "./",
+    "isolatedModules": true,
+    "lib": ["DOM", "ES2022"],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["chrome", "ses", "vitest", "vitest/jsdom"]
+  },
+  "references": [
+    { "path": "../streams" },
+    { "path": "../test-utils" },
+    { "path": "../utils" },
+    { "path": "../kernel" }
+  ],
+  "include": [
+    "../../vitest.config.packages.ts",
+    "../../vitest.workspace.ts",
+    "./scripts/build-constants.mjs",
+    "./src/**/*.ts",
+    "./src/**/*-trusted-prelude.js",
+    "./src/env/dev-console.js",
+    "./test/**/*.ts",
+    "./vite-plugins/*.ts",
+    "./vite.config.ts",
+    "./vitest.config.ts",
+    "./vitest.config.e2e.ts"
+  ]
+}
