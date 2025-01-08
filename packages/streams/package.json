@@ -63,7 +63,7 @@
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/cli": "workspace:^",
     "@ocap/test-utils": "workspace:^",
-    "@ts-bridge/cli": "^0.5.1",
+    "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
     "@types/chrome": "^0.0.268",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
