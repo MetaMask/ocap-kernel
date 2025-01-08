@@ -4344,11 +4344,11 @@ __metadata:
   linkType: hard
 
 "chokidar@npm:^4.0.0, chokidar@npm:^4.0.1":
-  version: 4.0.2
-  resolution: "chokidar@npm:4.0.2"
+  version: 4.0.3
+  resolution: "chokidar@npm:4.0.3"
   dependencies:
     readdirp: "npm:^4.0.1"
-  checksum: 10/fc25d20d72ee0e74b5be1fd9df366dc8aa17709a59c364c321b6f35b6d2fd8c65d01bda74eb42ffd61ad7807e5de5e673c6bd503c2ed0ab2a79be5cb51d4c259
+  checksum: 10/bf2a575ea5596000e88f5db95461a9d59ad2047e939d5a4aac59dd472d126be8f1c1ff3c7654b477cf532d18f42a97279ef80ee847972fd2a25410bf00b80b59
   languageName: node
   linkType: hard
 
