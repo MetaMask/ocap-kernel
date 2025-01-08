@@ -143,7 +143,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
-      - run: yarn workspace @ocap/nodejs build:sqlite3
       - run: yarn run test
       - name: Require clean working directory
         shell: bash
