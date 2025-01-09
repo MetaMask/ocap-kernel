@@ -28,6 +28,8 @@ export default defineConfig({
     poolOptions: {
       maxThreads: 1,
       minThreads: 1,
+      maxWorkers: 1,
+      minWorkers: 1,
       logHeapUsage: true,
       fileParallelism: false,
     },
