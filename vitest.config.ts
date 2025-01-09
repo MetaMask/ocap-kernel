@@ -25,10 +25,6 @@ export default defineConfig({
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
-    poolOptions: {
-      minWorkers: 1,
-      maxWorkers: 1,
-    },
     coverage: {
       enabled: true,
       provider: 'istanbul',
