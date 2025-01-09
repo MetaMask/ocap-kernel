@@ -14,7 +14,7 @@ const config = mergeConfig(
       alias: [
         {
           find: '@ocap/shims/endoify',
-          replacement: path.resolve('../shims/src/endoify.js'),
+          replacement: path.resolve(__dirname, '../shims/src/endoify.js'),
           customResolver: (id) => ({ external: true, id }),
         },
       ],
