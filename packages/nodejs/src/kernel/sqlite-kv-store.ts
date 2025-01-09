@@ -131,7 +131,7 @@ export async function makeSQLKVStore(
    * @param sql - The query to execute.
    * @returns The results
    */
-  function kvExecQuery(sql: string): Record<string, string>[] {
+  function kvExecuteQuery(sql: string): Record<string, string>[] {
     const query = db.prepare(sql);
     return query.all() as Record<string, string>[];
   }
@@ -141,7 +141,7 @@ export async function makeSQLKVStore(
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
-    executeQuery: kvExecQuery,
+    executeQuery: kvExecuteQuery,
     truncate: db.transaction(kvTruncate),
   };
 }

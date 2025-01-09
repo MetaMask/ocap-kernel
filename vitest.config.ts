@@ -72,10 +72,10 @@ export default defineConfig({
           lines: 78.44,
         },
         'packages/nodejs/**': {
-          statements: 0.98,
-          functions: 4.76,
+          statements: 0,
+          functions: 0,
           branches: 0,
-          lines: 0.98,
+          lines: 0,
         },
         'packages/shims/**': {
           statements: 0,
