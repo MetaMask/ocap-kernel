@@ -17,7 +17,7 @@ export default defineConfig({
 
   test: {
     environment: 'node',
-    pool: 'forks',
+    pool: 'threads',
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
@@ -25,6 +25,12 @@ export default defineConfig({
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
+    poolOptions: {
+      vmThreads: {
+        maxThreads: 2,
+        minThreads: 1,
+      },
+    },
     coverage: {
       enabled: true,
       provider: 'istanbul',
