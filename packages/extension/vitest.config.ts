@@ -11,7 +11,7 @@ const config = mergeConfig(
     test: {
       name: 'extension',
       environment: 'jsdom',
-      pool: 'vmThreads',
+      pool: 'vmForks',
       exclude: ['**/test/e2e/**'],
       setupFiles: path.resolve(__dirname, './test/setup.ts'),
       alias: [
