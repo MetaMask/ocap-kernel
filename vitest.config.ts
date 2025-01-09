@@ -17,7 +17,7 @@ export default defineConfig({
 
   test: {
     environment: 'node',
-    pool: 'threads',
+    pool: 'forks',
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
