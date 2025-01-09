@@ -8,7 +8,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'utils',
-      setupFiles: path.resolve('../shims/src/endoify.js'),
+      setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
     },
   }),
 );

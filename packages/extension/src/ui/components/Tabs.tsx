@@ -13,6 +13,7 @@ export const Tabs: React.FC<{
             activeTab === tab.value ? styles.activeTab : ''
           }`}
           onClick={() => onTabChange(tab.value)}
+          key={tab.value}
         >
           {tab.label}
         </button>
