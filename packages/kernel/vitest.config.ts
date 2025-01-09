@@ -1,3 +1,4 @@
+import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
@@ -7,11 +8,11 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'kernel',
-      setupFiles: '../shims/src/endoify.js',
+      setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
       alias: [
         {
           find: '@ocap/shims/endoify',
-          replacement: '../shims/src/endoify.js',
+          replacement: path.resolve(__dirname, '../shims/src/endoify.js'),
           customResolver: (id) => ({ external: true, id }),
         },
       ],

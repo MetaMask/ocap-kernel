@@ -17,7 +17,7 @@ vi.mock('../utils.js', () => ({
   isErrorResponse: vi.fn(),
 }));
 
-describe.todo('useStatusPolling', () => {
+describe('useStatusPolling', () => {
   const mockSetStatus = vi.fn();
   const mockSendMessage = vi.fn();
   const mockInterval = 100;

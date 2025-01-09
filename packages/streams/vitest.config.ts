@@ -1,3 +1,4 @@
+import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
@@ -9,7 +10,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'streams',
-      setupFiles: '../shims/src/endoify.js',
+      setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
       browser: {
         provider: 'playwright',
         name: 'chromium',
