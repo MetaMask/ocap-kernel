@@ -26,7 +26,8 @@ export default defineConfig({
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
     poolOptions: {
-      logHeapUsage: true,
+      minWorkers: 1,
+      maxWorkers: 1,
     },
     coverage: {
       enabled: true,
