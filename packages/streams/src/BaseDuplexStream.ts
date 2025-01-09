@@ -99,12 +99,12 @@ export abstract class BaseDuplexStream<
    * The promise for the synchronization of the stream with its remote
    * counterpart.
    */
-  readonly #syncKit: PromiseKit<void>;
+  #syncKit: PromiseKit<void> = makePromiseKit<void>();
 
   /**
    * Whether the stream is synchronized with its remote counterpart.
    */
-  #synchronizationStatus: SynchronizationStatus;
+  #synchronizationStatus: SynchronizationStatus = SynchronizationStatus.Idle;
 
   /**
    * Reads the next value from the stream.
@@ -122,17 +122,28 @@ export abstract class BaseDuplexStream<
   write: (value: Write) => Promise<IteratorResult<undefined, undefined>>;
 
   constructor(reader: ReadStream, writer: WriteStream) {
-    this.#synchronizationStatus = SynchronizationStatus.Idle;
-    this.#syncKit = makePromiseKit<void>();
     // Set a catch handler to avoid unhandled rejection errors. The promise may
     // reject before reads or writes occur, in which case there are no handlers.
     this.#syncKit.promise.catch(() => undefined);
 
     // Next and write only work if synchronization completes.
-    this.next = async () =>
-      this.#synchronizationStatus === SynchronizationStatus.Complete
-        ? reader.next()
-        : this.#syncKit.promise.then(async () => reader.next());
+    this.next = async () => {
+      if (this.#synchronizationStatus !== SynchronizationStatus.Complete) {
+        return this.#syncKit.promise.then(async () => reader.next());
+      }
+
+      const result = await reader.next();
+
+      // If we receive a SYN message, we re-synchronize.
+      if (isSyn(result.value)) {
+        this.#resetSynchronizationStatus();
+        this.#performSynchronization(result).catch((error) => {
+          this.#failSynchronization(error);
+        });
+        return this.#syncKit.promise.then(async () => reader.next());
+      }
+      return result;
+    };
 
     this.write = async (value: Write) =>
       this.#synchronizationStatus === SynchronizationStatus.Complete
@@ -143,6 +154,12 @@ export abstract class BaseDuplexStream<
     this.#writer = writer;
 
     harden(this);
+  }
+
+  #resetSynchronizationStatus(): void {
+    this.#synchronizationStatus = SynchronizationStatus.Idle;
+    this.#syncKit = makePromiseKit<void>();
+    this.#syncKit.promise.catch(() => undefined);
   }
 
   /**
@@ -159,7 +176,7 @@ export abstract class BaseDuplexStream<
     try {
       await this.#performSynchronization();
     } catch (error) {
-      this.#syncKit.reject(error);
+      this.#failSynchronization(error as Error);
     }
 
     return this.#syncKit.promise;
@@ -171,20 +188,25 @@ export abstract class BaseDuplexStream<
    * **ATTN:** The synchronization protocol requires sending values that do not
    * conform to the read and write types of the stream. We do not currently have
    * the type system to express this, so we just override TypeScript and do it
-   * anyway. This is far from ideal, but it works because (1) the streams do not
-   * check the values they receive at runtime, and (2) the special values cannot
-   * be observed by users of the stream. We will improve this situation in the
-   * near future.
+   * anyway. This is far from ideal, but it works because (1) the streams always
+   * allow stream signal values at runtime, and (2) the special values cannot
+   * be observed by users of the stream.
+   *
+   * @param previousResult - The result of the previous `next()` call.
+   * This method will call `next()` on the reader if not provided. Used
+   * when the other side reinitializes synchronization.
    */
-  async #performSynchronization(): Promise<void> {
+  async #performSynchronization(
+    previousResult?: IteratorResult<Read, undefined>,
+  ): Promise<void> {
     this.#synchronizationStatus = SynchronizationStatus.Pending;
     let receivedSyn = false;
 
     // @ts-expect-error See docstring.
     await this.#writer.next(makeSyn());
 
+    let result = previousResult ?? (await this.#reader.next());
     while (this.#synchronizationStatus === SynchronizationStatus.Pending) {
-      const result = await this.#reader.next();
       if (isAck(result.value)) {
         this.#completeSynchronization();
       } else if (isSyn(result.value)) {
@@ -196,6 +218,7 @@ export abstract class BaseDuplexStream<
           receivedSyn = true;
           // @ts-expect-error See docstring.
           await this.#writer.next(makeAck());
+          result = await this.#reader.next();
         }
       } else {
         this.#failSynchronization(
@@ -203,7 +226,6 @@ export abstract class BaseDuplexStream<
             `Received unexpected message during synchronization: ${stringify(result)}`,
           ),
         );
-        break;
       }
     }
   }
