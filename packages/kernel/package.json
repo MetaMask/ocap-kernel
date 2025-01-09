@@ -62,10 +62,10 @@
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/cli": "workspace:^",
     "@ocap/test-utils": "workspace:^",
-    "@ts-bridge/cli": "^0.5.1",
+    "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/utils": "^8.8.1",
-    "@vitest/eslint-plugin": "^1.1.7",
+    "@vitest/eslint-plugin": "^1.1.24",
     "depcheck": "^1.4.7",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
@@ -80,7 +80,7 @@
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
     "vite": "^5.3.5",
-    "vitest": "2.1.4"
+    "vitest": "2.1.8"
   },
   "engines": {
     "node": "^20 || >=22"
