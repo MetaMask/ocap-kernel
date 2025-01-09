@@ -1,5 +1,13 @@
 import { delay } from '@ocap/utils';
-import { vi, describe, it, beforeEach, afterEach, beforeAll } from 'vitest';
+import {
+  vi,
+  describe,
+  it,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  expect,
+} from 'vitest';
 
 import {
   initializeMessageChannel,
@@ -21,7 +29,7 @@ const createWindow = (): {
 });
 
 describe('initializeMessageChannel', () => {
-  it('calls postMessage parameter', async ({ expect }) => {
+  it('calls postMessage parameter', async () => {
     const targetWindow = createWindow();
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
 
@@ -41,9 +49,7 @@ describe('initializeMessageChannel', () => {
     );
   });
 
-  it('resolves a port and removes event listeneronce sent acknowledgment via message channel', async ({
-    expect,
-  }) => {
+  it('resolves a port and removes event listeneronce sent acknowledgment via message channel', async () => {
     const { port1, port2 } = new MessageChannel();
     const removeEventListenerSpy = vi.spyOn(port1, 'removeEventListener');
 
@@ -60,9 +66,7 @@ describe('initializeMessageChannel', () => {
     expect(removeEventListenerSpy).toHaveBeenCalledOnce();
   });
 
-  it('has called portHandler with the local port by the time the promise resolves', async ({
-    expect,
-  }) => {
+  it('has called portHandler with the local port by the time the promise resolves', async () => {
     const targetWindow = createWindow();
     const portHandler = vi.fn();
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
@@ -82,7 +86,7 @@ describe('initializeMessageChannel', () => {
     expect(portHandler.mock.lastCall?.[0] === remotePort).toBe(false);
   });
 
-  it('resolves with the value returned by portHandler', async ({ expect }) => {
+  it('resolves with the value returned by portHandler', async () => {
     const targetWindow = createWindow();
     const portHandler = vi.fn(() => 'foo');
     const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
@@ -98,7 +102,7 @@ describe('initializeMessageChannel', () => {
     expect(await messageChannelP).toBe('foo');
   });
 
-  it.for([
+  it.each([
     { type: MessageType.Initialize },
     { type: 'foo' },
     { foo: 'bar' },
@@ -109,8 +113,8 @@ describe('initializeMessageChannel', () => {
     null,
     undefined,
   ])(
-    'rejects if sent unexpected message via message channel: %#',
-    async (unexpectedMessage, { expect }) => {
+    'rejects if sent unexpected message via message channel: %j',
+    async (unexpectedMessage) => {
       const targetWindow = createWindow();
       const postMessageSpy = vi.spyOn(targetWindow, 'postMessage');
       const messageChannelP = initializeMessageChannel((message, transfer) =>
@@ -155,7 +159,7 @@ describe('receiveMessagePort', () => {
     window.addEventListener = originalAddEventListener;
   });
 
-  it('receives and acknowledges a message port', async ({ expect }) => {
+  it('receives and acknowledges a message port', async () => {
     const messagePortP = receiveMessagePort(
       (listener) => addEventListener('message', listener),
       (listener) => removeEventListener('message', listener),
@@ -178,7 +182,7 @@ describe('receiveMessagePort', () => {
     });
   });
 
-  it('calls portHandler with the received port', async ({ expect }) => {
+  it('calls portHandler with the received port', async () => {
     const portHandler = vi.fn();
     const messagePortP = receiveMessagePort(
       (listener) => addEventListener('message', listener),
@@ -201,7 +205,7 @@ describe('receiveMessagePort', () => {
     expect(portHandler).toHaveBeenCalledWith(port2);
   });
 
-  it('resolves with the value returned by portHandler', async ({ expect }) => {
+  it('resolves with the value returned by portHandler', async () => {
     const portHandler = vi.fn(() => 'foo');
     const messagePortP = receiveMessagePort(
       (listener) => addEventListener('message', listener),
@@ -219,7 +223,7 @@ describe('receiveMessagePort', () => {
     expect(await messagePortP).toBe('foo');
   });
 
-  it('cleans up event listeners', async ({ expect }) => {
+  it('cleans up event listeners', async () => {
     const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
     const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
 
@@ -250,7 +254,7 @@ describe('receiveMessagePort', () => {
     );
   });
 
-  it.for([
+  it.each([
     { type: MessageType.Acknowledge },
     { type: 'foo' },
     { foo: 'bar' },
@@ -261,8 +265,8 @@ describe('receiveMessagePort', () => {
     null,
     undefined,
   ])(
-    'ignores message events with unexpected data: %#',
-    async (unexpectedMessage, { expect }) => {
+    'ignores message events with unexpected data: %j',
+    async (unexpectedMessage) => {
       const messagePortP = receiveMessagePort(
         (listener) => addEventListener('message', listener),
         (listener) => removeEventListener('message', listener),
@@ -290,9 +294,9 @@ describe('receiveMessagePort', () => {
   const mockMessageChannel = new MessageChannel();
   const mockPorts = [mockMessageChannel.port1, mockMessageChannel.port2];
 
-  it.for([{}, { ports: [] }, { ports: mockPorts }])(
+  it.each([{}, { ports: [] }, { ports: mockPorts }])(
     'ignores message events with unexpected ports: %#',
-    async (unexpectedPorts, { expect }) => {
+    async (unexpectedPorts) => {
       const messagePortP = receiveMessagePort(
         (listener) => addEventListener('message', listener),
         (listener) => removeEventListener('message', listener),
