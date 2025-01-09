@@ -23,7 +23,9 @@ async function main(): Promise<void> {
     throw new Error(errMsg);
   }
   const multiplexer = new NodeWorkerMultiplexer(parentPort, 'vat');
+  console.debug('premulti');
   multiplexer.start().catch(logger.error);
+  console.debug('postmulti');
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
   );
