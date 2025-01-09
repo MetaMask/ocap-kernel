@@ -26,12 +26,7 @@ export default defineConfig({
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
     poolOptions: {
-      maxThreads: 1,
-      minThreads: 1,
-      maxWorkers: 1,
-      minWorkers: 1,
       logHeapUsage: true,
-      fileParallelism: false,
     },
     coverage: {
       enabled: true,
