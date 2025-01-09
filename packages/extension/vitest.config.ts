@@ -1,4 +1,3 @@
-import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
@@ -11,11 +10,11 @@ const config = mergeConfig(
       environment: 'jsdom',
       pool: 'vmThreads',
       exclude: ['**/test/e2e/**'],
-      setupFiles: path.resolve('./test/setup.ts'),
+      setupFiles: './test/setup.ts',
       alias: [
         {
           find: '@ocap/shims/endoify',
-          replacement: path.resolve('../shims/src/endoify.js'),
+          replacement: '../shims/src/endoify.js',
           customResolver: (id) => ({ external: true, id }),
         },
       ],

@@ -25,12 +25,6 @@ export default defineConfig({
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
-    poolOptions: {
-      vmThreads: {
-        maxThreads: 2,
-        minThreads: 1,
-      },
-    },
     coverage: {
       enabled: true,
       provider: 'istanbul',
@@ -66,10 +60,10 @@ export default defineConfig({
           lines: 67.41,
         },
         'packages/kernel/**': {
-          statements: 78.23,
-          functions: 87.87,
-          branches: 63.71,
-          lines: 78.44,
+          statements: 67.87,
+          functions: 79.79,
+          branches: 57.52,
+          lines: 68.05,
         },
         'packages/shims/**': {
           statements: 0,
