@@ -15,7 +15,7 @@
     "./streams": "./src/streams.ts"
   },
   "scripts": {
-    "clean": "rimraf --glob ./dist './*.tsbuildinfo'",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
