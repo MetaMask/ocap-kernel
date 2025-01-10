@@ -13,7 +13,11 @@ import type {
   VatWorkerServiceReply,
 } from '@ocap/kernel';
 import { MessagePortMultiplexer, PostMessageDuplexStream } from '@ocap/streams';
-import type { PostMessageTarget, StreamMultiplexer } from '@ocap/streams';
+import type {
+  PostMessageEnvelope,
+  PostMessageTarget,
+  StreamMultiplexer,
+} from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 
@@ -25,7 +29,7 @@ type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<VatWorkerServiceReply>,
-  VatWorkerServiceCommand
+  PostMessageEnvelope<VatWorkerServiceCommand>
 >;
 
 export class ExtensionVatWorkerClient implements VatWorkerService {

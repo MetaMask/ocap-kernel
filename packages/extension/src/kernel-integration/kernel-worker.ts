@@ -4,12 +4,13 @@ import type {
   ClusterConfig,
 } from '@ocap/kernel';
 import { isKernelCommand, Kernel } from '@ocap/kernel';
+import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
   StreamMultiplexer,
+  PostMessageDuplexStream,
 } from '@ocap/streams';
-import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
@@ -59,13 +60,13 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  const baseStream = await MessagePortDuplexStream.make<
+  const offscreenStream = await MessagePortDuplexStream.make<
     MultiplexEnvelope,
     MultiplexEnvelope
   >(port);
 
   const multiplexer = new StreamMultiplexer(
-    baseStream,
+    offscreenStream,
     'KernelWorkerMultiplexer',
   );
 
@@ -84,19 +85,23 @@ async function main(): Promise<void> {
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init();
 
-  // We have to drain this stream here.
-  const panelStream = multiplexer.createChannel<
+  const panelStreamP = PostMessageDuplexStream.make<
     KernelControlCommand,
     KernelControlReply
-  >('panel', isKernelControlCommand);
+  >({
+    validateInput: isKernelControlCommand,
+    messageTarget: new BroadcastChannel('panel'),
+  });
 
   await Promise.all([
     vatWorkerClient.start(),
     multiplexer.start(),
-    panelStream.drain(async (message) => {
-      const reply = await handlePanelMessage(kernel, kvStore, message);
-      await panelStream.write(reply);
-    }),
+    panelStreamP.then(async (panelStream) =>
+      panelStream.drain(async (message) => {
+        const reply = await handlePanelMessage(kernel, kvStore, message);
+        await panelStream.write(reply);
+      }),
+    ),
     // XXX We are mildly concerned that there's a small chance that a race here
     // could cause startup to flake non-deterministically. If the invocation
     // here of `launchSubcluster` turns out to depend on aspects of the IPC

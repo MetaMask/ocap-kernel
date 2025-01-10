@@ -10,7 +10,7 @@ import type {
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
 import { PostMessageDuplexStream } from '@ocap/streams';
-import type { PostMessageTarget } from '@ocap/streams';
+import type { PostMessageEnvelope, PostMessageTarget } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
@@ -25,7 +25,7 @@ export type VatWorker = {
 
 export type VatWorkerServerStream = PostMessageDuplexStream<
   MessageEvent<VatWorkerServiceCommand>,
-  VatWorkerServiceReply
+  PostMessageEnvelope<VatWorkerServiceReply>
 >;
 
 export class ExtensionVatWorkerServer {

@@ -1,5 +1,5 @@
 import { MessageResolver } from '@ocap/kernel';
-import { ChromeRuntimeDuplexStream, ChromeRuntimeTarget } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams';
 
 import { logger } from './logger.js';
 import { isKernelControlReply } from '../../kernel-integration/messages.js';
@@ -24,42 +24,39 @@ export type SendMessageFunction = <
 export async function setupStream(): Promise<{
   sendMessage: SendMessageFunction;
 }> {
-  const port = chrome.runtime.connect({ name: 'popup' });
-
-  const offscreenStream = await ChromeRuntimeDuplexStream.make<
+  const broadcastChannel = new BroadcastChannel('panel');
+  const kernelStream = await PostMessageDuplexStream.make<
     KernelControlReply,
     KernelControlCommand
-  >(
-    chrome.runtime,
-    ChromeRuntimeTarget.Popup,
-    ChromeRuntimeTarget.Offscreen,
-    isKernelControlReply,
-  );
+  >({
+    messageTarget: broadcastChannel,
+    validateInput: isKernelControlReply,
+  });
 
   const resolver = new MessageResolver('kernel');
 
   const cleanup = (): void => {
     resolver.terminateAll(new Error('Stream disconnected'));
-    offscreenStream.return().catch((error) => {
-      logger.error('error returning offscreen stream', error);
+    kernelStream.return().catch((error) => {
+      logger.error('error returning kernel stream', error);
     });
   };
 
-  port.onDisconnect.addListener(cleanup);
+  broadcastChannel.onmessageerror = cleanup;
   window.addEventListener('unload', cleanup);
 
-  offscreenStream
+  kernelStream
     .drain(async ({ id, payload }) => {
       resolver.handleResponse(id, payload.params);
     })
     .catch((error) => {
-      logger.error('error draining offscreen stream', error);
+      logger.error('error draining kernel stream', error);
     });
 
   const sendMessage: SendMessageFunction = async (payload) => {
     logger.log('sending message', payload);
     return resolver.createMessage(async (messageId) => {
-      await offscreenStream.write({
+      await kernelStream.write({
         id: messageId,
         payload,
       } as KernelControlCommand);
