@@ -2144,13 +2144,13 @@ __metadata:
     "@ocap/shims": "workspace:^"
     "@ocap/streams": "workspace:^"
     "@ocap/utils": "workspace:^"
-    "@ts-bridge/cli": "npm:^0.5.1"
+    "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/better-sqlite3": "npm:^7.6.12"
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
     "@typescript-eslint/parser": "npm:^8.8.1"
     "@typescript-eslint/utils": "npm:^8.8.1"
-    "@vitest/eslint-plugin": "npm:^1.1.7"
+    "@vitest/eslint-plugin": "npm:^1.1.24"
     better-sqlite3: "npm:^11.7.2"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.12.0"
@@ -2172,7 +2172,7 @@ __metadata:
     vite: "npm:^5.3.5"
     vite-plugin-checker: "npm:^0.8.0"
     vite-plugin-static-copy: "npm:^1.0.6"
-    vitest: "npm:2.1.4"
+    vitest: "npm:2.1.8"
   languageName: unknown
   linkType: soft
 
