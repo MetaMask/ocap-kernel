@@ -6,7 +6,7 @@ import type { PostMessageTarget } from '@ocap/streams';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
@@ -60,6 +60,23 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
   });
 
 describe('ExtensionVatWorkerServer', () => {
+  let cleanup: (() => Promise<void>)[] = [];
+
+  beforeEach(() => {
+    cleanup = [];
+  });
+
+  afterEach(async () => {
+    for (const cleanupFn of cleanup) {
+      await cleanupFn();
+    }
+  });
+
+  // Add cleanup function for each worker/stream created
+  const addCleanup = (fn: () => Promise<void>): void => {
+    cleanup.push(fn);
+  };
+
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     expect(
@@ -118,6 +135,11 @@ describe('ExtensionVatWorkerServer', () => {
       );
       server.start().catch((error) => {
         throw error;
+      });
+
+      // Add cleanup
+      addCleanup(async () => {
+        await stream.return?.();
       });
     });
 
