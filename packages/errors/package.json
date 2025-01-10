@@ -27,7 +27,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh utils",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/errors",
     "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
