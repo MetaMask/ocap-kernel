@@ -14,13 +14,6 @@ const config = mergeConfig(
       pool: 'vmForks',
       exclude: ['**/test/e2e/**'],
       setupFiles: path.resolve(__dirname, './test/setup.ts'),
-      alias: [
-        {
-          find: '@ocap/shims/endoify',
-          replacement: path.resolve(__dirname, '../shims/src/endoify.js'),
-          customResolver: (id) => ({ external: true, id }),
-        },
-      ],
     },
   }),
 );
