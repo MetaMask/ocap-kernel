@@ -55,7 +55,7 @@
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
     "@sqlite.org/sqlite-wasm": "3.46.1-build3",
-    "react": "^18.3.1",
+    "react": "^19.0.0",
     "react-dom": "^18.3.1",
     "ses": "^1.9.0"
   },
@@ -72,7 +72,7 @@
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
     "@types/chrome": "^0.0.268",
-    "@types/react": "^18.3.1",
+    "@types/react": "^19.0.6",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
