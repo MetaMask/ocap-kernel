@@ -4,7 +4,7 @@
 import 'ses';
 import '@endo/eventual-send/shim.js';
 
-const isTest = import.meta.env.MODE === 'test';
+const isTest = import.meta?.env?.MODE === 'test';
 
 lockdown({
   consoleTaming: 'unsafe',
