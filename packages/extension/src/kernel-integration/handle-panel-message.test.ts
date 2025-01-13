@@ -7,7 +7,7 @@ import type {
   VatConfig,
   KVStore,
 } from '@ocap/kernel';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
 
@@ -92,7 +92,15 @@ describe('handlePanelMessage', () => {
   });
 
   describe('vat management commands', () => {
-    it('should handle launchVat command', async () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should handle launchVat command', { timeout: 5000 }, async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
         id: 'test-1',
