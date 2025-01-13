@@ -4,14 +4,14 @@
 import 'ses';
 import '@endo/eventual-send/shim.js';
 
-const isDev = import.meta.env.MODE === 'test';
+const isTest = import.meta.env.MODE === 'test';
 
 lockdown({
   consoleTaming: 'unsafe',
-  errorTaming: isDev ? 'unsafe-debug' : 'unsafe',
+  errorTaming: isTest ? 'unsafe-debug' : 'unsafe',
   mathTaming: 'unsafe',
   dateTaming: 'unsafe',
   overrideTaming: 'severe',
   domainTaming: 'unsafe',
-  stackFiltering: isDev ? 'verbose' : 'concise',
+  stackFiltering: isTest ? 'verbose' : 'concise',
 });
