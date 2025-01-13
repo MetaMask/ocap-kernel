@@ -1879,7 +1879,7 @@ __metadata:
     serve-handler: "npm:^6.1.6"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -1922,7 +1922,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -1983,7 +1983,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     typescript-plugin-css-modules: "npm:^5.1.0"
     vite: "npm:^5.3.5"
@@ -2029,7 +2029,7 @@ __metadata:
     prettier: "npm:^3.3.3"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -2085,7 +2085,7 @@ __metadata:
     simple-git-hooks: "npm:^2.11.1"
     tsx: "npm:^4.19.2"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vite-tsconfig-paths: "npm:^5.1.4"
@@ -2124,7 +2124,7 @@ __metadata:
     prettier: "npm:^3.3.3"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -2171,7 +2171,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -2201,7 +2201,7 @@ __metadata:
     eslint-plugin-promise: "npm:^7.1.0"
     prettier: "npm:^3.3.3"
     rimraf: "npm:^6.0.1"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vitest: "npm:2.1.8"
     vitest-fetch-mock: "npm:^0.4.3"
@@ -2241,7 +2241,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.26.8"
-    typescript: "npm:~5.5.4"
+    typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^5.3.5"
     vitest: "npm:2.1.8"
@@ -11188,13 +11188,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:~5.5.4":
-  version: 5.5.4
-  resolution: "typescript@npm:5.5.4"
+"typescript@npm:~5.7.3":
+  version: 5.7.3
+  resolution: "typescript@npm:5.7.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/1689ccafef894825481fc3d856b4834ba3cc185a9c2878f3c76a9a1ef81af04194849840f3c69e7961e2312771471bb3b460ca92561e1d87599b26c37d0ffb6f
+  checksum: 10/6a7e556de91db3d34dc51cd2600e8e91f4c312acd8e52792f243c7818dfadb27bae677175fad6947f9c81efb6c57eb6b2d0c736f196a6ee2f1f7d57b74fc92fa
   languageName: node
   linkType: hard
 
@@ -11218,13 +11218,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A~5.5.4#optional!builtin<compat/typescript>":
-  version: 5.5.4
-  resolution: "typescript@patch:typescript@npm%3A5.5.4#optional!builtin<compat/typescript>::version=5.5.4&hash=b45daf"
+"typescript@patch:typescript@npm%3A~5.7.3#optional!builtin<compat/typescript>":
+  version: 5.7.3
+  resolution: "typescript@patch:typescript@npm%3A5.7.3#optional!builtin<compat/typescript>::version=5.7.3&hash=b45daf"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/2c065f0ef81855eac25c9b658a3c9da65ffc005260c12854c2286f40f3667e1b1ecf8bdbdd37b59aa0397920378ce7900bff8cb32e0f1c7af6fd86efc676718c
+  checksum: 10/3ac7b7e3e899273d2fbdce6e24b93d4d53a705ad7a7e4cc83b4c57bcb6d25948abcd2a21994f6b9c73ab03960f395aae95f0458de292a66ce0134233261714c3
   languageName: node
   linkType: hard
 
