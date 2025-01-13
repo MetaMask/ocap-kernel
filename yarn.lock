@@ -1957,7 +1957,7 @@ __metadata:
     "@testing-library/jest-dom": "npm:^6.6.3"
     "@testing-library/react": "npm:^16.1.0"
     "@testing-library/user-event": "npm:^14.5.2"
-    "@types/chrome": "npm:^0.0.268"
+    "@types/chrome": "npm:^0.0.293"
     "@types/react": "npm:^18.3.1"
     "@types/react-dom": "npm:^18.3.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
@@ -2150,7 +2150,7 @@ __metadata:
     "@ocap/utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
-    "@types/chrome": "npm:^0.0.268"
+    "@types/chrome": "npm:^0.0.293"
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
     "@typescript-eslint/parser": "npm:^8.8.1"
     "@typescript-eslint/utils": "npm:^8.8.1"
@@ -2923,13 +2923,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chrome@npm:^0.0.268":
-  version: 0.0.268
-  resolution: "@types/chrome@npm:0.0.268"
+"@types/chrome@npm:^0.0.293":
+  version: 0.0.293
+  resolution: "@types/chrome@npm:0.0.293"
   dependencies:
     "@types/filesystem": "npm:*"
     "@types/har-format": "npm:*"
-  checksum: 10/f03cf2f816f7c8f19319299af9399dd3eed8b46b3e4791bd7c1c70d982ae63634580a4c03509841cd65b91e99e6bc47f05358811d2c8b707968746d3d482b983
+  checksum: 10/bba3e8b917009aa6816135c489f0959c3ba86ed406fa4b180b964123f4b5ab15ae512c456183edd485b7f20263e71941bbfb2f4a2f89a4adbd87fa080505b7d8
   languageName: node
   linkType: hard
 
