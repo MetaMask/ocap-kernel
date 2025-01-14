@@ -13,7 +13,7 @@ vi.mock('node:process', () => ({
 
 describe('Kernel Worker', () => {
   it('should handle the lifecycle of multiple vats', async () => {
-    console.log('started test');
+    console.log('Started test.');
     const kernelChannel = new NodeMessageChannel();
     const { port1: kernelPort } = kernelChannel;
     console.log('Creating kernel...');
@@ -23,14 +23,6 @@ describe('Kernel Worker', () => {
     console.log('Handling the lifecycle of multiple vats...');
     await runVatLifecycle(kernel, ['v1', 'v2', 'v3']);
     console.log('Lifecycle of multiple vats handled.');
-
-    // console.log('Adding default vat...');
-    // await kernel.launchVat({ id: 'v0' });
-    // console.log('Default vat added.');
-
-    // console.log('Shutting down the default vat...');
-    // await kernel.terminateVat('v0');
-    // console.log('Default vat shut down.');
 
     console.log('Test passed.');
     expect(true).toBe(true);

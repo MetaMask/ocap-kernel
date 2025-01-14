@@ -5,14 +5,9 @@ import { makeLogger } from '@ocap/utils';
 import Sqlite from 'better-sqlite3';
 import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join, resolve } from 'path';
+import { join } from 'path';
 
-const USE_TMPDIR = true;
-
-const dbRoot = join(
-  USE_TMPDIR ? tmpdir() : resolve(new URL('..', import.meta.url).pathname),
-  './db',
-);
+const dbRoot = join(tmpdir(), './db');
 
 /**
  * Ensure that SQLite is initialized.
