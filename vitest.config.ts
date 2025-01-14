@@ -25,6 +25,13 @@ export default defineConfig({
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
+    alias: [
+      {
+        find: '@ocap/shims/endoify',
+        replacement: path.join(__dirname, './packages/shims/src/endoify.js'),
+        customResolver: (id) => ({ external: true, id }),
+      },
+    ],
     coverage: {
       enabled: true,
       provider: 'istanbul',
