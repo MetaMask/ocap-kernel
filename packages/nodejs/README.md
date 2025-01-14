@@ -1,6 +1,6 @@
 # `@ocap/nodejs`
 
-For running Ocap Kernel experiments in a nodejs environment
+For running Ocap Kernel experiments in a Node.js environment
 
 ## Installation
 

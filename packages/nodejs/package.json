@@ -2,7 +2,7 @@
   "name": "@ocap/nodejs",
   "version": "0.0.0",
   "private": true,
-  "description": "For running Ocap Kernel experiments in a nodejs environment",
+  "description": "For running Ocap Kernel experiments in a Node.js environment",
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/nodejs#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
@@ -23,7 +23,7 @@
     "build:e2e": "ts-bridge --project tsconfig.build.json --clean && yarn build:sqlite3 -f",
     "build:sqlite3": "scripts/build-sqlite3.sh",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh nodejs",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs",
     "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
