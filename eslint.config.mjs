@@ -179,6 +179,14 @@ const config = createConfig([
       globals: { lockdown: 'readonly' },
     },
   },
+
+  {
+    files: ['packages/nodejs/**/*-worker.ts'],
+    rules: {
+      // Node workers have reasonable cause to read from process.env
+      'n/no-process-env': 'off',
+    },
+  },
 ]);
 
 export default config;
