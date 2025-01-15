@@ -10,7 +10,7 @@ import { makeLogger } from '@ocap/utils';
 import { parentPort } from 'node:worker_threads';
 
 // eslint-disable-next-line n/no-process-env
-const logger = makeLogger(`[${process.env.NODE_VAT_ID} (inside)]`);
+const logger = makeLogger(`[vat-worker (${process.env.NODE_VAT_ID})]`);
 
 main().catch(logger.error);
 

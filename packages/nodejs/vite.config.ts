@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         'kernel-worker': path.resolve(sourceDir, 'kernel/kernel-worker.ts'),
-        'node-worker': path.resolve(sourceDir, 'node/node-worker.ts'),
+        'vat-worker': path.resolve(sourceDir, 'vat/vat-worker.ts'),
       },
       output: {
         entryFileNames: '[name].js',

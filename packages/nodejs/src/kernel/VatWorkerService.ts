@@ -7,7 +7,7 @@ import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
 // Note: Worker runs in same process and may be subject to spectre-style attacks
-const workerFileURL = new URL('../../dist/vat/inside.mjs', import.meta.url)
+const workerFileURL = new URL('../../dist/vat/vat-worker.mjs', import.meta.url)
   .pathname;
 
 export class NodejsVatWorkerService implements VatWorkerService {
