@@ -11,7 +11,7 @@ cd "$package_root"
 package_root=$(pwd)
 monorepo_root="$package_root/../.."
 
-while getopts ":ab:" opt; do
+while getopts ":ab:" _; do
   case $OPTARG in
     f) force=1 ;;
     \?) echo "Invalid option: -$OPTARG"; exit 1 ;;

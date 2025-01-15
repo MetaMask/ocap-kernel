@@ -10,7 +10,7 @@ import {
   sourceDir,
   buildDir,
   trustedPreludes,
-} from './scripts/build-constants.js/index.js';
+} from './scripts/build-constants.js';
 
 /**
  * Files that need to be statically copied to the destination directory.
