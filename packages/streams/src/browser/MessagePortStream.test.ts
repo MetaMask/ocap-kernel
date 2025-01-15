@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { delay } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +16,11 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from '../utils.js';
+
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
 
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {
@@ -192,6 +198,7 @@ describe('MessagePortDuplexStream', () => {
   it('ends the reader when the writer ends', async () => {
     const { port1, port2 } = new MessageChannel();
     vi.spyOn(port1, 'postMessage')
+      .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => {
         throw new Error('foo');

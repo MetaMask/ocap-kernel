@@ -11,10 +11,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorkerClientStream } from './VatWorkerClient.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 vi.mock('@ocap/kernel', () => ({
   VatWorkerServiceCommandMethod: {
     launch: 'launch',

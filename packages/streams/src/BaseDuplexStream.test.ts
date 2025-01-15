@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -126,7 +127,10 @@ describe('BaseDuplexStream', () => {
         // Complete the synchronization, again repeating the call
         await stream.completeSynchronization();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
+        // In response to completing the synchronization, the stream
+        // sends a single ACK message.
+        expect(onDispatch).toHaveBeenCalledTimes(2);
+        expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
       });
 
       it('repeated calls after successful synchronization do nothing', async () => {
@@ -136,13 +140,14 @@ describe('BaseDuplexStream', () => {
         // Begin and complete synchronization
         await stream.completeSynchronization();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
-        expect(onDispatch).toHaveBeenCalledWith(makeSyn());
+        expect(onDispatch).toHaveBeenCalledTimes(2);
+        expect(onDispatch).toHaveBeenNthCalledWith(1, makeSyn());
+        expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
 
         // Repeat the call
         await stream.synchronize();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
+        expect(onDispatch).toHaveBeenCalledTimes(2);
       });
 
       it('repeated calls after failed synchronization re-throw the error', async () => {
@@ -194,10 +199,7 @@ describe('BaseDuplexStream', () => {
 
         const syncP = stream.synchronize();
         await stream.receiveInput(makeAck());
-        await syncP;
-
-        await stream.receiveInput(makeSyn());
-        await expect(stream.next()).rejects.toThrow(
+        await expect(syncP).rejects.toThrow(
           makeErrorMatcher(
             new Error('TestDuplexStream experienced a dispatch failure', {
               cause: new Error('foo'),

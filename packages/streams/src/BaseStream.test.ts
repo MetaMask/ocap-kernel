@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +14,11 @@ import {
 import { TestReader, TestWriter } from '../test/stream-mocks.js';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
+
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
 
 describe('BaseReader', () => {
   describe('initialization', () => {

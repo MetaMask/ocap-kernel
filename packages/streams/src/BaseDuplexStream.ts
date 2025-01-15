@@ -201,6 +201,13 @@ export abstract class BaseDuplexStream<
   ): Promise<void> {
     this.#synchronizationStatus = SynchronizationStatus.Pending;
     let receivedSyn = false;
+    let sentAck = false;
+
+    const sendAck = async (): Promise<void> => {
+      sentAck = true;
+      // @ts-expect-error See docstring.
+      await this.#writer.next(makeAck());
+    };
 
     // @ts-expect-error See docstring.
     await this.#writer.next(makeSyn());
@@ -208,6 +215,9 @@ export abstract class BaseDuplexStream<
     let result = previousResult ?? (await this.#reader.next());
     while (this.#synchronizationStatus === SynchronizationStatus.Pending) {
       if (isAck(result.value)) {
+        if (!sentAck) {
+          await sendAck();
+        }
         this.#completeSynchronization();
       } else if (isSyn(result.value)) {
         if (receivedSyn) {
@@ -216,8 +226,7 @@ export abstract class BaseDuplexStream<
           );
         } else {
           receivedSyn = true;
-          // @ts-expect-error See docstring.
-          await this.#writer.next(makeAck());
+          await sendAck();
           result = await this.#reader.next();
         }
       } else {

@@ -105,10 +105,11 @@ export class PostMessageWriter<Write> extends BaseWriter<Write> {
   ) {
     super({
       name,
-      onDispatch: (value: Dispatchable<Write>) =>
-        isPostMessageEnvelope(value)
+      onDispatch: (value: Dispatchable<Write>) => {
+        return isPostMessageEnvelope(value)
           ? messageTarget.postMessage(value.payload, value.transfer)
-          : messageTarget.postMessage(value),
+          : messageTarget.postMessage(value);
+      },
       onEnd: async (error) => {
         await onEnd?.(error);
       },

@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 import type { Mocked } from 'vitest';
@@ -17,6 +18,11 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from '../utils.js';
+
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
 
 const makeMockNodePort = (): Mocked<NodePort> & {
   messageHandler?: OnMessage | undefined;
@@ -159,6 +165,7 @@ describe('NodeWorkerDuplexStream', () => {
   it('ends the reader when the writer ends', async () => {
     const port = makeMockNodePort();
     port.postMessage
+      .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => {
         throw new Error('foo');

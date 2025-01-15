@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { describe, it, expect } from 'vitest';
 
 import * as indexModule from './index.js';

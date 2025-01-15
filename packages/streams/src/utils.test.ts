@@ -1,6 +1,7 @@
+import '@ocap/test-utils/mock-endoify';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { Dispatchable, Writable } from './utils.js';
 import {
@@ -13,6 +14,11 @@ import {
   StreamSentinel,
   unmarshal,
 } from './utils.js';
+
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
@@ -72,7 +78,11 @@ describe('makeDoneResult', () => {
   it('should create a frozen done result', () => {
     const result = makeDoneResult();
     expect(result).toStrictEqual({ done: true, value: undefined });
-    expect(Object.isFrozen(result)).toBe(true);
+    expect(globalThis.harden).toHaveBeenCalledOnce();
+    expect(globalThis.harden).toHaveBeenCalledWith({
+      done: true,
+      value: undefined,
+    });
   });
 });
 
@@ -80,6 +90,7 @@ describe('makePendingResult', () => {
   it('should create a frozen pending result', () => {
     const result = makePendingResult(42);
     expect(result).toStrictEqual({ done: false, value: 42 });
-    expect(Object.isFrozen(result)).toBe(true);
+    expect(globalThis.harden).toHaveBeenCalledOnce();
+    expect(globalThis.harden).toHaveBeenCalledWith({ done: false, value: 42 });
   });
 });

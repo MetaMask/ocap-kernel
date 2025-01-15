@@ -1,3 +1,4 @@
+import '@ocap/test-utils/mock-endoify';
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +20,11 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from '../utils.js';
+
+vi.mock('@endo/promise-kit', async () => {
+  const { makePromiseKitMock } = await import('@ocap/test-utils');
+  return makePromiseKitMock();
+});
 
 const makeEnvelope = (
   value: unknown,
