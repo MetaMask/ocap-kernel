@@ -31,9 +31,6 @@ export async function makeKernel(port: NodeMessagePort): Promise<Kernel> {
   return kernel;
 }
 
-const sampleOne = <Ele>(from: NonEmptyArray<Ele>): Ele =>
-  from[Math.floor(Math.random() * from.length)] as Ele;
-
 /**
  * Runs the full lifecycle of an array of vats, including their creation,
  * restart, message passing, and termination.
@@ -58,29 +55,33 @@ export async function runVatLifecycle(
     ),
   );
   console.timeEnd(`Created vats: ${vatLabel}`);
-  console.log('Kernel vats:', kernel.getVatIds().join(', '));
-
   const knownVats = kernel.getVatIds() as NonEmptyArray<VatId>;
+  const knownVatsLabel = knownVats.join(', ');
+  console.log('Kernel vats:', knownVatsLabel);
 
   // Restart a randomly selected vat from the array.
-  const vatToRestart = sampleOne(knownVats);
-  console.time(`Vat "${vatToRestart}" restart`);
-  await kernel.restartVat(vatToRestart);
-  console.timeEnd(`Vat "${vatToRestart}" restart`);
+  console.time(`Restart vats: ${knownVatsLabel}`);
+  await Promise.all(
+    knownVats.map(async (vatId: VatId) => await kernel.restartVat(vatId)),
+  );
+  console.timeEnd(`Restart vats: ${knownVatsLabel}`);
 
   // Send a "Ping" message to a randomly selected vat.
-  const vatToPing = sampleOne(knownVats);
-  console.time(`Ping Vat "${vatToPing}"`);
-  await kernel.sendMessage(vatToPing, {
-    method: VatCommandMethod.ping,
-    params: null,
-  });
-  console.timeEnd(`Ping Vat "${vatToPing}"`);
+  console.time(`Ping vats: ${knownVatsLabel}`);
+  await Promise.all(
+    knownVats.map(
+      async (vatId: VatId) =>
+        await kernel.sendMessage(vatId, {
+          method: VatCommandMethod.ping,
+          params: null,
+        }),
+    ),
+  );
+  console.timeEnd(`Ping vats "${knownVatsLabel}"`);
 
-  const vatIds = kernel.getVatIds().join(', ');
-  console.time(`Terminated vats: ${vatIds}`);
+  console.time(`Terminated vats: ${knownVatsLabel}`);
   await kernel.terminateAllVats();
-  console.timeEnd(`Terminated vats: ${vatIds}`);
+  console.timeEnd(`Terminated vats: ${knownVatsLabel}`);
 
   console.log(`Kernel has ${kernel.getVatIds().length} vats`);
 }
