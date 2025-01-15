@@ -1,4 +1,3 @@
-import path from 'path';
 import { defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
@@ -11,13 +10,6 @@ const config = mergeConfig(
     test: {
       name: 'cli-integration',
       include: ['**/test/integration/**'],
-      alias: [
-        {
-          find: '@ocap/shims/endoify',
-          replacement: path.resolve(__dirname, '../shims/src/endoify.js'),
-          customResolver: (id) => ({ external: true, id }),
-        },
-      ],
     },
   }),
 );

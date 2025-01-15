@@ -1,12 +1,17 @@
+// eslint-disable-next-line spaced-comment
+/// <reference types="vite/client" />
+
 import 'ses';
 import '@endo/eventual-send/shim.js';
 
+const isTest = import.meta?.env?.MODE === 'test';
+
 lockdown({
   consoleTaming: 'unsafe',
-  errorTaming: 'unsafe',
+  errorTaming: isTest ? 'unsafe-debug' : 'unsafe',
   mathTaming: 'unsafe',
   dateTaming: 'unsafe',
-  domainTaming: 'unsafe',
   overrideTaming: 'severe',
-  stackFiltering: 'verbose',
+  domainTaming: 'unsafe',
+  stackFiltering: isTest ? 'verbose' : 'concise',
 });
