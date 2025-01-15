@@ -2162,7 +2162,6 @@ __metadata:
     eslint-plugin-n: "npm:^17.11.1"
     eslint-plugin-prettier: "npm:^5.2.1"
     eslint-plugin-promise: "npm:^7.1.0"
-    jsdom: "npm:^24.1.1"
     node-gyp: "npm:^11.0.0"
     prettier: "npm:^3.3.3"
     rimraf: "npm:^6.0.1"
