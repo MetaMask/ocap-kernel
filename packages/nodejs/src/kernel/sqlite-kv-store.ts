@@ -75,6 +75,29 @@ export async function makeSQLKVStore(
     return undefined as unknown as string;
   }
 
+  const sqlKVGetNextKey = db.prepare(`
+    SELECT key
+    FROM kv
+    WHERE key > ?
+    LIMIT 1
+  `);
+
+  /**
+   * Get the lexicographically next key in the KV store after a given key.
+   *
+   * @param previousKey - The key you want to know the key after.
+   *
+   * @returns The key after `previousKey`, or undefined if `previousKey` is the
+   *   last key in the store.
+   */
+  function kvGetNextKey(previousKey: string): string | undefined {
+    if (typeof previousKey !== 'string') {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`previousKey ${previousKey} must be a string`);
+    }
+    return sqlKVGetNextKey.get(previousKey) as string | undefined;
+  }
+
   const sqlKVSet = db.prepare(`
     INSERT INTO kv (key, value)
     VALUES (?, ?)
@@ -114,8 +137,8 @@ export async function makeSQLKVStore(
   /**
    * Delete all keys and values from the database.
    */
-  function kvTruncate(): void {
-    logger.debug(`kernel truncate`);
+  function kvClear(): void {
+    logger.debug(`kernel clear`);
     sqlKVDrop.run();
     sqlKVInit.run();
   }
@@ -133,10 +156,11 @@ export async function makeSQLKVStore(
 
   return {
     get: (key) => kvGet(key, false),
+    getNextKey: kvGetNextKey,
     getRequired: (key) => kvGet(key, true),
     set: kvSet,
     delete: kvDelete,
     executeQuery: kvExecuteQuery,
-    truncate: db.transaction(kvTruncate),
+    clear: db.transaction(kvClear),
   };
 }

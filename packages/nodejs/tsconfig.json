@@ -22,6 +22,7 @@
     "./src/**/*-trusted-prelude.js",
     "./test/**/*.ts",
     "./vitest.config.ts",
-    "./vitest.config.e2e.ts"
+    "./vitest.config.e2e.ts",
+    "../../types"
   ]
 }
