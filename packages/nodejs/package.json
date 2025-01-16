@@ -76,8 +76,6 @@
     "node": "^20 || >=22"
   },
   "dependencies": {
-    "@endo/exo": "^1.5.4",
-    "@endo/patterns": "^1.4.4",
     "@endo/promise-kit": "^1.1.6",
     "@metamask/utils": "^11.0.1",
     "@ocap/kernel": "workspace:^",
