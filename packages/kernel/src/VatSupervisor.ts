@@ -10,10 +10,11 @@ import type { DuplexStream } from '@ocap/streams';
 import { stringify } from '@ocap/utils';
 
 import type {
-  VatSyscallObject,
-  VatSyscallResult,
-  VatDeliveryObject,
-} from './ag-types-index.js';
+  DispatchFn,
+  MakeLiveSlotsFn,
+  GCTools,
+} from './ag-liveslots-types.js';
+import type { VatSyscallObject, VatSyscallResult } from './ag-types-index.js';
 import { makeDummyMeterControl } from './dummyMeterControl.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
@@ -23,11 +24,7 @@ import type { VatConfig } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
 import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
-type DispatchFn = (vdo: VatDeliveryObject) => Promise<void>;
-type LiveSlots = {
-  dispatch: DispatchFn;
-};
-const makeLiveSlots: (...args: unknown[]) => LiveSlots = localMakeLiveSlots; // XXX make this better
+const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
 type SupervisorConstructorProps = {
   id: string;
@@ -198,11 +195,12 @@ export class VatSupervisor {
     const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
 
-    const gcTools = harden({
+    const gcTools: GCTools = harden({
       WeakRef,
       FinalizationRegistry,
       waitUntilQuiescent,
-      gcAndFinalize: null,
+      // eslint-disable-next-line no-empty-function
+      gcAndFinalize: async () => {},
       meterControl: makeDummyMeterControl(),
     });
 
