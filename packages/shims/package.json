@@ -22,7 +22,7 @@
     "build": "node scripts/bundle.js",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
