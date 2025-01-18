@@ -17,7 +17,7 @@ import type {
 import { makeDummyMeterControl } from './dummyMeterControl.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
-import { makeSQLKVStore } from './store/sqlite-kv-store.js';
+import type { MakeKVStore } from './store/kernel-store.js';
 import { makeSupervisorSyscall } from './syscall.js';
 import type { VatConfig } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
@@ -32,6 +32,7 @@ const makeLiveSlots: (...args: unknown[]) => LiveSlots = localMakeLiveSlots; // 
 type SupervisorConstructorProps = {
   id: string;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
+  makeKVStore: MakeKVStore;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -52,11 +53,14 @@ export class VatSupervisor {
 
   #dispatch: DispatchFn | null;
 
+  readonly #makeKVStore: MakeKVStore;
+
   readonly #syscallsInFlight: Promise<unknown>[] = [];
 
-  constructor({ id, commandStream }: SupervisorConstructorProps) {
+  constructor({ id, commandStream, makeKVStore }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
+    this.#makeKVStore = makeKVStore;
     this.#dispatch = null;
 
     Promise.all([
@@ -189,7 +193,7 @@ export class VatSupervisor {
     }
     this.#loaded = true;
 
-    const kvStore = await makeSQLKVStore(`[vat-${this.id}]`, true);
+    const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, true);
     const syscall = makeSupervisorSyscall(this, kvStore);
     const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real

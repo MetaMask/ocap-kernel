@@ -1,16 +1,7 @@
+import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
-
-export type KVStore = {
-  get(key: string): string | undefined;
-  getRequired(key: string): string;
-  getNextKey(previousKey: string): string | undefined;
-  set(key: string, value: string): void;
-  delete(key: string): void;
-  clear(): void;
-  executeQuery(sql: string): Record<string, string>[];
-};
 
 /**
  * Ensure that SQLite is initialized.

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.js';
-import type { KVStore } from './sqlite-kv-store.js';
+import type { KVStore } from './kernel-store.js';
 import { makeMapKVStore } from '../../test/storage.js';
 // XXX Once the packaging of liveslots is fixed this should be imported from there
 import type { Message } from '../ag-types.js';

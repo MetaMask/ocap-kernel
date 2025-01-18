@@ -6,6 +6,8 @@ import { NodeWorkerMultiplexer } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import { parentPort } from 'node:worker_threads';
 
+import { makeSQLKVStore } from '../kernel/sqlite-kv-store.js';
+
 // eslint-disable-next-line n/no-process-env
 const logger = makeLogger(`[vat-worker (${process.env.NODE_VAT_ID})]`);
 
@@ -29,5 +31,6 @@ async function main(): Promise<void> {
   void new VatSupervisor({
     id: 'iframe',
     commandStream,
+    makeKVStore: makeSQLKVStore,
   });
 }

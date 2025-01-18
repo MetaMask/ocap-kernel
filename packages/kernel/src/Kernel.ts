@@ -29,13 +29,12 @@ import type {
   VatCommandReply,
   VatCommandReturnType,
 } from './messages/index.js';
-import type { KernelStore } from './store/kernel-store.js';
 import {
   parseRef,
   isPromiseRef,
   makeKernelStore,
 } from './store/kernel-store.js';
-import type { KVStore } from './store/sqlite-kv-store.js';
+import type { KernelStore, KVStore } from './store/kernel-store.js';
 import type {
   VatId,
   VRef,

@@ -2108,6 +2108,7 @@ __metadata:
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
     "@playwright/test": "npm:^1.49.1"
+    "@sqlite.org/sqlite-wasm": "npm:^3.48.0-build1"
     "@testing-library/jest-dom": "npm:^6.6.3"
     "@testing-library/react": "npm:^16.1.0"
     "@testing-library/user-event": "npm:^14.5.2"
@@ -2173,7 +2174,6 @@ __metadata:
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
-    "@sqlite.org/sqlite-wasm": "npm:3.46.1-build3"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/setimmediate": "npm:^1.0.4"
@@ -3013,12 +3013,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sqlite.org/sqlite-wasm@npm:3.46.1-build3":
-  version: 3.46.1-build3
-  resolution: "@sqlite.org/sqlite-wasm@npm:3.46.1-build3"
+"@sqlite.org/sqlite-wasm@npm:^3.48.0-build1":
+  version: 3.48.0-build1
+  resolution: "@sqlite.org/sqlite-wasm@npm:3.48.0-build1"
   bin:
     sqlite-wasm: bin/index.js
-  checksum: 10/a64225fd784ed2ee8c8bf82f042d05b567b4707fba22a9508fbe3ac42cf1cf7e722d2ede0e1d91556bfec66b140aeb3cf3967546249693f39cc81475d7be90ff
+  checksum: 10/e163ac23f79176ca777db285dd19384b52feac64725bcfef24ec925a0e6f1f0b80acfbcc238656cd695b096e95cf63f38d4f0c05178367cfa5c6a75bd9aeb35c
   languageName: node
   linkType: hard
 

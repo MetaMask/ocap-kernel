@@ -55,7 +55,6 @@
 
 import type { CapData } from '@endo/marshal';
 
-import type { KVStore } from './sqlite-kv-store.js';
 // XXX Once the packaging of liveslots is fixed this should be imported from there
 import type { Message } from '../ag-types.js';
 import type {
@@ -68,6 +67,21 @@ import type {
   PromiseState,
   KernelPromise,
 } from '../types.js';
+
+export type KVStore = {
+  get(key: string): string | undefined;
+  getRequired(key: string): string;
+  getNextKey(previousKey: string): string | undefined;
+  set(key: string, value: string): void;
+  delete(key: string): void;
+  clear(): void;
+  executeQuery(sql: string): Record<string, string>[];
+};
+
+export type MakeKVStore = (
+  label: string,
+  beEphemeral: boolean,
+) => Promise<KVStore>;
 
 type StoredValue = {
   get(): string | undefined;

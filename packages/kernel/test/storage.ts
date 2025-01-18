@@ -1,4 +1,4 @@
-import type { KVStore } from '../src/store/sqlite-kv-store.js';
+import type { KVStore } from '../src/store/kernel-store.js';
 
 /**
  * A mock key/value store realized as a Map<string, string>.
