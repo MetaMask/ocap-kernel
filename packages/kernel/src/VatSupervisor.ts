@@ -20,7 +20,7 @@ import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
 import type { MakeKVStore } from './store/kernel-store.js';
 import { makeSupervisorSyscall } from './syscall.js';
-import type { VatConfig } from './types.js';
+import type { VatConfig, VRef } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
 import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
@@ -42,18 +42,32 @@ export class VatSupervisor {
   // to be 'iframe'.  This not helpful.
   readonly id: string;
 
+  /** Communications channel between this vat and the kernel */
   readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
 
+  /** Compartment into which the user code will be loaded */
   readonly #defaultCompartment = new Compartment({ URL });
 
+  /** Flag that the user code has been loaded */
   #loaded: boolean = false;
 
+  /** Function to dispatch deliveries into liveslots */
   #dispatch: DispatchFn | null;
 
+  /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
+  /** Result promises from all syscalls sent to the kernel in the current crank */
   readonly #syscallsInFlight: Promise<unknown>[] = [];
 
+  /**
+   * Construct a new VatSupervisor instance.
+   *
+   * @param params - Named constructor parameters.
+   * @param params.id - The id of the vat being supervised.
+   * @param params.commandStream - Communications channel connected to the kernel.
+   * @param params.makeKVStore - Capability to create the store for this vat.
+   */
   constructor({ id, commandStream, makeKVStore }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
@@ -72,7 +86,7 @@ export class VatSupervisor {
   }
 
   /**
-   * Terminates the VatSupervisor.
+   * Terminate the VatSupervisor.
    *
    * @param error - The error to terminate the VatSupervisor with.
    */
@@ -81,11 +95,11 @@ export class VatSupervisor {
   }
 
   /**
-   * Handle a message from the parent window.
+   * Handle a message from the kernel.
    *
-   * @param vatMessage - The vat message to handle.
-   * @param vatMessage.id - The id of the message.
-   * @param vatMessage.payload - The payload to handle.
+   * @param message - The vat message to handle.
+   * @param message.id - The id of the message.
+   * @param message.payload - The payload to handle.
    */
   async handleMessage({ id, payload }: VatCommand): Promise<void> {
     switch (payload.method) {
@@ -159,6 +173,15 @@ export class VatSupervisor {
     }
   }
 
+  /**
+   * Execute a syscall by sending it to the kernel. To support the synchronous
+   * requirements of the liveslots interface, it optimistically assumes success;
+   * errors will be dealt with at the end of the crank.
+   *
+   * @param vso - Descriptor of the syscall to be issued.
+   *
+   * @returns a syscall success result.
+   */
   executeSyscall(vso: VatSyscallObject): VatSyscallResult {
     const payload: VatCommandReply['payload'] = {
       method: VatCommandMethod.syscall,
@@ -173,7 +196,15 @@ export class VatSupervisor {
     return ['ok', null];
   }
 
-  async #initVat(vatConfig: VatConfig): Promise<string> {
+  /**
+   * Initialize the vat by loading its user code bundle and creating a liveslots
+   * instance to manage it.
+   *
+   * @param vatConfig - Configuration object describing the vat to be intialized.
+   *
+   * @returns a promise for the VRef of the new vat's root object.
+   */
+  async #initVat(vatConfig: VatConfig): Promise<VRef> {
     if (this.#loaded) {
       throw Error(
         'VatSupervisor received initVat after user code already loaded',
@@ -248,7 +279,7 @@ export class VatSupervisor {
   }
 
   /**
-   * Reply to a message from the parent window.
+   * Reply to a message from the kernel.
    *
    * @param id - The id of the message to reply to.
    * @param payload - The payload to reply with.
@@ -262,6 +293,9 @@ export class VatSupervisor {
 
   /**
    * Evaluate a string in the default compartment.
+   *
+   * XXX This method is a piece of developmental test scaffolding that really
+   * should not exist.
    *
    * @param source - The source string to evaluate.
    * @returns The result of the evaluation, or an error message.

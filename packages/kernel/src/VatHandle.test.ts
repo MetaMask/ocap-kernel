@@ -2,6 +2,7 @@ import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
+import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { Kernel } from './Kernel.js';
@@ -29,7 +30,7 @@ const makeVat = async (
     MultiplexEnvelope
   >(() => undefined);
   const multiplexer = await TestMultiplexer.make(stream);
-  const commandStream = multiplexer.createChannel<VatCommandReply, VatCommand>(
+  const vatStream = multiplexer.createChannel<VatCommandReply, VatCommand>(
     'command',
     isVatCommandReply,
   );
@@ -43,7 +44,7 @@ const makeVat = async (
       storage: null as unknown as KernelStore,
       vatId: 'v0',
       vatConfig: { sourceSpec: 'not-really-there.js' },
-      commandStream,
+      vatStream,
       logger,
     }),
     stream,
@@ -74,12 +75,13 @@ describe('VatHandle', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const { vat, stream } = await makeVat();
+      const logger = makeLogger(`[vat v0]`);
+      const { vat, stream } = await makeVat(logger);
       vi.spyOn(vat, 'sendMessage')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
       await vat.init();
-      const logErrorSpy = vi.spyOn(vat.logger, 'error');
+      const logErrorSpy = vi.spyOn(logger, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
       expect(logErrorSpy).toHaveBeenCalledWith(
