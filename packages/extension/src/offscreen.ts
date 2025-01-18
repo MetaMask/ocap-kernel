@@ -5,9 +5,8 @@ import {
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
-  StreamMultiplexer,
 } from '@ocap/streams';
-import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
+import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
 import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
@@ -34,19 +33,13 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
-  const { workerMultiplexer, vatWorkerServer } = await makeKernelWorker();
+  const { kernelStream, vatWorkerServer } = await makeKernelWorker();
 
-  const kernelChannel = workerMultiplexer.createChannel<
-    KernelCommandReply,
-    KernelCommand
-  >('kernel', isKernelCommandReply);
-
-  // Handle messages from the background script and the multiplexer
+  // Handle messages from the background script / kernel
   await Promise.all([
-    workerMultiplexer.start(),
     vatWorkerServer.start(),
-    kernelChannel.pipe(backgroundStream),
-    backgroundStream.pipe(kernelChannel),
+    kernelStream.pipe(backgroundStream),
+    backgroundStream.pipe(kernelStream),
   ]);
 }
 
@@ -56,7 +49,7 @@ async function main(): Promise<void> {
  * @returns The message port stream for worker communication
  */
 async function makeKernelWorker(): Promise<{
-  workerMultiplexer: StreamMultiplexer;
+  kernelStream: DuplexStream<KernelCommandReply, KernelCommand>;
   vatWorkerServer: ExtensionVatWorkerServer;
 }> {
   const worker = new Worker('kernel-worker.js', { type: 'module' });
@@ -65,10 +58,10 @@ async function makeKernelWorker(): Promise<{
     worker.postMessage(message, transfer),
   );
 
-  const workerStream = await MessagePortDuplexStream.make<
-    MultiplexEnvelope,
-    MultiplexEnvelope
-  >(port);
+  const kernelStream = await MessagePortDuplexStream.make<
+    KernelCommandReply,
+    KernelCommand
+  >(port, isKernelCommandReply);
 
   const vatWorkerServer = ExtensionVatWorkerServer.make(
     worker as PostMessageTarget,
@@ -76,10 +69,7 @@ async function makeKernelWorker(): Promise<{
   );
 
   return {
-    workerMultiplexer: new StreamMultiplexer(
-      workerStream,
-      'OffscreenMultiplexer',
-    ),
+    kernelStream,
     vatWorkerServer,
   };
 }

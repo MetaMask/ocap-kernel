@@ -1,10 +1,9 @@
-import type { MultiplexEnvelope } from '@ocap/streams';
 import '@ocap/test-utils';
-import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
-import { delay, stringify } from '@ocap/utils';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { isVatCommand, VatCommandMethod } from './messages/index.js';
+import { VatCommandMethod } from './messages/index.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatSupervisor } from './VatSupervisor.js';
 
@@ -12,21 +11,12 @@ const makeVatSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
 ): Promise<{
   supervisor: VatSupervisor;
-  stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
+  stream: TestDuplexStream<VatCommand, VatCommandReply>;
 }> => {
-  const stream = await TestDuplexStream.make<
-    MultiplexEnvelope,
-    MultiplexEnvelope
+  const commandStream = await TestDuplexStream.make<
+    VatCommand,
+    VatCommandReply
   >(handleWrite);
-  const multiplexer = await TestMultiplexer.make(stream);
-  const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
-    'command',
-    isVatCommand,
-  );
-  multiplexer.start().catch((error) => {
-    throw error;
-  });
-  await multiplexer.synchronizeChannels('command');
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
@@ -34,7 +24,7 @@ const makeVatSupervisor = async (
       // @ts-expect-error Mock
       makeKVStore: async () => ({}),
     }),
-    stream,
+    stream: commandStream,
   };
 };
 
@@ -71,13 +61,7 @@ describe('VatSupervisor', () => {
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         `Unexpected read error from VatSupervisor "${supervisor.id}"`,
-        new Error(
-          `TestMultiplexer#command: Message failed type validation:\n${stringify(
-            {
-              method: 'test',
-            },
-          )}`,
-        ),
+        new Error(`VatSupervisor received unexpected command method: "test"`),
       );
     });
 

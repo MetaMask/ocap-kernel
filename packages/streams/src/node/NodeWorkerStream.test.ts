@@ -1,16 +1,13 @@
-import '@ocap/test-utils/mock-endoify';
 import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 import type { Mocked } from 'vitest';
 
 import {
   NodeWorkerDuplexStream,
-  NodeWorkerMultiplexer,
   NodeWorkerReader,
   NodeWorkerWriter,
 } from './NodeWorkerStream.js';
 import type { NodePort, OnMessage } from './NodeWorkerStream.js';
-import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
 import {
@@ -18,11 +15,6 @@ import {
   makePendingResult,
   makeStreamDoneSignal,
 } from '../utils.js';
-
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 
 const makeMockNodePort = (): Mocked<NodePort> & {
   messageHandler?: OnMessage | undefined;
@@ -187,33 +179,5 @@ describe('NodeWorkerDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
-  });
-});
-
-describe('NodeWorkerMultiplexer', () => {
-  it('constructs a NodeWorkerMultiplexer', () => {
-    const port = makeMockNodePort();
-    const multiplexer = new NodeWorkerMultiplexer(port);
-
-    expect(multiplexer).toBeInstanceOf(NodeWorkerMultiplexer);
-  });
-
-  it('can create and drain channels', async () => {
-    const port = makeMockNodePort();
-    const multiplexer = new NodeWorkerMultiplexer(port);
-    const ch1Handler = vi.fn();
-    const ch1 = multiplexer.createChannel<number, number>(
-      '1',
-      (value: unknown): value is number => typeof value === 'number',
-    );
-
-    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
-    port.messageHandler?.(makeAck());
-    port.messageHandler?.(makeMultiplexEnvelope('1', makeAck()));
-    port.messageHandler?.(makeMultiplexEnvelope('1', 42));
-    port.messageHandler?.(makeStreamDoneSignal());
-
-    await drainP;
-    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

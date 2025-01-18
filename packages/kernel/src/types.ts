@@ -13,10 +13,11 @@ import {
 } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { StreamMultiplexer } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 
 // XXX Once the packaging of liveslots is fixed, this should be imported from there
 import type { Message } from './ag-types.js';
+import type { VatCommandReply, VatCommand } from './messages/vat.js';
 
 export type VatId = `v${string}`;
 export type RemoteId = `r${string}`;
@@ -175,7 +176,10 @@ export type VatWorkerService = {
    * @returns A promise for a duplex stream connected to the worker
    * which rejects if a worker with the given vat id already exists.
    */
-  launch: (vatId: VatId, vatConfig: VatConfig) => Promise<StreamMultiplexer>;
+  launch: (
+    vatId: VatId,
+    vatConfig: VatConfig,
+  ) => Promise<DuplexStream<VatCommandReply, VatCommand>>;
   /**
    * Terminate a worker identified by its vat id.
    *

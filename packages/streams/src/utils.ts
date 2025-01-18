@@ -1,7 +1,6 @@
 import type { Reader, Writer } from '@endo/stream';
 import type { Infer } from '@metamask/superstruct';
 import { is, literal } from '@metamask/superstruct';
-import type { Json } from '@metamask/utils';
 import {
   hasProperty,
   isObject,
@@ -17,19 +16,6 @@ export type PromiseCallbacks = {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
 };
-
-/**
- * Check if the given value is a valid {@link Json} value, i.e., a value that is
- * serializable to JSON.
- *
- * **Note:** This function is unsafe, and should only be used when the input is
- * trusted.
- *
- * @param value - The value to check.
- * @returns Whether the value is a valid {@link Json} value.
- */
-export const isJsonUnsafe = (value: unknown): value is Json =>
-  is(value, UnsafeJsonStruct);
 
 export enum StreamSentinel {
   // Not a problem if we don't use the word "Error" in this scope, which we won't.

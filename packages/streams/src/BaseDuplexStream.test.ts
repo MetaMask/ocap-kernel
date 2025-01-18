@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,11 +11,6 @@ import {
 import { TestDuplexStream } from '../test/stream-mocks.js';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
-
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 
 describe('BaseDuplexStream', () => {
   it('constructs a BaseDuplexStream', () => {
@@ -194,12 +188,16 @@ describe('BaseDuplexStream', () => {
         const onDispatch = vi
           .fn()
           .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce(undefined)
           .mockRejectedValueOnce(new Error('foo'));
-        const stream = new TestDuplexStream(onDispatch);
+        // Create synchronized duplex stream
+        const stream = await TestDuplexStream.make(onDispatch);
 
-        const syncP = stream.synchronize();
+        // Re-synchronize
+        await stream.receiveInput(makeSyn());
+        const nextP = stream.next();
         await stream.receiveInput(makeAck());
-        await expect(syncP).rejects.toThrow(
+        await expect(nextP).rejects.toThrow(
           makeErrorMatcher(
             new Error('TestDuplexStream experienced a dispatch failure', {
               cause: new Error('foo'),

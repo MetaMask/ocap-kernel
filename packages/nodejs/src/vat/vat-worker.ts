@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
 
-import { VatSupervisor } from '@ocap/kernel';
+import { isVatCommand, VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
-import { NodeWorkerMultiplexer } from '@ocap/streams';
+import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import { parentPort } from 'node:worker_threads';
 
@@ -22,10 +22,9 @@ async function main(): Promise<void> {
     logger.error(errMsg);
     throw new Error(errMsg);
   }
-  const multiplexer = new NodeWorkerMultiplexer(parentPort, 'vat');
-  multiplexer.start().catch(logger.error);
-  const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
-    'command',
+  const commandStream = new NodeWorkerDuplexStream<VatCommand, VatCommandReply>(
+    parentPort,
+    isVatCommand,
   );
   // eslint-disable-next-line no-void
   void new VatSupervisor({

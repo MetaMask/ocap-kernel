@@ -29,12 +29,6 @@ import type {
 } from '../BaseStream.js';
 import { BaseReader, BaseWriter } from '../BaseStream.js';
 import type { ChromeRuntime, ChromeMessageSender } from '../chrome.js';
-import {
-  isMultiplexEnvelope,
-  StreamMultiplexer,
-} from '../StreamMultiplexer.js';
-import type { MultiplexEnvelope } from '../StreamMultiplexer.js';
-import { isJsonUnsafe } from '../utils.js';
 import type { Dispatchable } from '../utils.js';
 
 export enum ChromeRuntimeStreamTarget {
@@ -244,27 +238,3 @@ export class ChromeRuntimeDuplexStream<
   }
 }
 harden(ChromeRuntimeDuplexStream);
-
-const isJsonMultiplexEnvelope = (
-  value: unknown,
-): value is MultiplexEnvelope<Json> =>
-  isMultiplexEnvelope(value) && isJsonUnsafe(value.payload);
-
-export class ChromeRuntimeMultiplexer extends StreamMultiplexer<Json> {
-  constructor(
-    runtime: ChromeRuntime,
-    localTarget: ChromeRuntimeStreamTarget,
-    remoteTarget: ChromeRuntimeStreamTarget,
-    name?: string,
-  ) {
-    super(
-      new ChromeRuntimeDuplexStream<
-        MultiplexEnvelope<Json>,
-        MultiplexEnvelope<Json>
-      >(runtime, localTarget, remoteTarget, isJsonMultiplexEnvelope),
-      name,
-    );
-    harden(this);
-  }
-}
-harden(ChromeRuntimeMultiplexer);

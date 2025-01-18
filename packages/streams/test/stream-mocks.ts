@@ -11,10 +11,6 @@ import type {
   BaseWriterArgs,
 } from '../src/BaseStream.js';
 import { BaseReader, BaseWriter } from '../src/BaseStream.js';
-import type { MultiplexEnvelope } from '../src/StreamMultiplexer.js';
-import { StreamMultiplexer } from '../src/StreamMultiplexer.js';
-
-export type { MultiplexEnvelope } from '../src/StreamMultiplexer.js';
 
 export class TestReader<Read = number> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
@@ -130,55 +126,5 @@ export class TestDuplexStream<
     const stream = new TestDuplexStream<Read, Write>(onDispatch, opts);
     await stream.completeSynchronization();
     return stream;
-  }
-}
-
-export const makeMultiplexEnvelope = (
-  channel: string,
-  payload: unknown,
-): MultiplexEnvelope => ({
-  channel,
-  payload,
-});
-
-export class TestMultiplexer extends StreamMultiplexer {
-  readonly #duplex: TestDuplexStream<MultiplexEnvelope>;
-
-  get duplex(): TestDuplexStream<MultiplexEnvelope> {
-    return this.#duplex;
-  }
-
-  constructor(
-    duplex: TestDuplexStream<MultiplexEnvelope> = new TestDuplexStream(
-      () => undefined,
-    ),
-  ) {
-    super(duplex);
-    this.#duplex = duplex;
-  }
-
-  /**
-   * TestMultiplexer utility for synchronizing the specified channels by receiving acks.
-   *
-   * @param channelNames - The channel names.
-   */
-  async synchronizeChannels(...channelNames: string[]): Promise<void> {
-    await Promise.all(
-      channelNames.map(async (name) =>
-        this.duplex.receiveInput(makeMultiplexEnvelope(name, makeAck())),
-      ),
-    );
-  }
-
-  static async make(
-    duplex?: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>,
-  ): Promise<TestMultiplexer> {
-    // We can't use the async factory for a parameter default
-    // eslint-disable-next-line no-param-reassign
-    duplex ??= await TestDuplexStream.make<
-      MultiplexEnvelope,
-      MultiplexEnvelope
-    >(() => undefined);
-    return new TestMultiplexer(duplex);
   }
 }

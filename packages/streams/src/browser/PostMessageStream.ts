@@ -3,9 +3,6 @@
  * over a [postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
  * function.
  *
- * Due to its close coupling with the browser PostMessage API, this stream does not
- * support multiplexing.
- *
  * @module PostMessage streams
  */
 

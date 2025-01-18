@@ -145,7 +145,7 @@ export class ExtensionVatWorkerServer {
       default:
         this.#logger.error(
           'Received message with unexpected method',
-          // @ts-expect-error Runtime does not respect "never".
+          // @ts-expect-error Compile-time exhaustiveness check
           method.valueOf(),
         );
     }

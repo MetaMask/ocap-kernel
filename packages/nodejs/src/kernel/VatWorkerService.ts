@@ -1,6 +1,13 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { VatWorkerService, VatId } from '@ocap/kernel';
-import { NodeWorkerMultiplexer, StreamMultiplexer } from '@ocap/streams';
+import { isVatCommandReply } from '@ocap/kernel';
+import type {
+  VatWorkerService,
+  VatId,
+  VatCommand,
+  VatCommandReply,
+} from '@ocap/kernel';
+import { NodeWorkerDuplexStream } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -15,7 +22,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
 
   workers = new Map<
     VatId,
-    { worker: NodeWorker; multiplexer: StreamMultiplexer }
+    { worker: NodeWorker; stream: DuplexStream<VatCommandReply, VatCommand> }
   >();
 
   /**
@@ -28,8 +35,11 @@ export class NodejsVatWorkerService implements VatWorkerService {
     this.#logger = logger ?? makeLogger('[vat worker service]');
   }
 
-  async launch(vatId: VatId): Promise<StreamMultiplexer> {
-    const { promise, resolve } = makePromiseKit<StreamMultiplexer>();
+  async launch(
+    vatId: VatId,
+  ): Promise<DuplexStream<VatCommandReply, VatCommand>> {
+    const { promise, resolve, reject } =
+      makePromiseKit<DuplexStream<VatCommandReply, VatCommand>>();
     this.#logger.debug('launching', vatId);
     const worker = new NodeWorker(workerFileURL, {
       env: {
@@ -38,10 +48,21 @@ export class NodejsVatWorkerService implements VatWorkerService {
     });
     this.#logger.debug('launched', vatId);
     worker.once('online', () => {
-      const multiplexer = new NodeWorkerMultiplexer(worker, 'vat');
-      this.workers.set(vatId, { worker, multiplexer });
-      resolve(multiplexer);
-      this.#logger.debug('connected', vatId);
+      const stream = new NodeWorkerDuplexStream<VatCommandReply, VatCommand>(
+        worker,
+        isVatCommandReply,
+      );
+      this.workers.set(vatId, { worker, stream });
+      stream
+        .synchronize()
+        .then(() => {
+          resolve(stream);
+          this.#logger.debug('connected', vatId);
+          return undefined;
+        })
+        .catch((error) => {
+          reject(error);
+        });
     });
     return promise;
   }
@@ -49,8 +70,8 @@ export class NodejsVatWorkerService implements VatWorkerService {
   async terminate(vatId: VatId): Promise<undefined> {
     const workerEntry = this.workers.get(vatId);
     assert(workerEntry, `No worker found for vatId ${vatId}`);
-    const { worker, multiplexer } = workerEntry;
-    await multiplexer.return();
+    const { worker, stream } = workerEntry;
+    await stream.return();
     await worker.terminate();
     this.workers.delete(vatId);
     return undefined;

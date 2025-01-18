@@ -1,7 +1,6 @@
-import '@ocap/test-utils/mock-endoify';
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { Dispatchable, Writable } from './utils.js';
 import {
@@ -14,11 +13,6 @@ import {
   StreamSentinel,
   unmarshal,
 } from './utils.js';
-
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 

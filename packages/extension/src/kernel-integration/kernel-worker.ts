@@ -4,11 +4,10 @@ import type {
   ClusterConfig,
 } from '@ocap/kernel';
 import { isKernelCommand, Kernel } from '@ocap/kernel';
-import type { MultiplexEnvelope, PostMessageTarget } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
-  StreamMultiplexer,
   PostMessageDuplexStream,
 } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
@@ -60,27 +59,16 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  const offscreenStream = await MessagePortDuplexStream.make<
-    MultiplexEnvelope,
-    MultiplexEnvelope
-  >(port);
-
-  const multiplexer = new StreamMultiplexer(
-    offscreenStream,
-    'KernelWorkerMultiplexer',
-  );
+  const kernelStream = await MessagePortDuplexStream.make<
+    KernelCommand,
+    KernelCommandReply
+  >(port, isKernelCommand);
 
   // Initialize kernel dependencies
   const vatWorkerClient = ExtensionVatWorkerClient.make(
     globalThis as PostMessageTarget,
   );
   const kvStore = await makeSQLKVStore();
-
-  // This stream is drained by the kernel.
-  const kernelStream = multiplexer.createChannel<
-    KernelCommand,
-    KernelCommandReply
-  >('kernel', isKernelCommand);
 
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
   await kernel.init();
@@ -95,7 +83,6 @@ async function main(): Promise<void> {
 
   await Promise.all([
     vatWorkerClient.start(),
-    multiplexer.start(),
     panelStreamP.then(async (panelStream) =>
       panelStream.drain(async (message) => {
         const reply = await handlePanelMessage(kernel, kvStore, message);

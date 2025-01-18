@@ -10,6 +10,7 @@ const config = mergeConfig(
     test: {
       name: 'streams',
       environment: 'jsdom',
+      setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
     },
   }),
 );

@@ -96,7 +96,7 @@ async function main(): Promise<void> {
         break;
       default:
         console.error(
-          // @ts-expect-error Runtime does not respect "never".
+          // @ts-expect-error Compile-time exhaustiveness check
           `Background received unexpected command method: "${message.method}"`,
         );
     }

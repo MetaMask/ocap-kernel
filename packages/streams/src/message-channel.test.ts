@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import { delay } from '@ocap/utils';
 import {
   vi,
@@ -15,11 +14,6 @@ import {
   MessageType,
   receiveMessagePort,
 } from './message-channel.js';
-
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 
 /**
  * Construct a mock Window with mock message post and listen capabilities.

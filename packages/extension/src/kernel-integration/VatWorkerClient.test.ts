@@ -1,7 +1,7 @@
 import '@ocap/test-utils/mock-endoify';
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
-import { MessagePortMultiplexer } from '@ocap/streams';
+import { MessagePortDuplexStream } from '@ocap/streams';
 import type { PostMessageTarget } from '@ocap/streams';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
@@ -11,7 +11,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorkerClientStream } from './VatWorkerClient.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-vi.mock('@ocap/kernel', () => ({
+vi.mock('@ocap/kernel', async () => ({
+  isVatCommandReply: vi.fn(() => true),
   VatWorkerServiceCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',
@@ -146,7 +147,7 @@ describe('ExtensionVatWorkerClient', () => {
     );
 
     describe('launch', () => {
-      it('resolves with a MessagePortMultiplexer when receiving a launch reply', async () => {
+      it('resolves with a MessagePortDuplexStream when receiving a launch reply', async () => {
         const vatId: VatId = 'v0';
         const vatConfig = makeVatConfig();
         const result = client.launch(vatId, vatConfig);
@@ -154,7 +155,7 @@ describe('ExtensionVatWorkerClient', () => {
         await delay(10);
         await stream.receiveInput(makeLaunchReply('m1', vatId));
 
-        expect(await result).toBeInstanceOf(MessagePortMultiplexer);
+        expect(await result).toBeInstanceOf(MessagePortDuplexStream);
       });
 
       it('logs error when receiving reply without a port', async () => {

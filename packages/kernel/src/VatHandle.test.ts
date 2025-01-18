@@ -1,6 +1,5 @@
-import type { MultiplexEnvelope } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
-import { TestDuplexStream, TestMultiplexer } from '@ocap/test-utils/streams';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
@@ -23,31 +22,24 @@ const makeVat = async (
   logger?: Logger,
 ): Promise<{
   vat: VatHandle;
-  stream: TestDuplexStream<MultiplexEnvelope, MultiplexEnvelope>;
+  stream: TestDuplexStream<VatCommandReply, VatCommand>;
 }> => {
-  const stream = await TestDuplexStream.make<
-    MultiplexEnvelope,
-    MultiplexEnvelope
-  >(() => undefined);
-  const multiplexer = await TestMultiplexer.make(stream);
-  const vatStream = multiplexer.createChannel<VatCommandReply, VatCommand>(
-    'command',
-    isVatCommandReply,
-  );
-  multiplexer.start().catch((error) => {
-    throw error;
+  const commandStream = await TestDuplexStream.make<
+    VatCommandReply,
+    VatCommand
+  >(() => undefined, {
+    validateInput: isVatCommandReply,
   });
-  await multiplexer.synchronizeChannels('command');
   return {
     vat: new VatHandle({
       kernel: null as unknown as Kernel,
       storage: null as unknown as KernelStore,
       vatId: 'v0',
       vatConfig: { sourceSpec: 'not-really-there.js' },
-      vatStream,
+      vatStream: commandStream,
       logger,
     }),
-    stream,
+    stream: commandStream,
   };
 };
 

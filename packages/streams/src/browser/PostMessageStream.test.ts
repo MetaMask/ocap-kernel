@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -17,11 +16,6 @@ import {
   makeStreamDoneSignal,
   makeStreamErrorSignal,
 } from '../utils.js';
-
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeMockMessageTarget = () => {
