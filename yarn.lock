@@ -45,7 +45,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/base-zone@npm:^0.1.1-u18.0":
+"@agoric/base-zone@npm:^0.1.1-u18.1":
   version: 0.1.1-upgrade-18-dev-ef001c0.0
   resolution: "@agoric/base-zone@npm:0.1.1-upgrade-18-dev-ef001c0.0"
   dependencies:
@@ -60,23 +60,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/internal@npm:0.4.0-u18.0":
-  version: 0.4.0-u18.0
-  resolution: "@agoric/internal@npm:0.4.0-u18.0"
+"@agoric/internal@npm:0.4.0-u18.1":
+  version: 0.4.0-u18.1
+  resolution: "@agoric/internal@npm:0.4.0-u18.1"
   dependencies:
-    "@agoric/base-zone": "npm:^0.1.1-u18.0"
-    "@endo/common": "npm:^1.2.7"
-    "@endo/errors": "npm:^1.2.7"
-    "@endo/far": "npm:^1.1.8"
-    "@endo/init": "npm:^1.1.6"
-    "@endo/marshal": "npm:^1.6.1"
-    "@endo/pass-style": "npm:^1.4.6"
-    "@endo/patterns": "npm:^1.4.6"
-    "@endo/promise-kit": "npm:^1.1.7"
-    "@endo/stream": "npm:^1.2.7"
+    "@agoric/base-zone": "npm:^0.1.1-u18.1"
+    "@endo/common": "npm:^1.2.8"
+    "@endo/errors": "npm:^1.2.8"
+    "@endo/far": "npm:^1.1.9"
+    "@endo/init": "npm:^1.1.7"
+    "@endo/marshal": "npm:^1.6.2"
+    "@endo/pass-style": "npm:^1.4.7"
+    "@endo/patterns": "npm:^1.4.7"
+    "@endo/promise-kit": "npm:^1.1.8"
+    "@endo/stream": "npm:^1.2.8"
     anylogger: "npm:^0.21.0"
     jessie.js: "npm:^0.3.4"
-  checksum: 10/5c321dba66395f4b1289379d4a4169191246600f9abf0d02ed7a693a9196e8bfd29237984d77185b76225c6f4a0864e7483f90663dee8c93dd55bd218dc2a9db
+  checksum: 10/a36208d546dcdbedd29f1081fa3864d69afca3aa8ea1d44f08d6c86387d34e2daf2294ff2107606cd1fecfd64a849a7fec0cfa1f1657b2909ca5dc059c792837
   languageName: node
   linkType: hard
 
@@ -735,7 +735,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/stream@npm:^1.2.6, @endo/stream@npm:^1.2.7, @endo/stream@npm:^1.2.8":
+"@endo/stream@npm:^1.2.6, @endo/stream@npm:^1.2.8":
   version: 1.2.8
   resolution: "@endo/stream@npm:1.2.8"
   dependencies:
@@ -2203,7 +2203,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/monorepo@workspace:."
   dependencies:
-    "@agoric/internal": "npm:0.4.0-u18.0"
+    "@agoric/internal": "npm:0.4.0-u18.1"
     "@arethetypeswrong/cli": "npm:^0.16.4"
     "@lavamoat/allow-scripts": "npm:^3.0.4"
     "@lavamoat/preinstall-always-fail": "npm:^2.0.0"

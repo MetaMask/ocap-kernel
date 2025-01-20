@@ -124,7 +124,7 @@
     "cookie": "^0.7.0"
   },
   "dependencies": {
-    "@agoric/internal": "0.4.0-u18.0",
+    "@agoric/internal": "0.4.0-u18.1",
     "@metamask/approval-controller": "^7.1.1",
     "ava": "^6.2.0",
     "setimmediate": "^1.0.5",
