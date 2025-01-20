@@ -69,7 +69,7 @@
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
     "@typescript-eslint/utils": "^8.8.1",
-    "@vitest/browser": "2.1.8",
+    "@vitest/browser": "3.0.2",
     "@vitest/eslint-plugin": "^1.1.24",
     "cookie": "^1.0.2",
     "depcheck": "^1.4.7",
