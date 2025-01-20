@@ -164,11 +164,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@arethetypeswrong/cli@npm:^0.16.4":
-  version: 0.16.4
-  resolution: "@arethetypeswrong/cli@npm:0.16.4"
+"@arethetypeswrong/cli@npm:^0.17.3":
+  version: 0.17.3
+  resolution: "@arethetypeswrong/cli@npm:0.17.3"
   dependencies:
-    "@arethetypeswrong/core": "npm:0.16.4"
+    "@arethetypeswrong/core": "npm:0.17.3"
     chalk: "npm:^4.1.2"
     cli-table3: "npm:^0.6.3"
     commander: "npm:^10.0.1"
@@ -177,13 +177,13 @@ __metadata:
     semver: "npm:^7.5.4"
   bin:
     attw: dist/index.js
-  checksum: 10/ec6c285e37f2c681e158d16dc77e56fd4422fdcc41fc55d018f0f0e3795c32128084d7fa436cb15a5d07f77ca1a1e0b59cc2d7e641d75c9316c93dc90c0a249a
+  checksum: 10/c569c86c19d2427b73cd91d100b46e97e222c4c1684b1f946cfb18fa0caa91085ec864c9c966f9ad2fc5e0267d4d11327631f4039accee46a183456eb3c02fec
   languageName: node
   linkType: hard
 
-"@arethetypeswrong/core@npm:0.16.4":
-  version: 0.16.4
-  resolution: "@arethetypeswrong/core@npm:0.16.4"
+"@arethetypeswrong/core@npm:0.17.3":
+  version: 0.17.3
+  resolution: "@arethetypeswrong/core@npm:0.17.3"
   dependencies:
     "@andrewbranch/untar.js": "npm:^1.0.3"
     cjs-module-lexer: "npm:^1.2.3"
@@ -192,7 +192,7 @@ __metadata:
     semver: "npm:^7.5.4"
     typescript: "npm:5.6.1-rc"
     validate-npm-package-name: "npm:^5.0.0"
-  checksum: 10/cb392d5b69cc0c4326d8227d783e1abb1830986c4312a5f1897b827b8947060ec7dce3b607f4a91b699bb810919d02f68f523aac93d51bdecd1eb303f49c86aa
+  checksum: 10/88dd840629356f555f00210c2df57f35701f46bc3d814cf7253c41adc0e33beb8af8cfdf04b12457cd1220b28fcc0e9cf2289846dbf4d2868101a1ce592879c8
   languageName: node
   linkType: hard
 
@@ -1997,7 +1997,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/cli@workspace:packages/cli"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/bundle-source": "npm:^3.5.0"
     "@endo/init": "npm:^1.1.6"
     "@endo/promise-kit": "npm:^1.1.6"
@@ -2049,7 +2049,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/errors@workspace:packages/errors"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@metamask/auto-changelog": "npm:^4.0.0"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
@@ -2089,7 +2089,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/extension@workspace:packages/extension"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/eventual-send": "npm:^1.2.6"
     "@endo/marshal": "npm:^1.6.2"
     "@endo/promise-kit": "npm:^1.1.6"
@@ -2204,7 +2204,7 @@ __metadata:
   resolution: "@ocap/monorepo@workspace:."
   dependencies:
     "@agoric/internal": "npm:0.4.0-u18.1"
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@lavamoat/allow-scripts": "npm:^3.0.4"
     "@lavamoat/preinstall-always-fail": "npm:^2.0.0"
     "@metamask/approval-controller": "npm:^7.1.1"
@@ -2266,7 +2266,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/nodejs@workspace:packages/nodejs"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/promise-kit": "npm:^1.1.6"
     "@metamask/auto-changelog": "npm:^4.0.0"
     "@metamask/eslint-config": "npm:^14.0.0"
@@ -2346,7 +2346,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/streams@workspace:packages/streams"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/promise-kit": "npm:^1.1.6"
     "@endo/stream": "npm:^1.2.6"
     "@metamask/auto-changelog": "npm:^4.0.0"
@@ -2423,7 +2423,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/utils@workspace:packages/utils"
   dependencies:
-    "@arethetypeswrong/cli": "npm:^0.16.4"
+    "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/captp": "npm:^4.4.0"
     "@metamask/auto-changelog": "npm:^4.0.0"
     "@metamask/eslint-config": "npm:^14.0.0"
