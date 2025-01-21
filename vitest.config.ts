@@ -21,7 +21,14 @@ export default defineConfig({
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
-    reporters: ['basic'],
+    reporters: [
+      [
+        'default',
+        {
+          summary: false,
+        },
+      ],
+    ],
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
