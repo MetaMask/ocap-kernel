@@ -1,4 +1,3 @@
-import { KernelCommandMethod } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useEffect, useRef } from 'react';
@@ -8,13 +7,7 @@ import { usePanelContext } from '../context/PanelContext.js';
 import type { OutputType } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
 
-const commonMessages: Record<string, KernelCommand> = {
-  KVSet: {
-    method: KernelCommandMethod.kvSet,
-    params: { key: 'foo', value: 'bar' },
-  },
-  KVGet: { method: KernelCommandMethod.kvGet, params: 'foo' },
-};
+const commonMessages: Record<string, KernelCommand> = {};
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
