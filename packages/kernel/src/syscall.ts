@@ -12,7 +12,7 @@ import type {
   VatOneResolution,
   SwingSetCapData,
 } from './ag-types-index.js';
-import type { KVStore } from './store/sqlite-kv-store.js';
+import type { KVStore } from './store/kernel-store.js';
 import type { VatSupervisor } from './VatSupervisor.ts';
 
 export type SyscallResult = SwingSetCapData | string | string[] | null;

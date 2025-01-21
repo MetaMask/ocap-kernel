@@ -2,6 +2,8 @@ import { isVatCommand, VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { MessagePortMultiplexer, receiveMessagePort } from '@ocap/streams';
 
+import { makeSQLKVStore } from './kernel-integration/sqlite-kv-store.js';
+
 main().catch(console.error);
 
 /**
@@ -21,6 +23,7 @@ async function main(): Promise<void> {
   new VatSupervisor({
     id: 'iframe',
     commandStream,
+    makeKVStore: makeSQLKVStore,
   });
 
   await multiplexer.start();

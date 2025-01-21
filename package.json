@@ -51,7 +51,7 @@
     ]
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.16.4",
+    "@arethetypeswrong/cli": "^0.17.3",
     "@lavamoat/allow-scripts": "^3.0.4",
     "@lavamoat/preinstall-always-fail": "^2.0.0",
     "@metamask/auto-changelog": "^4.0.0",
@@ -124,7 +124,7 @@
     "cookie": "^0.7.0"
   },
   "dependencies": {
-    "@agoric/internal": "0.4.0-u18.0",
+    "@agoric/internal": "0.4.0-u18.1",
     "@metamask/approval-controller": "^7.1.1",
     "ava": "^6.2.0",
     "setimmediate": "^1.0.5",

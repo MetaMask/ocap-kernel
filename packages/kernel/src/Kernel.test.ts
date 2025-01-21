@@ -13,7 +13,7 @@ import type {
   KernelCommandReply,
   VatCommand,
 } from './messages/index.js';
-import type { KVStore } from './store/sqlite-kv-store.js';
+import type { KVStore } from './store/kernel-store.js';
 import type { VatId, VatConfig, VatWorkerService } from './types.js';
 import { VatHandle } from './VatHandle.js';
 import { makeMapKVStore } from '../test/storage.js';

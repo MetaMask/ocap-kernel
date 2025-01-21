@@ -53,12 +53,13 @@
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
+    "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ses": "^1.9.0"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.16.4",
+    "@arethetypeswrong/cli": "^0.17.3",
     "@metamask/auto-changelog": "^4.0.0",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
@@ -97,7 +98,7 @@
     "typescript-plugin-css-modules": "^5.1.0",
     "vite": "^5.3.5",
     "vite-plugin-checker": "^0.8.0",
-    "vite-plugin-static-copy": "^1.0.6",
+    "vite-plugin-static-copy": "^2.2.0",
     "vitest": "2.1.8"
   },
   "engines": {
