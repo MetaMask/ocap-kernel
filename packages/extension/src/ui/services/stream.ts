@@ -37,9 +37,9 @@ export async function setupStream(): Promise<{
 
   const cleanup = (): void => {
     resolver.terminateAll(new Error('Stream disconnected'));
-    kernelStream.return().catch((error) => {
-      logger.error('error returning kernel stream', error);
-    });
+    // Explicitly _do not_ return the stream, as the connection will be
+    // re-established when the panel is reloaded. If we return the stream,
+    // the remote end will be closed and the connection irrevocably lost.
   };
 
   broadcastChannel.onmessageerror = cleanup;
