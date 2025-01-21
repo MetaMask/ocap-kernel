@@ -172,7 +172,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           return;
         }
         promise.resolve(
-          new MessagePortDuplexStream<VatCommandReply, VatCommand>(
+          MessagePortDuplexStream.make<VatCommandReply, VatCommand>(
             port,
             isVatCommandReply,
           ),
