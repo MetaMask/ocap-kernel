@@ -49,6 +49,24 @@ describe('BaseDuplexStream', () => {
       expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
     });
 
+    it('handles calling drain before synchronization', async () => {
+      const stream = new TestDuplexStream(() => undefined);
+      const drainFn = vi.fn();
+
+      const drainP = stream.drain(drainFn);
+      await stream.completeSynchronization();
+      await delay(10);
+      expect(drainFn).not.toHaveBeenCalled();
+
+      await stream.receiveInput(42);
+      await delay(10);
+      expect(drainFn).toHaveBeenCalledOnce();
+
+      await stream.return();
+      await drainP;
+      expect(drainFn).toHaveBeenCalledTimes(1);
+    });
+
     it('rejects the synchronization promise if receiving more than one SYN', async () => {
       const stream = new TestDuplexStream(() => undefined);
       stream.synchronize().catch(() => undefined);
@@ -166,6 +184,32 @@ describe('BaseDuplexStream', () => {
         await stream.receiveInput(makeAck());
         await stream.receiveInput(42);
         expect(await nextP).toStrictEqual(makePendingResult(42));
+      });
+
+      it('draining is unaffected by re-synchronization', async () => {
+        const stream = new TestDuplexStream(() => undefined);
+        const drainFn = vi.fn();
+
+        const drainP = stream.drain(drainFn);
+        const syncP = stream.synchronize();
+        await stream.receiveInput(makeAck());
+        await syncP;
+        expect(drainFn).not.toHaveBeenCalled();
+
+        await stream.receiveInput(42);
+        await delay(10);
+        expect(drainFn).toHaveBeenCalledOnce();
+
+        await stream.receiveInput(makeSyn());
+        await stream.receiveInput(makeAck());
+        await stream.receiveInput(43);
+        await delay(10);
+
+        await stream.return();
+        await drainP;
+        expect(drainFn).toHaveBeenCalledTimes(2);
+        expect(drainFn).toHaveBeenNthCalledWith(1, 42);
+        expect(drainFn).toHaveBeenNthCalledWith(2, 43);
       });
 
       it('rejects the re-synchronization promise if receiving an unexpected message', async () => {

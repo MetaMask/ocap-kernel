@@ -267,7 +267,7 @@ export abstract class BaseDuplexStream<
    * @param handler - The function that will receive each value from the stream.
    */
   async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
-    for await (const value of this.#reader) {
+    for await (const value of this) {
       await handler(value);
     }
   }
