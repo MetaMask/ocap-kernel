@@ -20,7 +20,7 @@
     "build:vite": "vite build --config vite.config.ts",
     "build:vite:dev": "yarn build:vite --mode development",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
@@ -53,6 +53,7 @@
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
+    "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ses": "^1.9.0"

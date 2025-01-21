@@ -31,6 +31,8 @@ const makeVatSupervisor = async (
     supervisor: new VatSupervisor({
       id: 'test-id',
       commandStream,
+      // @ts-expect-error Mock
+      makeKVStore: async () => ({}),
     }),
     stream,
   };

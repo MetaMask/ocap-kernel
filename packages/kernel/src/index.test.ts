@@ -24,7 +24,6 @@ describe('index', () => {
       'isVatId',
       'isVatWorkerServiceCommand',
       'isVatWorkerServiceReply',
-      'makeSQLKVStore',
     ]);
   });
 });

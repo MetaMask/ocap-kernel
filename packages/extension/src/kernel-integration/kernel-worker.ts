@@ -3,7 +3,7 @@ import type {
   KernelCommandReply,
   ClusterConfig,
 } from '@ocap/kernel';
-import { isKernelCommand, Kernel, makeSQLKVStore } from '@ocap/kernel';
+import { isKernelCommand, Kernel } from '@ocap/kernel';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
@@ -15,6 +15,7 @@ import { makeLogger } from '@ocap/utils';
 import { handlePanelMessage } from './handle-panel-message.js';
 import { isKernelControlCommand } from './messages.js';
 import type { KernelControlCommand, KernelControlReply } from './messages.js';
+import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 const bundleHost = 'http://localhost:3000'; // XXX placeholder

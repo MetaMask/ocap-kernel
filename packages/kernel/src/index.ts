@@ -1,7 +1,6 @@
 export * from './messages/index.js';
 export { Kernel } from './Kernel.js';
-export type { KVStore } from './store/sqlite-kv-store.js';
-export { makeSQLKVStore } from './store/sqlite-kv-store.js';
+export type { KVStore, MakeKVStore } from './store/kernel-store.js';
 export { VatHandle } from './VatHandle.js';
 export { VatSupervisor } from './VatSupervisor.js';
 // XXX Once the packaging of liveslots is fixed, this should be imported from there
