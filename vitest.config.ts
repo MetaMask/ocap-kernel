@@ -75,7 +75,7 @@ export default defineConfig({
         },
         'packages/kernel/**': {
           statements: 42.2,
-          functions: 53.69,
+          functions: 54.05,
           branches: 30.03,
           lines: 42.47,
         },

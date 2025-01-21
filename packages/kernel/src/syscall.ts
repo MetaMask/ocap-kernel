@@ -7,15 +7,10 @@ import type { CapData } from '@endo/marshal';
 // the same time remove the below import of ./ag-types-index.js)
 // import type { VatSyscallObject, VatOneResolution } from '@agoric/swingset-liveslots';
 
-import type {
-  VatSyscallObject,
-  VatOneResolution,
-  SwingSetCapData,
-} from './ag-types-index.js';
+import type { Syscall, SyscallResult } from './ag-liveslots-types.js';
+import type { VatSyscallObject, VatOneResolution } from './ag-types-index.js';
 import type { KVStore } from './store/kernel-store.js';
 import type { VatSupervisor } from './VatSupervisor.ts';
-
-export type SyscallResult = SwingSetCapData | string | string[] | null;
 
 /**
  * This returns a function that is provided to liveslots as the 'syscall'
@@ -29,10 +24,12 @@ export type SyscallResult = SwingSetCapData | string | string[] | null;
  * @param supervisor - The VatSupervisor for which we're providing syscall services.
  * @param kv - A key/value store for holding the vat's persistent state.
  *
- * @returns a syscall function suitable for use by liveslots.
+ * @returns a syscall object suitable for use by liveslots.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSupervisorSyscall(supervisor: VatSupervisor, kv: KVStore) {
+function makeSupervisorSyscall(
+  supervisor: VatSupervisor,
+  kv: KVStore,
+): Syscall {
   /**
    * Actually perform the syscall operation.
    *
@@ -67,7 +64,7 @@ function makeSupervisorSyscall(supervisor: VatSupervisor, kv: KVStore) {
 
   // this will be given to liveslots, it should have distinct methods that
   // return immediate results or throw errors
-  const syscallForVat = {
+  const syscallForVat: Syscall = {
     send: (target: string, methargs: CapData<string>, result?: string) =>
       doSyscall(['send', target, { methargs, result }]),
     subscribe: (vpid: string) => doSyscall(['subscribe', vpid]),
@@ -95,5 +92,3 @@ function makeSupervisorSyscall(supervisor: VatSupervisor, kv: KVStore) {
 
 harden(makeSupervisorSyscall);
 export { makeSupervisorSyscall };
-
-export type Syscall = ReturnType<typeof makeSupervisorSyscall>;

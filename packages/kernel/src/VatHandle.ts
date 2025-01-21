@@ -34,46 +34,72 @@ type VatConstructorProps = {
   kernel: Kernel;
   vatId: VatId;
   vatConfig: VatConfig;
-  commandStream: DuplexStream<VatCommandReply, VatCommand>;
+  vatStream: DuplexStream<VatCommandReply, VatCommand>;
   storage: KernelStore;
   logger?: Logger | undefined;
 };
 
 export class VatHandle {
-  readonly vatId: VatConstructorProps['vatId'];
+  /** The ID of the vat this is the VatHandle for */
+  readonly vatId: VatId;
 
-  readonly #commandStream: DuplexStream<VatCommandReply, VatCommand>;
+  /** Communications channel to and from the vat itself */
+  readonly #vatStream: DuplexStream<VatCommandReply, VatCommand>;
 
-  readonly config: VatConstructorProps['vatConfig'];
+  /** The vat's configuration */
+  readonly config: VatConfig;
 
-  readonly logger: Logger;
+  /** Logger for outputting messages (such as errors) to the console */
+  readonly #logger: Logger;
 
+  /** Counter for associating messages to the vat with their replies */
   readonly #messageCounter: () => number;
 
+  /** Storage holding the kernel's persistent state */
   readonly #storage: KernelStore;
 
+  /** The kernel we are working for. */
   readonly #kernel: Kernel;
 
+  /** Callbacks to handle message replies, indexed by message id */
   readonly unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
     new Map();
 
+  /**
+   * Construct a new VatHandle instance.
+   *
+   * @param params - Named constructor parameters.
+   * @param params.kernel - The kernel.
+   * @param params.vatId - Our vat ID.
+   * @param params.vatConfig - The configuration for this vat.
+   * @param params.vatStream - Communications channel connected to the vat worker.
+   * @param params.storage - The kernel's persistent state store.
+   * @param params.logger - Optional logger for error and diagnostic output.
+   */
   constructor({
     kernel,
     vatId,
     vatConfig,
-    commandStream,
-    logger,
+    vatStream,
     storage,
+    logger,
   }: VatConstructorProps) {
     this.#kernel = kernel;
     this.vatId = vatId;
     this.config = vatConfig;
-    this.logger = logger ?? makeLogger(`[vat ${vatId}]`);
+    this.#logger = logger ?? makeLogger(`[vat ${vatId}]`);
     this.#messageCounter = makeCounter();
-    this.#commandStream = commandStream;
+    this.#vatStream = vatStream;
     this.#storage = storage;
   }
 
+  /**
+   * Translate a reference from vat space into kernel space.
+   *
+   * @param vref - The VRef of the entity of interest.
+   *
+   * @returns the KRef corresponding to `vref` in this vat.
+   */
   #translateRefVtoK(vref: VRef): KRef {
     let kref = this.#storage.erefToKref(this.vatId, vref) as KRef;
     if (!kref) {
@@ -82,6 +108,13 @@ export class VatHandle {
     return kref;
   }
 
+  /**
+   * Translate a capdata object from vat space into kernel space.
+   *
+   * @param capdata - The object to be translated.
+   *
+   * @returns a translated copy of `capdata` intelligible to the kernel.
+   */
   #translateCapDataVtoK(capdata: CapData<VRef>): CapData<KRef> {
     const slots: KRef[] = [];
     for (const slot of capdata.slots) {
@@ -90,35 +123,39 @@ export class VatHandle {
     return { body: capdata.body, slots };
   }
 
-  #handleSyscallSend(target: KRef, message: Message): void {
-    const messageItem: RunQueueItemSend = {
-      type: 'send',
-      target,
-      message,
-    };
-    this.#kernel.enqueueRun(messageItem);
+  /**
+   * Translate a message from vat space into kernel space.
+   *
+   * @param message - The message to be translated.
+   *
+   * @returns a translated copy of `message` intelligible to the kernel.
+   */
+  #translateMessageVtoK(message: Message): Message {
+    const methargs = this.#translateCapDataVtoK(
+      message.methargs as CapData<VRef>,
+    );
+    const result = this.#translateRefVtoK(message.result as VRef);
+    return { methargs, result };
   }
 
-  #handleSyscallResolve(resolutions: VatOneResolution[]): void {
-    this.#kernel.doResolve(this.vatId, resolutions);
-  }
-
-  #handleSyscallSubscribe(kpid: KRef): void {
-    this.#storage.addPromiseSubscriber(this.vatId, kpid);
-  }
-
-  translateSyscallVtoK(vso: VatSyscallObject): VatSyscallObject {
+  /**
+   * Translate a syscall from vat space into kernel space.
+   *
+   * @param vso - The syscall object to be translated.
+   *
+   * @returns a translated copy of `vso` intelligible to the kernel.
+   */
+  #translateSyscallVtoK(vso: VatSyscallObject): VatSyscallObject {
     let kso: VatSyscallObject;
     switch (vso[0]) {
       case 'send': {
         // [VRef, Message];
         const [op, target, message] = vso;
-        const kMethargs = this.#translateCapDataVtoK(
-          message.methargs as CapData<VRef>,
-        );
-        const kResult = this.#translateRefVtoK(message.result as VRef);
-        const kMessage = { methargs: kMethargs, result: kResult };
-        kso = [op, this.#translateRefVtoK(target as VRef), kMessage];
+        kso = [
+          op,
+          this.#translateRefVtoK(target as VRef),
+          this.#translateMessageVtoK(message),
+        ];
         break;
       }
       case 'subscribe': {
@@ -180,8 +217,46 @@ export class VatHandle {
     return kso;
   }
 
+  /**
+   * Handle a 'send' syscall from the vat.
+   *
+   * @param target - The target of the message send.
+   * @param message - The message that was sent.
+   */
+  #handleSyscallSend(target: KRef, message: Message): void {
+    const messageItem: RunQueueItemSend = {
+      type: 'send',
+      target,
+      message,
+    };
+    this.#kernel.enqueueRun(messageItem);
+  }
+
+  /**
+   * Handle a 'resolve' syscall from the vat.
+   *
+   * @param resolutions - One or more promise resolutions.
+   */
+  #handleSyscallResolve(resolutions: VatOneResolution[]): void {
+    this.#kernel.doResolve(this.vatId, resolutions);
+  }
+
+  /**
+   * Handle a 'subscribe' syscall from the vat.
+   *
+   * @param kpid - The KRef of the promise being subscribed to.
+   */
+  #handleSyscallSubscribe(kpid: KRef): void {
+    this.#storage.addPromiseSubscriber(this.vatId, kpid);
+  }
+
+  /**
+   * Handle a syscall from the vat.
+   *
+   * @param vso - The syscall that was received.
+   */
   async #handleSyscall(vso: VatSyscallObject): Promise<void> {
-    const kso: VatSyscallObject = this.translateSyscallVtoK(vso);
+    const kso: VatSyscallObject = this.#translateSyscallVtoK(vso);
     const [op] = kso;
     const { vatId } = this;
     const { log } = console;
@@ -256,11 +331,11 @@ export class VatHandle {
   }
 
   /**
-   * Handle a message from the parent window.
+   * Handle a message from the vat.
    *
-   * @param vatMessage - The vat message to handle.
-   * @param vatMessage.id - The id of the message.
-   * @param vatMessage.payload - The payload to handle.
+   * @param message - The message to handle.
+   * @param message.id - The id of the message.
+   * @param message.payload - The payload (i.e., the message itself) to handle.
    */
   async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
     if (payload.method === VatCommandMethod.syscall) {
@@ -268,7 +343,7 @@ export class VatHandle {
     } else {
       const promiseCallbacks = this.unresolvedMessages.get(id);
       if (promiseCallbacks === undefined) {
-        this.logger.error(`No unresolved message with id "${id}".`);
+        this.#logger.error(`No unresolved message with id "${id}".`);
       } else {
         this.unresolvedMessages.delete(id);
         promiseCallbacks.resolve(payload.params);
@@ -282,21 +357,27 @@ export class VatHandle {
    * @returns A promise that resolves when the vat is initialized.
    */
   async init(): Promise<void> {
-    Promise.all([
-      this.#commandStream.drain(this.handleMessage.bind(this)),
-    ]).catch(async (error) => {
-      this.logger.error(`Unexpected read error`, error);
-      await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
-    });
+    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
+      async (error) => {
+        this.#logger.error(`Unexpected read error`, error);
+        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
+      },
+    );
 
     await this.sendMessage({ method: VatCommandMethod.ping, params: null });
     await this.sendMessage({
       method: VatCommandMethod.initVat,
       params: this.config,
     });
-    this.logger.debug('Created');
+    this.#logger.debug('Created');
   }
 
+  /**
+   * Make a 'message' delivery to the vat.
+   *
+   * @param target - The VRef of the object to which the message is addressed.
+   * @param message - The message to deliver.
+   */
   async deliverMessage(target: VRef, message: Message): Promise<void> {
     await this.sendMessage({
       method: VatCommandMethod.deliver,
@@ -304,6 +385,11 @@ export class VatHandle {
     });
   }
 
+  /**
+   * Make a 'notify' delivery to the vat.
+   *
+   * @param resolutions - One or more promise resolutions to deliver.
+   */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
     await this.sendMessage({
       method: VatCommandMethod.deliver,
@@ -317,7 +403,7 @@ export class VatHandle {
    * @param error - The error to terminate the vat with.
    */
   async terminate(error?: Error): Promise<void> {
-    await this.#commandStream.end(error);
+    await this.#vatStream.end(error);
 
     // Handle orphaned messages
     for (const [messageId, promiseCallback] of this.unresolvedMessages) {
@@ -335,11 +421,11 @@ export class VatHandle {
   async sendMessage<Method extends VatCommand['payload']['method']>(
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
-    this.logger.debug('Sending message to vat', payload);
+    this.#logger.debug('Sending message to vat', payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.unresolvedMessages.set(messageId, { reject, resolve });
-    await this.#commandStream.write({ id: messageId, payload });
+    await this.#vatStream.write({ id: messageId, payload });
     return promise as Promise<VatCommandReturnType[Method]>;
   }
 
