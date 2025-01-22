@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isVatCommand, isVatCommandReply, VatCommandMethod } from './vat.js';
 
 describe('isVatCommand', () => {
-  const payload = { method: VatCommandMethod.evaluate, params: '3 + 3' };
+  const payload = { method: VatCommandMethod.ping, params: null };
 
   it.each`
     value                                | expectedResult | description
@@ -18,17 +18,6 @@ describe('isVatCommand', () => {
 
 describe('isVatCommandReply', () => {
   it.each([
-    {
-      name: 'evaluate reply',
-      value: {
-        id: 'v0:123',
-        payload: {
-          method: VatCommandMethod.evaluate,
-          params: 'some result',
-        },
-      },
-      expected: true,
-    },
     {
       name: 'ping reply',
       value: {

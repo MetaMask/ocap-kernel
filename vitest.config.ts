@@ -21,7 +21,14 @@ export default defineConfig({
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
-    reporters: ['basic'],
+    reporters: [
+      [
+        'default',
+        {
+          summary: false,
+        },
+      ],
+    ],
     setupFiles: [
       path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
     ],
@@ -61,16 +68,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 66.48,
-          functions: 70.55,
-          branches: 69.12,
-          lines: 66.48,
+          statements: 65.92,
+          functions: 70.62,
+          branches: 69.28,
+          lines: 65.92,
         },
         'packages/kernel/**': {
-          statements: 42.2,
-          functions: 53.69,
-          branches: 30.03,
-          lines: 42.47,
+          statements: 42.66,
+          functions: 54.48,
+          branches: 29.72,
+          lines: 42.95,
         },
         'packages/nodejs/**': {
           statements: 14.67,

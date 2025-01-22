@@ -82,13 +82,6 @@ describe('handlePanelMessage', () => {
         }
         return { error: 'Unknown vat ID' };
       }),
-      kvGet: vi.fn((key: string) => {
-        if (key === 'testKey') {
-          return 'value';
-        }
-        return undefined;
-      }),
-      kvSet: vi.fn(),
       reset: vi.fn().mockResolvedValue(undefined),
     } as unknown as Kernel;
   });
@@ -313,94 +306,6 @@ describe('handlePanelMessage', () => {
   });
 
   describe('sendMessage command', () => {
-    it('should handle kvGet command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
-      const message: KernelControlCommand = {
-        id: 'test-8',
-        payload: {
-          method: 'sendMessage',
-          params: {
-            payload: { method: 'kvGet', params: 'testKey' },
-          },
-        },
-      };
-
-      const response = await handlePanelMessage(
-        mockKernel,
-        mockKVStore,
-        message,
-      );
-
-      expect(mockKernel.kvGet).toHaveBeenCalledWith('testKey');
-      expect(response).toStrictEqual({
-        id: 'test-8',
-        payload: {
-          method: 'sendMessage',
-          params: { result: 'value' },
-        },
-      });
-    });
-
-    it('should handle kvGet command when key not found', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
-
-      const message: KernelControlCommand = {
-        id: 'test-9',
-        payload: {
-          method: 'sendMessage',
-          params: {
-            payload: { method: 'kvGet', params: 'nonexistentKey' },
-          },
-        },
-      };
-
-      const response = await handlePanelMessage(
-        mockKernel,
-        mockKVStore,
-        message,
-      );
-
-      expect(mockKernel.kvGet).toHaveBeenCalledWith('nonexistentKey');
-      expect(response).toStrictEqual({
-        id: 'test-9',
-        payload: {
-          method: 'sendMessage',
-          params: { error: 'Key not found' },
-        },
-      });
-    });
-
-    it('should handle kvSet command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
-      const message: KernelControlCommand = {
-        id: 'test-10',
-        payload: {
-          method: 'sendMessage',
-          params: {
-            payload: {
-              method: 'kvSet',
-              params: { key: 'testKey', value: 'testValue' },
-            },
-          },
-        },
-      };
-
-      const response = await handlePanelMessage(
-        mockKernel,
-        mockKVStore,
-        message,
-      );
-
-      expect(mockKernel.kvSet).toHaveBeenCalledWith('testKey', 'testValue');
-      expect(response).toStrictEqual({
-        id: 'test-10',
-        payload: {
-          method: 'sendMessage',
-          params: { key: 'testKey', value: 'testValue' },
-        },
-      });
-    });
-
     it('should handle vat messages', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {

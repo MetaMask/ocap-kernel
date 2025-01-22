@@ -22,7 +22,7 @@
     "build": "node scripts/bundle.js",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/shims",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
@@ -65,8 +65,8 @@
     "rimraf": "^6.0.1",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
-    "vite": "^5.3.5",
-    "vitest": "2.1.8"
+    "vite": "^6.0.9",
+    "vitest": "3.0.2"
   },
   "engines": {
     "node": "^20 || >=22"

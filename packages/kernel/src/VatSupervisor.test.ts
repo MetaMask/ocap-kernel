@@ -96,39 +96,6 @@ describe('VatSupervisor', () => {
       });
     });
 
-    it('handles Evaluate messages', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        payload: { method: VatCommandMethod.evaluate, params: '2 + 2' },
-      });
-
-      expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.evaluate,
-        params: '4',
-      });
-    });
-
-    it('logs error on invalid Evaluate messages', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
-
-      await supervisor.handleMessage({
-        id: 'v0:0',
-        // @ts-expect-error - invalid params type.
-        payload: { method: VatCommandMethod.evaluate, params: null },
-      });
-
-      expect(replySpy).not.toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'VatSupervisor received command with unexpected params',
-        'null',
-      );
-    });
-
     it('handles unknown message types', async () => {
       const { supervisor } = await makeVatSupervisor();
 
@@ -151,26 +118,6 @@ describe('VatSupervisor', () => {
         done: true,
         value: undefined,
       });
-    });
-  });
-
-  describe('evaluate', () => {
-    it('evaluates code correctly', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const result = supervisor.evaluate('1 + 1');
-      expect(result).toBe(2);
-    });
-
-    it('returns an error message when evaluation fails', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const result = supervisor.evaluate('invalidCode!');
-      expect(result).toBe("Error: Unexpected token '!'");
-    });
-
-    it('returns unknown when no error message is given', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const result = supervisor.evaluate('throw new Error("")');
-      expect(result).toBe('Error: Unknown');
     });
   });
 });

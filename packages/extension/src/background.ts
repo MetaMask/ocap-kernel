@@ -38,13 +38,6 @@ async function main(): Promise<void> {
 
   // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
   Object.defineProperties(globalThis.kernel, {
-    evaluate: {
-      value: async (source: string) =>
-        sendClusterCommand({
-          method: KernelCommandMethod.evaluate,
-          params: source,
-        }),
-    },
     ping: {
       value: async () =>
         sendClusterCommand({
@@ -54,20 +47,6 @@ async function main(): Promise<void> {
     },
     sendMessage: {
       value: async (message: Json) => await offscreenStream.write(message),
-    },
-    kvGet: {
-      value: async (key: string) =>
-        sendClusterCommand({
-          method: KernelCommandMethod.kvGet,
-          params: key,
-        }),
-    },
-    kvSet: {
-      value: async (key: string, value: string) =>
-        sendClusterCommand({
-          method: KernelCommandMethod.kvSet,
-          params: { key, value },
-        }),
     },
   });
   harden(globalThis.kernel);
@@ -88,15 +67,12 @@ async function main(): Promise<void> {
     }
 
     switch (message.method) {
-      case KernelCommandMethod.evaluate:
       case KernelCommandMethod.ping:
-      case KernelCommandMethod.kvGet:
-      case KernelCommandMethod.kvSet:
         console.log(message.params);
         break;
       default:
         console.error(
-          // @ts-expect-error Runtime does not respect "never".
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           `Background received unexpected command method: "${message.method}"`,
         );
     }

@@ -19,12 +19,8 @@ vi.mock('@ocap/kernel', () => ({
   isVatConfig,
   VatCommandMethod: {
     ping: 'ping',
-    evaluate: 'evaluate',
   },
-  KernelCommandMethod: {
-    kvSet: 'kvSet',
-    kvGet: 'kvGet',
-  },
+  KernelCommandMethod: {},
   VatIdStruct: define<VatId>('VatId', isVatId),
   VatConfigStruct: define<VatConfig>('VatConfig', isVatConfig),
 }));

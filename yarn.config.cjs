@@ -191,7 +191,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.clean',
-          "rimraf --glob './*.tsbuildinfo' ./dist ./.eslintcache",
+          "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
         );
 
         // No non-root packages may have a "prepack" script.

@@ -12,11 +12,15 @@ const config = mergeConfig(
       name: 'streams',
       setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
       browser: {
-        provider: 'playwright',
-        name: 'chromium',
         enabled: true,
-        headless: true,
-        screenshotFailures: false,
+        provider: 'playwright',
+        instances: [
+          {
+            browser: 'chromium',
+            headless: true,
+            screenshotFailures: false,
+          },
+        ],
       },
     },
   }),

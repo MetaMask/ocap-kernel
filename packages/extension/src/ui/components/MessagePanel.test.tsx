@@ -22,11 +22,6 @@ vi.mock('@ocap/kernel', () => ({
   isVatConfig,
   VatCommandMethod: {
     ping: 'ping',
-    evaluate: 'evaluate',
-  },
-  KernelCommandMethod: {
-    kvSet: 'kvSet',
-    kvGet: 'kvGet',
   },
   VatIdStruct: define<VatId>('VatId', isVatId),
   VatConfigStruct: define<VatConfig>('VatConfig', isVatConfig),
@@ -100,16 +95,6 @@ describe('MessagePanel Component', () => {
     const sendButton = screen.getByRole('button', { name: 'Send' });
     await userEvent.click(sendButton);
     expect(sendKernelCommand).toHaveBeenCalledTimes(1);
-  });
-
-  it('populates input field when a template button is clicked', async () => {
-    const { MessagePanel } = await import('./MessagePanel.js');
-    render(<MessagePanel />);
-    const templateButton = screen.getByRole('button', { name: 'KVSet' });
-    await userEvent.click(templateButton);
-    expect(setMessageContent).toHaveBeenCalledWith(
-      stringify({ method: 'kvSet', params: { key: 'foo', value: 'bar' } }, 0),
-    );
   });
 
   it('renders panel logs with correct icons and messages', async () => {
