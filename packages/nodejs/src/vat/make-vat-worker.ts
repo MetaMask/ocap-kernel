@@ -15,33 +15,23 @@ import type { StreamMultiplexer } from '@ocap/streams';
  * @param makeKVStore - A routine to make a KVStore for the VatSupervisor.
  * @returns A vat worker object with awaitable start and stop methods.
  */
-export function makeVatWorker(
+export async function startVatWorker(
   vatId: VatId,
   makeMultiplexer: (name?: string) => StreamMultiplexer,
   makeKVStore: MakeKVStore,
-): {
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-} {
+): Promise<void> {
   const multiplexer = makeMultiplexer(vatId);
+  // We must start the multiplexer here, not later.
+  multiplexer.start().catch(console.error);
   const commandStream = multiplexer.createChannel<VatCommand, VatCommandReply>(
     'command',
     isVatCommand,
   );
 
-  const supervisor = new VatSupervisor({
+  // eslint-disable-next-line no-new
+  new VatSupervisor({
     id: `S${vatId}`,
     commandStream,
     makeKVStore,
   });
-
-  return {
-    start: async () => {
-      await multiplexer.start();
-    },
-    stop: async () => {
-      await supervisor.terminate();
-      await multiplexer.return();
-    },
-  };
 }

@@ -181,7 +181,10 @@ const config = createConfig([
   },
 
   {
-    files: ['packages/nodejs/**/*-worker.ts'],
+    files: [
+      'packages/nodejs/**/*-worker.ts',
+      'packages/nodejs/test/workers/**/*.mjs',
+    ],
     rules: {
       // Node workers have reasonable cause to read from process.env
       'n/no-process-env': 'off',

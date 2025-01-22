@@ -1,16 +1,19 @@
 import '@ocap/shims/endoify';
 
+import type { VatSupervisor } from '@ocap/kernel';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { makeMultiplexer } from './make-multiplexer.js';
-import { makeVatWorker as makeVatWorkerDecl } from './make-vat-worker.js';
+import { startVatWorker as startVatWorkerDecl } from './make-vat-worker.js';
 
-type MakeVatWorker = typeof makeVatWorkerDecl;
+type MakeVatWorker = typeof startVatWorkerDecl;
 
-describe('makeVatWorker', () => {
+describe('startVatWorker', () => {
   const testVatId = 'v0';
-  let makeVatWorker: MakeVatWorker;
-  let mockMakeMultiplexer: typeof makeMultiplexer;
+  let startVatWorker: MakeVatWorker;
+  let mockMakeMultiplexer: Mock<typeof makeMultiplexer>;
+  let MockVatSupervisor: Mock<() => VatSupervisor>;
 
   beforeEach(async () => {
     mockMakeMultiplexer = vi.fn().mockImplementation(() => ({
@@ -18,50 +21,38 @@ describe('makeVatWorker', () => {
       return: vi.fn().mockResolvedValue(undefined),
       createChannel: vi.fn(),
     }));
+    MockVatSupervisor = vi.fn().mockImplementation(() => ({
+      terminate: vi.fn().mockResolvedValue(undefined),
+    }));
     vi.doMock('@ocap/streams', () => ({
       NodeWorkerMultiplexer: vi.fn(),
     }));
     vi.doMock('@ocap/kernel', () => ({
-      VatSupervisor: vi.fn().mockImplementation(() => ({
-        terminate: vi.fn().mockResolvedValue(undefined),
-      })),
+      VatSupervisor: MockVatSupervisor,
       isVatCommand: vi.fn(),
     }));
     vi.resetModules();
-    makeVatWorker = (await import('./make-vat-worker.js')).makeVatWorker;
+    startVatWorker = (await import('./make-vat-worker.js')).startVatWorker;
   });
 
-  it('returns an object with start and stop methods', async () => {
-    const vatWorker = makeVatWorker(testVatId, mockMakeMultiplexer);
+  it('creates a multiplexer and channel and calls start', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await startVatWorker(testVatId, mockMakeMultiplexer, {} as any);
 
-    expect(vatWorker).toHaveProperty('start');
-    expect(vatWorker).toHaveProperty('stop');
+    expect(mockMakeMultiplexer).toHaveBeenCalledOnce();
+    expect(mockMakeMultiplexer.mock.results.at(0)).toBeDefined();
+    expect(
+      mockMakeMultiplexer.mock.results.at(0)?.value.createChannel,
+    ).toHaveBeenCalledOnce();
+    expect(
+      mockMakeMultiplexer.mock.results.at(0)?.value.start,
+    ).toHaveBeenCalledOnce();
   });
 
-  describe('start', () => {
-    it('starts the multiplexer', async () => {
-      const vatWorker = makeVatWorker(testVatId, mockMakeMultiplexer);
+  it('creates a VatSupervisor', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await startVatWorker(testVatId, mockMakeMultiplexer, {} as any);
 
-      await vatWorker.start();
-
-      expect(mockMakeMultiplexer.mock.results.at(0)).toBeDefined();
-      expect(
-        mockMakeMultiplexer.mock.results.at(0).value.start,
-      ).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('stop', () => {
-    it('calls supervisor.terminate and multiplexer.return', async () => {
-      const vatWorker = makeVatWorker(testVatId, mockMakeMultiplexer);
-
-      await vatWorker.start();
-      await vatWorker.stop();
-
-      expect(mockMakeMultiplexer.mock.results.at(0)).toBeDefined();
-      expect(
-        mockMakeMultiplexer.mock.results.at(0).value.return,
-      ).toHaveBeenCalledOnce();
-    });
+    expect(MockVatSupervisor.mock.instances).toHaveLength(1);
   });
 });

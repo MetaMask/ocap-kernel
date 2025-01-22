@@ -11,6 +11,7 @@ import { parentPort } from 'node:worker_threads';
 export function getPort() {
   if (!parentPort) {
     const errMsg = 'Expected to run in Node Worker with parentPort.';
+    console.error(errMsg);
     throw new Error(errMsg);
   }
   return parentPort;
@@ -20,9 +21,8 @@ export function getPort() {
  * When called from within Node.js worker, returns a Multiplexer which
  * communicates over the parentPort.
  *
- * @param name - The name to give this multiplexer (for traffic logging).
  * @returns A NodeWorkerMultiplexer
  */
-export function makeMultiplexer(name?: string): NodeWorkerMultiplexer {
-  return new NodeWorkerMultiplexer(getPort(), name);
+export function makeMultiplexer(): NodeWorkerMultiplexer {
+  return new NodeWorkerMultiplexer(getPort(), 'vat');
 }
