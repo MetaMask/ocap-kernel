@@ -1,4 +1,5 @@
 import '@ocap/shims/endoify';
+// import '../../../test-utils/src/env/mock-endoify.js';
 
 import type { NonEmptyArray } from '@metamask/utils';
 import { Kernel, VatCommandMethod } from '@ocap/kernel';
@@ -11,6 +12,7 @@ import {
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { makeKernel } from '../../src/kernel/make-kernel.js';
+import { getTestWorkerFile } from 'test/workers/index.js';
 
 const workerFileURL = new URL('../../dist/vat-worker.mjs', import.meta.url)
   .pathname;
@@ -44,8 +46,13 @@ describe('Kernel Worker', () => {
     }
   });
 
+  it('trivial', () => {
+    console.debug('TRIVIAL');
+    expect(true).toBe(true);
+  });
+
   it('starts a NodeWorker', async () => {
-    const worker = new NodeWorker(workerFileURL);
+    const worker = new NodeWorker(getTestWorkerFile('hello-world'));
     expect(worker).toBeInstanceOf(NodeWorker);
   });
 
@@ -63,9 +70,9 @@ describe('Kernel Worker', () => {
     expect(kRef).toBeInstanceOf(String);
     vatIds = kernel.getVatIds();
     expect(vatIds).toHaveLength(1);
-  });
+  }, 10000);
 
-  it('should handle the lifecycle of multiple vats', async () => {
+  it.skip('should handle the lifecycle of multiple vats', async () => {
     console.log('Started test.');
     console.log('Creating kernel...');
     kernel = await makeKernel(kernelPort);

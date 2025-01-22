@@ -51,6 +51,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
       env: {
         NODE_VAT_ID: vatId,
       },
+      // execArgv: ["--require", "ts-node/register"],
     });
     this.#logger.debug('launched', vatId);
     worker.once('online', () => {

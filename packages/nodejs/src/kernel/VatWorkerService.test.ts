@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
-import { NodeWorkerMultiplexer } from '@ocap/streams';
+import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { makeCounter } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 
@@ -14,26 +14,23 @@ describe('NodejsVatWorkerService', () => {
     expect(instance).toBeInstanceOf(NodejsVatWorkerService);
   });
 
+  const helloWorld = getTestWorkerFile('hello-world');
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 
   describe('launch', () => {
-    it('creates a NodeWorker and returns a NodeWorkerMultiplexer', async () => {
-      const service = new NodejsVatWorkerService(
-        getTestWorkerFile('hello-world'),
-      );
+    it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
+      const service = new NodejsVatWorkerService(helloWorld);
       const testVatId: VatId = getTestVatId();
       const multiplexer = await service.launch(testVatId);
 
-      expect(multiplexer).toBeInstanceOf(NodeWorkerMultiplexer);
+      expect(multiplexer).toBeInstanceOf(NodeWorkerDuplexStream);
     });
   });
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsVatWorkerService(
-        getTestWorkerFile('hello-world'),
-      );
+      const service = new NodejsVatWorkerService(helloWorld);
       const testVatId: VatId = getTestVatId();
 
       await service.launch(testVatId);
@@ -44,9 +41,7 @@ describe('NodejsVatWorkerService', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsVatWorkerService(
-        getTestWorkerFile('hello-world'),
-      );
+      const service = new NodejsVatWorkerService(helloWorld);
       const testVatId: VatId = getTestVatId();
 
       await expect(
@@ -57,9 +52,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsVatWorkerService(
-        getTestWorkerFile('hello-world'),
-      );
+      const service = new NodejsVatWorkerService(helloWorld);
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
 
       await Promise.all(

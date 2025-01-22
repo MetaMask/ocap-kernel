@@ -1,44 +1,42 @@
 import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
-import { isVatCommand, VatSupervisor } from '@ocap/kernel';
-import type { VatCommand, VatCommandReply } from '@ocap/kernel';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
 
-import { makeLogger } from '@ocap/utils';
+const streams = '../../dist/vat/streams.mjs';
+const store = '../../dist/kernel/sqlite-kv-store.mjs';
 
-import { makeMultiplexer } from './make-multiplexer.js';
-import { startVatWorker } from './make-vat-worker.js';
-import { makeSQLKVStore } from '../kernel/sqlite-kv-store.js';
+try {
+  console.debug(`[vat-worker (${process.env.NODE_VAT_ID})] begin imports`);
 
-const vatId = process.env.NODE_VAT_ID as VatId;
+  const { VatSupervisor } = await import('@ocap/kernel');
+  const { makeLogger } = await import('@ocap/utils');
+  const { makeCommandStream } = await import(streams);
+  const { makeSQLKVStore } = await import(store);
 
-if (vatId) {
-  console.log('vatId', vatId);
-  const logger = makeLogger(`[vat-worker (${vatId})]`);
-  logger.debug('starting worker...');
-  main().catch(logger.error)
-} else {
-  console.log('no vatId set for env variable NODE_VAT_ID');
-}
+  console.debug(`[vat-worker (${process.env.NODE_VAT_ID})] imports complete`);
 
-/**
- * The main function for the iframe.
- */
-async function main(): Promise<void> {
-  if (!parentPort) {
-    const errMsg = 'Expected to run in Node Worker with parentPort.';
-    logger.error(errMsg);
-    throw new Error(errMsg);
+  const vatId = process.env.NODE_VAT_ID as VatId;
+
+  if (vatId) {
+    console.log('vatId', vatId);
+    const logger = makeLogger(`[vat-worker (${vatId})]`);
+    logger.debug('starting worker...');
+    main().catch(logger.error);
+  } else {
+    console.log('no vatId set for env variable NODE_VAT_ID');
   }
-  const commandStream = new NodeWorkerDuplexStream<VatCommand, VatCommandReply>(
-    parentPort,
-    isVatCommand,
-  );
-  // eslint-disable-next-line no-void
-  void new VatSupervisor({
-    id: 'iframe',
-    commandStream,
-    makeKVStore: makeSQLKVStore,
-  });
+
+  /**
+   * The main function for the iframe.
+   */
+  async function main(): Promise<void> {
+    // eslint-disable-next-line no-void
+    void new VatSupervisor({
+      id: 'iframe',
+      commandStream: makeCommandStream(),
+      makeKVStore: makeSQLKVStore,
+    });
+  }
+} catch (problem) {
+  console.error(problem);
 }
