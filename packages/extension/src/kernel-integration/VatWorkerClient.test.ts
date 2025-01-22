@@ -1,7 +1,6 @@
 import '@ocap/test-utils/mock-endoify';
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
-import { MessagePortMultiplexer } from '@ocap/streams';
 import type { PostMessageTarget } from '@ocap/streams';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
@@ -11,17 +10,30 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorkerClientStream } from './VatWorkerClient.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-vi.mock('@endo/promise-kit', async () => {
-  const { makePromiseKitMock } = await import('@ocap/test-utils');
-  return makePromiseKitMock();
-});
-vi.mock('@ocap/kernel', () => ({
+vi.mock('@ocap/kernel', async () => ({
+  isVatCommandReply: vi.fn(() => true),
   VatWorkerServiceCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',
     terminateAll: 'terminateAll',
   },
 }));
+
+vi.mock('@ocap/streams', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  const { TestDuplexStream } = await import('@ocap/test-utils/streams');
+
+  class MockStream extends TestDuplexStream {
+    constructor() {
+      super(() => undefined);
+    }
+  }
+
+  return {
+    ...(await importOriginal()),
+    MessagePortDuplexStream: MockStream,
+  };
+});
 
 const makeVatConfig = (sourceSpec: string = 'bogus.js'): VatConfig => ({
   sourceSpec,
@@ -150,7 +162,7 @@ describe('ExtensionVatWorkerClient', () => {
     );
 
     describe('launch', () => {
-      it('resolves with a MessagePortMultiplexer when receiving a launch reply', async () => {
+      it('resolves with a duplex stream when receiving a launch reply', async () => {
         const vatId: VatId = 'v0';
         const vatConfig = makeVatConfig();
         const result = client.launch(vatId, vatConfig);
@@ -158,7 +170,8 @@ describe('ExtensionVatWorkerClient', () => {
         await delay(10);
         await stream.receiveInput(makeLaunchReply('m1', vatId));
 
-        expect(await result).toBeInstanceOf(MessagePortMultiplexer);
+        // @ocap/streams is mocked
+        expect(await result).toBeInstanceOf(TestDuplexStream);
       });
 
       it('logs error when receiving reply without a port', async () => {

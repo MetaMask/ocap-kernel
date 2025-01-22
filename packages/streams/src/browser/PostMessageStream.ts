@@ -3,9 +3,6 @@
  * over a [postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
  * function.
  *
- * Due to its close coupling with the browser PostMessage API, this stream does not
- * support multiplexing.
- *
  * @module PostMessage streams
  */
 
@@ -98,19 +95,18 @@ const isPostMessageEnvelope = <Write>(
  *
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
-export class PostMessageWriter<Write> extends BaseWriter<
-  PostMessageEnvelope<Write>
-> {
+export class PostMessageWriter<Write> extends BaseWriter<Write> {
   constructor(
     messageTarget: PostMessageTarget,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
     super({
       name,
-      onDispatch: (value: Dispatchable<PostMessageEnvelope<Write>>) =>
-        isPostMessageEnvelope(value)
+      onDispatch: (value: Dispatchable<Write>) => {
+        return isPostMessageEnvelope(value)
           ? messageTarget.postMessage(value.payload, value.transfer)
-          : messageTarget.postMessage(value),
+          : messageTarget.postMessage(value);
+      },
       onEnd: async (error) => {
         await onEnd?.(error);
       },
@@ -134,7 +130,7 @@ export class PostMessageDuplexStream<
 > extends BaseDuplexStream<
   Read,
   PostMessageReader<Read>,
-  PostMessageEnvelope<Write>,
+  Write,
   PostMessageWriter<Write>
 > {
   constructor({

@@ -30,10 +30,6 @@ import type {
   ValidateInput,
 } from '../BaseStream.js';
 import { BaseReader, BaseWriter } from '../BaseStream.js';
-import {
-  isMultiplexEnvelope,
-  StreamMultiplexer,
-} from '../StreamMultiplexer.js';
 import type { Dispatchable } from '../utils.js';
 
 /**
@@ -145,11 +141,3 @@ export class MessagePortDuplexStream<
   }
 }
 harden(MessagePortDuplexStream);
-
-export class MessagePortMultiplexer extends StreamMultiplexer {
-  constructor(port: MessagePort, name?: string) {
-    super(new MessagePortDuplexStream(port, isMultiplexEnvelope), name);
-    harden(this);
-  }
-}
-harden(MessagePortMultiplexer);

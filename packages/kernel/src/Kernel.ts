@@ -15,16 +15,11 @@ import { makeLogger } from '@ocap/utils';
 import type { Message, VatOneResolution } from './ag-types.js';
 import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
 import type { SlotValue } from './kernel-marshal.js';
-import {
-  isKernelCommand,
-  isVatCommandReply,
-  KernelCommandMethod,
-} from './messages/index.js';
+import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
-  VatCommandReply,
   VatCommandReturnType,
 } from './messages/index.js';
 import {
@@ -203,7 +198,7 @@ export class Kernel {
         default:
           console.error(
             'kernel worker received unexpected command',
-            // @ts-expect-error Runtime does not respect "never".
+            // @ts-expect-error Compile-time exhaustiveness check
             { method: method.valueOf(), params },
           );
       }
@@ -274,17 +269,12 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const multiplexer = await this.#vatWorkerService.launch(vatId, vatConfig);
-    multiplexer.start().catch((error) => this.#logger.error(error));
-    const vatStream = multiplexer.createChannel<VatCommandReply, VatCommand>(
-      'command',
-      isVatCommandReply,
-    );
+    const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
     const vat = new VatHandle({
       kernel: this,
       vatId,
       vatConfig,
-      vatStream,
+      vatStream: commandStream,
       storage: this.#storage,
     });
     this.#vats.set(vatId, vat);
@@ -445,7 +435,7 @@ export class Kernel {
         case 'unresolved':
           return routeAsRequeue(target);
         default:
-          // Runtime does not respect "never".
+          // Compile-time exhaustiveness check
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw Error(`unknown promise state ${promise.state}`);
       }
@@ -543,7 +533,7 @@ export class Kernel {
         break;
       }
       default:
-        // @ts-expect-error Runtime does not respect "never".
+        // @ts-expect-error Compile-time exhaustiveness check
         throw Error(`unsupported or unknown run queue item type ${item.type}`);
     }
   }

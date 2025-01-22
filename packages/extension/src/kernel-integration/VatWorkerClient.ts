@@ -2,6 +2,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
 import {
+  isVatCommandReply,
   isVatWorkerServiceReply,
   VatWorkerServiceCommandMethod,
 } from '@ocap/kernel';
@@ -11,9 +12,18 @@ import type {
   VatWorkerServiceCommand,
   VatConfig,
   VatWorkerServiceReply,
+  VatCommand,
+  VatCommandReply,
 } from '@ocap/kernel';
-import { MessagePortMultiplexer, PostMessageDuplexStream } from '@ocap/streams';
-import type { PostMessageTarget, StreamMultiplexer } from '@ocap/streams';
+import {
+  MessagePortDuplexStream,
+  PostMessageDuplexStream,
+} from '@ocap/streams';
+import type {
+  DuplexStream,
+  PostMessageEnvelope,
+  PostMessageTarget,
+} from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 
@@ -25,7 +35,7 @@ type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<VatWorkerServiceReply>,
-  VatWorkerServiceCommand
+  PostMessageEnvelope<VatWorkerServiceCommand>
 >;
 
 export class ExtensionVatWorkerClient implements VatWorkerService {
@@ -112,7 +122,10 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
     return promise;
   }
 
-  async launch(vatId: VatId, vatConfig: VatConfig): Promise<StreamMultiplexer> {
+  async launch(
+    vatId: VatId,
+    vatConfig: VatConfig,
+  ): Promise<DuplexStream<VatCommandReply, VatCommand>> {
     return this.#sendMessage({
       method: VatWorkerServiceCommandMethod.launch,
       params: { vatId, vatConfig },
@@ -158,7 +171,12 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
           this.#logger.error('Expected a port with message reply', event);
           return;
         }
-        promise.resolve(new MessagePortMultiplexer(port));
+        promise.resolve(
+          MessagePortDuplexStream.make<VatCommandReply, VatCommand>(
+            port,
+            isVatCommandReply,
+          ),
+        );
         break;
       case VatWorkerServiceCommandMethod.terminate:
       case VatWorkerServiceCommandMethod.terminateAll:
@@ -169,7 +187,7 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
       default:
         this.#logger.error(
           'Received message with unexpected method',
-          // @ts-expect-error Runtime does not respect "never".
+          // @ts-expect-error Compile-time exhaustiveness check
           method.valueOf(),
         );
     }

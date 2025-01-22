@@ -68,16 +68,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 65.92,
-          functions: 70.62,
-          branches: 69.28,
-          lines: 65.92,
+          statements: 68.72,
+          functions: 73.52,
+          branches: 70.28,
+          lines: 68.73,
         },
         'packages/kernel/**': {
-          statements: 44.12,
-          functions: 55.17,
-          branches: 30.5,
-          lines: 44.41,
+          statements: 42.51,
+          functions: 54.86,
+          branches: 29.27,
+          lines: 42.74,
         },
         'packages/nodejs/**': {
           statements: 47.61,
@@ -94,7 +94,7 @@ export default defineConfig({
         'packages/streams/**': {
           statements: 100,
           functions: 100,
-          branches: 100,
+          branches: 99.34, // TODO: See BaseStream.test.ts
           lines: 100,
         },
         'packages/utils/**': {

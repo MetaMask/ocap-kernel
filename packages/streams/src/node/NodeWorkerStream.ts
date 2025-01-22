@@ -12,10 +12,6 @@ import type {
   ValidateInput,
 } from '../BaseStream.js';
 import { BaseReader, BaseWriter } from '../BaseStream.js';
-import {
-  isMultiplexEnvelope,
-  StreamMultiplexer,
-} from '../StreamMultiplexer.js';
 import type { Dispatchable } from '../utils.js';
 
 export type OnMessage = (message: unknown) => void;
@@ -112,11 +108,3 @@ export class NodeWorkerDuplexStream<
   }
 }
 harden(NodeWorkerDuplexStream);
-
-export class NodeWorkerMultiplexer extends StreamMultiplexer {
-  constructor(port: NodePort, name?: string) {
-    super(new NodeWorkerDuplexStream(port, isMultiplexEnvelope), name);
-    harden(this);
-  }
-}
-harden(NodeWorkerMultiplexer);

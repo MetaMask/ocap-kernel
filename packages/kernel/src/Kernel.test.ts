@@ -1,9 +1,5 @@
 import { VatNotFoundError } from '@ocap/errors';
-import type {
-  MessagePortDuplexStream,
-  DuplexStream,
-  StreamMultiplexer,
-} from '@ocap/streams';
+import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -12,6 +8,7 @@ import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
+  VatCommandReply,
 } from './messages/index.js';
 import type { KVStore } from './store/kernel-store.js';
 import type { VatId, VatConfig, VatWorkerService } from './types.js';
@@ -46,10 +43,11 @@ describe('Kernel', () => {
       terminateAll: async () => undefined,
     } as unknown as VatWorkerService;
 
-    launchWorkerMock = vi.spyOn(mockWorkerService, 'launch').mockResolvedValue({
-      start: async () => Promise.resolve(),
-      createChannel: () => undefined,
-    } as unknown as StreamMultiplexer);
+    launchWorkerMock = vi
+      .spyOn(mockWorkerService, 'launch')
+      .mockResolvedValue(
+        {} as unknown as DuplexStream<VatCommandReply, VatCommand>,
+      );
     terminateWorkerMock = vi
       .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);

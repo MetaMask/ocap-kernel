@@ -72,8 +72,8 @@ async function main(): Promise<void> {
         break;
       default:
         console.error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Background received unexpected command method: "${message.method}"`,
+          // @ts-expect-error Compile-time exhaustiveness check
+          `Background received unexpected command method: "${message.method.valueOf()}"`,
         );
     }
   }

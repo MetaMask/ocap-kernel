@@ -5,35 +5,16 @@ import {
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
-  StreamMultiplexer,
 } from '@ocap/streams';
-import type {
-  DuplexStream,
-  MultiplexEnvelope,
-  PostMessageTarget,
-} from '@ocap/streams';
+import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
 import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
-import { isKernelControlReply } from './kernel-integration/messages.js';
-import type {
-  KernelControlCommand,
-  KernelControlReply,
-} from './kernel-integration/messages.js';
 import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
 
 const logger = makeLogger('[offscreen]');
 
 main().catch(logger.error);
-
-type PopupStream = ChromeRuntimeDuplexStream<
-  KernelControlCommand,
-  KernelControlReply
->;
-
-type PanelStream = DuplexStream<KernelControlReply, KernelControlCommand>;
-
-type HandleStreamChange = (stream?: PopupStream | undefined) => void;
 
 /**
  * Main function to initialize the offscreen document.
@@ -52,31 +33,13 @@ async function main(): Promise<void> {
     ChromeRuntimeTarget.Background,
   );
 
-  const { workerMultiplexer, vatWorkerServer } = await makeKernelWorker();
+  const { kernelStream, vatWorkerServer } = await makeKernelWorker();
 
-  const kernelChannel = workerMultiplexer.createChannel<
-    KernelCommandReply,
-    KernelCommand
-  >('kernel', isKernelCommandReply);
-
-  let popupStream: PopupStream | undefined;
-  const panelChannel: PanelStream = workerMultiplexer.createChannel(
-    'panel',
-    isKernelControlReply,
-  );
-  makePopupConnection(panelChannel, (stream) => {
-    popupStream = stream;
-  });
-
-  // Handle messages from the background script and the multiplexer
+  // Handle messages from the background script / kernel
   await Promise.all([
-    workerMultiplexer.start(),
     vatWorkerServer.start(),
-    kernelChannel.pipe(backgroundStream),
-    backgroundStream.pipe(kernelChannel),
-    panelChannel.drain(async (value) => {
-      await popupStream?.write(value);
-    }),
+    kernelStream.pipe(backgroundStream),
+    backgroundStream.pipe(kernelStream),
   ]);
 }
 
@@ -86,7 +49,7 @@ async function main(): Promise<void> {
  * @returns The message port stream for worker communication
  */
 async function makeKernelWorker(): Promise<{
-  workerMultiplexer: StreamMultiplexer;
+  kernelStream: DuplexStream<KernelCommandReply, KernelCommand>;
   vatWorkerServer: ExtensionVatWorkerServer;
 }> {
   const worker = new Worker('kernel-worker.js', { type: 'module' });
@@ -95,10 +58,10 @@ async function makeKernelWorker(): Promise<{
     worker.postMessage(message, transfer),
   );
 
-  const workerStream = await MessagePortDuplexStream.make<
-    MultiplexEnvelope,
-    MultiplexEnvelope
-  >(port);
+  const kernelStream = await MessagePortDuplexStream.make<
+    KernelCommandReply,
+    KernelCommand
+  >(port, isKernelCommandReply);
 
   const vatWorkerServer = ExtensionVatWorkerServer.make(
     worker as PostMessageTarget,
@@ -106,60 +69,7 @@ async function makeKernelWorker(): Promise<{
   );
 
   return {
-    workerMultiplexer: new StreamMultiplexer(
-      workerStream,
-      'OffscreenMultiplexer',
-    ),
+    kernelStream,
     vatWorkerServer,
   };
-}
-
-/**
- * Handles connecting and reconnecting to the popup.
- *
- * @param panelStream - The panel stream.
- * @param handleStreamChange - Callback to handle the created stream.
- */
-function makePopupConnection(
-  panelStream: PanelStream,
-  handleStreamChange: HandleStreamChange,
-): void {
-  chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== 'popup') {
-      return;
-    }
-
-    handleChromePort(port, panelStream, handleStreamChange).catch((error) => {
-      logger.error(error);
-      handleStreamChange();
-    });
-  });
-}
-
-/**
- * Handles receiving a connection from the popup.
- *
- * @param port - The port to connect to the popup.
- * @param panelStream - The panel channel from the multiplexer.
- * @param handleStreamChange - Callback to handle the created stream.
- */
-async function handleChromePort(
-  port: chrome.runtime.Port,
-  panelStream: PanelStream,
-  handleStreamChange: HandleStreamChange,
-): Promise<void> {
-  const popupStream: PopupStream = await ChromeRuntimeDuplexStream.make(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Popup,
-  );
-
-  // Setup cleanup for when popup closes
-  port.onDisconnect.addListener(() => {
-    popupStream.return().catch(logger.error);
-    handleStreamChange();
-  });
-  handleStreamChange(popupStream);
-
-  await popupStream.pipe(panelStream);
 }

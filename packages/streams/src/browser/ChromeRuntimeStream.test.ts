@@ -7,13 +7,10 @@ import {
   ChromeRuntimeWriter,
   ChromeRuntimeStreamTarget,
   ChromeRuntimeDuplexStream,
-  ChromeRuntimeMultiplexer,
 } from './ChromeRuntimeStream.js';
-import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
 import type { ChromeRuntime } from '../chrome.js';
-import { StreamMultiplexer } from '../StreamMultiplexer.js';
 import {
   makeDoneResult,
   makePendingResult,
@@ -376,40 +373,5 @@ describe.concurrent('ChromeRuntimeDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
-  });
-});
-
-describe('ChromeRuntimeMultiplexer', () => {
-  it('constructs a ChromeRuntimeMultiplexer', () => {
-    const multiplexer = new ChromeRuntimeMultiplexer(
-      asChromeRuntime(makeRuntime().runtime),
-      ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Offscreen,
-    );
-
-    expect(multiplexer).toBeInstanceOf(StreamMultiplexer);
-  });
-
-  it('can create and drain channels', async () => {
-    const { runtime, dispatchRuntimeMessage } = makeRuntime();
-    const multiplexer = new ChromeRuntimeMultiplexer(
-      asChromeRuntime(runtime),
-      ChromeRuntimeStreamTarget.Background,
-      ChromeRuntimeStreamTarget.Offscreen,
-    );
-    const ch1Handler = vi.fn();
-    const ch1 = multiplexer.createChannel<number, number>(
-      '1',
-      (value: unknown): value is number => typeof value === 'number',
-    );
-
-    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
-    dispatchRuntimeMessage(makeAck());
-    dispatchRuntimeMessage(makeMultiplexEnvelope('1', makeAck()));
-    dispatchRuntimeMessage(makeMultiplexEnvelope('1', 42));
-    dispatchRuntimeMessage(makeStreamDoneSignal());
-
-    await drainP;
-    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

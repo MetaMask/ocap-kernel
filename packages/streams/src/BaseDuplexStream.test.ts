@@ -1,3 +1,4 @@
+import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,11 +10,13 @@ import {
 } from './utils.js';
 import { TestDuplexStream } from '../test/stream-mocks.js';
 
+const makeErrorMatcher = makeErrorMatcherFactory(expect);
+
 describe('BaseDuplexStream', () => {
   it('constructs a BaseDuplexStream', () => {
-    const duplexStream = new TestDuplexStream(() => undefined);
-    expect(duplexStream).toBeInstanceOf(BaseDuplexStream);
-    expect(duplexStream[Symbol.asyncIterator]()).toBe(duplexStream);
+    const stream = new TestDuplexStream(() => undefined);
+    expect(stream).toBeInstanceOf(BaseDuplexStream);
+    expect(stream[Symbol.asyncIterator]()).toBe(stream);
   });
 
   describe('synchronization', () => {
@@ -27,42 +30,60 @@ describe('BaseDuplexStream', () => {
     });
 
     it('resolves the synchronization promise when receiving an ACK', async () => {
-      const duplexStream = new TestDuplexStream(() => undefined);
+      const stream = new TestDuplexStream(() => undefined);
 
-      await duplexStream.receiveInput(makeAck());
-      expect(await duplexStream.completeSynchronization()).toBeUndefined();
+      await stream.receiveInput(makeAck());
+      expect(await stream.completeSynchronization()).toBeUndefined();
     });
 
     it('writes an ACK message when receiving a SYN', async () => {
       const onDispatch = vi.fn();
-      const duplexStream = new TestDuplexStream(onDispatch);
-      duplexStream.synchronize().catch((error) => {
+      const stream = new TestDuplexStream(onDispatch);
+      stream.synchronize().catch((error) => {
         throw error;
       });
 
-      await duplexStream.receiveInput(makeSyn());
+      await stream.receiveInput(makeSyn());
       await delay(10);
       expect(onDispatch).toHaveBeenCalledTimes(2);
       expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
     });
 
-    it('rejects the synchronization promise if receiving more than one SYN', async () => {
-      const duplexStream = new TestDuplexStream(() => undefined);
-      duplexStream.synchronize().catch(() => undefined);
+    it('handles calling drain before synchronization', async () => {
+      const stream = new TestDuplexStream(() => undefined);
+      const drainFn = vi.fn();
 
-      await duplexStream.receiveInput(makeSyn());
-      await duplexStream.receiveInput(makeSyn());
-      await expect(duplexStream.next()).rejects.toThrow(
+      const drainP = stream.drain(drainFn);
+      await stream.completeSynchronization();
+      await delay(10);
+      expect(drainFn).not.toHaveBeenCalled();
+
+      await stream.receiveInput(42);
+      await delay(10);
+      expect(drainFn).toHaveBeenCalledOnce();
+
+      await stream.return();
+      await drainP;
+      expect(drainFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects the synchronization promise if receiving more than one SYN', async () => {
+      const stream = new TestDuplexStream(() => undefined);
+      stream.synchronize().catch(() => undefined);
+
+      await stream.receiveInput(makeSyn());
+      await stream.receiveInput(makeSyn());
+      await expect(stream.next()).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
     });
 
     it('rejects the synchronization promise if receiving an unexpected message', async () => {
-      const duplexStream = new TestDuplexStream(() => undefined);
-      duplexStream.synchronize().catch(() => undefined);
+      const stream = new TestDuplexStream(() => undefined);
+      stream.synchronize().catch(() => undefined);
 
-      await duplexStream.receiveInput(42);
-      await expect(duplexStream.next()).rejects.toThrow(
+      await stream.receiveInput(42);
+      await expect(stream.next()).rejects.toThrow(
         `Received unexpected message during synchronization: ${stringify({
           done: false,
           value: 42,
@@ -71,29 +92,29 @@ describe('BaseDuplexStream', () => {
     });
 
     it('synchronization errors causes reads to always throw', async () => {
-      const duplexStream = new TestDuplexStream(() => undefined);
-      duplexStream.synchronize().catch(() => undefined);
+      const stream = new TestDuplexStream(() => undefined);
+      stream.synchronize().catch(() => undefined);
 
-      await duplexStream.receiveInput(makeSyn());
-      await duplexStream.receiveInput(makeSyn());
-      await expect(duplexStream.next()).rejects.toThrow(
+      await stream.receiveInput(makeSyn());
+      await stream.receiveInput(makeSyn());
+      await expect(stream.next()).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
-      await expect(duplexStream.next()).rejects.toThrow(
+      await expect(stream.next()).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
     });
 
     it('synchronization errors causes writes to always throw', async () => {
-      const duplexStream = new TestDuplexStream(() => undefined);
-      duplexStream.synchronize().catch(() => undefined);
+      const stream = new TestDuplexStream(() => undefined);
+      stream.synchronize().catch(() => undefined);
 
-      await duplexStream.receiveInput(makeSyn());
-      await duplexStream.receiveInput(makeSyn());
-      await expect(duplexStream.write(42)).rejects.toThrow(
+      await stream.receiveInput(makeSyn());
+      await stream.receiveInput(makeSyn());
+      await expect(stream.write(42)).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
-      await expect(duplexStream.write(42)).rejects.toThrow(
+      await expect(stream.write(42)).rejects.toThrow(
         'Received duplicate SYN message during synchronization',
       );
     });
@@ -118,7 +139,10 @@ describe('BaseDuplexStream', () => {
         // Complete the synchronization, again repeating the call
         await stream.completeSynchronization();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
+        // In response to completing the synchronization, the stream
+        // sends a single ACK message.
+        expect(onDispatch).toHaveBeenCalledTimes(2);
+        expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
       });
 
       it('repeated calls after successful synchronization do nothing', async () => {
@@ -128,13 +152,14 @@ describe('BaseDuplexStream', () => {
         // Begin and complete synchronization
         await stream.completeSynchronization();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
-        expect(onDispatch).toHaveBeenCalledWith(makeSyn());
+        expect(onDispatch).toHaveBeenCalledTimes(2);
+        expect(onDispatch).toHaveBeenNthCalledWith(1, makeSyn());
+        expect(onDispatch).toHaveBeenNthCalledWith(2, makeAck());
 
         // Repeat the call
         await stream.synchronize();
 
-        expect(onDispatch).toHaveBeenCalledOnce();
+        expect(onDispatch).toHaveBeenCalledTimes(2);
       });
 
       it('repeated calls after failed synchronization re-throw the error', async () => {
@@ -146,45 +171,124 @@ describe('BaseDuplexStream', () => {
         await expect(stream.synchronize()).rejects.toThrow('foo');
       });
     });
+
+    describe('re-synchronization', () => {
+      it('re-synchronizes if receiving a SYN message after completing synchronization', async () => {
+        const stream = new TestDuplexStream(() => undefined);
+        const syncP = stream.synchronize();
+        await stream.receiveInput(makeAck());
+        await syncP;
+
+        const nextP = stream.next();
+        await stream.receiveInput(makeSyn());
+        await stream.receiveInput(makeAck());
+        await stream.receiveInput(42);
+        expect(await nextP).toStrictEqual(makePendingResult(42));
+      });
+
+      it('draining is unaffected by re-synchronization', async () => {
+        const stream = new TestDuplexStream(() => undefined);
+        const drainFn = vi.fn();
+
+        const drainP = stream.drain(drainFn);
+        const syncP = stream.synchronize();
+        await stream.receiveInput(makeAck());
+        await syncP;
+        expect(drainFn).not.toHaveBeenCalled();
+
+        await stream.receiveInput(42);
+        await delay(10);
+        expect(drainFn).toHaveBeenCalledOnce();
+
+        await stream.receiveInput(makeSyn());
+        await stream.receiveInput(makeAck());
+        await stream.receiveInput(43);
+        await delay(10);
+
+        await stream.return();
+        await drainP;
+        expect(drainFn).toHaveBeenCalledTimes(2);
+        expect(drainFn).toHaveBeenNthCalledWith(1, 42);
+        expect(drainFn).toHaveBeenNthCalledWith(2, 43);
+      });
+
+      it('rejects the re-synchronization promise if receiving an unexpected message', async () => {
+        const stream = new TestDuplexStream(() => undefined);
+        const syncP = stream.synchronize();
+        await stream.receiveInput(makeAck());
+        await syncP;
+
+        await stream.receiveInput(makeSyn());
+        await stream.receiveInput(42);
+        await expect(stream.next()).rejects.toThrow(
+          `Received unexpected message during synchronization: ${stringify({
+            done: false,
+            value: 42,
+          })}`,
+        );
+      });
+
+      it('handles errors from the synchronization procedure', async () => {
+        const onDispatch = vi
+          .fn()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce(undefined)
+          .mockRejectedValueOnce(new Error('foo'));
+        // Create synchronized duplex stream
+        const stream = await TestDuplexStream.make(onDispatch);
+
+        // Re-synchronize
+        await stream.receiveInput(makeSyn());
+        const nextP = stream.next();
+        await stream.receiveInput(makeAck());
+        await expect(nextP).rejects.toThrow(
+          makeErrorMatcher(
+            new Error('TestDuplexStream experienced a dispatch failure', {
+              cause: new Error('foo'),
+            }),
+          ),
+        );
+      });
+    });
   });
 
   it('reads from the reader', async () => {
-    const duplexStream = await TestDuplexStream.make(() => undefined);
+    const stream = await TestDuplexStream.make(() => undefined);
 
     const message = 42;
-    await duplexStream.receiveInput(message);
+    await stream.receiveInput(message);
 
-    expect(await duplexStream.next()).toStrictEqual(makePendingResult(message));
+    expect(await stream.next()).toStrictEqual(makePendingResult(message));
   });
 
   it('reads from the reader before synchronization', async () => {
-    const duplexStream = new TestDuplexStream(() => undefined);
-    const nextP = duplexStream.next();
+    const stream = new TestDuplexStream(() => undefined);
+    const nextP = stream.next();
 
-    await duplexStream.completeSynchronization();
+    await stream.completeSynchronization();
 
-    await duplexStream.receiveInput(42);
+    await stream.receiveInput(42);
     expect(await nextP).toStrictEqual(makePendingResult(42));
   });
 
   it('reads from the reader, with input validation', async () => {
-    const duplexStream = await TestDuplexStream.make(() => undefined, {
+    const stream = await TestDuplexStream.make(() => undefined, {
       validateInput: (value: unknown): value is number =>
         typeof value === 'number',
     });
 
-    await duplexStream.receiveInput(42);
-    expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
+    await stream.receiveInput(42);
+    expect(await stream.next()).toStrictEqual(makePendingResult(42));
   });
 
   it('drains the reader in order', async () => {
-    const duplexStream = await TestDuplexStream.make(() => undefined);
+    const stream = await TestDuplexStream.make(() => undefined);
 
     const messages = [1, 2, 3];
     await Promise.all(
-      messages.map(async (message) => duplexStream.receiveInput(message)),
+      messages.map(async (message) => stream.receiveInput(message)),
     );
-    await duplexStream.return();
+    await stream.return();
 
     let index = 0;
     const drainFn = vi.fn((value: number) => {
@@ -192,7 +296,7 @@ describe('BaseDuplexStream', () => {
       index += 1;
     });
 
-    await duplexStream.drain(drainFn);
+    await stream.drain(drainFn);
     expect(drainFn).toHaveBeenCalledTimes(messages.length);
     expect(drainFn).toHaveBeenNthCalledWith(1, 1);
     expect(drainFn).toHaveBeenNthCalledWith(2, 2);
@@ -201,36 +305,36 @@ describe('BaseDuplexStream', () => {
 
   it('writes to the writer', async () => {
     const onDispatch = vi.fn();
-    const duplexStream = await TestDuplexStream.make(onDispatch);
+    const stream = await TestDuplexStream.make(onDispatch);
 
     const message = 42;
-    await duplexStream.write(message);
+    await stream.write(message);
     expect(onDispatch).toHaveBeenCalledWith(message);
   });
 
   it('writes to the writer before synchronization', async () => {
     const onDispatch = vi.fn();
-    const duplexStream = new TestDuplexStream(onDispatch);
+    const stream = new TestDuplexStream(onDispatch);
 
     const message = 42;
-    duplexStream.write(message).catch(() => undefined);
+    stream.write(message).catch(() => undefined);
 
     expect(onDispatch).not.toHaveBeenCalled();
 
-    await duplexStream.completeSynchronization();
+    await stream.completeSynchronization();
 
     expect(onDispatch).toHaveBeenCalledWith(message);
   });
 
   it('pipes to another duplex stream', async () => {
-    const duplexStream = await TestDuplexStream.make(() => undefined);
+    const stream = await TestDuplexStream.make(() => undefined);
     const onDispatch = vi.fn();
     const sink = await TestDuplexStream.make(onDispatch);
 
-    const pipeP = duplexStream.pipe(sink);
-    await duplexStream.receiveInput(42);
-    await duplexStream.receiveInput(43);
-    await duplexStream.return();
+    const pipeP = stream.pipe(sink);
+    await stream.receiveInput(42);
+    await stream.receiveInput(43);
+    await stream.return();
     await pipeP;
 
     expect(onDispatch).toHaveBeenCalledWith(42);
@@ -242,12 +346,12 @@ describe('BaseDuplexStream', () => {
   it('return calls ends both the reader and writer', async () => {
     const readerOnEnd = vi.fn();
     const writerOnEnd = vi.fn();
-    const duplexStream = await TestDuplexStream.make(() => undefined, {
+    const stream = await TestDuplexStream.make(() => undefined, {
       readerOnEnd,
       writerOnEnd,
     });
 
-    await duplexStream.return();
+    await stream.return();
     expect(readerOnEnd).toHaveBeenCalledOnce();
     expect(writerOnEnd).toHaveBeenCalledOnce();
   });
@@ -255,23 +359,23 @@ describe('BaseDuplexStream', () => {
   it('throw calls throw on the writer but return on the reader', async () => {
     const readerOnEnd = vi.fn();
     const writerOnEnd = vi.fn();
-    const duplexStream = await TestDuplexStream.make(() => undefined, {
+    const stream = await TestDuplexStream.make(() => undefined, {
       readerOnEnd,
       writerOnEnd,
     });
 
-    await duplexStream.throw(new Error('foo'));
+    await stream.throw(new Error('foo'));
     expect(readerOnEnd).toHaveBeenCalledOnce();
     expect(writerOnEnd).toHaveBeenCalledOnce();
   });
 
   it('ending the reader calls reader onEnd function', async () => {
     const readerOnEnd = vi.fn();
-    const duplexStream = await TestDuplexStream.make(() => undefined, {
+    const stream = await TestDuplexStream.make(() => undefined, {
       readerOnEnd,
     });
 
-    await duplexStream.receiveInput(makeStreamDoneSignal());
+    await stream.receiveInput(makeStreamDoneSignal());
     expect(readerOnEnd).toHaveBeenCalledOnce();
   });
 
@@ -280,26 +384,26 @@ describe('BaseDuplexStream', () => {
       throw new Error('foo');
     });
     const writerOnEnd = vi.fn();
-    const duplexStream = await TestDuplexStream.make(onDispatch, {
+    const stream = await TestDuplexStream.make(onDispatch, {
       writerOnEnd,
     });
 
-    await expect(duplexStream.write(42)).rejects.toThrow('foo');
+    await expect(stream.write(42)).rejects.toThrow('foo');
     expect(writerOnEnd).toHaveBeenCalledOnce();
   });
 
   describe('end', () => {
     it('calls return() if no error is provided', async () => {
-      const duplexStream = await TestDuplexStream.make(() => undefined);
-      const nextP = duplexStream.next();
-      expect(await duplexStream.end()).toStrictEqual(makeDoneResult());
+      const stream = await TestDuplexStream.make(() => undefined);
+      const nextP = stream.next();
+      expect(await stream.end()).toStrictEqual(makeDoneResult());
       expect(await nextP).toStrictEqual(makeDoneResult());
     });
 
     it('calls throw() if an error is provided', async () => {
-      const duplexStream = await TestDuplexStream.make(() => undefined);
-      const nextP = duplexStream.next();
-      expect(await duplexStream.end(new Error('foo'))).toStrictEqual(
+      const stream = await TestDuplexStream.make(() => undefined);
+      const nextP = stream.next();
+      expect(await stream.end(new Error('foo'))).toStrictEqual(
         makeDoneResult(),
       );
       await expect(nextP).rejects.toThrow('foo');

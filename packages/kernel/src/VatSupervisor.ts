@@ -145,9 +145,8 @@ export class VatSupervisor {
 
       default:
         throw Error(
-          'VatSupervisor received unexpected command method:',
-          // @ts-expect-error Runtime does not respect "never".
-          payload.method,
+          // @ts-expect-error Compile-time exhaustiveness check
+          `VatSupervisor received unexpected command method: "${payload.method}"`,
         );
     }
   }

@@ -3,11 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   MessagePortDuplexStream,
-  MessagePortMultiplexer,
   MessagePortReader,
   MessagePortWriter,
 } from './MessagePortStream.js';
-import { makeMultiplexEnvelope } from '../../test/stream-mocks.js';
 import { makeAck } from '../BaseDuplexStream.js';
 import type { ValidateInput } from '../BaseStream.js';
 import {
@@ -193,6 +191,7 @@ describe('MessagePortDuplexStream', () => {
     const { port1, port2 } = new MessageChannel();
     vi.spyOn(port1, 'postMessage')
       .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => {
         throw new Error('foo');
       });
@@ -213,33 +212,5 @@ describe('MessagePortDuplexStream', () => {
     await delay(10);
     expect(await duplexStream.write(42)).toStrictEqual(makeDoneResult());
     expect(await readP).toStrictEqual(makeDoneResult());
-  });
-});
-
-describe('MessagePortMultiplexer', () => {
-  it('constructs a MessagePortMultiplexer', () => {
-    const { port1 } = new MessageChannel();
-    const multiplexer = new MessagePortMultiplexer(port1);
-
-    expect(multiplexer).toBeInstanceOf(MessagePortMultiplexer);
-  });
-
-  it('can create and drain channels', async () => {
-    const { port1, port2 } = new MessageChannel();
-    const multiplexer = new MessagePortMultiplexer(port1);
-    const ch1Handler = vi.fn();
-    const ch1 = multiplexer.createChannel<number, number>(
-      '1',
-      (value: unknown): value is number => typeof value === 'number',
-    );
-
-    const drainP = Promise.all([multiplexer.start(), ch1.drain(ch1Handler)]);
-    port2.postMessage(makeAck());
-    port2.postMessage(makeMultiplexEnvelope('1', makeAck()));
-    port2.postMessage(makeMultiplexEnvelope('1', 42));
-    port2.postMessage(makeStreamDoneSignal());
-
-    await drainP;
-    expect(ch1Handler).toHaveBeenCalledWith(42);
   });
 });

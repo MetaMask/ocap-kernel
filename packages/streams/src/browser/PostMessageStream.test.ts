@@ -198,18 +198,19 @@ describe('PostMessageWriter', () => {
 });
 
 describe('PostMessageDuplexStream', () => {
-  const makeDuplexStream = async ({
+  const makeDuplexStream = async <Read, Write>({
     messageTarget = makeMockMessageTarget(),
     postRemoteMessage = vi.fn(),
     validateInput,
   }: {
     messageTarget?: PostMessageTarget;
     postRemoteMessage?: PostMessage;
-    validateInput?: ValidateInput<number>;
+    validateInput?: ValidateInput<Read>;
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   } = {}) => {
     const postLocalMessage = messageTarget.postMessage;
-    const duplexStreamP = PostMessageDuplexStream.make({
+    // @ts-expect-error In reality you have to be explicit about `messageEventMode`
+    const duplexStreamP = PostMessageDuplexStream.make<Read, Write>({
       messageTarget: { ...messageTarget, postMessage: postRemoteMessage },
       validateInput,
     });
@@ -249,6 +250,7 @@ describe('PostMessageDuplexStream', () => {
   it('ends the reader when the writer ends', async () => {
     const postRemoteMessage = vi
       .fn()
+      .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => {
         throw new Error('foo');
