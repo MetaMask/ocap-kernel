@@ -32,7 +32,7 @@ describe('getPort', () => {
     },
     {
       // Extra time is needed when running yarn test from monorepo root.
-      timeout: 5000,
+      timeout: 12000,
     },
   );
 
