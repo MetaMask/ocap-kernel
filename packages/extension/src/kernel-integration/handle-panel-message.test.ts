@@ -187,7 +187,7 @@ describe('handlePanelMessage', () => {
         id: 'test-4',
         payload: {
           method: 'restartVat',
-          params: { id: 'invalid' as VatId },
+          params: { id: 'invalid' },
         },
       };
 

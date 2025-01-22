@@ -1,4 +1,4 @@
-import type { VatConfig, VatId } from '@ocap/kernel';
+import type { VatConfig } from '@ocap/kernel';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -30,7 +30,7 @@ describe('useVats', () => {
   const mockSendMessage = vi.fn();
   const mockLogMessage = vi.fn();
   const mockSetSelectedVatId = vi.fn();
-  const mockVatId = 'vat1' as VatId;
+  const mockVatId = 'vat1';
 
   const mockStatus = {
     vats: [
