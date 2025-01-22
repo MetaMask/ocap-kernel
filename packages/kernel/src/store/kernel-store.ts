@@ -436,7 +436,7 @@ export function makeKernelStore(kv: KVStore) {
       kv.set(`e.nextObjectId.${endpointId}`, `${Number(id) + 1}`);
       refType = 'o';
     }
-    const eref = `${refTag}${refType}-${id}` as ERef;
+    const eref = `${refTag}${refType}-${id}`;
     addClistEntry(endpointId, kref, eref);
     return eref;
   }
@@ -522,7 +522,7 @@ export function makeKernelStore(kv: KVStore) {
     if (owner === undefined) {
       throw Error(`unknown kernel object ${koId}`);
     }
-    return owner as EndpointId;
+    return owner;
   }
 
   /**
@@ -619,7 +619,7 @@ export function makeKernelStore(kv: KVStore) {
       case 'unresolved': {
         const decider = kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
-          result.decider = decider as EndpointId;
+          result.decider = decider;
         }
         const subscribers = kv.getRequired(`${kpid}.subscribers`);
         result.subscribers = JSON.parse(subscribers);
@@ -700,7 +700,7 @@ export function makeKernelStore(kv: KVStore) {
    * if there is no such mapping.
    */
   function erefToKref(endpointId: EndpointId, eref: ERef): KRef | undefined {
-    return kv.get(`cle.${endpointId}.${eref}`) as KRef;
+    return kv.get(`cle.${endpointId}.${eref}`);
   }
 
   /**
@@ -712,7 +712,7 @@ export function makeKernelStore(kv: KVStore) {
    * there is no such mapping.
    */
   function krefToEref(endpointId: EndpointId, kref: KRef): ERef | undefined {
-    return kv.get(`clk.${endpointId}.${kref}`) as ERef;
+    return kv.get(`clk.${endpointId}.${kref}`);
   }
 
   /**

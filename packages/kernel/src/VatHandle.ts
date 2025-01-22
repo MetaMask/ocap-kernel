@@ -101,7 +101,7 @@ export class VatHandle {
    * @returns the KRef corresponding to `vref` in this vat.
    */
   #translateRefVtoK(vref: VRef): KRef {
-    let kref = this.#storage.erefToKref(this.vatId, vref) as KRef;
+    let kref = this.#storage.erefToKref(this.vatId, vref);
     if (!kref) {
       kref = this.#kernel.exportFromVat(this.vatId, vref);
     }
@@ -134,7 +134,10 @@ export class VatHandle {
     const methargs = this.#translateCapDataVtoK(
       message.methargs as CapData<VRef>,
     );
-    const result = this.#translateRefVtoK(message.result as VRef);
+    if (typeof message.result !== 'string') {
+      throw TypeError(`message result must be a string`);
+    }
+    const result = this.#translateRefVtoK(message.result);
     return { methargs, result };
   }
 
@@ -153,7 +156,7 @@ export class VatHandle {
         const [op, target, message] = vso;
         kso = [
           op,
-          this.#translateRefVtoK(target as VRef),
+          this.#translateRefVtoK(target),
           this.#translateMessageVtoK(message),
         ];
         break;
@@ -161,7 +164,7 @@ export class VatHandle {
       case 'subscribe': {
         // [VRef];
         const [op, promise] = vso;
-        kso = [op, this.#translateRefVtoK(promise as VRef)];
+        kso = [op, this.#translateRefVtoK(promise)];
         break;
       }
       case 'resolve': {
@@ -171,7 +174,7 @@ export class VatHandle {
           (resolution) => {
             const [vpid, rejected, data] = resolution;
             return [
-              this.#translateRefVtoK(vpid as VRef),
+              this.#translateRefVtoK(vpid),
               rejected,
               this.#translateCapDataVtoK(data as CapData<VRef>),
             ];
@@ -196,7 +199,7 @@ export class VatHandle {
       case 'abandonExports': {
         // [VRef[]];
         const [op, vrefs] = vso;
-        const krefs = vrefs.map((ref) => this.#translateRefVtoK(ref as VRef));
+        const krefs = vrefs.map((ref) => this.#translateRefVtoK(ref));
         kso = [op, krefs];
         break;
       }
@@ -263,16 +266,14 @@ export class VatHandle {
     switch (op) {
       case 'send': {
         // [KRef, Message];
-        const [, rawTarget, message] = kso;
-        const target = rawTarget as KRef;
+        const [, target, message] = kso;
         log(`@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`);
         this.#handleSyscallSend(target, message);
         break;
       }
       case 'subscribe': {
         // [KRef];
-        const [, rawPromise] = kso;
-        const promise = rawPromise as KRef;
+        const [, promise] = kso;
         log(`@@@@ ${vatId} syscall subscribe ${promise}`);
         this.#handleSyscallSubscribe(promise);
         break;

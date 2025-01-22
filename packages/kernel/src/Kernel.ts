@@ -52,7 +52,7 @@ function extractSingleRef(data: CapData<KRef>): KRef | null {
   const value = kunser(data) as SlotValue;
   const style: string = passStyleOf(value);
   if (style === 'remotable' || style === 'promise') {
-    return krefOf(value) as KRef;
+    return krefOf(value);
   }
   return null;
 }
@@ -314,7 +314,7 @@ export class Kernel {
         throw Error(`unmapped kref ${kref} vat=${vatId}`);
       }
     }
-    return eref as VRef;
+    return eref;
   }
 
   /**
@@ -347,7 +347,7 @@ export class Kernel {
       message.methargs as CapData<KRef>,
     );
     const result = message.result
-      ? this.#translateRefKtoV(vatId, message.result as KRef, true)
+      ? this.#translateRefKtoV(vatId, message.result, true)
       : message.result;
     const vatMessage = { ...message, methargs, result };
     return vatMessage;
@@ -405,7 +405,7 @@ export class Kernel {
       return null;
     };
     const routeAsSend = (targetObject: KRef): MessageRoute => {
-      const vatId = this.#storage.getOwner(targetObject) as VatId;
+      const vatId = this.#storage.getOwner(targetObject);
       if (!vatId) {
         return routeAsSplat(kser('no vat'));
       }
@@ -475,7 +475,10 @@ export class Kernel {
           if (vatId) {
             const vat = this.#getVat(vatId);
             if (vat) {
-              this.#storage.setPromiseDecider(message.result as KRef, vatId);
+              if (typeof message.result !== 'string') {
+                throw TypeError('message result must be a string');
+              }
+              this.#storage.setPromiseDecider(message.result, vatId);
               const vatTarget = this.#translateRefKtoV(vatId, target, false);
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);
@@ -595,8 +598,7 @@ export class Kernel {
    */
   doResolve(vatId: VatId | undefined, resolutions: VatOneResolution[]): void {
     for (const resolution of resolutions) {
-      const [kpidRaw, rejected, dataRaw] = resolution;
-      const kpid = kpidRaw as KRef;
+      const [kpid, rejected, dataRaw] = resolution;
       const data = dataRaw as CapData<KRef>;
       const promise = this.#storage.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
@@ -610,7 +612,7 @@ export class Kernel {
         throw Error(`${kpid} subscribers not set`);
       }
       for (const subscriber of subscribers) {
-        this.#notify(subscriber as VatId, kpid);
+        this.#notify(subscriber, kpid);
       }
       this.#storage.resolveKernelPromise(kpid, rejected, data);
     }
