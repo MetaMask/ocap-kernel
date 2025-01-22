@@ -5,9 +5,16 @@ import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
 } from 'node:worker_threads';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeKernel } from './make-kernel.js';
+
+vi.mock('./sqlite-kv-store.js', async () => {
+  const { makeMapKVStore } = await import('../../../kernel/test/storage.js');
+  return {
+    makeSQLKVStore: makeMapKVStore,
+  };
+});
 
 describe('makeKernel', () => {
   let kernelPort: NodeMessagePort;
