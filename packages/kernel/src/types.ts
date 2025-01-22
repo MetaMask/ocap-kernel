@@ -18,18 +18,13 @@ import type { StreamMultiplexer } from '@ocap/streams';
 // XXX Once the packaging of liveslots is fixed, this should be imported from there
 import type { Message } from './ag-types.js';
 
-export type VatId = `v${string}`;
-export type RemoteId = `r${string}`;
+export type VatId = string;
+export type RemoteId = string;
 export type EndpointId = VatId | RemoteId;
 
-type RefTypeTag = 'o' | 'p';
-type RefDirectionTag = '+' | '-';
-type InnerKRef = `${RefTypeTag}${string}`;
-type InnerERef = `${RefTypeTag}${RefDirectionTag}${string}`;
-
-export type KRef = `k${InnerKRef}`;
-export type VRef = `${InnerERef}`;
-export type RRef = `r${InnerERef}`;
+export type KRef = string;
+export type VRef = string;
+export type RRef = string;
 export type ERef = VRef | RRef;
 export type Ref = KRef | ERef;
 

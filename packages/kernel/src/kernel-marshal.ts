@@ -121,7 +121,7 @@ const kmarshal = makeMarshal(krefOf, kslot, {
  * @returns a capdata object that can be deserialized with `kunser`.
  */
 export function kser(value: unknown): CapData<KRef> {
-  return kmarshal.toCapData(harden(value as Passable)) as CapData<KRef>;
+  return kmarshal.toCapData(harden(value as Passable));
 }
 
 /**
