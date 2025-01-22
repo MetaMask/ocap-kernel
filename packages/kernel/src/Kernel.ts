@@ -6,7 +6,6 @@ import {
   StreamReadError,
   VatAlreadyExistsError,
   VatNotFoundError,
-  toError,
 } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
@@ -16,11 +15,7 @@ import { makeLogger } from '@ocap/utils';
 import type { Message, VatOneResolution } from './ag-types.js';
 import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
 import type { SlotValue } from './kernel-marshal.js';
-import {
-  isKernelCommand,
-  KernelCommandMethod,
-  VatCommandMethod,
-} from './messages/index.js';
+import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
 import type {
   KernelCommand,
   KernelCommandReply,
@@ -200,42 +195,6 @@ export class Kernel {
         case KernelCommandMethod.ping:
           await this.#replyToCommand({ method, params: 'pong' });
           break;
-        case KernelCommandMethod.evaluate: {
-          if (!this.#vats.size) {
-            throw new Error('No vats available to call');
-          }
-          const vat: VatHandle = this.#vats.values().next().value;
-          await this.#replyToCommand({
-            method,
-            params: await this.#evaluate(vat.vatId, params),
-          });
-          break;
-        }
-        case KernelCommandMethod.kvSet:
-          this.kvSet(params.key, params.value);
-          await this.#replyToCommand({
-            method,
-            params: `~~~ set "${params.key}" to "${params.value}" ~~~`,
-          });
-          break;
-        case KernelCommandMethod.kvGet: {
-          try {
-            const value = this.kvGet(params);
-            const result =
-              typeof value === 'string' ? `"${value}"` : `${value}`;
-            await this.#replyToCommand({
-              method,
-              params: `~~~ got ${result} ~~~`,
-            });
-          } catch (problem) {
-            // TODO: marshal
-            await this.#replyToCommand({
-              method,
-              params: String(toError(problem)),
-            });
-          }
-          break;
-        }
         default:
           console.error(
             'kernel worker received unexpected command',
@@ -253,56 +212,6 @@ export class Kernel {
    */
   async #replyToCommand(message: KernelCommandReply): Promise<void> {
     await this.#commandStream.write(message);
-  }
-
-  /**
-   * Evaluate a string in the default iframe.
-   *
-   * XXX Note: this is test scaffolding that should eventually be removed.
-   *
-   * @param vatId - The ID of the vat to send the message to.
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  async #evaluate(vatId: VatId, source: string): Promise<string> {
-    try {
-      const result = await this.sendMessage(vatId, {
-        method: VatCommandMethod.evaluate,
-        params: source,
-      });
-      return String(result);
-    } catch (error) {
-      if (error instanceof Error) {
-        return `Error: ${error.message}`;
-      }
-      return `Error: Unknown error during evaluation.`;
-    }
-  }
-
-  /**
-   * Fetch a value from the raw KV store that backs the kernel's persistent state.
-   *
-   * XXX This really should be private, but the extension currently uses it (inappropriately)
-   * XXX Note: this is test scaffolding that should eventually be removed.
-   *
-   * @param key - The key to fetch.
-   * @returns the value associated with `key`, or undefined if there isn't one.
-   */
-  kvGet(key: string): string | undefined {
-    return this.#storage.kv.get(key);
-  }
-
-  /**
-   * Write a value to the raw KV store that backs the kernel's persistent state.
-   *
-   * XXX This really should be private, but the extension currently uses it (inappropriately)
-   * XXX Note: this is test scaffolding that should eventually be removed.
-   *
-   * @param key - The key to update.
-   * @param value - The value to write to `key`.
-   */
-  kvSet(key: string, value: string): void {
-    this.#storage.kv.set(key, value);
   }
 
   /**

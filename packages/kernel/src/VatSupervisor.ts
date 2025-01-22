@@ -7,7 +7,6 @@ import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
-import { stringify } from '@ocap/utils';
 
 import type {
   DispatchFn,
@@ -44,9 +43,6 @@ export class VatSupervisor {
 
   /** Communications channel between this vat and the kernel */
   readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
-
-  /** Compartment into which the user code will be loaded */
-  readonly #defaultCompartment = new Compartment({ URL });
 
   /** Flag that the user code has been loaded */
   #loaded: boolean = false;
@@ -103,23 +99,6 @@ export class VatSupervisor {
    */
   async handleMessage({ id, payload }: VatCommand): Promise<void> {
     switch (payload.method) {
-      case VatCommandMethod.evaluate: {
-        if (typeof payload.params !== 'string') {
-          console.error(
-            'VatSupervisor received command with unexpected params',
-            // @ts-expect-error Compile-time exhaustiveness check
-            stringify(payload.params),
-          );
-          return;
-        }
-        const result = this.evaluate(payload.params);
-        await this.replyToMessage(id, {
-          method: VatCommandMethod.evaluate,
-          params: stringify(result),
-        });
-        break;
-      }
-
       case VatCommandMethod.deliver: {
         if (!this.#dispatch) {
           console.error(`cannot deliver before vat is loaded`);
@@ -288,23 +267,5 @@ export class VatSupervisor {
     payload: VatCommandReply['payload'],
   ): Promise<void> {
     await this.#commandStream.write({ id, payload });
-  }
-
-  /**
-   * Evaluate a string in the default compartment.
-   *
-   * XXX This method is a piece of developmental test scaffolding that really
-   * should not exist.
-   *
-   * @param source - The source string to evaluate.
-   * @returns The result of the evaluation, or an error message.
-   */
-  evaluate(source: string): string {
-    try {
-      return this.#defaultCompartment.evaluate(source);
-    } catch (error) {
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      return `Error: ${(error as { message?: string }).message || 'Unknown'}`;
-    }
   }
 }

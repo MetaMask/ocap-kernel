@@ -112,21 +112,21 @@ describe('VatHandle', () => {
       const { vat } = await makeVat();
       const mockMessageId = 'v0:1';
       const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.evaluate,
-        params: 'test-response',
+        method: VatCommandMethod.ping,
+        params: 'test',
       };
 
       // Create a pending message first
       const messagePromise = vat.sendMessage({
-        method: VatCommandMethod.evaluate,
-        params: 'test-input',
+        method: VatCommandMethod.ping,
+        params: null,
       });
 
       // Handle the response
       await vat.handleMessage({ id: mockMessageId, payload: mockPayload });
 
       const result = await messagePromise;
-      expect(result).toBe('test-response');
+      expect(result).toBe('test');
     });
   });
 

@@ -30,7 +30,6 @@ const isVatMessageId = (value: unknown): value is VatMessageId =>
     isVatId(value.split(':')[0]));
 
 export const VatTestCommandMethod = {
-  evaluate: 'evaluate',
   ping: 'ping',
 } as const;
 
@@ -45,10 +44,6 @@ export const VatCommandMethod = {
 const VatMessageIdStruct = refine(string(), 'VatMessageId', isVatMessageId);
 
 export const VatTestMethodStructs = {
-  [VatCommandMethod.evaluate]: object({
-    method: literal(VatCommandMethod.evaluate),
-    params: string(),
-  }),
   [VatCommandMethod.ping]: object({
     method: literal(VatCommandMethod.ping),
     params: literal(null),
@@ -218,10 +213,6 @@ export const VatMethodStructs = {
 export type VatCommand = Infer<typeof VatCommandStruct>;
 
 export const VatTestReplyStructs = {
-  [VatCommandMethod.evaluate]: object({
-    method: literal(VatCommandMethod.evaluate),
-    params: string(),
-  }),
   [VatCommandMethod.ping]: object({
     method: literal(VatCommandMethod.ping),
     params: string(),
@@ -247,7 +238,6 @@ const VatReplyStructs = {
 const VatCommandStruct = object({
   id: VatMessageIdStruct,
   payload: union([
-    VatMethodStructs.evaluate,
     VatMethodStructs.ping,
     VatMethodStructs.initVat,
     VatMethodStructs.deliver,
@@ -258,7 +248,6 @@ const VatCommandStruct = object({
 const VatCommandReplyStruct = object({
   id: VatMessageIdStruct,
   payload: union([
-    VatReplyStructs.evaluate,
     VatReplyStructs.ping,
     VatReplyStructs.initVat,
     VatReplyStructs.deliver,
