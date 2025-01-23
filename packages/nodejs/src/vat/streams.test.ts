@@ -1,4 +1,4 @@
-import '../../../test-utils/src/env/mock-endoify.js';
+import '@ocap/test-utils/mock-endoify';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +9,14 @@ const doMockParentPort = (value: unknown) => {
   }));
   vi.resetModules();
 };
+
+vi.mock('@ocap/kernel', async () => {
+  return { isVatCommand: vi.fn(() => true) };
+});
+
+vi.mock('@ocap/streams', () => ({
+  NodeWorkerDuplexStream: vi.fn(),
+}))
 
 describe('getPort', () => {
   it('returns a port', async () => {

@@ -1,9 +1,9 @@
-import '@ocap/shims/endoify';
+import '@ocap/test-utils/mock-endoify';
 
 import { isVatCommand } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { parentPort } from 'node:worker_threads';
+import { type MessagePort as NodePort, parentPort } from 'node:worker_threads'; 
 
 /**
  * Return the parent port of the Node.js worker if it exists; otherwise throw.
@@ -12,7 +12,7 @@ import { parentPort } from 'node:worker_threads';
  * @throws If not called from within a Node.js worker.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function getPort() {
+export function getPort(): NodePort {
   if (!parentPort) {
     throw new Error('Expected to run in a Node.js worker with parentPort.');
   }
@@ -25,7 +25,9 @@ export function getPort() {
  *
  * @returns A NodeWorkerDuplexStream
  */
-export function makeCommandStream(): NodeWorkerDuplexStream<
+export function makeCommandStream(
+
+): NodeWorkerDuplexStream<
   VatCommand,
   VatCommandReply
 > {
