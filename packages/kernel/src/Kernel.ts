@@ -1,4 +1,3 @@
-import '@ocap/shims/endoify';
 import { passStyleOf } from '@endo/far';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
