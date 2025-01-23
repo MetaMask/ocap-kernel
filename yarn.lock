@@ -2184,7 +2184,6 @@ __metadata:
     "@metamask/utils": "npm:^11.0.1"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
-    "@ocap/shims": "workspace:^"
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
