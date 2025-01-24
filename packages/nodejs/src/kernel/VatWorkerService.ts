@@ -33,12 +33,16 @@ export class NodejsVatWorkerService implements VatWorkerService {
    * The vat worker service, intended to be constructed in
    * the kernel worker.
    *
-   * @param workerFilePath - The path to a file defining the worker's routine.
-   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   * @param args - A bag of optional arguments.
+   * @param args.workerFilePath - An optional path to a file defining the worker's routine. Defaults to 'vat-worker.mjs'.
+   * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
    */
-  constructor(workerFilePath: string = DEFAULT_WORKER_FILE, logger?: Logger) {
-    this.#workerFilePath = workerFilePath;
-    this.#logger = logger ?? makeLogger('[vat worker service]');
+  constructor(args: {
+    workerFilePath?: string | undefined;
+    logger?: Logger | undefined;
+  }) {
+    this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
+    this.#logger = args.logger ?? makeLogger('[vat worker service]');
   }
 
   async launch(

@@ -10,7 +10,7 @@ import { getTestWorkerFile } from '../../test/workers';
 
 describe('NodejsVatWorkerService', () => {
   it('constructs an instance without any arguments', () => {
-    const instance = new NodejsVatWorkerService();
+    const instance = new NodejsVatWorkerService({});
     expect(instance).toBeInstanceOf(NodejsVatWorkerService);
   });
 
@@ -20,7 +20,9 @@ describe('NodejsVatWorkerService', () => {
 
   describe('launch', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsVatWorkerService(testWorkerFile);
+      const service = new NodejsVatWorkerService({
+        workerFilePath: testWorkerFile,
+      });
       const testVatId: VatId = getTestVatId();
       const stream = await service.launch(testVatId);
 
@@ -39,7 +41,7 @@ describe('NodejsVatWorkerService', () => {
       const NVWS = (await import('./VatWorkerService.js'))
         .NodejsVatWorkerService;
 
-      const service = new NVWS(testWorkerFile);
+      const service = new NVWS({ workerFilePath: testWorkerFile });
       const testVatId: VatId = getTestVatId();
       await expect(async () => await service.launch(testVatId)).rejects.toThrow(
         rejected,
@@ -49,7 +51,9 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsVatWorkerService(testWorkerFile);
+      const service = new NodejsVatWorkerService({
+        workerFilePath: testWorkerFile,
+      });
       const testVatId: VatId = getTestVatId();
 
       await service.launch(testVatId);
@@ -60,7 +64,9 @@ describe('NodejsVatWorkerService', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsVatWorkerService(testWorkerFile);
+      const service = new NodejsVatWorkerService({
+        workerFilePath: testWorkerFile,
+      });
       const testVatId: VatId = getTestVatId();
 
       await expect(
@@ -71,7 +77,9 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsVatWorkerService(testWorkerFile);
+      const service = new NodejsVatWorkerService({
+        workerFilePath: testWorkerFile,
+      });
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
 
       await Promise.all(

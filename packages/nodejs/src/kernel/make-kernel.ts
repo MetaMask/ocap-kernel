@@ -21,7 +21,7 @@ export async function makeKernel(
     KernelCommand,
     KernelCommandReply
   >(port);
-  const vatWorkerClient = new NodejsVatWorkerService(workerFilePath);
+  const vatWorkerClient = new NodejsVatWorkerService({ workerFilePath });
 
   // Initialize kernel store.
   const kvStore = await makeSQLKVStore();
