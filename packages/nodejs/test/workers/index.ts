@@ -1,2 +1,2 @@
 export const getTestWorkerFile = (name: string): string =>
-  new URL(`./${name}.mjs`, import.meta.url).pathname;
+  new URL(`./${name}.js`, import.meta.url).pathname;
