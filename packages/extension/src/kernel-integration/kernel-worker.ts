@@ -5,17 +5,12 @@ import type {
 } from '@ocap/kernel';
 import { isKernelCommand, Kernel } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
-import {
-  MessagePortDuplexStream,
-  receiveMessagePort,
-  PostMessageDuplexStream,
-} from '@ocap/streams';
+import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
-import { isKernelControlCommand } from './messages.js';
-import type { KernelControlCommand, KernelControlReply } from './messages.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
+import { receiveUiConnections } from './ui-connections.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 const bundleHost = 'http://localhost:3000'; // XXX placeholder
@@ -71,24 +66,14 @@ async function main(): Promise<void> {
   const kvStore = await makeSQLKVStore();
 
   const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
+  receiveUiConnections(
+    async (message) => handlePanelMessage(kernel, kvStore, message),
+    logger,
+  );
   await kernel.init();
-
-  const panelStreamP = PostMessageDuplexStream.make<
-    KernelControlCommand,
-    KernelControlReply
-  >({
-    validateInput: isKernelControlCommand,
-    messageTarget: new BroadcastChannel('panel'),
-  });
 
   await Promise.all([
     vatWorkerClient.start(),
-    panelStreamP.then(async (panelStream) =>
-      panelStream.drain(async (message) => {
-        const reply = await handlePanelMessage(kernel, kvStore, message);
-        await panelStream.write(reply);
-      }),
-    ),
     // XXX We are mildly concerned that there's a small chance that a race here
     // could cause startup to flake non-deterministically. If the invocation
     // here of `launchSubcluster` turns out to depend on aspects of the IPC

@@ -54,6 +54,7 @@
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
     "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
+    "nanoid": "^3.3.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ses": "^1.9.0"

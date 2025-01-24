@@ -1,14 +1,12 @@
 import { MessageResolver } from '@ocap/kernel';
-import { PostMessageDuplexStream } from '@ocap/streams';
 
 import { logger } from './logger.js';
-import { isKernelControlReply } from '../../kernel-integration/messages.js';
 import type {
   KernelControlCommand,
   KernelControlMethod,
-  KernelControlReply,
   KernelControlReturnType,
 } from '../../kernel-integration/messages.js';
+import { establishKernelConnection } from '../../kernel-integration/ui-connections.js';
 
 export type SendMessageFunction = <
   Method extends keyof typeof KernelControlMethod,
@@ -24,14 +22,7 @@ export type SendMessageFunction = <
 export async function setupStream(): Promise<{
   sendMessage: SendMessageFunction;
 }> {
-  const broadcastChannel = new BroadcastChannel('panel');
-  const kernelStream = await PostMessageDuplexStream.make<
-    KernelControlReply,
-    KernelControlCommand
-  >({
-    messageTarget: broadcastChannel,
-    validateInput: isKernelControlReply,
-  });
+  const kernelStream = await establishKernelConnection(logger);
 
   const resolver = new MessageResolver('kernel');
 
@@ -42,7 +33,6 @@ export async function setupStream(): Promise<{
     // the remote end will be closed and the connection irrevocably lost.
   };
 
-  broadcastChannel.onmessageerror = cleanup;
   window.addEventListener('unload', cleanup);
 
   kernelStream
@@ -51,7 +41,8 @@ export async function setupStream(): Promise<{
     })
     .catch((error) => {
       logger.error('error draining kernel stream', error);
-    });
+    })
+    .finally(cleanup);
 
   const sendMessage: SendMessageFunction = async (payload) => {
     logger.log('sending message', payload);
