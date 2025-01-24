@@ -16,7 +16,7 @@ vi.mock('@ocap/kernel', async () => {
 
 vi.mock('@ocap/streams', () => ({
   NodeWorkerDuplexStream: vi.fn(),
-}))
+}));
 
 describe('getPort', () => {
   it('returns a port', async () => {

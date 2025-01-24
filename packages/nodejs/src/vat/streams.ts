@@ -1,7 +1,8 @@
 import { isVatCommand } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { type MessagePort as NodePort, parentPort } from 'node:worker_threads'; 
+import { parentPort } from 'node:worker_threads';
+import type { MessagePort as NodePort } from 'node:worker_threads';
 
 /**
  * Return the parent port of the Node.js worker if it exists; otherwise throw.
@@ -9,7 +10,6 @@ import { type MessagePort as NodePort, parentPort } from 'node:worker_threads';
  * @returns The parent port.
  * @throws If not called from within a Node.js worker.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getPort(): NodePort {
   if (!parentPort) {
     throw new Error('Expected to run in a Node.js worker with parentPort.');
@@ -23,9 +23,7 @@ export function getPort(): NodePort {
  *
  * @returns A NodeWorkerDuplexStream
  */
-export function makeCommandStream(
-
-): NodeWorkerDuplexStream<
+export function makeCommandStream(): NodeWorkerDuplexStream<
   VatCommand,
   VatCommandReply
 > {

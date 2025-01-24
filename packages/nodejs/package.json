@@ -47,6 +47,7 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/cli": "workspace:^",
+    "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
     "@types/better-sqlite3": "^7.6.12",
@@ -77,7 +78,6 @@
   },
   "dependencies": {
     "@endo/promise-kit": "^1.1.6",
-    "@metamask/utils": "^11.0.1",
     "@ocap/kernel": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",

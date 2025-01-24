@@ -1,15 +1,13 @@
-import '@ocap/shims/endoify';
-
+import '../../dist/env/endoify.mjs';
 import { makeCommandStream } from '../../dist/vat/streams.mjs';
 
 main().catch(console.error);
 
 /**
- * The main function for the worker.
+ * The main function for the test worker.
+ * No supervisor is created, but the stream is synchronized for comms testing.
  */
 async function main() {
-  console.debug('top', process.env.NODE_VAT_ID);
   const stream = makeCommandStream();
   await stream.synchronize();
-  console.debug('bot', process.env.NODE_VAT_ID);
 }

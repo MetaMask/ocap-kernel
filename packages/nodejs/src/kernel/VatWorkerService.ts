@@ -44,28 +44,25 @@ export class NodejsVatWorkerService implements VatWorkerService {
   async launch(
     vatId: VatId,
   ): Promise<DuplexStream<VatCommandReply, VatCommand>> {
+    this.#logger.debug('launching vat', vatId);
     const { promise, resolve, reject } =
       makePromiseKit<DuplexStream<VatCommandReply, VatCommand>>();
-    this.#logger.debug('launching', vatId);
     const worker = new NodeWorker(this.#workerFilePath, {
       env: {
         NODE_VAT_ID: vatId,
       },
-      // execArgv: ["--require", "ts-node/register"],
     });
-    this.#logger.debug('launched', vatId);
     worker.once('online', () => {
       const stream = new NodeWorkerDuplexStream<VatCommandReply, VatCommand>(
         worker,
         isVatCommandReply,
       );
       this.workers.set(vatId, { worker, stream });
-      console.debug('synchronizing...');
       stream
         .synchronize()
         .then(() => {
           resolve(stream);
-          this.#logger.debug('connected', vatId);
+          this.#logger.debug('connected to kernel');
           return undefined;
         })
         .catch((error) => {

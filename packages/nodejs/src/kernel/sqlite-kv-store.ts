@@ -1,13 +1,12 @@
-import { hasProperty, isObject } from '@metamask/utils';
 import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
-// eslint-disable-next-line @typescript-eslint/naming-convention
-// import Sqlite from 'better-sqlite3';
+import type { Database } from 'better-sqlite3';
 import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { Database } from 'better-sqlite3';
+// We require require because the ESM import does not work properly.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Sqlite = require('better-sqlite3');
 
 const dbRoot = join(tmpdir(), './db');
@@ -90,16 +89,11 @@ export async function makeSQLKVStore(
    *   last key in the store.
    */
   function kvGetNextKey(previousKey: string): string | undefined {
-    try {
-      if (typeof previousKey !== 'string') {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw new Error(`previousKey ${previousKey} must be a string`);
-      }
-      return sqlKVGetNextKey.get(previousKey) as string | undefined;
-    } catch (problem) {
-      console.error('BIG PROBLEM', problem);
-      throw problem;
+    if (typeof previousKey !== 'string') {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`previousKey ${previousKey} must be a string`);
     }
+    return sqlKVGetNextKey.get(previousKey) as string | undefined;
   }
 
   const sqlKVSet = db.prepare(`
@@ -115,7 +109,6 @@ export async function makeSQLKVStore(
    * @param value - The value to assign to it.
    */
   function kvSet(key: string, value: string): void {
-    logger.debug(`kernel set '${key}' to '${value}'`);
     sqlKVSet.run(key, value);
   }
 
@@ -130,7 +123,6 @@ export async function makeSQLKVStore(
    * @param key - The key to remove.
    */
   function kvDelete(key: string): void {
-    logger.debug(`kernel delete '${key}'`);
     sqlKVDelete.run(key);
   }
 
@@ -142,7 +134,6 @@ export async function makeSQLKVStore(
    * Delete all keys and values from the database.
    */
   function kvClear(): void {
-    logger.debug(`kernel clear`);
     sqlKVDrop.run();
     sqlKVInit.run();
   }
