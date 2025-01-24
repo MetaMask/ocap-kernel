@@ -183,11 +183,18 @@ const config = createConfig([
   {
     files: [
       'packages/nodejs/**/*-worker.ts',
-      'packages/nodejs/test/workers/**/*.mjs',
+      'packages/nodejs/test/workers/**/*.js',
     ],
     rules: {
       // Node workers have reasonable cause to read from process.env
       'n/no-process-env': 'off',
+    },
+  },
+  {
+    files: ['packages/nodejs/test/workers/**/*.js'],
+    rules: {
+      // Test node worker files can resolve these imports, even if eslint cannot.
+      'import-x/no-unresolved': 'off',
     },
   },
 ]);
