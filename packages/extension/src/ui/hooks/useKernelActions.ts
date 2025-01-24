@@ -1,9 +1,9 @@
+import type { ClusterConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
 import { KernelControlMethod } from '../../kernel-integration/messages.js';
 import { usePanelContext } from '../context/PanelContext.js';
-
 /**
  * Hook for handling kernel actions.
  *
@@ -15,6 +15,7 @@ export function useKernelActions(): {
   clearState: () => void;
   reload: () => void;
   launchVat: (bundleUrl: string, vatName: string) => void;
+  updateClusterConfig: (config: ClusterConfig) => Promise<void>;
 } {
   const { sendMessage, logMessage, messageContent, selectedVatId } =
     usePanelContext();
@@ -90,11 +91,27 @@ export function useKernelActions(): {
     [sendMessage, logMessage],
   );
 
+  /**
+   * Updates the cluster config.
+   */
+  const updateClusterConfig = useCallback(
+    async (config: ClusterConfig) => {
+      return sendMessage({
+        method: KernelControlMethod.updateClusterConfig,
+        params: { config },
+      })
+        .then(() => logMessage('Config updated', 'success'))
+        .catch(() => logMessage('Failed to update config', 'error'));
+    },
+    [sendMessage, logMessage],
+  );
+
   return {
     sendKernelCommand,
     terminateAllVats,
     clearState,
     reload,
     launchVat,
+    updateClusterConfig,
   };
 }

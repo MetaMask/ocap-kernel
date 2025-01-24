@@ -6,6 +6,7 @@ import * as indexModule from './index.js';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
+      'ClusterConfigStruct',
       'Kernel',
       'KernelCommandMethod',
       'KernelSendVatCommandStruct',

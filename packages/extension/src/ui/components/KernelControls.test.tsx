@@ -30,6 +30,7 @@ const mockUseKernelActions = (overrides = {}): void => {
     reload: vi.fn(),
     sendKernelCommand: vi.fn(),
     launchVat: vi.fn(),
+    updateClusterConfig: vi.fn(),
     ...overrides,
   });
 };
@@ -106,13 +107,13 @@ describe('KernelControls', () => {
     expect(clearState).toHaveBeenCalledTimes(1);
   });
 
-  it('calls reload when "Reload Default Sub-Cluster" button is clicked', async () => {
+  it('calls reload when "Reload Kernel" button is clicked', async () => {
     const reload = vi.fn();
     mockUseKernelActions({ reload });
     mockUseVats();
     render(<KernelControls />);
     const reloadButton = screen.getByRole('button', {
-      name: 'Reload Default Sub-Cluster',
+      name: 'Reload Kernel',
     });
     await userEvent.click(reloadButton);
     expect(reload).toHaveBeenCalledTimes(1);

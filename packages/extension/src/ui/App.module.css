@@ -6,6 +6,7 @@
   --color-gray-200: #f0f0f0;
   --color-gray-300: #ccc;
   --color-gray-600: #666;
+  --color-gray-800: #333;
   --color-primary: #4956f9;
   --color-success: #4caf50;
   --color-error: #f44336;
@@ -143,11 +144,17 @@ h6 {
   border: none;
 }
 
-.button:hover:not(:disabled) {
+.buttonBlack {
+  composes: button;
   background-color: var(--color-black);
   color: var(--color-white);
+  border: none;
 }
 
+.button:hover:not(:disabled) {
+  background-color: var(--color-gray-800);
+  color: var(--color-white);
+}
 .textButton {
   padding: 0;
   border: 0;
@@ -471,4 +478,26 @@ div + .sent {
 .tableControls {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+.configEditor {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.configTextarea {
+  font-family: monospace;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--border-radius);
+  resize: vertical;
+  min-height: 200px;
+}
+
+.configEditorButtons {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
 }

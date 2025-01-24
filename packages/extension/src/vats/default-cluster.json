@@ -1,5 +1,6 @@
 {
   "bootstrap": "alice",
+  "forceReset": true,
   "vats": {
     "alice": {
       "bundleSpec": "http://localhost:3000/sample-vat.bundle",

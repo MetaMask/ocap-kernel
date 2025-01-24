@@ -13,7 +13,7 @@ export const reloadConfigHandler: CommandHandler<ReloadMethod> = {
   method: KernelControlMethod.reload,
   schema: KernelCommandPayloadStructs.clearState.schema.params,
   implementation: async (kernel: Kernel): Promise<Json> => {
-    await kernel.reset();
+    await kernel.reload();
     return null;
   },
 };

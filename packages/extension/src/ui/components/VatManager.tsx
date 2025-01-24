@@ -1,3 +1,4 @@
+import { ConfigEditor } from './ConfigEditor.js';
 import { KernelControls } from './KernelControls.jsx';
 import { LaunchVat } from './LaunchVat.jsx';
 import { VatTable } from './VatTable.jsx';
@@ -12,6 +13,7 @@ export const VatManager: React.FC = () => {
       </div>
       <VatTable />
       <LaunchVat />
+      <ConfigEditor />
     </>
   );
 };

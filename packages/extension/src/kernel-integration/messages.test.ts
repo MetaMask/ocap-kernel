@@ -20,6 +20,7 @@ describe('KernelControlMethod', () => {
       'sendVatCommand',
       'clearState',
       'executeDBQuery',
+      'updateClusterConfig',
     ]);
   });
 });
@@ -179,6 +180,7 @@ describe('isKernelControlReply', () => {
         payload: {
           method: KernelControlMethod.getStatus,
           params: {
+            clusterConfig: undefined,
             vats: [
               {
                 id: 'v0',

@@ -18,9 +18,8 @@ type PanelLog = {
 
 export type PanelContextType = {
   sendMessage: SendMessageFunction;
-  status: KernelStatus | null;
+  status: KernelStatus | undefined;
   logMessage: (message: string, type?: OutputType) => void;
-  setStatus: (status: KernelStatus) => void;
   messageContent: string;
   setMessageContent: (content: string) => void;
   panelLogs: PanelLog[];
@@ -38,7 +37,6 @@ export const PanelProvider: React.FC<{
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
   const [selectedVatId, setSelectedVatId] = useState<VatId | undefined>();
-  const [status, setStatus] = useState<KernelStatus | null>(null);
 
   const logMessage = useCallback(
     (message: string, type: OutputType = 'received'): void => {
@@ -68,14 +66,13 @@ export const PanelProvider: React.FC<{
     [sendMessage],
   );
 
-  useStatusPolling(setStatus, sendMessage, 1000);
+  const status = useStatusPolling(sendMessage, 1000);
 
   return (
     <PanelContext.Provider
       value={{
         sendMessage: sendMessageWrapper,
         status,
-        setStatus,
         logMessage,
         messageContent,
         setMessageContent,

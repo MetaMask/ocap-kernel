@@ -19,8 +19,8 @@ export const KernelControls: React.FC = () => {
       <button className={styles.buttonDanger} onClick={clearState}>
         Clear All State
       </button>
-      <button className={styles.buttonDanger} onClick={reload}>
-        Reload Default Sub-Cluster
+      <button className={styles.buttonBlack} onClick={reload}>
+        Reload Kernel
       </button>
     </div>
   );

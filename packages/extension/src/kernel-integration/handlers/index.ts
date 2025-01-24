@@ -7,6 +7,7 @@ import { restartVatHandler } from './restart-vat.js';
 import { sendVatCommandHandler } from './send-vat-command.js';
 import { terminateAllVatsHandler } from './terminate-all-vats.js';
 import { terminateVatHandler } from './terminate-vat.js';
+import { updateClusterConfigHandler } from './update-cluster-config.js';
 
 export const handlers = [
   getStatusHandler,
@@ -18,4 +19,5 @@ export const handlers = [
   restartVatHandler,
   terminateVatHandler,
   terminateAllVatsHandler,
+  updateClusterConfigHandler,
 ] as const;

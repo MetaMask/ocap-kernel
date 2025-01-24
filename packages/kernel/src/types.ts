@@ -12,6 +12,7 @@ import {
   record,
   union,
   literal,
+  boolean,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
@@ -268,6 +269,7 @@ export type VatConfigTable = Record<string, VatConfig>;
 
 export const ClusterConfigStruct = object({
   bootstrap: string(),
+  forceReset: optional(boolean()),
   vats: record(string(), VatConfigStruct),
   bundles: optional(record(string(), VatConfigStruct)),
 });

@@ -645,10 +645,15 @@ export class Kernel {
     if (config.bootstrap && !config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
+    if (config.forceReset) {
+      await this.clearStorage();
+    }
     this.#mostRecentSubcluster = config;
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
+    console.log('launching subcluster', config);
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
+      console.log('launching vat', vatName, vatConfig);
       const rootRef = await this.launchVat(vatConfig);
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
@@ -731,7 +736,16 @@ export class Kernel {
    * what it is.
    */
   async reload(): Promise<void> {
+    console.log('reload', this.#mostRecentSubcluster);
     if (this.#mostRecentSubcluster) {
+      await this.terminateAllVats();
+
+      if (this.#mostRecentSubcluster.forceReset) {
+        await this.clearStorage();
+      }
+
+      console.log('reload launching subcluster', this.#mostRecentSubcluster);
+
       await this.launchSubcluster(this.#mostRecentSubcluster);
     }
   }
@@ -778,6 +792,25 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     return vat;
+  }
+
+  /**
+   * Update the current cluster configuration
+   *
+   * @param config - The new cluster configuration
+   */
+  set clusterConfig(config: ClusterConfig) {
+    isClusterConfig(config) || Fail`invalid cluster config`;
+    this.#mostRecentSubcluster = config;
+  }
+
+  /**
+   * Get the current cluster configuration
+   *
+   * @returns The current cluster configuration
+   */
+  get clusterConfig(): ClusterConfig | null {
+    return this.#mostRecentSubcluster;
   }
 }
 harden(Kernel);

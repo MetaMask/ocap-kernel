@@ -15,6 +15,7 @@ export const getStatusHandler: CommandHandler<GetStatusMethod> = {
   implementation: async (kernel: Kernel): Promise<Json> => {
     return {
       vats: kernel.getVats(),
-    };
+      clusterConfig: kernel.clusterConfig,
+    } as Json;
   },
 };

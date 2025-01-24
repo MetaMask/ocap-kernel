@@ -1,5 +1,13 @@
 import '@ocap/test-utils/mock-endoify';
-import { define, literal, object } from '@metamask/superstruct';
+import {
+  boolean,
+  define,
+  literal,
+  object,
+  optional,
+  record,
+  string,
+} from '@metamask/superstruct';
 import type {
   Kernel,
   KernelCommand,
@@ -22,15 +30,24 @@ vi.mock('@ocap/utils', () => ({
 let isVatConfigMock = true;
 let isVatIdMock = true;
 
+const VatIdStruct = define<VatId>('VatId', () => isVatIdMock);
+const VatConfigStruct = define<VatConfig>('VatConfig', () => isVatConfigMock);
+
 // Mock kernel validation functions
 // because vitest needs to extend Error stack and under SES it fails
 vi.mock('@ocap/kernel', () => ({
   isKernelCommand: () => true,
   isVatId: () => isVatIdMock,
   isVatConfig: () => isVatConfigMock,
-  VatIdStruct: define<VatId>('VatId', () => isVatIdMock),
-  VatConfigStruct: define<VatConfig>('VatConfig', () => isVatConfigMock),
-  KernelSendVatCommandStruct: object({
+  VatIdStruct,
+  VatConfigStruct,
+  ClusterConfigStruct: object({
+    bootstrap: string(),
+    forceReset: optional(boolean()),
+    vats: record(string(), VatConfigStruct),
+    bundles: optional(record(string(), VatConfigStruct)),
+  }),
+  KernelSendMessageStruct: object({
     id: literal('v0'),
     payload: object({
       method: literal('ping'),
@@ -277,6 +294,7 @@ describe('handlePanelMessage', () => {
         payload: {
           method: 'getStatus',
           params: {
+            clusterConfig: undefined,
             vats: [
               {
                 id: 'v0',

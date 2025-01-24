@@ -11,8 +11,11 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { VatConfig, VatId } from '@ocap/kernel';
-import { VatConfigStruct, VatIdStruct } from '@ocap/kernel';
+import {
+  ClusterConfigStruct,
+  VatConfigStruct,
+  VatIdStruct,
+} from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
 export const KernelControlMethod = {
@@ -25,18 +28,13 @@ export const KernelControlMethod = {
   sendVatCommand: 'sendVatCommand',
   clearState: 'clearState',
   executeDBQuery: 'executeDBQuery',
+  updateClusterConfig: 'updateClusterConfig',
 } as const;
 
 export type KernelMethods = keyof typeof KernelControlMethod;
 
-export type KernelStatus = {
-  vats: {
-    id: VatId;
-    config: VatConfig;
-  }[];
-};
-
 const KernelStatusStruct = type({
+  clusterConfig: ClusterConfigStruct,
   vats: array(
     object({
       id: VatIdStruct,
@@ -44,6 +42,8 @@ const KernelStatusStruct = type({
     }),
   ),
 });
+
+export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 // Command payload structs
 export const KernelCommandPayloadStructs = {
@@ -88,6 +88,12 @@ export const KernelCommandPayloadStructs = {
       sql: string(),
     }),
   }),
+  [KernelControlMethod.updateClusterConfig]: object({
+    method: literal(KernelControlMethod.updateClusterConfig),
+    params: object({
+      config: ClusterConfigStruct,
+    }),
+  }),
 } as const;
 
 export const KernelReplyPayloadStructs = {
@@ -130,6 +136,10 @@ export const KernelReplyPayloadStructs = {
       object({ error: string() }),
     ]),
   }),
+  [KernelControlMethod.updateClusterConfig]: object({
+    method: literal(KernelControlMethod.updateClusterConfig),
+    params: literal(null),
+  }),
 } as const;
 
 const KernelControlCommandStruct = object({
@@ -144,6 +154,7 @@ const KernelControlCommandStruct = object({
     KernelCommandPayloadStructs.sendVatCommand,
     KernelCommandPayloadStructs.clearState,
     KernelCommandPayloadStructs.executeDBQuery,
+    KernelCommandPayloadStructs.updateClusterConfig,
   ]),
 });
 
@@ -159,6 +170,7 @@ const KernelControlReplyStruct = object({
     KernelReplyPayloadStructs.sendVatCommand,
     KernelReplyPayloadStructs.clearState,
     KernelReplyPayloadStructs.executeDBQuery,
+    KernelReplyPayloadStructs.updateClusterConfig,
   ]),
 });
 
