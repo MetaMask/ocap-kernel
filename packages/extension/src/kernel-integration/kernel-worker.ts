@@ -1,5 +1,3 @@
-import type { Struct } from '@metamask/superstruct';
-import { assert } from '@metamask/superstruct';
 import type {
   ClusterConfig,
   KernelCommand,
@@ -8,7 +6,7 @@ import type {
 import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
-import { makeLogger } from '@ocap/utils';
+import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
@@ -16,35 +14,6 @@ import { receiveUiConnections } from './ui-connections.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
 const logger = makeLogger('[kernel worker]');
-
-/**
- * Load and validate a cluster configuration file
- *
- * @param configUrl - Path to the config JSON file
- * @param validator - The validator to use to validate the config
- * @returns The validated cluster configuration
- */
-export async function fetchValidatedJson<Type>(
-  configUrl: string,
-  validator: Struct<Type>,
-): Promise<Type> {
-  try {
-    const response = await fetch(configUrl);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch config: ${response.status} ${response.statusText}`,
-      );
-    }
-    const config = await response.json();
-    logger.info(`Loaded cluster config: ${JSON.stringify(config)}`);
-    assert(config, validator);
-    return config;
-  } catch (error) {
-    throw new Error(
-      `Failed to load config from ${configUrl}: ${String(error)}`,
-    );
-  }
-}
 
 main().catch(logger.error);
 
