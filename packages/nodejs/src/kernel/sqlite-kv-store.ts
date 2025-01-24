@@ -56,6 +56,7 @@ export async function makeSQLKVStore(
     FROM kv
     WHERE key = ?
   `);
+  sqlKVGet.pluck(true);
 
   /**
    * Read a key's value from the database.
@@ -66,16 +67,10 @@ export async function makeSQLKVStore(
    */
   function kvGet(key: string, required: boolean): string {
     const result = sqlKVGet.get(key);
-    if (isObject(result) && hasProperty(result, 'value')) {
-      const value = result.value as string;
-      logger.debug(`kernel get '${key}' as '${value}'`);
-      return value;
-    }
-    if (required) {
+    if (required && !result) {
       throw Error(`no record matching key '${key}'`);
     }
-    // Sometimes, we really lean on TypeScript's unsoundness
-    return undefined as unknown as string;
+    return result as string;
   }
 
   const sqlKVGetNextKey = db.prepare(`
@@ -84,6 +79,7 @@ export async function makeSQLKVStore(
     WHERE key > ?
     LIMIT 1
   `);
+  sqlKVGetNextKey.pluck(true);
 
   /**
    * Get the lexicographically next key in the KV store after a given key.

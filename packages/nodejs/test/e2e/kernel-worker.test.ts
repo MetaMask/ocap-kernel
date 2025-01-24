@@ -67,11 +67,11 @@ describe('Kernel Worker', () => {
     console.debug('preparing to launch vat')
     const kRef = await kernel.launchVat(testVatConfig);
     console.debug('succsefully to launch vat')
-    expect(kRef).toBeInstanceOf(String);
+    expect(typeof kRef).toStrictEqual('string');
     expect(kernel.getVatIds()).toHaveLength(1);
-  }, 10000);
+  });
 
-  it.skip('should handle the lifecycle of multiple vats', async () => {
+  it('should handle the lifecycle of multiple vats', async () => {
     console.log('Started test.');
     console.log('Creating kernel...');
     kernel = await makeKernel(kernelPort);
