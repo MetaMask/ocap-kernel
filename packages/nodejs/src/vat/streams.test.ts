@@ -2,8 +2,7 @@ import '@ocap/test-utils/mock-endoify';
 
 import { describe, expect, it, vi } from 'vitest';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const doMockParentPort = (value: unknown) => {
+const doMockParentPort = (value: unknown): void => {
   vi.doMock('node:worker_threads', () => ({
     parentPort: value,
   }));
