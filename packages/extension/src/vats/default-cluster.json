@@ -1,0 +1,23 @@
+{
+  "bootstrap": "alice",
+  "vats": {
+    "alice": {
+      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "parameters": {
+        "name": "Alice"
+      }
+    },
+    "bob": {
+      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "parameters": {
+        "name": "Bob"
+      }
+    },
+    "carol": {
+      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "parameters": {
+        "name": "Carol"
+      }
+    }
+  }
+}

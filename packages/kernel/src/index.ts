@@ -11,4 +11,10 @@ export type {
   ClusterConfig,
   VatConfig,
 } from './types.js';
-export { isVatId, VatIdStruct, isVatConfig, VatConfigStruct } from './types.js';
+export {
+  isVatId,
+  VatIdStruct,
+  isVatConfig,
+  VatConfigStruct,
+  ClusterConfigStruct,
+} from './types.js';

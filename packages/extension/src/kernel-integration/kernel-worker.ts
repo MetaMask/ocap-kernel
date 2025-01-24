@@ -1,9 +1,11 @@
+import type { Struct } from '@metamask/superstruct';
+import { assert } from '@metamask/superstruct';
 import type {
+  ClusterConfig,
   KernelCommand,
   KernelCommandReply,
-  ClusterConfig,
 } from '@ocap/kernel';
-import { isKernelCommand, Kernel } from '@ocap/kernel';
+import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
@@ -13,35 +15,36 @@ import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { receiveUiConnections } from './ui-connections.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 
-const bundleHost = 'http://localhost:3000'; // XXX placeholder
-const sampleBundle = 'sample-vat.bundle';
-const bundleURL = `${bundleHost}/${sampleBundle}`;
-
-const defaultSubcluster: ClusterConfig = {
-  bootstrap: 'alice',
-  vats: {
-    alice: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Alice',
-      },
-    },
-    bob: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Bob',
-      },
-    },
-    carol: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Carol',
-      },
-    },
-  },
-};
-
 const logger = makeLogger('[kernel worker]');
+
+/**
+ * Load and validate a cluster configuration file
+ *
+ * @param configUrl - Path to the config JSON file
+ * @param validator - The validator to use to validate the config
+ * @returns The validated cluster configuration
+ */
+export async function fetchValidatedJson<Type>(
+  configUrl: string,
+  validator: Struct<Type>,
+): Promise<Type> {
+  try {
+    const response = await fetch(configUrl);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch config: ${response.status} ${response.statusText}`,
+      );
+    }
+    const config = await response.json();
+    logger.info(`Loaded cluster config: ${JSON.stringify(config)}`);
+    assert(config, validator);
+    return config;
+  } catch (error) {
+    throw new Error(
+      `Failed to load config from ${configUrl}: ${String(error)}`,
+    );
+  }
+}
 
 main().catch(logger.error);
 
@@ -71,6 +74,11 @@ async function main(): Promise<void> {
     logger,
   );
   await kernel.init();
+
+  const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
+    new URL('../vats/default-cluster.json', import.meta.url).href,
+    ClusterConfigStruct,
+  );
 
   await Promise.all([
     vatWorkerClient.start(),
