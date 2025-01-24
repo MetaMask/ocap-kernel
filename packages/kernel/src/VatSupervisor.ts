@@ -98,7 +98,6 @@ export class VatSupervisor {
    * @param message.payload - The payload to handle.
    */
   async handleMessage({ id, payload }: VatCommand): Promise<void> {
-    console.debug('HANDLEMESSAGE', { id, payload });
     switch (payload.method) {
       case VatCommandMethod.deliver: {
         if (!this.#dispatch) {
@@ -116,9 +115,7 @@ export class VatSupervisor {
       }
 
       case VatCommandMethod.initVat: {
-        console.debug('CALLING INIT VAT');
         const rootObjectVref = await this.#initVat(payload.params);
-        console.debug('CALLED INIT VAT');
         await this.replyToMessage(id, {
           method: VatCommandMethod.initVat,
           params: rootObjectVref,
@@ -228,9 +225,7 @@ export class VatSupervisor {
     if (!fetched.ok) {
       throw Error(`fetch of user code ${bundleSpec} failed: ${fetched.status}`);
     }
-    console.debug('fetched bundle');
     const bundle = await fetched.json();
-    console.debug('and made it json');
 
     const buildVatNamespace = async (
       lsEndowments: object,
@@ -256,9 +251,7 @@ export class VatSupervisor {
 
     this.#dispatch = liveslots.dispatch;
     const serParam = marshal.toCapData(harden(parameters)) as CapData<string>;
-    console.debug('CALLING DISPATCH');
     await this.#dispatch(harden(['startVat', serParam]));
-    console.debug('AWAITED DISPATCH');
 
     return ROOT_OBJECT_VREF;
   }

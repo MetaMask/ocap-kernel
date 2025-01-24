@@ -278,9 +278,7 @@ export class Kernel {
     });
     this.#vats.set(vatId, vat);
     this.#storage.initEndpoint(vatId);
-    console.debug('starting vat init');
     await vat.init();
-    console.debug('init complete');
     const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
     return rootRef;
   }
