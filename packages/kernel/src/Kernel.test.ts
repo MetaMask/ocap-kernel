@@ -26,7 +26,17 @@ describe('Kernel', () => {
   let mockKVStore: KVStore;
 
   const mockVatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
-
+  const mockClusterConfig = {
+    bootstrap: 'alice',
+    vats: {
+      alice: {
+        bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+        parameters: {
+          name: 'Alice',
+        },
+      },
+    },
+  };
   beforeEach(() => {
     mockStream = {
       write: vi.fn(),
@@ -251,5 +261,54 @@ describe('Kernel', () => {
     it.todo('starts receiving messages');
 
     it.todo('throws if the stream throws');
+  });
+
+  describe('reload()', () => {
+    it('should reload with current config when config exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      kernel.clusterConfig = mockClusterConfig;
+      await kernel.launchVat(mockVatConfig);
+      const workerTerminateAllMock = vi
+        .spyOn(mockWorkerService, 'terminateAll')
+        .mockResolvedValue(undefined);
+      await kernel.reload();
+      expect(terminateMock).toHaveBeenCalledTimes(1);
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(initMock).toHaveBeenCalledTimes(2); // Initial launch + reload
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('should clear storage if forceReset is true', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      kernel.clusterConfig = {
+        ...mockClusterConfig,
+        forceReset: true,
+      };
+      const resetStoreMock = vi.spyOn(mockKVStore, 'clear');
+      await kernel.reload();
+      expect(resetStoreMock).toHaveBeenCalledOnce();
+    });
+
+    it('should do nothing if no config exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const terminateAllSpy = vi.spyOn(kernel, 'terminateAllVats');
+      const launchSubclusterSpy = vi.spyOn(kernel, 'launchSubcluster');
+      await kernel.reload();
+      expect(terminateAllSpy).not.toHaveBeenCalled();
+      expect(launchSubclusterSpy).not.toHaveBeenCalled();
+    });
+
+    it('should throw if no config exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');
+    });
+
+    it('should propagate errors from terminateAllVats', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      kernel.clusterConfig = mockClusterConfig;
+      const error = new Error('Termination failed');
+      vi.spyOn(mockWorkerService, 'terminateAll').mockRejectedValueOnce(error);
+      await expect(kernel.reload()).rejects.toThrow(error);
+    });
   });
 });

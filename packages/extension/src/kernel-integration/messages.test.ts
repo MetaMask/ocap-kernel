@@ -7,6 +7,7 @@ import {
   isKernelControlReply,
   isKernelStatus,
 } from './messages';
+import clusterConfig from '../vats/default-cluster.json';
 
 describe('KernelControlMethod', () => {
   it('should have all expected methods', () => {
@@ -180,7 +181,7 @@ describe('isKernelControlReply', () => {
         payload: {
           method: KernelControlMethod.getStatus,
           params: {
-            clusterConfig: undefined,
+            clusterConfig,
             vats: [
               {
                 id: 'v0',
@@ -237,6 +238,7 @@ describe('isKernelStatus', () => {
     [
       'valid kernel status',
       {
+        clusterConfig,
         vats: [
           {
             id: 'v0',
@@ -246,14 +248,33 @@ describe('isKernelStatus', () => {
       },
       true,
     ],
-    ['empty vats array', { vats: [] }, true],
+    ['empty vats array', { vats: [], clusterConfig }, true],
     ['null value', null, false],
     ['undefined value', undefined, false],
     ['empty object', {}, false],
-    ['null vats', { vats: null }, false],
-    ['invalid vats type', { vats: 'invalid' }, false],
-    ['invalid vat object', { vats: [{ invalid: true }] }, false],
-    ['invalid vat id type', { vats: [{ id: 123, config: {} }] }, false],
+    ['null vats', { vats: null, clusterConfig }, false],
+    ['invalid vats type', { vats: 'invalid', clusterConfig }, false],
+    ['invalid vat object', { vats: [{ invalid: true }], clusterConfig }, false],
+    [
+      'invalid vat id type',
+      { vats: [{ id: 123, config: {} }], clusterConfig },
+      false,
+    ],
+    ['invalid cluster config', { vats: [], clusterConfig: 'invalid' }, false],
+    ['invalid cluster config type', { vats: [], clusterConfig: 123 }, false],
+    ['invalid cluster config object', { vats: [], clusterConfig: {} }, false],
+    ['invalid cluster config array', { vats: [], clusterConfig: [] }, false],
+    [
+      'invalid cluster config boolean',
+      { vats: [], clusterConfig: true },
+      false,
+    ],
+    ['invalid cluster config number', { vats: [], clusterConfig: 123 }, false],
+    [
+      'invalid cluster config string',
+      { vats: [], clusterConfig: 'test' },
+      false,
+    ],
   ])('should validate %s', (_, status, expected) => {
     expect(isKernelStatus(status)).toBe(expected);
   });

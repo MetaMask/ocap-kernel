@@ -651,9 +651,7 @@ export class Kernel {
     this.#mostRecentSubcluster = config;
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
-    console.log('launching subcluster', config);
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      console.log('launching vat', vatName, vatConfig);
       const rootRef = await this.launchVat(vatConfig);
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
@@ -722,32 +720,20 @@ export class Kernel {
   }
 
   /**
-   * Launch a new subcluster with the same configuration as the most recently
-   * launched existing subcluster.
-   *
-   * XXX This is an ugly hack for debugging purposes only. It's here so that you
-   * can set breakpoints in code associated with the creation and launching of
-   * vats. It proved necessary because the extension reload mechanism only gives
-   * control to the debugger after the first default subcluster has already been
-   * created and bootstrapped. Eventually this should go away -- I presume there
-   * must be *some* established procedure for debugging extensions that would
-   * make this unnecessary (people who develop extensions generally need to
-   * debug them, one might think), but if so I haven't been able to find out
-   * what it is.
+   * Reload the kernel.
    */
   async reload(): Promise<void> {
-    console.log('reload', this.#mostRecentSubcluster);
-    if (this.#mostRecentSubcluster) {
-      await this.terminateAllVats();
-
-      if (this.#mostRecentSubcluster.forceReset) {
-        await this.clearStorage();
-      }
-
-      console.log('reload launching subcluster', this.#mostRecentSubcluster);
-
-      await this.launchSubcluster(this.#mostRecentSubcluster);
+    if (!this.#mostRecentSubcluster) {
+      throw Error('no subcluster to reload');
     }
+
+    await this.terminateAllVats();
+
+    if (this.#mostRecentSubcluster.forceReset) {
+      await this.clearStorage();
+    }
+
+    await this.launchSubcluster(this.#mostRecentSubcluster);
   }
 
   /**

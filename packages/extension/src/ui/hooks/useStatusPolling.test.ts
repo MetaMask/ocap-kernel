@@ -18,7 +18,6 @@ vi.mock('../utils.js', () => ({
 }));
 
 describe('useStatusPolling', () => {
-  const mockSetStatus = vi.fn();
   const mockSendMessage = vi.fn();
   const mockInterval = 100;
 
@@ -34,13 +33,6 @@ describe('useStatusPolling', () => {
     vi.useRealTimers();
   });
 
-  it('should not fetch status when sendMessage is undefined', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
-    renderHook(() => useStatusPolling(mockSetStatus, undefined, mockInterval));
-    vi.advanceTimersByTime(mockInterval);
-    expect(mockSetStatus).not.toHaveBeenCalled();
-  });
-
   it('should start polling and fetch initial status', async () => {
     const { useStatusPolling } = await import('./useStatusPolling.js');
     const mockStatus = { vats: [] };
@@ -48,11 +40,12 @@ describe('useStatusPolling', () => {
     vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
       false,
     );
-    renderHook(() => useStatusPolling(mockSetStatus, mockSendMessage, 100));
+    const { result } = renderHook(() => useStatusPolling(mockSendMessage, 100));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
+    expect(result.current).toStrictEqual(mockStatus);
   });
 
   it('should handle error responses', async () => {
@@ -62,14 +55,11 @@ describe('useStatusPolling', () => {
     vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
       true,
     );
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
+    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
-    expect(mockSetStatus).not.toHaveBeenCalled();
     expect(
       vi.mocked(await import('../services/logger.js')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', new Error('Test error'));
@@ -79,14 +69,11 @@ describe('useStatusPolling', () => {
     const { useStatusPolling } = await import('./useStatusPolling.js');
     const error = new Error('Network error');
     mockSendMessage.mockRejectedValueOnce(error);
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
+    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
-    expect(mockSetStatus).not.toHaveBeenCalled();
     expect(
       vi.mocked(await import('../services/logger.js')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', error);
@@ -99,9 +86,7 @@ describe('useStatusPolling', () => {
     vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
       false,
     );
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
+    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(mockInterval);
     expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -117,7 +102,7 @@ describe('useStatusPolling', () => {
       false,
     );
     const { unmount } = renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
+      useStatusPolling(mockSendMessage, mockInterval),
     );
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
     unmount();

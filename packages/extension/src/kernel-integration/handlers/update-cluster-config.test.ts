@@ -11,7 +11,7 @@ describe('updateClusterConfigHandler', () => {
   const mockKvStore = {} as KVStore;
 
   const testConfig = {
-    bootstrap: 'test-bootstrap',
+    bootstrap: 'testVat',
     vats: {
       testVat: {
         sourceSpec: 'test-source',
