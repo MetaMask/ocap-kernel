@@ -9,9 +9,9 @@ const doMockParentPort = (value: unknown): void => {
   vi.resetModules();
 };
 
-vi.mock('@ocap/kernel', async () => {
-  return { isVatCommand: vi.fn(() => true) };
-});
+vi.mock('@ocap/kernel', async () => ({
+  isVatCommand: vi.fn(() => true),
+}));
 
 vi.mock('@ocap/streams', () => ({
   NodeWorkerDuplexStream: vi.fn(),

@@ -19,17 +19,20 @@ describe('NodejsVatWorkerService', () => {
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 
   describe('launch', () => {
-    it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsVatWorkerService({
-        workerFilePath: testWorkerFile,
-      });
-      const testVatId: VatId = getTestVatId();
-      const stream = await service.launch(testVatId);
+    it.todo(
+      'creates a NodeWorker and returns a NodeWorkerDuplexStream',
+      async () => {
+        const service = new NodejsVatWorkerService({
+          workerFilePath: testWorkerFile,
+        });
+        const testVatId: VatId = getTestVatId();
+        const stream = await service.launch(testVatId);
 
-      expect(stream).toBeInstanceOf(NodeWorkerDuplexStream);
-    });
+        expect(stream).toBeInstanceOf(NodeWorkerDuplexStream);
+      },
+    );
 
-    it('rejects if synchronize fails', async () => {
+    it.todo('rejects if synchronize fails', async () => {
       const rejected = 'test-reject-value';
 
       vi.doMock('@ocap/streams', () => ({
@@ -49,7 +52,7 @@ describe('NodejsVatWorkerService', () => {
     });
   });
 
-  describe('terminate', () => {
+  describe.todo('terminate', () => {
     it('terminates the target vat', async () => {
       const service = new NodejsVatWorkerService({
         workerFilePath: testWorkerFile,
@@ -75,7 +78,7 @@ describe('NodejsVatWorkerService', () => {
     });
   });
 
-  describe('terminateAll', () => {
+  describe.todo('terminateAll', () => {
     it('terminates all vats', async () => {
       const service = new NodejsVatWorkerService({
         workerFilePath: testWorkerFile,

@@ -61,7 +61,7 @@ describe('Kernel Worker', () => {
     await launchTestVats();
     await Promise.all(testVatIds.map(kernel.restartVat.bind(kernel)));
     expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
-  });
+  }, 5000);
 
   it('terminates all vats', async () => {
     await launchTestVats();

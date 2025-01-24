@@ -56,6 +56,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
         NODE_VAT_ID: vatId,
       },
     });
+    worker.stdout.pipe(process.stdout);
     worker.once('online', () => {
       const stream = new NodeWorkerDuplexStream<VatCommandReply, VatCommand>(
         worker,
