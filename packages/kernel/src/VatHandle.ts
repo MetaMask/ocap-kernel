@@ -365,7 +365,9 @@ export class VatHandle {
       },
     );
 
+    this.#logger.debug('pinging...');
     await this.sendMessage({ method: VatCommandMethod.ping, params: null });
+    this.#logger.debug('pinged!');
     await this.sendMessage({
       method: VatCommandMethod.initVat,
       params: this.config,
