@@ -74,10 +74,10 @@ export default defineConfig({
           lines: 68.73,
         },
         'packages/kernel/**': {
-          statements: 42.51,
-          functions: 54.86,
-          branches: 29.27,
-          lines: 42.74,
+          statements: 44.12,
+          functions: 55.55,
+          branches: 30.03,
+          lines: 44.35,
         },
         'packages/nodejs/**': {
           statements: 47.61,

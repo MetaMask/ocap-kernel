@@ -2,10 +2,13 @@ import { hasProperty, isObject } from '@metamask/utils';
 import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 // eslint-disable-next-line @typescript-eslint/naming-convention
-import Sqlite from 'better-sqlite3';
+// import Sqlite from 'better-sqlite3';
 import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+import type { Database } from 'better-sqlite3';
+const Sqlite = require('better-sqlite3');
 
 const dbRoot = join(tmpdir(), './db');
 
@@ -17,7 +20,7 @@ const dbRoot = join(tmpdir(), './db');
  */
 async function initDB(
   logger?: ReturnType<typeof makeLogger>,
-): Promise<Sqlite.Database> {
+): Promise<Database> {
   const dbPath = join(dbRoot, 'store.db');
   console.log('dbPath:', dbPath);
   await mkdir(dbRoot, { recursive: true });
@@ -91,11 +94,16 @@ export async function makeSQLKVStore(
    *   last key in the store.
    */
   function kvGetNextKey(previousKey: string): string | undefined {
-    if (typeof previousKey !== 'string') {
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`previousKey ${previousKey} must be a string`);
+    try {
+      if (typeof previousKey !== 'string') {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        throw new Error(`previousKey ${previousKey} must be a string`);
+      }
+      return sqlKVGetNextKey.get(previousKey) as string | undefined;
+    } catch (problem) {
+      console.error('BIG PROBLEM', problem);
+      throw problem;
     }
-    return sqlKVGetNextKey.get(previousKey) as string | undefined;
   }
 
   const sqlKVSet = db.prepare(`

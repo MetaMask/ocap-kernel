@@ -14,7 +14,7 @@ describe('NodejsVatWorkerService', () => {
     expect(instance).toBeInstanceOf(NodejsVatWorkerService);
   });
 
-  const helloWorld = getTestWorkerFile('hello-world');
+  const helloWorld = getTestWorkerFile('stream-sync');
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 

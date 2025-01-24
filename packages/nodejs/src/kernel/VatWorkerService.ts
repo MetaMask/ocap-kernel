@@ -60,6 +60,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
         isVatCommandReply,
       );
       this.workers.set(vatId, { worker, stream });
+      console.debug('synchronizing...');
       stream
         .synchronize()
         .then(() => {

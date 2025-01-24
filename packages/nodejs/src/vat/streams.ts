@@ -1,5 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
-
 import { isVatCommand } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
