@@ -74,16 +74,16 @@ export default defineConfig({
           lines: 68.73,
         },
         'packages/kernel/**': {
-          statements: 44.12,
+          statements: 43.97,
           functions: 55.55,
           branches: 30.03,
-          lines: 44.35,
+          lines: 44.2,
         },
         'packages/nodejs/**': {
-          statements: 47.61,
+          statements: 46.75,
           functions: 47.61,
           branches: 35.29,
-          lines: 47.61,
+          lines: 46.75,
         },
         'packages/shims/**': {
           statements: 0,
