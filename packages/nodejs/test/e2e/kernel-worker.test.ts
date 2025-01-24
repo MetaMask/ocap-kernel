@@ -54,28 +54,23 @@ describe('Kernel Worker', () => {
     await Promise.all(
       testVatIds.map(async () => await kernel.launchVat(testVatConfig)),
     );
+    expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
   };
 
   it('restarts vats', async () => {
     await launchTestVats();
-    expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
-
     await Promise.all(testVatIds.map(kernel.restartVat.bind(kernel)));
     expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
   });
 
   it('terminates all vats', async () => {
     await launchTestVats();
-    expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
-
     await kernel.terminateAllVats();
     expect(kernel.getVatIds()).toHaveLength(0);
   });
 
   it('pings vats', async () => {
     await launchTestVats();
-    expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
-
     await Promise.all(
       testVatIds.map(
         async (vatId: VatId) =>
