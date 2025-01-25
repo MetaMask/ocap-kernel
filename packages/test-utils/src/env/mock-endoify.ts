@@ -8,6 +8,36 @@ import { makePromiseKitMock } from '../promise-kit.js';
 globalThis.lockdown = (): void => undefined;
 globalThis.harden = vi.fn(<Value>(value: Value): Readonly<Value> => value);
 
+const assertFn = (): void => undefined;
+Object.assign(assertFn, {
+  typeof: vi.fn(),
+  error: vi.fn(),
+  fail: vi.fn(),
+  equal: vi.fn(),
+  string: vi.fn(),
+  note: vi.fn(),
+  details: vi.fn(),
+  Fail: vi.fn(),
+  quote: vi.fn(),
+  makeAssert: vi.fn(),
+  // Include the base assert function as well
+  [vi.fn().name]: vi.fn(
+    (
+      _flag: unknown,
+      _details?: unknown,
+      _errConstructor?: unknown,
+      _options?: unknown,
+    ): void => undefined,
+  ),
+});
+globalThis.assert = assertFn as unknown as typeof assert;
+
+// @ts-expect-error: Mocks are lies
+globalThis.HandledPromise = Promise;
+
+// @ts-expect-error: Mocks are lies
+globalThis.Compartment = vi.fn();
+
 vi.mock('@endo/promise-kit', async () => {
   return makePromiseKitMock();
 });
