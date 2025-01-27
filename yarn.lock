@@ -598,11 +598,11 @@ __metadata:
   linkType: hard
 
 "@endo/eventual-send@npm:^1.2.6, @endo/eventual-send@npm:^1.2.7, @endo/eventual-send@npm:^1.2.8":
-  version: 1.2.8
-  resolution: "@endo/eventual-send@npm:1.2.8"
+  version: 1.3.0
+  resolution: "@endo/eventual-send@npm:1.3.0"
   dependencies:
     "@endo/env-options": "npm:^1.1.8"
-  checksum: 10/b007b5c2f13517922639bc60385e9d0ffba714fd8941e296215dfe771aa0651a9b2e583ae9f7146079e0fedc058f0eb1ee9ea6fc673e7e9dca30c2b9913f4359
+  checksum: 10/45e13536777daa26e56bb8806d74ecf8b261c511a5276c06aa0538ee427de529d7e342e50e44893c6230a68504e33af3c698e5a0a21a558cc33d9d82cc77888c
   languageName: node
   linkType: hard
 
