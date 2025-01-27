@@ -12,3 +12,51 @@ updates:
     target-branch: 'main'
     versioning-strategy: 'increase-if-necessary'
     open-pull-requests-limit: 10
+    groups:
+      vite:
+        patterns:
+          - 'vite'
+          - 'vitest'
+          - '@vitest/*'
+          - '@vitejs/*'
+          - 'vite-*'
+          - 'jsdom'
+      metamask:
+        patterns:
+          - '@metamask/*'
+        exclude-patterns:
+          - '@metamask/eslint-*'
+      metamask-eslint:
+        patterns:
+          - '@metamask/eslint-*'
+      agoric:
+        patterns:
+          - '@agoric/*'
+          - '@endo/*'
+          - 'ses'
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+      eslint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+      typescript:
+        patterns:
+          - 'typescript'
+          - 'typescript-*'
+      prettier:
+        patterns:
+          - 'prettier'
+          - 'prettier-*'
+      testing-library:
+        patterns:
+          - '@testing-library/*'
+      playwright:
+        patterns:
+          - '@playwright/*'
+          - 'playwright'
