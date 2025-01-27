@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import '@ocap/test-utils';
 
 import * as indexModule from './index.js';
 

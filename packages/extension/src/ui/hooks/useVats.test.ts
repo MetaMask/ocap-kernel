@@ -1,8 +1,8 @@
 import type { VatConfig } from '@ocap/kernel';
+import { setupOcapKernelMock } from '@ocap/test-utils';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { setupOcapKernelMock } from '../../../test/mocks.js';
 import type { PanelContextType } from '../context/PanelContext.js';
 
 vi.mock('../context/PanelContext.js', () => ({

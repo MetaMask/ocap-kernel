@@ -6,14 +6,14 @@ import type {
   VatConfig,
   KVStore,
 } from '@ocap/kernel';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-import type { KernelControlCommand } from './messages.js';
 import {
   setupOcapKernelMock,
   setMockBehavior,
   resetMocks,
-} from '../../test/mocks';
+} from '@ocap/test-utils';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import type { KernelControlCommand } from './messages.js';
 
 // Mock logger
 vi.mock('@ocap/utils', () => ({

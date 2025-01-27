@@ -1,9 +1,9 @@
+import { setupOcapKernelMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { setupOcapKernelMock } from '../../../test/mocks.js';
 import { usePanelContext } from '../context/PanelContext.js';
 import type { PanelContextType } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
