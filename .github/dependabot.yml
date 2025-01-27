@@ -24,6 +24,11 @@ updates:
       metamask:
         patterns:
           - '@metamask/*'
+        exclude-patterns:
+          - '@metamask/eslint-*'
+      metamask-eslint:
+        patterns:
+          - '@metamask/eslint-*'
       agoric:
         patterns:
           - '@agoric/*'
