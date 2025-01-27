@@ -62,12 +62,14 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
         <button
           onClick={() => handleUpdate(false)}
           className={styles.buttonPrimary}
+          data-testid="update-config"
         >
           Update Config
         </button>
         <button
           onClick={() => handleUpdate(true)}
           className={styles.buttonBlack}
+          data-testid="update-and-restart"
         >
           Update and Restart
         </button>

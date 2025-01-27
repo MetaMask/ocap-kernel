@@ -337,13 +337,6 @@ div + .sent {
   background: var(--color-gray-200);
 }
 
-.messageTemplates {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
-  flex-wrap: wrap;
-}
-
 .messageInputRow {
   display: flex;
   gap: var(--spacing-sm);

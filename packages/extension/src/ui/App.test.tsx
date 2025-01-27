@@ -1,29 +1,11 @@
 import '@ocap/test-utils/mock-endoify';
-import { define } from '@metamask/superstruct';
-import type { VatId, VatConfig } from '@ocap/kernel';
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { StreamState } from './hooks/useStream.js';
+import { setupOcapKernelMock } from '../../test/mocks.js';
 
-const isVatId = vi.fn(
-  (input: unknown): input is VatId => typeof input === 'string',
-);
-
-const isVatConfig = vi.fn(
-  (input: unknown): input is VatConfig => typeof input === 'object',
-);
-
-vi.mock('@ocap/kernel', () => ({
-  isVatId,
-  isVatConfig,
-  VatCommandMethod: {
-    ping: 'ping',
-  },
-  KernelCommandMethod: {},
-  VatIdStruct: define<VatId>('VatId', isVatId),
-  VatConfigStruct: define<VatConfig>('VatConfig', isVatConfig),
-}));
+setupOcapKernelMock();
 
 vi.mock('./hooks/useStream.js', () => ({
   useStream: vi.fn(),

@@ -54,7 +54,7 @@ export const useStatusPolling = (
         clearInterval(pollingRef.current);
       }
     };
-  }, [sendMessage, setStatus, interval]);
+  }, [sendMessage, interval]);
 
   return status;
 };

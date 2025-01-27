@@ -1,3 +1,4 @@
+import '@ocap/shims/endoify';
 import type { Kernel, KVStore } from '@ocap/kernel';
 import { describe, it, expect } from 'vitest';
 

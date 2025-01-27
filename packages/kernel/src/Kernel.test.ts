@@ -278,26 +278,6 @@ describe('Kernel', () => {
       expect(launchWorkerMock).toHaveBeenCalledTimes(2);
     });
 
-    it('should clear storage if forceReset is true', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
-      kernel.clusterConfig = {
-        ...mockClusterConfig,
-        forceReset: true,
-      };
-      const resetStoreMock = vi.spyOn(mockKVStore, 'clear');
-      await kernel.reload();
-      expect(resetStoreMock).toHaveBeenCalledOnce();
-    });
-
-    it('should do nothing if no config exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
-      const terminateAllSpy = vi.spyOn(kernel, 'terminateAllVats');
-      const launchSubclusterSpy = vi.spyOn(kernel, 'launchSubcluster');
-      await kernel.reload();
-      expect(terminateAllSpy).not.toHaveBeenCalled();
-      expect(launchSubclusterSpy).not.toHaveBeenCalled();
-    });
-
     it('should throw if no config exists', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');

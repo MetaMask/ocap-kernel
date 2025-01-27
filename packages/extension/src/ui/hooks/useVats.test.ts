@@ -2,6 +2,7 @@ import type { VatConfig } from '@ocap/kernel';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { setupOcapKernelMock } from '../../../test/mocks.js';
 import type { PanelContextType } from '../context/PanelContext.js';
 
 vi.mock('../context/PanelContext.js', () => ({
@@ -16,11 +17,7 @@ vi.mock('../../kernel-integration/messages.js', () => ({
   },
 }));
 
-vi.mock('@ocap/kernel', () => ({
-  VatCommandMethod: {
-    ping: 'ping',
-  },
-}));
+setupOcapKernelMock();
 
 vi.mock('@ocap/utils', () => ({
   stringify: JSON.stringify,

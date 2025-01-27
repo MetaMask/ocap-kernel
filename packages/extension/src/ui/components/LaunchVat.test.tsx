@@ -25,6 +25,7 @@ describe('LaunchVat Component', () => {
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
       reload: vi.fn(),
+      updateClusterConfig: vi.fn(),
     });
   });
 
