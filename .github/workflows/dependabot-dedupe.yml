@@ -1,5 +1,7 @@
 name: Dependabot Dedupe
-on: pull_request
+
+on:
+  pull_request:
 
 permissions:
   contents: write
@@ -8,15 +10,19 @@ permissions:
 jobs:
   dependabot-dedupe:
     runs-on: ubuntu-latest
+    # Run this job only if it's Dependabot creating or updating the PR
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repo
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 20
 
       - name: Configure Git
         run: |
