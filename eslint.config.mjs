@@ -69,6 +69,10 @@ const config = createConfig([
       // This should only be enable for JavaScript files.
       // Ref: https://github.com/import-js/eslint-plugin-import/issues/2215#issuecomment-911245486
       'import-x/unambiguous': 'off',
+
+      // Permit the use of .finally() after .catch().
+      // https://github.com/eslint-community/eslint-plugin-promise/blob/main/docs/rules/catch-or-return.md#allowfinally
+      'promise/catch-or-return': ['error', { allowFinally: true }],
     },
   },
 

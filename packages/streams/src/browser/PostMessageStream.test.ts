@@ -202,10 +202,12 @@ describe('PostMessageDuplexStream', () => {
     messageTarget = makeMockMessageTarget(),
     postRemoteMessage = vi.fn(),
     validateInput,
+    onEnd,
   }: {
     messageTarget?: PostMessageTarget;
     postRemoteMessage?: PostMessage;
     validateInput?: ValidateInput<Read>;
+    onEnd?: () => Promise<void>;
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   } = {}) => {
     const postLocalMessage = messageTarget.postMessage;
@@ -213,6 +215,7 @@ describe('PostMessageDuplexStream', () => {
     const duplexStreamP = PostMessageDuplexStream.make<Read, Write>({
       messageTarget: { ...messageTarget, postMessage: postRemoteMessage },
       validateInput,
+      onEnd,
     });
     postLocalMessage(makeAck());
     await delay(10);
@@ -245,6 +248,19 @@ describe('PostMessageDuplexStream', () => {
     mockMessageTarget.postMessage(42);
     expect(await duplexStream.next()).toStrictEqual(makePendingResult(42));
     expect(validateInput).toHaveBeenCalledWith(42);
+  });
+
+  it('calls onEnd when ending if specified', async () => {
+    const onEnd = vi.fn();
+    const { duplexStream } = await makeDuplexStream({
+      messageTarget: makeMockMessageTarget(),
+      postRemoteMessage: vi.fn(),
+      onEnd,
+    });
+
+    await duplexStream.return();
+    // Once for the reader, once for the writer
+    expect(onEnd).toHaveBeenCalledTimes(2);
   });
 
   it('ends the reader when the writer ends', async () => {

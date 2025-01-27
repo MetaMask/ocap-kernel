@@ -185,3 +185,20 @@ export const isKernelControlReply: TypeGuard<KernelControlReply> = (
 export const isKernelStatus: TypeGuard<KernelStatus> = (
   value,
 ): value is KernelStatus => is(value, KernelStatusStruct);
+
+export const UiControlMethod = {
+  init: 'init',
+} as const;
+
+export type UiControlMethod = keyof typeof UiControlMethod;
+
+const UiControlCommandStruct = object({
+  method: literal(UiControlMethod.init),
+  params: string(), // The UI instance's BroadcastChannel name
+});
+
+export type UiControlCommand = Infer<typeof UiControlCommandStruct>;
+
+export const isUiControlCommand: TypeGuard<UiControlCommand> = (
+  value: unknown,
+): value is UiControlCommand => is(value, UiControlCommandStruct);

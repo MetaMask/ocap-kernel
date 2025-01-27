@@ -2156,6 +2156,7 @@ __metadata:
     eslint-plugin-prettier: "npm:^5.2.1"
     eslint-plugin-promise: "npm:^7.1.0"
     jsdom: "npm:^24.1.1"
+    nanoid: "npm:^3.3.8"
     playwright: "npm:^1.50.0"
     prettier: "npm:^3.3.3"
     react: "npm:^18.3.1"

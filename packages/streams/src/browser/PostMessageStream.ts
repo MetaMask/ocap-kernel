@@ -136,6 +136,7 @@ export class PostMessageDuplexStream<
   constructor({
     messageTarget,
     validateInput,
+    onEnd,
     ...args
   }: PostMessageDuplexStreamArgs<Read>) {
     let writer: PostMessageWriter<Write>; // eslint-disable-line prefer-const
@@ -144,12 +145,14 @@ export class PostMessageDuplexStream<
       messageTarget,
       validateInput: makeDuplexStreamInputValidator(validateInput),
       onEnd: async () => {
+        await onEnd?.();
         await writer.return();
       },
     } as PostMessageReaderArgs<Read>);
     writer = new PostMessageWriter<Write>(messageTarget, {
       name: 'PostMessageDuplexStream',
       onEnd: async () => {
+        await onEnd?.();
         await reader.return();
       },
     });
