@@ -2033,6 +2033,7 @@ __metadata:
     "@metamask/snaps-utils": "npm:^8.3.0"
     "@metamask/utils": "npm:^11.0.1"
     "@ocap/shims": "workspace:^"
+    "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
