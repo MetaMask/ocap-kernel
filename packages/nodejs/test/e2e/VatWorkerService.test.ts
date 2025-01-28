@@ -6,7 +6,7 @@ import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NodejsVatWorkerService } from '../../src/kernel/VatWorkerService.js';
-import { getTestWorkerFile } from '../workers';
+import { getTestWorkerFile } from '../get-test-worker.js';
 
 describe('NodejsVatWorkerService', () => {
   const testWorkerFile = getTestWorkerFile('stream-sync');
