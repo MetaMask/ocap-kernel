@@ -11,7 +11,6 @@ const config = mergeConfig(
     test: {
       name: 'extension',
       environment: 'jsdom',
-      pool: 'forks',
       exclude: ['**/test/e2e/**'],
       setupFiles: path.resolve(__dirname, './test/setup.ts'),
     },
