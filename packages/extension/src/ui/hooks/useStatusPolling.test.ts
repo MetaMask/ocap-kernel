@@ -23,11 +23,13 @@ describe('useStatusPolling', () => {
   const mockInterval = 100;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({
+      now: Date.now(),
+      toFake: ['setInterval', 'clearInterval'],
+    });
   });
 
   afterEach(() => {
-    vi.clearAllTimers();
     vi.useRealTimers();
   });
 
