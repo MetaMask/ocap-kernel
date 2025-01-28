@@ -30,6 +30,7 @@ describe('useStatusPolling', () => {
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
     vi.useRealTimers();
   });
 
