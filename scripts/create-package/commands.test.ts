@@ -12,7 +12,10 @@ vi.mock('./utils', () => ({
 }));
 
 // January 2 to avoid time zone issues.
-vi.useFakeTimers().setSystemTime(new Date('2023-01-02'));
+vi.useFakeTimers({
+  now: new Date('2023-01-02'),
+  toFake: ['Date'],
+});
 
 describe('create-package/commands', () => {
   describe('createPackageHandler', () => {
