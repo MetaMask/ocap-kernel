@@ -10,6 +10,7 @@ import {
   receiveUiConnections,
   UI_CONTROL_CHANNEL_NAME,
 } from './ui-connections.js';
+import clusterConfig from '../vats/default-cluster.json';
 
 vi.mock('nanoid', () => ({
   nanoid: vi.fn(() => 'test-id'),
@@ -166,7 +167,7 @@ describe('ui-connections', () => {
         id: 'foo',
         payload: {
           method: 'getStatus',
-          params: { vats: [] },
+          params: { vats: [], clusterConfig },
         },
       }),
     );
