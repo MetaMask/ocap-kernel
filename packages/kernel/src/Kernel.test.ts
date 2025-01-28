@@ -202,15 +202,15 @@ describe('Kernel', () => {
     });
   });
 
-  describe('sendMessage()', () => {
+  describe('sendVatCommand()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendMessage').mockResolvedValueOnce(
+      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockResolvedValueOnce(
         'test',
       );
       expect(
-        await kernel.sendMessage(
+        await kernel.sendVatCommand(
           'v1',
           'test' as unknown as VatCommand['payload'],
         ),
@@ -221,18 +221,18 @@ describe('Kernel', () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
-        kernel.sendMessage(nonExistentVatId, {} as VatCommand['payload']),
+        kernel.sendVatCommand(nonExistentVatId, {} as VatCommand['payload']),
       ).rejects.toThrow(VatNotFoundError);
     });
 
     it('throws an error when sending a message to the vat throws', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendMessage').mockRejectedValueOnce(
+      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockRejectedValueOnce(
         'error',
       );
       await expect(async () =>
-        kernel.sendMessage('v1', {} as VatCommand['payload']),
+        kernel.sendVatCommand('v1', {} as VatCommand['payload']),
       ).rejects.toThrow('error');
     });
   });

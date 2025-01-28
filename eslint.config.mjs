@@ -73,6 +73,16 @@ const config = createConfig([
       // Permit the use of .finally() after .catch().
       // https://github.com/eslint-community/eslint-plugin-promise/blob/main/docs/rules/catch-or-return.md#allowfinally
       'promise/catch-or-return': ['error', { allowFinally: true }],
+
+      // https://eslint.org/docs/latest/rules/no-unused-expressions#options
+      '@typescript-eslint/no-unused-expressions': [
+        'error',
+        {
+          allowShortCircuit: true,
+          allowTaggedTemplates: true,
+          allowTernary: true,
+        },
+      ],
     },
   },
 

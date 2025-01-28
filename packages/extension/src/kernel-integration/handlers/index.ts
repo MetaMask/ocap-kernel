@@ -4,14 +4,14 @@ import { getStatusHandler } from './get-status.js';
 import { launchVatHandler } from './launch-vat.js';
 import { reloadConfigHandler } from './reload-config.js';
 import { restartVatHandler } from './restart-vat.js';
-import { sendMessageHandler } from './send-message.js';
+import { sendVatCommandHandler } from './send-vat-command.js';
 import { terminateAllVatsHandler } from './terminate-all-vats.js';
 import { terminateVatHandler } from './terminate-vat.js';
 
 export const handlers = [
   getStatusHandler,
   clearStateHandler,
-  sendMessageHandler,
+  sendVatCommandHandler,
   executeDBQueryHandler,
   launchVatHandler,
   reloadConfigHandler,

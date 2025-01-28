@@ -10,7 +10,7 @@ vi.mock('../context/PanelContext.js', () => ({
 
 vi.mock('../../kernel-integration/messages.js', () => ({
   KernelControlMethod: {
-    sendMessage: 'sendMessage',
+    sendVatCommand: 'sendVatCommand',
     restartVat: 'restartVat',
     terminateVat: 'terminateVat',
   },
@@ -102,7 +102,7 @@ describe('useVats', () => {
       result.current.pingVat(mockVatId);
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             id: mockVatId,
             payload: {

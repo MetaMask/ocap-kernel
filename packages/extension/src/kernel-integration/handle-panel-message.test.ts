@@ -30,7 +30,7 @@ vi.mock('@ocap/kernel', () => ({
   isVatConfig: () => isVatConfigMock,
   VatIdStruct: define<VatId>('VatId', () => isVatIdMock),
   VatConfigStruct: define<VatConfig>('VatConfig', () => isVatConfigMock),
-  KernelSendMessageStruct: object({
+  KernelSendVatCommandStruct: object({
     id: literal('v0'),
     payload: object({
       method: literal('ping'),
@@ -76,7 +76,7 @@ describe('handlePanelMessage', () => {
           config: { bundleSpec: 'http://localhost:3000/sample-vat.bundle' },
         },
       ]),
-      sendMessage: vi.fn((id: VatId, _message: KernelCommand) => {
+      sendVatCommand: vi.fn((id: VatId, _message: KernelCommand) => {
         if (id === 'v0') {
           return 'success';
         }
@@ -297,13 +297,13 @@ describe('handlePanelMessage', () => {
     });
   });
 
-  describe('sendMessage command', () => {
-    it('should handle vat messages', async () => {
+  describe('sendVatCommand command', () => {
+    it('should handle vat commands', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
         id: 'test-11',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             id: 'v0',
             payload: { method: 'ping', params: null },
@@ -317,14 +317,14 @@ describe('handlePanelMessage', () => {
         message,
       );
 
-      expect(mockKernel.sendMessage).toHaveBeenCalledWith('v0', {
+      expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
         method: 'ping',
         params: null,
       });
       expect(response).toStrictEqual({
         id: 'test-11',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { result: 'success' },
         },
       });
@@ -339,7 +339,7 @@ describe('handlePanelMessage', () => {
       const message: KernelControlCommand = {
         id: 'test-12',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: { invalid: 'command' },
           },
@@ -355,7 +355,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-12',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { error: 'Invalid command payload' },
         },
       });
@@ -370,7 +370,7 @@ describe('handlePanelMessage', () => {
       const message: KernelControlCommand = {
         id: 'test-13',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: { method: 'ping', params: null },
           },
@@ -386,7 +386,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-13',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { error: 'Vat ID required for this command' },
         },
       });

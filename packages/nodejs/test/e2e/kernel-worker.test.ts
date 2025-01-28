@@ -74,7 +74,7 @@ describe('Kernel Worker', () => {
     await Promise.all(
       testVatIds.map(
         async (vatId: VatId) =>
-          await kernel.sendMessage(vatId, {
+          await kernel.sendVatCommand(vatId, {
             method: VatCommandMethod.ping,
             params: null,
           }),

@@ -4,7 +4,7 @@ export {
   KernelCommandMethod,
   isKernelCommand,
   isKernelCommandReply,
-  KernelSendMessageStruct,
+  KernelSendVatCommandStruct,
 } from './kernel.js';
 export type { KernelCommand, KernelCommandReply } from './kernel.js';
 

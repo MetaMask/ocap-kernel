@@ -1,3 +1,4 @@
+import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { PromiseKit } from '@endo/promise-kit';
 import {
@@ -54,6 +55,9 @@ export const MessageStruct = object({
   methargs: CapDataStruct,
   result: union([string(), literal(undefined), literal(null)]),
 });
+
+export const insistMessage = (value: unknown): boolean =>
+  is(value, MessageStruct) || Fail`not a valid message`;
 
 const RunQueueItemType = {
   send: 'send',
@@ -142,6 +146,9 @@ export const isVatId = (value: unknown): value is VatId =>
   typeof value === 'string' &&
   value.at(0) === 'v' &&
   value.slice(1) === String(Number(value.slice(1)));
+
+export const insistVatId = (value: unknown): boolean =>
+  isVatId(value) || Fail`not a valid VatId`;
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
 

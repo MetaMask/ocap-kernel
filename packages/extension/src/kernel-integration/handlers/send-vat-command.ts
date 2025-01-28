@@ -1,6 +1,6 @@
 import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import { isKernelCommand, KernelSendMessageStruct } from '@ocap/kernel';
+import { isKernelCommand, KernelSendVatCommandStruct } from '@ocap/kernel';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
 import type { CommandHandler, CommandParams } from '../command-registry.js';
@@ -9,15 +9,15 @@ import {
   KernelControlMethod,
 } from '../messages.js';
 
-type SendMessageMethod = typeof KernelControlMethod.sendMessage;
+type SendVatCommandMethod = typeof KernelControlMethod.sendVatCommand;
 
-export const sendMessageHandler: CommandHandler<SendMessageMethod> = {
-  method: KernelControlMethod.sendMessage,
-  schema: KernelCommandPayloadStructs.sendMessage.schema.params,
+export const sendVatCommandHandler: CommandHandler<SendVatCommandMethod> = {
+  method: KernelControlMethod.sendVatCommand,
+  schema: KernelCommandPayloadStructs.sendVatCommand.schema.params,
   implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
-    params: CommandParams[SendMessageMethod],
+    params: CommandParams[SendVatCommandMethod],
   ): Promise<Json> => {
     if (!isKernelCommand(params.payload)) {
       throw new Error('Invalid command payload');
@@ -27,8 +27,8 @@ export const sendMessageHandler: CommandHandler<SendMessageMethod> = {
       throw new Error('Vat ID required for this command');
     }
 
-    assert(params, KernelSendMessageStruct);
-    const result = await kernel.sendMessage(params.id, params.payload);
+    assert(params, KernelSendVatCommandStruct);
+    const result = await kernel.sendVatCommand(params.id, params.payload);
     return { result };
   },
 };

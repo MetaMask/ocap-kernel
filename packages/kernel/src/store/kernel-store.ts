@@ -53,6 +53,7 @@
  *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
  */
 
+import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 // XXX Once the packaging of liveslots is fixed this should be imported from there
@@ -67,6 +68,7 @@ import type {
   PromiseState,
   KernelPromise,
 } from '../types.js';
+import { insistVatId } from '../types.js';
 
 export type KVStore = {
   get(key: string): string | undefined;
@@ -138,20 +140,20 @@ export function parseRef(ref: string): RefParts {
       break;
     case undefined:
     default:
-      throw Error(`invalid reference context ${ref[0]}`);
+      Fail`invalid reference context ${ref[0]}`;
   }
   if (ref[typeIdx] !== 'p' && ref[typeIdx] !== 'o') {
-    throw Error(`invalid reference type ${ref[typeIdx]}`);
+    Fail`invalid reference type ${ref[typeIdx]}`;
   }
   const isPromise = ref[typeIdx] === 'p';
   let direction;
   let index;
-  if (context === 'remote') {
+  if (context === 'kernel') {
     index = ref.slice(2);
   } else {
     const dirIdx = typeIdx + 1;
     if (ref[dirIdx] !== '+' && ref[dirIdx] !== '-') {
-      throw Error(`invalide reference direction ${ref[dirIdx]}`);
+      Fail`invalid reference direction ${ref[dirIdx]}`;
     }
     direction = ref[dirIdx] === '+' ? 'export' : 'import';
     index = ref.slice(dirIdx + 1);
@@ -582,12 +584,14 @@ export function makeKernelStore(kv: KVStore) {
    * @param kpid - The KRef of the promise being subscribed to.
    */
   function addPromiseSubscriber(vatId: VatId, kpid: KRef): void {
-    const key = `${kpid}.subscribers`;
-    const subscribersRaw = kv.getRequired(key);
-    const subscribers = JSON.parse(subscribersRaw);
-    const tempSet = new Set(subscribers);
+    insistVatId(vatId);
+    const kp = getKernelPromise(kpid);
+    kp.state === 'unresolved' ||
+      Fail`attempt to add subscriber to resolved promise ${kpid}`;
+    const tempSet = new Set(kp.subscribers);
     tempSet.add(vatId);
     const newSubscribers = Array.from(tempSet).sort();
+    const key = `${kpid}.subscribers`;
     kv.set(key, JSON.stringify(newSubscribers));
   }
 
@@ -598,6 +602,7 @@ export function makeKernelStore(kv: KVStore) {
    * @param vatId - The vat which will become the decider.
    */
   function setPromiseDecider(kpid: KRef, vatId: VatId): void {
+    insistVatId(vatId);
     if (kpid) {
       kv.set(`${kpid}.decider`, vatId);
     }
@@ -610,6 +615,8 @@ export function makeKernelStore(kv: KVStore) {
    * @returns An object describing the requested kernel promise.
    */
   function getKernelPromise(kpid: KRef): KernelPromise {
+    const { context, isPromise } = parseRef(kpid);
+    assert(context === 'kernel' && isPromise);
     const state = kv.get(`${kpid}.state`) as PromiseState;
     if (state === undefined) {
       throw Error(`unknown kernel promise ${kpid}`);

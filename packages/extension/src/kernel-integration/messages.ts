@@ -22,7 +22,7 @@ export const KernelControlMethod = {
   terminateAllVats: 'terminateAllVats',
   getStatus: 'getStatus',
   reload: 'reload',
-  sendMessage: 'sendMessage',
+  sendVatCommand: 'sendVatCommand',
   clearState: 'clearState',
   executeDBQuery: 'executeDBQuery',
 } as const;
@@ -71,8 +71,8 @@ export const KernelCommandPayloadStructs = {
     method: literal(KernelControlMethod.reload),
     params: literal(null),
   }),
-  [KernelControlMethod.sendMessage]: object({
-    method: literal(KernelControlMethod.sendMessage),
+  [KernelControlMethod.sendVatCommand]: object({
+    method: literal(KernelControlMethod.sendVatCommand),
     params: object({
       id: union([VatIdStruct, literal(undefined)]),
       payload: UnsafeJsonStruct,
@@ -115,8 +115,8 @@ export const KernelReplyPayloadStructs = {
     method: literal(KernelControlMethod.reload),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.sendMessage]: object({
-    method: literal(KernelControlMethod.sendMessage),
+  [KernelControlMethod.sendVatCommand]: object({
+    method: literal(KernelControlMethod.sendVatCommand),
     params: UnsafeJsonStruct,
   }),
   [KernelControlMethod.clearState]: object({
@@ -141,7 +141,7 @@ const KernelControlCommandStruct = object({
     KernelCommandPayloadStructs.terminateAllVats,
     KernelCommandPayloadStructs.getStatus,
     KernelCommandPayloadStructs.reload,
-    KernelCommandPayloadStructs.sendMessage,
+    KernelCommandPayloadStructs.sendVatCommand,
     KernelCommandPayloadStructs.clearState,
     KernelCommandPayloadStructs.executeDBQuery,
   ]),
@@ -156,7 +156,7 @@ const KernelControlReplyStruct = object({
     KernelReplyPayloadStructs.terminateAllVats,
     KernelReplyPayloadStructs.getStatus,
     KernelReplyPayloadStructs.reload,
-    KernelReplyPayloadStructs.sendMessage,
+    KernelReplyPayloadStructs.sendVatCommand,
     KernelReplyPayloadStructs.clearState,
     KernelReplyPayloadStructs.executeDBQuery,
   ]),

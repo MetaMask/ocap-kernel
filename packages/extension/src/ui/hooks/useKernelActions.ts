@@ -24,7 +24,7 @@ export function useKernelActions(): {
    */
   const sendKernelCommand = useCallback(() => {
     sendMessage({
-      method: KernelControlMethod.sendMessage,
+      method: KernelControlMethod.sendVatCommand,
       params: {
         payload: JSON.parse(messageContent),
         ...(selectedVatId ? { id: selectedVatId } : {}),

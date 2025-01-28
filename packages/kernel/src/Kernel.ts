@@ -12,6 +12,7 @@ import { makeLogger } from '@ocap/utils';
 
 // XXX Once the packaging of liveslots is fixed, these should be imported from there
 import type { Message, VatOneResolution } from './ag-types.js';
+import { assert, Fail } from './assert.js';
 import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
 import type { SlotValue } from './kernel-marshal.js';
 import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
@@ -38,8 +39,17 @@ import type {
   RunQueueItemSend,
   RunQueueItemNotify,
 } from './types.js';
-import { ROOT_OBJECT_VREF } from './types.js';
+import {
+  ROOT_OBJECT_VREF,
+  insistVatId,
+  insistMessage,
+  isVatConfig,
+} from './types.js';
 import { VatHandle } from './VatHandle.js';
+
+// function fail(template: TemplateStringsArray | string[], ...args: unknown[]): never {
+//   Fail(template, args);
+// }
 
 /**
  * Obtain the KRef from a simple value represented as a CapData object.
@@ -164,7 +174,7 @@ export class Kernel {
       if (this.#runQueueLength === 0) {
         const { promise, resolve } = makePromiseKit<void>();
         if (this.#wakeUpTheRunQueue !== null) {
-          throw Error(`wakeUpTheRunQueue function already set`);
+          Fail`wakeUpTheRunQueue function already set`;
         }
         this.#wakeUpTheRunQueue = resolve;
         await promise;
@@ -222,7 +232,10 @@ export class Kernel {
    * @returns the kref corresponding to the export of `vref` from `vatId`.
    */
   exportFromVat(vatId: VatId, vref: VRef): KRef {
-    const { isPromise } = parseRef(vref);
+    insistVatId(vatId);
+    const { isPromise, context, direction } = parseRef(vref);
+    assert(context === 'vat', `${vref} is not a VRef`);
+    assert(direction === 'export', `${vref} is not an export reference`);
     const kref = isPromise
       ? this.#storage.initKernelPromise()[0]
       : this.#storage.initKernelObject(vatId);
@@ -310,7 +323,7 @@ export class Kernel {
       if (importIfNeeded) {
         eref = this.#storage.allocateErefForKref(vatId, kref);
       } else {
-        throw Error(`unmapped kref ${kref} vat=${vatId}`);
+        throw Fail`unmapped kref ${kref} vat=${vatId}`;
       }
     }
     return eref;
@@ -396,6 +409,7 @@ export class Kernel {
    */
   #routeMessage(item: RunQueueItemSend): MessageRoute {
     const { target, message } = item;
+    insistMessage(message);
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
@@ -434,9 +448,7 @@ export class Kernel {
         case 'unresolved':
           return routeAsRequeue(target);
         default:
-          // Compile-time exhaustiveness check
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw Error(`unknown promise state ${promise.state}`);
+          throw Fail`unknown promise state ${promise.state}`;
       }
     } else {
       return routeAsSend(target);
@@ -482,7 +494,7 @@ export class Kernel {
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);
             } else {
-              throw Error(`no owner for kernel object ${target}`);
+              Fail`no owner for kernel object ${target}`;
             }
           } else {
             this.#storage.enqueuePromiseMessage(target, message);
@@ -493,14 +505,18 @@ export class Kernel {
       }
       case 'notify': {
         const { vatId, kpid } = item;
+        insistVatId(vatId);
+        const { context, isPromise } = parseRef(kpid);
+        assert(
+          context === 'kernel' && isPromise,
+          `${kpid} is not a kernel promise`,
+        );
         log(`@@@@ deliver ${vatId} notify ${kpid}`);
         const promise = this.#storage.getKernelPromise(kpid);
         const { state, value } = promise;
-        if (!value) {
-          throw Error(`no value for promise ${kpid}`);
-        }
+        assert(value, `no value for promise ${kpid}`);
         if (state === 'unresolved') {
-          throw Error(`notifcation on unresolved promise ${kpid}`);
+          Fail`notification on unresolved promise ${kpid}`;
         }
         if (!this.#storage.krefToEref(vatId, kpid)) {
           // no c-list entry, already done
@@ -515,10 +531,10 @@ export class Kernel {
         for (const toResolve of targets) {
           const tPromise = this.#storage.getKernelPromise(toResolve);
           if (tPromise.state === 'unresolved') {
-            throw Error(`target promise ${toResolve} is unresolved`);
+            Fail`target promise ${toResolve} is unresolved`;
           }
           if (!tPromise.value) {
-            throw Error(`target promise ${toResolve} has no value`);
+            throw Fail`target promise ${toResolve} has no value`;
           }
           resolutions.push([
             this.#translateRefKtoV(vatId, toResolve, true),
@@ -532,8 +548,8 @@ export class Kernel {
         break;
       }
       default:
-        // @ts-expect-error Compile-time exhaustiveness check
-        throw Error(`unsupported or unknown run queue item type ${item.type}`);
+        // @ts-expect-error Runtime does not respect "never".
+        Fail`unsupported or unknown run queue item type ${item.type}`;
     }
   }
 
@@ -596,19 +612,22 @@ export class Kernel {
    * @param resolutions - One or more resolutions, to be processed as a group.
    */
   doResolve(vatId: VatId | undefined, resolutions: VatOneResolution[]): void {
+    if (vatId) {
+      insistVatId(vatId);
+    }
     for (const resolution of resolutions) {
       const [kpid, rejected, dataRaw] = resolution;
       const data = dataRaw as CapData<KRef>;
       const promise = this.#storage.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
       if (state !== 'unresolved') {
-        throw Error(`${kpid} was already resolved`);
+        Fail`${kpid} was already resolved`;
       }
       if (decider !== vatId) {
-        throw Error(`${kpid} is decided by ${decider}, not ${vatId}`);
+        Fail`${kpid} is decided by ${decider}, not ${vatId}`;
       }
       if (!subscribers) {
-        throw Error(`${kpid} subscribers not set`);
+        throw Fail`${kpid} subscribers not set`;
       }
       for (const subscriber of subscribers) {
         this.#notify(subscriber, kpid);
@@ -624,8 +643,9 @@ export class Kernel {
    * @returns A record of the root objects of the vats launched.
    */
   async launchSubcluster(config: ClusterConfig): Promise<Record<string, KRef>> {
+    isVatConfig(config) || Fail`invalid vat config`;
     if (config.bootstrap && !config.vats[config.bootstrap]) {
-      throw Error(`invalid bootstrap vat name ${config.bootstrap}`);
+      Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
     this.#mostRecentSubcluster = config;
     const rootIds: Record<string, KRef> = {};
@@ -672,13 +692,16 @@ export class Kernel {
   /**
    * Terminate a vat.
    *
-   * @param id - The ID of the vat.
+   * @param vatId - The ID of the vat.
    */
-  async terminateVat(id: VatId): Promise<void> {
-    const vat = this.#getVat(id);
+  async terminateVat(vatId: VatId): Promise<void> {
+    const vat = this.#getVat(vatId);
+    if (!vat) {
+      throw new VatNotFoundError(vatId);
+    }
     await vat.terminate();
-    await this.#vatWorkerService.terminate(id).catch(console.error);
-    this.#vats.delete(id);
+    await this.#vatWorkerService.terminate(vatId).catch(console.error);
+    this.#vats.delete(vatId);
   }
 
   /**
@@ -723,18 +746,18 @@ export class Kernel {
   }
 
   /**
-   * Send a message to a vat.
+   * Send a command to a vat.
    *
-   * @param id - The id of the vat to send the message to.
+   * @param id - The id of the vat to send the command to.
    * @param command - The command to send.
-   * @returns A promise that resolves the response to the message.
+   * @returns A promise that resolves the response to the command.
    */
-  async sendMessage<Method extends VatCommand['payload']['method']>(
+  async sendVatCommand<Method extends VatCommand['payload']['method']>(
     id: VatId,
     command: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
     const vat = this.#getVat(id);
-    return vat.sendMessage(command);
+    return vat.sendVatCommand(command);
   }
 
   /**

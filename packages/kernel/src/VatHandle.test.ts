@@ -47,18 +47,18 @@ describe('VatHandle', () => {
   describe('init', () => {
     it('initializes the vat and sends ping & initVat messages', async () => {
       const { vat } = await makeVat();
-      const sendMessageMock = vi
-        .spyOn(vat, 'sendMessage')
+      const sendVatCommandMock = vi
+        .spyOn(vat, 'sendVatCommand')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
 
       await vat.init();
 
-      expect(sendMessageMock).toHaveBeenCalledWith({
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.ping,
         params: null,
       });
-      expect(sendMessageMock).toHaveBeenCalledWith({
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.initVat,
         params: {
           sourceSpec: 'not-really-there.js',
@@ -69,7 +69,7 @@ describe('VatHandle', () => {
     it('throws if the stream throws', async () => {
       const logger = makeLogger(`[vat v0]`);
       const { vat, stream } = await makeVat(logger);
-      vi.spyOn(vat, 'sendMessage')
+      vi.spyOn(vat, 'sendVatCommand')
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
       await vat.init();
@@ -83,7 +83,7 @@ describe('VatHandle', () => {
     });
   });
 
-  describe('sendMessage', () => {
+  describe('sendVatCommand', () => {
     it('sends a message and resolves the promise', async () => {
       const { vat } = await makeVat();
       const mockMessage = {
@@ -91,7 +91,7 @@ describe('VatHandle', () => {
         params: null,
       } as VatCommand['payload'];
 
-      const sendMessagePromise = vat.sendMessage(mockMessage);
+      const sendVatCommandPromise = vat.sendVatCommand(mockMessage);
 
       // Simulate response using handleMessage instead of direct resolver access
       await vat.handleMessage({
@@ -102,7 +102,7 @@ describe('VatHandle', () => {
         },
       });
 
-      const result = await sendMessagePromise;
+      const result = await sendVatCommandPromise;
       expect(result).toBe('test-response');
     });
   });
@@ -117,7 +117,7 @@ describe('VatHandle', () => {
       };
 
       // Create a pending message first
-      const messagePromise = vat.sendMessage({
+      const messagePromise = vat.sendVatCommand({
         method: VatCommandMethod.ping,
         params: null,
       });
@@ -135,7 +135,7 @@ describe('VatHandle', () => {
       const { vat, stream } = await makeVat();
 
       // Create a pending message that should be rejected on terminate
-      const messagePromise = vat.sendMessage({
+      const messagePromise = vat.sendVatCommand({
         method: VatCommandMethod.ping,
         params: null,
       });

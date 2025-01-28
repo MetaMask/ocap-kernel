@@ -17,7 +17,7 @@ describe('KernelControlMethod', () => {
       'terminateAllVats',
       'getStatus',
       'reload',
-      'sendMessage',
+      'sendVatCommand',
       'clearState',
       'executeDBQuery',
     ]);
@@ -86,7 +86,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.sendMessage,
+          method: KernelControlMethod.sendVatCommand,
           params: {
             id: 'v0',
             payload: { test: 'data' },
@@ -195,7 +195,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.sendMessage,
+          method: KernelControlMethod.sendVatCommand,
           params: { result: 'success' },
         },
       },

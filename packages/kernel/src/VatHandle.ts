@@ -62,7 +62,7 @@ export class VatHandle {
   readonly #kernel: Kernel;
 
   /** Callbacks to handle message replies, indexed by message id */
-  readonly unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
+  readonly #unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
     new Map();
 
   /**
@@ -339,14 +339,17 @@ export class VatHandle {
    * @param message.payload - The payload (i.e., the message itself) to handle.
    */
   async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
+    // Syscalls are currently the only messages that actually originate from the
+    // vat. All others will be replies to messages originally sent by the kernel TO the
+    // vat.
     if (payload.method === VatCommandMethod.syscall) {
       await this.#handleSyscall(payload.params);
     } else {
-      const promiseCallbacks = this.unresolvedMessages.get(id);
+      const promiseCallbacks = this.#unresolvedMessages.get(id);
       if (promiseCallbacks === undefined) {
         this.#logger.error(`No unresolved message with id "${id}".`);
       } else {
-        this.unresolvedMessages.delete(id);
+        this.#unresolvedMessages.delete(id);
         promiseCallbacks.resolve(payload.params);
       }
     }
@@ -365,8 +368,14 @@ export class VatHandle {
       },
     );
 
-    await this.sendMessage({ method: VatCommandMethod.ping, params: null });
-    await this.sendMessage({
+    // XXX This initial `ping` was originally put here as a sanity check to make
+    // sure that the vat was actually running and able to exchange message
+    // traffic with the kernel, but the addition of the `initVat` message to the
+    // startup flow has, I'm fairly sure, obviated the need for that as it
+    // effectively performs the same function. Probably this ping should be
+    // removed.
+    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
+    await this.sendVatCommand({
       method: VatCommandMethod.initVat,
       params: this.config,
     });
@@ -380,7 +389,7 @@ export class VatHandle {
    * @param message - The message to deliver.
    */
   async deliverMessage(target: VRef, message: Message): Promise<void> {
-    await this.sendMessage({
+    await this.sendVatCommand({
       method: VatCommandMethod.deliver,
       params: ['message', target, message],
     });
@@ -392,7 +401,7 @@ export class VatHandle {
    * @param resolutions - One or more promise resolutions to deliver.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
-    await this.sendMessage({
+    await this.sendVatCommand({
       method: VatCommandMethod.deliver,
       params: ['notify', resolutions],
     });
@@ -407,25 +416,25 @@ export class VatHandle {
     await this.#vatStream.end(error);
 
     // Handle orphaned messages
-    for (const [messageId, promiseCallback] of this.unresolvedMessages) {
+    for (const [messageId, promiseCallback] of this.#unresolvedMessages) {
       promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
-      this.unresolvedMessages.delete(messageId);
+      this.#unresolvedMessages.delete(messageId);
     }
   }
 
   /**
-   * Send a message to a vat.
+   * Send a command to a vat.
    *
-   * @param payload - The message to send.
-   * @returns A promise that resolves the response to the message.
+   * @param payload - The command to send.
+   * @returns A promise that resolves the response to the command.
    */
-  async sendMessage<Method extends VatCommand['payload']['method']>(
+  async sendVatCommand<Method extends VatCommand['payload']['method']>(
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
     this.#logger.debug('Sending message to vat', payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
-    this.unresolvedMessages.set(messageId, { reject, resolve });
+    this.#unresolvedMessages.set(messageId, { reject, resolve });
     await this.#vatStream.write({ id: messageId, payload });
     return promise as Promise<VatCommandReturnType[Method]>;
   }
