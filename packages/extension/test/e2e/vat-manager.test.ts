@@ -4,7 +4,7 @@ import type { Page, BrowserContext } from '@playwright/test';
 import clusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension';
 
-test.describe('Kernel Panel', () => {
+test.describe('Vat Manager', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 
