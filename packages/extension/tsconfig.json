@@ -41,7 +41,6 @@
     "./vite-plugins/*.ts",
     "./vite.config.ts",
     "./vitest.config.ts",
-    "../../types",
-    "../test-utils/src/env/mocks.ts"
+    "../../types"
   ]
 }
