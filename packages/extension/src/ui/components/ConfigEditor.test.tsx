@@ -90,7 +90,7 @@ describe('ConfigEditor Component', () => {
       screen.getByRole('button', { name: 'Update Config' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Update and Restart' }),
+      screen.getByRole('button', { name: 'Update and Reload' }),
     ).toBeInTheDocument();
   });
 
@@ -112,7 +112,7 @@ describe('ConfigEditor Component', () => {
     expect(mockReload).not.toHaveBeenCalled();
   });
 
-  it('updates config and reloads when "Update and Restart" is clicked', async () => {
+  it('updates config and reloads when "Update and Reload" is clicked', async () => {
     mockUpdateClusterConfig.mockResolvedValue(undefined);
     render(<ConfigEditor />);
     const updateButton = screen.getByTestId('update-and-restart');

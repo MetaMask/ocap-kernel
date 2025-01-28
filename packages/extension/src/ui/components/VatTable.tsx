@@ -13,7 +13,7 @@ export const VatTable: React.FC = () => {
 
   return (
     <div className={styles.table}>
-      <table>
+      <table data-testid="vat-table">
         <thead>
           <tr>
             <th>ID</th>

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
+import clusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension';
 
 test.describe('Kernel Panel', () => {
@@ -37,7 +38,6 @@ test.describe('Kernel Panel', () => {
       'http://localhost:3000/sample-vat.bundle',
     );
     await popupPage.click('button:text("Launch Vat")');
-    await popupPage.pause();
     await expect(popupPage.locator('#root')).toContainText(
       `Launched vat "${name}"`,
     );
@@ -131,5 +131,55 @@ test.describe('Kernel Panel', () => {
     await expect(popupPage.locator('table')).not.toBeVisible();
     await launchVat('test-vat-new');
     await expect(popupPage.locator('table tr')).toHaveCount(2); // Header + 1 row
+  });
+
+  test('should reload kernel state and load default vats', async () => {
+    await expect(
+      popupPage.locator('button:text("Reload Kernel")'),
+    ).toBeVisible();
+    await popupPage.click('button:text("Reload Kernel")');
+    await expect(popupPage.locator('#root')).toContainText(
+      'Default sub-cluster reloaded',
+    );
+    // Verify the table is visible and has the correct number of rows (header + vats)
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    await expect(vatTable).toBeVisible();
+    await expect(vatTable.locator('tr')).toHaveCount(
+      Object.keys(clusterConfig.vats).length + 1, // +1 for header row
+    );
+    // Verify each default vat is present in the table
+    for (const [, vatConfig] of Object.entries(clusterConfig.vats)) {
+      await expect(vatTable).toContainText(vatConfig.parameters.name);
+      await expect(vatTable).toContainText(vatConfig.bundleSpec);
+    }
+  });
+
+  test('should handle cluster configuration updates', async () => {
+    // Check initial config is visible and matches clusterConfig
+    const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
+    await expect(configTextarea).toBeVisible();
+    await expect(configTextarea).toHaveValue(
+      JSON.stringify(clusterConfig, null, 2),
+    );
+    // Test invalid JSON handling
+    await configTextarea.fill('{ invalid json }');
+    await popupPage.click('button:text("Update Config")');
+    await expect(popupPage.locator('#root')).toContainText('SyntaxError');
+    // Verify original vats still exist
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    const firstVatKey = Object.keys(
+      clusterConfig.vats,
+    )[0] as keyof typeof clusterConfig.vats;
+    const originalVatName = clusterConfig.vats[firstVatKey].parameters.name;
+    await expect(vatTable).toContainText(originalVatName);
+    // Modify config with new vat name
+    const modifiedConfig = structuredClone(clusterConfig);
+    modifiedConfig.vats[firstVatKey].parameters.name = 'SuperAlice';
+    // Update config and reload
+    await configTextarea.fill(JSON.stringify(modifiedConfig, null, 2));
+    await popupPage.click('button:text("Update Config")');
+    await popupPage.click('button:text("Reload Kernel")');
+    // Verify new vat name appears
+    await expect(vatTable).toContainText('SuperAlice');
   });
 });

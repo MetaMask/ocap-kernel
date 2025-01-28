@@ -57,6 +57,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
         onChange={(event) => setConfig(event.target.value)}
         rows={10}
         className={styles.configTextarea}
+        data-testid="config-textarea"
       />
       <div className={styles.configEditorButtons}>
         <button
@@ -71,7 +72,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
           className={styles.buttonBlack}
           data-testid="update-and-restart"
         >
-          Update and Restart
+          Update and Reload
         </button>
       </div>
     </div>
