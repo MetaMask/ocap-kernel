@@ -43,13 +43,9 @@ import {
   ROOT_OBJECT_VREF,
   insistVatId,
   insistMessage,
-  isVatConfig,
+  isClusterConfig,
 } from './types.js';
 import { VatHandle } from './VatHandle.js';
-
-// function fail(template: TemplateStringsArray | string[], ...args: unknown[]): never {
-//   Fail(template, args);
-// }
 
 /**
  * Obtain the KRef from a simple value represented as a CapData object.
@@ -486,10 +482,12 @@ export class Kernel {
           if (vatId) {
             const vat = this.#getVat(vatId);
             if (vat) {
-              if (typeof message.result !== 'string') {
-                throw TypeError('message result must be a string');
+              if (message.result) {
+                if (typeof message.result !== 'string') {
+                  throw TypeError('message result must be a string');
+                }
+                this.#storage.setPromiseDecider(message.result, vatId);
               }
-              this.#storage.setPromiseDecider(message.result, vatId);
               const vatTarget = this.#translateRefKtoV(vatId, target, false);
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);
@@ -643,7 +641,7 @@ export class Kernel {
    * @returns A record of the root objects of the vats launched.
    */
   async launchSubcluster(config: ClusterConfig): Promise<Record<string, KRef>> {
-    isVatConfig(config) || Fail`invalid vat config`;
+    isClusterConfig(config) || Fail`invalid cluster config`;
     if (config.bootstrap && !config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }

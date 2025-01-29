@@ -9,6 +9,7 @@ import {
   optional,
   string,
   array,
+  record,
   union,
   literal,
 } from '@metamask/superstruct';
@@ -269,5 +270,14 @@ export type ClusterConfig = {
   vats: VatConfigTable;
   bundles?: VatConfigTable;
 };
+
+export const ClusterConfigStruct = object({
+  bootstrap: optional(string()),
+  vats: record(string(), VatConfigStruct),
+  bundles: optional(record(string(), VatConfigStruct)),
+});
+
+export const isClusterConfig = (value: unknown): value is ClusterConfig =>
+  is(value, ClusterConfigStruct);
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
