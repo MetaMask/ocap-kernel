@@ -6,11 +6,7 @@ import type {
   VatConfig,
   KVStore,
 } from '@ocap/kernel';
-import {
-  setupOcapKernelMock,
-  setMockBehavior,
-  resetMocks,
-} from '@ocap/test-utils';
+import { setupOcapKernelMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
@@ -23,7 +19,7 @@ vi.mock('@ocap/utils', () => ({
   }),
 }));
 
-setupOcapKernelMock();
+const { setMockBehavior, resetMocks } = setupOcapKernelMock();
 
 describe('handlePanelMessage', () => {
   let mockKernel: Kernel;
