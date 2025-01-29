@@ -98,28 +98,30 @@ export class Kernel {
    * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param vatWorkerService - Service to create a worker in which a new vat can run.
    * @param rawStorage - A KV store for holding the kernel's persistent state.
-   * @param logger - Optional logger for error and diagnostic output.
+   * @param options - Options for the kernel constructor.
+   * @param options.resetStorage - If true, the storage will be cleared.
+   * @param options.logger - Optional logger for error and diagnostic output.
    */
   constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
     rawStorage: KVStore,
-    logger?: Logger,
+    options: {
+      resetStorage?: boolean;
+      logger?: Logger;
+    } = {},
   ) {
     this.#mostRecentSubcluster = null;
     this.#commandStream = commandStream;
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
 
-    // XXX Warning: Clearing storage here is a hack to aid development
-    // debugging, wherein extension reloads are almost exclusively used for
-    // retrying after tweaking some fix. The kernel must not be shipped with the
-    // following line present, as it will prevent the accumulation of long term
-    // kernel state.
-    rawStorage.clear();
+    if (options.resetStorage) {
+      rawStorage.clear();
+    }
 
     this.#storage = makeKernelStore(rawStorage);
-    this.#logger = logger ?? makeLogger('[ocap kernel]');
+    this.#logger = options.logger ?? makeLogger('[ocap kernel]');
     this.#runQueueLength = this.#storage.runQueueLength();
     this.#wakeUpTheRunQueue = null;
   }
@@ -645,9 +647,6 @@ export class Kernel {
     if (config.bootstrap && !config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
-    if (config.forceReset) {
-      await this.clearStorage();
-    }
     this.#mostRecentSubcluster = config;
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
@@ -728,10 +727,6 @@ export class Kernel {
     }
 
     await this.terminateAllVats();
-
-    if (this.#mostRecentSubcluster.forceReset) {
-      await this.clearStorage();
-    }
 
     await this.launchSubcluster(this.#mostRecentSubcluster);
   }

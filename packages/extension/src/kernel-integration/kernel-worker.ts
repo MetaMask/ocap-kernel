@@ -37,7 +37,13 @@ async function main(): Promise<void> {
   );
   const kvStore = await makeSQLKVStore();
 
-  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
+  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore, {
+    // XXX Warning: Clearing storage here is a hack to aid development
+    // debugging, wherein extension reloads are almost exclusively used for
+    // retrying after tweaking some fix. The following line will prevent
+    // the accumulation of long term kernel state.
+    resetStorage: true,
+  });
   receiveUiConnections(
     async (message) => handlePanelMessage(kernel, kvStore, message),
     logger,
