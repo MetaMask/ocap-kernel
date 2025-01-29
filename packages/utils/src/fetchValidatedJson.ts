@@ -2,11 +2,11 @@ import type { Struct } from '@metamask/superstruct';
 import { assert } from '@metamask/superstruct';
 
 /**
- * Load and validate a cluster configuration file
+ * Load and validate a JSON file
  *
- * @param configUrl - Path to the config JSON file
- * @param validator - The validator to use to validate the config
- * @returns The validated cluster configuration
+ * @param configUrl - Path to the JSON file
+ * @param validator - The validator to use to validate the JSON
+ * @returns The validated JSON
  */
 export async function fetchValidatedJson<Type>(
   configUrl: string,
