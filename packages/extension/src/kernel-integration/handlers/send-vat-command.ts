@@ -1,6 +1,5 @@
-import { assert } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import { isKernelCommand, KernelSendVatCommandStruct } from '@ocap/kernel';
+import { isKernelCommand } from '@ocap/kernel';
 import type { Kernel, KVStore } from '@ocap/kernel';
 
 import type { CommandHandler, CommandParams } from '../command-registry.js';
@@ -27,7 +26,6 @@ export const sendVatCommandHandler: CommandHandler<SendVatCommandMethod> = {
       throw new Error('Vat ID required for this command');
     }
 
-    assert(params, KernelSendVatCommandStruct);
     const result = await kernel.sendVatCommand(params.id, params.payload);
     return { result };
   },
