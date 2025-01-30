@@ -3,7 +3,9 @@
 
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import sourcemaps from 'rollup-plugin-sourcemaps2';
 import { defineConfig } from 'vite';
+import type { Plugin as VitePlugin } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
@@ -79,6 +81,10 @@ export default defineConfig(({ mode }) => {
         silent: isDev,
       }),
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
+      // Import sourcemaps from our own libraries
+      // For whatever reason, the types don't match, but it works
+      isDev && (sourcemaps() as unknown as VitePlugin),
+      // Open the extension in the browser when watching
       isWatching && extensionDev({ extensionPath: buildDir }),
     ],
   };
