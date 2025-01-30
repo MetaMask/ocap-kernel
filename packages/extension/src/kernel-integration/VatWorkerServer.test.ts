@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';

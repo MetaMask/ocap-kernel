@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import type { PostMessageTarget } from '@ocap/streams';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';

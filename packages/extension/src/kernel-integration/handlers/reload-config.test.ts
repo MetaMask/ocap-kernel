@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import type { Kernel, KVStore } from '@ocap/kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

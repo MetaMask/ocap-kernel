@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import { describe, expect, it } from 'vitest';
 
 import { isValidBundleUrl } from './utils.js';

@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';

@@ -1,4 +1,3 @@
-import '@ocap/test-utils/mock-endoify';
 import type {
   Kernel,
   KernelCommand,
