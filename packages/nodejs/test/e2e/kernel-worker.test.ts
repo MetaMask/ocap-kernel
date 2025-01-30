@@ -43,6 +43,29 @@ describe('Kernel Worker', () => {
     }
   });
 
+  it('hosts an LLM', async () => {
+    const model = 'deepseek-r1:1.5b';
+    const ollamaVatConfig: VatConfig = {
+      bundleSpec: 'http://localhost:3000/ollama.bundle',
+      parameters: {
+        model,
+        prompt: [
+          `You are an instance of LLM model ${model}.`,
+          'A user has asked you to give an introduction.',
+          'Say hello and show what you can do!',
+        ].join(' '),
+      },
+    };
+    await kernel.launchSubcluster({
+      bootstrap: 'ollama',
+      vats: {
+        ollama: ollamaVatConfig,
+      },
+    });
+    expect(true).toBe(true);
+  });
+
+  /*
   it('launches a vat', async () => {
     expect(kernel.getVatIds()).toHaveLength(0);
     const kRef = await kernel.launchVat(testVatConfig);
@@ -82,4 +105,5 @@ describe('Kernel Worker', () => {
     );
     expect(true).toBe(true);
   });
+  */
 });

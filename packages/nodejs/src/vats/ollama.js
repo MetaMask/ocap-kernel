@@ -1,5 +1,4 @@
 import { Far } from '@endo/marshal';
-import ollama from 'ollama';
 
 // The default LLM model to use.
 const DEFAULT_MODEL = 'deepseek-r1:1.5b';
@@ -16,19 +15,24 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   const model = parameters?.model ?? DEFAULT_MODEL;
   console.log(`[LLM] buildRootObject "${model}"`);
 
+  let content;
+
+  const prompt = parameters?.prompt ?? `Say hello, ${model}.`;
+
   return Far('root', {
-    async bootstrap() {
+    async bootstrap(vats) {
+      console.log('bootstrap', { model, prompt });
+      const ollama = (await import('ollama')).default;
       await ollama.pull({
         model,
       });
-    },
-    async chat(prompt) {
       const response = await ollama.chat({
         model,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'admin', content: prompt }],
       });
-      const { content } = response.message;
-      console.log(content);
+      content = response.message;
+    },
+    async chat() {
       return content;
     },
   });
