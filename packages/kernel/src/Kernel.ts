@@ -1,3 +1,4 @@
+import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
 import { passStyleOf } from '@endo/far';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
@@ -10,8 +11,6 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
-// XXX Once the packaging of liveslots is fixed, these should be imported from there
-import type { Message, VatOneResolution } from './ag-types.js';
 import { assert, Fail } from './assert.js';
 import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
 import type { SlotValue } from './kernel-marshal.js';
@@ -665,6 +664,7 @@ export class Kernel {
       if (bootstrapRoot) {
         const bootstrapMessage: Message = {
           methargs: kser(['bootstrap', [roots]]),
+          result: undefined,
         };
         const bootstrapItem: RunQueueItemSend = {
           type: 'send',

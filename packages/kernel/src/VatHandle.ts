@@ -1,18 +1,15 @@
+import type {
+  Message,
+  VatSyscallObject,
+  VatOneResolution,
+} from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
-// XXX Reenable the following once the packaging of liveslots is fixed (and at
-// the same time remove the below import of ./ag-types.js)
-// import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 
-import type {
-  Message,
-  VatSyscallObject,
-  VatOneResolution,
-} from './ag-types.js';
 import type { Kernel } from './Kernel.js';
 import { VatCommandMethod } from './messages/index.js';
 import type {
@@ -213,7 +210,7 @@ export class VatHandle {
       }
       default: {
         // Compile-time exhaustiveness check
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+
         throw Error(`vat ${this.vatId} issued unknown syscall ${vso[0]}`);
       }
     }
@@ -330,7 +327,7 @@ export class VatHandle {
       }
       default:
         // Compile-time exhaustiveness check
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+
         console.warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
         break;
     }
@@ -348,7 +345,7 @@ export class VatHandle {
     // vat. All others will be replies to messages originally sent by the kernel TO the
     // vat.
     if (payload.method === VatCommandMethod.syscall) {
-      await this.#handleSyscall(payload.params);
+      await this.#handleSyscall(payload.params as VatSyscallObject);
     } else {
       const promiseCallbacks = this.#unresolvedMessages.get(id);
       if (promiseCallbacks === undefined) {

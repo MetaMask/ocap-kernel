@@ -10,9 +10,6 @@
 import type { Passable, RemotableObject } from '@endo/pass-style';
 import type { CopySet, CopyMap, Pattern } from '@endo/patterns';
 
-// Ensure this is a module.
-export {};
-
 /**
  * Of the dimensions on which KeyedStores can differ, we only represent a few of them
  * as standard options. A given store maker should document which options it supports,

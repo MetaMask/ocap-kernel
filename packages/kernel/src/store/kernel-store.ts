@@ -53,11 +53,10 @@
  *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
  */
 
+import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
-// XXX Once the packaging of liveslots is fixed this should be imported from there
-import type { Message } from '../ag-types.js';
 import type {
   VatId,
   RemoteId,

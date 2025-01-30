@@ -1,7 +1,9 @@
 import { makeLiveSlots as localMakeLiveSlots } from '@agoric/swingset-liveslots';
-// XXX Reenable the following once the packaging of liveslots is fixed (and at
-// the same time remove the below import of ./ag-types-index.js)
-// import type { VatSyscallObject, VatSyscallResult, VatDeliveryObject } from '@agoric/swingset-liveslots';
+import type {
+  VatDeliveryObject,
+  VatSyscallObject,
+  VatSyscallResult,
+} from '@agoric/swingset-liveslots';
 import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
@@ -13,7 +15,6 @@ import type {
   MakeLiveSlotsFn,
   GCTools,
 } from './ag-liveslots-types.js';
-import type { VatSyscallObject, VatSyscallResult } from './ag-types-index.js';
 import { makeDummyMeterControl } from './dummyMeterControl.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
@@ -104,7 +105,7 @@ export class VatSupervisor {
           console.error(`cannot deliver before vat is loaded`);
           return;
         }
-        await this.#dispatch(harden(payload.params));
+        await this.#dispatch(harden(payload.params) as VatDeliveryObject);
         await Promise.all(this.#syscallsInFlight);
         this.#syscallsInFlight.length = 0;
         await this.replyToMessage(id, {

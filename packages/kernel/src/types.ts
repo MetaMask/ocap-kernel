@@ -1,3 +1,4 @@
+import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { PromiseKit } from '@endo/promise-kit';
@@ -19,8 +20,6 @@ import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
 
-// XXX Once the packaging of liveslots is fixed, this should be imported from there
-import type { Message } from './ag-types.js';
 import type { VatCommandReply, VatCommand } from './messages/vat.js';
 
 export type VatId = string;

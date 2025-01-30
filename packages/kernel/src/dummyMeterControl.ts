@@ -1,6 +1,5 @@
+import type { MeterControl } from '@agoric/swingset-liveslots';
 import { assert } from '@endo/errors';
-
-import type { MeterControl } from './ag-types.js';
 
 /**
  * Liveslots must be given a MeterControl object so it can turn metering on and
