@@ -5,10 +5,10 @@ import { vi } from 'vitest';
 
 import { makePromiseKitMock } from '../promise-kit.js';
 
-globalThis.lockdown = (): void => undefined;
+globalThis.lockdown = vi.fn((): void => undefined);
 globalThis.harden = vi.fn(<Value>(value: Value): Readonly<Value> => value);
 
-const assertFn = (): void => undefined;
+const assertFn = vi.fn((): void => undefined);
 Object.assign(assertFn, {
   typeof: vi.fn(),
   error: vi.fn(),
@@ -20,15 +20,6 @@ Object.assign(assertFn, {
   Fail: vi.fn(),
   quote: vi.fn(),
   makeAssert: vi.fn(),
-  // Include the base assert function as well
-  [vi.fn().name]: vi.fn(
-    (
-      _flag: unknown,
-      _details?: unknown,
-      _errConstructor?: unknown,
-      _options?: unknown,
-    ): void => undefined,
-  ),
 });
 globalThis.assert = assertFn as unknown as typeof assert;
 
