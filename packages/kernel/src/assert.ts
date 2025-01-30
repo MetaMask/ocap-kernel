@@ -37,4 +37,4 @@ export { assert };
 export const Fail = (
   strings: TemplateStringsArray,
   ...values: unknown[]
-): Error => failThatConfusesTypeScript(strings, values);
+): Error => failThatConfusesTypeScript(strings, ...values);

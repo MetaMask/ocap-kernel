@@ -234,9 +234,13 @@ export class Kernel {
     const { isPromise, context, direction } = parseRef(vref);
     assert(context === 'vat', `${vref} is not a VRef`);
     assert(direction === 'export', `${vref} is not an export reference`);
-    const kref = isPromise
-      ? this.#storage.initKernelPromise()[0]
-      : this.#storage.initKernelObject(vatId);
+    let kref;
+    if (isPromise) {
+      kref = this.#storage.initKernelPromise()[0];
+      this.#storage.setPromiseDecider(kref, vatId);
+    } else {
+      kref = this.#storage.initKernelObject(vatId);
+    }
     this.#storage.addClistEntry(vatId, kref, vref);
     return kref;
   }
@@ -600,7 +604,7 @@ export class Kernel {
    * @param vatId - The vat that will be notified.
    * @param kpid - The promise of interest.
    */
-  #notify(vatId: VatId, kpid: KRef): void {
+  notify(vatId: VatId, kpid: KRef): void {
     const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
     this.enqueueRun(notifyItem);
   }
@@ -624,13 +628,14 @@ export class Kernel {
         Fail`${kpid} was already resolved`;
       }
       if (decider !== vatId) {
-        Fail`${kpid} is decided by ${decider}, not ${vatId}`;
+        const why = decider ? `its decider is ${decider}` : `it has no decider`;
+        Fail`${vatId} not permitted to resolve ${kpid} because ${why}`;
       }
       if (!subscribers) {
         throw Fail`${kpid} subscribers not set`;
       }
       for (const subscriber of subscribers) {
-        this.#notify(subscriber, kpid);
+        this.notify(subscriber, kpid);
       }
       this.#storage.resolveKernelPromise(kpid, rejected, data);
     }

@@ -250,7 +250,12 @@ export class VatHandle {
    * @param kpid - The KRef of the promise being subscribed to.
    */
   #handleSyscallSubscribe(kpid: KRef): void {
-    this.#storage.addPromiseSubscriber(this.vatId, kpid);
+    const kp = this.#storage.getKernelPromise(kpid);
+    if (kp.state === 'unresolved') {
+      this.#storage.addPromiseSubscriber(this.vatId, kpid);
+    } else {
+      this.#kernel.notify(this.vatId, kpid);
+    }
   }
 
   /**
