@@ -62,8 +62,14 @@ describe('Kernel Worker', () => {
         ollama: ollamaVatConfig,
       },
     });
+    const [vatId,] = kernel.getVatIds();
+    console.log('vatId', vatId);
+    await kernel.sendMessage(vatId, {
+      method: 'ping',
+      params: null,
+    });
     expect(true).toBe(true);
-  });
+  }, 30_000);
 
   /*
   it('launches a vat', async () => {

@@ -1,5 +1,5 @@
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
-import { Kernel } from '@ocap/kernel';
+import { isKernelCommand, Kernel } from '@ocap/kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
@@ -20,7 +20,7 @@ export async function makeKernel(
   const nodeStream = new NodeWorkerDuplexStream<
     KernelCommand,
     KernelCommandReply
-  >(port);
+  >(port, isKernelCommand);
   const vatWorkerClient = new NodejsVatWorkerService({ workerFilePath });
 
   // Initialize kernel store.

@@ -23,6 +23,8 @@ import type { VatConfig, VRef } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
 import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
+import { Ollama } from 'ollama';
+
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
 type SupervisorConstructorProps = {
@@ -201,7 +203,40 @@ export class VatSupervisor {
 
     const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, true);
     const syscall = makeSupervisorSyscall(this, kvStore);
-    const vatPowers = {}; // XXX should be something more real
+
+    // XXX We pull the model in the VatSupervisor. This is definitely not how this should be done,
+    // perhaps not even in this proof of concept.
+    const DEFAULT_MODEL = 'deepseek-r1:1.5b';
+    const ollama = new Ollama({
+      host: 'http://localhost:11434',
+    });
+
+    const ollamaPull = async (model: string) => {
+      console.log(`downloading ${model}...`)
+      let currentDigestDone = false
+      const stream = await ollama.pull({ model: model, stream: true })
+      for await (const part of stream) {
+        if (part.digest) {
+          let percent = 0
+          if (part.completed && part.total) {
+            percent = Math.round((part.completed / part.total) * 100)
+          }
+          process.stdout.write(`${part.status} ${percent}%...`) // Write the new text
+          if (percent === 100 && !currentDigestDone) {
+            console.log() // Output to a new line
+            currentDigestDone = true
+          } else {
+            currentDigestDone = false
+          }
+        } else {
+          console.log(part.status)
+        }
+      }
+    }
+
+    await ollamaPull(DEFAULT_MODEL).catch(console.error);
+
+    const vatPowers = { chat: ollama.chat.bind(ollama) }; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({

@@ -474,10 +474,12 @@ export class Kernel {
           if (vatId) {
             const vat = this.#getVat(vatId);
             if (vat) {
-              if (typeof message.result !== 'string') {
-                throw TypeError('message result must be a string');
+              if (message.result) {
+                if (typeof message.result !== 'string') {
+                  throw TypeError('message result must be a string');
+                }
+                this.#storage.setPromiseDecider(message.result, vatId);
               }
-              this.#storage.setPromiseDecider(message.result, vatId);
               const vatTarget = this.#translateRefKtoV(vatId, target, false);
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);

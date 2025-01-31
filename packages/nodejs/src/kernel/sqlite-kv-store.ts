@@ -21,11 +21,10 @@ async function initDB(
   logger?: ReturnType<typeof makeLogger>,
 ): Promise<Database> {
   const dbPath = join(dbRoot, 'store.db');
-  console.log('dbPath:', dbPath);
   await mkdir(dbRoot, { recursive: true });
-  return new Sqlite(dbPath, {
-    verbose: (logger ?? console).info,
-  });
+  return new Sqlite(
+    dbPath
+  );
 }
 
 /**
@@ -36,9 +35,9 @@ async function initDB(
  */
 export async function makeSQLKVStore(
   label: string = '[sqlite]',
+  verbose: boolean = false,
 ): Promise<KVStore> {
-  const logger = makeLogger(label);
-  const db = await initDB(logger);
+  const db = await initDB(verbose ? makeLogger(label) : undefined);
 
   const sqlKVInit = db.prepare(`
     CREATE TABLE IF NOT EXISTS kv (
