@@ -209,8 +209,6 @@ export class VatHandle {
         throw Error(`vat ${this.vatId} issued invalid syscall ${op}`);
       }
       default: {
-        // Compile-time exhaustiveness check
-
         throw Error(`vat ${this.vatId} issued unknown syscall ${vso[0]}`);
       }
     }

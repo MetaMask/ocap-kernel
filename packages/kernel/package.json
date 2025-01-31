@@ -43,7 +43,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@agoric/swingset-liveslots": "0.10.3-dev-7f4df76.0",
+    "@agoric/swingset-liveslots": "0.10.3-dev-3d64bee.0",
     "@endo/errors": "^1.2.8",
     "@endo/eventual-send": "^1.2.6",
     "@endo/exo": "^1.5.4",

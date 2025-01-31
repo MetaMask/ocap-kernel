@@ -30,18 +30,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/base-zone@npm:0.1.1-dev-7f4df76.0+7f4df76":
-  version: 0.1.1-dev-7f4df76.0
-  resolution: "@agoric/base-zone@npm:0.1.1-dev-7f4df76.0"
+"@agoric/base-zone@npm:0.1.1-dev-3d64bee.0+3d64bee":
+  version: 0.1.1-dev-3d64bee.0
+  resolution: "@agoric/base-zone@npm:0.1.1-dev-3d64bee.0"
   dependencies:
-    "@agoric/store": "npm:0.9.3-dev-7f4df76.0+7f4df76"
+    "@agoric/store": "npm:0.9.3-dev-3d64bee.0+3d64bee"
     "@endo/common": "npm:^1.2.9"
     "@endo/errors": "npm:^1.2.9"
     "@endo/exo": "npm:^1.5.8"
     "@endo/far": "npm:^1.1.10"
     "@endo/pass-style": "npm:^1.4.8"
     "@endo/patterns": "npm:^1.4.8"
-  checksum: 10/0bf0d5c8a75a1a9944914ed2bc30f120da8e381bb9a2924d5ab5d8f9d860c1d99ed64cd5219f0461543dd1da5a6e9068dc3dd1d25e4d877215f72b6493198745
+  checksum: 10/c3d671569c33c955af4ca7a42ef70636de1070f92b896a102f6b6702a729682d760ae19e765ffefda2903ebb331ebf9e499ec865ff455c1a2f3bce1bce4c1163
   languageName: node
   linkType: hard
 
@@ -60,11 +60,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/internal@npm:0.3.3-dev-7f4df76.0+7f4df76":
-  version: 0.3.3-dev-7f4df76.0
-  resolution: "@agoric/internal@npm:0.3.3-dev-7f4df76.0"
+"@agoric/internal@npm:0.3.3-dev-3d64bee.0+3d64bee":
+  version: 0.3.3-dev-3d64bee.0
+  resolution: "@agoric/internal@npm:0.3.3-dev-3d64bee.0"
   dependencies:
-    "@agoric/base-zone": "npm:0.1.1-dev-7f4df76.0+7f4df76"
+    "@agoric/base-zone": "npm:0.1.1-dev-3d64bee.0+3d64bee"
     "@endo/common": "npm:^1.2.9"
     "@endo/errors": "npm:^1.2.9"
     "@endo/far": "npm:^1.1.10"
@@ -76,7 +76,7 @@ __metadata:
     "@endo/stream": "npm:^1.2.9"
     anylogger: "npm:^0.21.0"
     jessie.js: "npm:^0.3.4"
-  checksum: 10/330ff05255f28eb3e10388ac6f890c8b5ff4e3dd318a07e98fb3022329412152569316406a608e13d3022c7266069a1d342c9e585195ae4c8c8a6b88602f7989
+  checksum: 10/8b7b0978621fb1ed18c77a616c6119078e7391de076d137028b40277c3cc69543f730e7e9483e936cbc287d0329f3f77cff4353da8c061f46b4c27e9739a274e
   languageName: node
   linkType: hard
 
@@ -100,16 +100,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/store@npm:0.9.3-dev-7f4df76.0+7f4df76":
-  version: 0.9.3-dev-7f4df76.0
-  resolution: "@agoric/store@npm:0.9.3-dev-7f4df76.0"
+"@agoric/store@npm:0.9.3-dev-3d64bee.0+3d64bee":
+  version: 0.9.3-dev-3d64bee.0
+  resolution: "@agoric/store@npm:0.9.3-dev-3d64bee.0"
   dependencies:
     "@endo/errors": "npm:^1.2.9"
     "@endo/exo": "npm:^1.5.8"
     "@endo/marshal": "npm:^1.6.3"
     "@endo/pass-style": "npm:^1.4.8"
     "@endo/patterns": "npm:^1.4.8"
-  checksum: 10/ffe4671e995fb4304831fea3f241862cb9e8983c4aa5d26daaba903d5df6aeca18682b05fad0ac35f775359501d331abbb1f18006d0e826c05a69ec6bdbff3f6
+  checksum: 10/aaf9f69852a601c1d0799a4c435b332390f6d4d34f7f3b91c49ecff3ff7604ec9ab37badd93eb5e1f639b4b8f6f2547489ca83c82f459a49b31b803564ae1e85
   languageName: node
   linkType: hard
 
@@ -126,12 +126,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@agoric/swingset-liveslots@npm:0.10.3-dev-7f4df76.0":
-  version: 0.10.3-dev-7f4df76.0
-  resolution: "@agoric/swingset-liveslots@npm:0.10.3-dev-7f4df76.0"
+"@agoric/swingset-liveslots@npm:0.10.3-dev-3d64bee.0":
+  version: 0.10.3-dev-3d64bee.0
+  resolution: "@agoric/swingset-liveslots@npm:0.10.3-dev-3d64bee.0"
   dependencies:
-    "@agoric/internal": "npm:0.3.3-dev-7f4df76.0+7f4df76"
-    "@agoric/store": "npm:0.9.3-dev-7f4df76.0+7f4df76"
+    "@agoric/internal": "npm:0.3.3-dev-3d64bee.0+3d64bee"
+    "@agoric/store": "npm:0.9.3-dev-3d64bee.0+3d64bee"
     "@endo/env-options": "npm:^1.1.8"
     "@endo/errors": "npm:^1.2.9"
     "@endo/eventual-send": "npm:^1.3.0"
@@ -143,7 +143,7 @@ __metadata:
     "@endo/pass-style": "npm:^1.4.8"
     "@endo/patterns": "npm:^1.4.8"
     "@endo/promise-kit": "npm:^1.1.9"
-  checksum: 10/5749a6e2b5d32260e67fd5770c44b66688e1459e6c2bde385d95d131c6b62817ffde283a405fa948b2103ffa58a38dd502b4555d8a257e9ac8f4aadcabe3b1e9
+  checksum: 10/50fe3e52d93086d1d6ea63c0c1bf7c0f076220efdc6c98344a1a1acdae19c8d40873a23a4aa05bb071019cbd5ef7a77a382c9117922da9049d03666cdbd0ba53
   languageName: node
   linkType: hard
 
@@ -2312,7 +2312,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/kernel@workspace:packages/kernel"
   dependencies:
-    "@agoric/swingset-liveslots": "npm:0.10.3-dev-7f4df76.0"
+    "@agoric/swingset-liveslots": "npm:0.10.3-dev-3d64bee.0"
     "@endo/errors": "npm:^1.2.8"
     "@endo/eventual-send": "npm:^1.2.6"
     "@endo/exo": "npm:^1.5.4"
