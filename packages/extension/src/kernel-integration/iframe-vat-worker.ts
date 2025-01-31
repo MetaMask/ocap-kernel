@@ -14,7 +14,7 @@ export const makeIframeVatWorker = (
   return {
     launch: async (_vatConfig: VatConfig) => {
       const newWindow = await createWindow({
-        uri: IFRAME_URI,
+        uri: `${IFRAME_URI}?vatId=${id}`,
         id: vatHtmlId,
         testId: 'ocap-iframe',
       });

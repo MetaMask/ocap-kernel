@@ -20,9 +20,12 @@ async function main(): Promise<void> {
     ),
   );
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const vatId = urlParams.get('vatId') ?? 'unknown';
+
   // eslint-disable-next-line no-new
   new VatSupervisor({
-    id: 'iframe',
+    id: vatId,
     commandStream,
     makeKVStore: makeSQLKVStore,
   });

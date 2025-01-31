@@ -20,14 +20,14 @@ import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
 import type { MakeKVStore } from './store/kernel-store.js';
 import { makeSupervisorSyscall } from './syscall.js';
-import type { VatConfig, VRef } from './types.js';
+import type { VatConfig, VatId, VRef } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
 import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
 type SupervisorConstructorProps = {
-  id: string;
+  id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   makeKVStore: MakeKVStore;
 };
@@ -37,10 +37,8 @@ const marshal = makeMarshal(undefined, undefined, {
 });
 
 export class VatSupervisor {
-  // XXX As VatSupervisor is currently used, the id is bogus and useless;
-  // VatSupervisor gets created in iframe.ts, which will always specify the id
-  // to be 'iframe'.  This not helpful.
-  readonly id: string;
+  /** The id of the vat being supervised */
+  readonly id: VatId;
 
   /** Communications channel between this vat and the kernel */
   readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
