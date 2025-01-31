@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import clusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
+import defaultClusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
+import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension';
 
 test.describe('Vat Manager', () => {
@@ -147,10 +148,10 @@ test.describe('Vat Manager', () => {
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(
-      Object.keys(clusterConfig.vats).length + 1, // +1 for header row
+      Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
     );
     // Verify each default vat is present in the table
-    for (const [, vatConfig] of Object.entries(clusterConfig.vats)) {
+    for (const [, vatConfig] of Object.entries(defaultClusterConfig.vats)) {
       await expect(vatTable).toContainText(vatConfig.parameters.name);
       await expect(vatTable).toContainText(vatConfig.bundleSpec);
     }
@@ -161,7 +162,7 @@ test.describe('Vat Manager', () => {
     const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
     await expect(configTextarea).toBeVisible();
     await expect(configTextarea).toHaveValue(
-      JSON.stringify(clusterConfig, null, 2),
+      JSON.stringify(defaultClusterConfig, null, 2),
     );
     // Test invalid JSON handling
     await configTextarea.fill('{ invalid json }');
@@ -170,12 +171,13 @@ test.describe('Vat Manager', () => {
     // Verify original vats still exist
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     const firstVatKey = Object.keys(
-      clusterConfig.vats,
-    )[0] as keyof typeof clusterConfig.vats;
-    const originalVatName = clusterConfig.vats[firstVatKey].parameters.name;
+      defaultClusterConfig.vats,
+    )[0] as keyof typeof defaultClusterConfig.vats;
+    const originalVatName =
+      defaultClusterConfig.vats[firstVatKey].parameters.name;
     await expect(vatTable).toContainText(originalVatName);
     // Modify config with new vat name
-    const modifiedConfig = structuredClone(clusterConfig);
+    const modifiedConfig = structuredClone(defaultClusterConfig);
     modifiedConfig.vats[firstVatKey].parameters.name = 'SuperAlice';
     // Update config and reload
     await configTextarea.fill(JSON.stringify(modifiedConfig, null, 2));
@@ -207,5 +209,26 @@ test.describe('Vat Manager', () => {
         ),
       )
       .toBeTruthy();
+  });
+
+  test('should handle config template selection', async () => {
+    // Get initial config textarea content
+    const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
+    await expect(configTextarea).toBeVisible();
+    const initialConfig = await configTextarea.inputValue();
+    // Select minimal config template
+    const configSelect = popupPage.locator('[data-testid="config-select"]');
+    await configSelect.selectOption('Minimal');
+    // Verify config textarea was updated with minimal config
+    const minimalConfig = await configTextarea.inputValue();
+    expect(minimalConfig).not.toBe(initialConfig);
+    expect(JSON.parse(minimalConfig)).toMatchObject(minimalClusterConfig);
+    // Update and reload with minimal config
+    await popupPage.click('button:text("Update and Reload")');
+    // Verify vat table shows only the main vat
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    await expect(vatTable).toBeVisible();
+    await expect(vatTable.locator('tr')).toHaveCount(2); // Header + 1 row
+    await expect(vatTable).toContainText('MainVat');
   });
 });

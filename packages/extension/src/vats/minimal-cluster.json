@@ -1,0 +1,12 @@
+{
+  "bootstrap": "main",
+  "forceReset": true,
+  "vats": {
+    "main": {
+      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "parameters": {
+        "name": "MainVat"
+      }
+    }
+  }
+}

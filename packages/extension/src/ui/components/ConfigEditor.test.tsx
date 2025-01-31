@@ -10,12 +10,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ConfigEditor } from './ConfigEditor.js';
 import type { KernelStatus } from '../../kernel-integration/messages.js';
-import clusterConfig from '../../vats/default-cluster.json';
+import defaultClusterConfig from '../../vats/default-cluster.json';
+import minimalClusterConfig from '../../vats/minimal-cluster.json';
 import { usePanelContext } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
 
 const mockStatus = {
-  clusterConfig,
+  clusterConfig: defaultClusterConfig,
   vats: [],
 };
 
@@ -157,7 +158,7 @@ describe('ConfigEditor Component', () => {
 
     const newStatus: KernelStatus = {
       clusterConfig: {
-        ...clusterConfig,
+        ...defaultClusterConfig,
         bootstrap: 'updated-config',
       },
       vats: [],
@@ -175,5 +176,21 @@ describe('ConfigEditor Component', () => {
         JSON.stringify(newStatus.clusterConfig, null, 2),
       );
     });
+  });
+
+  it('renders the config template selector with default option selected', () => {
+    render(<ConfigEditor />);
+    const selector = screen.getByTestId('config-select');
+    expect(selector).toBeInTheDocument();
+    expect(selector).toHaveValue('Default');
+  });
+
+  it('updates textarea when selecting a different template', async () => {
+    render(<ConfigEditor />);
+    const selector = screen.getByTestId('config-select');
+    const textarea = screen.getByTestId('config-textarea');
+    expect(textarea).toHaveValue(JSON.stringify(defaultClusterConfig, null, 2));
+    await userEvent.selectOptions(selector, 'Minimal');
+    expect(textarea).toHaveValue(JSON.stringify(minimalClusterConfig, null, 2));
   });
 });
