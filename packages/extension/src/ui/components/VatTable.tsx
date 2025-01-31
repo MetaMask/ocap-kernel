@@ -5,7 +5,7 @@ import { useVats } from '../hooks/useVats.js';
  * @returns A table of active vats.
  */
 export const VatTable: React.FC = () => {
-  const { vats, restartVat, terminateVat, pingVat } = useVats();
+  const { vats, restartVat, terminateVat, pingVat, resetVat } = useVats();
 
   if (vats.length === 0) {
     return null;
@@ -41,6 +41,12 @@ export const VatTable: React.FC = () => {
                     onClick={() => restartVat(vat.id)}
                   >
                     Restart
+                  </button>
+                  <button
+                    className={styles.smallButton}
+                    onClick={() => resetVat(vat.id)}
+                  >
+                    Reset
                   </button>
                   <button
                     className={styles.smallButton}

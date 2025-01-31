@@ -3,6 +3,7 @@ import { executeDBQueryHandler } from './execute-db-query.js';
 import { getStatusHandler } from './get-status.js';
 import { launchVatHandler } from './launch-vat.js';
 import { reloadConfigHandler } from './reload-config.js';
+import { resetVatHandler } from './reset-vat.js';
 import { restartVatHandler } from './restart-vat.js';
 import { sendVatCommandHandler } from './send-vat-command.js';
 import { terminateAllVatsHandler } from './terminate-all-vats.js';
@@ -20,4 +21,5 @@ export const handlers = [
   terminateVatHandler,
   terminateAllVatsHandler,
   updateClusterConfigHandler,
+  resetVatHandler,
 ] as const;

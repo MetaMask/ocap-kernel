@@ -744,6 +744,17 @@ export class Kernel {
   }
 
   /**
+   * Reset the storage for a vat.
+   *
+   * @param vatId - The ID of the vat.
+   */
+  async resetVat(vatId: VatId): Promise<void> {
+    insistVatId(vatId);
+    this.#getVat(vatId);
+    this.#storage.resetVatStorage(vatId);
+  }
+
+  /**
    * Send a command to a vat.
    *
    * @param id - The id of the vat to send the command to.

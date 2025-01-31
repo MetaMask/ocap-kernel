@@ -790,6 +790,47 @@ export function makeKernelStore(kv: KVStore) {
     nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
   }
 
+  /**
+   * Reset storage for a specific vat while preserving others.
+   * Does not terminate the vat - only clears its persistent storage.
+   *
+   * @param vatId - The ID of the vat whose storage should be reset
+   */
+  function resetVatStorage(vatId: VatId): void {
+    insistVatId(vatId);
+
+    // Clear c-list entries
+    const vatErefs = new Set<ERef>();
+    const vatKrefs = new Set<KRef>();
+
+    // Find all c-list entries for this vat
+    let key = kv.getNextKey(`cle.${vatId}.`);
+    while (key?.startsWith(`cle.${vatId}.`)) {
+      const eref = key.slice(`cle.${vatId}.`.length);
+      vatErefs.add(eref);
+      const kref = erefToKref(vatId, eref);
+      if (kref) {
+        vatKrefs.add(kref);
+      }
+      key = kv.getNextKey(key);
+    }
+
+    // Delete c-list entries
+    for (const eref of vatErefs) {
+      forgetEref(vatId, eref);
+    }
+
+    // Clean up kernel objects owned by this vat
+    for (const kref of vatKrefs) {
+      if (getOwner(kref) === vatId) {
+        deleteKernelObject(kref);
+      }
+    }
+
+    // Reset vat's endpoint state
+    initEndpoint(vatId);
+  }
+
   return harden({
     enqueueRun,
     dequeueRun,
@@ -817,6 +858,7 @@ export function makeKernelStore(kv: KVStore) {
     addClistEntry,
     forgetEref,
     forgetKref,
+    resetVatStorage,
     reset,
     kv,
   });

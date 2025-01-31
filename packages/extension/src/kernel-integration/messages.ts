@@ -29,6 +29,7 @@ export const KernelControlMethod = {
   clearState: 'clearState',
   executeDBQuery: 'executeDBQuery',
   updateClusterConfig: 'updateClusterConfig',
+  resetVat: 'resetVat',
 } as const;
 
 export type KernelMethods = keyof typeof KernelControlMethod;
@@ -57,6 +58,10 @@ export const KernelCommandPayloadStructs = {
   }),
   [KernelControlMethod.terminateVat]: object({
     method: literal(KernelControlMethod.terminateVat),
+    params: object({ id: VatIdStruct }),
+  }),
+  [KernelControlMethod.resetVat]: object({
+    method: literal(KernelControlMethod.resetVat),
     params: object({ id: VatIdStruct }),
   }),
   [KernelControlMethod.terminateAllVats]: object({
@@ -109,6 +114,10 @@ export const KernelReplyPayloadStructs = {
     method: literal(KernelControlMethod.terminateVat),
     params: union([literal(null), object({ error: string() })]),
   }),
+  [KernelControlMethod.resetVat]: object({
+    method: literal(KernelControlMethod.resetVat),
+    params: union([literal(null), object({ error: string() })]),
+  }),
   [KernelControlMethod.terminateAllVats]: object({
     method: literal(KernelControlMethod.terminateAllVats),
     params: union([literal(null), object({ error: string() })]),
@@ -148,6 +157,7 @@ const KernelControlCommandStruct = object({
     KernelCommandPayloadStructs.launchVat,
     KernelCommandPayloadStructs.restartVat,
     KernelCommandPayloadStructs.terminateVat,
+    KernelCommandPayloadStructs.resetVat,
     KernelCommandPayloadStructs.terminateAllVats,
     KernelCommandPayloadStructs.getStatus,
     KernelCommandPayloadStructs.reload,
@@ -164,6 +174,7 @@ const KernelControlReplyStruct = object({
     KernelReplyPayloadStructs.launchVat,
     KernelReplyPayloadStructs.restartVat,
     KernelReplyPayloadStructs.terminateVat,
+    KernelReplyPayloadStructs.resetVat,
     KernelReplyPayloadStructs.terminateAllVats,
     KernelReplyPayloadStructs.getStatus,
     KernelReplyPayloadStructs.reload,

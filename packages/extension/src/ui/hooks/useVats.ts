@@ -19,6 +19,7 @@ export const useVats = (): {
   pingVat: (id: VatId) => void;
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
+  resetVat: (id: VatId) => void;
 } => {
   const { sendMessage, status, selectedVatId, setSelectedVatId, logMessage } =
     usePanelContext();
@@ -89,6 +90,21 @@ export const useVats = (): {
     [sendMessage, logMessage],
   );
 
+  /**
+   * Resets the storage for a vat.
+   */
+  const resetVat = useCallback(
+    (id: VatId) => {
+      sendMessage({
+        method: KernelControlMethod.resetVat,
+        params: { id },
+      })
+        .then(() => logMessage(`Reset vat "${id}"`, 'success'))
+        .catch(() => logMessage(`Failed to reset vat "${id}"`, 'error'));
+    },
+    [sendMessage, logMessage],
+  );
+
   return {
     vats,
     selectedVatId,
@@ -96,5 +112,6 @@ export const useVats = (): {
     pingVat,
     restartVat,
     terminateVat,
+    resetVat,
   };
 };

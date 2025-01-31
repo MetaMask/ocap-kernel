@@ -79,6 +79,7 @@ describe('kernel store', () => {
         'krefToEref',
         'kv',
         'reset',
+        'resetVatStorage',
         'resolveKernelPromise',
         'runQueueLength',
         'setPromiseDecider',
@@ -218,6 +219,43 @@ describe('kernel store', () => {
       );
       expect(ks.krefToEref('v1', koId)).toBeUndefined();
       expect(ks.dequeueRun()).toBeUndefined();
+    });
+  });
+
+  describe('resetVatStorage', () => {
+    it('selectively clears storage for specified vat while preserving others', () => {
+      const ks = makeKernelStore(mockKVStore);
+      // Setup test data for two vats
+      const koId1 = ks.initKernelObject('v1');
+      const koId2 = ks.initKernelObject('v2');
+      // Add c-list entries for both vats
+      ks.addClistEntry('v1', koId1, 'o-1');
+      ks.addClistEntry('v2', koId2, 'o-2');
+      // Reset only v1's storage
+      ks.resetVatStorage('v1');
+      // v1's data should be cleared
+      expect(ks.krefToEref('v1', koId1)).toBeUndefined();
+      expect(() => ks.getOwner(koId1)).toThrow(
+        `unknown kernel object ${koId1}`,
+      );
+      // v2's data should remain intact
+      expect(ks.krefToEref('v2', koId2)).toBe('o-2');
+      expect(ks.getOwner(koId2)).toBe('v2');
+    });
+
+    it('preserves kernel-wide state after vat reset', () => {
+      const ks = makeKernelStore(mockKVStore);
+      ks.getNextVatId(); // v1
+      ks.getNextVatId(); // v2
+      ks.getNextRemoteId(); // r1
+      ks.resetVatStorage('v1');
+      expect(ks.getNextVatId()).toBe('v3');
+      expect(ks.getNextRemoteId()).toBe('r2');
+    });
+
+    it('handles resetting empty vat storage', () => {
+      const ks = makeKernelStore(mockKVStore);
+      expect(() => ks.resetVatStorage('v1')).not.toThrow();
     });
   });
 });

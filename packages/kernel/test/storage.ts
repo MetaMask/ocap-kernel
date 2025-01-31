@@ -22,11 +22,21 @@ export function makeMapKVStore(): KVStore {
     return result;
   }
 
+  /**
+   * Get the next key in lexicographical order after the given key.
+   *
+   * @param previousKey - The key to start from.
+   * @returns The next key, or undefined if no more keys.
+   */
+  function getNextKey(previousKey: string): string | undefined {
+    const keys = Array.from(map.keys()).sort();
+    const index = keys.findIndex((key) => key > previousKey);
+    return index >= 0 ? keys[index] : undefined;
+  }
+
   return {
     get: map.get.bind(map),
-    getNextKey: (_key: string): string | undefined => {
-      throw Error(`mock store does not (yet) support getNextKey`);
-    },
+    getNextKey,
     getRequired,
     set: map.set.bind(map),
     delete: map.delete.bind(map),

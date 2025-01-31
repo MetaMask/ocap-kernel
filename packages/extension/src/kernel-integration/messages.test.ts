@@ -22,6 +22,7 @@ describe('KernelControlMethod', () => {
       'clearState',
       'executeDBQuery',
       'updateClusterConfig',
+      'resetVat',
     ]);
   });
 });
@@ -142,6 +143,22 @@ describe('isKernelControlCommand', () => {
           method: KernelControlMethod.launchVat,
           params: 'invalid',
         },
+      },
+      false,
+    ],
+    [
+      'reset vat command',
+      {
+        id: 'test-1',
+        payload: { method: KernelControlMethod.resetVat, params: { id: 'v0' } },
+      },
+      true,
+    ],
+    [
+      'invalid reset vat params',
+      {
+        id: 'test-1',
+        payload: { method: KernelControlMethod.resetVat, params: 'invalid' },
       },
       false,
     ],
