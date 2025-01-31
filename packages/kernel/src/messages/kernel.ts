@@ -29,7 +29,7 @@ export const isKernelCommandReply: TypeGuard<KernelCommandReply> = (
   value: unknown,
 ): value is KernelCommandReply => is(value, KernelCommandReplyStruct);
 
-export const KernelSendMessageStruct = object({
+export const KernelSendVatCommandStruct = object({
   id: VatIdStruct,
   payload: union([VatMethodStructs.ping]),
 });

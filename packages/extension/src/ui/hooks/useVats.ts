@@ -44,7 +44,7 @@ export const useVats = (): {
   const pingVat = useCallback(
     (id: VatId) => {
       sendMessage({
-        method: KernelControlMethod.sendMessage,
+        method: KernelControlMethod.sendVatCommand,
         params: {
           id,
           payload: {

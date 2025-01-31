@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import '@ocap/shims/endoify';
+import '@ocap/test-utils/mock-endoify';
 import './dev-console.js';
 
 describe('vat-console', () => {

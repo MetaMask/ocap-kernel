@@ -1,13 +1,9 @@
-import type { KernelCommand } from '@ocap/kernel';
-import { stringify } from '@ocap/utils';
 import { useEffect, useRef } from 'react';
 
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.js';
 import type { OutputType } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
-
-const commonMessages: Record<string, KernelCommand> = {};
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
@@ -63,17 +59,6 @@ export const MessagePanel: React.FC = () => {
         </div>
       </div>
       <div className={styles.messageInputSection}>
-        <div className={styles.messageTemplates}>
-          {Object.entries(commonMessages).map(([name, template]) => (
-            <button
-              key={name}
-              className={styles.textButton}
-              onClick={() => setMessageContent(stringify(template, 0))}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
         <div className={styles.messageInputRow}>
           <input
             className={styles.messageContent}

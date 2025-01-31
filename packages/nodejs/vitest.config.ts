@@ -18,7 +18,7 @@ const config = mergeConfig(
         },
       ],
       include: ['./src/**/*.test.ts'],
-      exclude: ['./test/e2e/'],
+      exclude: ['./test/**/*'],
     },
   }),
 );

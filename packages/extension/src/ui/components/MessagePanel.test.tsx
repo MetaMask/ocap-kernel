@@ -1,5 +1,4 @@
-import { define } from '@metamask/superstruct';
-import type { VatConfig, VatId } from '@ocap/kernel';
+import { setupOcapKernelMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,23 +8,7 @@ import { usePanelContext } from '../context/PanelContext.js';
 import type { PanelContextType } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
 
-const isVatId = vi.fn(
-  (input: unknown): input is VatId => typeof input === 'string',
-);
-
-const isVatConfig = vi.fn(
-  (input: unknown): input is VatConfig => typeof input === 'object',
-);
-
-vi.mock('@ocap/kernel', () => ({
-  isVatId,
-  isVatConfig,
-  VatCommandMethod: {
-    ping: 'ping',
-  },
-  VatIdStruct: define<VatId>('VatId', isVatId),
-  VatConfigStruct: define<VatConfig>('VatConfig', isVatConfig),
-}));
+setupOcapKernelMock();
 
 vi.mock('../hooks/useKernelActions.js', () => ({
   useKernelActions: vi.fn(),
@@ -52,6 +35,7 @@ describe('MessagePanel Component', () => {
       clearState: vi.fn(),
       reload: vi.fn(),
       launchVat: vi.fn(),
+      updateClusterConfig: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
@@ -94,6 +78,21 @@ describe('MessagePanel Component', () => {
     render(<MessagePanel />);
     const sendButton = screen.getByRole('button', { name: 'Send' });
     await userEvent.click(sendButton);
+    expect(sendKernelCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls sendKernelCommand when enter key is pressed', async () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '{"key": "value"}',
+      setMessageContent,
+      panelLogs: [],
+      clearLogs,
+    } as unknown as PanelContextType);
+    const { MessagePanel } = await import('./MessagePanel.js');
+    render(<MessagePanel />);
+    const inputField = screen.getByPlaceholderText('Enter message (as JSON)');
+    await userEvent.click(inputField);
+    await userEvent.keyboard('{Enter}');
     expect(sendKernelCommand).toHaveBeenCalledTimes(1);
   });
 

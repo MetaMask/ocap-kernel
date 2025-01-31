@@ -11,8 +11,11 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { VatConfig, VatId } from '@ocap/kernel';
-import { VatConfigStruct, VatIdStruct } from '@ocap/kernel';
+import {
+  ClusterConfigStruct,
+  VatConfigStruct,
+  VatIdStruct,
+} from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
 export const KernelControlMethod = {
@@ -22,21 +25,16 @@ export const KernelControlMethod = {
   terminateAllVats: 'terminateAllVats',
   getStatus: 'getStatus',
   reload: 'reload',
-  sendMessage: 'sendMessage',
+  sendVatCommand: 'sendVatCommand',
   clearState: 'clearState',
   executeDBQuery: 'executeDBQuery',
+  updateClusterConfig: 'updateClusterConfig',
 } as const;
 
 export type KernelMethods = keyof typeof KernelControlMethod;
 
-export type KernelStatus = {
-  vats: {
-    id: VatId;
-    config: VatConfig;
-  }[];
-};
-
 const KernelStatusStruct = type({
+  clusterConfig: ClusterConfigStruct,
   vats: array(
     object({
       id: VatIdStruct,
@@ -44,6 +42,8 @@ const KernelStatusStruct = type({
     }),
   ),
 });
+
+export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 // Command payload structs
 export const KernelCommandPayloadStructs = {
@@ -71,8 +71,8 @@ export const KernelCommandPayloadStructs = {
     method: literal(KernelControlMethod.reload),
     params: literal(null),
   }),
-  [KernelControlMethod.sendMessage]: object({
-    method: literal(KernelControlMethod.sendMessage),
+  [KernelControlMethod.sendVatCommand]: object({
+    method: literal(KernelControlMethod.sendVatCommand),
     params: object({
       id: union([VatIdStruct, literal(undefined)]),
       payload: UnsafeJsonStruct,
@@ -86,6 +86,12 @@ export const KernelCommandPayloadStructs = {
     method: literal(KernelControlMethod.executeDBQuery),
     params: object({
       sql: string(),
+    }),
+  }),
+  [KernelControlMethod.updateClusterConfig]: object({
+    method: literal(KernelControlMethod.updateClusterConfig),
+    params: object({
+      config: ClusterConfigStruct,
     }),
   }),
 } as const;
@@ -115,8 +121,8 @@ export const KernelReplyPayloadStructs = {
     method: literal(KernelControlMethod.reload),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.sendMessage]: object({
-    method: literal(KernelControlMethod.sendMessage),
+  [KernelControlMethod.sendVatCommand]: object({
+    method: literal(KernelControlMethod.sendVatCommand),
     params: UnsafeJsonStruct,
   }),
   [KernelControlMethod.clearState]: object({
@@ -130,6 +136,10 @@ export const KernelReplyPayloadStructs = {
       object({ error: string() }),
     ]),
   }),
+  [KernelControlMethod.updateClusterConfig]: object({
+    method: literal(KernelControlMethod.updateClusterConfig),
+    params: literal(null),
+  }),
 } as const;
 
 const KernelControlCommandStruct = object({
@@ -141,9 +151,10 @@ const KernelControlCommandStruct = object({
     KernelCommandPayloadStructs.terminateAllVats,
     KernelCommandPayloadStructs.getStatus,
     KernelCommandPayloadStructs.reload,
-    KernelCommandPayloadStructs.sendMessage,
+    KernelCommandPayloadStructs.sendVatCommand,
     KernelCommandPayloadStructs.clearState,
     KernelCommandPayloadStructs.executeDBQuery,
+    KernelCommandPayloadStructs.updateClusterConfig,
   ]),
 });
 
@@ -156,9 +167,10 @@ const KernelControlReplyStruct = object({
     KernelReplyPayloadStructs.terminateAllVats,
     KernelReplyPayloadStructs.getStatus,
     KernelReplyPayloadStructs.reload,
-    KernelReplyPayloadStructs.sendMessage,
+    KernelReplyPayloadStructs.sendVatCommand,
     KernelReplyPayloadStructs.clearState,
     KernelReplyPayloadStructs.executeDBQuery,
+    KernelReplyPayloadStructs.updateClusterConfig,
   ]),
 });
 

@@ -1,5 +1,4 @@
 import '@ocap/test-utils/mock-endoify';
-import { define, literal, object } from '@metamask/superstruct';
 import type {
   Kernel,
   KernelCommand,
@@ -7,7 +6,8 @@ import type {
   VatConfig,
   KVStore,
 } from '@ocap/kernel';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { setupOcapKernelMock } from '@ocap/test-utils';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelControlCommand } from './messages.js';
 
@@ -19,25 +19,7 @@ vi.mock('@ocap/utils', () => ({
   }),
 }));
 
-let isVatConfigMock = true;
-let isVatIdMock = true;
-
-// Mock kernel validation functions
-// because vitest needs to extend Error stack and under SES it fails
-vi.mock('@ocap/kernel', () => ({
-  isKernelCommand: () => true,
-  isVatId: () => isVatIdMock,
-  isVatConfig: () => isVatConfigMock,
-  VatIdStruct: define<VatId>('VatId', () => isVatIdMock),
-  VatConfigStruct: define<VatConfig>('VatConfig', () => isVatConfigMock),
-  KernelSendMessageStruct: object({
-    id: literal('v0'),
-    payload: object({
-      method: literal('ping'),
-      params: literal(null),
-    }),
-  }),
-}));
+const { setMockBehavior, resetMocks } = setupOcapKernelMock();
 
 describe('handlePanelMessage', () => {
   let mockKernel: Kernel;
@@ -45,9 +27,8 @@ describe('handlePanelMessage', () => {
 
   beforeEach(() => {
     vi.resetModules();
+    resetMocks();
 
-    isVatConfigMock = true;
-    isVatIdMock = true;
     mockKVStore = {
       get: vi.fn(),
       getRequired: vi.fn(),
@@ -76,7 +57,7 @@ describe('handlePanelMessage', () => {
           config: { bundleSpec: 'http://localhost:3000/sample-vat.bundle' },
         },
       ]),
-      sendMessage: vi.fn((id: VatId, _message: KernelCommand) => {
+      sendVatCommand: vi.fn((id: VatId, _message: KernelCommand) => {
         if (id === 'v0') {
           return 'success';
         }
@@ -87,15 +68,7 @@ describe('handlePanelMessage', () => {
   });
 
   describe('vat management commands', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('should handle launchVat command', { timeout: 5000 }, async () => {
+    it('should handle launchVat command', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
         id: 'test-1',
@@ -125,7 +98,7 @@ describe('handlePanelMessage', () => {
 
     it('should handle invalid vat configuration', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
-      isVatConfigMock = false;
+      setMockBehavior({ isVatConfig: false });
 
       const message: KernelControlCommand = {
         id: 'test-2',
@@ -181,7 +154,7 @@ describe('handlePanelMessage', () => {
 
     it('should handle invalid vat ID for restartVat command', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
-      isVatIdMock = false;
+      setMockBehavior({ isVatId: false });
 
       const message: KernelControlCommand = {
         id: 'test-4',
@@ -285,6 +258,7 @@ describe('handlePanelMessage', () => {
         payload: {
           method: 'getStatus',
           params: {
+            clusterConfig: undefined,
             vats: [
               {
                 id: 'v0',
@@ -305,13 +279,13 @@ describe('handlePanelMessage', () => {
     });
   });
 
-  describe('sendMessage command', () => {
-    it('should handle vat messages', async () => {
+  describe('sendVatCommand command', () => {
+    it('should handle vat commands', async () => {
       const { handlePanelMessage } = await import('./handle-panel-message');
       const message: KernelControlCommand = {
         id: 'test-11',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             id: 'v0',
             payload: { method: 'ping', params: null },
@@ -325,14 +299,14 @@ describe('handlePanelMessage', () => {
         message,
       );
 
-      expect(mockKernel.sendMessage).toHaveBeenCalledWith('v0', {
+      expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
         method: 'ping',
         params: null,
       });
       expect(response).toStrictEqual({
         id: 'test-11',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { result: 'success' },
         },
       });
@@ -347,7 +321,7 @@ describe('handlePanelMessage', () => {
       const message: KernelControlCommand = {
         id: 'test-12',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: { invalid: 'command' },
           },
@@ -363,7 +337,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-12',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { error: 'Invalid command payload' },
         },
       });
@@ -378,7 +352,7 @@ describe('handlePanelMessage', () => {
       const message: KernelControlCommand = {
         id: 'test-13',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: { method: 'ping', params: null },
           },
@@ -394,7 +368,7 @@ describe('handlePanelMessage', () => {
       expect(response).toStrictEqual({
         id: 'test-13',
         payload: {
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: { error: 'Vat ID required for this command' },
         },
       });

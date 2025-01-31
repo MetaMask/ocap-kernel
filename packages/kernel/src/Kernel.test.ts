@@ -26,7 +26,17 @@ describe('Kernel', () => {
   let mockKVStore: KVStore;
 
   const mockVatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
-
+  const mockClusterConfig = {
+    bootstrap: 'alice',
+    vats: {
+      alice: {
+        bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+        parameters: {
+          name: 'Alice',
+        },
+      },
+    },
+  };
   beforeEach(() => {
     mockStream = {
       write: vi.fn(),
@@ -202,15 +212,15 @@ describe('Kernel', () => {
     });
   });
 
-  describe('sendMessage()', () => {
+  describe('sendVatCommand()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendMessage').mockResolvedValueOnce(
+      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockResolvedValueOnce(
         'test',
       );
       expect(
-        await kernel.sendMessage(
+        await kernel.sendVatCommand(
           'v1',
           'test' as unknown as VatCommand['payload'],
         ),
@@ -221,18 +231,18 @@ describe('Kernel', () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
-        kernel.sendMessage(nonExistentVatId, {} as VatCommand['payload']),
+        kernel.sendVatCommand(nonExistentVatId, {} as VatCommand['payload']),
       ).rejects.toThrow(VatNotFoundError);
     });
 
     it('throws an error when sending a message to the vat throws', async () => {
       const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
       await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendMessage').mockRejectedValueOnce(
+      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockRejectedValueOnce(
         'error',
       );
       await expect(async () =>
-        kernel.sendMessage('v1', {} as VatCommand['payload']),
+        kernel.sendVatCommand('v1', {} as VatCommand['payload']),
       ).rejects.toThrow('error');
     });
   });
@@ -251,5 +261,34 @@ describe('Kernel', () => {
     it.todo('starts receiving messages');
 
     it.todo('throws if the stream throws');
+  });
+
+  describe('reload()', () => {
+    it('should reload with current config when config exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      kernel.clusterConfig = mockClusterConfig;
+      await kernel.launchVat(mockVatConfig);
+      const workerTerminateAllMock = vi
+        .spyOn(mockWorkerService, 'terminateAll')
+        .mockResolvedValue(undefined);
+      await kernel.reload();
+      expect(terminateMock).toHaveBeenCalledTimes(1);
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(initMock).toHaveBeenCalledTimes(2); // Initial launch + reload
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw if no config exists', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');
+    });
+
+    it('should propagate errors from terminateAllVats', async () => {
+      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      kernel.clusterConfig = mockClusterConfig;
+      const error = new Error('Termination failed');
+      vi.spyOn(mockWorkerService, 'terminateAll').mockRejectedValueOnce(error);
+      await expect(kernel.reload()).rejects.toThrow(error);
+    });
   });
 });

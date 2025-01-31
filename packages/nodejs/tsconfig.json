@@ -23,6 +23,7 @@
     "./test/**/*.ts",
     "./vitest.config.ts",
     "./vitest.config.e2e.ts",
+    "./vitest.config.llm.ts",
     "../../types",
     "./test/workers/*.js"
   ]

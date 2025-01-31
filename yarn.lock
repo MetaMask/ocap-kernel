@@ -2162,6 +2162,7 @@ __metadata:
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     rimraf: "npm:^6.0.1"
+    rollup-plugin-sourcemaps2: "npm:^0.4.3"
     ses: "npm:^1.9.0"
     typedoc: "npm:^0.27.6"
     typescript: "npm:~5.5.4"
@@ -2424,6 +2425,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/superstruct": "npm:^3.1.0"
     "@ocap/cli": "workspace:^"
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
     "@typescript-eslint/parser": "npm:^8.8.1"
@@ -2457,9 +2459,11 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/superstruct": "npm:^3.1.0"
     "@metamask/utils": "npm:^11.0.1"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
+    "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
@@ -2731,6 +2735,22 @@ __metadata:
   peerDependencies:
     rollup: ^2.42.0
   checksum: 10/f1165e68c05d3bb22d56c73b258368bfa1d724e53d195f71c316cee6d6ba67995b89057cdf2140f28337510a893839bce90dcf8385c653d8871d650392027dc4
+  languageName: node
+  linkType: hard
+
+"@rollup/pluginutils@npm:5.1.3":
+  version: 5.1.3
+  resolution: "@rollup/pluginutils@npm:5.1.3"
+  dependencies:
+    "@types/estree": "npm:^1.0.0"
+    estree-walker: "npm:^2.0.2"
+    picomatch: "npm:^4.0.2"
+  peerDependencies:
+    rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
+  peerDependenciesMeta:
+    rollup:
+      optional: true
+  checksum: 10/da24956c4f7ec0aed63a2dd6c6dd64d8ad90155918056e69adda6fbb7b96c607300079805bc63f2e64e33ba256802367301a578d020a22262f408bde98ca3643
   languageName: node
   linkType: hard
 
@@ -10143,6 +10163,21 @@ __metadata:
   bin:
     rimraf: dist/esm/bin.mjs
   checksum: 10/0eb7edf08aa39017496c99ba675552dda11a20811ba78f8232da2ba945308c91e9cd673f95998b1a8202bc7436d33390831d23ea38ae52751038d56373ad99e2
+  languageName: node
+  linkType: hard
+
+"rollup-plugin-sourcemaps2@npm:^0.4.3":
+  version: 0.4.3
+  resolution: "rollup-plugin-sourcemaps2@npm:0.4.3"
+  dependencies:
+    "@rollup/pluginutils": "npm:5.1.3"
+  peerDependencies:
+    "@types/node": ">=18.0.0"
+    rollup: ">=4"
+  peerDependenciesMeta:
+    "@types/node":
+      optional: true
+  checksum: 10/765ebae293791a69c750796e8edaa2062266f541487e1006ebabde20c4c6a777fc7860653e77e13354a045c4dd24c0a808e32e50127e187eee5eea72b09f9912
   languageName: node
   linkType: hard
 

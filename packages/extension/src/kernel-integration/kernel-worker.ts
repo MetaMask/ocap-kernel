@@ -1,45 +1,17 @@
 import type {
+  ClusterConfig,
   KernelCommand,
   KernelCommandReply,
-  ClusterConfig,
 } from '@ocap/kernel';
-import { isKernelCommand, Kernel } from '@ocap/kernel';
+import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
-import { makeLogger } from '@ocap/utils';
+import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
 import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { receiveUiConnections } from './ui-connections.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
-
-const bundleHost = 'http://localhost:3000'; // XXX placeholder
-const sampleBundle = 'sample-vat.bundle';
-const bundleURL = `${bundleHost}/${sampleBundle}`;
-
-const defaultSubcluster: ClusterConfig = {
-  bootstrap: 'alice',
-  vats: {
-    alice: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Alice',
-      },
-    },
-    bob: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Bob',
-      },
-    },
-    carol: {
-      bundleSpec: bundleURL,
-      parameters: {
-        name: 'Carol',
-      },
-    },
-  },
-};
 
 const logger = makeLogger('[kernel worker]');
 
@@ -65,12 +37,23 @@ async function main(): Promise<void> {
   );
   const kvStore = await makeSQLKVStore();
 
-  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore);
+  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore, {
+    // XXX Warning: Clearing storage here is a hack to aid development
+    // debugging, wherein extension reloads are almost exclusively used for
+    // retrying after tweaking some fix. The following line will prevent
+    // the accumulation of long term kernel state.
+    resetStorage: true,
+  });
   receiveUiConnections(
     async (message) => handlePanelMessage(kernel, kvStore, message),
     logger,
   );
   await kernel.init();
+
+  const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
+    new URL('../vats/default-cluster.json', import.meta.url).href,
+    ClusterConfigStruct,
+  );
 
   await Promise.all([
     vatWorkerClient.start(),

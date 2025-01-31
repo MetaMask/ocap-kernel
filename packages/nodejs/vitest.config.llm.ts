@@ -11,7 +11,7 @@ const config = mergeConfig(
   defineConfig({
     optimizeDeps: { include: ['better-sqlite3'] },
     test: {
-      name: 'nodejs:e2e',
+      name: 'nodejs:llm',
       pool: 'forks',
       alias: [
         {
@@ -20,8 +20,8 @@ const config = mergeConfig(
           customResolver: (id) => ({ external: true, id }),
         },
       ],
-      include: ['./test/e2e/**/*.test.ts'],
-      exclude: ['./src/**/*', './test/llm/**/*'],
+      include: ['./test/llm/**/*.test.ts'],
+      exclude: ['./src/**/*', './test/e2e/**/*'],
     },
   }),
 );

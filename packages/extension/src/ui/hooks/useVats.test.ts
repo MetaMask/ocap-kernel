@@ -1,4 +1,5 @@
 import type { VatConfig } from '@ocap/kernel';
+import { setupOcapKernelMock } from '@ocap/test-utils';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -10,17 +11,13 @@ vi.mock('../context/PanelContext.js', () => ({
 
 vi.mock('../../kernel-integration/messages.js', () => ({
   KernelControlMethod: {
-    sendMessage: 'sendMessage',
+    sendVatCommand: 'sendVatCommand',
     restartVat: 'restartVat',
     terminateVat: 'terminateVat',
   },
 }));
 
-vi.mock('@ocap/kernel', () => ({
-  VatCommandMethod: {
-    ping: 'ping',
-  },
-}));
+setupOcapKernelMock();
 
 vi.mock('@ocap/utils', () => ({
   stringify: JSON.stringify,
@@ -102,7 +99,7 @@ describe('useVats', () => {
       result.current.pingVat(mockVatId);
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             id: mockVatId,
             payload: {

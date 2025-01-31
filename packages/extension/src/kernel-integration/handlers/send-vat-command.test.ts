@@ -1,18 +1,18 @@
-import '@ocap/shims/endoify';
+import '@ocap/test-utils/mock-endoify';
 import type { Kernel, KVStore } from '@ocap/kernel';
 import { describe, it, expect, vi } from 'vitest';
 
-import { sendMessageHandler } from './send-message.js';
+import { sendVatCommandHandler } from './send-vat-command.js';
 
-describe('sendMessageHandler', () => {
+describe('sendVatCommandHandler', () => {
   const mockKernel = {
-    sendMessage: vi.fn(() => 'success'),
+    sendVatCommand: vi.fn(() => 'success'),
   } as unknown as Kernel;
 
   const mockKVStore = {} as unknown as KVStore;
 
   it('should have the correct method', () => {
-    expect(sendMessageHandler.method).toBe('sendMessage');
+    expect(sendVatCommandHandler.method).toBe('sendVatCommand');
   });
 
   it('should handle vat messages', async () => {
@@ -20,12 +20,12 @@ describe('sendMessageHandler', () => {
       id: 'v0',
       payload: { method: 'ping', params: null },
     } as const;
-    const result = await sendMessageHandler.implementation(
+    const result = await sendVatCommandHandler.implementation(
       mockKernel,
       mockKVStore,
       params,
     );
-    expect(mockKernel.sendMessage).toHaveBeenCalledWith('v0', {
+    expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
       method: 'ping',
       params: null,
     });
@@ -37,7 +37,7 @@ describe('sendMessageHandler', () => {
       payload: { method: 'ping', params: null },
     };
     await expect(
-      sendMessageHandler.implementation(mockKernel, mockKVStore, params),
+      sendVatCommandHandler.implementation(mockKernel, mockKVStore, params),
     ).rejects.toThrow('Vat ID required for this command');
   });
 });

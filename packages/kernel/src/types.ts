@@ -1,3 +1,4 @@
+import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { PromiseKit } from '@endo/promise-kit';
 import {
@@ -8,9 +9,12 @@ import {
   optional,
   string,
   array,
+  record,
   union,
   literal,
+  boolean,
 } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
@@ -54,6 +58,9 @@ export const MessageStruct = object({
   methargs: CapDataStruct,
   result: union([string(), literal(undefined), literal(null)]),
 });
+
+export const insistMessage = (value: unknown): boolean =>
+  is(value, MessageStruct) || Fail`not a valid message`;
 
 const RunQueueItemType = {
   send: 'send',
@@ -142,6 +149,9 @@ export const isVatId = (value: unknown): value is VatId =>
   typeof value === 'string' &&
   value.at(0) === 'v' &&
   value.slice(1) === String(Number(value.slice(1)));
+
+export const insistVatId = (value: unknown): boolean =>
+  isVatId(value) || Fail`not a valid VatId`;
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
 
@@ -257,10 +267,16 @@ export const isVatConfig = (value: unknown): value is VatConfig =>
 
 export type VatConfigTable = Record<string, VatConfig>;
 
-export type ClusterConfig = {
-  bootstrap?: string;
-  vats: VatConfigTable;
-  bundles?: VatConfigTable;
-};
+export const ClusterConfigStruct = object({
+  bootstrap: string(),
+  forceReset: optional(boolean()),
+  vats: record(string(), VatConfigStruct),
+  bundles: optional(record(string(), VatConfigStruct)),
+});
+
+export type ClusterConfig = Infer<typeof ClusterConfigStruct>;
+
+export const isClusterConfig = (value: unknown): value is ClusterConfig =>
+  is(value, ClusterConfigStruct);
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;

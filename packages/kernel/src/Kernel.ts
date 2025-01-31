@@ -12,6 +12,7 @@ import { makeLogger } from '@ocap/utils';
 
 // XXX Once the packaging of liveslots is fixed, these should be imported from there
 import type { Message, VatOneResolution } from './ag-types.js';
+import { assert, Fail } from './assert.js';
 import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
 import type { SlotValue } from './kernel-marshal.js';
 import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
@@ -38,7 +39,12 @@ import type {
   RunQueueItemSend,
   RunQueueItemNotify,
 } from './types.js';
-import { ROOT_OBJECT_VREF } from './types.js';
+import {
+  ROOT_OBJECT_VREF,
+  insistVatId,
+  insistMessage,
+  isClusterConfig,
+} from './types.js';
 import { VatHandle } from './VatHandle.js';
 
 /**
@@ -92,28 +98,30 @@ export class Kernel {
    * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param vatWorkerService - Service to create a worker in which a new vat can run.
    * @param rawStorage - A KV store for holding the kernel's persistent state.
-   * @param logger - Optional logger for error and diagnostic output.
+   * @param options - Options for the kernel constructor.
+   * @param options.resetStorage - If true, the storage will be cleared.
+   * @param options.logger - Optional logger for error and diagnostic output.
    */
   constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
     rawStorage: KVStore,
-    logger?: Logger,
+    options: {
+      resetStorage?: boolean;
+      logger?: Logger;
+    } = {},
   ) {
     this.#mostRecentSubcluster = null;
     this.#commandStream = commandStream;
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
 
-    // XXX Warning: Clearing storage here is a hack to aid development
-    // debugging, wherein extension reloads are almost exclusively used for
-    // retrying after tweaking some fix. The kernel must not be shipped with the
-    // following line present, as it will prevent the accumulation of long term
-    // kernel state.
-    rawStorage.clear();
+    if (options.resetStorage) {
+      rawStorage.clear();
+    }
 
     this.#storage = makeKernelStore(rawStorage);
-    this.#logger = logger ?? makeLogger('[ocap kernel]');
+    this.#logger = options.logger ?? makeLogger('[ocap kernel]');
     this.#runQueueLength = this.#storage.runQueueLength();
     this.#wakeUpTheRunQueue = null;
   }
@@ -164,7 +172,7 @@ export class Kernel {
       if (this.#runQueueLength === 0) {
         const { promise, resolve } = makePromiseKit<void>();
         if (this.#wakeUpTheRunQueue !== null) {
-          throw Error(`wakeUpTheRunQueue function already set`);
+          Fail`wakeUpTheRunQueue function already set`;
         }
         this.#wakeUpTheRunQueue = resolve;
         await promise;
@@ -222,10 +230,17 @@ export class Kernel {
    * @returns the kref corresponding to the export of `vref` from `vatId`.
    */
   exportFromVat(vatId: VatId, vref: VRef): KRef {
-    const { isPromise } = parseRef(vref);
-    const kref = isPromise
-      ? this.#storage.initKernelPromise()[0]
-      : this.#storage.initKernelObject(vatId);
+    insistVatId(vatId);
+    const { isPromise, context, direction } = parseRef(vref);
+    assert(context === 'vat', `${vref} is not a VRef`);
+    assert(direction === 'export', `${vref} is not an export reference`);
+    let kref;
+    if (isPromise) {
+      kref = this.#storage.initKernelPromise()[0];
+      this.#storage.setPromiseDecider(kref, vatId);
+    } else {
+      kref = this.#storage.initKernelObject(vatId);
+    }
     this.#storage.addClistEntry(vatId, kref, vref);
     return kref;
   }
@@ -310,7 +325,7 @@ export class Kernel {
       if (importIfNeeded) {
         eref = this.#storage.allocateErefForKref(vatId, kref);
       } else {
-        throw Error(`unmapped kref ${kref} vat=${vatId}`);
+        throw Fail`unmapped kref ${kref} vat=${vatId}`;
       }
     }
     return eref;
@@ -396,6 +411,7 @@ export class Kernel {
    */
   #routeMessage(item: RunQueueItemSend): MessageRoute {
     const { target, message } = item;
+    insistMessage(message);
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
@@ -434,9 +450,7 @@ export class Kernel {
         case 'unresolved':
           return routeAsRequeue(target);
         default:
-          // Compile-time exhaustiveness check
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          throw Error(`unknown promise state ${promise.state}`);
+          throw Fail`unknown promise state ${promise.state}`;
       }
     } else {
       return routeAsSend(target);
@@ -484,7 +498,7 @@ export class Kernel {
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);
             } else {
-              throw Error(`no owner for kernel object ${target}`);
+              Fail`no owner for kernel object ${target}`;
             }
           } else {
             this.#storage.enqueuePromiseMessage(target, message);
@@ -495,14 +509,18 @@ export class Kernel {
       }
       case 'notify': {
         const { vatId, kpid } = item;
+        insistVatId(vatId);
+        const { context, isPromise } = parseRef(kpid);
+        assert(
+          context === 'kernel' && isPromise,
+          `${kpid} is not a kernel promise`,
+        );
         log(`@@@@ deliver ${vatId} notify ${kpid}`);
         const promise = this.#storage.getKernelPromise(kpid);
         const { state, value } = promise;
-        if (!value) {
-          throw Error(`no value for promise ${kpid}`);
-        }
+        assert(value, `no value for promise ${kpid}`);
         if (state === 'unresolved') {
-          throw Error(`notifcation on unresolved promise ${kpid}`);
+          Fail`notification on unresolved promise ${kpid}`;
         }
         if (!this.#storage.krefToEref(vatId, kpid)) {
           // no c-list entry, already done
@@ -517,10 +535,10 @@ export class Kernel {
         for (const toResolve of targets) {
           const tPromise = this.#storage.getKernelPromise(toResolve);
           if (tPromise.state === 'unresolved') {
-            throw Error(`target promise ${toResolve} is unresolved`);
+            Fail`target promise ${toResolve} is unresolved`;
           }
           if (!tPromise.value) {
-            throw Error(`target promise ${toResolve} has no value`);
+            throw Fail`target promise ${toResolve} has no value`;
           }
           resolutions.push([
             this.#translateRefKtoV(vatId, toResolve, true),
@@ -534,8 +552,8 @@ export class Kernel {
         break;
       }
       default:
-        // @ts-expect-error Compile-time exhaustiveness check
-        throw Error(`unsupported or unknown run queue item type ${item.type}`);
+        // @ts-expect-error Runtime does not respect "never".
+        Fail`unsupported or unknown run queue item type ${item.type}`;
     }
   }
 
@@ -586,7 +604,7 @@ export class Kernel {
    * @param vatId - The vat that will be notified.
    * @param kpid - The promise of interest.
    */
-  #notify(vatId: VatId, kpid: KRef): void {
+  notify(vatId: VatId, kpid: KRef): void {
     const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
     this.enqueueRun(notifyItem);
   }
@@ -598,22 +616,26 @@ export class Kernel {
    * @param resolutions - One or more resolutions, to be processed as a group.
    */
   doResolve(vatId: VatId | undefined, resolutions: VatOneResolution[]): void {
+    if (vatId) {
+      insistVatId(vatId);
+    }
     for (const resolution of resolutions) {
       const [kpid, rejected, dataRaw] = resolution;
       const data = dataRaw as CapData<KRef>;
       const promise = this.#storage.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
       if (state !== 'unresolved') {
-        throw Error(`${kpid} was already resolved`);
+        Fail`${kpid} was already resolved`;
       }
       if (decider !== vatId) {
-        throw Error(`${kpid} is decided by ${decider}, not ${vatId}`);
+        const why = decider ? `its decider is ${decider}` : `it has no decider`;
+        Fail`${vatId} not permitted to resolve ${kpid} because ${why}`;
       }
       if (!subscribers) {
-        throw Error(`${kpid} subscribers not set`);
+        throw Fail`${kpid} subscribers not set`;
       }
       for (const subscriber of subscribers) {
-        this.#notify(subscriber, kpid);
+        this.notify(subscriber, kpid);
       }
       this.#storage.resolveKernelPromise(kpid, rejected, data);
     }
@@ -626,8 +648,9 @@ export class Kernel {
    * @returns A record of the root objects of the vats launched.
    */
   async launchSubcluster(config: ClusterConfig): Promise<Record<string, KRef>> {
+    isClusterConfig(config) || Fail`invalid cluster config`;
     if (config.bootstrap && !config.vats[config.bootstrap]) {
-      throw Error(`invalid bootstrap vat name ${config.bootstrap}`);
+      Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
     this.#mostRecentSubcluster = config;
     const rootIds: Record<string, KRef> = {};
@@ -674,13 +697,16 @@ export class Kernel {
   /**
    * Terminate a vat.
    *
-   * @param id - The ID of the vat.
+   * @param vatId - The ID of the vat.
    */
-  async terminateVat(id: VatId): Promise<void> {
-    const vat = this.#getVat(id);
+  async terminateVat(vatId: VatId): Promise<void> {
+    const vat = this.#getVat(vatId);
+    if (!vat) {
+      throw new VatNotFoundError(vatId);
+    }
     await vat.terminate();
-    await this.#vatWorkerService.terminate(id).catch(console.error);
-    this.#vats.delete(id);
+    await this.#vatWorkerService.terminate(vatId).catch(console.error);
+    this.#vats.delete(vatId);
   }
 
   /**
@@ -698,23 +724,16 @@ export class Kernel {
   }
 
   /**
-   * Launch a new subcluster with the same configuration as the most recently
-   * launched existing subcluster.
-   *
-   * XXX This is an ugly hack for debugging purposes only. It's here so that you
-   * can set breakpoints in code associated with the creation and launching of
-   * vats. It proved necessary because the extension reload mechanism only gives
-   * control to the debugger after the first default subcluster has already been
-   * created and bootstrapped. Eventually this should go away -- I presume there
-   * must be *some* established procedure for debugging extensions that would
-   * make this unnecessary (people who develop extensions generally need to
-   * debug them, one might think), but if so I haven't been able to find out
-   * what it is.
+   * Reload the kernel.
    */
   async reload(): Promise<void> {
-    if (this.#mostRecentSubcluster) {
-      await this.launchSubcluster(this.#mostRecentSubcluster);
+    if (!this.#mostRecentSubcluster) {
+      throw Error('no subcluster to reload');
     }
+
+    await this.terminateAllVats();
+
+    await this.launchSubcluster(this.#mostRecentSubcluster);
   }
 
   /**
@@ -725,18 +744,18 @@ export class Kernel {
   }
 
   /**
-   * Send a message to a vat.
+   * Send a command to a vat.
    *
-   * @param id - The id of the vat to send the message to.
+   * @param id - The id of the vat to send the command to.
    * @param command - The command to send.
-   * @returns A promise that resolves the response to the message.
+   * @returns A promise that resolves the response to the command.
    */
-  async sendMessage<Method extends VatCommand['payload']['method']>(
+  async sendVatCommand<Method extends VatCommand['payload']['method']>(
     id: VatId,
     command: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
     const vat = this.#getVat(id);
-    return vat.sendMessage(command);
+    return vat.sendVatCommand(command);
   }
 
   /**
@@ -759,6 +778,25 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     return vat;
+  }
+
+  /**
+   * Update the current cluster configuration
+   *
+   * @param config - The new cluster configuration
+   */
+  set clusterConfig(config: ClusterConfig) {
+    isClusterConfig(config) || Fail`invalid cluster config`;
+    this.#mostRecentSubcluster = config;
+  }
+
+  /**
+   * Get the current cluster configuration
+   *
+   * @returns The current cluster configuration
+   */
+  get clusterConfig(): ClusterConfig | null {
+    return this.#mostRecentSubcluster;
   }
 }
 harden(Kernel);

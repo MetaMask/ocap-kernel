@@ -1,8 +1,9 @@
-import '@ocap/shims/endoify';
+import '@ocap/test-utils/mock-endoify';
 import type { Kernel, KVStore } from '@ocap/kernel';
 import { describe, it, expect, vi } from 'vitest';
 
 import { getStatusHandler } from './get-status.js';
+import clusterConfig from '../../vats/default-cluster.json';
 
 describe('getStatusHandler', () => {
   const mockVats = [
@@ -11,6 +12,7 @@ describe('getStatusHandler', () => {
   ];
 
   const mockKernel = {
+    clusterConfig,
     getVats: vi.fn(() => mockVats),
   } as unknown as Kernel;
 
@@ -24,13 +26,13 @@ describe('getStatusHandler', () => {
     expect(getStatusHandler.schema).toBeDefined();
   });
 
-  it('should return vats status', async () => {
+  it('should return vats status and cluster config', async () => {
     const result = await getStatusHandler.implementation(
       mockKernel,
       mockKVStore,
       null,
     );
     expect(mockKernel.getVats).toHaveBeenCalledOnce();
-    expect(result).toStrictEqual({ vats: mockVats });
+    expect(result).toStrictEqual({ vats: mockVats, clusterConfig });
   });
 });

@@ -17,4 +17,4 @@ function cleanup() {
 # Ensure we always close the ocap cli
 trap cleanup EXIT
 
-yarn build:vite:dev --watch
+yarn build:watch

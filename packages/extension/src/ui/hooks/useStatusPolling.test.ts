@@ -1,5 +1,7 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import clusterConfig from '../../vats/default-cluster.json';
 
 vi.mock('../../kernel-integration/messages.js', () => ({
   KernelControlMethod: {
@@ -18,38 +20,22 @@ vi.mock('../utils.js', () => ({
 }));
 
 describe('useStatusPolling', () => {
-  const mockSetStatus = vi.fn();
   const mockSendMessage = vi.fn();
   const mockInterval = 100;
 
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.clearAllTimers();
-    vi.useRealTimers();
-  });
-
-  it('should not fetch status when sendMessage is undefined', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
-    renderHook(() => useStatusPolling(mockSetStatus, undefined, mockInterval));
-    vi.advanceTimersByTime(mockInterval);
-    expect(mockSetStatus).not.toHaveBeenCalled();
-  });
-
   it('should start polling and fetch initial status', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
-    const mockStatus = { vats: [] };
+    const mockStatus = { vats: [], clusterConfig };
     mockSendMessage.mockResolvedValueOnce(mockStatus);
     vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
       false,
     );
-    renderHook(() => useStatusPolling(mockSetStatus, mockSendMessage, 100));
+    const { useStatusPolling } = await import('./useStatusPolling.js');
+    const { result } = renderHook(() => useStatusPolling(mockSendMessage, 100));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
+    await waitFor(() => expect(result.current).toStrictEqual(mockStatus));
   });
 
   it('should handle error responses', async () => {
@@ -59,14 +45,11 @@ describe('useStatusPolling', () => {
     vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
       true,
     );
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
+    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
-    expect(mockSetStatus).not.toHaveBeenCalled();
     expect(
       vi.mocked(await import('../services/logger.js')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', new Error('Test error'));
@@ -76,49 +59,58 @@ describe('useStatusPolling', () => {
     const { useStatusPolling } = await import('./useStatusPolling.js');
     const error = new Error('Network error');
     mockSendMessage.mockRejectedValueOnce(error);
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
+    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
     });
-    expect(mockSetStatus).not.toHaveBeenCalled();
     expect(
       vi.mocked(await import('../services/logger.js')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', error);
   });
 
-  it('should poll at specified intervals', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
-    const mockStatus = { vats: [] };
-    mockSendMessage.mockResolvedValue(mockStatus);
-    vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
-      false,
-    );
-    renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(mockInterval);
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    vi.advanceTimersByTime(mockInterval);
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-  });
+  describe('polling', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({
+        now: Date.now(),
+        toFake: ['setInterval', 'clearInterval'],
+      });
+    });
 
-  it('should cleanup interval on unmount', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
-    const mockStatus = { vats: [] };
-    mockSendMessage.mockResolvedValue(mockStatus);
-    vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
-      false,
-    );
-    const { unmount } = renderHook(() =>
-      useStatusPolling(mockSetStatus, mockSendMessage, mockInterval),
-    );
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    unmount();
-    vi.advanceTimersByTime(mockInterval * 2);
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    afterEach(() => {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    });
+
+    it('should poll at specified intervals', async () => {
+      const { useStatusPolling } = await import('./useStatusPolling.js');
+      const mockStatus = { vats: [], clusterConfig };
+      mockSendMessage.mockResolvedValue(mockStatus);
+      vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+        false,
+      );
+      renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(mockInterval);
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(mockInterval);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
+    });
+
+    it('should cleanup interval on unmount', async () => {
+      const { useStatusPolling } = await import('./useStatusPolling.js');
+      const mockStatus = { vats: [] };
+      mockSendMessage.mockResolvedValue(mockStatus);
+      vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+        false,
+      );
+      const { unmount } = renderHook(() =>
+        useStatusPolling(mockSendMessage, mockInterval),
+      );
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      unmount();
+      vi.advanceTimersByTime(mockInterval * 2);
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    });
   });
 });

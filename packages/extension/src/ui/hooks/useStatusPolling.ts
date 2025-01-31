@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.js';
 import { KernelControlMethod } from '../../kernel-integration/messages.js';
@@ -9,16 +9,17 @@ import { isErrorResponse } from '../utils.js';
 /**
  * Hook to start polling for kernel status
  *
- * @param setStatus - Function to set the kernel status
  * @param sendMessage - Function to send a message to the kernel
  * @param interval - Polling interval in milliseconds
+ *
+ * @returns The kernel status
  */
 export const useStatusPolling = (
-  setStatus: (status: KernelStatus) => void,
   sendMessage: StreamState['sendMessage'],
   interval: number = 1000,
-): void => {
+): KernelStatus | undefined => {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [status, setStatus] = useState<KernelStatus>();
 
   /**
    * Effect to start polling for kernel status.
@@ -29,14 +30,14 @@ export const useStatusPolling = (
         return;
       }
       try {
-        const status = await sendMessage({
+        const result = await sendMessage({
           method: KernelControlMethod.getStatus,
           params: null,
         });
-        if (isErrorResponse(status)) {
-          throw new Error(status.error);
+        if (isErrorResponse(result)) {
+          throw new Error(result.error);
         }
-        setStatus(status);
+        setStatus(result);
       } catch (error) {
         logger.error('Failed to fetch status:', error);
       }
@@ -53,5 +54,7 @@ export const useStatusPolling = (
         clearInterval(pollingRef.current);
       }
     };
-  }, [sendMessage, setStatus, interval]);
+  }, [sendMessage, interval]);
+
+  return status;
 };

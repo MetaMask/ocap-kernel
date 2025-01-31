@@ -1,17 +1,20 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import clusterConfig from '../../vats/default-cluster.json';
+
 vi.mock('../context/PanelContext.js', () => ({
   usePanelContext: vi.fn(),
 }));
 
 vi.mock('../../kernel-integration/messages.js', () => ({
   KernelControlMethod: {
-    sendMessage: 'sendMessage',
+    sendVatCommand: 'sendVatCommand',
     terminateAllVats: 'terminateAllVats',
     clearState: 'clearState',
     reload: 'reload',
     launchVat: 'launchVat',
+    updateClusterConfig: 'updateClusterConfig',
   },
 }));
 
@@ -33,8 +36,7 @@ describe('useKernelActions', () => {
       messageContent: mockMessageContent,
       selectedVatId: mockSelectedVatId,
       setMessageContent: vi.fn(),
-      status: null,
-      setStatus: vi.fn(),
+      status: undefined,
       panelLogs: [],
       setSelectedVatId: vi.fn(),
       clearLogs: vi.fn(),
@@ -52,7 +54,7 @@ describe('useKernelActions', () => {
       result.current.sendKernelCommand();
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: expectedPayload,
             id: mockSelectedVatId,
@@ -69,8 +71,7 @@ describe('useKernelActions', () => {
         messageContent: mockMessageContent,
         selectedVatId: undefined,
         setMessageContent: vi.fn(),
-        status: null,
-        setStatus: vi.fn(),
+        status: undefined,
         panelLogs: [],
         setSelectedVatId: vi.fn(),
         clearLogs: vi.fn(),
@@ -84,7 +85,7 @@ describe('useKernelActions', () => {
       result.current.sendKernelCommand();
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendMessage',
+          method: 'sendVatCommand',
           params: {
             payload: expectedPayload,
           },
@@ -259,9 +260,7 @@ describe('useKernelActions', () => {
       const { result } = renderHook(() => useKernelActions());
       const bundleUrl = 'test-bundle-url';
       const vatName = 'test-vat';
-
       mockSendMessage.mockRejectedValueOnce(new Error());
-
       result.current.launchVat(bundleUrl, vatName);
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
@@ -269,6 +268,31 @@ describe('useKernelActions', () => {
           'error',
         );
       });
+    });
+  });
+
+  describe('updateClusterConfig', () => {
+    it('sends update cluster config command with correct parameters', async () => {
+      const { useKernelActions } = await import('./useKernelActions.js');
+      const { result } = renderHook(() => useKernelActions());
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+      await result.current.updateClusterConfig(clusterConfig);
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        method: 'updateClusterConfig',
+        params: { config: clusterConfig },
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith('Config updated', 'success');
+    });
+
+    it('logs error on failure', async () => {
+      const { useKernelActions } = await import('./useKernelActions.js');
+      const { result } = renderHook(() => useKernelActions());
+      mockSendMessage.mockRejectedValueOnce(new Error());
+      await result.current.updateClusterConfig(clusterConfig);
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Failed to update config',
+        'error',
+      );
     });
   });
 });

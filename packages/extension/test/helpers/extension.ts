@@ -1,4 +1,3 @@
-import { delay } from '@ocap/test-utils';
 import { chromium } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import { rm } from 'fs/promises';
@@ -49,7 +48,7 @@ export const makeLoadExtension = async (): Promise<{
   });
 
   // Wait for the extension to be loaded
-  await delay(1000);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const chromeExtensionURLIdMatcher = /^chrome-extension:\/\/([^/]+)/u;
   const serviceWorkers = browserContext.serviceWorkers();
