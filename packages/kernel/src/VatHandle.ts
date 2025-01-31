@@ -209,6 +209,8 @@ export class VatHandle {
         throw Error(`vat ${this.vatId} issued invalid syscall ${op}`);
       }
       default: {
+        // Compile-time exhaustiveness check
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         throw Error(`vat ${this.vatId} issued unknown syscall ${vso[0]}`);
       }
     }
@@ -325,7 +327,7 @@ export class VatHandle {
       }
       default:
         // Compile-time exhaustiveness check
-
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         console.warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
         break;
     }
