@@ -1,0 +1,61 @@
+{{short description|Term used in the study of access control systems}}
+'''Ambient authority''' is a term used in the study of [[access control]] systems.
+
+== Definition ==
+A subject, such as a computer program, is said to be using ''ambient authority'' if it only needs to specify the names of the involved object(s) and the operation to be performed on them in order for a permitted action to succeed.<ref>
+{{cite journal
+ | last1=Miller  | first1=Mark S.
+ | last2=Yee     | first2=Ka-Ping
+ | last3=Shapiro | first3=Jonathan
+ | title=Capability Myths Demolished
+ | year=2003
+ | url=http://www.cs.umd.edu/~jkatz/security/downloads/capability-myths.pdf
+}}</ref><ref>
+{{cite mailing list
+ |last         = Donnelley
+ |first        = Jed
+ |title        = [cap-talk] ... enforcement - ambient authority - definition?
+ |mailing-list = cap-talk
+ |date         = 6 October 2004
+ |url          = http://www.eros-os.org/pipermail/cap-talk/2004-October/002001.html
+ |access-date  = June 28, 2012
+ |archive-url  = https://archive.today/20130414191435/http://www.eros-os.org/pipermail/cap-talk/2004-October/002001.html
+ |archive-date = 2013-04-14
+ |url-status   = dead
+}}</ref><ref>
+{{cite mailing list
+ | last =Tribble | first =Dean
+ | title =Re: [e-lang] "Capability Myths Demolished" => ambient authority revisited
+ | mailing-list =e-lang
+ | date =5 December 2002
+ | url =http://zesty.ca/zest/out/msg00139.html
+ | access-date =June 28, 2012
+}}</ref>
+
+In this definition,
+* a "name" is any way of referring to an object that does not itself include authorising information, and could potentially be used by any subject;
+* an action is "permitted" for a subject if there exists ''any'' request that that subject could make that would cause the action to be carried out.
+
+The authority is "ambient" in the sense that it exists in a broadly visible environment (often, but not necessarily a global environment) where any subject can request it by name.
+
+== Example ==
+For example, suppose a C program opens a file for read access by executing the call:
+
+  open("filename", O_RDONLY, 0)
+
+The desired file is designated by its name on the filesystem, which does not by itself include authorising information, so the program is exercising ambient authority.
+
+== Uses ==
+When ambient authority is requested, permissions are granted or denied based on one or more global properties of the executing program, such as its ''identity'' or its ''role''. In such cases, the management of [[access control]] is handled separately from explicit communication to the executing program or [[Process (computing)|process]], through means such as [[access control list]]s associated with objects or through [[Role-Based Access Control]] mechanisms. The executing program has no means to [[reification (computer science)|reify]] the permissions that it was granted for a specific purpose as [[first-class value]]s. So, if the program should be able to access an object when acting on its own behalf but not when acting on behalf of one of its clients (or, on behalf of one client but not another), it has no way to express that intention. This inevitably leads to such programs being subject to the [[confused deputy problem]].
+
+The term "ambient authority" is used primarily to contrast with [[capability-based security]] (including [[object-capability model]]s), in which executing programs receive permissions as they might receive data, as communicated [[first-class object]] references. This allows them to determine where the permissions came from, and thus avoid the [[Confused deputy problem]]. However, since there are additional requirements for a system to be considered a capability system besides avoiding ambient authority, "non-ambient authority system" is not just a synonym for "capability system".
+
+Ambient authority is the dominant form of access control in computer systems today. The ''user'' model of access control as used in Unix and in Windows systems is an ambient authority model because programs execute with the  authorities of the ''user'' that started them. This not only means that executing programs are inevitably given more permissions (see [[Principle of least privilege]]) than they need for their task, but that they are unable to determine the source or the number and types of permission that they have.<ref name=jed2>{{cite book |chapter=Capability Computing at LLNL |author=Jed Donnelley |date=May 4, 2005 |chapter-url=https://www.computer-history.info/Page4.dir/pages/LTSS.NLTSS.dir/pages/cap-livermore.html |access-date=2022-12-06 |title=Stories of the Development of Large Scale Scientific Computing at Lawrence Livermore National Laboratory; An Oral and Pictorial History |url=https://www.computer-history.info/ |editor=George A. Michael |editor-link=George Michael (computational physicist)}}</ref> A program executing under an ambient authority access control model has little option but to designate permissions and try to exercise them, hoping for the best. This property requires an excess of permissions to be granted to users or roles, in order for programs to execute without error.
+
+==References==
+{{Reflist}}
+
+{{Object-capability security}}
+
+{{DEFAULTSORT:Ambient Authority}}
+[[Category:Access control]]

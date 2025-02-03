@@ -18,13 +18,13 @@
   "include": [
     "../../vitest.config.packages.ts",
     "../../vitest.workspace.ts",
+    "../../types",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./test/**/*.ts",
+    "./test/workers/*.js",
     "./vitest.config.ts",
     "./vitest.config.e2e.ts",
     "./vitest.config.llm.ts",
-    "../../types",
-    "./test/workers/*.js"
   ]
 }
