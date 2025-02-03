@@ -58,7 +58,6 @@
     "@ocap/errors": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
-    "ollama": "^0.5.12",
     "ses": "^1.9.0",
     "setimmediate": "^1.0.5"
   },

@@ -23,14 +23,13 @@ import type { VatConfig, VRef } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
 import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
-import { Ollama } from 'ollama';
-
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
 type SupervisorConstructorProps = {
   id: string;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   makeKVStore: MakeKVStore;
+  makePowers?: () => Promise<Record<string, unknown>>;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -55,6 +54,9 @@ export class VatSupervisor {
   /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
+  /** An initialization routine for powers bestowed to this vat. */
+  readonly #makePowers: () => Promise<Record<string, unknown>>;
+
   /** Result promises from all syscalls sent to the kernel in the current crank */
   readonly #syscallsInFlight: Promise<unknown>[] = [];
 
@@ -66,10 +68,11 @@ export class VatSupervisor {
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.makeKVStore - Capability to create the store for this vat.
    */
-  constructor({ id, commandStream, makeKVStore }: SupervisorConstructorProps) {
+  constructor({ id, commandStream, makeKVStore, makePowers }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
     this.#makeKVStore = makeKVStore;
+    this.#makePowers = makePowers ?? (async () => ({}));
     this.#dispatch = null;
 
     Promise.all([
@@ -203,40 +206,7 @@ export class VatSupervisor {
 
     const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, true);
     const syscall = makeSupervisorSyscall(this, kvStore);
-
-    // XXX We pull the model in the VatSupervisor. This is definitely not how this should be done,
-    // perhaps not even in this proof of concept.
-    const DEFAULT_MODEL = 'deepseek-r1:1.5b';
-    const ollama = new Ollama({
-      host: 'http://localhost:11434',
-    });
-
-    const ollamaPull = async (model: string) => {
-      console.log(`downloading ${model}...`)
-      let currentDigestDone = false
-      const stream = await ollama.pull({ model: model, stream: true })
-      for await (const part of stream) {
-        if (part.digest) {
-          let percent = 0
-          if (part.completed && part.total) {
-            percent = Math.round((part.completed / part.total) * 100)
-          }
-          process.stdout.write(`${part.status} ${percent}%...`) // Write the new text
-          if (percent === 100 && !currentDigestDone) {
-            console.log() // Output to a new line
-            currentDigestDone = true
-          } else {
-            currentDigestDone = false
-          }
-        } else {
-          console.log(part.status)
-        }
-      }
-    }
-
-    await ollamaPull(DEFAULT_MODEL).catch(console.error);
-
-    const vatPowers = { chat: ollama.chat.bind(ollama) }; // XXX should be something more real
+    const vatPowers = await this.#makePowers();
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
