@@ -3,9 +3,9 @@
   "forceReset": true,
   "vats": {
     "main": {
-      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "bundleSpec": "http://localhost:3000/empty-vat.bundle",
       "parameters": {
-        "name": "MainVat"
+        "name": "EmptyVat"
       }
     }
   }
