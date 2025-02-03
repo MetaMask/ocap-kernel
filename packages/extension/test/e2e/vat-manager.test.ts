@@ -229,6 +229,8 @@ test.describe('Vat Manager', () => {
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(2); // Header + 1 row
-    await expect(vatTable).toContainText('MainVat');
+    await expect(vatTable).toContainText(
+      minimalClusterConfig.vats.main.parameters.name,
+    );
   });
 });
