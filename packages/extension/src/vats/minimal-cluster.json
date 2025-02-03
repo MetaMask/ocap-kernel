@@ -1,0 +1,12 @@
+{
+  "bootstrap": "main",
+  "forceReset": true,
+  "vats": {
+    "main": {
+      "bundleSpec": "http://localhost:3000/empty-vat.bundle",
+      "parameters": {
+        "name": "EmptyVat"
+      }
+    }
+  }
+}

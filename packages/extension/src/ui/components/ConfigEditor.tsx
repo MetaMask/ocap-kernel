@@ -2,9 +2,21 @@ import type { ClusterConfig } from '@ocap/kernel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { KernelStatus } from '../../kernel-integration/messages.js';
+import defaultConfig from '../../vats/default-cluster.json';
+import minimalConfig from '../../vats/minimal-cluster.json';
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.js';
 import { useKernelActions } from '../hooks/useKernelActions.js';
+
+type ConfigEntry = {
+  name: string;
+  config: ClusterConfig;
+};
+
+const availableConfigs: ConfigEntry[] = [
+  { name: 'Default', config: defaultConfig },
+  { name: 'Minimal', config: minimalConfig },
+];
 
 /**
  * Component for editing the kernel cluster configuration.
@@ -45,9 +57,14 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
     [config, updateClusterConfig],
   );
 
-  if (!config) {
-    return null;
-  }
+  const handleSelectConfig = useCallback((configName: string) => {
+    const selectedConfig = availableConfigs.find(
+      (item) => item.name === configName,
+    )?.config;
+    if (selectedConfig) {
+      setConfig(JSON.stringify(selectedConfig, null, 2));
+    }
+  }, []);
 
   return (
     <div className={styles.configEditor}>
@@ -59,21 +76,38 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
         className={styles.configTextarea}
         data-testid="config-textarea"
       />
-      <div className={styles.configEditorButtons}>
-        <button
-          onClick={() => handleUpdate(false)}
-          className={styles.buttonPrimary}
-          data-testid="update-config"
+      <div className={styles.configControls}>
+        <select
+          className={styles.select}
+          onChange={(event) => handleSelectConfig(event.target.value)}
+          defaultValue={availableConfigs[0]?.name}
+          data-testid="config-select"
         >
-          Update Config
-        </button>
-        <button
-          onClick={() => handleUpdate(true)}
-          className={styles.buttonBlack}
-          data-testid="update-and-restart"
-        >
-          Update and Reload
-        </button>
+          <option value="" disabled>
+            Select template...
+          </option>
+          {availableConfigs.map(({ name }) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <div className={styles.configEditorButtons}>
+          <button
+            onClick={() => handleUpdate(false)}
+            className={styles.buttonPrimary}
+            data-testid="update-config"
+          >
+            Update Config
+          </button>
+          <button
+            onClick={() => handleUpdate(true)}
+            className={styles.buttonBlack}
+            data-testid="update-and-restart"
+          >
+            Update and Reload
+          </button>
+        </div>
       </div>
     </div>
   );

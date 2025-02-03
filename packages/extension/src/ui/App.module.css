@@ -494,3 +494,9 @@ div + .sent {
   gap: var(--spacing-sm);
   justify-content: flex-end;
 }
+
+.configControls {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: space-between;
+}
