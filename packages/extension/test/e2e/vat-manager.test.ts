@@ -7,11 +7,13 @@ import { makeLoadExtension } from '../helpers/extension';
 test.describe('Vat Manager', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
+  let extensionId: string;
 
   test.beforeAll(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
+    extensionId = extension.extensionId;
   });
 
   test.afterAll(async () => {
@@ -181,5 +183,29 @@ test.describe('Vat Manager', () => {
     await popupPage.click('button:text("Reload Kernel")');
     // Verify new vat name appears
     await expect(vatTable).toContainText('SuperAlice');
+  });
+
+  test('should initialize vat with correct ID from kernel', async () => {
+    // Open the offscreen page where vat logs appear
+    const offscreenPage = await extensionContext.newPage();
+    await offscreenPage.goto(
+      `chrome-extension://${extensionId}/offscreen.html`,
+    );
+    // Capture console logs
+    const logs: string[] = [];
+    offscreenPage.on('console', (message) => logs.push(message.text()));
+    // Launch a vat and get its ID from the table
+    await launchVat('test-vat');
+    const vatTable = popupPage.locator('table');
+    const vatRow = vatTable.locator('tr').nth(1);
+    const vatId = await vatRow.getAttribute('data-vat-id');
+    // Verify the KV store initialization log shows the correct vat ID
+    await expect
+      .poll(() =>
+        logs.some((log) =>
+          log.includes(`[vat-${vatId}] Initializing kv store`),
+        ),
+      )
+      .toBeTruthy();
   });
 });

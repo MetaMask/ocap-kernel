@@ -24,7 +24,7 @@ export const VatTable: React.FC = () => {
         </thead>
         <tbody>
           {vats.map((vat) => (
-            <tr key={vat.id}>
+            <tr key={vat.id} data-vat-id={vat.id}>
               <td>{vat.id}</td>
               <td>{vat.source}</td>
               <td>{vat.parameters}</td>

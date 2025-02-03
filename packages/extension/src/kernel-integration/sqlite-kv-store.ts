@@ -34,6 +34,8 @@ export async function makeSQLKVStore(
   const logger = makeLogger(label);
   const db = await initDB(beEphemeral);
 
+  logger.log('Initializing kv store');
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS kv (
       key TEXT,
