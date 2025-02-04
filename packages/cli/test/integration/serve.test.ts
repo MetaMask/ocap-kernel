@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getServer } from '../../src/commands/serve.js';
 import { defaultConfig } from '../../src/config.js';
 import { withTimeout } from '../../src/utils.js';
-import { getTestBundles } from '../bundles.js';
+import { makeTestBundles, validTestBundleNames } from '../bundles.js';
 
 const isBundleSourceResult = (
   value: unknown,
@@ -28,7 +28,8 @@ describe('serve', async () => {
     vi.resetModules();
   });
 
-  const { testBundleRoot, testBundleSpecs } = await getTestBundles();
+  const { testBundleRoot, testBundleSpecs } =
+    await makeTestBundles(validTestBundleNames);
 
   const getServerPort = makeCounter(defaultConfig.server.port);
 

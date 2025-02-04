@@ -21,10 +21,14 @@ export async function createBundleFile(
 ): Promise<void> {
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = destinationPath ?? resolveBundlePath(sourceFullPath);
-  const bundle = await bundleSource(sourceFullPath);
-  const bundleString = JSON.stringify(bundle);
-  await writeFile(bundlePath, bundleString);
-  console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
+  try {
+    const bundle = await bundleSource(sourceFullPath);
+    const bundleString = JSON.stringify(bundle);
+    await writeFile(bundlePath, bundleString);
+    console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
+  } catch (problem) {
+    console.error(problem);
+  }
 }
 
 /**

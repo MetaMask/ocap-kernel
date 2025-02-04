@@ -1,6 +1,5 @@
-import bundleSourceImport from '@endo/bundle-source';
 import { createHash } from 'crypto';
-import { readFile, rm } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { glob } from 'glob';
 import { join, basename } from 'path';
 import {
@@ -14,27 +13,30 @@ import {
 } from 'vitest';
 
 import { createBundleFile, createBundleDir } from './bundle.js';
-import { getTestBundles } from '../../test/bundles.js';
+import {
+  getBundlePath,
+  makeTestBundles,
+  validTestBundleNames,
+} from '../../test/bundles.js';
 import { fileExists } from '../file.js';
 
-const bundleSource = bundleSourceImport as ReturnType<typeof vi.fn>;
+const mocks = vi.hoisted(() => ({
+  bundleSource: vi.fn(),
+}));
 
 vi.mock('@endo/bundle-source', () => ({
-  default: vi.fn(),
+  default: mocks.bundleSource,
 }));
+
+vi.mock('@endo/init', () => ({}));
 
 describe('bundle', async () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
-  const { testBundleRoot, testBundleNames, testBundleSpecs } =
-    await getTestBundles();
-
-  const deleteTestBundles = async (): Promise<void> =>
-    await Promise.all(
-      testBundleSpecs.map(async ({ bundle }) => rm(bundle, { force: true })),
-    ).then(() => undefined);
+  const { testBundleRoot, testBundleSpecs, deleteTestBundles } =
+    await makeTestBundles(validTestBundleNames);
 
   beforeAll(deleteTestBundles);
   afterEach(deleteTestBundles);
@@ -45,14 +47,13 @@ describe('bundle', async () => {
       async ({ script, expected, bundle }, ctx) => {
         if (!(await fileExists(expected))) {
           // this test case has no expected bundle
-          // reporting handled in `describe('[meta]'` above
           ctx.skip();
         }
         ctx.expect(await fileExists(bundle)).toBe(false);
 
         const expectedBundleContent = await readFile(expected);
 
-        bundleSource.mockImplementationOnce(() => expectedBundleContent);
+        mocks.bundleSource.mockImplementationOnce(() => expectedBundleContent);
 
         await createBundleFile(script);
 
@@ -69,6 +70,13 @@ describe('bundle', async () => {
           .toStrictEqual(expectedBundleHash.toString('hex'));
       },
     );
+
+    it('calls console.error if bundling fails', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const badBundle = getBundlePath('bad-vat.fails');
+      await createBundleFile(badBundle);
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    });
   });
 
   describe('createBundleDir', () => {
@@ -79,15 +87,23 @@ describe('bundle', async () => {
         ),
       ).toStrictEqual([]);
 
-      bundleSource.mockImplementation(() => 'test content');
+      // mocked bundleSource fails iff the target filename has '.fails.'
+      mocks.bundleSource.mockImplementation((bundlePath) => {
+        if (bundlePath.includes('.fails.')) {
+          throw new Error(`Failed to bundle ${bundlePath}`);
+        }
+        return 'test content';
+      });
 
       await createBundleDir(testBundleRoot);
 
-      expect(
-        (await glob(join(testBundleRoot, '*.bundle'))).map((filepath) =>
-          basename(filepath, '.bundle'),
-        ),
-      ).toStrictEqual(testBundleNames);
+      const bundledOutputs = (await glob(join(testBundleRoot, '*.bundle'))).map(
+        (filepath) => basename(filepath, '.bundle'),
+      );
+
+      expect(bundledOutputs.length).toBeGreaterThan(0);
+
+      expect(bundledOutputs).toStrictEqual(validTestBundleNames);
     });
   });
 });

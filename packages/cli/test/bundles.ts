@@ -1,9 +1,13 @@
-import { mkdir } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 import { glob } from 'glob';
 import { tmpdir } from 'os';
 import { resolve, join, basename, format } from 'path';
 
 import { cp } from '../src/file.js';
+
+export const validTestBundleNames = ['sample-vat', 'sample-vat-esp'];
+
+export const invalidTestBundleNames = ['bad-vat.fails'];
 
 const makeTestBundleRoot = async (): Promise<string> => {
   const testRoot = resolve(import.meta.url.split(':')[1] as string, '..');
@@ -27,11 +31,9 @@ const makeTestBundleRoot = async (): Promise<string> => {
   return stageBundleRoot;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getTestBundleNames = async (bundleRoot: string) =>
-  (await glob(join(bundleRoot, '*.js'))).map((filepath) =>
-    basename(filepath, '.js'),
-  );
+export const getBundlePath = (bundleName: string): string => {
+  return new URL(join('bundles', bundleName), import.meta.url).pathname;
+};
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const getTestBundleSpecs = (bundleRoot: string, bundleNames: string[]) =>
@@ -43,13 +45,20 @@ const getTestBundleSpecs = (bundleRoot: string, bundleNames: string[]) =>
   }));
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const getTestBundles = async () => {
+export const makeTestBundles = async (testBundleNames: string[]) => {
   const testBundleRoot = await makeTestBundleRoot();
-  const testBundleNames = await getTestBundleNames(testBundleRoot);
   const testBundleSpecs = getTestBundleSpecs(testBundleRoot, testBundleNames);
+  const deleteTestBundles = async (): Promise<void> => {
+    await Promise.all(
+      (await glob(join(testBundleRoot, '*.bundle'))).map(async (bundle) =>
+        rm(bundle, { force: true }),
+      ),
+    );
+  };
+
   return {
     testBundleRoot,
-    testBundleNames,
     testBundleSpecs,
+    deleteTestBundles,
   };
 };
