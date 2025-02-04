@@ -1,21 +1,10 @@
-import { createHash } from 'crypto';
-import { readFile } from 'fs/promises';
-import { glob } from 'glob';
-import { join, basename } from 'path';
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeAll,
-  beforeEach,
-  afterEach,
-} from 'vitest';
+import { readFile, rm } from 'fs/promises';
+import { basename } from 'path';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 import { createBundleFile, createBundleDir } from './bundle.js';
 import {
-  getBundlePath,
-  makeTestBundles,
+  makeTestBundleStage,
   validTestBundleNames,
 } from '../../test/bundles.js';
 import { fileExists } from '../file.js';
@@ -31,49 +20,46 @@ vi.mock('@endo/bundle-source', () => ({
 vi.mock('@endo/init', () => ({}));
 
 describe('bundle', async () => {
-  beforeEach(() => {
+  const { testBundleRoot, getTestBundleSpecs, globBundles, resolveBundlePath } =
+    await makeTestBundleStage();
+  const testBundleSpecs = getTestBundleSpecs(validTestBundleNames);
+
+  const deleteTestBundles = async (): Promise<void[]> =>
+    Promise.all(
+      (await globBundles()).map(async (bundle) => rm(bundle, { force: true })),
+    );
+
+  afterAll(deleteTestBundles);
+
+  beforeEach(async () => {
     vi.resetModules();
+    await deleteTestBundles();
   });
 
-  const { testBundleRoot, testBundleSpecs, deleteTestBundles } =
-    await makeTestBundles(validTestBundleNames);
-
-  beforeAll(deleteTestBundles);
-  afterEach(deleteTestBundles);
-
   describe('createBundleFile', () => {
-    it.for(testBundleSpecs)(
+    it.each(testBundleSpecs)(
       'bundles a single file: $name',
-      async ({ script, expected, bundle }, ctx) => {
-        if (!(await fileExists(expected))) {
-          // this test case has no expected bundle
-          ctx.skip();
-        }
-        ctx.expect(await fileExists(bundle)).toBe(false);
+      async ({ source, bundle }) => {
+        expect(await fileExists(bundle)).toBe(false);
 
-        const expectedBundleContent = await readFile(expected);
+        const testContent = { source: 'test-content' };
+        mocks.bundleSource.mockImplementationOnce(() => testContent);
 
-        mocks.bundleSource.mockImplementationOnce(() => expectedBundleContent);
+        await createBundleFile(source);
 
-        await createBundleFile(script);
+        expect(await fileExists(bundle)).toBe(true);
 
-        ctx.expect(await fileExists(bundle)).toBe(true);
+        const bundleContent = JSON.parse(
+          await readFile(bundle, { encoding: 'utf8' }),
+        );
 
-        const bundleContent = await readFile(bundle);
-        const expectedBundleHash = createHash('sha256')
-          .update(expectedBundleContent)
-          .digest();
-        const bundleHash = createHash('sha256').update(bundleContent).digest();
-
-        ctx
-          .expect(bundleHash.toString('hex'))
-          .toStrictEqual(expectedBundleHash.toString('hex'));
+        expect(bundleContent).toStrictEqual(testContent);
       },
     );
 
     it('calls console.error if bundling fails', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error');
-      const badBundle = getBundlePath('bad-vat.fails');
+      const badBundle = resolveBundlePath('bad-vat.fails');
       await createBundleFile(badBundle);
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
     });
@@ -81,11 +67,7 @@ describe('bundle', async () => {
 
   describe('createBundleDir', () => {
     it('bundles a directory', async () => {
-      expect(
-        (await glob(join(testBundleRoot, '*.bundle'))).map((filepath) =>
-          basename(filepath, '.bundle'),
-        ),
-      ).toStrictEqual([]);
+      expect(await globBundles()).toStrictEqual([]);
 
       // mocked bundleSource fails iff the target filename has '.fails.'
       mocks.bundleSource.mockImplementation((bundlePath) => {
@@ -97,8 +79,8 @@ describe('bundle', async () => {
 
       await createBundleDir(testBundleRoot);
 
-      const bundledOutputs = (await glob(join(testBundleRoot, '*.bundle'))).map(
-        (filepath) => basename(filepath, '.bundle'),
+      const bundledOutputs = (await globBundles()).map((bundlePath) =>
+        basename(bundlePath, '.bundle'),
       );
 
       expect(bundledOutputs.length).toBeGreaterThan(0);

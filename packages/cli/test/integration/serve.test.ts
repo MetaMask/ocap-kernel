@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getServer } from '../../src/commands/serve.js';
 import { defaultConfig } from '../../src/config.js';
 import { withTimeout } from '../../src/utils.js';
-import { makeTestBundles, validTestBundleNames } from '../bundles.js';
+import { makeTestBundleStage, validTestBundleNames } from '../bundles.js';
 
 const isBundleSourceResult = (
   value: unknown,
@@ -28,8 +28,8 @@ describe('serve', async () => {
     vi.resetModules();
   });
 
-  const { testBundleRoot, testBundleSpecs } =
-    await makeTestBundles(validTestBundleNames);
+  const { testBundleRoot, getTestBundleSpecs } = await makeTestBundleStage();
+  const testBundleSpecs = getTestBundleSpecs(validTestBundleNames);
 
   const getServerPort = makeCounter(defaultConfig.server.port);
 
@@ -116,11 +116,11 @@ describe('serve', async () => {
     it('only serves *.bundle files', async () => {
       const { listen, requestBundle } = makeServer();
 
-      const script = testBundleSpecs[0]?.script as string;
+      const source = testBundleSpecs[0]?.source as string;
 
       const { close } = await listen();
       try {
-        await expect(requestBundle(script)).rejects.toMatchObject({
+        await expect(requestBundle(source)).rejects.toMatchObject({
           cause: 404,
         });
       } finally {
