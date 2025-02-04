@@ -1,0 +1,10 @@
+(node:38790) ExperimentalWarning: Importing JSON modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(TypeError#1)
+TypeError#1: Failed to load module "./src/demo/vats/ollama-static.js" in package "file://~/ocap-kernel/packages/nodejs/" (2 underlying failures: Cannot find external module "fs" in package file://~/ocap-kernel/node_modules/ollama/, Cannot find external module "path" in package file://~/ocap-kernel/node_modules/ollama/
+
+  at async createBundleFile (packages/cli/dist/commands/bundle.mjs:20:24)
+  at async createBundle (packages/cli/dist/commands/bundle.mjs:46:5)
+  at async Promise.all (index 0)
+  at async Object.handler (packages/cli/dist/app.mjs:21:5)
+
