@@ -8,6 +8,8 @@ import {
 import { makeKernel } from '../../kernel/make-kernel.js';
 import { makeConfig } from './subclusterConfig.js';
 
+import pullAndMakeModels from './models/pull-and-make.js';
+
 const ollamaOnline = async () => {
   const response = await (await fetch('http://localhost:11434')).text();
   const expectation = 'Ollama is running';
@@ -23,6 +25,7 @@ main().catch(console.error);
  */
 async function main() {
   await ollamaOnline();
+  // await pullAndMakeModels();
   // We don't talk to the Kernel via a console (yet)
   const kernelPort = new NodeMessageChannel().port1;
   const kernel: Kernel = await makeKernel(kernelPort);

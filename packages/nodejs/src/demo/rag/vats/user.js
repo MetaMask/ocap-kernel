@@ -9,15 +9,21 @@ import { Far } from '@endo/marshal';
  * @param {unknown} _baggage - Root of vat's persistent state (not used here).
  * @returns {unknown} The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, _baggage) {
+export function buildRootObject(vatPowers, parameters, _baggage) {
   const prompt = parameters?.prompt ?? `Say hello.`;
-  const { verbose } = parameters;
+  const { verbose, docs } = parameters;
 
   return Far('root', {
     async bootstrap(vats) {
       if (verbose) {
         console.log('Bootstrap')
       }
+
+      console.log('initializing:', 'wiki');
+      await E(vats.wiki).initModels();
+      await E(vats.wiki).addDocuments(docs);
+      console.log('initialized:', 'wiki')
+
       console.log([
         '', 
         '-----\nUSER:\n-----',
@@ -25,7 +31,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
         '-----',
         '',
       ].join('\n\n'));
+
+      await E(vats.ollama).setWiki(vats.wiki);
       const response = E(vats.ollama).chat(prompt);
+
       console.log([
         '',
         '----\nLLM:\n----',
@@ -33,6 +42,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
         '----',
         '',
       ].join('\n\n'));
+
     },
   });
 }

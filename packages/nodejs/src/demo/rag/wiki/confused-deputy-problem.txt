@@ -1,10 +1,10 @@
 {{Short description|Computer security vulnerability}}
-In [[information security]], a '''confused deputy''' is a [[computer program]] that is tricked by another program (with fewer privileges or less rights) into misusing its authority on the system. It is a specific type of [[privilege escalation]].<ref>{{Cite journal|last=Wu|first=Jianliang|last2=Cui|first2=Tingting|last3=Ban|first3=Tao|last4=Guo|first4=Shanqing|last5=Cui|first5=Lizhen|date=2015-09-10|title=PaddyFrog: systematically detecting confused deputy vulnerability in Android applications: PaddyFrog: systematically detecting confused deputy vulnerability in Android applications|url=https://onlinelibrary.wiley.com/doi/10.1002/sec.1179|journal=Security and Communication Networks|language=en|volume=8|issue=13|pages=2338–2349|doi=10.1002/sec.1179}}</ref> The '''confused deputy problem''' is often cited as an example of why [[capability-based security]] is important.
+In [[information security]], a '''confused deputy''' is a [[computer program]] that is tricked by another program (with fewer privileges or less rights) into misusing its authority on the system. It is a specific type of [[privilege escalation]]. The '''confused deputy problem''' is often cited as an example of why [[capability-based security]] is important.
 
-[[Capability-based security|Capability systems]] protect against the confused deputy problem, whereas [[access-control list]]–based systems do not.<ref>{{cite web|url=http://waterken.sourceforge.net/aclsdont/|title=ACLs don't|work=sourceforge.net}}</ref>
+[[Capability-based security|Capability systems]] protect against the confused deputy problem, whereas [[access-control list]]–based systems do not.
 
 == Example ==
-In the original example of a confused deputy,<ref>{{cite web|title=The Confused Deputy (or why capabilities might have been invented)|url=http://www.cis.upenn.edu/~KeyKOS/ConfusedDeputy.html|url-status=dead|access-date=2003-12-31|archiveurl=https://web.archive.org/web/20031205034929/http://www.cis.upenn.edu/~KeyKOS/ConfusedDeputy.html|archivedate=2003-12-05}}</ref> there was a [[compiler]] program provided on a commercial [[Time-sharing|timesharing]] service. Users could run the compiler and optionally specify a filename where it would write debugging output, and the compiler would be able to write to that file if the user had permission to write there.
+In the original example of a confused deputy, there was a [[compiler]] program provided on a commercial [[Time-sharing|timesharing]] service. Users could run the compiler and optionally specify a filename where it would write debugging output, and the compiler would be able to write to that file if the user had permission to write there.
 
 The compiler also collected statistics about language feature usage. Those statistics were stored in a file called "(SYSX)STAT", in the directory "SYSX". To make this possible, the compiler program was given permission to write to files in SYSX.
 
@@ -22,16 +22,15 @@ It is not essential to the attack that the billing file be designated by a name 
 * the program's own permission to access the file is used implicitly.
 
 == Other examples ==
-[[File:Don Knotts Barney and the bullet Andy Griffith Show.jpg|thumb|Prototypical confused deputy [[Barney Fife]]]]
 A [[cross-site request forgery]] (CSRF) is an example of a confused deputy attack that uses the [[web browser]] to perform sensitive actions against a web application.  A common form of this attack occurs when a web application uses a cookie to authenticate all requests transmitted by a browser. Using [[JavaScript]], an attacker can force a browser into transmitting authenticated [[HTTP]] requests.
 
 The [[Samy (computer worm)|Samy computer worm]] used [[cross-site scripting]] (XSS) to turn the browser's authenticated MySpace session into a confused deputy. Using XSS the worm forced the browser into posting an executable copy of the worm as a MySpace message which was then viewed and executed by friends of the infected user.
 
-[[Clickjacking]] is an attack where the user acts as the confused deputy. In this attack a user thinks they are harmlessly browsing a website (an attacker-controlled website) but they are in fact tricked into performing sensitive actions on another website.<ref>{{cite web|url=http://waterken.sourceforge.net/clickjacking/|title=clickjacking: The Confused Deputy rides again!|work=sourceforge.net}}</ref>
+[[Clickjacking]] is an attack where the user acts as the confused deputy. In this attack a user thinks they are harmlessly browsing a website (an attacker-controlled website) but they are in fact tricked into performing sensitive actions on another website.
 
 An [[FTP bounce attack]] can allow an attacker to connect indirectly to [[Transmission Control Protocol|TCP]] [[TCP ports|ports]] to which the attacker's machine has no access, using a remote [[FTP]] server as the confused deputy.
 
-Another example relates to [[personal firewall]] software. It can restrict Internet access for specific applications. Some applications circumvent this by starting a browser with instructions to access a specific URL. The browser has authority to open a network connection, even though the application does not. Firewall software can attempt to address this by prompting the user in cases where one program starts another which then accesses the network. However, the user frequently does not have sufficient information to determine whether such an access is legitimate—false positives are common, and there is a substantial risk that even sophisticated users will become habituated to clicking "OK" to these prompts.<ref>Alfred Spiessens: Patterns of Safe Collaboration, PhD thesis. http://www.evoluware.eu/fsp_thesis.pdf Section 8.1.5</ref>
+Another example relates to [[personal firewall]] software. It can restrict Internet access for specific applications. Some applications circumvent this by starting a browser with instructions to access a specific URL. The browser has authority to open a network connection, even though the application does not. Firewall software can attempt to address this by prompting the user in cases where one program starts another which then accesses the network. However, the user frequently does not have sufficient information to determine whether such an access is legitimate—false positives are common, and there is a substantial risk that even sophisticated users will become habituated to clicking "OK" to these prompts.
 
 Not every program that misuses authority is a confused deputy. Sometimes misuse of authority is simply a result of a program error. The confused deputy problem occurs when the designation of an object is passed from one program to another, and the associated permission changes unintentionally, without any explicit action by either party. It is insidious because neither party did anything explicit to change the authority.
 
@@ -41,27 +40,6 @@ In some systems it is possible to ask the operating system to open a file using 
 * It becomes more difficult to identify the correct permission if the server is in turn the client of another service and wants to pass along access to the file.
 * It requires the client to trust the server to not abuse the borrowed permissions. Note that intersecting the server and client's permissions does not solve the problem either, because the server may then have to be given very wide permissions (all of the time, rather than those needed for a given request) in order to act for arbitrary clients.
 
-The simplest way to solve the confused deputy problem is to bundle together the designation of an object and the permission to access that object. This is exactly what a [[object-capability model|capability]] is.{{citation needed|reason=The capability model hardly is a silver bullet.|date=April 2023}}
+The simplest way to solve the confused deputy problem is to bundle together the designation of an object and the permission to access that object. This is exactly what a [[object-capability model|capability]] is.
 
 Using capability security in the compiler example, the client would pass to the server a capability to the output file, such as a [[file descriptor]], rather than the name of the file. Since it lacks a capability to the billing file, it cannot designate that file for output. In the cross-site request forgery example, a URL supplied "cross"-site would include its own authority independent of that of the client of the web browser.
-
-== See also ==
-
-* [[Setuid]] executables in Unix
-* [[Ambient authority]]
-
-== References ==
-{{Reflist}}
-
-== External links ==
-* Norman Hardy, ''The Confused Deputy: (or why capabilities might have been invented)'', ACM SIGOPS Operating Systems Review, Volume 22, Issue 4 (October 1988).
-** [http://portal.acm.org/citation.cfm?id=871709 ACM published document].
-** [http://cap-lore.com/CapTheory/ConfusedDeputy.html Document text on Norm Hardy's website].
-** [https://web.archive.org/web/20031205034929/http://www.cis.upenn.edu/~KeyKOS/ConfusedDeputy.html Document text on University of Pennsylvania's website].
-** [http://citeseer.ist.psu.edu/hardy94confused.html Citeseer cross reference].
-* [http://cap-lore.com/CapTheory/ Capability Theory Notes from several sources (collated by Norm Hardy)].
-* [https://everything2.com/title/confused+deputy Everything2: Confused Deputy] (some introductory level text).
-
-{{Object-capability security}}
-
-[[Category:Computer security]]

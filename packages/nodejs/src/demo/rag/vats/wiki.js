@@ -10,20 +10,27 @@ import { Far } from '@endo/marshal';
  * @returns {unknown} The root object for the new vat.
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  const { vectorStore } = vatPowers;
-  const { docs } = parameters;
-
-  console.log('DOCS:', docs);
-
-  const initVectorStoreP = vectorStore.addDocuments([...docs]);
+  const { model } = parameters;
+  const { getVectorStore, ollama } = vatPowers;
+  const vectorStore = getVectorStore();
 
   return Far('root', {
+    async initModels() {
+      await ollama.pull({ model });
+    },
+    async addDocuments(docs) {
+      console.time('wiki.addDocuments');
+      await vectorStore.addDocuments(docs);
+      console.timeEnd('wiki.addDocuments');
+    },
     async retrieve(topic) {
-      await initVectorStoreP;
-      // Search for the most similar document
-      const result = await vectorStore.similaritySearch(topic, 1);
-      console.log('Retrieve got', result);
-      return result;
+      // Search for the most similar documents
+      const results = await vectorStore.similaritySearch(topic, 3);
+      console.log('Retrieve got', results);
+      return results.map((document) => ({
+        pageContent: document.pageContent,
+        metadata: { source: document.metadata.source },
+      }));
     },
   });
 }
