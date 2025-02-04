@@ -26,10 +26,13 @@ import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
+type MakeVatPowers = () => Promise<Record<string, unknown>>;
+
 type SupervisorConstructorProps = {
   id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   makeKVStore: MakeKVStore;
+  makeVatPowers?: MakeVatPowers;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -52,6 +55,9 @@ export class VatSupervisor {
   /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
+  /** Capability to provide powers (external objects) for this vat. */
+  readonly #makeVatPowers: MakeVatPowers;
+
   /** Result promises from all syscalls sent to the kernel in the current crank */
   readonly #syscallsInFlight: Promise<unknown>[] = [];
 
@@ -62,11 +68,18 @@ export class VatSupervisor {
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.makeKVStore - Capability to create the store for this vat.
+   * @param params.makeVatPowers - Optional capability to provide powers (external objects) for this vat.
    */
-  constructor({ id, commandStream, makeKVStore }: SupervisorConstructorProps) {
+  constructor({
+    id,
+    commandStream,
+    makeKVStore,
+    makeVatPowers,
+  }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
     this.#makeKVStore = makeKVStore;
+    this.#makeVatPowers = makeVatPowers ?? (async () => ({}));
     this.#dispatch = null;
 
     Promise.all([
@@ -200,7 +213,7 @@ export class VatSupervisor {
 
     const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, true);
     const syscall = makeSupervisorSyscall(this, kvStore);
-    const vatPowers = {}; // XXX should be something more real
+    const vatPowers = await this.#makeVatPowers(); // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
