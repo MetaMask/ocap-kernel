@@ -77,8 +77,9 @@ node_modules/
 !.yarn/sdks
 !.yarn/versions
 
-# Ignore all .bundle files in the extensions directory
+# Ignore all .bundle files in the extension and nodejs directories
 packages/extension/**/*.bundle
+packages/nodejs/**/*.bundle
 
 # Ignore playwright reports
 playwright-report

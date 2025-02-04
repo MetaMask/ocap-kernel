@@ -1,0 +1,515 @@
+[?25l
+ RUN  v3.0.4 ~/ocap-kernel/packages/nodejs
+      Coverage enabled with istanbul
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+dbPath: /var/folders/rf/xk9gv43x5mx80gq6h2mjq6h80000gn/T/db/store.db
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[sqlite] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.head', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.tail', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextVatId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextRemoteId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextObjectId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextPromiseId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[sqlite] BEGIN
+[sqlite] 
+    DROP TABLE kv
+  
+[sqlite] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+[sqlite] COMMIT
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.head', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.tail', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextVatId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextVatId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextRemoteId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextRemoteId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextObjectId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextObjectId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextPromiseId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextPromiseId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextVatId', '2')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat worker service] launching vat v1
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[vat worker service] connected to kernel
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('e.nextPromiseId.v1', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('e.nextObjectId.v1', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat v1] Sending message to vat Object <[Object: null prototype] {}> { method: [32m'ping'[39m, params: [1mnull[22m }
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+[vat v1] Sending message to vat Object <[Object: null prototype] {}> {
+  method: [32m'initVat'[39m,
+  params: Object <[Object: null prototype] {}> {
+    bundleSpec: [32m'http://localhost:3000/ollama-static.bundle'[39m,
+    parameters: Object <[Object: null prototype] {}> { name: [32m'ollama-static'[39m }
+  }
+}
+
+dbPath: /tmp/db/store.db
+[vat-v1] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+VatSupervisor requested user code load: Object <[Object: null prototype] {}> {
+  bundleSpec: 'http://localhost:3000/ollama-static.bundle',
+  parameters: Object <[Object: null prototype] {}> { name: 'ollama-static' }
+}
+Unexpected read error from VatSupervisor "v1" [TypeError <Object <Object <[Object: null prototype] {}>>>: fetch failed
+  at async VatSupervisor._VatSupervisor_initVat (packages/kernel/dist/VatSupervisor.mjs:190:21)
+  at async VatSupervisor.handleMessage (packages/kernel/dist/VatSupervisor.mjs:90:40)
+  at async NodeWorkerDuplexStream.drain (packages/streams/dist/BaseDuplexStream.mjs:201:13)
+  at async Promise.all (index 0)] {
+  [cause]: [AggregateError
+    at internalConnectMultiple (node:net:1117:18)
+    at afterConnectMultiple (node:net:1684:7)] {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error <Complex prototype>], [Error <Complex prototype>] ]
+  }
+}
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+dbPath: /var/folders/rf/xk9gv43x5mx80gq6h2mjq6h80000gn/T/db/store.db
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.head', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.tail', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextVatId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextRemoteId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextObjectId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextPromiseId'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] BEGIN
+[sqlite] 
+    DROP TABLE kv
+  
+[sqlite] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+[sqlite] COMMIT
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.head', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('queue.run.tail', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.head'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'queue.run.tail'
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextVatId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextVatId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextRemoteId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextRemoteId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextObjectId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextObjectId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    SELECT value
+    FROM kv
+    WHERE key = 'nextPromiseId'
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextPromiseId', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextVatId', '2')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat worker service] launching vat v1
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[vat worker service] connected to kernel
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('e.nextPromiseId.v1', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('e.nextObjectId.v1', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat v1] Sending message to vat Object <[Object: null prototype] {}> { method: [32m'ping'[39m, params: [1mnull[22m }
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[vat v1] Sending message to vat Object <[Object: null prototype] {}> {
+  method: [32m'initVat'[39m,
+  params: Object <[Object: null prototype] {}> {
+    bundleSpec: [32m'http://localhost:3000/ollama-dynamic.bundle'[39m,
+    parameters: Object <[Object: null prototype] {}> { name: [32m'ollama-dynamic'[39m }
+  }
+}
+
+dbPath: /tmp/db/store.db
+[vat-v1] 
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT,
+      value TEXT,
+      PRIMARY KEY(key)
+    )
+  
+VatSupervisor requested user code load: Object <[Object: null prototype] {}> {
+  bundleSpec: 'http://localhost:3000/ollama-dynamic.bundle',
+  parameters: Object <[Object: null prototype] {}> { name: 'ollama-dynamic' }
+}
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'idCounters'
+  
+[ReferenceError: $h͏_import is not defined
+  at eval (.../nodejs/src/demo/vats/ollama-dynamic.js:5:14)
+  at eval (.../nodejs/src/demo/vats/ollama-dynamic.js:37:3)
+  at execute (packages/shims/dist/endoify.js:11213:1)
+  at compartmentImportNow (packages/shims/dist/endoify.js:11506:1)
+  at packages/shims/dist/endoify.js:11563:17
+  at async buildVatNamespace (packages/kernel/dist/VatSupervisor.mjs:196:23)]
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[vat v1] Created
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('nextObjectId', '2')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('ko1.owner', 'v1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('ko1.refCount', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('clk.v1.ko1', 'o+0')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[sqlite] 
+    INSERT INTO kv (key, value)
+    VALUES ('cle.v1.o+0', 'ko1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+
+stdout | src/demo/run.test.ts > Kernel Worker > launches vat "ollama-dynamic"
+[vat v1] Sending message to vat Object <[Object: null prototype] {}> { method: [32m'ping'[39m, params: [1mnull[22m }
+
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'kindIDID'
+  
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'storeKindIDTable'
+  
+[vat-v1] 
+    INSERT INTO kv (key, value)
+    VALUES ('storeKindIDTable', '{"scalarMapStore":2,"scalarWeakM'/*+165 bytes*/)
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'baggageID'
+  
+[vat-v1] 
+    INSERT INTO kv (key, value)
+    VALUES ('vc.27.|nextOrdinal', '1')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat-v1] 
+    INSERT INTO kv (key, value)
+    VALUES ('vc.27.|entryCount', '0')
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'watcherTableID'
+  
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'watchedPromiseTableID'
+  
+buildRootObject "ollama-dynamic"
+[vat-v1] 
+    SELECT value
+    FROM kv
+    WHERE key = 'vc.4.'
+  
+[vat-v1] 
+    SELECT key
+    FROM kv
+    WHERE key > 'vc.4.'
+    LIMIT 1
+  
+[vat-v1] 
+    SELECT key
+    FROM kv
+    WHERE key > 'vom.dkind.'
+    LIMIT 1
+  
+[vat-v1] 
+    INSERT INTO kv (key, value)
+    VALUES ('idCounters', '{"exportID":10,"collectionID":28'/*+15 bytes*/)
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+[vat-v1] 
+    INSERT INTO kv (key, value)
+    VALUES ('vc.27.|schemata', '{"body":"#{\"keyShape\":{\"#tag\'/*+95 bytes*/)
+    ON CONFLICT DO UPDATE SET value = excluded.value
+  
+ ❯ |nodejs| src/demo/run.test.ts (2 tests | 1 failed) 2199ms
+   × Kernel Worker > launches vat "ollama-static" 2007ms
+     → Test timed out in 2000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ Kernel Worker > launches vat "ollama-dynamic"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |nodejs| src/demo/run.test.ts > Kernel Worker > launches vat "ollama-static"
+Error: Test timed out in 2000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  16:26:09
+   Duration  2.73s (transform 192ms, setup 13ms, collect 304ms, tests 2.20s, environment 0ms, prepare 45ms)
+
+[?25h

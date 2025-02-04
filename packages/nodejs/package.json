@@ -25,6 +25,7 @@
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "demo": "./src/demo/run.sh",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
@@ -77,12 +78,14 @@
     "node": "^20 || >=22"
   },
   "dependencies": {
+    "@endo/marshal": "^1.6.3",
     "@endo/promise-kit": "^1.1.6",
     "@ocap/kernel": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
     "better-sqlite3": "^11.7.2",
+    "ollama": "^0.5.12",
     "ses": "^1.9.0"
   }
 }
