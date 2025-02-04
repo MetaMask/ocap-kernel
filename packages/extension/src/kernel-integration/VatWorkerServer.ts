@@ -1,3 +1,4 @@
+import type { Json } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import {
   isVatWorkerServiceCommand,
@@ -28,6 +29,11 @@ export type VatWorkerServerStream = PostMessageDuplexStream<
   PostMessageEnvelope<VatWorkerServiceReply>
 >;
 
+type MakeWorker = (
+  vatId: VatId,
+  creationOptions?: Record<string, Json>,
+) => VatWorker;
+
 export class ExtensionVatWorkerServer {
   readonly #logger;
 
@@ -35,7 +41,7 @@ export class ExtensionVatWorkerServer {
 
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
 
-  readonly #makeWorker: (vatId: VatId) => VatWorker;
+  readonly #makeWorker: MakeWorker;
 
   /**
    * **ATTN:** Prefer {@link ExtensionVatWorkerServer.make} over constructing
@@ -57,7 +63,7 @@ export class ExtensionVatWorkerServer {
    */
   constructor(
     stream: VatWorkerServerStream,
-    makeWorker: (vatId: VatId) => VatWorker,
+    makeWorker: MakeWorker,
     logger?: Logger,
   ) {
     this.#stream = stream;
@@ -75,7 +81,7 @@ export class ExtensionVatWorkerServer {
    */
   static make(
     messageTarget: PostMessageTarget,
-    makeWorker: (vatId: VatId) => VatWorker,
+    makeWorker: MakeWorker,
     logger?: Logger,
   ): ExtensionVatWorkerServer {
     const stream: VatWorkerServerStream = new PostMessageDuplexStream({
@@ -165,7 +171,7 @@ export class ExtensionVatWorkerServer {
     if (this.#vatWorkers.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const vatWorker = this.#makeWorker(vatId);
+    const vatWorker = this.#makeWorker(vatId, vatConfig.creationOptions);
     const [port] = await vatWorker.launch(vatConfig);
     this.#vatWorkers.set(vatId, vatWorker);
     return port;

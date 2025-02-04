@@ -9,7 +9,7 @@ import {
 import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
 import { delay, makeLogger } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
+import { makeVatIframe } from './kernel-integration/make-vat-iframe.js';
 import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
 
 const logger = makeLogger('[offscreen]');
@@ -65,7 +65,8 @@ async function makeKernelWorker(): Promise<{
 
   const vatWorkerServer = ExtensionVatWorkerServer.make(
     worker as PostMessageTarget,
-    (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
+    (vatId, creationOptions) =>
+      makeVatIframe(vatId, initializeMessageChannel, creationOptions),
   );
 
   return {

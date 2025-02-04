@@ -1,13 +1,14 @@
 import { isVatCommand, VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
+import { getUrlParam } from '@ocap/utils';
 
-import { makeSQLKVStore } from './kernel-integration/sqlite-kv-store.js';
+import { makeSQLKVStore } from './sqlite-kv-store.js';
 
 main().catch(console.error);
 
 /**
- * The main function for the iframe.
+ * The main function for vat initialization (used by both iframe and web worker)
  */
 async function main(): Promise<void> {
   const commandStream = await receiveMessagePort(
@@ -20,12 +21,9 @@ async function main(): Promise<void> {
     ),
   );
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const vatId = urlParams.get('vatId') ?? 'unknown';
-
   // eslint-disable-next-line no-new
   new VatSupervisor({
-    id: vatId,
+    id: getUrlParam('vatId') ?? 'unknown',
     commandStream,
     makeKVStore: makeSQLKVStore,
   });

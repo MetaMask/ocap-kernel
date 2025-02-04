@@ -9,4 +9,5 @@ export const trustedPreludes = {
     sourceDir,
     'env/kernel-worker-trusted-prelude.js',
   ),
+  'vat-worker': path.resolve(sourceDir, 'env/kernel-worker-trusted-prelude.js'),
 };

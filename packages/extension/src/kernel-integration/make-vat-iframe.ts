@@ -1,20 +1,24 @@
 import { createWindow } from '@metamask/snaps-utils';
+import type { Json } from '@metamask/utils';
 import type { VatId, VatConfig } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams';
 
 import type { VatWorker } from './VatWorkerServer.js';
 
-const IFRAME_URI = 'iframe.html';
-
-export const makeIframeVatWorker = (
+export const makeVatIframe = (
   id: VatId,
   getPort: typeof initializeMessageChannel,
+  creationOptions?: Record<string, Json>,
 ): VatWorker => {
   const vatHtmlId = `ocap-iframe-${id}`;
+  const iframeUri = creationOptions?.usePersistence
+    ? 'vat-webworker.html'
+    : 'vat-iframe.html';
+  console.log('makeVatIframe', { id, iframeUri, creationOptions });
   return {
     launch: async (_vatConfig: VatConfig) => {
       const newWindow = await createWindow({
-        uri: `${IFRAME_URI}?vatId=${id}`,
+        uri: `${iframeUri}?vatId=${id}`,
         id: vatHtmlId,
         testId: 'ocap-iframe',
       });

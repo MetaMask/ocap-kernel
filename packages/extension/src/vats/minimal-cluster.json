@@ -6,6 +6,9 @@
       "bundleSpec": "http://localhost:3000/empty-vat.bundle",
       "parameters": {
         "name": "EmptyVat"
+      },
+      "creationOptions": {
+        "usePersistence": true
       }
     }
   }

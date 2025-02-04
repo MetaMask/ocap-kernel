@@ -53,8 +53,10 @@ export default defineConfig(({ mode }) => {
             sourceDir,
             'kernel-integration/kernel-worker.ts',
           ),
+          'vat-worker': path.resolve(sourceDir, 'kernel-integration/vat.ts'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
-          iframe: path.resolve(sourceDir, 'iframe.html'),
+          'vat-iframe': path.resolve(sourceDir, 'vat-iframe.html'),
+          'vat-webworker': path.resolve(sourceDir, 'vat-webworker.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
         },
         output: {
