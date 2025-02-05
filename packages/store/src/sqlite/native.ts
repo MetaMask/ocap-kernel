@@ -8,9 +8,6 @@ import { join } from 'path';
 
 import { SQL_QUERIES } from './common.js';
 import type { KVStore } from '../types.js';
-// We require require because the ESM import does not work properly.
-
-// const Sqlite = require('better-sqlite3');
 
 const dbRoot = join(tmpdir(), './ocap-sqlite');
 
