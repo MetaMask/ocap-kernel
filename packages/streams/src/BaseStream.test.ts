@@ -389,11 +389,7 @@ describe('BaseWriter', () => {
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
     });
 
-    // This test emits an unhandled error under Jsdom, but passes under lockdown.
-    // It is needed for branch coverage in BaseStream.#throw().
-    // TODO: Run non-browser tests under lockdown.
-    // eslint-disable-next-line vitest/no-disabled-tests
-    it.skip('breaks out of failed onDispatch with failed onEnd', async () => {
+    it('breaks out of failed onDispatch with failed onEnd', async () => {
       const writer = new TestWriter({
         onDispatch: () => {
           throw new Error('onDispatchError');

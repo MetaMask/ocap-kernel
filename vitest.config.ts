@@ -94,7 +94,7 @@ export default defineConfig({
         'packages/streams/**': {
           statements: 100,
           functions: 100,
-          branches: 99.34, // TODO: See BaseStream.test.ts
+          branches: 100,
           lines: 100,
         },
         'packages/utils/**': {

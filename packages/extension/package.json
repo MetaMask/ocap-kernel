@@ -33,7 +33,7 @@
     "test": "vitest run --config vitest.config.ts",
     "test:build": "node ./test/build/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --coverage false",
+    "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "yarn playwright test",

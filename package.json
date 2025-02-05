@@ -33,7 +33,6 @@
     "prepack": "./scripts/prepack.sh",
     "test": "vitest run",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --coverage false",
     "test:e2e": "yarn workspaces foreach --all run test:e2e",
     "test:e2e:ci": "yarn workspaces foreach --all run test:e2e:ci",
     "test:verbose": "yarn test --reporter verbose",

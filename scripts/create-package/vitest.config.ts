@@ -1,20 +1,26 @@
-import { defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    esbuild: {
-      exclude: ['./package-template/**'],
-    },
-    test: {
-      name: 'scripts/create-package',
-      exclude: ['./package-template/**'],
-    },
-  }),
-);
+export default defineConfig(({ mode }) => {
+  const config = mergeConfig(
+    defaultConfig,
+    defineProject({
+      esbuild: {
+        exclude: ['./package-template/**'],
+      },
+      test: {
+        name: 'scripts/create-package',
+        exclude: ['./package-template/**'],
+      },
+    }),
+  );
 
-config.test.coverage.thresholds = true;
+  if (mode === 'development') {
+    delete config.test.coverage;
+  } else {
+    config.test.coverage.thresholds = {};
+  }
 
-export default config;
+  return config;
+});

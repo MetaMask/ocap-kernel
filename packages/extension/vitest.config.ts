@@ -1,21 +1,29 @@
 import path from 'path';
-import { defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
-delete defaultConfig.test?.setupFiles;
+export default defineConfig(({ mode }) => {
+  delete defaultConfig.test?.setupFiles;
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    test: {
-      name: 'extension',
-      environment: 'jsdom',
-      exclude: ['**/test/e2e/**'],
-      setupFiles: path.resolve(__dirname, './test/setup.ts'),
-    },
-  }),
-);
+  const config = mergeConfig(
+    defaultConfig,
+    defineProject({
+      test: {
+        name: 'extension',
+        environment: 'jsdom',
+        exclude: ['**/test/e2e/**'],
+        setupFiles: path.resolve(__dirname, './test/setup.ts'),
+        testTimeout: 3000,
+      },
+    }),
+  );
 
-delete config.test.coverage.thresholds;
-export default config;
+  if (mode === 'development') {
+    delete config.test.coverage;
+  } else {
+    config.test.coverage.thresholds = {};
+  }
+
+  return config;
+});
