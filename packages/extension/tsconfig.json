@@ -41,8 +41,6 @@
     "./test/**/*.ts",
     "./vite-plugins/*.ts",
     "./vite.config.ts",
-    "./vitest.config.ts",
-    "../../types",
-    "../store/src/sqlite-kv-store.ts"
+    "./vitest.config.ts"
   ]
 }
