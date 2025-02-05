@@ -9,8 +9,6 @@ import { join } from 'path';
 import { SQL_QUERIES } from './common.js';
 import type { KVStore } from '../types.js';
 
-const dbRoot = join(tmpdir(), './ocap-sqlite');
-
 /**
  * Ensure that SQLite is initialized.
  *
@@ -22,9 +20,8 @@ async function initDB(
   dbFilename: string,
   logger: ReturnType<typeof makeLogger>,
 ): Promise<Database> {
-  const dbPath = join(dbRoot, `${dbFilename}.db`);
+  const dbPath = await getDBFilename(dbFilename);
   logger.debug('dbPath:', dbPath);
-  await mkdir(dbRoot, { recursive: true });
   return new Sqlite(dbPath, {
     verbose: logger.info,
   });
@@ -39,7 +36,7 @@ async function initDB(
  */
 export async function makeSQLKVStore(
   label: string = '[sqlite]',
-  dbFilename: string = 'store',
+  dbFilename: string = 'store.db',
 ): Promise<KVStore> {
   const logger = makeLogger(label);
   const db = await initDB(dbFilename, logger);
@@ -138,4 +135,20 @@ export async function makeSQLKVStore(
     executeQuery: kvExecuteQuery,
     clear: db.transaction(kvClear),
   };
+}
+
+/**
+ * Get the filename for a database.
+ *
+ * @param label - A label for the database.
+ * @returns The filename for the database.
+ */
+export async function getDBFilename(label: string): Promise<string> {
+  if (label.startsWith(':')) {
+    return label;
+  }
+  const dbRoot = join(tmpdir(), './ocap-sqlite');
+  await mkdir(dbRoot, { recursive: true });
+  console.log('dbRoot:', dbRoot);
+  return join(dbRoot, label);
 }

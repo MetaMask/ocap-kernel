@@ -1,7 +1,8 @@
+import { mkdir } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.js';
-import { makeSQLKVStore } from './native.js';
+import { makeSQLKVStore, getDBFilename } from './native.js';
 
 const mockStatement = {
   run: vi.fn(),
@@ -23,7 +24,13 @@ vi.mock('fs/promises', () => ({
   mkdir: vi.fn(),
 }));
 
+vi.mock('os', () => ({
+  tmpdir: vi.fn(() => '/mock-tmpdir'),
+}));
+
 describe('makeSQLKVStore', () => {
+  const mockMkdir = vi.mocked(mkdir).mockResolvedValue('');
+
   beforeEach(() => {
     Object.values(mockStatement).forEach((mock) => mock.mockReset());
   });
@@ -89,5 +96,20 @@ describe('makeSQLKVStore', () => {
     const store = await makeSQLKVStore();
     // @ts-expect-error Testing invalid input
     expect(() => store.getNextKey(123)).toThrow('must be a string');
+  });
+
+  describe('getDBFilename', () => {
+    it('returns in-memory database path when label starts with ":"', async () => {
+      const result = await getDBFilename(':memory:');
+      expect(result).toBe(':memory:');
+    });
+
+    it('creates file-based database path for normal labels with .db suffix', async () => {
+      const result = await getDBFilename('test.db');
+      expect(result).toBe('/mock-tmpdir/ocap-sqlite/test.db');
+      expect(mockMkdir).toHaveBeenCalledWith('/mock-tmpdir/ocap-sqlite', {
+        recursive: true,
+      });
+    });
   });
 });

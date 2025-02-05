@@ -14,7 +14,7 @@ import type { KVStore } from '../types.js';
 async function initDB(dbFilename: string): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
   if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb(`/${dbFilename}.db`, 'cw');
+    return new sqlite3.oo1.OpfsDb(dbFilename, 'cw');
   }
   console.warn(`OPFS not enabled, database will be ephemeral`);
 
@@ -25,12 +25,12 @@ async function initDB(dbFilename: string): Promise<Database> {
  * Makes a {@link KVStore} for low-level persistent storage.
  *
  * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param dbFilename - The filename of the database to use. Defaults to 'store.sqlite'.
+ * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
  * @returns A key/value store to base higher level stores on.
  */
 export async function makeSQLKVStore(
   label: string = '[sqlite]',
-  dbFilename: string = 'store',
+  dbFilename: string = 'store.db',
 ): Promise<KVStore> {
   const logger = makeLogger(label);
   const db = await initDB(dbFilename);

@@ -198,7 +198,10 @@ export class VatSupervisor {
     }
     this.#loaded = true;
 
-    const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, this.id);
+    const kvStore = await this.#makeKVStore(
+      `[vat-${this.id}]`,
+      `vat-${this.id}.db`,
+    );
     const syscall = makeSupervisorSyscall(this, kvStore);
     const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
