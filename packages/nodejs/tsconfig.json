@@ -10,10 +10,10 @@
     "types": ["chrome", "ses", "vitest"]
   },
   "references": [
+    { "path": "../kernel" },
     { "path": "../streams" },
-    { "path": "../test-utils" },
     { "path": "../utils" },
-    { "path": "../kernel" }
+    { "path": "../test-utils" }
   ],
   "include": [
     "../../vitest.config.packages.ts",

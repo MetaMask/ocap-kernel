@@ -1,10 +1,12 @@
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
 import path from 'node:path';
-import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
-export default defineConfig(({ mode }) => {
-  const config = mergeConfig(
+export default defineConfig((args) => {
+  return mergeConfig(
+    args,
     defaultConfig,
     defineProject({
       optimizeDeps: { include: ['better-sqlite3'] },
@@ -23,12 +25,4 @@ export default defineConfig(({ mode }) => {
       },
     }),
   );
-
-  if (mode === 'development') {
-    delete config.test.coverage;
-  } else {
-    config.test.coverage.thresholds = {};
-  }
-
-  return config;
 });

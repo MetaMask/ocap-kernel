@@ -5,6 +5,10 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["./*.ts", "../../vitest.config.ts"],
+  "include": [
+    "./*.ts",
+    "../../vitest.config.ts",
+    "../../packages/test-utils/src/vitest-config.js"
+  ],
   "exclude": ["./package-template"]
 }

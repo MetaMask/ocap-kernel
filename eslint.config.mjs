@@ -28,6 +28,9 @@ const config = createConfig([
     languageOptions: {
       sourceType: 'module',
     },
+    rules: {
+      'import-x/no-unresolved': ['error', { commonjs: false }],
+    },
   },
 
   {

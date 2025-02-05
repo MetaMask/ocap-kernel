@@ -1,9 +1,11 @@
-import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
+import { mergeConfig } from '../../packages/test-utils/src/vitest-config';
 import defaultConfig from '../../vitest.config.js';
 
-export default defineConfig(({ mode }) => {
-  const config = mergeConfig(
+export default defineConfig((args) => {
+  return mergeConfig(
+    args,
     defaultConfig,
     defineProject({
       esbuild: {
@@ -15,12 +17,4 @@ export default defineConfig(({ mode }) => {
       },
     }),
   );
-
-  if (mode === 'development') {
-    delete config.test.coverage;
-  } else {
-    config.test.coverage.thresholds = {};
-  }
-
-  return config;
 });

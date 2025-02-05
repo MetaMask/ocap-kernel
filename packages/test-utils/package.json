@@ -12,7 +12,8 @@
     ".": "./src/index.ts",
     "./mock-endoify": "./src/env/mock-endoify.ts",
     "./package.json": "./package.json",
-    "./streams": "./src/streams.ts"
+    "./streams": "./src/streams.ts",
+    "./vitest-config": "./src/vitest-config.js"
   },
   "scripts": {
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",

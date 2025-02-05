@@ -7,7 +7,7 @@
     "checkJs": true,
     "outDir": "./dist"
   },
-  "references": [],
+  "references": [{ "path": "../test-utils" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

@@ -1,16 +1,18 @@
-import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig((args) => {
   delete defaultConfig.test?.environment;
 
-  const config = mergeConfig(
+  return mergeConfig(
+    args,
     defaultConfig,
     defineProject({
       test: {
         name: 'streams',
-        ...(mode === 'development'
+        ...(args.mode === 'development'
           ? {
               environment: 'jsdom',
               setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
@@ -32,12 +34,4 @@ export default defineConfig(({ mode }) => {
       },
     }),
   );
-
-  if (mode === 'development') {
-    delete config.test.coverage;
-  } else {
-    config.test.coverage.thresholds = {};
-  }
-
-  return config;
 });

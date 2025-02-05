@@ -6,7 +6,8 @@
   "references": [
     { "path": "../errors" },
     { "path": "../streams" },
-    { "path": "../utils" }
+    { "path": "../utils" },
+    { "path": "../test-utils" }
   ],
   "include": [
     "./src",

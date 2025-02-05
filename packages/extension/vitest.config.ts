@@ -1,12 +1,14 @@
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
 import path from 'path';
-import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.js';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig((args) => {
   delete defaultConfig.test?.setupFiles;
 
-  const config = mergeConfig(
+  return mergeConfig(
+    args,
     defaultConfig,
     defineProject({
       test: {
@@ -18,12 +20,4 @@ export default defineConfig(({ mode }) => {
       },
     }),
   );
-
-  if (mode === 'development') {
-    delete config.test.coverage;
-  } else {
-    config.test.coverage.thresholds = {};
-  }
-
-  return config;
 });
