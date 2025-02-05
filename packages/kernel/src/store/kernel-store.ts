@@ -56,6 +56,7 @@
 import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
+import type { KVStore } from '@ocap/store';
 
 import type {
   VatId,
@@ -68,21 +69,6 @@ import type {
   KernelPromise,
 } from '../types.js';
 import { insistVatId } from '../types.js';
-
-export type KVStore = {
-  get(key: string): string | undefined;
-  getRequired(key: string): string;
-  getNextKey(previousKey: string): string | undefined;
-  set(key: string, value: string): void;
-  delete(key: string): void;
-  clear(): void;
-  executeQuery(sql: string): Record<string, string>[];
-};
-
-export type MakeKVStore = (
-  label: string,
-  beEphemeral: boolean,
-) => Promise<KVStore>;
 
 type StoredValue = {
   get(): string | undefined;

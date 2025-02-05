@@ -1,4 +1,5 @@
 import { VatNotFoundError } from '@ocap/errors';
+import type { KVStore } from '@ocap/store';
 import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -10,7 +11,6 @@ import type {
   VatCommand,
   VatCommandReply,
 } from './messages/index.js';
-import type { KVStore } from './store/kernel-store.js';
 import type { VatId, VatConfig, VatWorkerService } from './types.js';
 import { VatHandle } from './VatHandle.js';
 import { makeMapKVStore } from '../test/storage.js';

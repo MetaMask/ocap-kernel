@@ -1,10 +1,5 @@
-import type {
-  Kernel,
-  KernelCommand,
-  VatId,
-  VatConfig,
-  KVStore,
-} from '@ocap/kernel';
+import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 import { setupOcapKernelMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

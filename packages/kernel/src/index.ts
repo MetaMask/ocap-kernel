@@ -1,6 +1,5 @@
 export * from './messages/index.js';
 export { Kernel } from './Kernel.js';
-export type { KVStore, MakeKVStore } from './store/kernel-store.js';
 export { VatHandle } from './VatHandle.js';
 export { VatSupervisor } from './VatSupervisor.js';
 export type { Message } from '@agoric/swingset-liveslots';

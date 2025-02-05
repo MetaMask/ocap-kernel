@@ -40,6 +40,15 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
+  "dependencies": {
+    "@endo/promise-kit": "^1.1.6",
+    "@ocap/kernel": "workspace:^",
+    "@ocap/shims": "workspace:^",
+    "@ocap/store": "workspace:^",
+    "@ocap/streams": "workspace:^",
+    "@ocap/utils": "workspace:^",
+    "ses": "^1.9.0"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.3",
     "@metamask/auto-changelog": "^4.0.0",
@@ -50,7 +59,6 @@
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
-    "@types/better-sqlite3": "^7.6.12",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
     "@typescript-eslint/utils": "^8.8.1",
@@ -75,14 +83,5 @@
   },
   "engines": {
     "node": "^20 || >=22"
-  },
-  "dependencies": {
-    "@endo/promise-kit": "^1.1.6",
-    "@ocap/kernel": "workspace:^",
-    "@ocap/shims": "workspace:^",
-    "@ocap/streams": "workspace:^",
-    "@ocap/utils": "workspace:^",
-    "better-sqlite3": "^11.7.2",
-    "ses": "^1.9.0"
   }
 }

@@ -13,7 +13,9 @@
     { "path": "../kernel" },
     { "path": "../streams" },
     { "path": "../utils" },
-    { "path": "../test-utils" }
+    { "path": "../test-utils" },
+    { "path": "../kernel" },
+    { "path": "../store" }
   ],
   "include": [
     "../../vitest.config.packages.ts",
@@ -24,6 +26,7 @@
     "./vitest.config.ts",
     "./vitest.config.e2e.ts",
     "../../types",
-    "./test/workers/*.js"
+    "./test/workers/*.js",
+    "../store/src/native.ts"
   ]
 }

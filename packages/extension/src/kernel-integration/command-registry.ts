@@ -1,7 +1,8 @@
 import { assert } from '@metamask/superstruct';
 import type { Infer, Struct } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 
 import type { KernelCommandPayloadStructs, KernelMethods } from './messages.js';
 

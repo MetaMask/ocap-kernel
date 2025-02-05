@@ -1,9 +1,9 @@
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
 import { Kernel } from '@ocap/kernel';
+import { makeSQLKVStore } from '@ocap/store/sqlite/native';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
-import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { NodejsVatWorkerService } from './VatWorkerService.js';
 
 /**

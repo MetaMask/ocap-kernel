@@ -2,10 +2,10 @@ import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
 import { VatSupervisor } from '@ocap/kernel';
+import { makeSQLKVStore } from '@ocap/store/sqlite/native';
 import { makeLogger } from '@ocap/utils';
 
 import { makeCommandStream } from './streams';
-import { makeSQLKVStore } from '../kernel/sqlite-kv-store';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 

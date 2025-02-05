@@ -1,54 +1,45 @@
-import type { KVStore } from '@ocap/kernel';
 import { makeLogger } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
+import { SQL_QUERIES } from './common.js';
+import type { KVStore } from '../types.js';
+
 /**
  * Ensure that SQLite is initialized.
  *
- * @param beEphemeral - If true, create an ephemeral (in memory) database.
+ * @param dbFilename - The filename of the database to use.
  * @returns The SQLite database object.
  */
-async function initDB(beEphemeral: boolean): Promise<Database> {
+async function initDB(dbFilename: string): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
-  if (!beEphemeral) {
-    if (sqlite3.oo1.OpfsDb) {
-      return new sqlite3.oo1.OpfsDb('/testdb.sqlite', 'cw');
-    }
-    console.warn(`OPFS not enabled, database will be ephemeral`);
+  if (sqlite3.oo1.OpfsDb) {
+    return new sqlite3.oo1.OpfsDb(`/${dbFilename}.db`, 'cw');
   }
-  return new sqlite3.oo1.DB(':memory:', 'cw');
+  console.warn(`OPFS not enabled, database will be ephemeral`);
+
+  return new sqlite3.oo1.DB(`:memory:`, 'cw');
 }
 
 /**
  * Makes a {@link KVStore} for low-level persistent storage.
  *
  * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param beEphemeral - If true, create an ephemeral (in memory) database.
+ * @param dbFilename - The filename of the database to use. Defaults to 'store.sqlite'.
  * @returns A key/value store to base higher level stores on.
  */
 export async function makeSQLKVStore(
   label: string = '[sqlite]',
-  beEphemeral: boolean = false,
+  dbFilename: string = 'store',
 ): Promise<KVStore> {
   const logger = makeLogger(label);
-  const db = await initDB(beEphemeral);
+  const db = await initDB(dbFilename);
 
   logger.log('Initializing kv store');
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS kv (
-      key TEXT,
-      value TEXT,
-      PRIMARY KEY(key)
-    )
-  `);
+  db.exec(SQL_QUERIES.CREATE_TABLE);
 
-  const sqlKVGet = db.prepare(`
-    SELECT value
-    FROM kv
-    WHERE key = ?
-  `);
+  const sqlKVGet = db.prepare(SQL_QUERIES.GET);
 
   /**
    * Read a key's value from the database.
@@ -57,7 +48,7 @@ export async function makeSQLKVStore(
    * @param required - True if it is an error for the entry not to be there.
    * @returns The value at that key.
    */
-  function kvGet(key: string, required: boolean): string {
+  function kvGet(key: string, required: boolean): string | undefined {
     sqlKVGet.bind([key]);
     if (sqlKVGet.step()) {
       const result = sqlKVGet.getString(0);
@@ -70,18 +61,11 @@ export async function makeSQLKVStore(
     sqlKVGet.reset();
     if (required) {
       throw Error(`[${label}] no record matching key '${key}'`);
-    } else {
-      // Sometimes, we really lean on TypeScript's unsoundness
-      return undefined as unknown as string;
     }
+    return undefined;
   }
 
-  const sqlKVGetNextKey = db.prepare(`
-    SELECT key
-    FROM kv
-    WHERE key > ?
-    LIMIT 1
-  `);
+  const sqlKVGetNextKey = db.prepare(SQL_QUERIES.GET_NEXT);
 
   /**
    * Get the lexicographically next key in the KV store after a given key.
@@ -105,11 +89,7 @@ export async function makeSQLKVStore(
     return undefined;
   }
 
-  const sqlKVSet = db.prepare(`
-    INSERT INTO kv (key, value)
-    VALUES (?, ?)
-    ON CONFLICT DO UPDATE SET value = excluded.value
-  `);
+  const sqlKVSet = db.prepare(SQL_QUERIES.SET);
 
   /**
    * Set the value associated with a key in the database.
@@ -124,10 +104,7 @@ export async function makeSQLKVStore(
     sqlKVSet.reset();
   }
 
-  const sqlKVDelete = db.prepare(`
-    DELETE FROM kv
-    WHERE key = ?
-  `);
+  const sqlKVDelete = db.prepare(SQL_QUERIES.DELETE);
 
   /**
    * Delete a key from the database.
@@ -141,9 +118,7 @@ export async function makeSQLKVStore(
     sqlKVDelete.reset();
   }
 
-  const sqlKVClear = db.prepare(`
-    DELETE FROM kv
-  `);
+  const sqlKVClear = db.prepare(SQL_QUERIES.CLEAR);
 
   /**
    * Delete all entries from the database.
@@ -184,7 +159,7 @@ export async function makeSQLKVStore(
   return {
     get: (key) => kvGet(key, false),
     getNextKey: kvGetNextKey,
-    getRequired: (key) => kvGet(key, true),
+    getRequired: (key) => kvGet(key, true) as string,
     set: kvSet,
     delete: kvDelete,
     clear: kvClear,

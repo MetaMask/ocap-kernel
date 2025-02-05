@@ -4,12 +4,12 @@ import type {
   KernelCommandReply,
 } from '@ocap/kernel';
 import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
+import { makeSQLKVStore } from '@ocap/store/sqlite/wasm';
 import type { PostMessageTarget } from '@ocap/streams';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.js';
-import { makeSQLKVStore } from './sqlite-kv-store.js';
 import { receiveUiConnections } from './ui-connections.js';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
 

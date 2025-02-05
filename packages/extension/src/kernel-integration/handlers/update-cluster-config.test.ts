@@ -1,4 +1,5 @@
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect } from 'vitest';
 
 import { updateClusterConfigHandler } from './update-cluster-config.js';

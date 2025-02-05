@@ -53,6 +53,7 @@
     "@metamask/superstruct": "^3.1.0",
     "@metamask/utils": "^11.0.1",
     "@ocap/errors": "workspace:^",
+    "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
     "ses": "^1.9.0",

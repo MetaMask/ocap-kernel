@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeKernel } from './make-kernel.js';
 
-vi.mock('./sqlite-kv-store.js', async () => {
+vi.mock('@ocap/store/sqlite/native', async () => {
   const { makeMapKVStore } = await import('../../../kernel/test/storage.js');
   return {
     makeSQLKVStore: makeMapKVStore,

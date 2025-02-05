@@ -1,4 +1,5 @@
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 import { makeLogger } from '@ocap/utils';
 
 import { KernelCommandRegistry } from './command-registry.js';

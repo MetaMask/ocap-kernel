@@ -1,25 +1,57 @@
 {
-  "name": "@ocap/extension",
+  "name": "@ocap/store",
   "version": "0.0.0",
   "private": true,
-  "description": "For running Ocap Kernel experiments in an extension environment",
+  "description": "Ocap Kernel storage abstractions and implementations",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/store#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./sqlite/native": {
+      "import": {
+        "types": "./dist/sqlite/native.d.mts",
+        "default": "./dist/sqlite/native.mjs"
+      },
+      "require": {
+        "types": "./dist/sqlite/native.d.cts",
+        "default": "./dist/sqlite/native.cjs"
+      }
+    },
+    "./sqlite/wasm": {
+      "import": {
+        "types": "./dist/sqlite/wasm.d.mts",
+        "default": "./dist/sqlite/wasm.mjs"
+      },
+      "require": {
+        "types": "./dist/sqlite/wasm.d.cts",
+        "default": "./dist/sqlite/wasm.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist/"
   ],
-  "workspaces": [
-    "vats"
-  ],
   "scripts": {
-    "build": "yarn build:vite && yarn test:build",
-    "build:dev": "yarn build:vite --mode development",
-    "build:watch": "yarn build:dev --watch",
-    "build:vite": "vite build --config vite.config.ts",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:docs": "typedoc",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/store",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -28,35 +60,16 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "lint:ts": "tsc --project tsconfig.lint.json",
     "publish:preview": "yarn npm publish --tag preview",
-    "postinstall": "yarn playwright install chromium",
-    "start": "./scripts/start.sh",
     "test": "vitest run --config vitest.config.ts",
-    "test:build": "node ./test/build/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --mode development",
+    "test:dev": "yarn test --coverage false",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.ts",
-    "test:e2e": "yarn playwright test",
-    "test:e2e:ci": "./scripts/test-e2e-ci.sh",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug"
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/eventual-send": "^1.2.6",
-    "@endo/marshal": "^1.6.2",
-    "@endo/promise-kit": "^1.1.6",
-    "@metamask/snaps-utils": "^8.3.0",
-    "@metamask/superstruct": "^3.1.0",
-    "@metamask/utils": "^11.0.1",
-    "@ocap/errors": "workspace:^",
-    "@ocap/kernel": "workspace:^",
-    "@ocap/shims": "workspace:^",
-    "@ocap/store": "workspace:^",
-    "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
-    "nanoid": "^3.3.8",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
+    "better-sqlite3": "^11.7.2",
     "ses": "^1.9.0"
   },
   "devDependencies": {
@@ -65,21 +78,13 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/cli": "workspace:^",
-    "@ocap/test-utils": "workspace:^",
-    "@playwright/test": "^1.50.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/chrome": "^0.0.293",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
+    "@ts-bridge/cli": "^0.6.2",
+    "@ts-bridge/shims": "^0.1.1",
+    "@types/better-sqlite3": "^7.6.12",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
     "@typescript-eslint/parser": "^8.8.1",
     "@typescript-eslint/utils": "^8.8.1",
-    "@vitejs/plugin-react": "^4.3.4",
     "@vitest/eslint-plugin": "^1.1.25",
-    "cheerio": "^1.0.0-rc.12",
     "depcheck": "^1.4.7",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
@@ -89,19 +94,13 @@
     "eslint-plugin-n": "^17.11.1",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^7.1.0",
-    "jsdom": "^24.1.1",
-    "playwright": "^1.50.0",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
-    "rollup-plugin-sourcemaps2": "^0.4.3",
     "typedoc": "^0.27.6",
     "typescript": "~5.5.4",
     "typescript-eslint": "^8.8.1",
-    "typescript-plugin-css-modules": "^5.1.0",
     "vite": "^6.0.11",
-    "vite-plugin-checker": "^0.8.0",
-    "vite-plugin-static-copy": "^2.2.0",
-    "vitest": "3.0.5"
+    "vitest": "3.0.4"
   },
   "engines": {
     "node": "^20 || >=22"

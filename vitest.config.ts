@@ -4,7 +4,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['@vitest/coverage-istanbul', 'vitest-fetch-mock'],
+    include: [
+      '@vitest/coverage-istanbul',
+      'vitest-fetch-mock',
+      'better-sqlite3',
+    ],
   },
 
   plugins: [
@@ -68,10 +72,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 74.07,
-          functions: 79.39,
-          branches: 70.86,
-          lines: 74.11,
+          statements: 82.86,
+          functions: 83.59,
+          branches: 80.45,
+          lines: 82.79,
         },
         'packages/kernel/**': {
           statements: 48.54,
@@ -80,16 +84,22 @@ export default defineConfig({
           lines: 48.79,
         },
         'packages/nodejs/**': {
-          statements: 46.75,
-          functions: 47.61,
-          branches: 35.29,
-          lines: 46.75,
+          statements: 81.81,
+          functions: 90.9,
+          branches: 75,
+          lines: 81.81,
         },
         'packages/shims/**': {
           statements: 0,
           functions: 0,
           branches: 0,
           lines: 0,
+        },
+        'packages/store/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/streams/**': {
           statements: 100,

@@ -8,6 +8,7 @@ import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@ocap/errors';
+import type { MakeKVStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 
 import type {
@@ -18,7 +19,6 @@ import type {
 import { makeDummyMeterControl } from './dummyMeterControl.js';
 import type { VatCommand, VatCommandReply } from './messages/index.js';
 import { VatCommandMethod } from './messages/index.js';
-import type { MakeKVStore } from './store/kernel-store.js';
 import { makeSupervisorSyscall } from './syscall.js';
 import type { VatConfig, VatId, VRef } from './types.js';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
@@ -198,7 +198,7 @@ export class VatSupervisor {
     }
     this.#loaded = true;
 
-    const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, true);
+    const kvStore = await this.#makeKVStore(`[vat-${this.id}]`, this.id);
     const syscall = makeSupervisorSyscall(this, kvStore);
     const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real

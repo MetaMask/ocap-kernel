@@ -1,5 +1,6 @@
 import type { Json } from '@metamask/utils';
-import type { ClusterConfig, Kernel, KVStore } from '@ocap/kernel';
+import type { ClusterConfig, Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 
 import type { CommandHandler } from '../command-registry.js';
 import {

@@ -7,6 +7,7 @@ import {
   VatAlreadyExistsError,
   VatNotFoundError,
 } from '@ocap/errors';
+import type { KVStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
@@ -26,7 +27,7 @@ import {
   isPromiseRef,
   makeKernelStore,
 } from './store/kernel-store.js';
-import type { KernelStore, KVStore } from './store/kernel-store.js';
+import type { KernelStore } from './store/kernel-store.js';
 import type {
   VatId,
   VRef,

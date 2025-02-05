@@ -1,4 +1,4 @@
-import type { KVStore } from '../src/store/kernel-store.js';
+import type { KVStore } from '@ocap/store';
 
 /**
  * A mock key/value store realized as a Map<string, string>.

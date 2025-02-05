@@ -7,9 +7,9 @@ import type {
   VatOneResolution,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import type { KVStore } from '@ocap/store';
 
 import type { Syscall, SyscallResult } from './ag-liveslots-types.js';
-import type { KVStore } from './store/kernel-store.js';
 import type { VatSupervisor } from './VatSupervisor.ts';
 
 /**
