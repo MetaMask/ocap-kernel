@@ -1,6 +1,6 @@
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
 import { Kernel } from '@ocap/kernel';
-import { makeSQLKVStore } from '@ocap/store/sqlite/native';
+import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 

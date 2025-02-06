@@ -2,7 +2,7 @@ import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
 import { VatSupervisor } from '@ocap/kernel';
-import { makeSQLKVStore } from '@ocap/store/sqlite/native';
+import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { makeLogger } from '@ocap/utils';
 
 import { makeCommandStream } from './streams';

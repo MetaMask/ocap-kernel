@@ -6,7 +6,7 @@
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
-      "@ocap/store/sqlite/native": ["../store/src/sqlite/native.ts"],
+      "@ocap/store/sqlite/nodejs": ["../store/src/sqlite/nodejs.ts"],
       "@ocap/store/sqlite/wasm": ["../store/src/sqlite/wasm.ts"],
       "@ocap/*": ["../*/src"]
     }

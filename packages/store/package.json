@@ -23,14 +23,14 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./sqlite/native": {
+    "./sqlite/nodejs": {
       "import": {
-        "types": "./dist/sqlite/native.d.mts",
-        "default": "./dist/sqlite/native.mjs"
+        "types": "./dist/sqlite/nodejs.d.mts",
+        "default": "./dist/sqlite/nodejs.mjs"
       },
       "require": {
-        "types": "./dist/sqlite/native.d.cts",
-        "default": "./dist/sqlite/native.cjs"
+        "types": "./dist/sqlite/nodejs.d.cts",
+        "default": "./dist/sqlite/nodejs.cjs"
       }
     },
     "./sqlite/wasm": {
