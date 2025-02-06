@@ -75,9 +75,9 @@ const makeTerminateAllReply = (messageId: `m${number}`): MessageEvent =>
 
 describe('ExtensionVatWorkerClient', () => {
   it('constructs with default logger', () => {
-    const client = new ExtensionVatWorkerClient(
-      {} as unknown as VatWorkerClientStream,
-    );
+    const client = new ExtensionVatWorkerClient({
+      stream: {} as unknown as VatWorkerClientStream,
+    });
     expect(client).toBeDefined();
   });
 
@@ -98,10 +98,10 @@ describe('ExtensionVatWorkerClient', () => {
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
       clientLogger = makeLogger('[test client]');
-      client = new ExtensionVatWorkerClient(
-        stream as unknown as VatWorkerClientStream,
-        clientLogger,
-      );
+      client = new ExtensionVatWorkerClient({
+        stream: stream as unknown as VatWorkerClientStream,
+        logger: clientLogger,
+      });
       client.start().catch((error) => {
         throw error;
       });

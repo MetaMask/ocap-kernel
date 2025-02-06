@@ -37,10 +37,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
    * @param args.workerFilePath - An optional path to a file defining the worker's routine. Defaults to 'vat-worker.mjs'.
    * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
    */
-  constructor(args: {
-    workerFilePath?: string | undefined;
-    logger?: Logger | undefined;
-  }) {
+  constructor(args: { workerFilePath?: string; logger?: Logger }) {
     this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
     this.#logger = args.logger ?? makeLogger('[vat worker service]');
   }

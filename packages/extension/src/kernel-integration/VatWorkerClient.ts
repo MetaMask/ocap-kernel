@@ -64,12 +64,13 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
    *
    * @see {@link ExtensionVatWorkerServer} for the other end of the service.
    *
-   * @param stream - The stream to use for communication with the server.
-   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   * @param args - An options bag
+   * @param args.stream - The stream to use for communication with the server.
+   * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
    */
-  constructor(stream: VatWorkerClientStream, logger?: Logger) {
-    this.#stream = stream;
-    this.#logger = logger ?? makeLogger('[vat worker client]');
+  constructor(args: { stream: VatWorkerClientStream; logger?: Logger }) {
+    this.#stream = args.stream;
+    this.#logger = args.logger ?? makeLogger('[vat worker client]');
   }
 
   /**
@@ -92,7 +93,8 @@ export class ExtensionVatWorkerClient implements VatWorkerService {
         message instanceof MessageEvent &&
         isVatWorkerServiceReply(message.data),
     });
-    return new ExtensionVatWorkerClient(stream, logger);
+    const args = logger ? { stream, logger } : { stream };
+    return new ExtensionVatWorkerClient(args);
   }
 
   /**

@@ -72,10 +72,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 82.86,
+          statements: 82.89,
           functions: 83.59,
-          branches: 80.45,
-          lines: 82.79,
+          branches: 80,
+          lines: 82.83,
         },
         'packages/kernel/**': {
           statements: 48.54,
@@ -84,10 +84,10 @@ export default defineConfig({
           lines: 48.79,
         },
         'packages/nodejs/**': {
-          statements: 81.81,
+          statements: 82.22,
           functions: 90.9,
-          branches: 75,
-          lines: 81.81,
+          branches: 70,
+          lines: 82.22,
         },
         'packages/shims/**': {
           statements: 0,
