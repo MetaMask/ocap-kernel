@@ -33,10 +33,12 @@ const getWikiContent = async (path: string) => {
 }
 
 export const makeConfig = async (
+  users: string,
+  bootstrap: string,
   model: Model,
   verbose: boolean = false,
 ): Promise<ClusterConfig> => ({
-  bootstrap: 'user',
+  bootstrap,
   vats: {
     // The LLM vat with the special ollama vat power. 
     ollama: {
@@ -51,9 +53,10 @@ export const makeConfig = async (
       },
     },
     // The bootstrap vat representing a user action.
-    user: {
+    [name]: {
       bundleSpec: makeBundleSpec('user'),
       parameters: {
+        name,
         prompt: [
           'Describe the "confused deputy problem".',
           'Then, define "object capability model" (OCAP).',

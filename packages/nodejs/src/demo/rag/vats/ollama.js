@@ -41,15 +41,29 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       thisWiki = wiki;
     },
     async chat(prompt) {
-      if (verbose) {  
-        console.log('chat');
-        console.time('llm');
+      const { log, time, timeEnd } = verbose
+        ? { ...console }
+        : {
+          log: () => {},
+          time: () => {},
+          timeEnd: () => {},
+        };
+
+      const bigLog = (title, message) => {
+        const banner = title.map(() => '-').join('');
+        log(`\n${banner}`);
+        log(title);
+        log(message);
+        log(`${banner}\n`);
       }
+
+      time('llm');
+
       const docs = thisWiki
         ? await E(thisWiki).retrieve(prompt)
         : [];
 
-      console.log('RETRIEVED DOCS', docs);
+      log('RETRIEVED DOCS', docs);
 
       const messages = [
         {
@@ -62,10 +76,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
         { role: 'user', content: prompt },
       ];
 
-      console.log('\n--------');
-      console.log('MESSAGES')
-      console.log(JSON.stringify(messages, null, 2));
-      console.log('--------\n');
+      bigLog('MESSAGES', JSON.stringify(messages, null, 2));
 
       const response = await ollama.chat({
         model: `${model}-8k`,
@@ -73,15 +84,10 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       });
       const { thought, speech } = parseResponse(response);
 
-      console.log('\n--------');
-      console.log('THOUGHTS');
-      console.log(JSON.stringify(thought.split('\n\n'), null, 2));
-      console.log('--------\n');
-
-      if (verbose) {
-        console.timeEnd('llm');
-        console.debug('Thought:', thought);
-      }
+      bigLog('THOUGHTS', JSON.stringify(thought.split('\n\n'), null, 2));
+      
+      timeEnd('llm');
+      
       return speech;
     },
   });
