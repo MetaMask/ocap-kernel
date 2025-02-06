@@ -2052,7 +2052,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
     yargs: "npm:^17.7.2"
   bin:
     ocap: ./dist/app.mjs
@@ -2095,7 +2095,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2160,7 +2160,7 @@ __metadata:
     vite: "npm:^6.0.11"
     vite-plugin-checker: "npm:^0.8.0"
     vite-plugin-static-copy: "npm:^2.2.0"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2208,7 +2208,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2268,7 +2268,7 @@ __metadata:
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
     vite-tsconfig-paths: "npm:^5.1.4"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
     vitest-fetch-mock: "npm:^0.4.3"
     webextension-polyfill: "npm:^0.12.0"
     yargs: "npm:^17.7.2"
@@ -2315,7 +2315,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2351,7 +2351,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2437,7 +2437,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -2467,7 +2467,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
     vitest-fetch-mock: "npm:^0.4.3"
   languageName: unknown
   linkType: soft
@@ -2510,7 +2510,7 @@ __metadata:
     typescript: "npm:~5.5.4"
     typescript-eslint: "npm:^8.8.1"
     vite: "npm:^6.0.11"
-    vitest: "npm:3.0.5"
+    vitest: "npm:^3.0.5"
   languageName: unknown
   linkType: soft
 
@@ -11911,7 +11911,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:3.0.5, vitest@npm:^3.0.5":
+"vitest@npm:^3.0.5":
   version: 3.0.5
   resolution: "vitest@npm:3.0.5"
   dependencies:
