@@ -149,6 +149,5 @@ export async function getDBFilename(label: string): Promise<string> {
   }
   const dbRoot = join(tmpdir(), './ocap-sqlite');
   await mkdir(dbRoot, { recursive: true });
-  console.log('dbRoot:', dbRoot);
   return join(dbRoot, label);
 }
