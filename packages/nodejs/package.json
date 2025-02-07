@@ -20,7 +20,6 @@
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
-    "build:e2e": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
