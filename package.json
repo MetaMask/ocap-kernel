@@ -64,7 +64,7 @@
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
     "@types/lodash": "^4.17.7",
-    "@types/node": "^22.10.1",
+    "@types/node": "^22.13.1",
     "@types/setimmediate": "^1.0.4",
     "@types/webextension-polyfill": "^0",
     "@typescript-eslint/eslint-plugin": "^8.8.1",
