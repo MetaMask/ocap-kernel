@@ -271,11 +271,13 @@ describe('Kernel', () => {
       const workerTerminateAllMock = vi
         .spyOn(mockWorkerService, 'terminateAll')
         .mockResolvedValue(undefined);
+      const launchSubclusterMock = vi
+        .spyOn(kernel, 'launchSubcluster')
+        .mockResolvedValueOnce(undefined);
       await kernel.reload();
       expect(terminateMock).toHaveBeenCalledTimes(1);
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
-      expect(initMock).toHaveBeenCalledTimes(2); // Initial launch + reload
-      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
+      expect(launchSubclusterMock).toHaveBeenCalledOnce();
     });
 
     it('should throw if no config exists', async () => {

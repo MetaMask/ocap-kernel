@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/store",
+  "name": "@ocap/kernel-test",
   "version": "0.0.0",
   "private": true,
-  "description": "Ocap Kernel storage abstractions and implementations",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/store#readme",
+  "description": "Run tests on the kernel that involve interaction with vats",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-test#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -23,36 +23,17 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./sqlite/nodejs": {
-      "import": {
-        "types": "./dist/sqlite/nodejs.d.mts",
-        "default": "./dist/sqlite/nodejs.mjs"
-      },
-      "require": {
-        "types": "./dist/sqlite/nodejs.d.cts",
-        "default": "./dist/sqlite/nodejs.cjs"
-      }
-    },
-    "./sqlite/wasm": {
-      "import": {
-        "types": "./dist/sqlite/wasm.d.mts",
-        "default": "./dist/sqlite/wasm.mjs"
-      },
-      "require": {
-        "types": "./dist/sqlite/wasm.d.cts",
-        "default": "./dist/sqlite/wasm.cjs"
-      }
-    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build": "ts-bridge --project tsconfig.build.json --clean && yarn build:vats",
+    "build:vats": "ocap bundle src",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/store",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-test",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist './src/*.bundle'",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
@@ -66,22 +47,15 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
-  "dependencies": {
-    "@ocap/utils": "workspace:^",
-    "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
-    "better-sqlite3": "^11.8.1",
-    "ses": "^1.9.0"
-  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.3",
     "@metamask/auto-changelog": "^4.0.0",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/test-utils": "workspace:^",
+    "@ocap/cli": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
-    "@types/better-sqlite3": "^7.6.12",
     "@typescript-eslint/eslint-plugin": "^8.24.1",
     "@typescript-eslint/parser": "^8.24.1",
     "@typescript-eslint/utils": "^8.24.1",
@@ -95,6 +69,7 @@
     "eslint-plugin-n": "^17.11.1",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^7.1.0",
+    "jsdom": "^24.1.1",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
     "typedoc": "^0.27.6",
@@ -105,5 +80,12 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "dependencies": {
+    "@endo/eventual-send": "^1.2.6",
+    "@endo/marshal": "^1.6.2",
+    "@endo/promise-kit": "^1.1.6",
+    "@ocap/kernel": "workspace:^",
+    "@ocap/shims": "workspace:^"
   }
 }

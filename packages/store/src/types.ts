@@ -9,6 +9,7 @@ export type KVStore = {
 };
 
 export type MakeKVStore = (
-  label?: string,
   dbFilename?: string,
+  label?: string,
+  verbose?: boolean,
 ) => Promise<KVStore>;

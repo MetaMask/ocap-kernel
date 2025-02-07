@@ -87,16 +87,16 @@ export default defineConfig({
           lines: 82.79,
         },
         'packages/kernel/**': {
-          statements: 48.54,
-          functions: 59.6,
-          branches: 36.45,
-          lines: 48.79,
+          statements: 74.47,
+          functions: 69.28,
+          branches: 59.93,
+          lines: 74.84,
         },
         'packages/nodejs/**': {
-          statements: 81.81,
-          functions: 90.9,
-          branches: 75,
-          lines: 81.81,
+          statements: 75,
+          functions: 83.33,
+          branches: 63.63,
+          lines: 75,
         },
         'packages/shims/**': {
           statements: 0,
@@ -105,10 +105,10 @@ export default defineConfig({
           lines: 0,
         },
         'packages/store/**': {
-          statements: 100,
+          statements: 98,
           functions: 100,
-          branches: 100,
-          lines: 100,
+          branches: 91.17,
+          lines: 97.97,
         },
         'packages/streams/**': {
           statements: 100,

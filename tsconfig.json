@@ -15,6 +15,7 @@
     { "path": "./packages/errors" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel" },
+    { "path": "./packages/kernel-test" },
     { "path": "./packages/nodejs" },
     { "path": "./packages/shims" },
     { "path": "./packages/store" },

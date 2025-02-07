@@ -14,32 +14,36 @@ import type { KVStore } from '../types.js';
  *
  * @param dbFilename - The filename of the database to use.
  * @param logger - An optional logger to pass to the Sqlite constructor.
+ * @param verbose - If true, log database activity.
  * @returns The SQLite database object.
  */
 async function initDB(
   dbFilename: string,
   logger: ReturnType<typeof makeLogger>,
+  verbose: boolean,
 ): Promise<Database> {
   const dbPath = await getDBFilename(dbFilename);
   logger.debug('dbPath:', dbPath);
   return new Sqlite(dbPath, {
-    verbose: logger.info,
+    verbose: verbose ? logger.info : undefined,
   });
 }
 
 /**
  * Makes a {@link KVStore} for low-level persistent storage.
  *
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
  * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose - If true, generate logger output; if false, be quiet.
  * @returns The key/value store to base the kernel store on.
  */
 export async function makeSQLKVStore(
-  label: string = '[sqlite]',
   dbFilename: string = 'store.db',
+  label: string = '[sqlite]',
+  verbose: boolean = false,
 ): Promise<KVStore> {
   const logger = makeLogger(label);
-  const db = await initDB(dbFilename, logger);
+  const db = await initDB(dbFilename, logger, verbose);
 
   const sqlKVInit = db.prepare(SQL_QUERIES.CREATE_TABLE);
 

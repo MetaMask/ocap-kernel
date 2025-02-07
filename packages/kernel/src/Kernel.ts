@@ -92,6 +92,10 @@ export class Kernel {
   /** Configuration of the most recently launched vat subcluster (for debug purposes) */
   #mostRecentSubcluster: ClusterConfig | null;
 
+  /** Message results that the kernel itself has subscribed to */
+  readonly #kernelSubscriptions: Map<KRef, (value: CapData<KRef>) => void> =
+    new Map();
+
   /**
    * Construct a new kernel instance.
    *
@@ -638,16 +642,53 @@ export class Kernel {
         this.notify(subscriber, kpid);
       }
       this.#storage.resolveKernelPromise(kpid, rejected, data);
+      const kernelResolve = this.#kernelSubscriptions.get(kpid);
+      if (kernelResolve) {
+        this.#kernelSubscriptions.delete(kpid);
+        kernelResolve(data);
+      }
     }
+  }
+
+  /**
+   * Send a message from the kernel to an object in a vat.
+   *
+   * @param target - The object to which the message is directed.
+   * @param method - The method to be invoked.
+   * @param args - Message arguments.
+   *
+   * @returns a promise for the (CapData encoded) result of the message invocation.
+   */
+  async queueMessageFromKernel(
+    target: KRef,
+    method: string,
+    args: unknown[],
+  ): Promise<CapData<KRef>> {
+    const result = this.#storage.initKernelPromise()[0];
+    const message: Message = {
+      methargs: kser([method, args]),
+      result,
+    };
+    const queueItem: RunQueueItemSend = {
+      type: 'send',
+      target,
+      message,
+    };
+    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
+    this.#kernelSubscriptions.set(result, resolve);
+    this.enqueueRun(queueItem);
+    return promise;
   }
 
   /**
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
-   * @returns A record of the root objects of the vats launched.
+   * @returns a promise for the (CapData encoded) result of the bootstrap message.
    */
-  async launchSubcluster(config: ClusterConfig): Promise<Record<string, KRef>> {
+  async launchSubcluster(
+    config: ClusterConfig,
+  ): Promise<CapData<KRef> | undefined> {
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (config.bootstrap && !config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
@@ -660,22 +701,17 @@ export class Kernel {
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
+    let resultP: Promise<CapData<KRef> | undefined> =
+      Promise.resolve(undefined);
     if (config.bootstrap) {
       const bootstrapRoot = rootIds[config.bootstrap];
       if (bootstrapRoot) {
-        const bootstrapMessage: Message = {
-          methargs: kser(['bootstrap', [roots]]),
-          result: undefined,
-        };
-        const bootstrapItem: RunQueueItemSend = {
-          type: 'send',
-          target: bootstrapRoot,
-          message: bootstrapMessage,
-        };
-        this.enqueueRun(bootstrapItem);
+        resultP = this.queueMessageFromKernel(bootstrapRoot, 'bootstrap', [
+          roots,
+        ]);
       }
     }
-    return rootIds;
+    return resultP;
   }
 
   /**
@@ -800,4 +836,4 @@ export class Kernel {
     return this.#mostRecentSubcluster;
   }
 }
-harden(Kernel);
+// harden(Kernel); // XXX restore this once vitest is able to cope

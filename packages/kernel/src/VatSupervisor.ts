@@ -26,10 +26,14 @@ import { waitUntilQuiescent } from './waitUntilQuiescent.js';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
+// eslint-disable-next-line n/no-unsupported-features/node-builtins
+type FetchBlob = (bundleURL: string) => Promise<Response>;
+
 type SupervisorConstructorProps = {
   id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   makeKVStore: MakeKVStore;
+  fetchBlob?: FetchBlob;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -52,6 +56,9 @@ export class VatSupervisor {
   /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
+  /** Capability to fetch the bundle of code to run in this vat. */
+  readonly #fetchBlob: FetchBlob;
+
   /** Result promises from all syscalls sent to the kernel in the current crank */
   readonly #syscallsInFlight: Promise<unknown>[] = [];
 
@@ -62,12 +69,21 @@ export class VatSupervisor {
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.makeKVStore - Capability to create the store for this vat.
+   * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
-  constructor({ id, commandStream, makeKVStore }: SupervisorConstructorProps) {
+  constructor({
+    id,
+    commandStream,
+    makeKVStore,
+    fetchBlob,
+  }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
     this.#makeKVStore = makeKVStore;
     this.#dispatch = null;
+    const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
+      fetch(bundleURL);
+    this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
 
     Promise.all([
       this.#commandStream.drain(this.handleMessage.bind(this)),
@@ -199,8 +215,8 @@ export class VatSupervisor {
     this.#loaded = true;
 
     const kvStore = await this.#makeKVStore(
-      `[vat-${this.id}]`,
       `vat-${this.id}.db`,
+      `[vat-${this.id}]`,
     );
     const syscall = makeSupervisorSyscall(this, kvStore);
     const vatPowers = {}; // XXX should be something more real
@@ -220,10 +236,9 @@ export class VatSupervisor {
       assert: globalThis.assert,
     };
 
-    console.log('VatSupervisor requested user code load:', vatConfig);
     const { bundleSpec, parameters } = vatConfig;
 
-    const fetched = await fetch(bundleSpec);
+    const fetched = await this.#fetchBlob(bundleSpec);
     if (!fetched.ok) {
       throw Error(`fetch of user code ${bundleSpec} failed: ${fetched.status}`);
     }

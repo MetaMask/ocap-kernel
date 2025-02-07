@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": "./",
+    "emitDeclarationOnly": false,
+    "lib": ["DOM", "ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": []
+  },
+  "references": [
+    { "path": "../streams/tsconfig.build.json" },
+    { "path": "../kernel/tsconfig.build.json" },
+    { "path": "../nodejs/tsconfig.build.json" },
+    { "path": "../utils/tsconfig.build.json" }
+  ],
+  "files": [],
+  "include": ["./src"]
+}
