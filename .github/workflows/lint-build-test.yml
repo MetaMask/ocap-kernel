@@ -173,6 +173,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
+      - name: Rebuild SQLite3
+        run: cd node_modules/better-sqlite3 && yarn build-release
       - run: yarn build
       - run: yarn test:e2e:ci
       - name: Require clean working directory
