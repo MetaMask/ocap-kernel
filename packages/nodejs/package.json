@@ -19,9 +19,8 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean && yarn build:sqlite3",
-    "build:e2e": "ts-bridge --project tsconfig.build.json --clean && yarn build:sqlite3 -f",
-    "build:sqlite3": "scripts/build-sqlite3.sh",
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:e2e": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
