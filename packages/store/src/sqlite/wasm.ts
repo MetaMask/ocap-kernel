@@ -24,18 +24,22 @@ async function initDB(dbFilename: string): Promise<Database> {
 /**
  * Makes a {@link KVStore} for low-level persistent storage.
  *
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
  * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose - If true, generate logger output; if false, be quiet.
  * @returns A key/value store to base higher level stores on.
  */
 export async function makeSQLKVStore(
-  label: string = '[sqlite]',
   dbFilename: string = 'store.db',
+  label: string = '[sqlite]',
+  verbose: boolean = false,
 ): Promise<KVStore> {
   const logger = makeLogger(label);
   const db = await initDB(dbFilename);
 
-  logger.log('Initializing kv store');
+  if (verbose) {
+    logger.log('Initializing kv store');
+  }
 
   db.exec(SQL_QUERIES.CREATE_TABLE);
 
@@ -124,7 +128,9 @@ export async function makeSQLKVStore(
    * Delete all entries from the database.
    */
   function kvClear(): void {
-    logger.log('clearing all kernel state');
+    if (verbose) {
+      logger.log('clearing all kernel state');
+    }
     sqlKVClear.step();
     sqlKVClear.reset();
   }

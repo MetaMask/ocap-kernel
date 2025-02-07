@@ -8,6 +8,7 @@ export type {
   VatWorkerService,
   ClusterConfig,
   VatConfig,
+  KRef,
 } from './types.js';
 export {
   isVatId,

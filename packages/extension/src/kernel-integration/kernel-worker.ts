@@ -68,8 +68,8 @@ async function main(): Promise<void> {
     // with startup wedging and some poor soul is reading through the code
     // trying to diagnose it.
     (async () => {
-      const roots = await kernel.launchSubcluster(defaultSubcluster);
-      console.log(`Subcluster launched: ${JSON.stringify(roots)}`);
+      const result = await kernel.launchSubcluster(defaultSubcluster);
+      console.log(`Subcluster launched: ${JSON.stringify(result)}`);
     })(),
   ]);
 }

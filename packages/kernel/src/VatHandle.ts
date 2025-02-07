@@ -381,7 +381,6 @@ export class VatHandle {
       method: VatCommandMethod.initVat,
       params: this.config,
     });
-    this.#logger.debug('Created');
   }
 
   /**
@@ -433,7 +432,6 @@ export class VatHandle {
   async sendVatCommand<Method extends VatCommand['payload']['method']>(
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
-    this.#logger.debug('Sending message to vat', payload);
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.#unresolvedMessages.set(messageId, { reject, resolve });

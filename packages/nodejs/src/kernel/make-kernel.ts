@@ -11,11 +11,13 @@ import { NodejsVatWorkerService } from './VatWorkerService.js';
  *
  * @param port - The kernel's end of a node:worker_threads MessageChannel
  * @param workerFilePath - The path to a file defining each vat worker's routine.
+ * @param resetStorage - If true, clear kernel storage as part of setting up the kernel.
  * @returns The kernel, initialized.
  */
 export async function makeKernel(
   port: NodeMessagePort,
   workerFilePath?: string,
+  resetStorage: boolean = false,
 ): Promise<Kernel> {
   const nodeStream = new NodeWorkerDuplexStream<
     KernelCommand,
@@ -27,7 +29,9 @@ export async function makeKernel(
   const kvStore = await makeSQLKVStore();
 
   // Create and start kernel.
-  const kernel = new Kernel(nodeStream, vatWorkerClient, kvStore);
+  const kernel = new Kernel(nodeStream, vatWorkerClient, kvStore, {
+    resetStorage,
+  });
   await kernel.init();
 
   return kernel;

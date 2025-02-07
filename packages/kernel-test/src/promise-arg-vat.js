@@ -1,0 +1,94 @@
+import { E } from '@endo/eventual-send';
+import { Far } from '@endo/marshal';
+
+/**
+ * Build function for vats that will run various tests.
+ *
+ * @param {*} _vatPowers - Special powers granted to this vat (not used here).
+ * @param {*} parameters - Initialization parameters from the vat's config object.
+ * @param {*} _baggage - Root of vat's persistent state (not used here).
+ * @returns {*} The root object for the new vat.
+ */
+export function buildRootObject(_vatPowers, parameters, _baggage) {
+  const name = parameters?.name ?? 'anonymous';
+  const test = parameters?.test ?? 'unspecified';
+
+  /**
+   * Print a message to the log.
+   *
+   * @param {string} message - The message to print.
+   */
+  function log(message) {
+    console.log(`${name}: ${message}`);
+  }
+
+  /**
+   * Print a message to the log, tagged as part of the test output.
+   *
+   * @param {string} message - The message to print.
+   */
+  function tlog(message) {
+    console.log(`::> ${name}: ${message}`);
+  }
+
+  log(`buildRootObject`);
+  log(`configuration parameters: ${JSON.stringify(parameters)}`);
+
+  return Far('root', {
+    async bootstrap(vats) {
+      log(`bootstrap start`);
+      tlog(`running test ${test}`);
+      let doneP = Promise.resolve('no activity');
+      if (!['promiseArg1', 'promiseArg2', 'promiseArg3'].includes(test)) {
+        throw Error(`unknown test ${test}`);
+      }
+      let resolver;
+      const param = new Promise((resolve, _reject) => {
+        resolver = resolve;
+      });
+      if (test === 'promiseArg2') {
+        tlog(`resolving the promise that will be sent to Bob`);
+        resolver(`${name} said hi before send`);
+      }
+      tlog(`sending the promise to Bob`);
+      const responseFromBob = E(vats.bob).hereIsAPromise(param);
+      if (test === 'promiseArg1') {
+        tlog(`resolving the promise that was sent to Bob`);
+        resolver(`${name} said hi after send`);
+      }
+      tlog(`awaiting Bob's response`);
+      doneP = responseFromBob.then(
+        (res) => {
+          const [bobDoneP, bobDoneMsg] = res;
+          tlog(`Bob's response to hereIsAPromise: '${bobDoneMsg}'`);
+          if (test === 'promiseArg3') {
+            tlog(`resolving the promise that was sent to Bob`);
+            resolver(`${name} said hi after Bob's reply`);
+          }
+          return bobDoneP;
+        },
+        (rej) => {
+          tlog(`Bob's response to hereIsAPromise rejected as '${rej}'`);
+          return 'bobFail';
+        },
+      );
+      log(`bootstrap done`);
+      return await doneP;
+    },
+    async hereIsAPromise(promise) {
+      log(`hereIsAPromise start`);
+      const doneP = promise.then(
+        (res) => {
+          tlog(`the promise parameter resolved to '${res}'`);
+          return 'bobPSucc';
+        },
+        (rej) => {
+          tlog(`the promise parameter rejected as '${rej}'`);
+          return 'bobPFail';
+        },
+      );
+      log(`hereIsAPromise done`);
+      return [doneP, `${name}.hereIsAPromise done`];
+    },
+  });
+}

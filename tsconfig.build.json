@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/cli/tsconfig.build.json" },
     { "path": "./packages/errors/tsconfig.build.json" },
+    { "path": "./packages/kernel-test/tsconfig.build.json" },
     { "path": "./packages/kernel/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
     { "path": "./packages/store/tsconfig.build.json" },
