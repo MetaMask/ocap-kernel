@@ -5,7 +5,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "lib": ["DOM", "ES2022"],
-    "types": ["chrome", "ses"]
+    "types": ["node", "ses"]
   },
   "references": [
     { "path": "../utils/tsconfig.build.json" },
