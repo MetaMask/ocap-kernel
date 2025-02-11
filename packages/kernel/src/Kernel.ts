@@ -67,6 +67,9 @@ type MessageRoute = {
   target: KRef;
 } | null;
 
+const clip = (content: string, length = 10) => 
+  `${content.substring(0, length)}${content.length > length ? '...' : ''}`;
+
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
   readonly #commandStream: DuplexStream<KernelCommand, KernelCommandReply>;
@@ -476,6 +479,7 @@ export class Kernel {
    */
   async #deliver(item: RunQueueItem): Promise<void> {
     const { log } = console;
+    const glimpse = (obj: unknown) => clip(JSON.stringify(obj));
     switch (item.type) {
       case 'send': {
         const route = this.#routeMessage(item);
@@ -483,7 +487,7 @@ export class Kernel {
           const { vatId, target } = route;
           const { message } = item;
           log(
-            `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
+            `@@@@ deliver ${vatId} send ${target}<-${glimpse(message)}`,
           );
           if (vatId) {
             const vat = this.#getVat(vatId);
@@ -503,7 +507,7 @@ export class Kernel {
           } else {
             this.#storage.enqueuePromiseMessage(target, message);
           }
-          log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
+          log(`@@@@ done ${vatId} send ${target}<-${glimpse(message)}`);
         }
         break;
       }
