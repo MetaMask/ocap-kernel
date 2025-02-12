@@ -18,6 +18,7 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
+import { parseRef } from './store/kernel-store.ts';
 import type { KernelStore } from './store/kernel-store.ts';
 import type {
   PromiseCallbacks,
@@ -313,6 +314,86 @@ export class VatHandle {
   }
 
   /**
+   * Handle a 'dropImports' syscall from the vat.
+   *
+   * @param krefs - The KRefs of the imports to be dropped.
+   */
+  #handleSyscallDropImports(krefs: KRef[]): void {
+    for (const kref of krefs) {
+      const { direction, isPromise } = parseRef(kref);
+      // We validate it's an import - meaning this vat received this object from somewhere else
+      if (direction === 'export' || isPromise) {
+        throw Error(
+          `vat ${this.vatId} issued invalid syscall dropImports for ${kref}`,
+        );
+      }
+      // Decrement the refCount and delete the object if it's now zero
+      const newCount = this.#storage.decRefCount(kref);
+      if (newCount === 0) {
+        this.#storage.deleteKernelObject(kref);
+      }
+    }
+  }
+
+  /**
+   * Handle a 'retireImports' syscall from the vat.
+   *
+   * @param krefs - The KRefs of the imports to be retired.
+   */
+  #handleSyscallRetireImports(krefs: KRef[]): void {
+    for (const kref of krefs) {
+      const { direction, isPromise } = parseRef(kref);
+      // We validate it's an import - meaning this vat received this object from somewhere else
+      if (direction === 'export' || isPromise) {
+        throw Error(
+          `vat ${this.vatId} issued invalid syscall retireImports for ${kref}`,
+        );
+      }
+      // Check that the refCount is 0 before retiring
+      const refCount = this.#storage.getRefCount(kref);
+      if (refCount > 0) {
+        throw Error(
+          `syscall.retireImports but ${kref} still has references (count: ${refCount})`,
+        );
+      }
+      // Delete the object from storage
+      this.#storage.deleteKernelObject(kref);
+    }
+  }
+
+  /**
+   * Handle retiring or abandoning exports syscall from the vat.
+   *
+   * @param krefs - The KRefs of the exports to be retired/abandoned.
+   * @param checkRefCount - If true, verify refCount is 0 (retire). If false, ignore refCount (abandon).
+   */
+  #handleSyscallExportCleanup(krefs: KRef[], checkRefCount: boolean): void {
+    const action = checkRefCount ? 'retire' : 'abandon';
+
+    for (const kref of krefs) {
+      const { direction, isPromise } = parseRef(kref);
+      // We validate it's an export - meaning this vat created/owns this object
+      if (direction === 'import' || isPromise) {
+        throw Error(
+          `vat ${this.vatId} issued invalid syscall ${action}Exports for ${kref}`,
+        );
+      }
+      if (checkRefCount) {
+        // Check that the refCount is 0 before retiring
+        const refCount = this.#storage.getRefCount(kref);
+        if (refCount > 0) {
+          throw Error(
+            `syscall.${action}Exports but ${kref} still has references (count: ${refCount})`,
+          );
+        }
+      }
+      // Delete the object from storage
+      this.#storage.deleteKernelObject(kref);
+      this.#logger.debug(`${action}Exports: deleted object ${kref}`);
+    }
+  }
+
+  /**
    * Handle a syscall from the vat.
    *
    * @param vso - The syscall that was received.
@@ -354,24 +435,28 @@ export class VatHandle {
         // [KRef[]];
         const [, refs] = kso;
         log(`@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`);
+        this.#handleSyscallDropImports(refs);
         break;
       }
       case 'retireImports': {
         // [KRef[]];
         const [, refs] = kso;
         log(`@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`);
+        this.#handleSyscallRetireImports(refs);
         break;
       }
       case 'retireExports': {
         // [KRef[]];
         const [, refs] = kso;
         log(`@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`);
+        this.#handleSyscallExportCleanup(refs, true);
         break;
       }
       case 'abandonExports': {
         // [KRef[]];
         const [, refs] = kso;
         log(`@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`);
+        this.#handleSyscallExportCleanup(refs, false);
         break;
       }
       case 'callNow':
