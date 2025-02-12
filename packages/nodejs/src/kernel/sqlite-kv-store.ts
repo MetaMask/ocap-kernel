@@ -22,15 +22,14 @@ async function initDB(
 ): Promise<Database> {
   const dbPath = join(dbRoot, 'store.db');
   await mkdir(dbRoot, { recursive: true });
-  return new Sqlite(
-    dbPath
-  );
+  return new Sqlite(dbPath);
 }
 
 /**
  * Makes a {@link KVStore} for low-level persistent storage.
  *
  * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose
  * @returns The key/value store to base the kernel store on.
  */
 export async function makeSQLKVStore(

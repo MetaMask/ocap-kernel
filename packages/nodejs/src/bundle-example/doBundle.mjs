@@ -1,13 +1,16 @@
 import '@ocap/shims/endoify';
 import bundleSource from '@endo/bundle-source';
-import { resolve } from './lib.mjs';
 import { writeFile } from 'fs/promises';
 
-main(
-  resolve('vat.js'),
-  resolve('vat.bundle'),
-).catch(console.error);
+import { resolve } from './lib.mjs';
 
+main(resolve('vat.js'), resolve('vat.bundle')).catch(console.error);
+
+/**
+ *
+ * @param source
+ * @param target
+ */
 async function main(source, target) {
   console.log('bundleSource', bundleSource);
   const bundle = await bundleSource(source);

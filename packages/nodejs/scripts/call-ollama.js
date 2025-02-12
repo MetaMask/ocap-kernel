@@ -1,6 +1,10 @@
 import { readFile } from 'fs/promises';
 import ollama from 'ollama';
 
+/**
+ *
+ * @param response
+ */
 async function streamResponse(response) {
   const thinkEndToken = '</think>';
   const thinkLabel = 'OLLAMA Thought';
@@ -9,15 +13,12 @@ async function streamResponse(response) {
   let thinkingDotsIndex = 0;
   let thinking = true;
   let accumulatedContent = '';
-  const thinkingInterval = setInterval(
-    () => {
-      process.stdout.clearLine();
-      process.stdout.write(`OLLAMA Thinking${thinkingDots[thinkingDotsIndex]}\r`);
-      thinkingDotsIndex += 1;
-      thinkingDotsIndex %= thinkingDots.length;
-    },
-    dotInterval,
-  );
+  const thinkingInterval = setInterval(() => {
+    process.stdout.clearLine();
+    process.stdout.write(`OLLAMA Thinking${thinkingDots[thinkingDotsIndex]}\r`);
+    thinkingDotsIndex += 1;
+    thinkingDotsIndex %= thinkingDots.length;
+  }, dotInterval);
   console.time(thinkLabel);
   for await (const part of response) {
     accumulatedContent += part.message.content;
@@ -39,11 +40,11 @@ async function streamResponse(response) {
 const getFileContent = async (path) => {
   const resolvedPath = new URL(path, import.meta.url).pathname;
   return (await readFile(resolvedPath)).toString();
-}
+};
 
 /**
  * The main function for the script.
- * 
+ *
  * @param {*} param0 - An arguments bag.
  * @param { string } param0.model - The model to pull and use.
  * @param { string } param0.prompt - The prompt to give the model.
@@ -56,27 +57,36 @@ async function main({ model, prompt }) {
   console.log('OLLAMA', 'pull');
 
   await ollama.pull({ model });
-  
+
   console.log('USER:', prompt);
 
   const response = await ollama.chat({
     model, // Specify the model you want to use
     messages: [
-      { role: 'admin', content: [
-        `You are an instance of LLM model ${model}.`,
-        `Respond to user requests ${'respectfully'} and ${'informatively'}.`,
-      ].join(' ')},
-      { role: 'admin', content: [
-        'The following is the raw content of the wikipedia page titled "ambient authority".',
-        await getFileContent('./ambient-authority.txt'),
-      ].join('\n\n')},
-      { role: 'admin', content: [
-        'The following is the raw content of the wikipedia page titled "confused deputy problem".',
-        await getFileContent('./confused-deputy-problem.txt'),
-      ].join('\n\n')},
-      { role: 'user', content: prompt }
+      {
+        role: 'admin',
+        content: [
+          `You are an instance of LLM model ${model}.`,
+          `Respond to user requests ${'respectfully'} and ${'informatively'}.`,
+        ].join(' '),
+      },
+      {
+        role: 'admin',
+        content: [
+          'The following is the raw content of the wikipedia page titled "ambient authority".',
+          await getFileContent('./ambient-authority.txt'),
+        ].join('\n\n'),
+      },
+      {
+        role: 'admin',
+        content: [
+          'The following is the raw content of the wikipedia page titled "confused deputy problem".',
+          await getFileContent('./confused-deputy-problem.txt'),
+        ].join('\n\n'),
+      },
+      { role: 'user', content: prompt },
     ], // The message to send
-    stream: true // Enable streaming
+    stream: true, // Enable streaming
   });
 
   await streamResponse(response).catch(console.error);
@@ -85,6 +95,6 @@ async function main({ model, prompt }) {
 
 const model = 'deepseek-r1:1.5b';
 
-const [,, prompt] = process.argv;
+const [, , prompt] = process.argv;
 
 main({ model, prompt }).catch(console.error);

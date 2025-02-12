@@ -5,9 +5,8 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
-    "noEmit": true,
     "skipLibCheck": true,
-    "types": ["chrome", "ses", "vitest"]
+    "types": ["node", "ses", "vitest"]
   },
   "references": [
     { "path": "../streams" },

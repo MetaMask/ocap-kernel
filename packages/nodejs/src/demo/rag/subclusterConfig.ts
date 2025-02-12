@@ -1,73 +1,73 @@
-
-import { TextLoader } from "langchain/document_loaders/fs/text";
-import type { ClusterConfig } from "@ocap/kernel";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import type { Document } from '@langchain/core/documents';
-import type { Json } from "@metamask/utils";
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import type { VatConfig } from '@ocap/kernel';
+import { TextLoader } from 'langchain/document_loaders/fs/text';
+import { join } from 'path';
 
 type ModelSize = '1.5b' | '7b' | '8b' | '14b' | '32b' | '70b' | '671b';
-type Model = `deepseek-r1:${ModelSize}`;
+type Model = `deepseek-r1:${ModelSize}${string}`;
 
 const makeBundleSpec = (name: string) => `http://localhost:3000/${name}.bundle`;
 
-// XXX Todo: RAG in a separate vat, with introduction at bootstrap time. 
-const getWikiContent = async (path: string) => {
-  const resolvedPath = new URL(join('wiki', path), import.meta.url).pathname.replace(/\/dist\//, '/src/');
+const getWikiContent = async ({
+  path,
+  secrecy,
+}: {
+  path: string;
+  secrecy: number;
+}) => {
+  const resolvedPath = new URL(
+    join('wiki', path),
+    import.meta.url,
+  ).pathname.replace(/\/dist\//, '/src/');
   const loader = new TextLoader(resolvedPath);
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 384,
     chunkOverlap: 64,
   });
   const splitDocs = await splitter.splitDocuments(await loader.load());
-  console.log('\n----------');
-  console.log('SPLIT DOCS');
-  console.log('path:', path);
-  console.log(JSON.stringify(splitDocs, null, 2));
-  console.log('----------\n');
   return splitDocs.map((document) => ({
     pageContent: document.pageContent,
-    metadata: { source: path },
+    metadata: { secrecy, source: path },
   }));
-}
+};
 
-export const makeConfig = async (
-  users: string,
-  bootstrap: string,
-  model: Model,
-  verbose: boolean = false,
-): Promise<ClusterConfig> => ({
-  bootstrap,
-  vats: {
-    // The LLM vat with the special ollama vat power. 
-    ollama: {
-      bundleSpec: makeBundleSpec('ollama'),
-      parameters: { model, verbose },
-    },
-    // A mock wikipedia API which returns the content of a few wikipedia pages.
-    wiki: {
-      bundleSpec: makeBundleSpec('wiki'),
-      parameters: {
-        model: 'mxbai-embed-large'
-      },
-    },
-    // The bootstrap vat representing a user action.
+type UserConfig = {
+  model: Model;
+  docs: { path: string; secrecy: number }[];
+  trust: Record<string, number>;
+  verbose?: boolean;
+};
+
+export const makeUserConfig = async (
+  name: string,
+  config: UserConfig,
+): Promise<Record<string, VatConfig>> => {
+  const { model, docs, trust } = config;
+  const verbose = config.verbose ?? false;
+  return {
+    // The vat representing this user agent.
     [name]: {
       bundleSpec: makeBundleSpec('user'),
       parameters: {
         name,
-        prompt: [
-          'Describe the "confused deputy problem".',
-          'Then, define "object capability model" (OCAP).',
-          'Finally, explain how OCAP solves the confused deputy problem.',
-        ].join(' '),
         verbose,
-        docs: [
-          ...await getWikiContent('ambient-authority.txt'),
-          ...await getWikiContent('confused-deputy-problem.txt'),
-        ],
+        docs: (await Promise.all(docs.map(getWikiContent))).flat(),
+        trust,
       },
     },
-  },
-});
+
+    // The LLM vat with the special ollama vat power.
+    [`${name}.llm`]: {
+      bundleSpec: makeBundleSpec('llm'),
+      parameters: { model, verbose },
+    },
+    // A mock wikipedia API which returns the content of a few wikipedia pages.
+    [`${name}.vectorStore`]: {
+      bundleSpec: makeBundleSpec('vectorStore'),
+      parameters: {
+        model: 'mxbai-embed-large',
+        verbose,
+      },
+    },
+  };
+};
