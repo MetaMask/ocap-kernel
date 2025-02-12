@@ -18,7 +18,7 @@ describe('Kernel Worker', () => {
     parameters: { name: vatName },
   });
 
-  it.each(['ollama-static', 'ollama-dynamic'])(
+  it.each(['ollama-static', 'ollama-dynamic', 'local-static'])(
     'launches vat %j',
     async (vatName) => {
       const kernelPort = new NodeMessageChannel().port1;
@@ -26,7 +26,12 @@ describe('Kernel Worker', () => {
       await kernel.clearStorage();
       const vatConfig = getTestVatConfig(vatName);
 
-      await kernel.launchVat(vatConfig);
+      await kernel.launchSubcluster({
+        bootstrap: vatName,
+        vats: {
+          [vatName]: vatConfig,
+        },
+      });
 
       const [vatId]: [VatId] = kernel.getVatIds();
 
