@@ -58,6 +58,11 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { KVStore, VatStore, KernelDatabase } from '@ocap/store';
 
+import { parseRef } from './parse-ref.ts';
+import {
+  buildReachableAndVatSlot,
+  parseReachableAndVatSlot,
+} from './reachable.ts';
 import type {
   VatId,
   RemoteId,
@@ -82,13 +87,6 @@ type StoredQueue = {
   delete(): void;
 };
 
-type RefParts = {
-  context: 'kernel' | 'vat' | 'remote';
-  direction?: 'export' | 'import';
-  isPromise: boolean;
-  index: string;
-};
-
 /**
  * Test if a KRef designates a promise.
  *
@@ -98,57 +96,6 @@ type RefParts = {
  */
 export function isPromiseRef(kref: KRef): boolean {
   return kref[1] === 'p';
-}
-
-/**
- * Parse an alleged ref string into its components.
- *
- * @param ref - The string to be parsed.
- *
- * @returns an object with all of the ref string components as individual properties.
- */
-export function parseRef(ref: string): RefParts {
-  let context;
-  let typeIdx = 1;
-
-  switch (ref[0]) {
-    case 'k':
-      context = 'kernel';
-      break;
-    case 'o':
-    case 'p':
-      typeIdx = 0;
-      context = 'vat';
-      break;
-    case 'r':
-      context = 'remote';
-      break;
-    case undefined:
-    default:
-      Fail`invalid reference context ${ref[0]}`;
-  }
-  if (ref[typeIdx] !== 'p' && ref[typeIdx] !== 'o') {
-    Fail`invalid reference type ${ref[typeIdx]}`;
-  }
-  const isPromise = ref[typeIdx] === 'p';
-  let direction;
-  let index;
-  if (context === 'kernel') {
-    index = ref.slice(2);
-  } else {
-    const dirIdx = typeIdx + 1;
-    if (ref[dirIdx] !== '+' && ref[dirIdx] !== '-') {
-      Fail`invalid reference direction ${ref[dirIdx]}`;
-    }
-    direction = ref[dirIdx] === '+' ? 'export' : 'import';
-    index = ref.slice(dirIdx + 1);
-  }
-  return {
-    context,
-    direction,
-    isPromise,
-    index,
-  } as RefParts;
 }
 
 /**
@@ -487,6 +434,48 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
+   * Get the reference counts for a kernel object
+   *
+   * @param kref - The KRef of the object of interest.
+   * @returns The reference counts for the object.
+   */
+  function getObjectRefCount(kref: KRef): {
+    reachable: number;
+    recognizable: number;
+  } {
+    const data = kv.get(`${kref}.refCount`);
+    if (!data) {
+      return { reachable: 0, recognizable: 0 };
+    }
+    const [reachable = 0, recognizable = 0] = data.split(',').map(Number);
+    reachable <= recognizable ||
+      Fail`refMismatch(get) ${kref} ${reachable},${recognizable}`;
+    return { reachable, recognizable };
+  }
+
+  /**
+   * Set the reference counts for a kernel object
+   *
+   * @param kref - The KRef of the object of interest.
+   * @param counts - The reference counts to set.
+   * @param counts.reachable - The reachable reference count.
+   * @param counts.recognizable - The recognizable reference count.
+   */
+  function setObjectRefCount(
+    kref: KRef,
+    counts: { reachable: number; recognizable: number },
+  ): void {
+    const { reachable, recognizable } = counts;
+    assert.typeof(reachable, 'number');
+    assert.typeof(recognizable, 'number');
+    (reachable >= 0 && recognizable >= 0) ||
+      Fail`${kref} underflow ${reachable},${recognizable}`;
+    reachable <= recognizable ||
+      Fail`refMismatch(set) ${kref} ${reachable},${recognizable}`;
+    kv.set(`${kref}.refCount`, `${reachable},${recognizable}`);
+  }
+
+  /**
    * Create a new kernel object.  The new object will be born with reference and
    * recognizability counts of 1, on the assumption that the new object
    * corresponds to an object that has just been imported from somewhere.
@@ -497,7 +486,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   function initKernelObject(owner: EndpointId): KRef {
     const koId = getNextObjectId();
     kv.set(`${koId}.owner`, owner);
-    kv.set(refCountKey(koId), '1');
+    setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
     return koId;
   }
 
@@ -796,6 +785,71 @@ export function makeKernelStore(kdb: KernelDatabase) {
     nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
   }
 
+  /**
+   * Check if a kernel object exists in the kernel's persistent state.
+   *
+   * @param kref - The KRef of the kernel object in question.
+   * @returns True if the kernel object exists, false otherwise.
+   */
+  function kernelObjectExists(kref: KRef): boolean {
+    return Boolean(kv.get(`${kref}.refCount`));
+  }
+
+  /**
+   * Get the key for the reachable flag and vatSlot for a given endpoint and kref.
+   *
+   * @param endpointId - The endpoint for which the reachable flag is being set.
+   * @param kref - The kref.
+   * @returns The key for the reachable flag and vatSlot.
+   */
+  function getReachableVatSlotKey(endpointId: EndpointId, kref: KRef): string {
+    return `${endpointId}.c.${kref}`;
+  }
+
+  /**
+   * Check if a kernel object is reachable.
+   *
+   * @param endpointId - The endpoint for which the reachable flag is being checked.
+   * @param kref - The kref.
+   * @returns True if the kernel object is reachable, false otherwise.
+   */
+  function getReachableFlag(endpointId: EndpointId, kref: KRef): boolean {
+    const key = getReachableVatSlotKey(endpointId, kref);
+    const data = kv.getRequired(key);
+    const { isReachable } = parseReachableAndVatSlot(data);
+    return isReachable;
+  }
+
+  /**
+   * Clear the reachable flag for a given endpoint and kref.
+   *
+   * @param endpointId - The endpoint for which the reachable flag is being cleared.
+   * @param kref - The kref.
+   */
+  function clearReachableFlag(endpointId: EndpointId, kref: KRef): void {
+    const key = getReachableVatSlotKey(endpointId, kref);
+    const { isReachable, vatSlot } = parseReachableAndVatSlot(
+      kv.getRequired(key),
+    );
+    kv.set(key, buildReachableAndVatSlot(false, vatSlot));
+    const { direction, isPromise } = parseRef(vatSlot);
+    // decrement 'reachable' part of refcount, but only for object imports
+    if (
+      isReachable &&
+      !isPromise &&
+      direction === 'export' &&
+      kernelObjectExists(kref)
+    ) {
+      const counts = getObjectRefCount(kref);
+      counts.reachable -= 1;
+      setObjectRefCount(kref, counts);
+      if (counts.reachable === 0) {
+        deleteKernelObject(kref);
+        // TODO: implement addMaybeFreeKref(kref);
+      }
+    }
+  }
+
   return harden({
     enqueueRun,
     dequeueRun,
@@ -803,10 +857,15 @@ export function makeKernelStore(kdb: KernelDatabase) {
     getNextVatId,
     getNextRemoteId,
     initEndpoint,
-    getRefCount,
+    getRefCount, // For promises
     incRefCount,
     decRefCount,
+    getObjectRefCount, // For objects
+    setObjectRefCount, // For objects
     initKernelObject,
+    kernelObjectExists,
+    getReachableFlag,
+    clearReachableFlag,
     getOwner,
     deleteKernelObject,
     initKernelPromise,

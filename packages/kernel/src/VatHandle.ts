@@ -18,8 +18,8 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
-import { parseRef } from './store/kernel-store.ts';
 import type { KernelStore } from './store/kernel-store.ts';
+import { parseRef } from './store/parse-ref.ts';
 import type {
   PromiseCallbacks,
   VatId,
@@ -327,11 +327,7 @@ export class VatHandle {
           `vat ${this.vatId} issued invalid syscall dropImports for ${kref}`,
         );
       }
-      // Decrement the refCount and delete the object if it's now zero
-      const newCount = this.#storage.decRefCount(kref);
-      if (newCount === 0) {
-        this.#storage.deleteKernelObject(kref);
-      }
+      this.#storage.clearReachableFlag(this.vatId, kref);
     }
   }
 
@@ -349,14 +345,10 @@ export class VatHandle {
           `vat ${this.vatId} issued invalid syscall retireImports for ${kref}`,
         );
       }
-      // Check that the refCount is 0 before retiring
-      const refCount = this.#storage.getRefCount(kref);
-      if (refCount > 0) {
-        throw Error(
-          `syscall.retireImports but ${kref} still has references (count: ${refCount})`,
-        );
+      if (this.#storage.getReachableFlag(this.vatId, kref)) {
+        throw Error(`syscall.retireImports but ${kref} is still reachable`);
       }
-      // Delete the object from storage
+      // TODO: instead of deleting the object from storage, we should deleteCListEntry
       this.#storage.deleteKernelObject(kref);
     }
   }
@@ -365,10 +357,10 @@ export class VatHandle {
    * Handle retiring or abandoning exports syscall from the vat.
    *
    * @param krefs - The KRefs of the exports to be retired/abandoned.
-   * @param checkRefCount - If true, verify refCount is 0 (retire). If false, ignore refCount (abandon).
+   * @param checkReachable - If true, verify the object is not reachable (retire). If false, ignore reachability (abandon).
    */
-  #handleSyscallExportCleanup(krefs: KRef[], checkRefCount: boolean): void {
-    const action = checkRefCount ? 'retire' : 'abandon';
+  #handleSyscallExportCleanup(krefs: KRef[], checkReachable: boolean): void {
+    const action = checkReachable ? 'retire' : 'abandon';
 
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
@@ -378,16 +370,15 @@ export class VatHandle {
           `vat ${this.vatId} issued invalid syscall ${action}Exports for ${kref}`,
         );
       }
-      if (checkRefCount) {
+      if (checkReachable) {
         // Check that the refCount is 0 before retiring
-        const refCount = this.#storage.getRefCount(kref);
-        if (refCount > 0) {
+        if (this.#storage.getReachableFlag(this.vatId, kref)) {
           throw Error(
-            `syscall.${action}Exports but ${kref} still has references (count: ${refCount})`,
+            `syscall.${action}Exports but ${kref} is still reachable`,
           );
         }
       }
-      // Delete the object from storage
+      // TODO: instead of deleting the object from storage, we should deleteCListEntry
       this.#storage.deleteKernelObject(kref);
       this.#logger.debug(`${action}Exports: deleted object ${kref}`);
     }

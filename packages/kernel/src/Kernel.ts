@@ -22,12 +22,9 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
-import {
-  parseRef,
-  isPromiseRef,
-  makeKernelStore,
-} from './store/kernel-store.ts';
+import { isPromiseRef, makeKernelStore } from './store/kernel-store.ts';
 import type { KernelStore } from './store/kernel-store.ts';
+import { parseRef } from './store/parse-ref.ts';
 import type {
   VatId,
   VRef,
