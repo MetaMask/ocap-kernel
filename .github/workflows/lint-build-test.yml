@@ -173,6 +173,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
       - run: yarn --immutable
+      - run: yarn install
       - run: yarn build
       - run: yarn test:e2e:ci
       - name: Require clean working directory

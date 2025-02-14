@@ -111,7 +111,6 @@
     "allowScripts": {
       "$root$": true,
       "@lavamoat/preinstall-always-fail": false,
-      "better-sqlite3>install": true,
       "simple-git-hooks": false,
       "tsx>esbuild": false,
       "vite>esbuild": false,
