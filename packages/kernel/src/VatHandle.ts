@@ -348,8 +348,9 @@ export class VatHandle {
       if (this.#storage.getReachableFlag(this.vatId, kref)) {
         throw Error(`syscall.retireImports but ${kref} is still reachable`);
       }
-      // TODO: instead of deleting the object from storage, we should deleteCListEntry
-      this.#storage.deleteKernelObject(kref);
+      // deleting the clist entry will decrement the recognizable count, but
+      // not the reachable count (because it was unreachable, as we asserted)
+      this.#storage.forgetKref(this.vatId, kref);
     }
   }
 
@@ -371,15 +372,13 @@ export class VatHandle {
         );
       }
       if (checkReachable) {
-        // Check that the refCount is 0 before retiring
         if (this.#storage.getReachableFlag(this.vatId, kref)) {
           throw Error(
             `syscall.${action}Exports but ${kref} is still reachable`,
           );
         }
       }
-      // TODO: instead of deleting the object from storage, we should deleteCListEntry
-      this.#storage.deleteKernelObject(kref);
+      this.#storage.forgetKref(this.vatId, kref);
       this.#logger.debug(`${action}Exports: deleted object ${kref}`);
     }
   }
