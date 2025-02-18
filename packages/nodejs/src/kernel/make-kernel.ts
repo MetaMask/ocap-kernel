@@ -25,6 +25,7 @@ export async function makeKernel(
 
   // Initialize kernel store.
   const kvStore = await makeSQLKVStore();
+  kvStore.clear();
 
   // Create and start kernel.
   const kernel = new Kernel(nodeStream, vatWorkerClient, kvStore);
