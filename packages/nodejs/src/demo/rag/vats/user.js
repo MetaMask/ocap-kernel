@@ -60,6 +60,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
    * Validate that the JSON response meets its schema, given some parameters.
    *
    * XXX This validation logic is hardcoded.
+   * XXX Ideal would be to have a tree-shaken langchainjs import available
    *
    * @param {*} response - The response to be validated.
    * @param {*} params - Parameters for validating the response.
