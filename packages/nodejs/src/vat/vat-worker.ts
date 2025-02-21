@@ -5,7 +5,7 @@ import { VatSupervisor } from '@ocap/kernel';
 import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { makeLogger } from '@ocap/utils';
 
-import { makeCommandStream } from './streams';
+import { makeCommandStream } from './streams.js';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 

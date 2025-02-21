@@ -63,7 +63,7 @@ describe('handlePanelMessage', () => {
 
   describe('vat management commands', () => {
     it('should handle launchVat command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-1',
         payload: {
@@ -91,7 +91,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle invalid vat configuration', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       setMockBehavior({ isVatConfig: false });
 
       const message: KernelControlCommand = {
@@ -121,7 +121,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle restartVat command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-3',
         payload: {
@@ -147,7 +147,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle invalid vat ID for restartVat command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       setMockBehavior({ isVatId: false });
 
       const message: KernelControlCommand = {
@@ -177,7 +177,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle terminateVat command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-5',
         payload: {
@@ -203,7 +203,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle terminateAllVats command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-6',
         payload: {
@@ -231,7 +231,7 @@ describe('handlePanelMessage', () => {
 
   describe('status command', () => {
     it('should handle getStatus command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-7',
         payload: {
@@ -275,7 +275,7 @@ describe('handlePanelMessage', () => {
 
   describe('sendVatCommand command', () => {
     it('should handle vat commands', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-11',
         payload: {
@@ -307,7 +307,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle invalid command payload', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const kernel = await import('@ocap/kernel');
       const kernelSpy = vi.spyOn(kernel, 'isKernelCommand');
       kernelSpy.mockReturnValue(false);
@@ -338,7 +338,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle missing vat ID', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const kernel = await import('@ocap/kernel');
       const isVatIdSpy = vi.spyOn(kernel, 'isVatId');
       isVatIdSpy.mockReturnValue(false);
@@ -371,7 +371,7 @@ describe('handlePanelMessage', () => {
 
   describe('error handling', () => {
     it('should handle unknown method', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-14',
         payload: {
@@ -396,7 +396,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle kernel errors', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const error = new Error('Kernel error');
       vi.mocked(mockKernel.launchVat).mockRejectedValue(error);
 
@@ -442,7 +442,7 @@ describe('handlePanelMessage', () => {
 
   describe('clearState command', () => {
     it('should handle clearState command', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       const message: KernelControlCommand = {
         id: 'test-16',
         payload: {
@@ -468,7 +468,7 @@ describe('handlePanelMessage', () => {
     });
 
     it('should handle clearState errors', async () => {
-      const { handlePanelMessage } = await import('./handle-panel-message');
+      const { handlePanelMessage } = await import('./handle-panel-message.js');
       vi.mocked(mockKernel.reset).mockRejectedValue(new Error('Reset failed'));
 
       const message: KernelControlCommand = {

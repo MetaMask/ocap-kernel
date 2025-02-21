@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { isVatConfig } from './types';
+import { isVatConfig } from './types.js';
 
 describe('isVatConfig', () => {
   it.each([
