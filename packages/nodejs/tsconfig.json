@@ -24,6 +24,6 @@
     "./test/workers/*.js",
     "./vitest.config.ts",
     "./vitest.config.e2e.ts",
-    "./vitest.config.llm.ts",
+    "./vitest.config.llm.ts"
   ]
 }

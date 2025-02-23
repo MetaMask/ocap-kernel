@@ -1,4 +1,3 @@
-{{short description|Term used in the study of access control systems}}
 '''Ambient authority''' is a term used in the study of [[access control]] systems.
 
 == Definition ==

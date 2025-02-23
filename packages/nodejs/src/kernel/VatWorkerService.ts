@@ -10,6 +10,9 @@ import { NodeWorkerDuplexStream } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
 import { makeLogger } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
+import { mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -19,10 +22,20 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
+export type MakeDocumentRoot = (vatId: VatId) => Promise<string>;
+
+const makeDocumentRootDefault = async (vatId: VatId) => {
+  const root = join(tmpdir(), 'vats', vatId);
+  await mkdir(root, { recursive: true });
+  return root;
+} 
+
 export class NodejsVatWorkerService implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #workerFilePath: string;
+
+  readonly #makeDocumentRoot: MakeDocumentRoot; 
 
   workers = new Map<
     VatId,
@@ -39,9 +52,11 @@ export class NodejsVatWorkerService implements VatWorkerService {
    */
   constructor(args: {
     workerFilePath?: string | undefined;
+    makeDocumentRoot?: MakeDocumentRoot | undefined;
     logger?: Logger | undefined;
   }) {
     this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
+    this.#makeDocumentRoot = args.makeDocumentRoot ?? makeDocumentRootDefault;
     this.#logger = args.logger ?? makeLogger('[vat worker service]');
   }
 
@@ -54,6 +69,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
     const worker = new NodeWorker(this.#workerFilePath, {
       env: {
         NODE_VAT_ID: vatId,
+        NODE_DOCUMENT_ROOT: await this.#makeDocumentRoot(vatId),
       },
     });
     worker.once('online', () => {

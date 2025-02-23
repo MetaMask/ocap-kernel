@@ -1,5 +1,6 @@
 import { Far } from '@endo/marshal';
 import { makePipe } from '@endo/stream';
+import { makeLogger } from '../../../../dist/demo/logger.mjs';
 
 // The default LLM model to use.
 const DEFAULT_MODEL = 'deepseek-r1:7b';
@@ -85,14 +86,10 @@ const parseResponseStream = (response) => {
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
   const model = parameters?.model ?? DEFAULT_MODEL;
-  const { verbose } = parameters;
+  const { name, verbose } = parameters;
   const { ollama } = vatPowers;
 
-  const logger = {
-    log: console.log,
-    debug: verbose ? console.debug : () => {},
-    error: console.error,
-  };
+  const logger = makeLogger({ label: `[${name}.llm]`, verbose });
 
   const logThoughts = async (thoughts, stream, log) => {
     if (stream) {
@@ -156,7 +153,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       return Far('response', { response: result.response });
     },
     async chat(messages, stream) {
-      logger.debug('llm.chat:messages', messages);
+      logger.debug('chat:messages', messages);
       const response = ollama.chat({ model, messages, stream });
       const { thought, speech } = stream
         ? parseResponseStream(response)

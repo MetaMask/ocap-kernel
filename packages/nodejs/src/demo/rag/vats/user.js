@@ -10,7 +10,7 @@ import { Far } from '@endo/marshal';
  * @returns {unknown} The root object for the new vat.
  */
 export function buildRootObject(_vatPowers, parameters, _baggage) {
-  const { name, verbose, trust, docs } = parameters;
+  const { name, verbose, trust } = parameters;
   const stream = false;
 
   const logger = {
@@ -19,10 +19,14 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     error: console.error,
   };
 
-  const vats = {
-    llm: undefined,
-    vectorStore: undefined,
-  };
+  const caps = {
+    languageModel: undefined,
+    documentViews: new Map(),
+  }
+
+  const getDocumentView = (user) => {
+    return caps.documentViews.get(user) ?? caps.documentViews.get('default');
+  }
 
   const messageHistory = [];
   const pushMessage = (message) => messageHistory.push(message);
@@ -30,7 +34,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     messageHistory.filter(({ sender, recipient }) =>
       [sender, recipient].includes(interlocutor),
     );
-  const getTrust = (interlocutor) => trust[interlocutor];
 
   const proposeNextMessageResponseSchema = {
     $schema: 'http://json-schema.org/draft-04/schema#',
@@ -154,6 +157,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       }),
     ];
 
+    logger.debug('knowledge', JSON.stringify(knowledge));
+
     let attempts = 0;
     const failures = [];
     const maxAttempts = 3;
@@ -185,7 +190,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
         ];
         logger.debug('user.proposeNextMessage:messages', messages);
 
-        response = await E(vats.llm).chat(messages, false);
+        response = await E(caps.languageModel).chat(messages, false);
         logger.debug('user.proposeNextMessage:response', response);
 
         const strippedResponse = maybeStripJSONTag(response);
@@ -203,7 +208,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
             'user.proposeNextMessage:parsedResponse',
             parsedResponse,
           );
-        } catch (problem) {
+        } catch {
+          // Let the LLM know its previous response was not valid.
           throw new Error('Response is not valid JSON', {
             cause: {
               type: 'format-invalid',
@@ -244,15 +250,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
    * @param conversationHistory
    */
   async function processMessage(sender, message, conversationHistory) {
-    // Fallaciously assume the caller has truthfully self-identified.
-    const momentaryTrust = getTrust(sender);
-    const access = { secrecy: momentaryTrust };
-    logger.debug('user.processMessage:access', access);
-
-    const knowledge = await E(vats.vectorStore).retrieve(
-      message.content,
-      access,
-    );
+    // XXX Fallaciously assume the caller has truthfully self-identified.
+    const knowledge = await E(getDocumentView(sender)).query(message.content);
     logger.debug('user.processMessage:knowledge', knowledge);
 
     const nextMessage = await proposeNextMessage(
@@ -266,20 +265,23 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   }
 
   return Far('root', {
-    async init(llm, vectorStore) {
-      vats.llm = llm;
-      vats.vectorStore = vectorStore;
-
-      await Promise.all([
-        E(llm).init(),
-        (async () => {
-          await E(vectorStore).initModels();
-          logger.debug(`${name}'s docs`, docs);
-          await E(vectorStore).addDocuments(docs);
-        })(),
-      ]);
+    /**
+     * Initialize the vat's peer capabilities.
+     * 
+     * @param {*} languageModel - A llm capability for next token generation.
+     * @param {*} documentView - The default DocumentView.
+     * @returns A result object with some currently unutilized properties.
+     */
+    async init(languageModel, documentView) {
+      caps.languageModel = languageModel;
+      caps.documentViews.set('default', documentView);
 
       return { name, stream };
+    },
+
+    getTrust(user) { return trust[user] ?? 0.0; },
+    setPeerDocumentView (peer, documentView) {
+      caps.documentViews.set(peer, documentView);
     },
 
     async message(sender, content) {

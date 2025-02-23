@@ -11,15 +11,17 @@ export const makeLogger = (args: {
   verbose?: boolean;
 }): {
   label: string;
-  log: (...args: unknown[]) => void;
-  debug: (...args: unknown[]) => void;
-  error: (...args: unknown[]) => void;
+  log: (...content: unknown[]) => void;
+  debug: (...content: unknown[]) => void;
+  error: (...content: unknown[]) => void;
 } => {
   const { label, verbose } = args;
   return {
     label,
-    log: console.log,
-    debug: verbose ? console.debug : () => undefined,
-    error: console.error,
+    log: (...content: unknown[]) => console.log(label, ...content),
+    debug: verbose
+      ? ((...content: unknown[]) => console.debug(label, ...content))
+      : () => undefined,
+    error: (...content: unknown[]) => console.error(label, ...content),
   };
 };

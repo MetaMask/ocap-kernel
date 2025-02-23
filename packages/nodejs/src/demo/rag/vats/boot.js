@@ -32,7 +32,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     display('Bootstrapping');
 
     console.time('bootstrap');
-    await Promise.all(users.map(makeInitUser(vats, logger)));
+    const initUser = makeInitUser(vats, logger);
+    await Promise.all(users.map(
+      (user) => initUser(user, users.filter(peer => peer !== user)),
+    ));
     console.timeEnd('bootstrap');
 
     display('Initialized');

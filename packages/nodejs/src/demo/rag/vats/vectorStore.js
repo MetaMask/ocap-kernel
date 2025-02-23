@@ -1,4 +1,5 @@
 import { Far } from '@endo/marshal';
+import { makeLogger } from '../../../../dist/demo/logger.mjs';
 
 /**
  * Build function for the vector store vat.
@@ -10,58 +11,74 @@ import { Far } from '@endo/marshal';
  * @returns {unknown} The root object for the new vat.
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  const { model, verbose } = parameters;
-  const { getVectorStore, ollama } = vatPowers;
+  const { model, verbose, documents, name } = parameters;
+  const logger = makeLogger({ label: `[${name}.vectorStore]`, verbose });
+
+  const { getVectorStore, ollama, loadDocument } = vatPowers;
   const vectorStore = getVectorStore();
 
-  const logger = {
-    log: console.log,
-    debug: verbose ? console.debug : () => {},
-    error: console.error,
-  };
+  // By default, every stored document is maximally private.
+  const DEFAULT_DOCUMENT_SECRECY = 1.0;
+  const addDocuments = async (docs) => {
+    logger.debug(
+      'addDocuments:docs',
+      JSON.stringify(docs, null, 2),
+    );
+    return await vectorStore.addDocuments(docs.map(
+      (doc) => ({
+        pageContent: doc.pageContent,
+        metadata: {
+          secrecy: DEFAULT_DOCUMENT_SECRECY,
+          ...doc.metadata,
+        },
+      }),
+    ));
+  }
+
+  // By default, views return only public documents,
+  const DEFAULT_QUERY_SECRECY = 0.0;
+  const makeSecrecyFilter = (secrecy = DEFAULT_QUERY_SECRECY) =>
+    (doc) => doc.metadata.secrecy <= secrecy;
+
+  // and not very many.
+  const DEFAULT_QUERY_MAX_RESULTS = 3;
+  const makeDocumentView = (
+    secrecy = DEFAULT_QUERY_SECRECY,
+    maxResults = DEFAULT_QUERY_MAX_RESULTS,
+  ) => {
+    let revoked = false;
+    const filter = makeSecrecyFilter(secrecy);
+    const query = async (topic, nResults) => {
+      if (revoked) { return []; }
+      const results = await vectorStore.similaritySearchWithScore(
+        topic, nResults < maxResults ? nResults : maxResults, filter,
+      )
+      return results.map(([doc, score]) => ({
+        pageContent: doc.pageContent,
+        metadata: { relevance: score, ...doc.metadata },
+      }));;
+    };
+    return Far('DocumentView', {
+      query,
+      getParameters: () => ({ maxResults }),
+      revoke: () => { revoked = true; },
+      isRevoked: () => revoked,
+    });
+  }
 
   return Far('root', {
-    async initModels() {
+    async init() {
+      logger.debug('init');
       await ollama.pull({ model });
-    },
-    async addDocuments(docs) {
-      logger.debug(
-        'vectorStore.addDocuments:docs',
-        JSON.stringify(docs, null, 2),
+      const chunks = await Promise.all(documents.map(
+        async ({ path, secrecy }) => {
+          logger.debug({ path, secrecy });
+          return await loadDocument(path, secrecy);
+        }),
       );
-      // By default, every stored document is maximally private.
-      await vectorStore.addDocuments(
-        docs.map((doc) => ({
-          pageContent: doc.pageContent,
-          metadata: {
-            ...doc.metadata,
-          },
-        })),
-      );
+      await addDocuments(chunks.flat());
     },
-    /**
-     * Retrieve from the vectorStore a list of fragments similar to the topic.
-     *
-     * @param {*} topic - A string to query against.
-     * @param {*} accessCapability - An object representing the inquirer's access to stored fragments.
-     * @returns A list of accessible documents relevant to the query.
-     */
-    async retrieve(topic, { secrecy }) {
-      // By default, do not retrieve anything but public information.
-      const access = (doc) => {
-        logger.debug('vectorStore.retreive.access:doc', doc);
-        const permit = doc.metadata.secrecy <= secrecy;
-        logger.debug('vectorStore.retreive.access:permit', permit);
-        return permit;
-      };
-      // Search for the most similar documents
-      logger.debug('vectorStore.retrieve:topic', topic);
-      const results = await vectorStore.similaritySearch(topic, 3, access);
-      logger.debug('vectorStore.retrieve:results', results);
-      return results.map((document) => ({
-        pageContent: document.pageContent,
-        metadata: { source: document.metadata.source },
-      }));
-    },
+    addDocuments,
+    makeDocumentView,
   });
 }
