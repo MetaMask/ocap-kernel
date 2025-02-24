@@ -180,14 +180,6 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
-      // Process GC actions
-      const message =
-        processGCActionSet(this.#storage) ?? this.#storage.nextReapAction();
-      if (message) {
-        await this.#deliver(message);
-      }
-
-      // Deliver message
       await this.#deliver(item);
     }
   }
@@ -199,6 +191,21 @@ export class Kernel {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
+      // Check for GC actions regardless of queue state
+      const gcAction = processGCActionSet(this.#storage);
+      if (gcAction) {
+        yield gcAction;
+        continue;
+      }
+
+      // Check for reap actions regardless of queue state
+      const reapAction = this.#storage.nextReapAction();
+      if (reapAction) {
+        yield reapAction;
+        continue;
+      }
+
+      // Process regular queue items if any exist
       while (this.#runQueueLength > 0) {
         const item = this.#dequeueRun();
         if (item) {
@@ -207,6 +214,7 @@ export class Kernel {
           break;
         }
       }
+
       if (this.#runQueueLength === 0) {
         const { promise, resolve } = makePromiseKit<void>();
         if (this.#wakeUpTheRunQueue !== null) {

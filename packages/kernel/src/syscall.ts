@@ -40,6 +40,7 @@ function makeSupervisorSyscall(
     insistVatSyscallObject(vso);
     let syscallResult;
     try {
+      console.log('doSyscall', vso);
       syscallResult = supervisor.executeSyscall(vso);
     } catch (problem) {
       console.warn(`supervisor got error during syscall:`, problem);
@@ -76,7 +77,6 @@ function makeSupervisorSyscall(
     retireImports: (vrefs: string[]) => doSyscall(['retireImports', vrefs]),
     retireExports: (vrefs: string[]) => doSyscall(['retireExports', vrefs]),
     abandonExports: (vrefs: string[]) => doSyscall(['abandonExports', vrefs]),
-
     callNow: (_target: string, _method: string, _args: unknown[]) => {
       throw Error(`callNow not supported (we have no devices)`);
     },
