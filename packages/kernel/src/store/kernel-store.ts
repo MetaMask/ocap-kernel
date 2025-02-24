@@ -58,6 +58,7 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { KVStore, VatStore, KernelDatabase } from '@ocap/store';
 
+import { insistKernelType, makeKernelSlot } from './kernel-slots.ts';
 import { parseRef } from './parse-ref.ts';
 import {
   buildReachableAndVatSlot,
@@ -72,8 +73,10 @@ import type {
   RunQueueItem,
   PromiseState,
   KernelPromise,
+  GCAction,
+  RunQueueItemBringOutYourDead,
 } from '../types.ts';
-import { insistVatId } from '../types.ts';
+import { insistGCActionType, insistVatId, RunQueueItemType } from '../types.ts';
 
 type StoredValue = {
   get(): string | undefined;
@@ -129,6 +132,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
   let nextObjectId = provideCachedStoredValue('nextObjectId', '1');
   /** Counter for allocating kernel promise IDs */
   let nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
+  /** Actions to perform during garbage collection */
+  let gcActions = provideCachedStoredValue('gcActions', '[]');
+  /** Objects to reap */
+  let reapQueue = provideCachedStoredValue('reapQueue', '[]');
 
   // As refcounts are decremented, we accumulate a set of krefs for which
   // action might need to be taken:
@@ -396,7 +403,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * @returns The next koId use.
    */
   function getNextObjectId(): KRef {
-    return `ko${incCounter(nextObjectId)}`;
+    return makeKernelSlot('object', incCounter(nextObjectId));
   }
 
   /**
@@ -532,7 +539,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * @returns The next kpid use.
    */
   function getNextPromiseId(): KRef {
-    return `kp${incCounter(nextPromiseId)}`;
+    return makeKernelSlot('promise', incCounter(nextPromiseId));
   }
 
   /**
@@ -782,6 +789,8 @@ export function makeKernelStore(kdb: KernelDatabase) {
     nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
     nextObjectId = provideCachedStoredValue('nextObjectId', '1');
     nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
+    gcActions = provideCachedStoredValue('gcActions', '[]');
+    reapQueue = provideCachedStoredValue('reapQueue', '[]');
   }
 
   /**
@@ -942,6 +951,17 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
+   * Test if there's a c-list entry for some slot.
+   *
+   * @param endpointId - The endpoint of interest
+   * @param slot - The slot of interest
+   * @returns true iff this vat has a c-list entry mapping for `slot`.
+   */
+  function hasCListEntry(endpointId: EndpointId, slot: string): boolean {
+    return kv.get(getSlotKey(endpointId, slot)) !== undefined;
+  }
+
+  /**
    * Remove an entry from an endpoint's c-list.
    *
    * @param endpointId - The endpoint whose c-list entry is to be removed.
@@ -966,6 +986,72 @@ export function makeKernelStore(kdb: KernelDatabase) {
     kv.delete(vatKey);
   }
 
+  /**
+   * Get the set of GC actions to perform.
+   *
+   * @returns The set of GC actions to perform.
+   */
+  function getGCActions(): Set<GCAction> {
+    return new Set(JSON.parse(gcActions.get() ?? '[]'));
+  }
+
+  /**
+   * Set the set of GC actions to perform.
+   *
+   * @param actions - The set of GC actions to perform.
+   */
+  function setGCActions(actions: Set<GCAction>): void {
+    const a = Array.from(actions);
+    a.sort();
+    gcActions.set(JSON.stringify(a));
+  }
+
+  /**
+   * Add a new GC action to the set of GC actions to perform.
+   *
+   * @param newActions - The new GC action to add.
+   */
+  function addGCActions(newActions: GCAction[]): void {
+    const actions = getGCActions();
+    for (const action of newActions) {
+      assert.typeof(action, 'string', 'addGCActions given bad action');
+      const [vatId, type, kref] = action.split(' ');
+      insistVatId(vatId);
+      insistGCActionType(type);
+      insistKernelType('object', kref);
+      actions.add(action);
+    }
+    setGCActions(actions);
+  }
+
+  /**
+   * Schedule a vat for reaping.
+   *
+   * @param vatId - The vat to schedule for reaping.
+   */
+  function scheduleReap(vatId: VatId): void {
+    const queue = JSON.parse(reapQueue.get() ?? '[]');
+    if (!queue.includes(vatId)) {
+      queue.push(vatId);
+      reapQueue.set(JSON.stringify(queue));
+    }
+  }
+
+  /**
+   * Get the next reap action.
+   *
+   * @returns The next reap action, or undefined if the queue is empty.
+   */
+  function nextReapAction(): RunQueueItemBringOutYourDead | undefined {
+    const queue = JSON.parse(reapQueue.get() ?? '[]');
+    if (queue.length > 0) {
+      const vatId = queue.shift();
+      reapQueue.set(JSON.stringify(queue));
+      return harden({ type: RunQueueItemType.bringOutYourDead, vatId });
+    }
+    return undefined;
+  }
+
   return harden({
     enqueueRun,
     dequeueRun,
@@ -986,7 +1072,6 @@ export function makeKernelStore(kdb: KernelDatabase) {
     clearReachableFlag,
     getOwner,
     deleteKernelObject,
-    deleteClistEntry,
     initKernelPromise,
     getKernelPromise,
     enqueuePromiseMessage,
@@ -995,14 +1080,21 @@ export function makeKernelStore(kdb: KernelDatabase) {
     resolveKernelPromise,
     deleteKernelPromise,
     addPromiseSubscriber,
+    addClistEntry,
+    hasCListEntry,
+    deleteClistEntry,
     erefToKref,
     allocateErefForKref,
     krefToEref,
-    addClistEntry,
     forgetEref,
     forgetKref,
     clear,
     makeVatStore,
+    getGCActions,
+    setGCActions,
+    addGCActions,
+    scheduleReap,
+    nextReapAction,
     reset,
     kv,
   });

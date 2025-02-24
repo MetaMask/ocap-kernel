@@ -501,6 +501,7 @@ export class VatHandle {
   }
 
   /**
+<<<<<<< HEAD
    * Make a 'message' delivery to the vat.
    *
    * @param target - The VRef of the object to which the message is addressed.
@@ -523,6 +524,32 @@ export class VatHandle {
       method: VatCommandMethod.deliver,
       params: ['notify', resolutions],
     });
+=======
+   * Initializes the vat.
+   *
+   * @returns A promise that resolves when the vat is initialized.
+   */
+  async init(): Promise<void> {
+    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
+      async (error) => {
+        this.#logger.error(`Unexpected read error`, error);
+        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
+      },
+    );
+
+    // XXX This initial `ping` was originally put here as a sanity check to make
+    // sure that the vat was actually running and able to exchange message
+    // traffic with the kernel, but the addition of the `initVat` message to the
+    // startup flow has, I'm fairly sure, obviated the need for that as it
+    // effectively performs the same function. Probably this ping should be
+    // removed.
+    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
+    await this.sendVatCommand({
+      method: VatCommandMethod.initVat,
+      params: this.config,
+    });
+    this.#logger.debug('Created');
+>>>>>>> 59065de (Implement GC delivery)
   }
 
   /**
@@ -564,4 +591,75 @@ export class VatHandle {
   readonly #nextMessageId = (): VatCommand['id'] => {
     return `${this.vatId}:${this.#messageCounter()}`;
   };
+
+  /**
+   * Make a 'message' delivery to the vat.
+   *
+   * @param target - The VRef of the object to which the message is addressed.
+   * @param message - The message to deliver.
+   */
+  async deliverMessage(target: VRef, message: Message): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['message', target, message],
+    });
+  }
+
+  /**
+   * Make a 'notify' delivery to the vat.
+   *
+   * @param resolutions - One or more promise resolutions to deliver.
+   */
+  async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['notify', resolutions],
+    });
+  }
+
+  /**
+   * Make a 'dropExports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the exports to be dropped.
+   */
+  async deliverDropExports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['dropExports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'retireExports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the exports to be retired.
+   */
+  async deliverRetireExports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['retireExports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'retireImports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the imports to be retired.
+   */
+  async deliverRetireImports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['retireImports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'bringOutYourDead' delivery to the vat.
+   */
+  async deliverBringOutYourDead(): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['bringOutYourDead'],
+    });
+  }
 }

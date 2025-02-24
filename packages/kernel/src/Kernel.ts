@@ -22,6 +22,7 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
+import { processGCActionSet } from './processGCActionSet.ts';
 import { isPromiseRef, makeKernelStore } from './store/kernel-store.ts';
 import type { KernelStore } from './store/kernel-store.ts';
 import { parseRef } from './store/parse-ref.ts';
@@ -179,6 +180,14 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
+      // Process GC actions
+      const message =
+        processGCActionSet(this.#storage) ?? this.#storage.nextReapAction();
+      if (message) {
+        await this.#deliver(message);
+      }
+
+      // Deliver message
       await this.#deliver(item);
     }
   }
@@ -577,6 +586,38 @@ export class Kernel {
         const vat = this.#getVat(vatId);
         await vat.deliverNotify(resolutions);
         log(`@@@@ done ${vatId} notify ${kpid}`);
+        break;
+      }
+      case 'dropExports': {
+        const { vatId, krefs } = item;
+        log(`@@@@ deliver ${vatId} dropExports`, krefs);
+        const vat = this.#getVat(vatId);
+        await vat.deliverDropExports(krefs);
+        log(`@@@@ done ${vatId} dropExports`, krefs);
+        break;
+      }
+      case 'retireExports': {
+        const { vatId, krefs } = item;
+        log(`@@@@ deliver ${vatId} retireExports`, krefs);
+        const vat = this.#getVat(vatId);
+        await vat.deliverRetireExports(krefs);
+        log(`@@@@ done ${vatId} retireExports`, krefs);
+        break;
+      }
+      case 'retireImports': {
+        const { vatId, krefs } = item;
+        log(`@@@@ deliver ${vatId} retireImports`, krefs);
+        const vat = this.#getVat(vatId);
+        await vat.deliverRetireImports(krefs);
+        log(`@@@@ done ${vatId} retireImports`, krefs);
+        break;
+      }
+      case 'bringOutYourDead': {
+        const { vatId } = item;
+        log(`@@@@ deliver ${vatId} bringOutYourDead`);
+        const vat = this.#getVat(vatId);
+        await vat.deliverBringOutYourDead();
+        log(`@@@@ done ${vatId} bringOutYourDead`);
         break;
       }
       default:

@@ -1,5 +1,4 @@
 import type { Message } from '@agoric/swingset-liveslots';
-import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { PromiseKit } from '@endo/promise-kit';
 import {
@@ -24,6 +23,7 @@ import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
 
+import { Fail } from './assert.ts';
 import type { VatCommandReply, VatCommand } from './messages/vat.ts';
 
 export type VatId = string;
@@ -55,17 +55,39 @@ export type RunQueueItemNotify = {
   kpid: KRef;
 };
 
-export type RunQueueItem = RunQueueItemSend | RunQueueItemNotify;
+export type RunQueueItemGCAction = {
+  type: GCRunQueueType;
+  vatId: VatId;
+  krefs: KRef[];
+};
+
+export type RunQueueItemBringOutYourDead = {
+  type: 'bringOutYourDead';
+  vatId: VatId;
+};
+
+export type RunQueueItem =
+  | RunQueueItemSend
+  | RunQueueItemNotify
+  | RunQueueItemGCAction
+  | RunQueueItemBringOutYourDead;
 
 export const MessageStruct = object({
   methargs: CapDataStruct,
   result: union([string(), literal(undefined), literal(null)]),
 });
 
-export const insistMessage = (value: unknown): boolean =>
+/**
+ * Assert that a value is a valid message.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid message.
+ */
+export function insistMessage(value: unknown): asserts value is Message {
   is(value, MessageStruct) || Fail`not a valid message`;
+}
 
-const RunQueueItemType = {
+export const RunQueueItemType = {
   send: 'send',
   notify: 'notify',
   dropExports: 'dropExports',
@@ -96,6 +118,7 @@ const RunQueueItemStructs = {
   }),
   [RunQueueItemType.bringOutYourDead]: object({
     type: literal(RunQueueItemType.bringOutYourDead),
+    vatId: string(),
   }),
 };
 
@@ -153,8 +176,15 @@ export const isVatId = (value: unknown): value is VatId =>
   value.at(0) === 'v' &&
   value.slice(1) === String(Number(value.slice(1)));
 
-export const insistVatId = (value: unknown): boolean =>
+/**
+ * Assert that a value is a valid vat id.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid vat id.
+ */
+export function insistVatId(value: unknown): asserts value is VatId {
   isVatId(value) || Fail`not a valid VatId`;
+}
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
 
@@ -290,3 +320,57 @@ export const VatCheckpointStruct = tuple([
   map(string(), string()),
   set(string()),
 ]);
+
+export type GCRunQueueType = 'dropExports' | 'retireExports' | 'retireImports';
+export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';
+export const actionTypePriorities: GCActionType[] = [
+  'dropExport',
+  'retireExport',
+  'retireImport',
+];
+
+/**
+ * A mapping of GC action type to queue event type.
+ */
+export const queueTypeFromActionType = new Map<GCActionType, GCRunQueueType>([
+  ['dropExport', RunQueueItemType.dropExports],
+  ['retireExport', RunQueueItemType.retireExports],
+  ['retireImport', RunQueueItemType.retireImports],
+]);
+
+export const isGCActionType = (value: unknown): value is GCActionType =>
+  actionTypePriorities.includes(value as GCActionType);
+
+/**
+ * Assert that a value is a valid GC action type.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid GC action type.
+ */
+export function insistGCActionType(
+  value: unknown,
+): asserts value is GCActionType {
+  isGCActionType(value) || Fail`not a valid GCActionType ${value}`;
+}
+
+export type GCAction = `${VatId} ${GCActionType} ${KRef}`;
+
+export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const [vatId, actionType, kref] = value.split(' ');
+  if (!isVatId(vatId)) {
+    return false;
+  }
+  if (!isGCActionType(actionType)) {
+    return false;
+  }
+  if (typeof kref !== 'string' || !kref.startsWith('ko')) {
+    return false;
+  }
+  return true;
+});
+
+export const isGCAction = (value: unknown): value is GCAction =>
+  is(value, GCActionStruct);
