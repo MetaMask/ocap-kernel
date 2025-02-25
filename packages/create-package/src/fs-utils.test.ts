@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 
-import { readAllFiles, writeFiles } from './fs-utils';
+import { readAllFiles, writeFiles } from './fs-utils.js';
 
 const { withinSandbox } = createSandbox('create-package/fs-utils');
 

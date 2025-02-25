@@ -4,14 +4,14 @@ import path from 'path';
 import { format as prettierFormat } from 'prettier';
 import type { Options as PrettierOptions } from 'prettier';
 
-import { MonorepoFile, Placeholder } from './constants';
-import type { FileMap } from './fs-utils';
-import { readAllFiles, writeFiles } from './fs-utils';
+import { MonorepoFile, Placeholder } from './constants.js';
+import type { FileMap } from './fs-utils.js';
+import { readAllFiles, writeFiles } from './fs-utils.js';
 
 const { dirname } = import.meta;
 
 const PACKAGE_TEMPLATE_DIR = path.join(dirname, 'package-template');
-const REPO_ROOT = path.join(dirname, '..', '..');
+const REPO_ROOT = path.join(dirname, '..', '..', '..');
 const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
 const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);

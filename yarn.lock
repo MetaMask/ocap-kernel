@@ -1797,8 +1797,8 @@ __metadata:
   linkType: hard
 
 "@metamask/utils@npm:^11.0.1":
-  version: 11.0.1
-  resolution: "@metamask/utils@npm:11.0.1"
+  version: 11.2.0
+  resolution: "@metamask/utils@npm:11.2.0"
   dependencies:
     "@ethereumjs/tx": "npm:^4.2.0"
     "@metamask/superstruct": "npm:^3.1.0"
@@ -1809,7 +1809,7 @@ __metadata:
     pony-cause: "npm:^2.1.10"
     semver: "npm:^7.5.4"
     uuid: "npm:^9.0.1"
-  checksum: 10/3949d16c8021bfb5f70e3b1c99f097ffaf43158116734197b039b32be6aabecb12178deb62c0b182e45295b0865618636324020059821c5b053029d8bdc90d70
+  checksum: 10/9cc2cb6af4627085e72a310ba9b8921c69757d94e2992d4664627e5a0d99b1f2f7f8069c6f22262515135e1172bd66b82d00512d90ea2ec6da4e768f3d7d4ae2
   languageName: node
   linkType: hard
 
@@ -2059,6 +2059,46 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ocap/create-package@workspace:packages/create-package":
+  version: 0.0.0-use.local
+  resolution: "@ocap/create-package@workspace:packages/create-package"
+  dependencies:
+    "@arethetypeswrong/cli": "npm:^0.17.3"
+    "@metamask/auto-changelog": "npm:^4.0.0"
+    "@metamask/eslint-config": "npm:^14.0.0"
+    "@metamask/eslint-config-nodejs": "npm:^14.0.0"
+    "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/utils": "npm:^11.0.1"
+    "@ocap/test-utils": "workspace:^"
+    "@ts-bridge/cli": "npm:^0.6.2"
+    "@ts-bridge/shims": "npm:^0.1.1"
+    "@types/node": "npm:^22.13.1"
+    "@types/yargs": "npm:^17.0.33"
+    "@typescript-eslint/eslint-plugin": "npm:^8.8.1"
+    "@typescript-eslint/parser": "npm:^8.8.1"
+    "@typescript-eslint/utils": "npm:^8.8.1"
+    "@vitest/eslint-plugin": "npm:^1.1.25"
+    depcheck: "npm:^1.4.7"
+    eslint: "npm:^9.12.0"
+    eslint-config-prettier: "npm:^9.1.0"
+    eslint-import-resolver-typescript: "npm:^3.6.3"
+    eslint-plugin-import-x: "npm:^4.3.1"
+    eslint-plugin-jsdoc: "npm:^50.3.1"
+    eslint-plugin-n: "npm:^17.11.1"
+    eslint-plugin-prettier: "npm:^5.2.1"
+    eslint-plugin-promise: "npm:^7.1.0"
+    execa: "npm:^9.5.2"
+    prettier: "npm:^3.3.3"
+    rimraf: "npm:^6.0.1"
+    typedoc: "npm:^0.27.6"
+    typescript: "npm:~5.5.4"
+    typescript-eslint: "npm:^8.8.1"
+    vite: "npm:^6.0.11"
+    vitest: "npm:^3.0.5"
+    yargs: "npm:^17.7.2"
+  languageName: unknown
+  linkType: soft
+
 "@ocap/errors@workspace:^, @ocap/errors@workspace:packages/errors":
   version: 0.0.0-use.local
   resolution: "@ocap/errors@workspace:packages/errors"
@@ -2228,7 +2268,6 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/eslint-config-vitest": "npm:^1.0.0"
-    "@metamask/utils": "npm:^11.0.1"
     "@ocap/cli": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -2254,7 +2293,6 @@ __metadata:
     eslint-plugin-promise: "npm:^7.1.0"
     eslint-plugin-react: "npm:^7.37.2"
     eslint-plugin-react-hooks: "npm:^5.1.0"
-    execa: "npm:^9.5.2"
     globals: "npm:^15.11.0"
     lint-staged: "npm:^15.2.10"
     lodash: "npm:^4.17.21"
@@ -2273,7 +2311,6 @@ __metadata:
     vitest: "npm:^3.0.5"
     vitest-fetch-mock: "npm:^0.4.3"
     webextension-polyfill: "npm:^0.12.0"
-    yargs: "npm:^17.7.2"
   languageName: unknown
   linkType: soft
 

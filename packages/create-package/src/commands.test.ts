@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { Arguments } from 'yargs';
 
-import type { CreatePackageOptions } from './commands';
-import { createPackageHandler } from './commands';
-import * as utils from './utils';
+import type { CreatePackageOptions } from './commands.js';
+import { createPackageHandler } from './commands.js';
+import * as utils from './utils.js';
 
-vi.mock('./utils', () => ({
+vi.mock('./utils.js', () => ({
   finalizeAndWriteData: vi.fn(),
   readMonorepoFiles: vi.fn(),
 }));

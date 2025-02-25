@@ -11,6 +11,7 @@
   "include": ["./types"],
   "references": [
     { "path": "./packages/cli" },
+    { "path": "./packages/create-package" },
     { "path": "./packages/errors" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel" },
@@ -19,7 +20,6 @@
     { "path": "./packages/store" },
     { "path": "./packages/streams" },
     { "path": "./packages/test-utils" },
-    { "path": "./packages/utils" },
-    { "path": "./scripts/create-package" }
+    { "path": "./packages/utils" }
   ]
 }

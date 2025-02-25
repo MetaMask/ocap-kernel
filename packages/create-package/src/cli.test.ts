@@ -1,10 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 
-import cli from './cli';
-import { commands, commandMap } from './commands';
-import * as utils from './utils';
+import cli from './cli.js';
+import { commands, commandMap } from './commands.js';
+import * as utils from './utils.js';
 
-vi.mock('./utils');
+vi.mock('./utils.js');
 
 /**
  * Returns a mock `process.argv` array with the provided arguments. Includes

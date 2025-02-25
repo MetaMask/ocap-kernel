@@ -27,4 +27,4 @@ purposes only.
 
 ### Adding new packages
 
-See [`scripts/create-package/README.md`](scripts/create-package/README.md).
+See [`packages/create-package/README.md`](packages/create-package/README.md).

@@ -5,11 +5,11 @@ import { format as prettierFormat } from 'prettier';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
 
-import { MonorepoFile } from './constants';
-import * as fsUtils from './fs-utils';
-import type { FileMap } from './fs-utils';
-import type { MonorepoFileData, PackageData } from './utils';
-import { finalizeAndWriteData, readMonorepoFiles } from './utils';
+import { MonorepoFile } from './constants.js';
+import * as fsUtils from './fs-utils.js';
+import type { FileMap } from './fs-utils.js';
+import type { MonorepoFileData, PackageData } from './utils.js';
+import { finalizeAndWriteData, readMonorepoFiles } from './utils.js';
 
 vi.mock('fs', () => ({
   promises: {
@@ -28,7 +28,7 @@ vi.mock('prettier', () => ({
   format: vi.fn(),
 }));
 
-vi.mock('./fs-utils', () => ({
+vi.mock('./fs-utils.js', () => ({
   readAllFiles: vi.fn(),
   writeFiles: vi.fn(),
 }));
@@ -237,6 +237,17 @@ describe('create-package/utils', () => {
 
       expect(fs.mkdir).not.toHaveBeenCalled();
       expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('handles errors from fs.exists', async () => {
+      const packageData = getPackageData();
+      const monorepoFileData = getMonorepoFileData();
+
+      (fs.access as Mock).mockRejectedValueOnce(new Error('foo'));
+
+      await expect(
+        finalizeAndWriteData(packageData, monorepoFileData),
+      ).rejects.toThrow(/^foo$/u);
     });
   });
 });

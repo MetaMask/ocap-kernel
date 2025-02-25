@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": []
+  },
+  "references": [],
+  "files": [],
+  "include": ["./src"],
+  "exclude": ["./src/package-template", "./src/**/*.test.ts"]
+}

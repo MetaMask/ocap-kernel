@@ -55,7 +55,10 @@ export default defineConfig({
         '**/test/**',
         '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
-        'scripts/create-package/package-template/**',
+        path.join(
+          __dirname,
+          './packages/create-package/src/package-template/**',
+        ),
       ],
       thresholds: {
         autoUpdate: true,
@@ -64,6 +67,12 @@ export default defineConfig({
           functions: 63.41,
           branches: 63.33,
           lines: 63.24,
+        },
+        'packages/create-package/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/errors/**': {
           statements: 100,
@@ -108,12 +117,6 @@ export default defineConfig({
           lines: 100,
         },
         'packages/utils/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
-        },
-        'scripts/create-package/**': {
           statements: 100,
           functions: 100,
           branches: 100,

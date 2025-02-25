@@ -19,7 +19,7 @@ const config = createConfig([
       '**/dist',
       '**/docs',
       '**/node_modules',
-      '**/scripts/create-package/package-template',
+      '**/packages/create-package/src/package-template',
     ],
   },
 

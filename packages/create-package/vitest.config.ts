@@ -1,6 +1,6 @@
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
 import { defineConfig, defineProject } from 'vitest/config';
 
-import { mergeConfig } from '../../packages/test-utils/src/vitest-config';
 import defaultConfig from '../../vitest.config.js';
 
 export default defineConfig((args) => {
@@ -9,11 +9,11 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       esbuild: {
-        exclude: ['./package-template/**'],
+        exclude: ['./src/package-template/**'],
       },
       test: {
-        name: 'scripts/create-package',
-        exclude: ['./package-template/**'],
+        name: 'create-package',
+        exclude: ['./src/package-template/**'],
       },
     }),
   );

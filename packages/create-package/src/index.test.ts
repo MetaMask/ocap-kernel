@@ -1,10 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import type { MockedFunction } from 'vitest';
 
-import cli from './cli';
-import { commands } from './commands';
+import cli from './cli.js';
+import { commands } from './commands.js';
 
-vi.mock('./cli');
+vi.mock('./cli.js');
 
 describe('create-package/index', () => {
   let originalProcess: typeof globalThis.process;
@@ -24,7 +24,7 @@ describe('create-package/index', () => {
 
     vi.spyOn(console, 'error').mockImplementation(vi.fn());
 
-    await import('.');
+    await import('./index.js');
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(cli).toHaveBeenCalledTimes(1);
