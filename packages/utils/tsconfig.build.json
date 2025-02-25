@@ -7,7 +7,7 @@
     "rootDir": "./src",
     "types": ["ses"]
   },
-  "references": [{ "path": "../errors/tsconfig.build.json" }],
+  "references": [],
   "files": [],
   "include": ["./src"]
 }

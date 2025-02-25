@@ -7,7 +7,6 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'ChromeRuntimeDuplexStream',
       'ChromeRuntimeReader',
-      'ChromeRuntimeTarget',
       'ChromeRuntimeWriter',
       'MessagePortDuplexStream',
       'MessagePortReader',

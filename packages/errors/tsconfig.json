@@ -5,7 +5,7 @@
     "lib": ["DOM", "ES2022"],
     "types": ["ses", "vitest"]
   },
-  "references": [{ "path": "../test-utils" }],
+  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

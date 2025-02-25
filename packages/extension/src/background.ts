@@ -1,7 +1,7 @@
 import type { Json } from '@metamask/utils';
 import { KernelCommandMethod, isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
-import { ChromeRuntimeTarget, ChromeRuntimeDuplexStream } from '@ocap/streams';
+import { ChromeRuntimeDuplexStream } from '@ocap/streams';
 import { delay } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
@@ -23,8 +23,8 @@ async function main(): Promise<void> {
 
   const offscreenStream = await ChromeRuntimeDuplexStream.make(
     chrome.runtime,
-    ChromeRuntimeTarget.Background,
-    ChromeRuntimeTarget.Offscreen,
+    'background',
+    'offscreen',
   );
 
   /**
