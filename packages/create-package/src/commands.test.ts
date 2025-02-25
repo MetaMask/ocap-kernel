@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { Arguments } from 'yargs';
 
-import type { CreatePackageOptions } from './commands.js';
-import { createPackageHandler } from './commands.js';
-import * as utils from './utils.js';
+import type { CreatePackageOptions } from './commands.ts';
+import { createPackageHandler } from './commands.ts';
+import * as utils from './utils.ts';
 
 vi.mock('./utils.js', () => ({
   finalizeAndWriteData: vi.fn(),

@@ -18,8 +18,10 @@ const { inspect } = require('util');
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
 const typedocExceptions = ['test-utils', 'extension'];
-// Packages that do not have build or tests
-const noBuildOrTests = ['test-utils'];
+// Packages that do not have builds
+const noBuild = ['create-package', 'test-utils'];
+// Packages that do not have tests
+const noTests = ['test-utils'];
 // Packages that do not export a `package.json` file
 const noPackageJson = ['extension'];
 
@@ -230,7 +232,7 @@ module.exports = defineConfig({
         );
 
         // All non-root packages must have the same "test" script.
-        if (!noBuildOrTests.includes(workspaceBasename)) {
+        if (!noTests.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'scripts.test',
@@ -260,7 +262,7 @@ module.exports = defineConfig({
       }
 
       // Add all packages must have the same "build" script
-      if (!noBuildOrTests.includes(workspaceBasename)) {
+      if (!noBuild.includes(workspaceBasename)) {
         expectWorkspaceField(workspace, 'scripts.build');
       }
 
