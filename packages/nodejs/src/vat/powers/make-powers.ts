@@ -26,7 +26,10 @@ export default async function makePowers({
   ollama,
   vectorStore,
 }: Args): Promise<Record<string, unknown>> {
-  let powers = {};
+  let powers = {
+    setInterval,
+    clearInterval,
+  } as Record<string, unknown>;
 
   if (loadDocument) {
     powers = {

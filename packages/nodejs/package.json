@@ -26,6 +26,7 @@
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "demo:rag": "node ./dist/demo/rag/run.mjs",
+    "demo:console": "node ./dist/demo/console/run.mjs",
     "lint": "yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
