@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import type { MockedFunction } from 'vitest';
 
-import cli from './cli.js';
-import { commands } from './commands.js';
+import cli from './cli.ts';
+import { commands } from './commands.ts';
 
 vi.mock('./cli.js');
 

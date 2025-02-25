@@ -5,11 +5,11 @@ import { format as prettierFormat } from 'prettier';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
 
-import { MonorepoFile } from './constants.js';
-import * as fsUtils from './fs-utils.js';
-import type { FileMap } from './fs-utils.js';
-import type { MonorepoFileData, PackageData } from './utils.js';
-import { finalizeAndWriteData, readMonorepoFiles } from './utils.js';
+import { MonorepoFile } from './constants.ts';
+import * as fsUtils from './fs-utils.ts';
+import type { FileMap } from './fs-utils.ts';
+import type { MonorepoFileData, PackageData } from './utils.ts';
+import { finalizeAndWriteData, readMonorepoFiles } from './utils.ts';
 
 vi.mock('fs', () => ({
   promises: {
