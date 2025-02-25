@@ -10,20 +10,16 @@ import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 
-import type {
-  DispatchFn,
-  MakeLiveSlotsFn,
-  GCTools,
-} from './ag-liveslots-types.ts';
-import { makeDummyMeterControl } from './dummyMeterControl.ts';
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { VatCommandMethod } from './messages/index.ts';
-import { makeSupervisorSyscall } from './syscall.ts';
+import { makeDummyMeterControl } from './services/meter-control.ts';
+import { makeSupervisorSyscall } from './services/syscall.ts';
+import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
 import type { VatConfig, VatId, VRef } from './types.ts';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.ts';
+import { waitUntilQuiescent } from './utils/wait-quiescent.ts';
 import type { VatKVStore } from './VatKVStore.ts';
 import { makeVatKVStore } from './VatKVStore.ts';
-import { waitUntilQuiescent } from './waitUntilQuiescent.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 

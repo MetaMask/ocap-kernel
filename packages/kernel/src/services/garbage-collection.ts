@@ -1,18 +1,18 @@
-import { insistKernelType } from './store/kernel-slots.ts';
-import type { KernelStore } from './store/kernel-store.ts';
+import type { KernelStore } from '../store/kernel-store.ts';
+import { insistKernelType } from '../store/utils/kernel-slots.ts';
 import type {
   GCAction,
   GCActionType,
   KRef,
   RunQueueItem,
   VatId,
-} from './types.ts';
+} from '../types.ts';
 import {
   actionTypePriorities,
   insistGCActionType,
   insistVatId,
   queueTypeFromActionType,
-} from './types.ts';
+} from '../types.ts';
 
 /**
  * Parse a GC action string into a vat id, type, and kref.
@@ -84,7 +84,7 @@ export function processGCActionSet(
     const isReachable = hasCList
       ? storage.getReachableFlag(vatId, kref)
       : undefined;
-    const exists = storage.kernelObjectExists(kref);
+    const exists = storage.kernelRefExists(kref);
     const { reachable, recognizable } = exists
       ? storage.getObjectRefCount(kref)
       : { reachable: 0, recognizable: 0 };

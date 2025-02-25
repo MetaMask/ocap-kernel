@@ -12,6 +12,7 @@ export type DispatchFn = (vdo: VatDeliveryObject) => Promise<void>;
 export type LiveSlots = {
   dispatch: DispatchFn;
 };
+
 export type Syscall = {
   send: (
     target: string,
@@ -31,6 +32,7 @@ export type Syscall = {
   vatstoreSet: (key: string, value: string) => void;
   vatstoreDelete: (key: string) => void;
 };
+
 export type GCTools = {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   WeakRef: WeakRefConstructor;
@@ -40,6 +42,7 @@ export type GCTools = {
   gcAndFinalize: () => Promise<void>;
   meterControl: MeterControl;
 };
+
 export type MakeLiveSlotsFn = (
   syscall: Syscall,
   forVatId: string,

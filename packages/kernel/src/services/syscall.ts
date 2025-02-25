@@ -9,8 +9,8 @@ import type {
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@ocap/store';
 
-import type { Syscall, SyscallResult } from './ag-liveslots-types.ts';
-import type { VatSupervisor } from './VatSupervisor.ts';
+import type { Syscall, SyscallResult } from './types.ts';
+import type { VatSupervisor } from '../VatSupervisor.ts';
 
 /**
  * This returns a function that is provided to liveslots as the 'syscall'

@@ -1,4 +1,4 @@
-import { assert, Fail } from '../assert.ts';
+import { assert, Fail } from '../../utils/assert.ts';
 
 /**
  * Parse a string into an object with `isReachable` and `vatSlot` properties.

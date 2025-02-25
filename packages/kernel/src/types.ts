@@ -23,8 +23,8 @@ import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
 
-import { Fail } from './assert.ts';
 import type { VatCommandReply, VatCommand } from './messages/vat.ts';
+import { Fail } from './utils/assert.ts';
 
 export type VatId = string;
 export type RemoteId = string;

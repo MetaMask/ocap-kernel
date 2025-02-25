@@ -19,7 +19,7 @@ import type {
   VatCommandReturnType,
 } from './messages/index.ts';
 import type { KernelStore } from './store/kernel-store.ts';
-import { parseRef } from './store/parse-ref.ts';
+import { parseRef } from './store/utils/parse-ref.ts';
 import type {
   PromiseCallbacks,
   VatId,

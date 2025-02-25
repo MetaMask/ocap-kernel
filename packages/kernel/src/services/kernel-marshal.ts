@@ -4,7 +4,7 @@ import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import type { Passable } from '@endo/pass-style';
 
-import type { KRef } from './types.ts';
+import type { KRef } from '../types.ts';
 
 // Simple wrapper for serializing and unserializing marshalled values inside the
 // kernel, where we don't actually want to use clists nor actually allocate real

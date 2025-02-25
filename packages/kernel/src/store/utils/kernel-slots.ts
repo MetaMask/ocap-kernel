@@ -1,4 +1,4 @@
-import { assert, Fail } from '../assert.ts';
+import { assert, Fail } from '../../utils/assert.ts';
 
 // Object/promise references (in the kernel) contain a two-tuple of (type,
 // index). All object references point to entries in the kernel Object
