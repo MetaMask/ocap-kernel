@@ -6,7 +6,7 @@
     "rootDir": "./src",
     "types": []
   },
-  "references": [],
+  "references": [{ "path": "../utils/tsconfig.build.json" }],
   "files": [],
   "include": ["./src"],
   "exclude": ["./src/package-template", "./src/**/*.test.ts"]

@@ -44,8 +44,7 @@
   },
   "dependencies": {
     "@endo/captp": "^4.4.0",
-    "@metamask/utils": "^11.0.1",
-    "@ocap/errors": "workspace:^"
+    "@metamask/utils": "^11.0.1"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.3",
@@ -55,6 +54,7 @@
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@metamask/superstruct": "^3.1.0",
     "@ocap/cli": "workspace:^",
+    "@ocap/errors": "workspace:^",
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",

@@ -23,12 +23,14 @@ export const ErrorStruct = define<Error>(
 /**
  * Enum defining all error codes for Ocap errors.
  */
-export enum ErrorCode {
-  StreamReadError = 'STREAM_READ_ERROR',
-  VatAlreadyExists = 'VAT_ALREADY_EXISTS',
-  VatDeleted = 'VAT_DELETED',
-  VatNotFound = 'VAT_NOT_FOUND',
-}
+export const ErrorCode = {
+  StreamReadError: 'STREAM_READ_ERROR',
+  VatAlreadyExists: 'VAT_ALREADY_EXISTS',
+  VatDeleted: 'VAT_DELETED',
+  VatNotFound: 'VAT_NOT_FOUND',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 /**
  * A sentinel value used to identify marshaled errors.

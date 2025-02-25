@@ -6,7 +6,7 @@
     "skipLibCheck": true,
     "types": ["node", "vitest"]
   },
-  "references": [{ "path": "../test-utils" }],
+  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"],
   "exclude": ["./src/package-template"]
 }

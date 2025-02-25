@@ -17,13 +17,13 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
-export enum MessageType {
-  Initialize = 'INIT_MESSAGE_CHANNEL',
-  Acknowledge = 'ACK_MESSAGE_CHANNEL',
-}
+export const MessageType = {
+  Initialize: 'INIT_MESSAGE_CHANNEL',
+  Acknowledge: 'ACK_MESSAGE_CHANNEL',
+} as const;
 
-type InitializeMessage = { type: MessageType.Initialize };
-type AcknowledgeMessage = { type: MessageType.Acknowledge };
+type InitializeMessage = { type: typeof MessageType.Initialize };
+type AcknowledgeMessage = { type: typeof MessageType.Acknowledge };
 
 const isInitMessage = (
   event: MessageEvent,

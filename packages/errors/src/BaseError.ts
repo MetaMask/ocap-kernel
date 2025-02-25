@@ -1,6 +1,6 @@
 import type { Json } from '@metamask/utils';
 
-import type { ErrorCode } from './constants.js';
+import { ErrorCode } from './constants.js';
 import type {
   MarshaledOcapError,
   OcapError,
