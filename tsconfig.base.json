@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "composite": true,
+    "erasableSyntaxOnly": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2022"],

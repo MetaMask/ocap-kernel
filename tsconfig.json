@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "module": "Preserve",
     "moduleResolution": "Bundler",
@@ -8,7 +9,7 @@
     "verbatimModuleSyntax": true
   },
   "files": [],
-  "include": ["./types"],
+  "include": [],
   "references": [
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
