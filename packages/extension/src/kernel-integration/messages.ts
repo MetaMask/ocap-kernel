@@ -18,21 +18,6 @@ import {
 } from '@ocap/kernel';
 import type { TypeGuard } from '@ocap/utils';
 
-export const KernelControlMethod = {
-  launchVat: 'launchVat',
-  restartVat: 'restartVat',
-  terminateVat: 'terminateVat',
-  terminateAllVats: 'terminateAllVats',
-  getStatus: 'getStatus',
-  reload: 'reload',
-  sendVatCommand: 'sendVatCommand',
-  clearState: 'clearState',
-  executeDBQuery: 'executeDBQuery',
-  updateClusterConfig: 'updateClusterConfig',
-} as const;
-
-export type KernelMethods = keyof typeof KernelControlMethod;
-
 const KernelStatusStruct = type({
   clusterConfig: ClusterConfigStruct,
   vats: array(
@@ -47,49 +32,49 @@ export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 // Command payload structs
 export const KernelCommandPayloadStructs = {
-  [KernelControlMethod.launchVat]: object({
-    method: literal(KernelControlMethod.launchVat),
+  launchVat: object({
+    method: literal('launchVat'),
     params: VatConfigStruct,
   }),
-  [KernelControlMethod.restartVat]: object({
-    method: literal(KernelControlMethod.restartVat),
+  restartVat: object({
+    method: literal('restartVat'),
     params: object({ id: VatIdStruct }),
   }),
-  [KernelControlMethod.terminateVat]: object({
-    method: literal(KernelControlMethod.terminateVat),
+  terminateVat: object({
+    method: literal('terminateVat'),
     params: object({ id: VatIdStruct }),
   }),
-  [KernelControlMethod.terminateAllVats]: object({
-    method: literal(KernelControlMethod.terminateAllVats),
+  terminateAllVats: object({
+    method: literal('terminateAllVats'),
     params: literal(null),
   }),
-  [KernelControlMethod.getStatus]: object({
-    method: literal(KernelControlMethod.getStatus),
+  getStatus: object({
+    method: literal('getStatus'),
     params: literal(null),
   }),
-  [KernelControlMethod.reload]: object({
-    method: literal(KernelControlMethod.reload),
+  reload: object({
+    method: literal('reload'),
     params: literal(null),
   }),
-  [KernelControlMethod.sendVatCommand]: object({
-    method: literal(KernelControlMethod.sendVatCommand),
+  sendVatCommand: object({
+    method: literal('sendVatCommand'),
     params: object({
       id: union([VatIdStruct, literal(undefined)]),
       payload: UnsafeJsonStruct,
     }),
   }),
-  [KernelControlMethod.clearState]: object({
-    method: literal(KernelControlMethod.clearState),
+  clearState: object({
+    method: literal('clearState'),
     params: literal(null),
   }),
-  [KernelControlMethod.executeDBQuery]: object({
-    method: literal(KernelControlMethod.executeDBQuery),
+  executeDBQuery: object({
+    method: literal('executeDBQuery'),
     params: object({
       sql: string(),
     }),
   }),
-  [KernelControlMethod.updateClusterConfig]: object({
-    method: literal(KernelControlMethod.updateClusterConfig),
+  updateClusterConfig: object({
+    method: literal('updateClusterConfig'),
     params: object({
       config: ClusterConfigStruct,
     }),
@@ -97,47 +82,47 @@ export const KernelCommandPayloadStructs = {
 } as const;
 
 export const KernelReplyPayloadStructs = {
-  [KernelControlMethod.launchVat]: object({
-    method: literal(KernelControlMethod.launchVat),
+  launchVat: object({
+    method: literal('launchVat'),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.restartVat]: object({
-    method: literal(KernelControlMethod.restartVat),
+  restartVat: object({
+    method: literal('restartVat'),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.terminateVat]: object({
-    method: literal(KernelControlMethod.terminateVat),
+  terminateVat: object({
+    method: literal('terminateVat'),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.terminateAllVats]: object({
-    method: literal(KernelControlMethod.terminateAllVats),
+  terminateAllVats: object({
+    method: literal('terminateAllVats'),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.getStatus]: object({
-    method: literal(KernelControlMethod.getStatus),
+  getStatus: object({
+    method: literal('getStatus'),
     params: union([KernelStatusStruct, object({ error: string() })]),
   }),
-  [KernelControlMethod.reload]: object({
-    method: literal(KernelControlMethod.reload),
+  reload: object({
+    method: literal('reload'),
     params: union([literal(null), object({ error: string() })]),
   }),
-  [KernelControlMethod.sendVatCommand]: object({
-    method: literal(KernelControlMethod.sendVatCommand),
+  sendVatCommand: object({
+    method: literal('sendVatCommand'),
     params: UnsafeJsonStruct,
   }),
-  [KernelControlMethod.clearState]: object({
-    method: literal(KernelControlMethod.clearState),
+  clearState: object({
+    method: literal('clearState'),
     params: literal(null),
   }),
-  [KernelControlMethod.executeDBQuery]: object({
-    method: literal(KernelControlMethod.executeDBQuery),
+  executeDBQuery: object({
+    method: literal('executeDBQuery'),
     params: union([
       array(record(string(), string())),
       object({ error: string() }),
     ]),
   }),
-  [KernelControlMethod.updateClusterConfig]: object({
-    method: literal(KernelControlMethod.updateClusterConfig),
+  updateClusterConfig: object({
+    method: literal('updateClusterConfig'),
     params: literal(null),
   }),
 } as const;

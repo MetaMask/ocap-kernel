@@ -3,20 +3,15 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 
 import type { CommandHandler, CommandParams } from '../command-registry.js';
-import {
-  KernelCommandPayloadStructs,
-  KernelControlMethod,
-} from '../messages.js';
+import { KernelCommandPayloadStructs } from '../messages.js';
 
-type ExecuteDBQueryMethod = typeof KernelControlMethod.executeDBQuery;
-
-export const executeDBQueryHandler: CommandHandler<ExecuteDBQueryMethod> = {
-  method: KernelControlMethod.executeDBQuery,
+export const executeDBQueryHandler: CommandHandler<'executeDBQuery'> = {
+  method: 'executeDBQuery',
   schema: KernelCommandPayloadStructs.executeDBQuery.schema.params,
   implementation: async (
     _kernel: Kernel,
     kvStore: KVStore,
-    params: CommandParams[ExecuteDBQueryMethod],
+    params: CommandParams['executeDBQuery'],
   ): Promise<Json> => {
     return kvStore.executeQuery(params.sql);
   },

@@ -7,17 +7,6 @@ vi.mock('../context/PanelContext.js', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendVatCommand: 'sendVatCommand',
-    terminateAllVats: 'terminateAllVats',
-    clearState: 'clearState',
-    reload: 'reload',
-    launchVat: 'launchVat',
-    updateClusterConfig: 'updateClusterConfig',
-  },
-}));
-
 vi.mock('@ocap/utils', () => ({
   stringify: JSON.stringify,
 }));

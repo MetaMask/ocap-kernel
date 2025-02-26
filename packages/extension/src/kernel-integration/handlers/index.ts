@@ -21,3 +21,5 @@ export const handlers = [
   terminateAllVatsHandler,
   updateClusterConfigHandler,
 ] as const;
+
+export type KernelControlMethod = (typeof handlers)[number]['method'];
