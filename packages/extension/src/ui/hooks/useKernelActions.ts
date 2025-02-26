@@ -2,7 +2,6 @@ import type { ClusterConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
-import { KernelControlMethod } from '../../kernel-integration/messages.js';
 import { usePanelContext } from '../context/PanelContext.js';
 /**
  * Hook for handling kernel actions.
@@ -25,7 +24,7 @@ export function useKernelActions(): {
    */
   const sendKernelCommand = useCallback(() => {
     sendMessage({
-      method: KernelControlMethod.sendVatCommand,
+      method: 'sendVatCommand',
       params: {
         payload: JSON.parse(messageContent),
         ...(selectedVatId ? { id: selectedVatId } : {}),
@@ -40,7 +39,7 @@ export function useKernelActions(): {
    */
   const terminateAllVats = useCallback(() => {
     sendMessage({
-      method: KernelControlMethod.terminateAllVats,
+      method: 'terminateAllVats',
       params: null,
     })
       .then(() => logMessage('All vats terminated', 'success'))
@@ -52,7 +51,7 @@ export function useKernelActions(): {
    */
   const clearState = useCallback(() => {
     sendMessage({
-      method: KernelControlMethod.clearState,
+      method: 'clearState',
       params: null,
     })
       .then(() => logMessage('State cleared', 'success'))
@@ -64,7 +63,7 @@ export function useKernelActions(): {
    */
   const reload = useCallback(() => {
     sendMessage({
-      method: KernelControlMethod.reload,
+      method: 'reload',
       params: null,
     })
       .then(() => logMessage('Default sub-cluster reloaded', 'success'))
@@ -77,7 +76,7 @@ export function useKernelActions(): {
   const launchVat = useCallback(
     (bundleUrl: string, vatName: string) => {
       sendMessage({
-        method: KernelControlMethod.launchVat,
+        method: 'launchVat',
         params: {
           bundleSpec: bundleUrl,
           parameters: {
@@ -97,7 +96,7 @@ export function useKernelActions(): {
   const updateClusterConfig = useCallback(
     async (config: ClusterConfig) => {
       return sendMessage({
-        method: KernelControlMethod.updateClusterConfig,
+        method: 'updateClusterConfig',
         params: { config },
       })
         .then(() => logMessage('Config updated', 'success'))

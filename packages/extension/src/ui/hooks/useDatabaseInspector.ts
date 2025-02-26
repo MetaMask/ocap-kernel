@@ -1,7 +1,6 @@
 import { stringify } from '@ocap/utils';
 import { useCallback, useEffect, useState } from 'react';
 
-import { KernelControlMethod } from '../../kernel-integration/messages.js';
 import { usePanelContext } from '../context/PanelContext.js';
 import { isErrorResponse } from '../utils.js';
 
@@ -27,7 +26,7 @@ export function useDatabaseInspector(): {
   const executeQuery = useCallback(
     (sql: string): void => {
       sendMessage({
-        method: KernelControlMethod.executeDBQuery,
+        method: 'executeDBQuery',
         params: { sql },
       })
         .then((result) => {
@@ -47,7 +46,7 @@ export function useDatabaseInspector(): {
   // Fetch available tables
   const fetchTables = useCallback(async (): Promise<void> => {
     const result = await sendMessage({
-      method: KernelControlMethod.executeDBQuery,
+      method: 'executeDBQuery',
       params: { sql: "SELECT name FROM sqlite_master WHERE type='table'" },
     });
     if (!isErrorResponse(result)) {
@@ -66,7 +65,7 @@ export function useDatabaseInspector(): {
   const fetchTableData = useCallback(
     async (tableName: string): Promise<void> => {
       const result = await sendMessage({
-        method: KernelControlMethod.executeDBQuery,
+        method: 'executeDBQuery',
         params: { sql: `SELECT * FROM ${tableName}` },
       });
       if (!isErrorResponse(result)) {

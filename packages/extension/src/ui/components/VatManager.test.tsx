@@ -7,16 +7,6 @@ import { LaunchVat } from './LaunchVat.jsx';
 import { VatManager } from './VatManager.jsx';
 import { VatTable } from './VatTable.jsx';
 
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendMessage: 'sendMessage',
-    terminateAllVats: 'terminateAllVats',
-    clearState: 'clearState',
-    reload: 'reload',
-    launchVat: 'launchVat',
-  },
-}));
-
 vi.mock('../context/PanelContext.js', () => ({
   usePanelContext: vi.fn(() => ({
     status: {

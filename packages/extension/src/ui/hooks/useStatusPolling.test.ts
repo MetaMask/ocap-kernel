@@ -3,12 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import clusterConfig from '../../vats/default-cluster.json';
 
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    getStatus: 'getStatus',
-  },
-}));
-
 vi.mock('../services/logger.js', () => ({
   logger: {
     error: vi.fn(),
