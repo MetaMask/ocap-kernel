@@ -620,24 +620,16 @@ function expectValidVersionRanges(Yarn, workspace) {
 }
 
 /**
- * Parse a version range into its components (modifier, major, minor, patch).
- * Strips the modifier (^ or ~) from the version and returns the parts.
+ * Parse a version range into its modifier and version.
+ * Strips the modifier (^ or ~) from the version.
  *
  * @param {string} versionRange - The version range to parse.
- * @returns {object} The parsed components: modifier, major, minor, and patch.
+ * @returns {{ modifier: string, version: string }} The parsed components: modifier, version.
  */
 function parseVersion(versionRange) {
-  const [modifier, version] =
-    versionRange.startsWith('^') || versionRange.startsWith('~')
-      ? [versionRange[0], versionRange.slice(1)]
-      : ['', versionRange];
-
-  const [major, minor, patch] = version.split('.').map(Number);
-  if ([major, minor, patch].some(isNaN)) {
-    throw new Error(`Invalid version range: ${versionRange}`);
-  }
-
-  return { modifier, major, minor, patch };
+  return versionRange.startsWith('^') || versionRange.startsWith('~')
+    ? { modifier: versionRange[0], version: versionRange.slice(1) }
+    : { modifier: '', version: versionRange };
 }
 
 /**
@@ -657,14 +649,7 @@ function versionRangeCompare(range1, range2) {
     return false;
   }
 
-  // Compare major, minor, patch versions
-  return (
-    parsed1.major > parsed2.major ||
-    (parsed1.major === parsed2.major && parsed1.minor > parsed2.minor) ||
-    (parsed1.major === parsed2.major &&
-      parsed1.minor === parsed2.minor &&
-      parsed1.patch > parsed2.patch)
-  );
+  return semver.gt(parsed1.version, parsed2.version);
 }
 
 /**
