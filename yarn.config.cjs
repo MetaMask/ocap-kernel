@@ -187,12 +187,8 @@ module.exports = defineConfig({
           expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
         }
 
-        // All packages except the root must have the same "clean" script.
-        expectWorkspaceField(
-          workspace,
-          'scripts.clean',
-          "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
-        );
+        // All packages except the root must have a "clean" script.
+        expectWorkspaceField(workspace, 'scripts.clean');
 
         // No non-root packages may have a "prepack" script.
         workspace.unset('scripts.prepack');
