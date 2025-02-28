@@ -13,13 +13,6 @@ vi.mock('../utils.js', () => ({
   isErrorResponse: vi.fn(),
 }));
 
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendMessage: 'sendMessage',
-    executeDBQuery: 'executeDBQuery',
-  },
-}));
-
 vi.mock('@ocap/utils', () => ({
   stringify: JSON.stringify,
 }));

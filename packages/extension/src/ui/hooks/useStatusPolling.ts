@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.js';
-import { KernelControlMethod } from '../../kernel-integration/messages.js';
 import type { KernelStatus } from '../../kernel-integration/messages.js';
 import { logger } from '../services/logger.js';
 import { isErrorResponse } from '../utils.js';
@@ -31,7 +30,7 @@ export const useStatusPolling = (
       }
       try {
         const result = await sendMessage({
-          method: KernelControlMethod.getStatus,
+          method: 'getStatus',
           params: null,
         });
         if (isErrorResponse(result)) {

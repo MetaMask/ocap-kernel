@@ -4,15 +4,16 @@ import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 
-import type { KernelCommandPayloadStructs, KernelMethods } from './messages.js';
+import type { KernelControlMethod } from './handlers/index.js';
+import type { KernelCommandPayloadStructs } from './messages.js';
 
 export type CommandParams = {
-  [Method in KernelMethods]: Infer<
+  [Method in KernelControlMethod]: Infer<
     (typeof KernelCommandPayloadStructs)[Method]
   >['params'];
 };
 
-export type CommandHandler<Method extends KernelMethods> = {
+export type CommandHandler<Method extends KernelControlMethod> = {
   method: Method;
 
   /**
@@ -43,7 +44,10 @@ export type Middleware = (
  * A registry for kernel commands.
  */
 export class KernelCommandRegistry {
-  readonly #handlers = new Map<KernelMethods, CommandHandler<KernelMethods>>();
+  readonly #handlers = new Map<
+    KernelControlMethod,
+    CommandHandler<KernelControlMethod>
+  >();
 
   readonly #middlewares: Middleware[] = [];
 
@@ -52,9 +56,11 @@ export class KernelCommandRegistry {
    *
    * @param handler - The command handler.
    */
-  register<Method extends KernelMethods>(handler: CommandHandler<Method>): void;
+  register<Method extends KernelControlMethod>(
+    handler: CommandHandler<Method>,
+  ): void;
 
-  register(handler: CommandHandler<KernelMethods>): void {
+  register(handler: CommandHandler<KernelControlMethod>): void {
     this.#handlers.set(handler.method, handler);
   }
 
@@ -76,7 +82,7 @@ export class KernelCommandRegistry {
    * @param params - The parameters.
    * @returns The result.
    */
-  async execute<Method extends KernelMethods>(
+  async execute<Method extends KernelControlMethod>(
     kernel: Kernel,
     kvStore: KVStore,
     method: Method,

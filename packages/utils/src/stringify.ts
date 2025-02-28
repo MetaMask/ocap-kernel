@@ -1,5 +1,4 @@
-import type { OcapError } from '@ocap/errors';
-import { isOcapError } from '@ocap/errors';
+import { hasProperty } from '@metamask/utils';
 
 /**
  * Stringify an evaluation result.
@@ -29,18 +28,6 @@ export const stringify = (value: unknown, indent: number = 2): string => {
  * @returns The processed object.
  */
 function stringifyError(error: Error): Record<string, unknown> {
-  return isOcapError(error)
-    ? createOcapErrorObject(error)
-    : createErrorObject(error);
-}
-
-/**
- * Helper function to create a simplified error object.
- *
- * @param error - The error to create an object from.
- * @returns The error object.
- */
-function createErrorObject(error: Error): Record<string, unknown> {
   const errorObject: Record<string, unknown> = {
     name: error.name,
     message: error.message,
@@ -54,21 +41,15 @@ function createErrorObject(error: Error): Record<string, unknown> {
         : stringify(error.cause);
   }
 
-  return errorObject;
-}
+  // By our convention, these properties may be present on errors
+  // and should be preserved.
+  if (hasProperty(error, 'code')) {
+    errorObject.code = error.code;
+  }
 
-/**
- * Helper function to create an Ocap error object.
- *
- * @param error - The Ocap error to create an object from.
- * @returns The Ocap error object.
- */
-function createOcapErrorObject(error: OcapError): Record<string, unknown> {
-  const errorObject = {
-    ...createErrorObject(error),
-    code: error.code,
-    data: stringify(error.data),
-  };
+  if (hasProperty(error, 'data')) {
+    errorObject.data = stringify(error.data);
+  }
 
   return errorObject;
 }

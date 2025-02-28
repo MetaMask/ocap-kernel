@@ -1,7 +1,6 @@
 import { isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
 import {
-  ChromeRuntimeTarget,
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
@@ -27,11 +26,7 @@ async function main(): Promise<void> {
   const backgroundStream = await ChromeRuntimeDuplexStream.make<
     KernelCommand,
     KernelCommandReply
-  >(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Background,
-  );
+  >(chrome.runtime, 'offscreen', 'background');
 
   const { kernelStream, vatWorkerServer } = await makeKernelWorker();
 

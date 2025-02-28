@@ -10,9 +10,9 @@ export {
   MessagePortWriter,
 } from './browser/MessagePortStream.js';
 export type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
+export type { ChromeRuntimeTarget } from './browser/ChromeRuntimeStream.js';
 export {
   ChromeRuntimeDuplexStream,
-  ChromeRuntimeStreamTarget as ChromeRuntimeTarget,
   ChromeRuntimeReader,
   ChromeRuntimeWriter,
 } from './browser/ChromeRuntimeStream.js';

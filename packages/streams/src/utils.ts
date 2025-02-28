@@ -17,12 +17,12 @@ export type PromiseCallbacks = {
   reject: (reason: unknown) => void;
 };
 
-export enum StreamSentinel {
+export const StreamSentinel = {
   // Not a problem if we don't use the word "Error" in this scope, which we won't.
-  // eslint-disable-next-line @typescript-eslint/no-shadow
-  Error = '@@StreamError',
-  Done = '@@StreamDone',
-}
+
+  Error: '@@StreamError',
+  Done: '@@StreamDone',
+} as const;
 
 export const StreamDoneSymbol = Symbol('StreamDone');
 

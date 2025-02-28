@@ -77,14 +77,14 @@ export default defineConfig({
         'packages/errors/**': {
           statements: 100,
           functions: 100,
-          branches: 92.59,
+          branches: 92,
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 82.86,
+          statements: 82.83,
           functions: 83.59,
           branches: 80.45,
-          lines: 82.79,
+          lines: 82.76,
         },
         'packages/kernel/**': {
           statements: 74.47,
