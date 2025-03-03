@@ -73,19 +73,31 @@ describe('Kernel', () => {
   });
 
   describe('getVatIds()', () => {
-    it('returns an empty array when no vats are added', () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+    it('returns an empty array when no vats are added', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
     it('returns the vat IDs after adding a vat', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
 
     it('returns multiple vat IDs after adding multiple vats', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
@@ -94,7 +106,11 @@ describe('Kernel', () => {
 
   describe('launchVat()', () => {
     it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       expect(initMock).toHaveBeenCalledOnce();
       expect(launchWorkerMock).toHaveBeenCalled();
@@ -102,7 +118,11 @@ describe('Kernel', () => {
     });
 
     it('adds multiple vats to the kernel without errors when no vat with the same ID exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       await kernel.launchVat(mockVatConfig);
       expect(initMock).toHaveBeenCalledTimes(2);
@@ -113,7 +133,11 @@ describe('Kernel', () => {
 
   describe('terminateVat()', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.terminateVat('v1');
@@ -123,7 +147,11 @@ describe('Kernel', () => {
     });
 
     it('throws an error when deleting a vat that does not exist in the kernel', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.terminateVat(nonExistentVatId),
@@ -132,7 +160,11 @@ describe('Kernel', () => {
     });
 
     it('throws an error when a vat terminate method throws', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       vi.spyOn(VatHandle.prototype, 'terminate').mockRejectedValueOnce(
         'Test error',
@@ -148,7 +180,11 @@ describe('Kernel', () => {
       const workerTerminateAllMock = vi
         .spyOn(mockWorkerService, 'terminateAll')
         .mockResolvedValue(undefined);
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
@@ -161,7 +197,11 @@ describe('Kernel', () => {
 
   describe('restartVat()', () => {
     it('preserves vat state across multiple restarts', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       await kernel.restartVat('v1');
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
@@ -173,7 +213,11 @@ describe('Kernel', () => {
     });
 
     it('restarts a vat', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
@@ -186,14 +230,22 @@ describe('Kernel', () => {
     });
 
     it('throws error when restarting non-existent vat', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
       expect(terminateMock).not.toHaveBeenCalled();
       expect(launchWorkerMock).not.toHaveBeenCalled();
     });
 
     it('handles restart failure during termination', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       terminateMock.mockRejectedValueOnce(new Error('Termination failed'));
       await expect(kernel.restartVat('v1')).rejects.toThrow(
@@ -203,7 +255,11 @@ describe('Kernel', () => {
     });
 
     it('handles restart failure during launch', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       launchWorkerMock.mockRejectedValueOnce(new Error('Launch failed'));
       await expect(kernel.restartVat('v1')).rejects.toThrow('Launch failed');
@@ -214,7 +270,11 @@ describe('Kernel', () => {
 
   describe('sendVatCommand()', () => {
     it('sends a message to the vat without errors when the vat exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockResolvedValueOnce(
         'test',
@@ -228,7 +288,11 @@ describe('Kernel', () => {
     });
 
     it('throws an error when sending a message to the vat that does not exist in the kernel', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
         kernel.sendVatCommand(nonExistentVatId, {} as VatCommand['payload']),
@@ -236,7 +300,11 @@ describe('Kernel', () => {
     });
 
     it('throws an error when sending a message to the vat throws', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await kernel.launchVat(mockVatConfig);
       vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockRejectedValueOnce(
         'error',
@@ -250,7 +318,8 @@ describe('Kernel', () => {
   describe('constructor()', () => {
     it('initializes the kernel without errors', () => {
       expect(
-        async () => new Kernel(mockStream, mockWorkerService, mockKVStore),
+        async () =>
+          await Kernel.make(mockStream, mockWorkerService, mockKVStore),
       ).not.toThrow();
     });
   });
@@ -265,7 +334,11 @@ describe('Kernel', () => {
 
   describe('reload()', () => {
     it('should reload with current config when config exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       kernel.clusterConfig = mockClusterConfig;
       await kernel.launchVat(mockVatConfig);
       const workerTerminateAllMock = vi
@@ -281,12 +354,20 @@ describe('Kernel', () => {
     });
 
     it('should throw if no config exists', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');
     });
 
     it('should propagate errors from terminateAllVats', async () => {
-      const kernel = new Kernel(mockStream, mockWorkerService, mockKVStore);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKVStore,
+      );
       kernel.clusterConfig = mockClusterConfig;
       const error = new Error('Termination failed');
       vi.spyOn(mockWorkerService, 'terminateAll').mockRejectedValueOnce(error);

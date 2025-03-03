@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   );
   const kvStore = await makeSQLKVStore();
 
-  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore, {
+  const kernel = await Kernel.make(kernelStream, vatWorkerClient, kvStore, {
     // XXX Warning: Clearing storage here is a hack to aid development
     // debugging, wherein extension reloads are almost exclusively used for
     // retrying after tweaking some fix. The following line will prevent
@@ -48,7 +48,6 @@ async function main(): Promise<void> {
     async (message) => handlePanelMessage(kernel, kvStore, message),
     logger,
   );
-  await kernel.init();
 
   const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
     new URL('../vats/default-cluster.json', import.meta.url).href,

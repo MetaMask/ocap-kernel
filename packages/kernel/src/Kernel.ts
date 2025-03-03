@@ -106,7 +106,8 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    */
-  constructor(
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
     rawStorage: KVStore,
@@ -131,21 +132,48 @@ export class Kernel {
   }
 
   /**
+   * Create a new kernel instance.
+   *
+   * @param commandStream - Command channel from whatever external software is driving the kernel.
+   * @param vatWorkerService - Service to create a worker in which a new vat can run.
+   * @param rawStorage - A KV store for holding the kernel's persistent state.
+   * @param options - Options for the kernel constructor.
+   * @param options.resetStorage - If true, the storage will be cleared.
+   * @param options.logger - Optional logger for error and diagnostic output.
+   * @returns A promise for the new kernel instance.
+   */
+  static async make(
+    commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
+    vatWorkerService: VatWorkerService,
+    rawStorage: KVStore,
+    options: {
+      resetStorage?: boolean;
+      logger?: Logger;
+    } = {},
+  ): Promise<Kernel> {
+    const kernel = new Kernel(
+      commandStream,
+      vatWorkerService,
+      rawStorage,
+      options,
+    );
+    await kernel.#init();
+    return kernel;
+  }
+
+  /**
    * Start the kernel running. Sets it up to actually receive command messages
    * and then begin processing the run queue.
    */
-  async init(): Promise<void> {
+  async #init(): Promise<void> {
     this.#receiveCommandMessages().catch((error) => {
-      this.#logger.error('Stream read error occurred:', error);
-      // Errors thrown here will not be surfaced in the usual synchronous manner
-      // because #receiveCommandMessages() is not awaited.  Any error thrown
-      // inside the async loop is 'caught' within the constructor call context
-      // but will be displayed as 'Uncaught (in promise)' since they occur after
-      // the constructor has returned.
+      this.#logger.error('Stream read error:', error);
       throw new StreamReadError({ kernelId: 'kernel' }, error);
     });
-    // eslint-disable-next-line no-void
-    void this.#run();
+    this.#run().catch((error) => {
+      this.#logger.error('Run loop error:', error);
+      throw error;
+    });
   }
 
   /**
