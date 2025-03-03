@@ -28,7 +28,7 @@ vi.mock('prettier', () => ({
   format: vi.fn(),
 }));
 
-vi.mock('./fs-utils.js', () => ({
+vi.mock('./fs-utils.ts', () => ({
   readAllFiles: vi.fn(),
   writeFiles: vi.fn(),
 }));
