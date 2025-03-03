@@ -1,7 +1,7 @@
 import { VatNotFoundError } from '@ocap/errors';
 import type { KVStore } from '@ocap/store';
 import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
-import type { MockInstance } from 'vitest';
+import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.ts';
@@ -11,7 +11,12 @@ import type {
   VatCommand,
   VatCommandReply,
 } from './messages/index.ts';
-import type { VatId, VatConfig, VatWorkerService } from './types.ts';
+import type {
+  VatId,
+  VatConfig,
+  VatWorkerService,
+  ClusterConfig,
+} from './types.ts';
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKVStore } from '../test/storage.ts';
 
@@ -20,13 +25,14 @@ describe('Kernel', () => {
   let mockWorkerService: VatWorkerService;
   let launchWorkerMock: MockInstance;
   let terminateWorkerMock: MockInstance;
-  let initMock: MockInstance;
-  let terminateMock: MockInstance;
-
+  let makeVatHandleMock: MockInstance;
+  let vatHandles: Mocked<VatHandle>[];
   let mockKVStore: KVStore;
 
-  const mockVatConfig: VatConfig = { sourceSpec: 'not-really-there.js' };
-  const mockClusterConfig = {
+  const makeMockVatConfig = (): VatConfig => ({
+    sourceSpec: 'not-really-there.js',
+  });
+  const makeMockClusterConfig = (): ClusterConfig => ({
     bootstrap: 'alice',
     vats: {
       alice: {
@@ -36,7 +42,8 @@ describe('Kernel', () => {
         },
       },
     },
-  };
+  });
+
   beforeEach(() => {
     mockStream = {
       write: vi.fn(),
@@ -62,12 +69,22 @@ describe('Kernel', () => {
       .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);
 
-    initMock = vi
-      .spyOn(VatHandle.prototype, 'init')
-      .mockImplementation(vi.fn());
-    terminateMock = vi
-      .spyOn(VatHandle.prototype, 'terminate')
-      .mockImplementation(vi.fn());
+    vatHandles = [];
+    makeVatHandleMock = vi
+      .spyOn(VatHandle, 'make')
+      .mockImplementation(async () => {
+        const vatHandle = {
+          init: vi.fn(),
+          terminate: vi.fn(),
+          handleMessage: vi.fn(),
+          deliverMessage: vi.fn(),
+          deliverNotify: vi.fn(),
+          sendVatCommand: vi.fn(),
+          config: makeMockVatConfig(),
+        } as unknown as VatHandle;
+        vatHandles.push(vatHandle as Mocked<VatHandle>);
+        return vatHandle;
+      });
 
     mockKVStore = makeMapKVStore();
   });
@@ -88,7 +105,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
 
@@ -98,8 +115,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
     });
   });
@@ -111,8 +128,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      expect(initMock).toHaveBeenCalledOnce();
+      await kernel.launchVat(makeMockVatConfig());
+      expect(makeVatHandleMock).toHaveBeenCalledOnce();
       expect(launchWorkerMock).toHaveBeenCalled();
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
@@ -123,9 +140,9 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      await kernel.launchVat(mockVatConfig);
-      expect(initMock).toHaveBeenCalledTimes(2);
+      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchVat(makeMockVatConfig());
+      expect(makeVatHandleMock).toHaveBeenCalledTimes(2);
       expect(launchWorkerMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
     });
@@ -138,10 +155,10 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.terminateVat('v1');
-      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
@@ -156,7 +173,7 @@ describe('Kernel', () => {
       await expect(async () =>
         kernel.terminateVat(nonExistentVatId),
       ).rejects.toThrow(VatNotFoundError);
-      expect(terminateMock).not.toHaveBeenCalled();
+      expect(vatHandles).toHaveLength(0);
     });
 
     it('throws an error when a vat terminate method throws', async () => {
@@ -165,10 +182,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'terminate').mockRejectedValueOnce(
-        'Test error',
-      );
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.terminate.mockRejectedValueOnce('Test error');
       await expect(async () => kernel.terminateVat('v1')).rejects.toThrow(
         'Test error',
       );
@@ -185,11 +200,13 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
+      expect(vatHandles).toHaveLength(2);
       await kernel.terminateAllVats();
-      expect(terminateMock).toHaveBeenCalledTimes(2);
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
+      expect(vatHandles[1]?.terminate).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
@@ -202,14 +219,20 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
       await kernel.restartVat('v1');
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      expect(terminateMock).toHaveBeenCalledTimes(2);
+      expect(vatHandles).toHaveLength(3); // Three instances created
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
+      expect(vatHandles[1]?.terminate).toHaveBeenCalledTimes(1);
+      expect(vatHandles[2]?.terminate).not.toHaveBeenCalled();
       expect(launchWorkerMock).toHaveBeenCalledTimes(3); // initial + 2 restarts
-      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
+      expect(launchWorkerMock).toHaveBeenLastCalledWith(
+        'v1',
+        makeMockVatConfig(),
+      );
     });
 
     it('restarts a vat', async () => {
@@ -218,15 +241,18 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
-      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(terminateWorkerMock).toHaveBeenCalledOnce();
       expect(launchWorkerMock).toHaveBeenCalledTimes(2);
-      expect(launchWorkerMock).toHaveBeenLastCalledWith('v1', mockVatConfig);
+      expect(launchWorkerMock).toHaveBeenLastCalledWith(
+        'v1',
+        makeMockVatConfig(),
+      );
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      expect(initMock).toHaveBeenCalledTimes(2);
+      expect(makeVatHandleMock).toHaveBeenCalledTimes(2);
     });
 
     it('throws error when restarting non-existent vat', async () => {
@@ -236,7 +262,7 @@ describe('Kernel', () => {
         mockKVStore,
       );
       await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
-      expect(terminateMock).not.toHaveBeenCalled();
+      expect(vatHandles).toHaveLength(0);
       expect(launchWorkerMock).not.toHaveBeenCalled();
     });
 
@@ -246,8 +272,10 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      terminateMock.mockRejectedValueOnce(new Error('Termination failed'));
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.terminate.mockRejectedValueOnce(
+        new Error('Termination failed'),
+      );
       await expect(kernel.restartVat('v1')).rejects.toThrow(
         'Termination failed',
       );
@@ -260,10 +288,10 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
+      await kernel.launchVat(makeMockVatConfig());
       launchWorkerMock.mockRejectedValueOnce(new Error('Launch failed'));
       await expect(kernel.restartVat('v1')).rejects.toThrow('Launch failed');
-      expect(terminateMock).toHaveBeenCalledOnce();
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
   });
@@ -275,10 +303,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockResolvedValueOnce(
-        'test',
-      );
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.sendVatCommand.mockResolvedValueOnce('test');
       expect(
         await kernel.sendVatCommand(
           'v1',
@@ -305,10 +331,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      await kernel.launchVat(mockVatConfig);
-      vi.spyOn(VatHandle.prototype, 'sendVatCommand').mockRejectedValueOnce(
-        'error',
-      );
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.sendVatCommand.mockRejectedValueOnce('error');
       await expect(async () =>
         kernel.sendVatCommand('v1', {} as VatCommand['payload']),
       ).rejects.toThrow('error');
@@ -339,8 +363,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      kernel.clusterConfig = mockClusterConfig;
-      await kernel.launchVat(mockVatConfig);
+      kernel.clusterConfig = makeMockClusterConfig();
+      await kernel.launchVat(makeMockVatConfig());
       const workerTerminateAllMock = vi
         .spyOn(mockWorkerService, 'terminateAll')
         .mockResolvedValue(undefined);
@@ -348,7 +372,7 @@ describe('Kernel', () => {
         .spyOn(kernel, 'launchSubcluster')
         .mockResolvedValueOnce(undefined);
       await kernel.reload();
-      expect(terminateMock).toHaveBeenCalledTimes(1);
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
       expect(launchSubclusterMock).toHaveBeenCalledOnce();
     });
@@ -368,7 +392,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKVStore,
       );
-      kernel.clusterConfig = mockClusterConfig;
+      kernel.clusterConfig = makeMockClusterConfig();
       const error = new Error('Termination failed');
       vi.spyOn(mockWorkerService, 'terminateAll').mockRejectedValueOnce(error);
       await expect(kernel.reload()).rejects.toThrow(error);

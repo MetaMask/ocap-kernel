@@ -2,7 +2,8 @@ import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { MockInstance } from 'vitest';
 
 import { Kernel } from './Kernel.ts';
 import { isVatCommandReply, VatCommandMethod } from './messages/index.ts';
@@ -31,7 +32,7 @@ const makeVat = async (
     validateInput: isVatCommandReply,
   });
   return {
-    vat: new VatHandle({
+    vat: await VatHandle.make({
       kernel: null as unknown as Kernel,
       storage: null as unknown as KernelStore,
       vatId: 'v0',
@@ -44,15 +45,18 @@ const makeVat = async (
 };
 
 describe('VatHandle', () => {
+  let sendVatCommandMock: MockInstance<VatHandle['sendVatCommand']>;
+
+  beforeEach(() => {
+    sendVatCommandMock = vi
+      .spyOn(VatHandle.prototype, 'sendVatCommand')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+  });
+
   describe('init', () => {
     it('initializes the vat and sends ping & initVat messages', async () => {
-      const { vat } = await makeVat();
-      const sendVatCommandMock = vi
-        .spyOn(vat, 'sendVatCommand')
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
-
-      await vat.init();
+      await makeVat();
 
       expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.ping,
@@ -68,11 +72,7 @@ describe('VatHandle', () => {
 
     it('throws if the stream throws', async () => {
       const logger = makeLogger(`[vat v0]`);
-      const { vat, stream } = await makeVat(logger);
-      vi.spyOn(vat, 'sendVatCommand')
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
-      await vat.init();
+      const { stream } = await makeVat(logger);
       const logErrorSpy = vi.spyOn(logger, 'error');
       await stream.receiveInput(NaN);
       await delay(10);

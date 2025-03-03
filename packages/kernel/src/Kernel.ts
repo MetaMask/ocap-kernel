@@ -316,7 +316,7 @@ export class Kernel {
       throw new VatAlreadyExistsError(vatId);
     }
     const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = new VatHandle({
+    const vat = await VatHandle.make({
       kernel: this,
       vatId,
       vatConfig,
@@ -325,7 +325,6 @@ export class Kernel {
     });
     this.#vats.set(vatId, vat);
     this.#storage.initEndpoint(vatId);
-    await vat.init();
     const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
     return rootRef;
   }
