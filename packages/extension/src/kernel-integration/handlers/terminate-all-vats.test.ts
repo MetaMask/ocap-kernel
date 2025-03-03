@@ -2,7 +2,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
-import { terminateAllVatsHandler } from './terminate-all-vats.js';
+import { terminateAllVatsHandler } from './terminate-all-vats.ts';
 
 describe('terminateAllVatsHandler', () => {
   const mockKernel = {

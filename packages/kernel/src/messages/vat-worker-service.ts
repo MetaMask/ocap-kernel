@@ -3,7 +3,7 @@ import type { Infer } from '@metamask/superstruct';
 import { ErrorStruct } from '@ocap/errors';
 import type { TypeGuard } from '@ocap/utils';
 
-import { VatIdStruct, VatMessageIdStruct, VatConfigStruct } from '../types.js';
+import { VatIdStruct, VatMessageIdStruct, VatConfigStruct } from '../types.ts';
 
 export const VatWorkerServiceCommandMethod = {
   launch: 'launch',

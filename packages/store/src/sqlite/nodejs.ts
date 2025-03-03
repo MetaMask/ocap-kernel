@@ -6,8 +6,8 @@ import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SQL_QUERIES } from './common.js';
-import type { KVStore } from '../types.js';
+import { SQL_QUERIES } from './common.ts';
+import type { KVStore } from '../types.ts';
 
 /**
  * Ensure that SQLite is initialized.

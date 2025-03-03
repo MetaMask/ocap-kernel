@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { SQL_QUERIES } from './common.js';
+import { SQL_QUERIES } from './common.ts';
 
 describe('SQL_QUERIES', () => {
   it.each([

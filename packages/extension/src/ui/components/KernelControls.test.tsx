@@ -2,16 +2,16 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { KernelControls } from './KernelControls.js';
-import { useKernelActions } from '../hooks/useKernelActions.js';
-import { useVats } from '../hooks/useVats.js';
-import type { VatRecord } from '../types.js';
+import { KernelControls } from './KernelControls.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
+import { useVats } from '../hooks/useVats.ts';
+import type { VatRecord } from '../types.ts';
 
-vi.mock('../hooks/useKernelActions.js', () => ({
+vi.mock('../hooks/useKernelActions.ts', () => ({
   useKernelActions: vi.fn(),
 }));
 
-vi.mock('../hooks/useVats.js', () => ({
+vi.mock('../hooks/useVats.ts', () => ({
   useVats: vi.fn(),
 }));
 

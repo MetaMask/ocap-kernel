@@ -7,10 +7,10 @@ import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { getServer } from '../../src/commands/serve.js';
-import { defaultConfig } from '../../src/config.js';
-import { withTimeout } from '../../src/utils.js';
-import { makeTestBundleStage, validTestBundleNames } from '../bundles.js';
+import { getServer } from '../../src/commands/serve.ts';
+import { defaultConfig } from '../../src/config.ts';
+import { withTimeout } from '../../src/utils.ts';
+import { makeTestBundleStage, validTestBundleNames } from '../bundles.ts';
 
 const isBundleSourceResult = (
   value: unknown,

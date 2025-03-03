@@ -4,8 +4,8 @@ import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
-import { isDirectory } from '../file.js';
-import { resolveBundlePath } from '../path.js';
+import { isDirectory } from '../file.ts';
+import { resolveBundlePath } from '../path.ts';
 
 /**
  * Create a bundle given path to an entry point.

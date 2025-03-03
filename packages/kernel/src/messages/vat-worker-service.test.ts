@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import type {
   VatWorkerServiceCommand,
   VatWorkerServiceReply,
-} from './vat-worker-service.js';
+} from './vat-worker-service.ts';
 import {
   isVatWorkerServiceCommand,
   isVatWorkerServiceReply,
   VatWorkerServiceCommandMethod,
-} from './vat-worker-service.js';
+} from './vat-worker-service.ts';
 
 const launchPayload: VatWorkerServiceCommand['payload'] = harden({
   method: VatWorkerServiceCommandMethod.launch,

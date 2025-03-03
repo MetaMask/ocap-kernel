@@ -10,7 +10,7 @@ import {
 import { JsonStruct, object } from '@metamask/utils';
 import type { NonEmptyArray } from '@metamask/utils';
 
-import type { MarshaledError, MarshaledOcapError } from './types.js';
+import type { MarshaledError, MarshaledOcapError } from './types.ts';
 
 /**
  * Struct to validate plain {@link Error} objects.

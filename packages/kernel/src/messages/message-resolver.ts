@@ -1,7 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { makeCounter } from '@ocap/utils';
 
-import type { PromiseCallbacks } from '../types.js';
+import type { PromiseCallbacks } from '../types.ts';
 
 export class MessageResolver {
   readonly #prefix: string;

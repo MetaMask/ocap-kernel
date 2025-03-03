@@ -8,12 +8,12 @@ import {
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { ConfigEditor } from './ConfigEditor.js';
-import type { KernelStatus } from '../../kernel-integration/messages.js';
+import { ConfigEditor } from './ConfigEditor.tsx';
+import type { KernelStatus } from '../../kernel-integration/messages.ts';
 import defaultClusterConfig from '../../vats/default-cluster.json';
 import minimalClusterConfig from '../../vats/minimal-cluster.json';
-import { usePanelContext } from '../context/PanelContext.js';
-import { useKernelActions } from '../hooks/useKernelActions.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 const mockStatus = {
   clusterConfig: defaultClusterConfig,
@@ -34,11 +34,11 @@ const mockUsePanelContext = {
   setSelectedVatId: vi.fn(),
 };
 
-vi.mock('../hooks/useKernelActions.js', () => ({
+vi.mock('../hooks/useKernelActions.ts', () => ({
   useKernelActions: vi.fn(),
 }));
 
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 

@@ -15,14 +15,14 @@ import type {
   DispatchFn,
   MakeLiveSlotsFn,
   GCTools,
-} from './ag-liveslots-types.js';
-import { makeDummyMeterControl } from './dummyMeterControl.js';
-import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { VatCommandMethod } from './messages/index.js';
-import { makeSupervisorSyscall } from './syscall.js';
-import type { VatConfig, VatId, VRef } from './types.js';
-import { ROOT_OBJECT_VREF, isVatConfig } from './types.js';
-import { waitUntilQuiescent } from './waitUntilQuiescent.js';
+} from './ag-liveslots-types.ts';
+import { makeDummyMeterControl } from './dummyMeterControl.ts';
+import type { VatCommand, VatCommandReply } from './messages/index.ts';
+import { VatCommandMethod } from './messages/index.ts';
+import { makeSupervisorSyscall } from './syscall.ts';
+import type { VatConfig, VatId, VRef } from './types.ts';
+import { ROOT_OBJECT_VREF, isVatConfig } from './types.ts';
+import { waitUntilQuiescent } from './waitUntilQuiescent.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 

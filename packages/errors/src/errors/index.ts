@@ -1,8 +1,8 @@
-import { StreamReadError } from './StreamReadError.js';
-import { VatAlreadyExistsError } from './VatAlreadyExistsError.js';
-import { VatDeletedError } from './VatDeletedError.js';
-import { VatNotFoundError } from './VatNotFoundError.js';
-import { ErrorCode } from '../constants.js';
+import { StreamReadError } from './StreamReadError.ts';
+import { VatAlreadyExistsError } from './VatAlreadyExistsError.ts';
+import { VatDeletedError } from './VatDeletedError.ts';
+import { VatNotFoundError } from './VatNotFoundError.ts';
+import { ErrorCode } from '../constants.ts';
 
 export const errorClasses = {
   [ErrorCode.StreamReadError]: StreamReadError,

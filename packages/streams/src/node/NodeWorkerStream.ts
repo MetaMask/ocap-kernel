@@ -5,14 +5,14 @@
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from '../BaseDuplexStream.js';
+} from '../BaseDuplexStream.ts';
 import type {
   BaseReaderArgs,
   BaseWriterArgs,
   ValidateInput,
-} from '../BaseStream.js';
-import { BaseReader, BaseWriter } from '../BaseStream.js';
-import type { Dispatchable } from '../utils.js';
+} from '../BaseStream.ts';
+import { BaseReader, BaseWriter } from '../BaseStream.ts';
+import type { Dispatchable } from '../utils.ts';
 
 export type OnMessage = (message: unknown) => void;
 

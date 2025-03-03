@@ -9,9 +9,9 @@ import type { PostMessageTarget } from '@ocap/streams';
 import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
-import { handlePanelMessage } from './handle-panel-message.js';
-import { receiveUiConnections } from './ui-connections.js';
-import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import { handlePanelMessage } from './handle-panel-message.ts';
+import { receiveUiConnections } from './ui-connections.ts';
+import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 const logger = makeLogger('[kernel worker]');
 

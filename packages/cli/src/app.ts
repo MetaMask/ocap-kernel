@@ -2,12 +2,12 @@ import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { createBundle } from './commands/bundle.js';
-import { getServer } from './commands/serve.js';
-import { watchDir } from './commands/watch.js';
-import { defaultConfig } from './config.js';
-import type { Config } from './config.js';
-import { withTimeout } from './utils.js';
+import { createBundle } from './commands/bundle.ts';
+import { getServer } from './commands/serve.ts';
+import { watchDir } from './commands/watch.ts';
+import { defaultConfig } from './config.ts';
+import type { Config } from './config.ts';
+import { withTimeout } from './utils.ts';
 
 await yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')

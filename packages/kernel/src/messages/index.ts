@@ -5,17 +5,17 @@ export {
   isKernelCommand,
   isKernelCommandReply,
   KernelSendVatCommandStruct,
-} from './kernel.js';
-export type { KernelCommand, KernelCommandReply } from './kernel.js';
+} from './kernel.ts';
+export type { KernelCommand, KernelCommandReply } from './kernel.ts';
 
 // Vat commands.
 
-export { VatCommandMethod, isVatCommand, isVatCommandReply } from './vat.js';
+export { VatCommandMethod, isVatCommand, isVatCommandReply } from './vat.ts';
 export type {
   VatCommand,
   VatCommandReply,
   VatCommandReturnType,
-} from './vat.js';
+} from './vat.ts';
 
 // Vat worker service commands.
 
@@ -23,11 +23,11 @@ export {
   VatWorkerServiceCommandMethod,
   isVatWorkerServiceCommand,
   isVatWorkerServiceReply,
-} from './vat-worker-service.js';
+} from './vat-worker-service.ts';
 export type {
   VatWorkerServiceCommand,
   VatWorkerServiceReply,
-} from './vat-worker-service.js';
+} from './vat-worker-service.ts';
 
 // Message resolver.
-export { MessageResolver } from './message-resolver.js';
+export { MessageResolver } from './message-resolver.ts';

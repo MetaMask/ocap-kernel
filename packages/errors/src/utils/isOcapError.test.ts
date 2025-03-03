@@ -1,10 +1,10 @@
 import type { Json } from '@metamask/utils';
 import { describe, it, expect } from 'vitest';
 
-import { isOcapError } from './isOcapError.js';
-import { BaseError } from '../BaseError.js';
-import { ErrorCode } from '../constants.js';
-import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
+import { isOcapError } from './isOcapError.ts';
+import { BaseError } from '../BaseError.ts';
+import { ErrorCode } from '../constants.ts';
+import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.ts';
 
 class MockCodedError extends Error {
   code: string;

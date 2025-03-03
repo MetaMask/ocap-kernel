@@ -4,7 +4,7 @@ import {
   isKernelControlCommand,
   isKernelControlReply,
   isKernelStatus,
-} from './messages.js';
+} from './messages.ts';
 import clusterConfig from '../vats/default-cluster.json';
 
 describe('isKernelControlCommand', () => {

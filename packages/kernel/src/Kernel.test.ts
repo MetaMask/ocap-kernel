@@ -4,16 +4,16 @@ import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { Kernel } from './Kernel.js';
+import { Kernel } from './Kernel.ts';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
   VatCommandReply,
-} from './messages/index.js';
-import type { VatId, VatConfig, VatWorkerService } from './types.js';
-import { VatHandle } from './VatHandle.js';
-import { makeMapKVStore } from '../test/storage.js';
+} from './messages/index.ts';
+import type { VatId, VatConfig, VatWorkerService } from './types.ts';
+import { VatHandle } from './VatHandle.ts';
+import { makeMapKVStore } from '../test/storage.ts';
 
 describe('Kernel', () => {
   let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;

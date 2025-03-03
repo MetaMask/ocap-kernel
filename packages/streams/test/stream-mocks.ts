@@ -2,15 +2,15 @@ import {
   BaseDuplexStream,
   makeAck,
   makeDuplexStreamInputValidator,
-} from '../src/BaseDuplexStream.js';
+} from '../src/BaseDuplexStream.ts';
 import type {
   Dispatch,
   ReceiveInput,
   BaseReaderArgs,
   ValidateInput,
   BaseWriterArgs,
-} from '../src/BaseStream.js';
-import { BaseReader, BaseWriter } from '../src/BaseStream.js';
+} from '../src/BaseStream.ts';
+import { BaseReader, BaseWriter } from '../src/BaseStream.ts';
 
 export class TestReader<Read = number> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;

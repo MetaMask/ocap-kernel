@@ -3,7 +3,7 @@
 
 import { vi } from 'vitest';
 
-import { makePromiseKitMock } from '../promise-kit.js';
+import { makePromiseKitMock } from '../promise-kit.ts';
 
 globalThis.lockdown = vi.fn((): void => undefined);
 globalThis.harden = vi.fn(<Value>(value: Value): Readonly<Value> => value);

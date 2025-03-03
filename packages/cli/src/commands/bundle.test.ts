@@ -2,12 +2,12 @@ import { readFile, rm } from 'fs/promises';
 import { basename } from 'path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
-import { createBundleFile, createBundleDir } from './bundle.js';
+import { createBundleFile, createBundleDir } from './bundle.ts';
 import {
   makeTestBundleStage,
   validTestBundleNames,
-} from '../../test/bundles.js';
-import { fileExists } from '../file.js';
+} from '../../test/bundles.ts';
+import { fileExists } from '../file.ts';
 
 const mocks = vi.hoisted(() => ({
   bundleSource: vi.fn(),

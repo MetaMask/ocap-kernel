@@ -2,8 +2,8 @@ import type { Json } from '@metamask/utils';
 import type { ClusterConfig, Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 
-import type { CommandHandler } from '../command-registry.js';
-import { KernelCommandPayloadStructs } from '../messages.js';
+import type { CommandHandler } from '../command-registry.ts';
+import { KernelCommandPayloadStructs } from '../messages.ts';
 
 export const updateClusterConfigHandler: CommandHandler<'updateClusterConfig'> =
   {

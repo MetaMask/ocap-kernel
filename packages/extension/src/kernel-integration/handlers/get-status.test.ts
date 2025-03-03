@@ -2,7 +2,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
-import { getStatusHandler } from './get-status.js';
+import { getStatusHandler } from './get-status.ts';
 import clusterConfig from '../../vats/default-cluster.json';
 
 describe('getStatusHandler', () => {

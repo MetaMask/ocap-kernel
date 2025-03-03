@@ -3,8 +3,8 @@ import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
 
-import { usePanelContext } from '../context/PanelContext.js';
-import type { VatRecord } from '../types.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import type { VatRecord } from '../types.ts';
 
 /**
  * Hook to manage the vats state.

@@ -8,8 +8,8 @@ import {
 import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
 import { delay, makeLogger } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
-import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
+import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
+import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.ts';
 
 const logger = makeLogger('[offscreen]');
 

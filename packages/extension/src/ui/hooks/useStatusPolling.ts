@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { StreamState } from './useStream.js';
-import type { KernelStatus } from '../../kernel-integration/messages.js';
-import { logger } from '../services/logger.js';
-import { isErrorResponse } from '../utils.js';
+import type { StreamState } from './useStream.ts';
+import type { KernelStatus } from '../../kernel-integration/messages.ts';
+import { logger } from '../services/logger.ts';
+import { isErrorResponse } from '../utils.ts';
 
 /**
  * Hook to start polling for kernel status

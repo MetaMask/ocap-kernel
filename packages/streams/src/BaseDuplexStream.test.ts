@@ -2,13 +2,13 @@ import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.js';
+import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from './utils.js';
-import { TestDuplexStream } from '../test/stream-mocks.js';
+} from './utils.ts';
+import { TestDuplexStream } from '../test/stream-mocks.ts';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 

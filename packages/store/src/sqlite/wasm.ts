@@ -2,8 +2,8 @@ import { makeLogger } from '@ocap/utils';
 import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import { SQL_QUERIES } from './common.js';
-import type { KVStore } from '../types.js';
+import { SQL_QUERIES } from './common.ts';
+import type { KVStore } from '../types.ts';
 
 /**
  * Ensure that SQLite is initialized.

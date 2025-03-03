@@ -2,7 +2,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
-import { restartVatHandler } from './restart-vat.js';
+import { restartVatHandler } from './restart-vat.ts';
 
 describe('restartVatHandler', () => {
   const mockKernel = {

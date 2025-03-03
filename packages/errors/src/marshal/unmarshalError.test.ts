@@ -1,12 +1,12 @@
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, it, expect } from 'vitest';
 
-import { unmarshalError, unmarshalErrorOptions } from './unmarshalError.js';
-import { ErrorCode, ErrorSentinel } from '../constants.js';
-import { StreamReadError } from '../errors/StreamReadError.js';
-import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
-import type { OcapError } from '../types.js';
-import { isOcapError } from '../utils/isOcapError.js';
+import { unmarshalError, unmarshalErrorOptions } from './unmarshalError.ts';
+import { ErrorCode, ErrorSentinel } from '../constants.ts';
+import { StreamReadError } from '../errors/StreamReadError.ts';
+import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.ts';
+import type { OcapError } from '../types.ts';
+import { isOcapError } from '../utils/isOcapError.ts';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 

@@ -2,7 +2,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect } from 'vitest';
 
-import { updateClusterConfigHandler } from './update-cluster-config.js';
+import { updateClusterConfigHandler } from './update-cluster-config.ts';
 
 describe('updateClusterConfigHandler', () => {
   const mockKernel = {

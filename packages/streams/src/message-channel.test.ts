@@ -13,7 +13,7 @@ import {
   initializeMessageChannel,
   MessageType,
   receiveMessagePort,
-} from './message-channel.js';
+} from './message-channel.ts';
 
 /**
  * Construct a mock Window with mock message post and listen capabilities.

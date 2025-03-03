@@ -7,7 +7,7 @@ import { makeLogger } from '@ocap/utils';
 import fs from 'node:fs';
 import url from 'node:url';
 
-import { makeCommandStream } from './streams.js';
+import { makeCommandStream } from './streams.ts';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 

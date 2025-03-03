@@ -2,7 +2,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { reloadConfigHandler } from './reload-config.js';
+import { reloadConfigHandler } from './reload-config.ts';
 
 describe('reloadConfigHandler', () => {
   const mockKernel = {

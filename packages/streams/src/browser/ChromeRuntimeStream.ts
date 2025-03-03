@@ -20,16 +20,16 @@ import { stringify } from '@ocap/utils';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from '../BaseDuplexStream.js';
+} from '../BaseDuplexStream.ts';
 import type {
   BaseReaderArgs,
   ValidateInput,
   BaseWriterArgs,
   ReceiveInput,
-} from '../BaseStream.js';
-import { BaseReader, BaseWriter } from '../BaseStream.js';
-import type { ChromeRuntime, ChromeMessageSender } from '../chrome.js';
-import type { Dispatchable } from '../utils.js';
+} from '../BaseStream.ts';
+import { BaseReader, BaseWriter } from '../BaseStream.ts';
+import type { ChromeRuntime, ChromeMessageSender } from '../chrome.ts';
+import type { Dispatchable } from '../utils.ts';
 
 export type ChromeRuntimeTarget = 'background' | 'offscreen' | 'popup';
 

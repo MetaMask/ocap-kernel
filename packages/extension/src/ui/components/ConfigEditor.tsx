@@ -1,12 +1,12 @@
 import type { ClusterConfig } from '@ocap/kernel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { KernelStatus } from '../../kernel-integration/messages.js';
+import type { KernelStatus } from '../../kernel-integration/messages.ts';
 import defaultConfig from '../../vats/default-cluster.json';
 import minimalConfig from '../../vats/minimal-cluster.json';
 import styles from '../App.module.css';
-import { usePanelContext } from '../context/PanelContext.js';
-import { useKernelActions } from '../hooks/useKernelActions.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 type ConfigEntry = {
   name: string;

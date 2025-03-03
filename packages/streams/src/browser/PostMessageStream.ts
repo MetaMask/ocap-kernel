@@ -8,16 +8,16 @@
 
 import { isObject } from '@metamask/utils';
 
-import type { OnMessage, PostMessage } from './utils.js';
+import type { OnMessage, PostMessage } from './utils.ts';
 import {
   BaseDuplexStream,
   isDuplexStreamSignal,
   makeDuplexStreamInputValidator,
-} from '../BaseDuplexStream.js';
-import type { BaseReaderArgs, BaseWriterArgs } from '../BaseStream.js';
-import { BaseReader, BaseWriter } from '../BaseStream.js';
-import { isSignalLike } from '../utils.js';
-import type { Dispatchable } from '../utils.js';
+} from '../BaseDuplexStream.ts';
+import type { BaseReaderArgs, BaseWriterArgs } from '../BaseStream.ts';
+import { BaseReader, BaseWriter } from '../BaseStream.ts';
+import { isSignalLike } from '../utils.ts';
+import type { Dispatchable } from '../utils.ts';
 
 export type PostMessageTarget = {
   addEventListener: (type: 'message', listener: OnMessage) => void;

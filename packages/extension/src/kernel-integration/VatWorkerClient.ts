@@ -29,7 +29,7 @@ import { makeCounter, makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
+import type { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
 
 type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 

@@ -4,20 +4,20 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   MessageEnvelope,
   ChromeRuntimeTarget,
-} from './ChromeRuntimeStream.js';
+} from './ChromeRuntimeStream.ts';
 import {
   ChromeRuntimeReader,
   ChromeRuntimeWriter,
   ChromeRuntimeDuplexStream,
-} from './ChromeRuntimeStream.js';
-import { makeAck } from '../BaseDuplexStream.js';
-import type { ValidateInput } from '../BaseStream.js';
-import type { ChromeRuntime } from '../chrome.js';
+} from './ChromeRuntimeStream.ts';
+import { makeAck } from '../BaseDuplexStream.ts';
+import type { ValidateInput } from '../BaseStream.ts';
+import type { ChromeRuntime } from '../chrome.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from '../utils.js';
+} from '../utils.ts';
 
 const makeEnvelope = (
   value: unknown,

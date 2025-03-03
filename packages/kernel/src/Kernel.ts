@@ -12,22 +12,22 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
-import { assert, Fail } from './assert.js';
-import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
-import type { SlotValue } from './kernel-marshal.js';
-import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
+import { assert, Fail } from './assert.ts';
+import { kser, kunser, krefOf, kslot } from './kernel-marshal.ts';
+import type { SlotValue } from './kernel-marshal.ts';
+import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
   VatCommandReturnType,
-} from './messages/index.js';
+} from './messages/index.ts';
 import {
   parseRef,
   isPromiseRef,
   makeKernelStore,
-} from './store/kernel-store.js';
-import type { KernelStore } from './store/kernel-store.js';
+} from './store/kernel-store.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import type {
   VatId,
   VRef,
@@ -38,14 +38,14 @@ import type {
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemNotify,
-} from './types.js';
+} from './types.ts';
 import {
   ROOT_OBJECT_VREF,
   insistVatId,
   insistMessage,
   isClusterConfig,
-} from './types.js';
-import { VatHandle } from './VatHandle.js';
+} from './types.ts';
+import { VatHandle } from './VatHandle.ts';
 
 /**
  * Obtain the KRef from a simple value represented as a CapData object.

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import { VatNotFoundError } from './VatNotFoundError.js';
-import { ErrorCode, ErrorSentinel } from '../constants.js';
-import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
-import type { MarshaledOcapError } from '../types.js';
+import { VatNotFoundError } from './VatNotFoundError.ts';
+import { ErrorCode, ErrorSentinel } from '../constants.ts';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.ts';
+import type { MarshaledOcapError } from '../types.ts';
 
 describe('VatNotFoundError', () => {
   const mockVatId = 'mockVatId';

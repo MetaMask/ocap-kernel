@@ -1,8 +1,8 @@
 import { getSafeJson } from '@metamask/utils';
 
-import { ErrorSentinel } from '../constants.js';
-import type { MarshaledError } from '../types.js';
-import { isOcapError } from '../utils/isOcapError.js';
+import { ErrorSentinel } from '../constants.ts';
+import type { MarshaledError } from '../types.ts';
+import { isOcapError } from '../utils/isOcapError.ts';
 
 /**
  * Marshals an error into a {@link MarshaledError}.

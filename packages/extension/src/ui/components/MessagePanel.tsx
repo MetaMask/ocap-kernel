@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
 import styles from '../App.module.css';
-import { usePanelContext } from '../context/PanelContext.js';
-import type { OutputType } from '../context/PanelContext.js';
-import { useKernelActions } from '../hooks/useKernelActions.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import type { OutputType } from '../context/PanelContext.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {

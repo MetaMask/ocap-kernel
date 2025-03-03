@@ -4,8 +4,8 @@ import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 
-import type { KernelControlMethod } from './handlers/index.js';
-import type { KernelCommandPayloadStructs } from './messages.js';
+import type { KernelControlMethod } from './handlers/index.ts';
+import type { KernelCommandPayloadStructs } from './messages.ts';
 
 export type CommandParams = {
   [Method in KernelControlMethod]: Infer<

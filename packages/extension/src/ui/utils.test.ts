@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isValidBundleUrl } from './utils.js';
+import { isValidBundleUrl } from './utils.ts';
 
 describe('isValidBundleUrl', () => {
   it.each([

@@ -1,8 +1,8 @@
 import { stringify } from '@ocap/utils';
 import { useCallback, useEffect, useState } from 'react';
 
-import { usePanelContext } from '../context/PanelContext.js';
-import { isErrorResponse } from '../utils.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import { isErrorResponse } from '../utils.ts';
 
 /**
  * Hook for the database inspector.

@@ -1,12 +1,6 @@
 {
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
-    /*
-     * This package is never built and is executed directly by Node,
-     * and Node expects file extensions to match the files that are
-     * actually on disk.
-     */
-    "allowImportingTsExtensions": true,
     "baseUrl": "./",
     "noEmit": true,
     "skipLibCheck": true,

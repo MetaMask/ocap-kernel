@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "noEmit": true,
     "resolveJsonModule": true,
+    "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true
   },
   "files": [],

@@ -20,7 +20,7 @@ import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
 
-import type { VatCommandReply, VatCommand } from './messages/vat.js';
+import type { VatCommandReply, VatCommand } from './messages/vat.ts';
 
 export type VatId = string;
 export type RemoteId = string;

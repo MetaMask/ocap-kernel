@@ -4,7 +4,7 @@ import type { MockedFunction } from 'vitest';
 import cli from './cli.ts';
 import { commands } from './commands.ts';
 
-vi.mock('./cli.js');
+vi.mock('./cli.ts');
 
 describe('create-package/index', () => {
   let originalProcess: typeof globalThis.process;
@@ -24,7 +24,7 @@ describe('create-package/index', () => {
 
     vi.spyOn(console, 'error').mockImplementation(vi.fn());
 
-    await import('./index.js');
+    await import('./index.ts');
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(cli).toHaveBeenCalledTimes(1);

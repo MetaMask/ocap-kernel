@@ -1,6 +1,6 @@
 import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
 
-import defaultConfig from '../../vitest.config.js';
+import defaultConfig from '../../vitest.config.ts';
 
 export default defineConfig(() => {
   delete defaultConfig.test?.setupFiles;

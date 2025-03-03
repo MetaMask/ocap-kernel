@@ -1,7 +1,7 @@
-export * from './messages/index.js';
-export { Kernel } from './Kernel.js';
-export { VatHandle } from './VatHandle.js';
-export { VatSupervisor } from './VatSupervisor.js';
+export * from './messages/index.ts';
+export { Kernel } from './Kernel.ts';
+export { VatHandle } from './VatHandle.ts';
+export { VatSupervisor } from './VatSupervisor.ts';
 export type { Message } from '@agoric/swingset-liveslots';
 export type {
   VatId,
@@ -9,11 +9,11 @@ export type {
   ClusterConfig,
   VatConfig,
   KRef,
-} from './types.js';
+} from './types.ts';
 export {
   isVatId,
   VatIdStruct,
   isVatConfig,
   VatConfigStruct,
   ClusterConfigStruct,
-} from './types.js';
+} from './types.ts';

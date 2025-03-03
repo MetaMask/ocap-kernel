@@ -7,8 +7,8 @@ import {
   VatTestCommandMethod,
   VatTestMethodStructs,
   VatTestReplyStructs,
-} from './vat.js';
-import { VatIdStruct } from '../types.js';
+} from './vat.ts';
+import { VatIdStruct } from '../types.ts';
 
 export const KernelCommandMethod = {
   ping: VatTestCommandMethod.ping,

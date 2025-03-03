@@ -22,7 +22,7 @@ describe('getPort', () => {
     const mockParentPort = {};
     doMockParentPort(mockParentPort);
 
-    const { getPort } = await import('./streams.js');
+    const { getPort } = await import('./streams.ts');
     const port = getPort();
 
     expect(port).toStrictEqual(mockParentPort);
@@ -31,7 +31,7 @@ describe('getPort', () => {
   it('throws if parentPort is not defined', async () => {
     doMockParentPort(undefined);
 
-    const { getPort } = await import('./streams.js');
+    const { getPort } = await import('./streams.ts');
 
     expect(getPort).toThrow(/parentPort/u);
   });
@@ -42,7 +42,7 @@ describe('makeCommandStream', () => {
     doMockParentPort(new MessageChannel().port1);
 
     const { NodeWorkerDuplexStream } = await import('@ocap/streams');
-    const { makeCommandStream } = await import('./streams.js');
+    const { makeCommandStream } = await import('./streams.ts');
     const commandStream = makeCommandStream();
     expect(commandStream).toBeInstanceOf(NodeWorkerDuplexStream);
   });

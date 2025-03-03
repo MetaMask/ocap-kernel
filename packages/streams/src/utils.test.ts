@@ -2,7 +2,7 @@ import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 
-import type { Dispatchable, Writable } from './utils.js';
+import type { Dispatchable, Writable } from './utils.ts';
 import {
   makeDoneResult,
   makePendingResult,
@@ -12,7 +12,7 @@ import {
   StreamDoneSymbol,
   StreamSentinel,
   unmarshal,
-} from './utils.js';
+} from './utils.ts';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 

@@ -2,7 +2,7 @@ import type { ClusterConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
-import { usePanelContext } from '../context/PanelContext.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
 /**
  * Hook for handling kernel actions.
  *

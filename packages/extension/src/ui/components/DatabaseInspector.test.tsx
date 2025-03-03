@@ -2,10 +2,10 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { DatabaseInspector } from './DatabaseInspector.js';
-import { useDatabaseInspector } from '../hooks/useDatabaseInspector.js';
+import { DatabaseInspector } from './DatabaseInspector.tsx';
+import { useDatabaseInspector } from '../hooks/useDatabaseInspector.ts';
 
-vi.mock('../hooks/useDatabaseInspector.js', () => ({
+vi.mock('../hooks/useDatabaseInspector.ts', () => ({
   useDatabaseInspector: vi.fn(),
 }));
 

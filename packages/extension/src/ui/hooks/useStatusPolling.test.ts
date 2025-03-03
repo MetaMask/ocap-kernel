@@ -3,13 +3,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import clusterConfig from '../../vats/default-cluster.json';
 
-vi.mock('../services/logger.js', () => ({
+vi.mock('../services/logger.ts', () => ({
   logger: {
     error: vi.fn(),
   },
 }));
 
-vi.mock('../utils.js', () => ({
+vi.mock('../utils.ts', () => ({
   isErrorResponse: vi.fn(),
 }));
 
@@ -20,10 +20,10 @@ describe('useStatusPolling', () => {
   it('should start polling and fetch initial status', async () => {
     const mockStatus = { vats: [], clusterConfig };
     mockSendMessage.mockResolvedValueOnce(mockStatus);
-    vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+    vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
       false,
     );
-    const { useStatusPolling } = await import('./useStatusPolling.js');
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
     const { result } = renderHook(() => useStatusPolling(mockSendMessage, 100));
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
@@ -33,10 +33,10 @@ describe('useStatusPolling', () => {
   });
 
   it('should handle error responses', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
     const errorResponse = { error: 'Test error' };
     mockSendMessage.mockResolvedValueOnce(errorResponse);
-    vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+    vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
       true,
     );
     renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
@@ -45,12 +45,12 @@ describe('useStatusPolling', () => {
       params: null,
     });
     expect(
-      vi.mocked(await import('../services/logger.js')).logger.error,
+      vi.mocked(await import('../services/logger.ts')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', new Error('Test error'));
   });
 
   it('should handle fetch errors', async () => {
-    const { useStatusPolling } = await import('./useStatusPolling.js');
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
     const error = new Error('Network error');
     mockSendMessage.mockRejectedValueOnce(error);
     renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
@@ -59,7 +59,7 @@ describe('useStatusPolling', () => {
       params: null,
     });
     expect(
-      vi.mocked(await import('../services/logger.js')).logger.error,
+      vi.mocked(await import('../services/logger.ts')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', error);
   });
 
@@ -77,10 +77,10 @@ describe('useStatusPolling', () => {
     });
 
     it('should poll at specified intervals', async () => {
-      const { useStatusPolling } = await import('./useStatusPolling.js');
+      const { useStatusPolling } = await import('./useStatusPolling.ts');
       const mockStatus = { vats: [], clusterConfig };
       mockSendMessage.mockResolvedValue(mockStatus);
-      vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+      vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
         false,
       );
       renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
@@ -92,10 +92,10 @@ describe('useStatusPolling', () => {
     });
 
     it('should cleanup interval on unmount', async () => {
-      const { useStatusPolling } = await import('./useStatusPolling.js');
+      const { useStatusPolling } = await import('./useStatusPolling.ts');
       const mockStatus = { vats: [] };
       mockSendMessage.mockResolvedValue(mockStatus);
-      vi.mocked(await import('../utils.js')).isErrorResponse.mockReturnValue(
+      vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
         false,
       );
       const { unmount } = renderHook(() =>

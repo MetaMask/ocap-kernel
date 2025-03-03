@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { MessageResolver } from './message-resolver.js';
+import { MessageResolver } from './message-resolver.ts';
 
 describe('MessageResolver', () => {
   it('resolves the promise when handleResponse is called', async () => {

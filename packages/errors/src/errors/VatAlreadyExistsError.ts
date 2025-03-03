@@ -1,8 +1,8 @@
 import { assert, literal, object, string } from '@metamask/superstruct';
 
-import { BaseError } from '../BaseError.js';
-import { marshaledErrorSchema, ErrorCode } from '../constants.js';
-import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
+import { BaseError } from '../BaseError.ts';
+import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
 export class VatAlreadyExistsError extends BaseError {
   constructor(vatId: string, options?: ErrorOptionsWithStack) {

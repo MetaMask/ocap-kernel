@@ -7,12 +7,12 @@ import {
   isKernelControlCommand,
   isKernelControlReply,
   isUiControlCommand,
-} from './messages.js';
+} from './messages.ts';
 import type {
   KernelControlCommand,
   KernelControlReply,
   UiControlCommand,
-} from './messages.js';
+} from './messages.ts';
 
 export const UI_CONTROL_CHANNEL_NAME = 'ui-control';
 

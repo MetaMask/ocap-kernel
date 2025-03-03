@@ -6,8 +6,8 @@ import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { VatWorkerClientStream } from './VatWorkerClient.js';
-import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import type { VatWorkerClientStream } from './VatWorkerClient.ts';
+import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 vi.mock('@ocap/kernel', async () => ({
   isVatCommandReply: vi.fn(() => true),

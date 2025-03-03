@@ -1,6 +1,6 @@
 import styles from '../App.module.css';
-import { useKernelActions } from '../hooks/useKernelActions.js';
-import { useVats } from '../hooks/useVats.js';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
+import { useVats } from '../hooks/useVats.ts';
 
 /**
  * @returns A panel for controlling the kernel.

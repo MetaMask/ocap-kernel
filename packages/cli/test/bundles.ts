@@ -3,7 +3,7 @@ import { glob } from 'glob';
 import { tmpdir } from 'os';
 import { resolve, join, basename, format } from 'path';
 
-import { cp } from '../src/file.js';
+import { cp } from '../src/file.ts';
 
 export const validTestBundleNames = ['sample-vat', 'sample-vat-esp'];
 

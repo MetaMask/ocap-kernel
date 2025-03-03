@@ -1,5 +1,5 @@
 import styles from '../App.module.css';
-import { useVats } from '../hooks/useVats.js';
+import { useVats } from '../hooks/useVats.ts';
 
 /**
  * @returns A table of active vats.

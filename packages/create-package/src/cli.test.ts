@@ -4,7 +4,7 @@ import cli from './cli.ts';
 import { commands, commandMap } from './commands.ts';
 import * as utils from './utils.ts';
 
-vi.mock('./utils.js');
+vi.mock('./utils.ts');
 
 /**
  * Returns a mock `process.argv` array with the provided arguments. Includes

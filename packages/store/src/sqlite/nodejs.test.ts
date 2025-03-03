@@ -1,8 +1,8 @@
 import { mkdir } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { SQL_QUERIES } from './common.js';
-import { makeSQLKVStore, getDBFilename } from './nodejs.js';
+import { SQL_QUERIES } from './common.ts';
+import { makeSQLKVStore, getDBFilename } from './nodejs.ts';
 
 const mockStatement = {
   run: vi.fn(),

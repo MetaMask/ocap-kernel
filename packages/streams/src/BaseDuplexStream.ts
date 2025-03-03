@@ -5,8 +5,8 @@ import { is, literal, object } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { stringify } from '@ocap/utils';
 
-import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.js';
-import { makeDoneResult } from './utils.js';
+import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.ts';
+import { makeDoneResult } from './utils.ts';
 
 export const DuplexStreamSentinel = {
   Syn: '@@Syn',

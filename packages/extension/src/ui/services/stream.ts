@@ -1,12 +1,12 @@
 import { MessageResolver } from '@ocap/kernel';
 
-import { logger } from './logger.js';
-import type { KernelControlMethod } from '../../kernel-integration/handlers/index.js';
+import { logger } from './logger.ts';
+import type { KernelControlMethod } from '../../kernel-integration/handlers/index.ts';
 import type {
   KernelControlCommand,
   KernelControlReturnType,
-} from '../../kernel-integration/messages.js';
-import { establishKernelConnection } from '../../kernel-integration/ui-connections.js';
+} from '../../kernel-integration/messages.ts';
+import { establishKernelConnection } from '../../kernel-integration/ui-connections.ts';
 
 export type SendMessageFunction = <Method extends KernelControlMethod>(
   payload: Extract<KernelControlCommand['payload'], { method: Method }>,

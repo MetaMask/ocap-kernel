@@ -69,7 +69,7 @@ const config = createConfig([
       '@typescript-eslint/consistent-type-imports': 'off',
       'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
 
-      // This should only be enable for JavaScript files.
+      // This should only be enabled for JavaScript files.
       // Ref: https://github.com/import-js/eslint-plugin-import/issues/2215#issuecomment-911245486
       'import-x/unambiguous': 'off',
 
@@ -152,6 +152,15 @@ const config = createConfig([
       },
     },
     rules: {
+      // We use the actual source file extensions and let tsc rewrite them.
+      'import-x/extensions': ['error', 'ignorePackages'],
+
+      // We have been hoisted by our own petard in the past.
+      'import-x/no-cycle': ['error', { ignoreExternal: true, maxDepth: 3 }],
+
+      // We use unassigned imports for e.g. `import '@ocap/shims/endoify'`.
+      'import-x/no-unassigned-import': 'off',
+
       'import-x/no-useless-path-segments': [
         'error',
         {
@@ -159,15 +168,6 @@ const config = createConfig([
           noUselessIndex: false,
         },
       ],
-
-      // We have been hoisted by our own petard in the past.
-      'import-x/no-cycle': ['error', { ignoreExternal: true, maxDepth: 3 }],
-
-      // This is not compatible with ESM.
-      'import-x/extensions': 'off',
-
-      // We use unassigned imports for e.g. `import '@ocap/shims/endoify'`.
-      'import-x/no-unassigned-import': 'off',
 
       // This prevents pretty formatting of comments with multi-line lists entries.
       'jsdoc/check-indentation': 'off',

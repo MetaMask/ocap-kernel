@@ -3,8 +3,8 @@ import { isKernelCommand } from '@ocap/kernel';
 import type { Kernel } from '@ocap/kernel';
 import type { KVStore } from '@ocap/store';
 
-import type { CommandHandler, CommandParams } from '../command-registry.js';
-import { KernelCommandPayloadStructs } from '../messages.js';
+import type { CommandHandler, CommandParams } from '../command-registry.ts';
+import { KernelCommandPayloadStructs } from '../messages.ts';
 
 export const sendVatCommandHandler: CommandHandler<'sendVatCommand'> = {
   method: 'sendVatCommand',

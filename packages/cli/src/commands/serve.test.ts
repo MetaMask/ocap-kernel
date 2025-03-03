@@ -7,8 +7,8 @@ import serveMiddleware from 'serve-handler';
 import { describe, it, expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { getServer } from './serve.js';
-import { defaultConfig } from '../config.js';
+import { getServer } from './serve.ts';
+import { defaultConfig } from '../config.ts';
 
 vi.mock('http', () => ({
   createServer: vi.fn((handler) => ({

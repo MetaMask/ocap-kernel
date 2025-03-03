@@ -8,8 +8,8 @@ import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import type { VatWorker, VatWorkerServerStream } from './VatWorkerServer.js';
+import { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
+import type { VatWorker, VatWorkerServerStream } from './VatWorkerServer.ts';
 
 vi.mock('@ocap/kernel', () => ({
   VatWorkerServiceCommandMethod: {

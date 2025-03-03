@@ -5,18 +5,18 @@ import type { FSWatcher } from 'chokidar';
 import { unlink } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { createBundleFile } from './bundle.js';
-import { watchDir, makeWatchEvents } from './watch.js';
+import { createBundleFile } from './bundle.ts';
+import { watchDir, makeWatchEvents } from './watch.ts';
 
 vi.mock('fs/promises', () => ({
   unlink: vi.fn(async () => new Promise<void>(() => undefined)),
 }));
 
-vi.mock('../path.js', () => ({
+vi.mock('../path.ts', () => ({
   resolveBundlePath: vi.fn((path) => `resolved:${path}`),
 }));
 
-vi.mock('./bundle.js', () => ({
+vi.mock('./bundle.ts', () => ({
   createBundleFile: vi.fn(async () => new Promise<void>(() => undefined)),
 }));
 

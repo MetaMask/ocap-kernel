@@ -4,7 +4,7 @@ import type { Page, BrowserContext } from '@playwright/test';
 // Vitest/Playwright needs the import assertions
 import defaultClusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
-import { makeLoadExtension } from '../helpers/extension.js';
+import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe('Vat Manager', () => {
   let extensionContext: BrowserContext;

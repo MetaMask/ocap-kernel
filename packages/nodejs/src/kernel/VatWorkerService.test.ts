@@ -4,7 +4,7 @@ import type { VatId } from '@ocap/kernel';
 import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { NodejsVatWorkerService } from './VatWorkerService.js';
+import { NodejsVatWorkerService } from './VatWorkerService.ts';
 
 const mocks = vi.hoisted(() => ({
   worker: {

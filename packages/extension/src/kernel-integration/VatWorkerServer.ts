@@ -16,7 +16,7 @@ import { makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import type { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 export type VatWorker = {
   launch: (vatConfig: VatConfig) => Promise<[MessagePort, unknown]>;

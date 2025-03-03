@@ -2,7 +2,7 @@ import { createWindow } from '@metamask/snaps-utils';
 import type { VatId, VatConfig } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams';
 
-import type { VatWorker } from './VatWorkerServer.js';
+import type { VatWorker } from './VatWorkerServer.ts';
 
 const IFRAME_URI = 'iframe.html';
 

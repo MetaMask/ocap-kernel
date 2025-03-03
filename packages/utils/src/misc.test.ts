@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { delay, makeCounter } from './misc.js';
+import { delay, makeCounter } from './misc.ts';
 
 describe('makeCounter', () => {
   it('starts at 1 by default', () => {

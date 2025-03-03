@@ -5,8 +5,8 @@ import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { NodejsVatWorkerService } from '../../src/kernel/VatWorkerService.js';
-import { getTestWorkerFile } from '../get-test-worker.js';
+import { NodejsVatWorkerService } from '../../src/kernel/VatWorkerService.ts';
+import { getTestWorkerFile } from '../get-test-worker.ts';
 
 describe('NodejsVatWorkerService', () => {
   const testWorkerFile = getTestWorkerFile('stream-sync');
@@ -33,7 +33,7 @@ describe('NodejsVatWorkerService', () => {
         })),
       }));
       vi.resetModules();
-      const NVWS = (await import('../../src/kernel/VatWorkerService.js'))
+      const NVWS = (await import('../../src/kernel/VatWorkerService.ts'))
         .NodejsVatWorkerService;
 
       const service = new NVWS({ workerFilePath: testWorkerFile });

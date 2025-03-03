@@ -1,4 +1,4 @@
-import { BaseError } from '../BaseError.js';
+import { BaseError } from '../BaseError.ts';
 
 /**
  * Type guard to check if an error is a custom Ocap error (BaseError).

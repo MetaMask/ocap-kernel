@@ -10,14 +10,14 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
 
-import type { Kernel } from './Kernel.js';
-import { VatCommandMethod } from './messages/index.js';
+import type { Kernel } from './Kernel.ts';
+import { VatCommandMethod } from './messages/index.ts';
 import type {
   VatCommandReply,
   VatCommand,
   VatCommandReturnType,
-} from './messages/index.js';
-import type { KernelStore } from './store/kernel-store.js';
+} from './messages/index.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import type {
   PromiseCallbacks,
   VatId,
@@ -25,7 +25,7 @@ import type {
   VRef,
   KRef,
   RunQueueItemSend,
-} from './types.js';
+} from './types.ts';
 
 type VatConstructorProps = {
   kernel: Kernel;

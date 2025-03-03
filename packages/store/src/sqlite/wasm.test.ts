@@ -1,8 +1,8 @@
 import type { Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { SQL_QUERIES } from './common.js';
-import { makeSQLKVStore } from './wasm.js';
+import { SQL_QUERIES } from './common.ts';
+import { makeSQLKVStore } from './wasm.ts';
 
 const mockStatement = {
   bind: vi.fn(),

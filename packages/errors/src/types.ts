@@ -1,6 +1,6 @@
 import type { Json } from '@metamask/utils';
 
-import type { ErrorCode, ErrorSentinel } from './constants.js';
+import type { ErrorCode, ErrorSentinel } from './constants.ts';
 
 export type ErrorOptionsWithStack = ErrorOptions & {
   stack?: string;

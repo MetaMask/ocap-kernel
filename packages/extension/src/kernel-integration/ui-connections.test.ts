@@ -3,12 +3,12 @@ import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelControlCommand, KernelControlReply } from './messages.js';
+import type { KernelControlCommand, KernelControlReply } from './messages.ts';
 import {
   establishKernelConnection,
   receiveUiConnections,
   UI_CONTROL_CHANNEL_NAME,
-} from './ui-connections.js';
+} from './ui-connections.ts';
 import clusterConfig from '../vats/default-cluster.json';
 
 vi.mock('nanoid', () => ({

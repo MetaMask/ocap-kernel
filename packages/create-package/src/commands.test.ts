@@ -6,7 +6,7 @@ import type { CreatePackageOptions } from './commands.ts';
 import { createPackageHandler } from './commands.ts';
 import * as utils from './utils.ts';
 
-vi.mock('./utils.js', () => ({
+vi.mock('./utils.ts', () => ({
   finalizeAndWriteData: vi.fn(),
   readMonorepoFiles: vi.fn(),
 }));

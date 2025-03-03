@@ -4,11 +4,11 @@ import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { Kernel } from './Kernel.js';
-import { isVatCommandReply, VatCommandMethod } from './messages/index.js';
-import type { VatCommand, VatCommandReply } from './messages/index.js';
-import type { KernelStore } from './store/kernel-store.js';
-import { VatHandle } from './VatHandle.js';
+import { Kernel } from './Kernel.ts';
+import { isVatCommandReply, VatCommandMethod } from './messages/index.ts';
+import type { VatCommand, VatCommandReply } from './messages/index.ts';
+import type { KernelStore } from './store/kernel-store.ts';
+import { VatHandle } from './VatHandle.ts';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({

@@ -4,7 +4,7 @@ import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
-import { NodejsVatWorkerService } from './VatWorkerService.js';
+import { NodejsVatWorkerService } from './VatWorkerService.ts';
 
 /**
  * The main function for the kernel worker.

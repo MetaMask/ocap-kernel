@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { Tabs } from './Tabs.jsx';
+import { Tabs } from './Tabs.tsx';
 
 vi.mock('../App.module.css', () => ({
   default: {

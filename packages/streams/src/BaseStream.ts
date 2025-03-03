@@ -2,7 +2,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { stringify } from '@ocap/utils';
 
-import type { Dispatchable, PromiseCallbacks, Writable } from './utils.js';
+import type { Dispatchable, PromiseCallbacks, Writable } from './utils.ts';
 import {
   makeDoneResult,
   makePendingResult,
@@ -11,7 +11,7 @@ import {
   marshal,
   StreamDoneSymbol,
   unmarshal,
-} from './utils.js';
+} from './utils.ts';
 
 const makeStreamBuffer = <
   Value extends IteratorResult<unknown, undefined>,

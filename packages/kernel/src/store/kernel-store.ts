@@ -67,8 +67,8 @@ import type {
   RunQueueItem,
   PromiseState,
   KernelPromise,
-} from '../types.js';
-import { insistVatId } from '../types.js';
+} from '../types.ts';
+import { insistVatId } from '../types.ts';
 
 type StoredValue = {
   get(): string | undefined;
