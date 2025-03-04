@@ -1,10 +1,7 @@
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
-import {
-  TestDuplexStream,
-  TrackedTestDuplexStream,
-} from '@ocap/test-utils/streams';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -22,9 +19,9 @@ vi.mock('@ocap/kernel', async () => ({
 
 vi.mock('@ocap/streams', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { TrackedTestDuplexStream } = await import('@ocap/test-utils/streams');
+  const { TestDuplexStream } = await import('@ocap/test-utils/streams');
 
-  class MockStream extends TrackedTestDuplexStream {
+  class MockStream extends TestDuplexStream {
     constructor() {
       super(() => undefined);
       this.completeSynchronization().catch(() => undefined);
@@ -100,15 +97,13 @@ describe('ExtensionVatWorkerClient', () => {
     let clientStop: Promise<void>;
 
     const receiveInput = (event: MessageEvent<unknown>): void => {
-      TrackedTestDuplexStream.instances[0]
-        ?.receiveInput(event)
-        .catch((error) => {
-          throw error;
-        });
+      TestDuplexStream.instances[0]?.receiveInput(event).catch((error) => {
+        throw error;
+      });
     };
 
     beforeEach(async () => {
-      TrackedTestDuplexStream.instances.length = 0;
+      TestDuplexStream.clearInstances();
       clientLogger = makeLogger('[test client]');
       [client, clientStop] = ExtensionVatWorkerClient.make(
         {} as unknown as PostMessageTarget,

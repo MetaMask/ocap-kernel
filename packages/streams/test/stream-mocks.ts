@@ -56,10 +56,29 @@ type TestDuplexStreamOptions<Read = number> = {
   writerOnEnd?: () => void;
 };
 
+const testDuplexStreamInstances: TestDuplexStream<unknown, unknown>[] = [];
+
 export class TestDuplexStream<
   Read = number,
   Write = Read,
 > extends BaseDuplexStream<Read, TestReader<Read>, Write, TestWriter<Write>> {
+  /**
+   * Get all instances of TestDuplexStream. Must be reset manually with
+   * {@link TestDuplexStream.clearInstances}.
+   *
+   * @returns An array of all instances of TestDuplexStream.
+   */
+  static get instances(): TestDuplexStream<unknown, unknown>[] {
+    return [...testDuplexStreamInstances];
+  }
+
+  /**
+   * Clear the instances of TestDuplexStream.
+   */
+  static clearInstances(): void {
+    testDuplexStreamInstances.length = 0;
+  }
+
   readonly #onDispatch: Dispatch<Write>;
 
   readonly #receiveInput: ReceiveInput;
@@ -95,6 +114,7 @@ export class TestDuplexStream<
     );
     this.#onDispatch = onDispatch;
     this.#receiveInput = reader.receiveInput;
+    testDuplexStreamInstances.push(this as TestDuplexStream<unknown, unknown>);
   }
 
   async synchronize(): Promise<void> {
@@ -126,25 +146,5 @@ export class TestDuplexStream<
     const stream = new TestDuplexStream<Read, Write>(onDispatch, opts);
     await stream.completeSynchronization();
     return stream;
-  }
-}
-
-/**
- * A {@link TestDuplexStream} that tracks all instances.
- */
-export class TrackedTestDuplexStream<
-  Read = number,
-  Write = Read,
-> extends TestDuplexStream<Read, Write> {
-  static instances: TrackedTestDuplexStream<unknown, unknown>[] = [];
-
-  constructor(
-    onDispatch: Dispatch<Write>,
-    opts: TestDuplexStreamOptions<Read> = {},
-  ) {
-    super(onDispatch, opts);
-    TrackedTestDuplexStream.instances.push(
-      this as TrackedTestDuplexStream<unknown, unknown>,
-    );
   }
 }
