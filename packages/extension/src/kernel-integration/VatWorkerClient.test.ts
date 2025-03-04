@@ -1,12 +1,14 @@
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import {
+  TestDuplexStream,
+  TrackedTestDuplexStream,
+} from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { VatWorkerClientStream } from './VatWorkerClient.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 vi.mock('@ocap/kernel', async () => ({
@@ -20,17 +22,19 @@ vi.mock('@ocap/kernel', async () => ({
 
 vi.mock('@ocap/streams', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { TestDuplexStream } = await import('@ocap/test-utils/streams');
+  const { TrackedTestDuplexStream } = await import('@ocap/test-utils/streams');
 
-  class MockStream extends TestDuplexStream {
+  class MockStream extends TrackedTestDuplexStream {
     constructor() {
       super(() => undefined);
+      this.completeSynchronization().catch(() => undefined);
     }
   }
 
   return {
     ...(await importOriginal()),
     MessagePortDuplexStream: MockStream,
+    PostMessageDuplexStream: MockStream,
   };
 });
 
@@ -75,14 +79,14 @@ const makeTerminateAllReply = (messageId: `m${number}`): MessageEvent =>
 
 describe('ExtensionVatWorkerClient', () => {
   it('constructs with default logger', () => {
-    const client = new ExtensionVatWorkerClient(
-      {} as unknown as VatWorkerClientStream,
+    const [client] = ExtensionVatWorkerClient.make(
+      {} as unknown as PostMessageTarget,
     );
     expect(client).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
-    const client = ExtensionVatWorkerClient.make({
+    const [client] = ExtensionVatWorkerClient.make({
       postMessage: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -91,18 +95,26 @@ describe('ExtensionVatWorkerClient', () => {
   });
 
   describe('message handling', () => {
-    let stream: TestDuplexStream;
     let clientLogger: Logger;
     let client: ExtensionVatWorkerClient;
+    let clientStop: Promise<void>;
+
+    const receiveInput = (event: MessageEvent<unknown>): void => {
+      TrackedTestDuplexStream.instances[0]
+        ?.receiveInput(event)
+        .catch((error) => {
+          throw error;
+        });
+    };
 
     beforeEach(async () => {
-      stream = await TestDuplexStream.make(() => undefined);
+      TrackedTestDuplexStream.instances.length = 0;
       clientLogger = makeLogger('[test client]');
-      client = new ExtensionVatWorkerClient(
-        stream as unknown as VatWorkerClientStream,
+      [client, clientStop] = ExtensionVatWorkerClient.make(
+        {} as unknown as PostMessageTarget,
         clientLogger,
       );
-      client.start().catch((error) => {
+      clientStop.catch((error) => {
         throw error;
       });
     });
@@ -113,7 +125,7 @@ describe('ExtensionVatWorkerClient', () => {
         throw error;
       });
       // @ts-expect-error Destructive testing.
-      await stream.receiveInput(makeMessageEvent('m1', { method: 'foo' }));
+      receiveInput(makeMessageEvent('m1', { method: 'foo' }));
       await delay(10);
 
       expect(errorSpy).toHaveBeenCalled();
@@ -126,7 +138,7 @@ describe('ExtensionVatWorkerClient', () => {
     it('rejects pending promises for error replies', async () => {
       const resultP = client.launch('v0', makeVatConfig());
 
-      await stream.receiveInput(
+      receiveInput(
         makeMessageEvent('m1', {
           method: VatWorkerServiceCommandMethod.launch,
           params: { vatId: 'v0', error: new Error('foo') },
@@ -149,7 +161,7 @@ describe('ExtensionVatWorkerClient', () => {
           params: { vatId: 'v0' },
         });
 
-        await stream.receiveInput(unexpectedReply);
+        receiveInput(unexpectedReply);
         await delay(10);
 
         expect(errorSpy).toHaveBeenCalledOnce();
@@ -167,7 +179,7 @@ describe('ExtensionVatWorkerClient', () => {
         const result = client.launch(vatId, vatConfig);
 
         await delay(10);
-        await stream.receiveInput(makeLaunchReply('m1', vatId));
+        receiveInput(makeLaunchReply('m1', vatId));
 
         // @ocap/streams is mocked
         expect(await result).toBeInstanceOf(TestDuplexStream);
@@ -185,7 +197,7 @@ describe('ExtensionVatWorkerClient', () => {
           params: { vatId },
         });
 
-        await stream.receiveInput(reply);
+        receiveInput(reply);
         await delay(10);
 
         expect(errorSpy).toHaveBeenCalledOnce();
@@ -199,7 +211,7 @@ describe('ExtensionVatWorkerClient', () => {
     describe('terminate', () => {
       it('resolves when receiving a terminate reply', async () => {
         const result = client.terminate('v0');
-        await stream.receiveInput(makeTerminateReply('m1', 'v0'));
+        receiveInput(makeTerminateReply('m1', 'v0'));
         await delay(10);
 
         expect(await result).toBeUndefined();
@@ -209,7 +221,7 @@ describe('ExtensionVatWorkerClient', () => {
     describe('terminateAll', () => {
       it('resolves when receiving a terminateAll reply', async () => {
         const result = client.terminateAll();
-        await stream.receiveInput(makeTerminateAllReply('m1'));
+        receiveInput(makeTerminateAllReply('m1'));
         await delay(10);
 
         expect(await result).toBeUndefined();

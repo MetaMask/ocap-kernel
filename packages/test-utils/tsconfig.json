@@ -5,5 +5,10 @@
   },
   "references": [],
   "types": ["ses", "vitest"],
-  "include": ["./src", "./vite.config.ts", "./vitest.config.ts"]
+  "include": [
+    "../streams/test/stream-mocks.ts",
+    "./src",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
 }

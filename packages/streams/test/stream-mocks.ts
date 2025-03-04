@@ -128,3 +128,23 @@ export class TestDuplexStream<
     return stream;
   }
 }
+
+/**
+ * A {@link TestDuplexStream} that tracks all instances.
+ */
+export class TrackedTestDuplexStream<
+  Read = number,
+  Write = Read,
+> extends TestDuplexStream<Read, Write> {
+  static instances: TrackedTestDuplexStream<unknown, unknown>[] = [];
+
+  constructor(
+    onDispatch: Dispatch<Write>,
+    opts: TestDuplexStreamOptions<Read> = {},
+  ) {
+    super(onDispatch, opts);
+    TrackedTestDuplexStream.instances.push(
+      this as TrackedTestDuplexStream<unknown, unknown>,
+    );
+  }
+}

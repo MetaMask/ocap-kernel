@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   >(port, isKernelCommand);
 
   // Initialize kernel dependencies
-  const vatWorkerClient = ExtensionVatWorkerClient.make(
+  const [vatWorkerClient, vatWorkerClientStop] = ExtensionVatWorkerClient.make(
     globalThis as PostMessageTarget,
   );
   const kvStore = await makeSQLKVStore();
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   );
 
   await Promise.all([
-    vatWorkerClient.start(),
+    vatWorkerClientStop,
     // XXX We are mildly concerned that there's a small chance that a race here
     // could cause startup to flake non-deterministically. If the invocation
     // here of `launchSubcluster` turns out to depend on aspects of the IPC
