@@ -1,4 +1,5 @@
 import type { Primitive } from '@endo/captp';
+import type { PromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
 
 export type TypeGuard<Type> = (value: unknown) => value is Type;
@@ -34,3 +35,8 @@ export const isTypedObject = <ValueType>(
   isValue: TypeGuard<ValueType>,
 ): value is { [Key in keyof object]: ValueType } =>
   isObject(value) && !Object.values(value).some((val) => !isValue(val));
+
+export type PromiseCallbacks<Resolve = unknown> = Omit<
+  PromiseKit<Resolve>,
+  'promise'
+>;

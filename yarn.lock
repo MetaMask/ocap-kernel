@@ -2238,6 +2238,45 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ocap/rpc-methods@workspace:packages/rpc-methods":
+  version: 0.0.0-use.local
+  resolution: "@ocap/rpc-methods@workspace:packages/rpc-methods"
+  dependencies:
+    "@arethetypeswrong/cli": "npm:^0.17.3"
+    "@endo/promise-kit": "npm:^1.1.6"
+    "@metamask/auto-changelog": "npm:^4.0.0"
+    "@metamask/eslint-config": "npm:^14.0.0"
+    "@metamask/eslint-config-nodejs": "npm:^14.0.0"
+    "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/utils": "npm:^11.3.0"
+    "@ocap/test-utils": "workspace:^"
+    "@ocap/utils": "workspace:^"
+    "@ts-bridge/cli": "npm:^0.6.2"
+    "@ts-bridge/shims": "npm:^0.1.1"
+    "@typescript-eslint/eslint-plugin": "npm:^8.26.1"
+    "@typescript-eslint/parser": "npm:^8.26.1"
+    "@typescript-eslint/utils": "npm:^8.26.1"
+    "@vitest/eslint-plugin": "npm:^1.1.25"
+    depcheck: "npm:^1.4.7"
+    eslint: "npm:^9.12.0"
+    eslint-config-prettier: "npm:^9.1.0"
+    eslint-import-resolver-typescript: "npm:^3.8.4"
+    eslint-plugin-import-x: "npm:^4.3.1"
+    eslint-plugin-jsdoc: "npm:^50.3.1"
+    eslint-plugin-n: "npm:^17.11.1"
+    eslint-plugin-prettier: "npm:^5.2.1"
+    eslint-plugin-promise: "npm:^7.1.0"
+    prettier: "npm:^3.3.3"
+    rimraf: "npm:^6.0.1"
+    typedoc: "npm:^0.27.9"
+    typescript: "npm:~5.8.2"
+    typescript-eslint: "npm:^8.26.1"
+    vite: "npm:^6.0.11"
+    vitest: "npm:^3.0.5"
+  languageName: unknown
+  linkType: soft
+
 "@ocap/shims@workspace:^, @ocap/shims@workspace:packages/shims":
   version: 0.0.0-use.local
   resolution: "@ocap/shims@workspace:packages/shims"
@@ -2398,6 +2437,7 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.3"
     "@endo/captp": "npm:^4.4.0"
+    "@endo/promise-kit": "npm:^1.1.6"
     "@metamask/auto-changelog": "npm:^4.0.0"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"

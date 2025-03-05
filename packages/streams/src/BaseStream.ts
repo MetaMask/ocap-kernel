@@ -1,8 +1,9 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { stringify } from '@ocap/utils';
+import type { PromiseCallbacks } from '@ocap/utils';
 
-import type { Dispatchable, PromiseCallbacks, Writable } from './utils.ts';
+import type { Dispatchable, Writable } from './utils.ts';
 import {
   makeDoneResult,
   makePendingResult,

@@ -12,14 +12,7 @@ import { stringify } from '@ocap/utils';
 
 export type { Reader, Writer };
 
-export type PromiseCallbacks = {
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-};
-
 export const StreamSentinel = {
-  // Not a problem if we don't use the word "Error" in this scope, which we won't.
-
   Error: '@@StreamError',
   Done: '@@StreamDone',
 } as const;

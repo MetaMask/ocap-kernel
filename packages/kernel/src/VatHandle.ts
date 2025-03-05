@@ -8,7 +8,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import type { VatStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
-import type { Logger } from '@ocap/utils';
+import type { Logger, PromiseCallbacks } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
 
 import type { Kernel } from './Kernel.ts';
@@ -20,7 +20,6 @@ import type {
 } from './messages/index.ts';
 import type { KernelStore } from './store/kernel-store.ts';
 import type {
-  PromiseCallbacks,
   VatId,
   VatConfig,
   VRef,

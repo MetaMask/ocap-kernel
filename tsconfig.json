@@ -20,6 +20,7 @@
     { "path": "./packages/kernel" },
     { "path": "./packages/kernel-test" },
     { "path": "./packages/nodejs" },
+    { "path": "./packages/rpc-methods" },
     { "path": "./packages/shims" },
     { "path": "./packages/store" },
     { "path": "./packages/streams" },

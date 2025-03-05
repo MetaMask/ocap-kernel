@@ -99,6 +99,12 @@ export default defineConfig({
           branches: 63.63,
           lines: 74.46,
         },
+        'packages/rpc-methods/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
         'packages/shims/**': {
           statements: 0,
           functions: 0,
