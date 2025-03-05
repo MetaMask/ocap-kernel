@@ -1,5 +1,4 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { PromiseKit } from '@endo/promise-kit';
 import { isObject } from '@metamask/utils';
 import {
   isVatCommandReply,
@@ -24,14 +23,12 @@ import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { Logger } from '@ocap/utils';
+import type { Logger, PromiseCallbacks } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
-
-type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<VatWorkerServiceReply>,

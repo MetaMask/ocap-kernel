@@ -1,6 +1,5 @@
 import type { Message } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
-import type { PromiseKit } from '@endo/promise-kit';
 import {
   define,
   is,
@@ -199,11 +198,6 @@ export const VatMessageIdStruct = define<VatMessageId>(
   'VatMessageId',
   isVatMessageId,
 );
-
-export type PromiseCallbacks<Resolve = unknown> = Omit<
-  PromiseKit<Resolve>,
-  'promise'
->;
 
 export type VatWorkerService = {
   /**
