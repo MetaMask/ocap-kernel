@@ -1,9 +1,9 @@
 import type { Message } from '@agoric/swingset-liveslots';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './kernel-store.ts';
-import { makeMapKVStore } from '../../test/storage.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { RunQueueItem } from '../types.ts';
 
 /**
@@ -31,15 +31,15 @@ function tm(str: string): RunQueueItem {
 }
 
 describe('kernel store', () => {
-  let mockKVStore: KVStore;
+  let mockKernelDatabase: KernelDatabase;
 
   beforeEach(() => {
-    mockKVStore = makeMapKVStore();
+    mockKernelDatabase = makeMapKernelDatabase();
   });
 
   describe('initialization', () => {
     it('has a working KV store', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       const { kv } = ks;
       expect(kv.get('foo')).toBeUndefined();
       kv.set('foo', 'some value');
@@ -51,11 +51,12 @@ describe('kernel store', () => {
       );
     });
     it('has all the expected parts', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       expect(Object.keys(ks).sort()).toStrictEqual([
         'addClistEntry',
         'addPromiseSubscriber',
         'allocateErefForKref',
+        'clear',
         'decRefCount',
         'deleteKernelObject',
         'deleteKernelPromise',
@@ -77,6 +78,7 @@ describe('kernel store', () => {
         'initKernelPromise',
         'krefToEref',
         'kv',
+        'makeVatStore',
         'reset',
         'resolveKernelPromise',
         'runQueueLength',
@@ -87,7 +89,7 @@ describe('kernel store', () => {
 
   describe('kernel entity management', () => {
     it('generates IDs', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       expect(ks.getNextVatId()).toBe('v1');
       expect(ks.getNextVatId()).toBe('v2');
       expect(ks.getNextVatId()).toBe('v3');
@@ -96,7 +98,7 @@ describe('kernel store', () => {
       expect(ks.getNextRemoteId()).toBe('r3');
     });
     it('manages kernel objects', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       const ko1Owner = 'v47';
       const ko2Owner = 'r23';
       expect(ks.initKernelObject(ko1Owner)).toBe('ko1');
@@ -116,7 +118,7 @@ describe('kernel store', () => {
       expect(() => ks.getOwner('ko99')).toThrow('unknown kernel object ko99');
     });
     it('manages kernel promises', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       const kp1 = {
         state: 'unresolved',
         subscribers: [],
@@ -160,7 +162,7 @@ describe('kernel store', () => {
       );
     });
     it('manages the run queue', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       ks.enqueueRun(tm('first message'));
       ks.enqueueRun(tm('second message'));
       expect(ks.dequeueRun()).toBe('first message');
@@ -173,7 +175,7 @@ describe('kernel store', () => {
       expect(ks.dequeueRun()).toBeUndefined();
     });
     it('manages clists', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       ks.addClistEntry('v2', 'ko42', 'o-63');
       ks.addClistEntry('v2', 'ko51', 'o-74');
       ks.addClistEntry('v2', 'kp60', 'p+85');
@@ -200,7 +202,7 @@ describe('kernel store', () => {
 
   describe('reset', () => {
     it('clears store and resets counters', () => {
-      const ks = makeKernelStore(mockKVStore);
+      const ks = makeKernelStore(mockKernelDatabase);
       ks.getNextVatId();
       ks.getNextVatId();
       ks.getNextRemoteId();

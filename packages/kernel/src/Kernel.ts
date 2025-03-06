@@ -7,7 +7,7 @@ import {
   VatAlreadyExistsError,
   VatNotFoundError,
 } from '@ocap/errors';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
@@ -77,8 +77,8 @@ export class Kernel {
   /** Service to spawn workers (in iframes) for vats to run in */
   readonly #vatWorkerService: VatWorkerService;
 
-  /** Storage holding the kernel's persistent state */
-  readonly #storage: KernelStore;
+  /** Storage holding the kernel's own persistent state */
+  readonly #kernelStore: KernelStore;
 
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
@@ -101,7 +101,7 @@ export class Kernel {
    *
    * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param vatWorkerService - Service to create a worker in which a new vat can run.
-   * @param rawStorage - A KV store for holding the kernel's persistent state.
+   * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
@@ -110,7 +110,7 @@ export class Kernel {
   private constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
-    rawStorage: KVStore,
+    kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
       logger?: Logger;
@@ -122,12 +122,12 @@ export class Kernel {
     this.#vatWorkerService = vatWorkerService;
 
     if (options.resetStorage) {
-      rawStorage.clear();
+      kernelDatabase.clear();
     }
 
-    this.#storage = makeKernelStore(rawStorage);
+    this.#kernelStore = makeKernelStore(kernelDatabase);
     this.#logger = options.logger ?? makeLogger('[ocap kernel]');
-    this.#runQueueLength = this.#storage.runQueueLength();
+    this.#runQueueLength = this.#kernelStore.runQueueLength();
     this.#wakeUpTheRunQueue = null;
   }
 
@@ -136,7 +136,7 @@ export class Kernel {
    *
    * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param vatWorkerService - Service to create a worker in which a new vat can run.
-   * @param rawStorage - A KV store for holding the kernel's persistent state.
+   * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
@@ -145,7 +145,7 @@ export class Kernel {
   static async make(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
-    rawStorage: KVStore,
+    kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
       logger?: Logger;
@@ -154,7 +154,7 @@ export class Kernel {
     const kernel = new Kernel(
       commandStream,
       vatWorkerService,
-      rawStorage,
+      kernelDatabase,
       options,
     );
     await kernel.#init();
@@ -268,12 +268,12 @@ export class Kernel {
     assert(direction === 'export', `${vref} is not an export reference`);
     let kref;
     if (isPromise) {
-      kref = this.#storage.initKernelPromise()[0];
-      this.#storage.setPromiseDecider(kref, vatId);
+      kref = this.#kernelStore.initKernelPromise()[0];
+      this.#kernelStore.setPromiseDecider(kref, vatId);
     } else {
-      kref = this.#storage.initKernelObject(vatId);
+      kref = this.#kernelStore.initKernelObject(vatId);
     }
-    this.#storage.addClistEntry(vatId, kref, vref);
+    this.#kernelStore.addClistEntry(vatId, kref, vref);
     return kref;
   }
 
@@ -321,10 +321,10 @@ export class Kernel {
       vatId,
       vatConfig,
       vatStream: commandStream,
-      storage: this.#storage,
+      kernelStore: this.#kernelStore,
     });
     this.#vats.set(vatId, vat);
-    this.#storage.initEndpoint(vatId);
+    this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
     return rootRef;
   }
@@ -337,7 +337,7 @@ export class Kernel {
    * @returns a promise for the KRef of the new vat's root object.
    */
   async launchVat(vatConfig: VatConfig): Promise<KRef> {
-    return this.#startVat(this.#storage.getNextVatId(), vatConfig);
+    return this.#startVat(this.#kernelStore.getNextVatId(), vatConfig);
   }
 
   /**
@@ -351,10 +351,10 @@ export class Kernel {
    * @returns the VRef corresponding to `kref` in `vatId`.
    */
   #translateRefKtoV(vatId: VatId, kref: KRef, importIfNeeded: boolean): VRef {
-    let eref = this.#storage.krefToEref(vatId, kref);
+    let eref = this.#kernelStore.krefToEref(vatId, kref);
     if (!eref) {
       if (importIfNeeded) {
-        eref = this.#storage.allocateErefForKref(vatId, kref);
+        eref = this.#kernelStore.allocateErefForKref(vatId, kref);
       } else {
         throw Fail`unmapped kref ${kref} vat=${vatId}`;
       }
@@ -404,7 +404,7 @@ export class Kernel {
    * @param item - The item to add.
    */
   enqueueRun(item: RunQueueItem): void {
-    this.#storage.enqueueRun(item);
+    this.#kernelStore.enqueueRun(item);
     this.#runQueueLength += 1;
     if (this.#runQueueLength === 1 && this.#wakeUpTheRunQueue) {
       const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
@@ -420,7 +420,7 @@ export class Kernel {
    */
   #dequeueRun(): RunQueueItem | undefined {
     this.#runQueueLength -= 1;
-    const result = this.#storage.dequeueRun();
+    const result = this.#kernelStore.dequeueRun();
     return result;
   }
 
@@ -451,7 +451,7 @@ export class Kernel {
       return null;
     };
     const routeAsSend = (targetObject: KRef): MessageRoute => {
-      const vatId = this.#storage.getOwner(targetObject);
+      const vatId = this.#kernelStore.getOwner(targetObject);
       if (!vatId) {
         return routeAsSplat(kser('no vat'));
       }
@@ -462,7 +462,7 @@ export class Kernel {
     };
 
     if (isPromiseRef(target)) {
-      const promise = this.#storage.getKernelPromise(target);
+      const promise = this.#kernelStore.getKernelPromise(target);
       switch (promise.state) {
         case 'fulfilled': {
           if (promise.value) {
@@ -523,7 +523,7 @@ export class Kernel {
                 if (typeof message.result !== 'string') {
                   throw TypeError('message result must be a string');
                 }
-                this.#storage.setPromiseDecider(message.result, vatId);
+                this.#kernelStore.setPromiseDecider(message.result, vatId);
               }
               const vatTarget = this.#translateRefKtoV(vatId, target, false);
               const vatMessage = this.#translateMessageKtoV(vatId, message);
@@ -532,7 +532,7 @@ export class Kernel {
               Fail`no owner for kernel object ${target}`;
             }
           } else {
-            this.#storage.enqueuePromiseMessage(target, message);
+            this.#kernelStore.enqueuePromiseMessage(target, message);
           }
           log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
         }
@@ -547,13 +547,13 @@ export class Kernel {
           `${kpid} is not a kernel promise`,
         );
         log(`@@@@ deliver ${vatId} notify ${kpid}`);
-        const promise = this.#storage.getKernelPromise(kpid);
+        const promise = this.#kernelStore.getKernelPromise(kpid);
         const { state, value } = promise;
         assert(value, `no value for promise ${kpid}`);
         if (state === 'unresolved') {
           Fail`notification on unresolved promise ${kpid}`;
         }
-        if (!this.#storage.krefToEref(vatId, kpid)) {
+        if (!this.#kernelStore.krefToEref(vatId, kpid)) {
           // no c-list entry, already done
           return;
         }
@@ -564,7 +564,7 @@ export class Kernel {
         }
         const resolutions: VatOneResolution[] = [];
         for (const toResolve of targets) {
-          const tPromise = this.#storage.getKernelPromise(toResolve);
+          const tPromise = this.#kernelStore.getKernelPromise(toResolve);
           if (tPromise.state === 'unresolved') {
             Fail`target promise ${toResolve} is unresolved`;
           }
@@ -613,7 +613,7 @@ export class Kernel {
         for (const slot of value.slots) {
           if (isPromiseRef(slot)) {
             if (!seen.has(slot)) {
-              const promise = this.#storage.getKernelPromise(slot);
+              const promise = this.#kernelStore.getKernelPromise(slot);
               if (promise.state !== 'unresolved') {
                 if (promise.value) {
                   scanPromise(slot, promise.value);
@@ -653,7 +653,7 @@ export class Kernel {
     for (const resolution of resolutions) {
       const [kpid, rejected, dataRaw] = resolution;
       const data = dataRaw as CapData<KRef>;
-      const promise = this.#storage.getKernelPromise(kpid);
+      const promise = this.#kernelStore.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
       if (state !== 'unresolved') {
         Fail`${kpid} was already resolved`;
@@ -668,7 +668,7 @@ export class Kernel {
       for (const subscriber of subscribers) {
         this.notify(subscriber, kpid);
       }
-      this.#storage.resolveKernelPromise(kpid, rejected, data);
+      this.#kernelStore.resolveKernelPromise(kpid, rejected, data);
       const kernelResolve = this.#kernelSubscriptions.get(kpid);
       if (kernelResolve) {
         this.#kernelSubscriptions.delete(kpid);
@@ -691,7 +691,7 @@ export class Kernel {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
-    const result = this.#storage.initKernelPromise()[0];
+    const result = this.#kernelStore.initKernelPromise()[0];
     const message: Message = {
       methargs: kser([method, args]),
       result,
@@ -804,7 +804,7 @@ export class Kernel {
    * Clear the database.
    */
   async clearStorage(): Promise<void> {
-    this.#storage.reset();
+    this.#kernelStore.clear();
   }
 
   /**
@@ -827,7 +827,8 @@ export class Kernel {
    */
   async reset(): Promise<void> {
     await this.terminateAllVats();
-    this.#storage.reset();
+    this.#kernelStore.clear();
+    this.#kernelStore.reset();
   }
 
   /**

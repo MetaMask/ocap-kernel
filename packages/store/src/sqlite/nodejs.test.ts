@@ -2,13 +2,24 @@ import { mkdir } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.ts';
-import { makeSQLKVStore, getDBFilename } from './nodejs.ts';
+import { makeSQLKernelDatabase, getDBFilename } from './nodejs.ts';
+
+const mockKVData = [
+  { key: 'key1', value: 'value1' },
+  { key: 'key2', value: 'value2' },
+];
+
+const mockKVDataForMap: [string, string][] = [
+  ['key1', 'value1'],
+  ['key2', 'value2'],
+];
 
 const mockStatement = {
   run: vi.fn(),
   get: vi.fn(),
   all: vi.fn(),
   pluck: vi.fn(),
+  iterate: vi.fn(() => mockKVData),
 };
 
 const mockDb = {
@@ -28,7 +39,7 @@ vi.mock('os', () => ({
   tmpdir: vi.fn(() => '/mock-tmpdir'),
 }));
 
-describe('makeSQLKVStore', () => {
+describe('makeSQLKernelDatabase', () => {
   const mockMkdir = vi.mocked(mkdir).mockResolvedValue('');
 
   beforeEach(() => {
@@ -36,14 +47,16 @@ describe('makeSQLKVStore', () => {
   });
 
   it('creates kv table', async () => {
-    await makeSQLKVStore();
+    await makeSQLKernelDatabase();
     expect(mockDb.prepare).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
+    expect(mockDb.prepare).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE_VS);
   });
 
   it('get retrieves a value by key', async () => {
     const mockValue = 'test-value';
     mockStatement.get.mockReturnValue(mockValue);
-    const store = await makeSQLKVStore();
+    const db = await makeSQLKernelDatabase();
+    const store = db.kernelKVStore;
     const result = store.get('test-key');
     expect(result).toBe(mockValue);
     expect(mockStatement.get).toHaveBeenCalledWith('test-key');
@@ -51,34 +64,37 @@ describe('makeSQLKVStore', () => {
 
   it('getRequired throws when key not found', async () => {
     mockStatement.get.mockReturnValue(undefined);
-    const store = await makeSQLKVStore();
+    const db = await makeSQLKernelDatabase();
+    const store = db.kernelKVStore;
     expect(() => store.getRequired('missing-key')).toThrow(
       "no record matching key 'missing-key'",
     );
   });
 
   it('set inserts or updates a value', async () => {
-    const store = await makeSQLKVStore();
+    const db = await makeSQLKernelDatabase();
+    const store = db.kernelKVStore;
     store.set('test-key', 'test-value');
     expect(mockStatement.run).toHaveBeenCalledWith('test-key', 'test-value');
   });
 
   it('delete removes a key-value pair', async () => {
-    const store = await makeSQLKVStore();
+    const db = await makeSQLKernelDatabase();
+    const store = db.kernelKVStore;
     store.delete('test-key');
     expect(mockStatement.run).toHaveBeenCalledWith('test-key');
   });
 
   it('clear drops and recreates the table', async () => {
-    const store = await makeSQLKVStore();
+    const store = await makeSQLKernelDatabase();
     store.clear();
-    expect(mockStatement.run).toHaveBeenCalledTimes(3);
+    expect(mockStatement.run).toHaveBeenCalledTimes(4);
   });
 
   it('executeQuery runs arbitrary SQL queries', async () => {
     const mockResults = [{ key: 'value' }];
     mockStatement.all.mockReturnValue(mockResults);
-    const store = await makeSQLKVStore();
+    const store = await makeSQLKernelDatabase();
     const result = store.executeQuery('SELECT * FROM kv');
     expect(result).toStrictEqual(mockResults);
   });
@@ -86,16 +102,39 @@ describe('makeSQLKVStore', () => {
   it('getNextKey returns the next key in sequence', async () => {
     const mockNextKey = 'next-key';
     mockStatement.get.mockReturnValue(mockNextKey);
-    const store = await makeSQLKVStore();
+    const db = await makeSQLKernelDatabase();
+    const store = db.kernelKVStore;
     const result = store.getNextKey('current-key');
     expect(result).toBe(mockNextKey);
     expect(mockStatement.get).toHaveBeenCalledWith('current-key');
   });
 
-  it('getNextKey throws if previousKey is not a string', async () => {
-    const store = await makeSQLKVStore();
-    // @ts-expect-error Testing invalid input
-    expect(() => store.getNextKey(123)).toThrow('must be a string');
+  it('makeVatStore returns a VatStore', async () => {
+    const db = await makeSQLKernelDatabase();
+    const vatStore = db.makeVatStore('vvat');
+    expect(Object.keys(vatStore).sort()).toStrictEqual([
+      'getKVData',
+      'updateKVData',
+    ]);
+  });
+
+  it('vatStore.getKVData returns a map of the data', async () => {
+    const db = await makeSQLKernelDatabase();
+    const vatStore = db.makeVatStore('vvat');
+    const data = vatStore.getKVData();
+    expect(data).toStrictEqual(new Map(mockKVDataForMap));
+  });
+
+  it('vatStore.updateKVData updates the database', async () => {
+    const db = await makeSQLKernelDatabase();
+    const vatStore = db.makeVatStore('vvat');
+    vatStore.updateKVData(new Map(mockKVDataForMap), new Set(['del1', 'del2']));
+    expect(mockStatement.run).toHaveBeenCalled(); // begin transaction
+    expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'key1', 'value1'); // set
+    expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'key2', 'value2'); // set
+    expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'del1'); // delete
+    expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'del2'); // delete
+    expect(mockStatement.run).toHaveBeenCalled(); // commit transaction
   });
 
   describe('getDBFilename', () => {

@@ -12,6 +12,9 @@ import {
   array,
   record,
   union,
+  tuple,
+  map,
+  set,
   literal,
   boolean,
 } from '@metamask/superstruct';
@@ -279,3 +282,10 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
+
+export type VatCheckpoint = [Map<string, string>, Set<string>];
+
+export const VatCheckpointStruct = tuple([
+  map(string(), string()),
+  set(string()),
+]);

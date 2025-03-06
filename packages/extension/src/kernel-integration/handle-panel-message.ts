@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { makeLogger } from '@ocap/utils';
 
 import { KernelCommandRegistry } from './command-registry.ts';
@@ -23,19 +23,24 @@ handlers.forEach((handler) =>
  * Handles a message from the panel.
  *
  * @param kernel - The kernel instance.
- * @param kvStore - The KV store instance.
+ * @param kernelDatabase - The kernel database instance.
  * @param message - The message to handle.
  * @returns The reply to the message.
  */
 export async function handlePanelMessage(
   kernel: Kernel,
-  kvStore: KVStore,
+  kernelDatabase: KernelDatabase,
   message: KernelControlCommand,
 ): Promise<KernelControlReply> {
   const { method, params } = message.payload;
 
   try {
-    const result = await registry.execute(kernel, kvStore, method, params);
+    const result = await registry.execute(
+      kernel,
+      kernelDatabase,
+      method,
+      params,
+    );
 
     return {
       id: message.id,

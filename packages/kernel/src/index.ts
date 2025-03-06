@@ -8,6 +8,7 @@ export type {
   VatWorkerService,
   ClusterConfig,
   VatConfig,
+  VatCheckpoint,
   KRef,
 } from './types.ts';
 export {

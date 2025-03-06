@@ -1,5 +1,5 @@
 import type { Kernel, KernelCommand, VatId, VatConfig } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { setupOcapKernelMock } from '@ocap/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -17,20 +17,23 @@ const { setMockBehavior, resetMocks } = setupOcapKernelMock();
 
 describe('handlePanelMessage', () => {
   let mockKernel: Kernel;
-  let mockKVStore: KVStore;
+  let mockKernelDatabase: KernelDatabase;
 
   beforeEach(() => {
     vi.resetModules();
     resetMocks();
 
-    mockKVStore = {
-      get: vi.fn(),
-      getRequired: vi.fn(),
-      getNextKey: vi.fn(),
-      set: vi.fn(),
-      delete: vi.fn(),
+    mockKernelDatabase = {
+      kernelKVStore: {
+        get: vi.fn(),
+        getRequired: vi.fn(),
+        getNextKey: vi.fn(),
+        set: vi.fn(),
+        delete: vi.fn(),
+      },
       clear: vi.fn(),
       executeQuery: vi.fn(),
+      makeVatStore: vi.fn(),
     };
 
     // Create mock kernel
@@ -74,7 +77,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -104,7 +107,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -132,7 +135,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -160,7 +163,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -188,7 +191,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -214,7 +217,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -242,7 +245,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -289,7 +292,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -324,7 +327,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -355,7 +358,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -382,7 +385,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -410,7 +413,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -426,7 +429,7 @@ describe('handlePanelMessage', () => {
 
       const response2 = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -453,7 +456,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 
@@ -481,7 +484,7 @@ describe('handlePanelMessage', () => {
 
       const response = await handlePanelMessage(
         mockKernel,
-        mockKVStore,
+        mockKernelDatabase,
         message,
       );
 

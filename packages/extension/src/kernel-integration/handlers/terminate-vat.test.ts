@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { terminateVatHandler } from './terminate-vat.ts';
@@ -9,7 +9,7 @@ describe('terminateVatHandler', () => {
     terminateVat: vi.fn().mockResolvedValue(undefined),
   } as unknown as Kernel;
 
-  const mockKVStore = {} as unknown as KVStore;
+  const mockKernelDatabase = {} as unknown as KernelDatabase;
 
   it('should have the correct method', () => {
     expect(terminateVatHandler.method).toBe('terminateVat');
@@ -19,7 +19,7 @@ describe('terminateVatHandler', () => {
     const params = { id: 'v0' } as const;
     const result = await terminateVatHandler.implementation(
       mockKernel,
-      mockKVStore,
+      mockKernelDatabase,
       params,
     );
     expect(mockKernel.terminateVat).toHaveBeenCalledWith(params.id);
@@ -31,7 +31,11 @@ describe('terminateVatHandler', () => {
     vi.mocked(mockKernel.terminateVat).mockRejectedValueOnce(error);
     const params = { id: 'v0' } as const;
     await expect(
-      terminateVatHandler.implementation(mockKernel, mockKVStore, params),
+      terminateVatHandler.implementation(
+        mockKernel,
+        mockKernelDatabase,
+        params,
+      ),
     ).rejects.toThrow(error);
   });
 });

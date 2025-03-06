@@ -9,7 +9,9 @@ import { Kernel } from './Kernel.ts';
 import { isVatCommandReply, VatCommandMethod } from './messages/index.ts';
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import type { KernelStore } from './store/kernel-store.ts';
+import { makeKernelStore } from './store/kernel-store.ts';
 import { VatHandle } from './VatHandle.ts';
+import { makeMapKernelDatabase } from '../test/storage.ts';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({
@@ -18,6 +20,8 @@ vi.mock('@endo/eventual-send', () => ({
       .mockImplementation((param: string) => `param is: ${param}`),
   }),
 }));
+
+let mockKernelStore: KernelStore;
 
 const makeVat = async (
   logger?: Logger,
@@ -34,7 +38,7 @@ const makeVat = async (
   return {
     vat: await VatHandle.make({
       kernel: null as unknown as Kernel,
-      storage: null as unknown as KernelStore,
+      kernelStore: mockKernelStore,
       vatId: 'v0',
       vatConfig: { sourceSpec: 'not-really-there.js' },
       vatStream: commandStream,
@@ -48,10 +52,11 @@ describe('VatHandle', () => {
   let sendVatCommandMock: MockInstance<VatHandle['sendVatCommand']>;
 
   beforeEach(() => {
+    mockKernelStore = makeKernelStore(makeMapKernelDatabase());
     sendVatCommandMock = vi
       .spyOn(VatHandle.prototype, 'sendVatCommand')
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
+      .mockResolvedValueOnce('fake')
+      .mockResolvedValueOnce('fake');
   });
 
   describe('init', () => {
@@ -65,7 +70,10 @@ describe('VatHandle', () => {
       expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.initVat,
         params: {
-          sourceSpec: 'not-really-there.js',
+          state: new Map(),
+          vatConfig: {
+            sourceSpec: 'not-really-there.js',
+          },
         },
       });
     });
