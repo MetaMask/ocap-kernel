@@ -17,6 +17,7 @@
 import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
+import type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
@@ -28,7 +29,6 @@ import type {
   ReceiveInput,
 } from '../BaseStream.ts';
 import { BaseReader, BaseWriter } from '../BaseStream.ts';
-import type { ChromeRuntime, ChromeMessageSender } from '../chrome.ts';
 import type { Dispatchable } from '../utils.ts';
 
 export type ChromeRuntimeTarget = 'background' | 'offscreen' | 'popup';

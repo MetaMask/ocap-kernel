@@ -9,8 +9,11 @@ import type {
   VatConfig,
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
-import { PostMessageDuplexStream } from '@ocap/streams';
-import type { PostMessageEnvelope, PostMessageTarget } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams/browser';
+import type {
+  PostMessageEnvelope,
+  PostMessageTarget,
+} from '@ocap/streams/browser';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 

@@ -1,7 +1,7 @@
 import type { Json } from '@metamask/utils';
 import { KernelCommandMethod, isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
-import { ChromeRuntimeDuplexStream } from '@ocap/streams';
+import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
 import { delay } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';

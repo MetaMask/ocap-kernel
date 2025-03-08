@@ -1,11 +1,12 @@
 import { isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
+import type { DuplexStream } from '@ocap/streams';
 import {
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
-} from '@ocap/streams';
-import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
+} from '@ocap/streams/browser';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';

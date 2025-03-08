@@ -65,7 +65,10 @@ describe('liveslots promise handling', () => {
     testName: string,
   ): Promise<[unknown, string[]]> {
     buffered = '';
-    const bundleSpec = `${new URL(`${bundleName}.bundle`, import.meta.url)}`;
+    const bundleSpec = new URL(
+      `${bundleName}.bundle`,
+      import.meta.url,
+    ).toString();
     testSubcluster.vats.alice.parameters.test = testName;
     testSubcluster.vats.alice.bundleSpec = bundleSpec;
     testSubcluster.vats.bob.bundleSpec = bundleSpec;

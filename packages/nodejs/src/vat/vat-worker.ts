@@ -4,18 +4,18 @@ import type { VatId } from '@ocap/kernel';
 import { VatSupervisor } from '@ocap/kernel';
 import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { makeLogger } from '@ocap/utils';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import url from 'node:url';
 
 import { makeCommandStream } from './streams.ts';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 
-/* eslint-disable n/no-unsupported-features/node-builtins, n/no-sync */
+/* eslint-disable n/no-unsupported-features/node-builtins */
 
 if (vatId) {
   const logger = makeLogger(`[vat-worker (${vatId})]`);
-  main().catch(logger.error);
+  main().catch((error) => logger.error(error));
 } else {
   console.log('no vatId set for env variable NODE_VAT_ID');
 }
@@ -33,7 +33,7 @@ if (vatId) {
 async function fetchBlob(blobURL: string): Promise<Response> {
   const parsedURL = new URL(blobURL);
   if (parsedURL.protocol === 'file:') {
-    return new Response(fs.readFileSync(url.fileURLToPath(parsedURL)));
+    return new Response(await fs.readFile(url.fileURLToPath(parsedURL)));
   }
   return fetch(blobURL);
 }

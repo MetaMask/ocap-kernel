@@ -1,6 +1,6 @@
 import { createWindow } from '@metamask/snaps-utils';
 import type { VatId, VatConfig } from '@ocap/kernel';
-import type { initializeMessageChannel } from '@ocap/streams';
+import type { initializeMessageChannel } from '@ocap/streams/browser';
 
 import type { VatWorker } from './VatWorkerServer.ts';
 

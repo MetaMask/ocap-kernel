@@ -1,4 +1,4 @@
-import type { PostMessageTarget } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -15,7 +15,7 @@ vi.mock('nanoid', () => ({
   nanoid: vi.fn(() => 'test-id'),
 }));
 
-vi.mock('@ocap/streams', async () => {
+vi.mock('@ocap/streams/browser', async () => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
   const { TestDuplexStream } = await import('@ocap/test-utils/streams');
 

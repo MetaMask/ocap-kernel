@@ -5,8 +5,11 @@ import type {
 } from '@ocap/kernel';
 import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
 import { makeSQLKVStore } from '@ocap/store/sqlite/wasm';
-import type { PostMessageTarget } from '@ocap/streams';
-import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams/browser';
+import {
+  MessagePortDuplexStream,
+  receiveMessagePort,
+} from '@ocap/streams/browser';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
 import { handlePanelMessage } from './handle-panel-message.ts';

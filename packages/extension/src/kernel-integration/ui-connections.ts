@@ -1,4 +1,4 @@
-import { PostMessageDuplexStream } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { nanoid } from 'nanoid';

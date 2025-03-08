@@ -3,7 +3,7 @@
   "compilerOptions": {
     "allowJs": true,
     "baseUrl": "./",
-    "lib": ["DOM", "ES2022"],
+    "lib": ["ES2022"],
     "types": ["vitest"]
   },
   "references": [

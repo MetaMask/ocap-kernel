@@ -1,7 +1,7 @@
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';
-import type { PostMessageTarget } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';

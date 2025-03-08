@@ -4,7 +4,7 @@
     "allowJs": true,
     "baseUrl": "./",
     "emitDeclarationOnly": false,
-    "lib": ["DOM", "ES2022"],
+    "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
     "types": []

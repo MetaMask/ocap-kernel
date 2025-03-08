@@ -1,6 +1,6 @@
 import type { VatId, VatWorkerServiceReply, VatConfig } from '@ocap/kernel';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
-import type { PostMessageTarget } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
@@ -18,7 +18,7 @@ vi.mock('@ocap/kernel', async () => ({
   },
 }));
 
-vi.mock('@ocap/streams', async (importOriginal) => {
+vi.mock('@ocap/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
   const { TestDuplexStream } = await import('@ocap/test-utils/streams');
 

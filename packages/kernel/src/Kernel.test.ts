@@ -1,6 +1,6 @@
 import { VatNotFoundError } from '@ocap/errors';
 import type { KVStore } from '@ocap/store';
-import type { MessagePortDuplexStream, DuplexStream } from '@ocap/streams';
+import type { DuplexStream } from '@ocap/streams';
 import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -52,7 +52,7 @@ describe('Kernel', () => {
       drain: vi.fn(),
       throw: vi.fn(),
       [Symbol.asyncIterator]: vi.fn(() => mockStream),
-    } as unknown as MessagePortDuplexStream<KernelCommand, KernelCommandReply>;
+    } as unknown as DuplexStream<KernelCommand, KernelCommandReply>;
 
     mockWorkerService = {
       launch: async () => ({}),

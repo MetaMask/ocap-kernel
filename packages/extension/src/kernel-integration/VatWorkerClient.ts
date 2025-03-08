@@ -15,15 +15,15 @@ import type {
   VatCommand,
   VatCommandReply,
 } from '@ocap/kernel';
+import type { DuplexStream } from '@ocap/streams';
 import {
   MessagePortDuplexStream,
   PostMessageDuplexStream,
-} from '@ocap/streams';
+} from '@ocap/streams/browser';
 import type {
-  DuplexStream,
   PostMessageEnvelope,
   PostMessageTarget,
-} from '@ocap/streams';
+} from '@ocap/streams/browser';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 

@@ -1,6 +1,7 @@
 import { delay, stringify } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ChromeRuntime } from './chrome.d.ts';
 import type {
   MessageEnvelope,
   ChromeRuntimeTarget,
@@ -12,7 +13,6 @@ import {
 } from './ChromeRuntimeStream.ts';
 import { makeAck } from '../BaseDuplexStream.ts';
 import type { ValidateInput } from '../BaseStream.ts';
-import type { ChromeRuntime } from '../chrome.ts';
 import {
   makeDoneResult,
   makePendingResult,
