@@ -199,7 +199,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint',
-          'yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
+          'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
@@ -214,17 +214,12 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:fix',
-          'yarn lint:ts && yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
+          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
           'scripts.lint:misc',
           "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
-        );
-        expectWorkspaceField(
-          workspace,
-          'scripts.lint:ts',
-          'tsc --project tsconfig.lint.json',
         );
 
         // All non-root packages must have the same "test" script.
