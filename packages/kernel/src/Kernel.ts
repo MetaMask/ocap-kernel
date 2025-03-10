@@ -47,6 +47,8 @@ import {
 } from './types.js';
 import { VatHandle } from './VatHandle.js';
 
+const VERBOSE = false;
+
 /**
  * Obtain the KRef from a simple value represented as a CapData object.
  *
@@ -67,7 +69,8 @@ type MessageRoute = {
   target: KRef;
 } | null;
 
-const clip = (content: string, length = 10) => 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const clip = (content: string, length = 10) =>
   `${content.substring(0, length)}${content.length > length ? '...' : ''}`;
 
 export class Kernel {
@@ -478,7 +481,8 @@ export class Kernel {
    * @param item - The message/notification to deliver.
    */
   async #deliver(item: RunQueueItem): Promise<void> {
-    const { log } = console;
+    const log = VERBOSE ? console.log : (_: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const glimpse = (obj: unknown) => clip(JSON.stringify(obj));
     switch (item.type) {
       case 'send': {
@@ -486,9 +490,7 @@ export class Kernel {
         if (route) {
           const { vatId, target } = route;
           const { message } = item;
-          log(
-            `@@@@ deliver ${vatId} send ${target}<-${glimpse(message)}`,
-          );
+          log(`@@@@ deliver ${vatId} send ${target}<-${glimpse(message)}`);
           if (vatId) {
             const vat = this.#getVat(vatId);
             if (vat) {

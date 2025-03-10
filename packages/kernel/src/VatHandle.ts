@@ -30,6 +30,8 @@ import type {
   RunQueueItemSend,
 } from './types.js';
 
+const VERBOSE = false;
+
 type VatConstructorProps = {
   kernel: Kernel;
   vatId: VatId;
@@ -39,7 +41,8 @@ type VatConstructorProps = {
   logger?: Logger | undefined;
 };
 
-const clip = (content: string, length = 10) => 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const clip = (content: string, length = 10) =>
   `${content.substring(0, length)}${content.length > length ? '...' : ''}`;
 
 export class VatHandle {
@@ -270,7 +273,8 @@ export class VatHandle {
     const kso: VatSyscallObject = this.#translateSyscallVtoK(vso);
     const [op] = kso;
     const { vatId } = this;
-    const { log } = console;
+    const log = VERBOSE ? console.log : (_: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const glimpse = (obj: unknown) => clip(JSON.stringify(obj));
     switch (op) {
       case 'send': {
@@ -440,7 +444,9 @@ export class VatHandle {
   async sendVatCommand<Method extends VatCommand['payload']['method']>(
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
-    this.#logger.debug('Sending message to vat', payload);
+    if (VERBOSE) {
+      this.#logger.debug('Sending message to vat', payload);
+    }
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.#unresolvedMessages.set(messageId, { reject, resolve });
