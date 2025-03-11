@@ -14,6 +14,9 @@ To get started:
 
 Lint using `yarn lint` or `yarn lint:fix` from the root.
 
+Note that the root package `test` script, as well as those of many packages, require
+`yarn build && yarn build:vats` to be run first.
+
 ### Writing tests
 
 The kernel's code relies extensively on SES / lockdown. Many Agoric packages fail if
