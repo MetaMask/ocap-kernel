@@ -1,6 +1,6 @@
 import { Far } from '@endo/marshal';
-import { makePipe } from '@endo/stream';
 import { makeLogger } from '../../../../dist/demo/logger.mjs';
+import { makeStreamMaker } from '../../../../dist/demo/stream.mjs';
 
 /**
  * Build function for the vector store vat.
@@ -18,11 +18,12 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 
   const logger = makeLogger({ label: 'asyncGen', verbose });
 
-  let counterIdCount = 0;
   const counters = new Map();
 
+  const { readStreamFacet, makeStream, removeStream } = makeStreamMaker();
+
   const makeCounter = (start = 0, ms = 100) => {
-    const [reader, writer] = makePipe();
+    const { id, writer } = makeStream();
     let count = start;
   
     const interval = setInterval(async () => {
@@ -34,14 +35,11 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
     const stop = async () => {
       clearInterval(interval);
       await Promise.resolve(() => undefined);
+      counters.delete(id);
     };
 
-    const id = counterIdCount;
-    const counter = { reader, stop };
-    counterIdCount += 1;
-    counters.set(id, counter);
-
-    return { id, counter };
+    counters.set(id, harden({ stop }));
+    return id;
   }
 
   const getCounter = (id) => {
@@ -56,23 +54,12 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
     async ping() {
       return 'ping';
     },
-    async next(counterId) {
-      return await getCounter(counterId).reader.next();
-    },
-    async throw(counterId, error) {
-      return await getCounter(counterId).reader.throw(error);
-    },
-    async return(counterId, value) {
-      return await getCounter(counterId).reader.return(value);
-    },
+    ...readStreamFacet,
+    makeCounter,
     async stop(counterId) {
       verbose && logger.debug(`stopping [${counterId}]`);
       await getCounter(counterId).stop();
       return true;
-    },
-    makeCounter: (start, ms) => {
-      const { id } = makeCounter(start, ms);
-      return id;
     },
   });
 }

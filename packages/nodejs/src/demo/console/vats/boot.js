@@ -2,6 +2,7 @@ import { E } from '@endo/eventual-send';
 import { Far } from '@endo/marshal';
 
 import { makeLogger } from '../../../../dist/demo/logger.mjs';
+import { makeVatStreamReader } from '../../../../dist/demo/stream.mjs';
 
 /**
  * Build function for the LLM test vat.
@@ -23,51 +24,37 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
 
   const display = (content) => displayWithBanner('demo', content);
 
-  const makeCounterReader = (vat, id) => {
-    const counterReader = {
-      async next() {
-        return await E(vat).next(id);
-      },
-      async throw(error) {
-        return await E(vat).throw(id, error);
-      },
-      async return(value) {
-        return await E(vat).return(id, value);
-      },
-      [Symbol.asyncIterator]: () => counterReader,
-    }
-    return harden(counterReader);
-  }
-
   return Far('root', {
     async bootstrap(vats) {
       display('Bootstrap');
 
       display('Pinging');
 
+      const makeStreamReader = makeVatStreamReader(vats.asyncGenerator);
+
       const ping = await E(vats.asyncGenerator).ping();
       logger.debug('ping:', ping);
 
       const counter0 = await E(vats.asyncGenerator).makeCounter(0, 100);
       const counter1 = await E(vats.asyncGenerator).makeCounter(100, 500);
-      const cr0 = makeCounterReader(vats.asyncGenerator, counter0);
-      const cr1 = makeCounterReader(vats.asyncGenerator, counter1);
+      const counterReader0 = makeStreamReader(counter0);
+      const counterReader1 = makeStreamReader(counter1);
 
-      const readCounter = async (counter, max, crId) => {
-        for await (const count of counter) {
+      const readCounter = async (counterReader, max, counterId) => {
+        for await (const count of counterReader) {
           if (count >= max) {
             display(`stopping @ ${count}`);
-            await E(vats.asyncGenerator).stop(crId);
+            await E(vats.asyncGenerator).stop(counterId);
             display(`stopped @ ${count}`);
-            break;
+            return;
           }
           display(count);
         }
       }
 
       await Promise.all([
-        readCounter(cr0, 10, counter0),
-        readCounter(cr1, 103, counter1),
+        readCounter(counterReader0, 10, counter0),
+        readCounter(counterReader1, 103, counter1),
       ]);
 
       display('Initialized');
