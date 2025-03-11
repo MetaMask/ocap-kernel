@@ -3,11 +3,11 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@ocap/store';
 
-import type { makeBaseStore } from './base-store';
+import type { makeBaseStore } from './base-store.ts';
 import type { makeQueueStore } from './queue-store.ts';
-import type { makeRefCountStore } from './refcount-store';
-import { makeKernelSlot } from './utils/kernel-slots';
-import { parseRef } from './utils/parse-ref';
+import type { makeRefCountStore } from './refcount-store.ts';
+import { makeKernelSlot } from './utils/kernel-slots.ts';
+import { parseRef } from './utils/parse-ref.ts';
 import type { KRef, KernelPromise, PromiseState, VatId } from '../types.ts';
 import { insistVatId } from '../types.ts';
 

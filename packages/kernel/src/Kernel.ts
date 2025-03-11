@@ -192,21 +192,18 @@ export class Kernel {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
-      // Check for GC actions regardless of queue state
       const gcAction = processGCActionSet(this.#storage);
       if (gcAction) {
         yield gcAction;
         continue;
       }
 
-      // Check for reap actions regardless of queue state
       const reapAction = this.#storage.nextReapAction();
       if (reapAction) {
         yield reapAction;
         continue;
       }
 
-      // Process regular queue items if any exist
       while (this.#runQueueLength > 0) {
         const item = this.#dequeueRun();
         if (item) {

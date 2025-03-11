@@ -2,9 +2,9 @@ import type { Message } from '@agoric/swingset-liveslots';
 import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { makeMapKernelDatabase } from '../../../test/storage.ts';
-import type { RunQueueItem } from '../../types.ts';
-import { makeKernelStore } from '../kernel-store.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
+import type { RunQueueItem } from '../types.ts';
+import { makeKernelStore } from './kernel-store.ts';
 
 /**
  * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they
@@ -54,10 +54,15 @@ describe('kernel store', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       expect(Object.keys(ks).sort()).toStrictEqual([
         'addClistEntry',
+        'addGCActions',
         'addPromiseSubscriber',
         'allocateErefForKref',
         'clear',
+        'clearReachableFlag',
+        'createStoredQueue',
         'decRefCount',
+        'decrementRefCount',
+        'deleteClistEntry',
         'deleteKernelObject',
         'deleteKernelPromise',
         'dequeueRun',
@@ -66,24 +71,37 @@ describe('kernel store', () => {
         'erefToKref',
         'forgetEref',
         'forgetKref',
+        'getGCActions',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
+        'getNextObjectId',
+        'getNextPromiseId',
         'getNextRemoteId',
         'getNextVatId',
-        'getOwner',
-        'getRefCount',
         'getObjectRefCount',
+        'getOwner',
+        'getQueueLength',
+        'getReachableFlag',
+        'getRefCount',
+        'hasCListEntry',
         'incRefCount',
-        'setObjectRefCount',
+        'incrementRefCount',
         'initEndpoint',
         'initKernelObject',
         'initKernelPromise',
+        'kernelRefExists',
         'krefToEref',
         'kv',
         'makeVatStore',
+        'nextReapAction',
+        'provideStoredQueue',
+        'refCountKey',
         'reset',
         'resolveKernelPromise',
         'runQueueLength',
+        'scheduleReap',
+        'setGCActions',
+        'setObjectRefCount',
         'setPromiseDecider',
       ]);
     });
@@ -104,17 +122,41 @@ describe('kernel store', () => {
       const ko1Owner = 'v47';
       const ko2Owner = 'r23';
       expect(ks.initKernelObject(ko1Owner)).toBe('ko1');
-      expect(ks.getRefCount('ko1')).toBe(1);
-      expect(ks.incRefCount('ko1')).toBe(2);
-      ks.incRefCount('ko1');
-      expect(ks.getRefCount('ko1')).toBe(3);
-      expect(ks.decRefCount('ko1')).toBe(2);
-      ks.decRefCount('ko1');
-      ks.decRefCount('ko1');
-      expect(ks.getRefCount('ko1')).toBe(0);
+
+      // Check that the object is initialized with reachable=1, recognizable=1
+      const refCounts = ks.getObjectRefCount('ko1');
+      expect(refCounts.reachable).toBe(1);
+      expect(refCounts.recognizable).toBe(1);
+
+      // Increment the reference count
+      ks.incrementRefCount('ko1', {});
+      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
+      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
+
+      // Increment again
+      ks.incrementRefCount('ko1', {});
+      expect(ks.getObjectRefCount('ko1').reachable).toBe(3);
+      expect(ks.getObjectRefCount('ko1').recognizable).toBe(3);
+
+      // Decrement
+      ks.decrementRefCount('ko1', {});
+      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
+      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
+
+      // Decrement twice more to reach 0
+      ks.decrementRefCount('ko1', {});
+      ks.decrementRefCount('ko1', {});
+      expect(ks.getObjectRefCount('ko1').reachable).toBe(0);
+      expect(ks.getObjectRefCount('ko1').recognizable).toBe(0);
+
+      // Create another object
       expect(ks.initKernelObject(ko2Owner)).toBe('ko2');
+
+      // Check owners
       expect(ks.getOwner('ko1')).toBe(ko1Owner);
       expect(ks.getOwner('ko2')).toBe(ko2Owner);
+
+      // Delete an object
       ks.deleteKernelObject('ko1');
       expect(() => ks.getOwner('ko1')).toThrow('unknown kernel object ko1');
       expect(() => ks.getOwner('ko99')).toThrow('unknown kernel object ko99');
@@ -178,27 +220,44 @@ describe('kernel store', () => {
     });
     it('manages clists', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      ks.addClistEntry('v2', 'ko42', 'o-63');
-      ks.addClistEntry('v2', 'ko51', 'o-74');
-      ks.addClistEntry('v2', 'kp60', 'p+85');
-      ks.addClistEntry('r7', 'ko42', 'ro+11');
-      ks.addClistEntry('r7', 'kp61', 'rp-99');
-      expect(ks.krefToEref('v2', 'ko42')).toBe('o-63');
-      expect(ks.erefToKref('v2', 'o-63')).toBe('ko42');
-      expect(ks.krefToEref('v2', 'ko51')).toBe('o-74');
-      expect(ks.erefToKref('v2', 'o-74')).toBe('ko51');
-      expect(ks.krefToEref('v2', 'kp60')).toBe('p+85');
-      expect(ks.erefToKref('v2', 'p+85')).toBe('kp60');
-      expect(ks.krefToEref('r7', 'ko42')).toBe('ro+11');
-      expect(ks.erefToKref('r7', 'ro+11')).toBe('ko42');
-      expect(ks.krefToEref('r7', 'kp61')).toBe('rp-99');
-      expect(ks.erefToKref('r7', 'rp-99')).toBe('kp61');
-      ks.forgetKref('v2', 'ko42');
-      expect(ks.krefToEref('v2', 'ko42')).toBeUndefined();
+
+      // Create objects first to ensure they exist in the kernel
+      const ko42 = ks.initKernelObject('v2');
+      const ko51 = ks.initKernelObject('v2');
+      const [kp60] = ks.initKernelPromise();
+      const [kp61] = ks.initKernelPromise();
+
+      // Add C-list entries
+      ks.addClistEntry('v2', ko42, 'o-63');
+      ks.addClistEntry('v2', ko51, 'o-74');
+      ks.addClistEntry('v2', kp60, 'p+85');
+      ks.addClistEntry('r7', ko42, 'ro+11');
+      ks.addClistEntry('r7', kp61, 'rp-99');
+
+      // Verify mappings
+      expect(ks.krefToEref('v2', ko42)).toBe('o-63');
+      expect(ks.erefToKref('v2', 'o-63')).toBe(ko42);
+      expect(ks.krefToEref('v2', ko51)).toBe('o-74');
+      expect(ks.erefToKref('v2', 'o-74')).toBe(ko51);
+      expect(ks.krefToEref('v2', kp60)).toBe('p+85');
+      expect(ks.erefToKref('v2', 'p+85')).toBe(kp60);
+      expect(ks.krefToEref('r7', ko42)).toBe('ro+11');
+      expect(ks.erefToKref('r7', 'ro+11')).toBe(ko42);
+      expect(ks.krefToEref('r7', kp61)).toBe('rp-99');
+      expect(ks.erefToKref('r7', 'rp-99')).toBe(kp61);
+
+      // Test forgetting entries
+      ks.forgetKref('v2', ko42);
+      expect(ks.krefToEref('v2', ko42)).toBeUndefined();
       expect(ks.erefToKref('v2', 'o-63')).toBeUndefined();
+
       ks.forgetEref('r7', 'rp-99');
-      expect(ks.krefToEref('r7', 'kp61')).toBeUndefined();
+      expect(ks.krefToEref('r7', kp61)).toBeUndefined();
       expect(ks.erefToKref('r7', 'rp-99')).toBeUndefined();
+
+      // Verify C-list entry existence
+      expect(ks.hasCListEntry('r7', ko42)).toBe(true);
+      expect(ks.hasCListEntry('v2', ko42)).toBe(false); // We forgot this one
     });
   });
 

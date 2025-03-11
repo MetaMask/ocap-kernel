@@ -8,7 +8,7 @@ import {
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { kunser } from '../../kernel/src/kernel-marshal.ts';
+import { kunser } from '../../kernel/src/services/kernel-marshal.ts';
 import { makeKernel } from '../../nodejs/src/kernel/make-kernel.ts';
 
 const origStdoutWrite = process.stdout.write.bind(process.stdout);

@@ -40,7 +40,6 @@ function makeSupervisorSyscall(
     insistVatSyscallObject(vso);
     let syscallResult;
     try {
-      console.log('doSyscall', vso);
       syscallResult = supervisor.executeSyscall(vso);
     } catch (problem) {
       console.warn(`supervisor got error during syscall:`, problem);
