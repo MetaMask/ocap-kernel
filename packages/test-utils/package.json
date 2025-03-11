@@ -23,8 +23,7 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "test": "echo 'No tests.' && exit 0",
-    "test:dev": "yarn test",
-    "lint:ts": "tsc --project tsconfig.lint.json"
+    "test:dev": "yarn test"
   },
   "devDependencies": {
     "@metamask/eslint-config": "^14.0.0",
