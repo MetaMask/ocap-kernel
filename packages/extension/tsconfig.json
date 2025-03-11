@@ -8,7 +8,6 @@
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
-    "skipLibCheck": true,
     "plugins": [{ "name": "typescript-plugin-css-modules" }],
     "types": [
       "chrome",
