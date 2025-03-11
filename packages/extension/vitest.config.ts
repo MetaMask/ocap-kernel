@@ -11,6 +11,16 @@ export default defineConfig((args) => {
     args,
     defaultConfig,
     defineProject({
+      resolve: {
+        alias: {
+          // Vite can't find the source files from the /browser export,
+          // unless we use a path alias.
+          '@ocap/streams/browser': path.resolve(
+            __dirname,
+            '../streams/src/browser/index.ts',
+          ),
+        },
+      },
       test: {
         name: 'extension',
         environment: 'jsdom',
