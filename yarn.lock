@@ -2490,7 +2490,6 @@ __metadata:
     "@typescript-eslint/parser": "npm:^8.26.1"
     "@typescript-eslint/utils": "npm:^8.26.1"
     "@vitest/eslint-plugin": "npm:^1.1.25"
-    better-sqlite3: "npm:^11.7.2"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.12.0"
     eslint-config-prettier: "npm:^9.1.0"
@@ -4427,7 +4426,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"better-sqlite3@npm:^11.7.2, better-sqlite3@npm:^11.8.1":
+"better-sqlite3@npm:^11.8.1":
   version: 11.8.1
   resolution: "better-sqlite3@npm:11.8.1"
   dependencies:

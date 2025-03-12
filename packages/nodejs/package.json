@@ -56,7 +56,6 @@
     "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",
-    "better-sqlite3": "^11.7.2",
     "langchain": "^0.3.15",
     "ollama": "^0.5.12",
     "ses": "^1.9.0"
