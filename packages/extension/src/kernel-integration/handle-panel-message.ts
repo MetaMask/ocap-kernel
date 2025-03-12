@@ -6,7 +6,7 @@ import { KernelCommandRegistry } from './command-registry.ts';
 import type { CommandHandler } from './command-registry.ts';
 import { handlers } from './handlers/index.ts';
 import type { KernelControlCommand, KernelControlReply } from './messages.ts';
-import { loggingMiddleware } from './middlewares/logging.ts';
+import { loggingMiddleware } from './middleware/logging.ts';
 
 const logger = makeLogger('[kernel-panel]');
 const registry = new KernelCommandRegistry();
