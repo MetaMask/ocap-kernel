@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { App } from './ui/App.jsx';
+import { App } from './ui/App.tsx';
 
 vi.mock('react-dom/client', () => ({
   createRoot: vi.fn(() => ({
@@ -22,7 +22,7 @@ describe('popup', () => {
     const root = document.createElement('div');
     root.id = 'root';
     document.body.appendChild(root);
-    await import('./popup.js');
+    await import('./popup.tsx');
     expect(createRoot).toHaveBeenCalledWith(root);
     const mockRoot = vi.mocked(createRoot).mock.results[0]?.value;
     expect(mockRoot.render).toHaveBeenCalledWith(expect.any(Object));

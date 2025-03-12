@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import { BaseError } from './BaseError.js';
-import { ErrorCode } from './constants.js';
-import { unmarshalErrorOptions } from './marshal/unmarshalError.js';
-import type { MarshaledOcapError } from './types.js';
+import { BaseError } from './BaseError.ts';
+import { ErrorCode } from './constants.ts';
+import { unmarshalErrorOptions } from './marshal/unmarshalError.ts';
+import type { MarshaledOcapError } from './types.ts';
 
 describe('BaseError', () => {
   const mockCode = ErrorCode.VatNotFound;

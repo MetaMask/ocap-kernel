@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { errorClasses } from './index.js';
-import { ErrorCode } from '../constants.js';
+import { errorClasses } from './index.ts';
+import { ErrorCode } from '../constants.ts';
 
 describe('errorClasses', () => {
   it('should contain all keys from ErrorCode', () => {

@@ -1,15 +1,11 @@
-// XXX placeholder to get around @agoric/swingset-liveslots package configuration issues
-
-// These types are defined in the liveslots package, but not exported cleanly.
-
-import type { CapData } from '@endo/marshal';
-
 import type {
   VatDeliveryObject,
   VatOneResolution,
   SwingSetCapData,
-} from './ag-types-index.js';
-import type { LiveSlotsOptions, MeterControl } from './ag-types.js';
+  LiveSlotsOptions,
+  MeterControl,
+} from '@agoric/swingset-liveslots';
+import type { CapData } from '@endo/marshal';
 
 export type SyscallResult = SwingSetCapData | string | string[] | null;
 export type DispatchFn = (vdo: VatDeliveryObject) => Promise<void>;

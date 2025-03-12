@@ -4,8 +4,8 @@ import type { FSWatcher } from 'chokidar';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
 
-import { createBundleFile } from './bundle.js';
-import { resolveBundlePath } from '../path.js';
+import { createBundleFile } from './bundle.ts';
+import { resolveBundlePath } from '../path.ts';
 
 type CloseWatcher = () => Promise<void>;
 

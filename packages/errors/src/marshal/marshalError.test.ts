@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { marshalError } from './marshalError.js';
-import { ErrorCode, ErrorSentinel } from '../constants.js';
-import { VatNotFoundError } from '../errors/VatNotFoundError.js';
+import { marshalError } from './marshalError.ts';
+import { ErrorCode, ErrorSentinel } from '../constants.ts';
+import { VatNotFoundError } from '../errors/VatNotFoundError.ts';
 
 describe('marshalError', () => {
   it('should marshal an error', () => {

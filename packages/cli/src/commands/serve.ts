@@ -6,7 +6,7 @@ import { resolve as resolvePath } from 'path';
 import serveMiddleware from 'serve-handler';
 import { promisify } from 'util';
 
-import type { Config } from '../config.js';
+import type { Config } from '../config.ts';
 
 /**
  * Get a static server for development purposes.

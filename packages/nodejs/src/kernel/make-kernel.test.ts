@@ -7,10 +7,10 @@ import {
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { makeKernel } from './make-kernel.js';
+import { makeKernel } from './make-kernel.ts';
 
-vi.mock('./sqlite-kv-store.js', async () => {
-  const { makeMapKVStore } = await import('../../../kernel/test/storage.js');
+vi.mock('@ocap/store/sqlite/nodejs', async () => {
+  const { makeMapKVStore } = await import('../../../kernel/test/storage.ts');
   return {
     makeSQLKVStore: makeMapKVStore,
   };

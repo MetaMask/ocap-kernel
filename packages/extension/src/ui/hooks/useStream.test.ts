@@ -1,10 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
-import { useStream } from './useStream.js';
-import { setupStream } from '../services/stream.js';
+import { useStream } from './useStream.ts';
+import { setupStream } from '../services/stream.ts';
 
-vi.mock('../services/stream.js', () => ({
+vi.mock('../services/stream.ts', () => ({
   setupStream: vi.fn(),
 }));
 

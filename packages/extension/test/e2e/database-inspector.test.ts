@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import { makeLoadExtension } from '../helpers/extension';
+import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe('Database Inspector', () => {
   let extensionContext: BrowserContext;

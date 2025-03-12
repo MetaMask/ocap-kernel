@@ -1,25 +1,25 @@
-import { defineProject, mergeConfig } from 'vitest/config';
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-import defaultConfig from '../../vitest.config.js';
+import defaultConfig from '../../vitest.config.ts';
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    build: {
-      ssr: true,
-      rollupOptions: {
-        output: {
-          esModule: true,
+export default defineConfig((args) => {
+  return mergeConfig(
+    args,
+    defaultConfig,
+    defineProject({
+      build: {
+        ssr: true,
+        rollupOptions: {
+          output: {
+            esModule: true,
+          },
         },
       },
-    },
-    test: {
-      name: 'cli',
-      exclude: ['**/test/integration/**'],
-    },
-  }),
-);
-
-config.test.coverage.thresholds = true;
-
-export default config;
+      test: {
+        name: 'cli',
+        exclude: ['**/test/integration/**'],
+      },
+    }),
+  );
+});

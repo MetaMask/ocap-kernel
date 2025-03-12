@@ -14,9 +14,9 @@ import {
   buildDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
-import { extensionDev } from './vite-plugins/extension-dev.js';
-import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude.js';
-import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.js';
+import { extensionDev } from './vite-plugins/extension-dev.ts';
+import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude.ts';
+import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.ts';
 
 /**
  * Files that need to be statically copied to the destination directory.

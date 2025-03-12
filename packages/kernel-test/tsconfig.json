@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "baseUrl": "./",
+    "lib": ["ES2022"],
+    "types": ["vitest"]
+  },
+  "references": [
+    { "path": "../streams" },
+    { "path": "../test-utils" },
+    { "path": "../utils" },
+    { "path": "../nodejs" },
+    { "path": "../kernel" }
+  ],
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
+}

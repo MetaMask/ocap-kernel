@@ -1,7 +1,7 @@
-import { ConfigEditor } from './ConfigEditor.js';
-import { KernelControls } from './KernelControls.jsx';
-import { LaunchVat } from './LaunchVat.jsx';
-import { VatTable } from './VatTable.jsx';
+import { ConfigEditor } from './ConfigEditor.tsx';
+import { KernelControls } from './KernelControls.tsx';
+import { LaunchVat } from './LaunchVat.tsx';
+import { VatTable } from './VatTable.tsx';
 import styles from '../App.module.css';
 
 export const VatManager: React.FC = () => {

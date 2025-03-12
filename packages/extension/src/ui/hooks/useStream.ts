@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
-import { setupStream } from '../services/stream.js';
-import type { SendMessageFunction } from '../services/stream.js';
+import { setupStream } from '../services/stream.ts';
+import type { SendMessageFunction } from '../services/stream.ts';
 
 export type StreamState = {
   sendMessage?: SendMessageFunction;

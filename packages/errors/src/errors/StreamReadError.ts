@@ -8,13 +8,13 @@ import {
   union,
 } from '@metamask/superstruct';
 
-import { BaseError } from '../BaseError.js';
+import { BaseError } from '../BaseError.ts';
 import {
   marshaledErrorSchema,
   ErrorCode,
   MarshaledErrorStruct,
-} from '../constants.js';
-import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.js';
+} from '../constants.ts';
+import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
 type StreamReadErrorData = { vatId: string } | { kernelId: string };
 type StreamReadErrorOptions = Required<ErrorOptions> &

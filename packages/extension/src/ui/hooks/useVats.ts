@@ -3,9 +3,8 @@ import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
 
-import { KernelControlMethod } from '../../kernel-integration/messages.js';
-import { usePanelContext } from '../context/PanelContext.js';
-import type { VatRecord } from '../types.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import type { VatRecord } from '../types.ts';
 
 /**
  * Hook to manage the vats state.
@@ -44,7 +43,7 @@ export const useVats = (): {
   const pingVat = useCallback(
     (id: VatId) => {
       sendMessage({
-        method: KernelControlMethod.sendVatCommand,
+        method: 'sendVatCommand',
         params: {
           id,
           payload: {
@@ -65,7 +64,7 @@ export const useVats = (): {
   const restartVat = useCallback(
     (id: VatId) => {
       sendMessage({
-        method: KernelControlMethod.restartVat,
+        method: 'restartVat',
         params: { id },
       })
         .then(() => logMessage(`Restarted vat "${id}"`, 'success'))
@@ -80,7 +79,7 @@ export const useVats = (): {
   const terminateVat = useCallback(
     (id: VatId) => {
       sendMessage({
-        method: KernelControlMethod.terminateVat,
+        method: 'terminateVat',
         params: { id },
       })
         .then(() => logMessage(`Terminated vat "${id}"`, 'success'))

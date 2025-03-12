@@ -9,14 +9,17 @@ import type {
   VatConfig,
   VatWorkerServiceCommand,
 } from '@ocap/kernel';
-import { PostMessageDuplexStream } from '@ocap/streams';
-import type { PostMessageEnvelope, PostMessageTarget } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams/browser';
+import type {
+  PostMessageEnvelope,
+  PostMessageTarget,
+} from '@ocap/streams/browser';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import type { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 export type VatWorker = {
   launch: (vatConfig: VatConfig) => Promise<[MessagePort, unknown]>;

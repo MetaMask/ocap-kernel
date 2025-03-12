@@ -18,8 +18,8 @@ import {
   MessageStruct,
   VatConfigStruct,
   CapDataStruct,
-} from '../types.js';
-import type { VatId } from '../types.js';
+} from '../types.ts';
+import type { VatId } from '../types.ts';
 
 type VatMessageId = `${VatId}:${number}`;
 

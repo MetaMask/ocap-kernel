@@ -1,21 +1,23 @@
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
 import path from 'path';
-import { defineProject, mergeConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-import defaultConfig from '../../vitest.config.js';
+import defaultConfig from '../../vitest.config.ts';
 
-delete defaultConfig.test?.setupFiles;
+export default defineConfig((args) => {
+  delete defaultConfig.test?.setupFiles;
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    test: {
-      name: 'extension',
-      environment: 'jsdom',
-      exclude: ['**/test/e2e/**'],
-      setupFiles: path.resolve(__dirname, './test/setup.ts'),
-    },
-  }),
-);
-
-delete config.test.coverage.thresholds;
-export default config;
+  return mergeConfig(
+    args,
+    defaultConfig,
+    defineProject({
+      test: {
+        name: 'extension',
+        environment: 'jsdom',
+        exclude: ['**/test/e2e/**'],
+        setupFiles: path.resolve(__dirname, './test/setup.ts'),
+        testTimeout: 3000,
+      },
+    }),
+  );
+});

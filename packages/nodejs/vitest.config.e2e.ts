@@ -1,30 +1,19 @@
-// eslint-disable-next-line spaced-comment
-/// <reference types="vitest" />
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-import path from 'path';
-import { defineConfig, mergeConfig } from 'vite';
+import defaultConfig from '../../vitest.config.ts';
 
-import defaultConfig from '../../vitest.config.js';
-
-const config = mergeConfig(
-  defaultConfig,
-  defineConfig({
-    optimizeDeps: { include: ['better-sqlite3'] },
-    test: {
-      name: 'nodejs:e2e',
-      pool: 'forks',
-      alias: [
-        {
-          find: '@ocap/shims/endoify',
-          replacement: path.resolve('../shims/src/endoify.js'),
-          customResolver: (id) => ({ external: true, id }),
-        },
-      ],
-      include: ['./test/e2e/**/*.test.ts'],
-      exclude: ['./src/**/*', './test/llm/**/*'],
-    },
-  }),
-);
-
-delete config.test.coverage.thresholds;
-export default config;
+export default defineConfig((args) => {
+  return mergeConfig(
+    args,
+    defaultConfig,
+    defineProject({
+      test: {
+        name: 'nodejs:e2e',
+        pool: 'forks',
+        include: ['./test/e2e/**/*.test.ts'],
+        exclude: ['./src/**/*'],
+      },
+    }),
+  );
+});

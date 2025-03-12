@@ -9,8 +9,6 @@ const isTest = import.meta?.env?.MODE === 'test';
 lockdown({
   consoleTaming: 'unsafe',
   errorTaming: isTest ? 'unsafe-debug' : 'unsafe',
-  mathTaming: 'unsafe',
-  dateTaming: 'unsafe',
   overrideTaming: 'severe',
   domainTaming: 'unsafe',
   stackFiltering: isTest ? 'verbose' : 'concise',

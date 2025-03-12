@@ -1,23 +1,16 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { useDatabaseInspector } from './useDatabaseInspector.js';
-import { usePanelContext } from '../context/PanelContext.js';
-import { isErrorResponse } from '../utils.js';
+import { useDatabaseInspector } from './useDatabaseInspector.ts';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import { isErrorResponse } from '../utils.ts';
 
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('../utils.js', () => ({
+vi.mock('../utils.ts', () => ({
   isErrorResponse: vi.fn(),
-}));
-
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendMessage: 'sendMessage',
-    executeDBQuery: 'executeDBQuery',
-  },
 }));
 
 vi.mock('@ocap/utils', () => ({

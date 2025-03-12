@@ -2,12 +2,12 @@
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "lib": ["DOM", "ES2022"],
+    "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
     "types": ["ses"]
   },
-  "references": [{ "path": "../errors/tsconfig.build.json" }],
+  "references": [],
   "files": [],
   "include": ["./src"]
 }

@@ -4,8 +4,8 @@ import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
-import { isDirectory } from '../file.js';
-import { resolveBundlePath } from '../path.js';
+import { isDirectory } from '../file.ts';
+import { resolveBundlePath } from '../path.ts';
 
 /**
  * Create a bundle given path to an entry point.
@@ -21,10 +21,14 @@ export async function createBundleFile(
 ): Promise<void> {
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = destinationPath ?? resolveBundlePath(sourceFullPath);
-  const bundle = await bundleSource(sourceFullPath);
-  const bundleString = JSON.stringify(bundle);
-  await writeFile(bundlePath, bundleString);
-  console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
+  try {
+    const bundle = await bundleSource(sourceFullPath);
+    const bundleString = JSON.stringify(bundle);
+    await writeFile(bundlePath, bundleString);
+    console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
+  } catch (problem) {
+    console.error(problem);
+  }
 }
 
 /**

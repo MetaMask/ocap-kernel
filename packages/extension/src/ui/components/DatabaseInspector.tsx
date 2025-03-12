@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import styles from '../App.module.css';
-import { useDatabaseInspector } from '../hooks/useDatabaseInspector.js';
+import { useDatabaseInspector } from '../hooks/useDatabaseInspector.ts';
 
 /**
  * @returns - The DatabaseInspector component

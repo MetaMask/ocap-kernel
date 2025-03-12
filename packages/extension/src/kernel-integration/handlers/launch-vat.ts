@@ -1,21 +1,17 @@
 import type { Json } from '@metamask/utils';
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 
-import type { CommandHandler, CommandParams } from '../command-registry.js';
-import {
-  KernelCommandPayloadStructs,
-  KernelControlMethod,
-} from '../messages.js';
+import type { CommandHandler, CommandParams } from '../command-registry.ts';
+import { KernelCommandPayloadStructs } from '../messages.ts';
 
-type LaunchVatMethod = typeof KernelControlMethod.launchVat;
-
-export const launchVatHandler: CommandHandler<LaunchVatMethod> = {
-  method: KernelControlMethod.launchVat,
+export const launchVatHandler: CommandHandler<'launchVat'> = {
+  method: 'launchVat',
   schema: KernelCommandPayloadStructs.launchVat.schema.params,
   implementation: async (
     kernel: Kernel,
     _kvStore: KVStore,
-    params: CommandParams[LaunchVatMethod],
+    params: CommandParams['launchVat'],
   ): Promise<Json> => {
     await kernel.launchVat(params);
     return null;

@@ -1,15 +1,16 @@
-import { defineProject, mergeConfig } from 'vitest/config';
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-import defaultConfig from '../../vitest.config.js';
+import defaultConfig from '../../vitest.config.ts';
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    test: {
-      name: 'shims',
-    },
-  }),
-);
-
-delete config.test.coverage.thresholds;
-export default config;
+export default defineConfig((args) => {
+  return mergeConfig(
+    args,
+    defaultConfig,
+    defineProject({
+      test: {
+        name: 'shims',
+      },
+    }),
+  );
+});

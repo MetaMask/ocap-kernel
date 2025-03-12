@@ -1,16 +1,16 @@
 import { render, screen, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { LaunchVat } from './LaunchVat.jsx';
-import { useKernelActions } from '../hooks/useKernelActions.js';
-import { isValidBundleUrl } from '../utils.js';
+import { LaunchVat } from './LaunchVat.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
+import { isValidBundleUrl } from '../utils.ts';
 
-vi.mock('../hooks/useKernelActions.js', () => ({
+vi.mock('../hooks/useKernelActions.ts', () => ({
   useKernelActions: vi.fn(),
 }));
 
-vi.mock('../utils.js', () => ({
+vi.mock('../utils.ts', () => ({
   isValidBundleUrl: vi.fn(),
 }));
 

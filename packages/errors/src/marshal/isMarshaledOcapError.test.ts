@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { isMarshaledOcapError } from './isMarshaledOcapError.js';
-import { ErrorCode, ErrorSentinel } from '../constants.js';
+import { isMarshaledOcapError } from './isMarshaledOcapError.ts';
+import { ErrorCode, ErrorSentinel } from '../constants.ts';
 
 describe('isMarshaledOcapError', () => {
   it.each([

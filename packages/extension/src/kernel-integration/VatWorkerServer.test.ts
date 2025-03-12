@@ -1,16 +1,15 @@
-import '@ocap/test-utils/mock-endoify';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';
-import type { PostMessageTarget } from '@ocap/streams';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
 import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { ExtensionVatWorkerServer } from './VatWorkerServer.js';
-import type { VatWorker, VatWorkerServerStream } from './VatWorkerServer.js';
+import { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
+import type { VatWorker, VatWorkerServerStream } from './VatWorkerServer.ts';
 
 vi.mock('@ocap/kernel', () => ({
   VatWorkerServiceCommandMethod: {

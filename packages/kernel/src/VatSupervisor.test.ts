@@ -3,9 +3,9 @@ import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages/index.js';
-import type { VatCommand, VatCommandReply } from './messages/index.js';
-import { VatSupervisor } from './VatSupervisor.js';
+import { VatCommandMethod } from './messages/index.ts';
+import type { VatCommand, VatCommandReply } from './messages/index.ts';
+import { VatSupervisor } from './VatSupervisor.ts';
 
 const makeVatSupervisor = async (
   handleWrite: (input: unknown) => void | Promise<void> = () => undefined,

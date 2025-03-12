@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "noEmit": true,
+    "types": ["node", "vitest"]
+  },
+  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
+  "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"],
+  "exclude": ["./src/package-template"]
+}

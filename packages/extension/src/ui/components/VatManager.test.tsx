@@ -1,24 +1,13 @@
-import '@ocap/test-utils/mock-endoify';
 import { cleanup, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { ConfigEditor } from './ConfigEditor.jsx';
-import { KernelControls } from './KernelControls.jsx';
-import { LaunchVat } from './LaunchVat.jsx';
-import { VatManager } from './VatManager.jsx';
-import { VatTable } from './VatTable.jsx';
+import { ConfigEditor } from './ConfigEditor.tsx';
+import { KernelControls } from './KernelControls.tsx';
+import { LaunchVat } from './LaunchVat.tsx';
+import { VatManager } from './VatManager.tsx';
+import { VatTable } from './VatTable.tsx';
 
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendMessage: 'sendMessage',
-    terminateAllVats: 'terminateAllVats',
-    clearState: 'clearState',
-    reload: 'reload',
-    launchVat: 'launchVat',
-  },
-}));
-
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(() => ({
     status: {
       clusterConfig: {

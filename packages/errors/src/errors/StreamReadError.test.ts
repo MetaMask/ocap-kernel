@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import { StreamReadError } from './StreamReadError.js';
-import { ErrorCode, ErrorSentinel } from '../constants.js';
-import { unmarshalErrorOptions } from '../marshal/unmarshalError.js';
-import type { MarshaledOcapError } from '../types.js';
+import { StreamReadError } from './StreamReadError.ts';
+import { ErrorCode, ErrorSentinel } from '../constants.ts';
+import { unmarshalErrorOptions } from '../marshal/unmarshalError.ts';
+import type { MarshaledOcapError } from '../types.ts';
 
 describe('StreamReadError', () => {
   const mockVatId = 'mockVatId';

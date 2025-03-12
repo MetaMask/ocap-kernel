@@ -2,14 +2,14 @@ import {
   insistVatSyscallObject,
   insistVatSyscallResult,
 } from '@agoric/swingset-liveslots';
+import type {
+  VatSyscallObject,
+  VatOneResolution,
+} from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
-// XXX Reenable the following once the packaging of liveslots is fixed (and at
-// the same time remove the below import of ./ag-types-index.js)
-// import type { VatSyscallObject, VatOneResolution } from '@agoric/swingset-liveslots';
+import type { KVStore } from '@ocap/store';
 
-import type { Syscall, SyscallResult } from './ag-liveslots-types.js';
-import type { VatSyscallObject, VatOneResolution } from './ag-types-index.js';
-import type { KVStore } from './store/kernel-store.js';
+import type { Syscall, SyscallResult } from './ag-liveslots-types.ts';
 import type { VatSupervisor } from './VatSupervisor.ts';
 
 /**

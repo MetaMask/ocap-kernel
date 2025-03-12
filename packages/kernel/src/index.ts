@@ -1,20 +1,19 @@
-export * from './messages/index.js';
-export { Kernel } from './Kernel.js';
-export type { KVStore, MakeKVStore } from './store/kernel-store.js';
-export { VatHandle } from './VatHandle.js';
-export { VatSupervisor } from './VatSupervisor.js';
-// XXX Once the packaging of liveslots is fixed, this should be imported from there
-export type { Message } from './ag-types.js';
+export * from './messages/index.ts';
+export { Kernel } from './Kernel.ts';
+export { VatHandle } from './VatHandle.ts';
+export { VatSupervisor } from './VatSupervisor.ts';
+export type { Message } from '@agoric/swingset-liveslots';
 export type {
   VatId,
   VatWorkerService,
   ClusterConfig,
   VatConfig,
-} from './types.js';
+  KRef,
+} from './types.ts';
 export {
   isVatId,
   VatIdStruct,
   isVatConfig,
   VatConfigStruct,
   ClusterConfigStruct,
-} from './types.js';
+} from './types.ts';

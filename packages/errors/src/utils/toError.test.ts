@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { toError } from './toError.js';
+import { toError } from './toError.ts';
 
 describe('toError', () => {
   it('should return the input if it is already an Error', () => {

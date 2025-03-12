@@ -1,12 +1,12 @@
 import type { Json } from '@metamask/utils';
 
-import type { ErrorCode } from './constants.js';
+import { ErrorCode } from './constants.ts';
 import type {
   MarshaledOcapError,
   OcapError,
   ErrorOptionsWithStack,
   MarshaledError,
-} from './types.js';
+} from './types.ts';
 
 export class BaseError extends Error implements OcapError {
   public readonly code: ErrorCode;

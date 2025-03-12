@@ -1,30 +1,11 @@
-import '@ocap/test-utils/mock-endoify';
 import { describe, it, expect } from 'vitest';
 
 import {
-  KernelControlMethod,
   isKernelControlCommand,
   isKernelControlReply,
   isKernelStatus,
-} from './messages';
+} from './messages.ts';
 import clusterConfig from '../vats/default-cluster.json';
-
-describe('KernelControlMethod', () => {
-  it('should have all expected methods', () => {
-    expect(Object.values(KernelControlMethod)).toStrictEqual([
-      'launchVat',
-      'restartVat',
-      'terminateVat',
-      'terminateAllVats',
-      'getStatus',
-      'reload',
-      'sendVatCommand',
-      'clearState',
-      'executeDBQuery',
-      'updateClusterConfig',
-    ]);
-  });
-});
 
 describe('isKernelControlCommand', () => {
   it.each([
@@ -33,7 +14,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.launchVat,
+          method: 'launchVat',
           params: { sourceSpec: 'test.js' },
         },
       },
@@ -44,7 +25,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.restartVat,
+          method: 'restartVat',
           params: { id: 'v0' },
         },
       },
@@ -55,7 +36,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.terminateVat,
+          method: 'terminateVat',
           params: { id: 'v0' },
         },
       },
@@ -66,7 +47,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.terminateAllVats,
+          method: 'terminateAllVats',
           params: null,
         },
       },
@@ -77,7 +58,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.getStatus,
+          method: 'getStatus',
           params: null,
         },
       },
@@ -88,7 +69,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.sendVatCommand,
+          method: 'sendVatCommand',
           params: {
             id: 'v0',
             payload: { test: 'data' },
@@ -102,7 +83,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.clearState,
+          method: 'clearState',
           params: null,
         },
       },
@@ -113,7 +94,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.executeDBQuery,
+          method: 'executeDBQuery',
           params: {
             sql: 'SELECT * FROM test',
           },
@@ -139,7 +120,7 @@ describe('isKernelControlCommand', () => {
       {
         id: 'test',
         payload: {
-          method: KernelControlMethod.launchVat,
+          method: 'launchVat',
           params: 'invalid',
         },
       },
@@ -157,7 +138,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.launchVat,
+          method: 'launchVat',
           params: null,
         },
       },
@@ -168,7 +149,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.launchVat,
+          method: 'launchVat',
           params: { error: 'Failed to launch vat' },
         },
       },
@@ -179,7 +160,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.getStatus,
+          method: 'getStatus',
           params: {
             clusterConfig,
             vats: [
@@ -198,7 +179,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test-1',
         payload: {
-          method: KernelControlMethod.sendVatCommand,
+          method: 'sendVatCommand',
           params: { result: 'success' },
         },
       },
@@ -222,7 +203,7 @@ describe('isKernelControlReply', () => {
       {
         id: 'test',
         payload: {
-          method: KernelControlMethod.launchVat,
+          method: 'launchVat',
           params: 'invalid',
         },
       },

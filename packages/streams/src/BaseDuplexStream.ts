@@ -5,13 +5,13 @@ import { is, literal, object } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { stringify } from '@ocap/utils';
 
-import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.js';
-import { makeDoneResult } from './utils.js';
+import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.ts';
+import { makeDoneResult } from './utils.ts';
 
-export enum DuplexStreamSentinel {
-  Syn = '@@Syn',
-  Ack = '@@Ack',
-}
+export const DuplexStreamSentinel = {
+  Syn: '@@Syn',
+  Ack: '@@Ack',
+} as const;
 
 const SynStruct = object({
   [DuplexStreamSentinel.Syn]: literal(true),
@@ -63,12 +63,15 @@ export const makeDuplexStreamInputValidator = <Read>(
   ((value: unknown): value is Read =>
     isDuplexStreamSignal(value) || validateInput(value));
 
-enum SynchronizationStatus {
-  Idle = 0,
-  Pending = 1,
-  Complete = 2,
-  Failed = 3,
-}
+const SynchronizationStatus = {
+  Idle: 0,
+  Pending: 1,
+  Complete: 2,
+  Failed: 3,
+} as const;
+
+type SynchronizationStatus =
+  (typeof SynchronizationStatus)[keyof typeof SynchronizationStatus];
 
 const isEnded = (status: SynchronizationStatus): boolean =>
   status === SynchronizationStatus.Complete ||

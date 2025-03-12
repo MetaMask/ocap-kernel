@@ -17,29 +17,25 @@
 import type { Json } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 
+import type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 import {
   BaseDuplexStream,
   makeDuplexStreamInputValidator,
-} from '../BaseDuplexStream.js';
+} from '../BaseDuplexStream.ts';
 import type {
   BaseReaderArgs,
   ValidateInput,
   BaseWriterArgs,
   ReceiveInput,
-} from '../BaseStream.js';
-import { BaseReader, BaseWriter } from '../BaseStream.js';
-import type { ChromeRuntime, ChromeMessageSender } from '../chrome.js';
-import type { Dispatchable } from '../utils.js';
+} from '../BaseStream.ts';
+import { BaseReader, BaseWriter } from '../BaseStream.ts';
+import type { Dispatchable } from '../utils.ts';
 
-export enum ChromeRuntimeStreamTarget {
-  Background = 'background',
-  Offscreen = 'offscreen',
-  Popup = 'popup',
-}
+export type ChromeRuntimeTarget = 'background' | 'offscreen' | 'popup';
 
 export type MessageEnvelope<Payload> = {
-  target: ChromeRuntimeStreamTarget;
-  source: ChromeRuntimeStreamTarget;
+  target: ChromeRuntimeTarget;
+  source: ChromeRuntimeTarget;
   payload: Payload;
 };
 
@@ -65,16 +61,16 @@ const isMessageEnvelope = (
 export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
   readonly #receiveInput: ReceiveInput;
 
-  readonly #target: ChromeRuntimeStreamTarget;
+  readonly #target: ChromeRuntimeTarget;
 
-  readonly #source: ChromeRuntimeStreamTarget;
+  readonly #source: ChromeRuntimeTarget;
 
   readonly #extensionId: string;
 
   constructor(
     runtime: ChromeRuntime,
-    target: ChromeRuntimeStreamTarget,
-    source: ChromeRuntimeStreamTarget,
+    target: ChromeRuntimeTarget,
+    source: ChromeRuntimeTarget,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
   ) {
     // eslint-disable-next-line prefer-const
@@ -145,8 +141,8 @@ harden(ChromeRuntimeReader);
 export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
   constructor(
     runtime: ChromeRuntime,
-    target: ChromeRuntimeStreamTarget,
-    source: ChromeRuntimeStreamTarget,
+    target: ChromeRuntimeTarget,
+    source: ChromeRuntimeTarget,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
   ) {
     super({
@@ -185,8 +181,8 @@ export class ChromeRuntimeDuplexStream<
 > {
   constructor(
     runtime: ChromeRuntime,
-    localTarget: ChromeRuntimeStreamTarget,
-    remoteTarget: ChromeRuntimeStreamTarget,
+    localTarget: ChromeRuntimeTarget,
+    remoteTarget: ChromeRuntimeTarget,
     validateInput?: ValidateInput<Read>,
   ) {
     let writer: ChromeRuntimeWriter<Write>; // eslint-disable-line prefer-const
@@ -219,8 +215,8 @@ export class ChromeRuntimeDuplexStream<
 
   static async make<Read extends Json, Write extends Json = Read>(
     runtime: ChromeRuntime,
-    localTarget: ChromeRuntimeStreamTarget,
-    remoteTarget: ChromeRuntimeStreamTarget,
+    localTarget: ChromeRuntimeTarget,
+    remoteTarget: ChromeRuntimeTarget,
     validateInput?: ValidateInput<Read>,
   ): Promise<ChromeRuntimeDuplexStream<Read, Write>> {
     if (localTarget === remoteTarget) {

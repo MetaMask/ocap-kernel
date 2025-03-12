@@ -1,8 +1,8 @@
-import '@ocap/test-utils/mock-endoify';
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
-import { clearStateHandler } from './clear-state.js';
+import { clearStateHandler } from './clear-state.ts';
 
 describe('clearStateHandler', () => {
   const mockKernel = {

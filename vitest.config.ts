@@ -4,7 +4,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['@vitest/coverage-istanbul', 'vitest-fetch-mock'],
+    include: [
+      '@vitest/coverage-istanbul',
+      'vitest-fetch-mock',
+      'better-sqlite3',
+    ],
   },
 
   plugins: [
@@ -51,39 +55,48 @@ export default defineConfig({
         '**/test/**',
         '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
-        'scripts/create-package/package-template/**',
+        path.join(
+          __dirname,
+          './packages/create-package/src/package-template/**',
+        ),
       ],
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 61.6,
+          statements: 63.24,
           functions: 63.41,
-          branches: 58.62,
-          lines: 61.6,
+          branches: 63.33,
+          lines: 63.24,
+        },
+        'packages/create-package/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/errors/**': {
           statements: 100,
           functions: 100,
-          branches: 92.59,
+          branches: 92,
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 74.01,
-          functions: 78.97,
-          branches: 71.81,
-          lines: 74.05,
+          statements: 82.98,
+          functions: 83.59,
+          branches: 80.45,
+          lines: 82.92,
         },
         'packages/kernel/**': {
-          statements: 48.55,
-          functions: 59.6,
-          branches: 36.89,
-          lines: 48.86,
+          statements: 74.69,
+          functions: 69.48,
+          branches: 59.72,
+          lines: 75.06,
         },
         'packages/nodejs/**': {
-          statements: 46.75,
-          functions: 47.61,
-          branches: 35.29,
-          lines: 46.75,
+          statements: 72.91,
+          functions: 76.92,
+          branches: 63.63,
+          lines: 74.46,
         },
         'packages/shims/**': {
           statements: 0,
@@ -91,19 +104,19 @@ export default defineConfig({
           branches: 0,
           lines: 0,
         },
-        'packages/streams/**': {
-          statements: 100,
-          functions: 100,
-          branches: 99.34, // TODO: See BaseStream.test.ts
-          lines: 100,
+        'packages/store/**': {
+          statements: 97.02,
+          functions: 95.45,
+          branches: 91.17,
+          lines: 97,
         },
-        'packages/utils/**': {
+        'packages/streams/**': {
           statements: 100,
           functions: 100,
           branches: 100,
           lines: 100,
         },
-        'scripts/create-package/**': {
+        'packages/utils/**': {
           statements: 100,
           functions: 100,
           branches: 100,

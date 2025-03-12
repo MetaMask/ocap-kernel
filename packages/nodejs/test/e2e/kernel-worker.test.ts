@@ -8,7 +8,7 @@ import {
 } from 'node:worker_threads';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { makeKernel } from '../../src/kernel/make-kernel.js';
+import { makeKernel } from '../../src/kernel/make-kernel.ts';
 
 vi.mock('node:process', () => ({
   exit: vi.fn((reason) => {

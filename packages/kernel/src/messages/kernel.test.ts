@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isKernelCommand, isKernelCommandReply } from './kernel.js';
+import { isKernelCommand, isKernelCommandReply } from './kernel.ts';
 
 describe('isKernelCommand', () => {
   it.each`

@@ -15,21 +15,21 @@ import type {
   VatCommand,
   VatCommandReply,
 } from '@ocap/kernel';
+import type { DuplexStream } from '@ocap/streams';
 import {
   MessagePortDuplexStream,
   PostMessageDuplexStream,
-} from '@ocap/streams';
+} from '@ocap/streams/browser';
 import type {
-  DuplexStream,
   PostMessageEnvelope,
   PostMessageTarget,
-} from '@ocap/streams';
+} from '@ocap/streams/browser';
 import type { Logger } from '@ocap/utils';
 import { makeCounter, makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerServer } from './VatWorkerServer.js';
+import type { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
 
 type PromiseCallbacks<Resolve = unknown> = Omit<PromiseKit<Resolve>, 'promise'>;
 

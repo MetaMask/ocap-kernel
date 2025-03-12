@@ -1,4 +1,4 @@
-import { isObject } from '@metamask/utils';
+import { isErrorWithCode } from '@metamask/utils';
 import { copyFile, lstat, access } from 'fs/promises';
 
 /**
@@ -35,10 +35,17 @@ export async function fileExists(path: string): Promise<boolean> {
   try {
     // if the file can be accessed, it didn't exist yet
     await access(path);
-    return false;
+    return true;
   } catch (error) {
-    if (isObject(error) && error.code === 'EEXIST') {
-      return true;
+    if (isErrorWithCode(error)) {
+      switch (error.code) {
+        case 'EEXIST':
+          return true;
+        case 'ENOENT':
+          return false;
+        default:
+          throw error as unknown as Error;
+      }
     }
     throw error;
   }

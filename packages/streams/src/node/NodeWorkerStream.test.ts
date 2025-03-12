@@ -6,15 +6,15 @@ import {
   NodeWorkerDuplexStream,
   NodeWorkerReader,
   NodeWorkerWriter,
-} from './NodeWorkerStream.js';
-import type { NodePort, OnMessage } from './NodeWorkerStream.js';
-import { makeAck } from '../BaseDuplexStream.js';
-import type { ValidateInput } from '../BaseStream.js';
+} from './NodeWorkerStream.ts';
+import type { NodePort, OnMessage } from './NodeWorkerStream.ts';
+import { makeAck } from '../BaseDuplexStream.ts';
+import type { ValidateInput } from '../BaseStream.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from '../utils.js';
+} from '../utils.ts';
 
 const makeMockNodePort = (): Mocked<NodePort> & {
   messageHandler?: OnMessage | undefined;

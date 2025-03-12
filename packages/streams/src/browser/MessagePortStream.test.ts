@@ -5,14 +5,14 @@ import {
   MessagePortDuplexStream,
   MessagePortReader,
   MessagePortWriter,
-} from './MessagePortStream.js';
-import { makeAck } from '../BaseDuplexStream.js';
-import type { ValidateInput } from '../BaseStream.js';
+} from './MessagePortStream.ts';
+import { makeAck } from '../BaseDuplexStream.ts';
+import type { ValidateInput } from '../BaseStream.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
-} from '../utils.js';
+} from '../utils.ts';
 
 describe('MessagePortReader', () => {
   it('constructs a MessagePortReader', () => {

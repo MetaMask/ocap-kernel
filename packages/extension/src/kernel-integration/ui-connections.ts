@@ -1,4 +1,4 @@
-import { PostMessageDuplexStream } from '@ocap/streams';
+import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { nanoid } from 'nanoid';
@@ -7,12 +7,12 @@ import {
   isKernelControlCommand,
   isKernelControlReply,
   isUiControlCommand,
-} from './messages.js';
+} from './messages.ts';
 import type {
   KernelControlCommand,
   KernelControlReply,
   UiControlCommand,
-} from './messages.js';
+} from './messages.ts';
 
 export const UI_CONTROL_CHANNEL_NAME = 'ui-control';
 

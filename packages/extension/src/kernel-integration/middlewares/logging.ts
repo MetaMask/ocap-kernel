@@ -1,6 +1,6 @@
 import { makeLogger } from '@ocap/utils';
 
-import type { Middleware } from '../command-registry.js';
+import type { Middleware } from '../command-registry.ts';
 
 export const logger = makeLogger('[kernel-commands]');
 

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 
 import styles from '../App.module.css';
-import { useKernelActions } from '../hooks/useKernelActions.js';
-import { isValidBundleUrl } from '../utils.js';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
+import { isValidBundleUrl } from '../utils.ts';
 
 /**
  * @returns A panel for launching a vat.

@@ -1,16 +1,16 @@
 import { makeErrorMatcherFactory } from '@ocap/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BaseReader, BaseWriter } from './BaseStream.js';
-import type { ValidateInput } from './BaseStream.js';
+import { BaseReader, BaseWriter } from './BaseStream.ts';
+import type { ValidateInput } from './BaseStream.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
   makeStreamErrorSignal,
   StreamSentinel,
-} from './utils.js';
-import { TestReader, TestWriter } from '../test/stream-mocks.js';
+} from './utils.ts';
+import { TestReader, TestWriter } from '../test/stream-mocks.ts';
 
 const makeErrorMatcher = makeErrorMatcherFactory(expect);
 
@@ -389,11 +389,7 @@ describe('BaseWriter', () => {
       expect(await writer.throw(new Error())).toStrictEqual(makeDoneResult());
     });
 
-    // This test emits an unhandled error under Jsdom, but passes under lockdown.
-    // It is needed for branch coverage in BaseStream.#throw().
-    // TODO: Run non-browser tests under lockdown.
-    // eslint-disable-next-line vitest/no-disabled-tests
-    it.skip('breaks out of failed onDispatch with failed onEnd', async () => {
+    it('breaks out of failed onDispatch with failed onEnd', async () => {
       const writer = new TestWriter({
         onDispatch: () => {
           throw new Error('onDispatchError');

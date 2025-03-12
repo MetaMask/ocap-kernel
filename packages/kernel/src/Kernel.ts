@@ -1,3 +1,4 @@
+import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
 import { passStyleOf } from '@endo/far';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
@@ -6,28 +7,27 @@ import {
   VatAlreadyExistsError,
   VatNotFoundError,
 } from '@ocap/errors';
+import type { KVStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
-// XXX Once the packaging of liveslots is fixed, these should be imported from there
-import type { Message, VatOneResolution } from './ag-types.js';
-import { assert, Fail } from './assert.js';
-import { kser, kunser, krefOf, kslot } from './kernel-marshal.js';
-import type { SlotValue } from './kernel-marshal.js';
-import { isKernelCommand, KernelCommandMethod } from './messages/index.js';
+import { assert, Fail } from './assert.ts';
+import { kser, kunser, krefOf, kslot } from './kernel-marshal.ts';
+import type { SlotValue } from './kernel-marshal.ts';
+import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
 import type {
   KernelCommand,
   KernelCommandReply,
   VatCommand,
   VatCommandReturnType,
-} from './messages/index.js';
+} from './messages/index.ts';
 import {
   parseRef,
   isPromiseRef,
   makeKernelStore,
-} from './store/kernel-store.js';
-import type { KernelStore, KVStore } from './store/kernel-store.js';
+} from './store/kernel-store.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import type {
   VatId,
   VRef,
@@ -38,14 +38,14 @@ import type {
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemNotify,
-} from './types.js';
+} from './types.ts';
 import {
   ROOT_OBJECT_VREF,
   insistVatId,
   insistMessage,
   isClusterConfig,
-} from './types.js';
-import { VatHandle } from './VatHandle.js';
+} from './types.ts';
+import { VatHandle } from './VatHandle.ts';
 
 const VERBOSE = false;
 
@@ -98,6 +98,10 @@ export class Kernel {
   /** Configuration of the most recently launched vat subcluster (for debug purposes) */
   #mostRecentSubcluster: ClusterConfig | null;
 
+  /** Message results that the kernel itself has subscribed to */
+  readonly #kernelSubscriptions: Map<KRef, (value: CapData<KRef>) => void> =
+    new Map();
+
   /**
    * Construct a new kernel instance.
    *
@@ -108,7 +112,8 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    */
-  constructor(
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
     vatWorkerService: VatWorkerService,
     rawStorage: KVStore,
@@ -133,21 +138,48 @@ export class Kernel {
   }
 
   /**
+   * Create a new kernel instance.
+   *
+   * @param commandStream - Command channel from whatever external software is driving the kernel.
+   * @param vatWorkerService - Service to create a worker in which a new vat can run.
+   * @param rawStorage - A KV store for holding the kernel's persistent state.
+   * @param options - Options for the kernel constructor.
+   * @param options.resetStorage - If true, the storage will be cleared.
+   * @param options.logger - Optional logger for error and diagnostic output.
+   * @returns A promise for the new kernel instance.
+   */
+  static async make(
+    commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
+    vatWorkerService: VatWorkerService,
+    rawStorage: KVStore,
+    options: {
+      resetStorage?: boolean;
+      logger?: Logger;
+    } = {},
+  ): Promise<Kernel> {
+    const kernel = new Kernel(
+      commandStream,
+      vatWorkerService,
+      rawStorage,
+      options,
+    );
+    await kernel.#init();
+    return kernel;
+  }
+
+  /**
    * Start the kernel running. Sets it up to actually receive command messages
    * and then begin processing the run queue.
    */
-  async init(): Promise<void> {
+  async #init(): Promise<void> {
     this.#receiveCommandMessages().catch((error) => {
-      this.#logger.error('Stream read error occurred:', error);
-      // Errors thrown here will not be surfaced in the usual synchronous manner
-      // because #receiveCommandMessages() is not awaited.  Any error thrown
-      // inside the async loop is 'caught' within the constructor call context
-      // but will be displayed as 'Uncaught (in promise)' since they occur after
-      // the constructor has returned.
+      this.#logger.error('Stream read error:', error);
       throw new StreamReadError({ kernelId: 'kernel' }, error);
     });
-    // eslint-disable-next-line no-void
-    void this.#run();
+    this.#run().catch((error) => {
+      this.#logger.error('Run loop error:', error);
+      throw error;
+    });
   }
 
   /**
@@ -290,7 +322,7 @@ export class Kernel {
       throw new VatAlreadyExistsError(vatId);
     }
     const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = new VatHandle({
+    const vat = await VatHandle.make({
       kernel: this,
       vatId,
       vatConfig,
@@ -299,7 +331,6 @@ export class Kernel {
     });
     this.#vats.set(vatId, vat);
     this.#storage.initEndpoint(vatId);
-    await vat.init();
     const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
     return rootRef;
   }
@@ -644,16 +675,53 @@ export class Kernel {
         this.notify(subscriber, kpid);
       }
       this.#storage.resolveKernelPromise(kpid, rejected, data);
+      const kernelResolve = this.#kernelSubscriptions.get(kpid);
+      if (kernelResolve) {
+        this.#kernelSubscriptions.delete(kpid);
+        kernelResolve(data);
+      }
     }
+  }
+
+  /**
+   * Send a message from the kernel to an object in a vat.
+   *
+   * @param target - The object to which the message is directed.
+   * @param method - The method to be invoked.
+   * @param args - Message arguments.
+   *
+   * @returns a promise for the (CapData encoded) result of the message invocation.
+   */
+  async queueMessageFromKernel(
+    target: KRef,
+    method: string,
+    args: unknown[],
+  ): Promise<CapData<KRef>> {
+    const result = this.#storage.initKernelPromise()[0];
+    const message: Message = {
+      methargs: kser([method, args]),
+      result,
+    };
+    const queueItem: RunQueueItemSend = {
+      type: 'send',
+      target,
+      message,
+    };
+    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
+    this.#kernelSubscriptions.set(result, resolve);
+    this.enqueueRun(queueItem);
+    return promise;
   }
 
   /**
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
-   * @returns A record of the root objects of the vats launched.
+   * @returns a promise for the (CapData encoded) result of the bootstrap message.
    */
-  async launchSubcluster(config: ClusterConfig): Promise<Record<string, KRef>> {
+  async launchSubcluster(
+    config: ClusterConfig,
+  ): Promise<CapData<KRef> | undefined> {
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (config.bootstrap && !config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
@@ -666,21 +734,17 @@ export class Kernel {
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
+    let resultP: Promise<CapData<KRef> | undefined> =
+      Promise.resolve(undefined);
     if (config.bootstrap) {
       const bootstrapRoot = rootIds[config.bootstrap];
       if (bootstrapRoot) {
-        const bootstrapMessage: Message = {
-          methargs: kser(['bootstrap', [roots]]),
-        };
-        const bootstrapItem: RunQueueItemSend = {
-          type: 'send',
-          target: bootstrapRoot,
-          message: bootstrapMessage,
-        };
-        this.enqueueRun(bootstrapItem);
+        resultP = this.queueMessageFromKernel(bootstrapRoot, 'bootstrap', [
+          roots,
+        ]);
       }
     }
-    return rootIds;
+    return resultP;
   }
 
   /**
@@ -805,4 +869,4 @@ export class Kernel {
     return this.#mostRecentSubcluster;
   }
 }
-harden(Kernel);
+// harden(Kernel); // XXX restore this once vitest is able to cope

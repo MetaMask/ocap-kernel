@@ -3,11 +3,11 @@ import { stringify } from '@ocap/utils';
 import { createContext, useCallback, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { KernelStatus } from '../../kernel-integration/messages.js';
-import { useStatusPolling } from '../hooks/useStatusPolling.js';
-import { logger } from '../services/logger.js';
-import type { SendMessageFunction } from '../services/stream.js';
-import { isErrorResponse } from '../utils.js';
+import type { KernelStatus } from '../../kernel-integration/messages.ts';
+import { useStatusPolling } from '../hooks/useStatusPolling.ts';
+import { logger } from '../services/logger.ts';
+import type { SendMessageFunction } from '../services/stream.ts';
+import { isErrorResponse } from '../utils.ts';
 
 export type OutputType = 'sent' | 'received' | 'error' | 'success';
 

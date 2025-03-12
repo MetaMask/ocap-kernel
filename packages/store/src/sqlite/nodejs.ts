@@ -1,0 +1,157 @@
+import { makeLogger } from '@ocap/utils';
+import type { Database } from 'better-sqlite3';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+import Sqlite from 'better-sqlite3';
+import { mkdir } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+import { SQL_QUERIES } from './common.ts';
+import type { KVStore } from '../types.ts';
+
+/**
+ * Ensure that SQLite is initialized.
+ *
+ * @param dbFilename - The filename of the database to use.
+ * @param logger - An optional logger to pass to the Sqlite constructor.
+ * @param verbose - If true, log database activity.
+ * @returns The SQLite database object.
+ */
+async function initDB(
+  dbFilename: string,
+  logger: ReturnType<typeof makeLogger>,
+  verbose: boolean,
+): Promise<Database> {
+  const dbPath = await getDBFilename(dbFilename);
+  logger.debug('dbPath:', dbPath);
+  return new Sqlite(dbPath, {
+    verbose: verbose ? (...args) => logger.info(...args) : undefined,
+  });
+}
+
+/**
+ * Makes a {@link KVStore} for low-level persistent storage.
+ *
+ * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose - If true, generate logger output; if false, be quiet.
+ * @returns The key/value store to base the kernel store on.
+ */
+export async function makeSQLKVStore(
+  dbFilename: string = 'store.db',
+  label: string = '[sqlite]',
+  verbose: boolean = false,
+): Promise<KVStore> {
+  const logger = makeLogger(label);
+  const db = await initDB(dbFilename, logger, verbose);
+
+  const sqlKVInit = db.prepare(SQL_QUERIES.CREATE_TABLE);
+
+  sqlKVInit.run();
+
+  const sqlKVGet = db.prepare<[string], string>(SQL_QUERIES.GET);
+  sqlKVGet.pluck(true);
+
+  /**
+   * Read a key's value from the database.
+   *
+   * @param key - A key to fetch.
+   * @param required - True if it is an error for the entry not to be there.
+   * @returns The value at that key.
+   */
+  function kvGet(key: string, required: boolean): string | undefined {
+    const result = sqlKVGet.get(key);
+    if (required && !result) {
+      throw Error(`no record matching key '${key}'`);
+    }
+    return result;
+  }
+
+  const sqlKVGetNextKey = db.prepare(SQL_QUERIES.GET_NEXT);
+  sqlKVGetNextKey.pluck(true);
+
+  /**
+   * Get the lexicographically next key in the KV store after a given key.
+   *
+   * @param previousKey - The key you want to know the key after.
+   *
+   * @returns The key after `previousKey`, or undefined if `previousKey` is the
+   *   last key in the store.
+   */
+  function kvGetNextKey(previousKey: string): string | undefined {
+    if (typeof previousKey !== 'string') {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`previousKey ${previousKey} must be a string`);
+    }
+    return sqlKVGetNextKey.get(previousKey) as string | undefined;
+  }
+
+  const sqlKVSet = db.prepare(SQL_QUERIES.SET);
+
+  /**
+   * Set the value associated with a key in the database.
+   *
+   * @param key - A key to assign.
+   * @param value - The value to assign to it.
+   */
+  function kvSet(key: string, value: string): void {
+    sqlKVSet.run(key, value);
+  }
+
+  const sqlKVDelete = db.prepare(SQL_QUERIES.DELETE);
+
+  /**
+   * Delete a key from the database.
+   *
+   * @param key - The key to remove.
+   */
+  function kvDelete(key: string): void {
+    sqlKVDelete.run(key);
+  }
+
+  const sqlKVDrop = db.prepare(SQL_QUERIES.DROP);
+
+  /**
+   * Delete all keys and values from the database.
+   */
+  function kvClear(): void {
+    sqlKVDrop.run();
+    sqlKVInit.run();
+  }
+
+  /**
+   * Execute an arbitrary query and return the results.
+   *
+   * @param sql - The query to execute.
+   * @returns The results
+   */
+  function kvExecuteQuery(sql: string): Record<string, string>[] {
+    const query = db.prepare(sql);
+    return query.all() as Record<string, string>[];
+  }
+
+  return {
+    get: (key) => kvGet(key, false),
+    getNextKey: kvGetNextKey,
+    getRequired: (key) => kvGet(key, true) as string,
+    set: kvSet,
+    delete: kvDelete,
+    executeQuery: kvExecuteQuery,
+    clear: db.transaction(kvClear),
+  };
+}
+
+/**
+ * Get the filename for a database.
+ *
+ * @param label - A label for the database.
+ * @returns The filename for the database.
+ */
+export async function getDBFilename(label: string): Promise<string> {
+  if (label.startsWith(':')) {
+    return label;
+  }
+  const dbRoot = join(tmpdir(), './ocap-sqlite');
+  await mkdir(dbRoot, { recursive: true });
+  return join(dbRoot, label);
+}

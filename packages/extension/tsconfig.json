@@ -8,7 +8,6 @@
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
     "noEmit": true,
-    "skipLibCheck": true,
     "plugins": [{ "name": "typescript-plugin-css-modules" }],
     "types": [
       "chrome",
@@ -25,7 +24,8 @@
     { "path": "../streams" },
     { "path": "../test-utils" },
     { "path": "../utils" },
-    { "path": "../kernel" }
+    { "path": "../kernel" },
+    { "path": "../store" }
   ],
   "include": [
     "../../vitest.config.ts",
@@ -40,7 +40,6 @@
     "./test/**/*.ts",
     "./vite-plugins/*.ts",
     "./vite.config.ts",
-    "./vitest.config.ts",
-    "../../types"
+    "./vitest.config.ts"
   ]
 }

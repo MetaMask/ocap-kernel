@@ -3,19 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import clusterConfig from '../../vats/default-cluster.json';
 
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
-}));
-
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendVatCommand: 'sendVatCommand',
-    terminateAllVats: 'terminateAllVats',
-    clearState: 'clearState',
-    reload: 'reload',
-    launchVat: 'launchVat',
-    updateClusterConfig: 'updateClusterConfig',
-  },
 }));
 
 vi.mock('@ocap/utils', () => ({
@@ -29,7 +18,7 @@ describe('useKernelActions', () => {
   const mockSelectedVatId = 'v1';
 
   beforeEach(async () => {
-    const { usePanelContext } = await import('../context/PanelContext.js');
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
       sendMessage: mockSendMessage,
       logMessage: mockLogMessage,
@@ -45,7 +34,7 @@ describe('useKernelActions', () => {
 
   describe('sendKernelCommand', () => {
     it('sends message with payload and selected vat ID', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const expectedPayload = { test: 'content' };
 
@@ -64,7 +53,7 @@ describe('useKernelActions', () => {
     });
 
     it('sends message without vat ID when none selected', async () => {
-      const { usePanelContext } = await import('../context/PanelContext.js');
+      const { usePanelContext } = await import('../context/PanelContext.tsx');
       vi.mocked(usePanelContext).mockReturnValue({
         sendMessage: mockSendMessage,
         logMessage: mockLogMessage,
@@ -76,7 +65,7 @@ describe('useKernelActions', () => {
         setSelectedVatId: vi.fn(),
         clearLogs: vi.fn(),
       });
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const expectedPayload = { test: 'content' };
 
@@ -94,7 +83,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs success response', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const response = { success: true };
 
@@ -110,7 +99,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error message on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const error = new Error('Test error');
 
@@ -125,7 +114,7 @@ describe('useKernelActions', () => {
 
   describe('terminateAllVats', () => {
     it('sends terminate all vats command', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockResolvedValueOnce({ success: true });
@@ -144,7 +133,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockRejectedValueOnce(new Error());
@@ -161,7 +150,7 @@ describe('useKernelActions', () => {
 
   describe('clearState', () => {
     it('sends clear state command', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockResolvedValueOnce({ success: true });
@@ -177,7 +166,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockRejectedValueOnce(new Error());
@@ -194,7 +183,7 @@ describe('useKernelActions', () => {
 
   describe('reload', () => {
     it('sends reload command', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockResolvedValueOnce({ success: true });
@@ -213,7 +202,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
       mockSendMessage.mockRejectedValueOnce(new Error());
@@ -230,7 +219,7 @@ describe('useKernelActions', () => {
 
   describe('launchVat', () => {
     it('sends launch vat command with correct parameters', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const bundleUrl = 'test-bundle-url';
       const vatName = 'test-vat';
@@ -256,7 +245,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const bundleUrl = 'test-bundle-url';
       const vatName = 'test-vat';
@@ -273,7 +262,7 @@ describe('useKernelActions', () => {
 
   describe('updateClusterConfig', () => {
     it('sends update cluster config command with correct parameters', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       mockSendMessage.mockResolvedValueOnce({ success: true });
       await result.current.updateClusterConfig(clusterConfig);
@@ -285,7 +274,7 @@ describe('useKernelActions', () => {
     });
 
     it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.js');
+      const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       mockSendMessage.mockRejectedValueOnce(new Error());
       await result.current.updateClusterConfig(clusterConfig);

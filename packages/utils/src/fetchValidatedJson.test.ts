@@ -2,7 +2,7 @@ import { object, string } from '@metamask/superstruct';
 import { fetchMock } from '@ocap/test-utils';
 import { describe, it, expect } from 'vitest';
 
-import { fetchValidatedJson } from './fetchValidatedJson.js';
+import { fetchValidatedJson } from './fetchValidatedJson.ts';
 
 describe('fetchValidatedJson', () => {
   const TestConfigStruct = object({

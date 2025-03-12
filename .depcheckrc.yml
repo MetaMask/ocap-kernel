@@ -56,3 +56,7 @@ ignores:
   - 'ava'
   - 'webextension-polyfill'
   - '@types/webextension-polyfill'
+
+  # Testing
+  # This import is used in files which are meant to fail
+  - 'does-not-exist'

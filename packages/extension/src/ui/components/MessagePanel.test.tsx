@@ -1,20 +1,20 @@
 import { setupOcapKernelMock } from '@ocap/test-utils';
 import { stringify } from '@ocap/utils';
 import { render, screen, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { usePanelContext } from '../context/PanelContext.js';
-import type { PanelContextType } from '../context/PanelContext.js';
-import { useKernelActions } from '../hooks/useKernelActions.js';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import type { PanelContextType } from '../context/PanelContext.tsx';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 setupOcapKernelMock();
 
-vi.mock('../hooks/useKernelActions.js', () => ({
+vi.mock('../hooks/useKernelActions.ts', () => ({
   useKernelActions: vi.fn(),
 }));
 
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
@@ -49,7 +49,7 @@ describe('MessagePanel Component', () => {
   });
 
   it('renders initial UI elements correctly', async () => {
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     expect(screen.getByText('Message History')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe('MessagePanel Component', () => {
   });
 
   it('calls clearLogs when the "Clear" button is clicked', async () => {
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     const clearButton = screen.getByRole('button', { name: 'Clear' });
     await userEvent.click(clearButton);
@@ -74,7 +74,7 @@ describe('MessagePanel Component', () => {
       panelLogs: [],
       clearLogs,
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     const sendButton = screen.getByRole('button', { name: 'Send' });
     await userEvent.click(sendButton);
@@ -88,7 +88,7 @@ describe('MessagePanel Component', () => {
       panelLogs: [],
       clearLogs,
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     const inputField = screen.getByPlaceholderText('Enter message (as JSON)');
     await userEvent.click(inputField);
@@ -108,7 +108,7 @@ describe('MessagePanel Component', () => {
       ],
       clearLogs,
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     expect(screen.getByText('→')).toBeInTheDocument();
     expect(screen.getByText('Message 1')).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('MessagePanel Component', () => {
   });
 
   it('updates messageContent state when typing in the input field', async () => {
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     const inputField = screen.getByPlaceholderText('Enter message (as JSON)');
     await userEvent.type(inputField, 'T');
@@ -135,7 +135,7 @@ describe('MessagePanel Component', () => {
       panelLogs: [],
       clearLogs,
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.js');
+    const { MessagePanel } = await import('./MessagePanel.tsx');
     const { rerender } = render(<MessagePanel />);
     const scrollWrapper = screen.getByRole('log');
     Object.defineProperty(scrollWrapper, 'scrollHeight', {

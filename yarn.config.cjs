@@ -18,8 +18,10 @@ const { inspect } = require('util');
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
 const typedocExceptions = ['test-utils', 'extension'];
-// Packages that do not have build or tests
-const noBuildOrTests = ['test-utils'];
+// Packages that do not have builds
+const noBuild = ['create-package', 'test-utils'];
+// Packages that do not have tests
+const noTests = ['test-utils'];
 // Packages that do not export a `package.json` file
 const noPackageJson = ['extension'];
 
@@ -187,12 +189,8 @@ module.exports = defineConfig({
           expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
         }
 
-        // All packages except the root must have the same "clean" script.
-        expectWorkspaceField(
-          workspace,
-          'scripts.clean',
-          "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
-        );
+        // All packages except the root must have a "clean" script.
+        expectWorkspaceField(workspace, 'scripts.clean');
 
         // No non-root packages may have a "prepack" script.
         workspace.unset('scripts.prepack');
@@ -201,7 +199,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint',
-          'yarn lint:ts && yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
+          'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
@@ -216,21 +214,16 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:fix',
-          'yarn lint:ts && yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
+          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
         );
         expectWorkspaceField(
           workspace,
           'scripts.lint:misc',
           "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
         );
-        expectWorkspaceField(
-          workspace,
-          'scripts.lint:ts',
-          'tsc --project tsconfig.lint.json',
-        );
 
         // All non-root packages must have the same "test" script.
-        if (!noBuildOrTests.includes(workspaceBasename)) {
+        if (!noTests.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'scripts.test',
@@ -244,7 +237,7 @@ module.exports = defineConfig({
           expectWorkspaceField(
             workspace,
             'scripts.test:dev',
-            'yarn test --coverage false',
+            'yarn test --mode development',
           );
           expectWorkspaceField(
             workspace,
@@ -260,7 +253,7 @@ module.exports = defineConfig({
       }
 
       // Add all packages must have the same "build" script
-      if (!noBuildOrTests.includes(workspaceBasename)) {
+      if (!noBuild.includes(workspaceBasename)) {
         expectWorkspaceField(workspace, 'scripts.build');
       }
 
@@ -620,24 +613,16 @@ function expectValidVersionRanges(Yarn, workspace) {
 }
 
 /**
- * Parse a version range into its components (modifier, major, minor, patch).
- * Strips the modifier (^ or ~) from the version and returns the parts.
+ * Parse a version range into its modifier and version.
+ * Strips the modifier (^ or ~) from the version.
  *
  * @param {string} versionRange - The version range to parse.
- * @returns {object} The parsed components: modifier, major, minor, and patch.
+ * @returns {{ modifier: string, version: string }} The parsed components: modifier, version.
  */
 function parseVersion(versionRange) {
-  const [modifier, version] =
-    versionRange.startsWith('^') || versionRange.startsWith('~')
-      ? [versionRange[0], versionRange.slice(1)]
-      : ['', versionRange];
-
-  const [major, minor, patch] = version.split('.').map(Number);
-  if ([major, minor, patch].some(isNaN)) {
-    throw new Error(`Invalid version range: ${versionRange}`);
-  }
-
-  return { modifier, major, minor, patch };
+  return versionRange.startsWith('^') || versionRange.startsWith('~')
+    ? { modifier: versionRange[0], version: versionRange.slice(1) }
+    : { modifier: '', version: versionRange };
 }
 
 /**
@@ -657,14 +642,7 @@ function versionRangeCompare(range1, range2) {
     return false;
   }
 
-  // Compare major, minor, patch versions
-  return (
-    parsed1.major > parsed2.major ||
-    (parsed1.major === parsed2.major && parsed1.minor > parsed2.minor) ||
-    (parsed1.major === parsed2.major &&
-      parsed1.minor === parsed2.minor &&
-      parsed1.patch > parsed2.patch)
-  );
+  return semver.gt(parsed1.version, parsed2.version);
 }
 
 /**

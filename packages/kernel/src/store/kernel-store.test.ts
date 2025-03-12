@@ -1,11 +1,10 @@
+import type { Message } from '@agoric/swingset-liveslots';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { makeKernelStore } from './kernel-store.js';
-import type { KVStore } from './kernel-store.js';
-import { makeMapKVStore } from '../../test/storage.js';
-// XXX Once the packaging of liveslots is fixed this should be imported from there
-import type { Message } from '../ag-types.js';
-import type { RunQueueItem } from '../types.js';
+import { makeKernelStore } from './kernel-store.ts';
+import { makeMapKVStore } from '../../test/storage.ts';
+import type { RunQueueItem } from '../types.ts';
 
 /**
  * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they

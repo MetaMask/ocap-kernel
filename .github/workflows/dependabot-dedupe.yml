@@ -18,16 +18,23 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Configure Git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+      - name: Install Yarn
+        run: corepack enable
+      - name: Restore Yarn cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 yarn --immutable
 
       - name: Run yarn dedupe
         run: |

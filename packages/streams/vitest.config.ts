@@ -1,20 +1,37 @@
-import { defineProject, mergeConfig } from 'vitest/config';
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-import defaultConfig from '../../vitest.config.js';
+import defaultConfig from '../../vitest.config.ts';
 
-delete defaultConfig.test?.environment;
+export default defineConfig((args) => {
+  delete defaultConfig.test?.environment;
 
-const config = mergeConfig(
-  defaultConfig,
-  defineProject({
-    test: {
-      name: 'streams',
-      environment: 'jsdom',
-      setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
-    },
-  }),
-);
-
-config.test.coverage.thresholds = true;
-
-export default config;
+  return mergeConfig(
+    args,
+    defaultConfig,
+    defineProject({
+      test: {
+        name: 'streams',
+        ...(args.mode === 'development'
+          ? {
+              environment: 'jsdom',
+              setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
+            }
+          : {
+              setupFiles: '../shims/src/endoify.js',
+              browser: {
+                enabled: true,
+                provider: 'playwright',
+                instances: [
+                  {
+                    browser: 'chromium',
+                    headless: true,
+                    screenshotFailures: false,
+                  },
+                ],
+              },
+            }),
+      },
+    }),
+  );
+});

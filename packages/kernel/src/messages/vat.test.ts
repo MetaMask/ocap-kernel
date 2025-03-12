@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isVatCommand, isVatCommandReply, VatCommandMethod } from './vat.js';
+import { isVatCommand, isVatCommandReply, VatCommandMethod } from './vat.ts';
 
 describe('isVatCommand', () => {
   const payload = { method: VatCommandMethod.ping, params: null };

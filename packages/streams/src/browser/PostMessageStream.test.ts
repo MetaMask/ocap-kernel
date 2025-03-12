@@ -5,17 +5,17 @@ import {
   PostMessageDuplexStream,
   PostMessageReader,
   PostMessageWriter,
-} from './PostMessageStream.js';
-import type { PostMessageTarget } from './PostMessageStream.js';
-import type { PostMessage } from './utils.js';
-import { makeAck } from '../BaseDuplexStream.js';
-import type { ValidateInput } from '../BaseStream.js';
+} from './PostMessageStream.ts';
+import type { PostMessageTarget } from './PostMessageStream.ts';
+import type { PostMessage } from './utils.ts';
+import { makeAck } from '../BaseDuplexStream.ts';
+import type { ValidateInput } from '../BaseStream.ts';
 import {
   makeDoneResult,
   makePendingResult,
   makeStreamDoneSignal,
   makeStreamErrorSignal,
-} from '../utils.js';
+} from '../utils.ts';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeMockMessageTarget = () => {

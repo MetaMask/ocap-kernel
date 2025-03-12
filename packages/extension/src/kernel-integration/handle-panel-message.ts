@@ -1,11 +1,12 @@
-import type { Kernel, KVStore } from '@ocap/kernel';
+import type { Kernel } from '@ocap/kernel';
+import type { KVStore } from '@ocap/store';
 import { makeLogger } from '@ocap/utils';
 
-import { KernelCommandRegistry } from './command-registry.js';
-import type { CommandHandler } from './command-registry.js';
-import { handlers } from './handlers/index.js';
-import type { KernelControlCommand, KernelControlReply } from './messages.js';
-import { loggingMiddleware } from './middlewares/logging.js';
+import { KernelCommandRegistry } from './command-registry.ts';
+import type { CommandHandler } from './command-registry.ts';
+import { handlers } from './handlers/index.ts';
+import type { KernelControlCommand, KernelControlReply } from './messages.ts';
+import { loggingMiddleware } from './middlewares/logging.ts';
 
 const logger = makeLogger('[kernel-panel]');
 const registry = new KernelCommandRegistry();

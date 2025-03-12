@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
 import styles from './App.module.css';
-import { DatabaseInspector } from './components/DatabaseInspector.jsx';
-import { MessagePanel } from './components/MessagePanel.jsx';
-import { Tabs } from './components/Tabs.jsx';
-import { VatManager } from './components/VatManager.jsx';
-import { PanelProvider } from './context/PanelContext.jsx';
-import { useStream } from './hooks/useStream.js';
+import { DatabaseInspector } from './components/DatabaseInspector.tsx';
+import { MessagePanel } from './components/MessagePanel.tsx';
+import { Tabs } from './components/Tabs.tsx';
+import { VatManager } from './components/VatManager.tsx';
+import { PanelProvider } from './context/PanelContext.tsx';
+import { useStream } from './hooks/useStream.ts';
 
 export const App: React.FC = () => {
   const { sendMessage, error } = useStream();

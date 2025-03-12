@@ -14,6 +14,20 @@ To get started:
 
 Lint using `yarn lint` or `yarn lint:fix` from the root.
 
+Note that the root package `test` script, as well as those of many packages, require
+`yarn build && yarn build:vats` to be run first.
+
+### Writing tests
+
+The kernel's code relies extensively on SES / lockdown. Many Agoric packages fail if
+they are executed in a non-locked down environment. For this reason, tests should
+generally be run under lockdown. This can, however, make it difficult to debug tests.
+For this reason, our unit tests have a `development` mode, which can be used to
+disable lockdown for debugging purposes. `development` mode always disables coverage
+collection, but it does not disable lockdown in all packages. `development` mode
+tests don't have to pass, and are not run in CI; they are for local debugging
+purposes only.
+
 ### Adding new packages
 
-See [`scripts/create-package/README.md`](scripts/create-package/README.md).
+See [`packages/create-package/README.md`](packages/create-package/README.md).

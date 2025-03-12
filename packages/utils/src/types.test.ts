@@ -1,7 +1,7 @@
 import { isObject } from '@metamask/utils';
 import { describe, it, expect } from 'vitest';
 
-import { isPrimitive, isTypedArray, isTypedObject } from './types.js';
+import { isPrimitive, isTypedArray, isTypedObject } from './types.ts';
 
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 const alwaysFalse = (): boolean => false;

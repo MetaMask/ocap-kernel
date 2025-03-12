@@ -1,0 +1,81 @@
+{
+  "name": "PACKAGE_NAME",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PACKAGE_DESCRIPTION",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/PACKAGE_DIRECTORY_NAME#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetaMask/ocap-kernel.git"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:docs": "typedoc",
+    "changelog:validate": "../../scripts/validate-changelog.sh PACKAGE_NAME",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
+    "lint:dependencies": "depcheck",
+    "lint:eslint": "eslint . --cache",
+    "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
+    "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+    "publish:preview": "yarn npm publish --tag preview",
+    "test": "vitest run --config vitest.config.ts",
+    "test:clean": "yarn test --no-cache --coverage.clean",
+    "test:dev": "yarn test --mode development",
+    "test:verbose": "yarn test --reporter verbose",
+    "test:watch": "vitest --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.3",
+    "@metamask/auto-changelog": "^4.0.0",
+    "@metamask/eslint-config": "^14.0.0",
+    "@metamask/eslint-config-nodejs": "^14.0.0",
+    "@metamask/eslint-config-typescript": "^14.0.0",
+    "@ocap/test-utils": "workspace:^",
+    "@ts-bridge/cli": "^0.6.2",
+    "@ts-bridge/shims": "^0.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.26.1",
+    "@typescript-eslint/parser": "^8.26.1",
+    "@typescript-eslint/utils": "^8.26.1",
+    "@vitest/eslint-plugin": "^1.1.25",
+    "depcheck": "^1.4.7",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-import-x": "^4.3.1",
+    "eslint-plugin-jsdoc": "^50.3.1",
+    "eslint-plugin-n": "^17.11.1",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-promise": "^7.1.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "typedoc": "^0.27.6",
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.0.11",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": "NODE_VERSIONS"
+  }
+}

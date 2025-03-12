@@ -1,16 +1,16 @@
 import { isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
+import type { DuplexStream } from '@ocap/streams';
 import {
-  ChromeRuntimeTarget,
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
-} from '@ocap/streams';
-import type { DuplexStream, PostMessageTarget } from '@ocap/streams';
+} from '@ocap/streams/browser';
+import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay, makeLogger } from '@ocap/utils';
 
-import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.js';
-import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.js';
+import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
+import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.ts';
 
 const logger = makeLogger('[offscreen]');
 
@@ -27,11 +27,7 @@ async function main(): Promise<void> {
   const backgroundStream = await ChromeRuntimeDuplexStream.make<
     KernelCommand,
     KernelCommandReply
-  >(
-    chrome.runtime,
-    ChromeRuntimeTarget.Offscreen,
-    ChromeRuntimeTarget.Background,
-  );
+  >(chrome.runtime, 'offscreen', 'background');
 
   const { kernelStream, vatWorkerServer } = await makeKernelWorker();
 

@@ -1,13 +1,13 @@
-import { clearStateHandler } from './clear-state.js';
-import { executeDBQueryHandler } from './execute-db-query.js';
-import { getStatusHandler } from './get-status.js';
-import { launchVatHandler } from './launch-vat.js';
-import { reloadConfigHandler } from './reload-config.js';
-import { restartVatHandler } from './restart-vat.js';
-import { sendVatCommandHandler } from './send-vat-command.js';
-import { terminateAllVatsHandler } from './terminate-all-vats.js';
-import { terminateVatHandler } from './terminate-vat.js';
-import { updateClusterConfigHandler } from './update-cluster-config.js';
+import { clearStateHandler } from './clear-state.ts';
+import { executeDBQueryHandler } from './execute-db-query.ts';
+import { getStatusHandler } from './get-status.ts';
+import { launchVatHandler } from './launch-vat.ts';
+import { reloadConfigHandler } from './reload-config.ts';
+import { restartVatHandler } from './restart-vat.ts';
+import { sendVatCommandHandler } from './send-vat-command.ts';
+import { terminateAllVatsHandler } from './terminate-all-vats.ts';
+import { terminateVatHandler } from './terminate-vat.ts';
+import { updateClusterConfigHandler } from './update-cluster-config.ts';
 
 export const handlers = [
   getStatusHandler,
@@ -21,3 +21,5 @@ export const handlers = [
   terminateAllVatsHandler,
   updateClusterConfigHandler,
 ] as const;
+
+export type KernelControlMethod = (typeof handlers)[number]['method'];

@@ -3,18 +3,10 @@ import { setupOcapKernelMock } from '@ocap/test-utils';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { PanelContextType } from '../context/PanelContext.js';
+import type { PanelContextType } from '../context/PanelContext.tsx';
 
-vi.mock('../context/PanelContext.js', () => ({
+vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
-}));
-
-vi.mock('../../kernel-integration/messages.js', () => ({
-  KernelControlMethod: {
-    sendVatCommand: 'sendVatCommand',
-    restartVat: 'restartVat',
-    terminateVat: 'terminateVat',
-  },
 }));
 
 setupOcapKernelMock();
@@ -43,7 +35,7 @@ describe('useVats', () => {
   };
 
   beforeEach(async () => {
-    const { usePanelContext } = await import('../context/PanelContext.js');
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
       sendMessage: mockSendMessage,
       status: mockStatus,
@@ -54,7 +46,7 @@ describe('useVats', () => {
   });
 
   it('should return vats data from status', async () => {
-    const { useVats } = await import('./useVats.js');
+    const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
     expect(result.current.vats).toStrictEqual([
@@ -68,7 +60,7 @@ describe('useVats', () => {
   });
 
   it('should handle missing vat config gracefully', async () => {
-    const { usePanelContext } = await import('../context/PanelContext.js');
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
       sendMessage: mockSendMessage,
       status: { vats: [{ id: mockVatId, config: {} as VatConfig }] },
@@ -77,7 +69,7 @@ describe('useVats', () => {
       logMessage: mockLogMessage,
     } as unknown as PanelContextType);
 
-    const { useVats } = await import('./useVats.js');
+    const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
     expect(result.current.vats).toStrictEqual([
@@ -92,7 +84,7 @@ describe('useVats', () => {
 
   describe('pingVat', () => {
     it('should send ping message and log success', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
       mockSendMessage.mockResolvedValueOnce({ success: true });
@@ -116,7 +108,7 @@ describe('useVats', () => {
     });
 
     it('should handle ping error', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
       const error = new Error('Ping failed');
@@ -130,7 +122,7 @@ describe('useVats', () => {
 
   describe('restartVat', () => {
     it('should send restart message and log success', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
       mockSendMessage.mockResolvedValueOnce(undefined);
@@ -148,7 +140,7 @@ describe('useVats', () => {
     });
 
     it('should handle restart error', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
       mockSendMessage.mockRejectedValueOnce(new Error());
@@ -164,7 +156,7 @@ describe('useVats', () => {
 
   describe('terminateVat', () => {
     it('should send terminate message and log success', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
       mockSendMessage.mockResolvedValueOnce(undefined);
@@ -182,7 +174,7 @@ describe('useVats', () => {
     });
 
     it('should handle terminate error', async () => {
-      const { useVats } = await import('./useVats.js');
+      const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
       mockSendMessage.mockRejectedValueOnce(new Error());
       result.current.terminateVat(mockVatId);
@@ -196,7 +188,7 @@ describe('useVats', () => {
   });
 
   it('should expose selectedVatId and setSelectedVatId', async () => {
-    const { useVats } = await import('./useVats.js');
+    const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
     expect(result.current.selectedVatId).toBe(mockVatId);
     expect(result.current.setSelectedVatId).toBe(mockSetSelectedVatId);

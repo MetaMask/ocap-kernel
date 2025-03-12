@@ -4,14 +4,17 @@ import type {
   KernelCommandReply,
 } from '@ocap/kernel';
 import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
-import type { PostMessageTarget } from '@ocap/streams';
-import { MessagePortDuplexStream, receiveMessagePort } from '@ocap/streams';
+import { makeSQLKVStore } from '@ocap/store/sqlite/wasm';
+import type { PostMessageTarget } from '@ocap/streams/browser';
+import {
+  MessagePortDuplexStream,
+  receiveMessagePort,
+} from '@ocap/streams/browser';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
-import { handlePanelMessage } from './handle-panel-message.js';
-import { makeSQLKVStore } from './sqlite-kv-store.js';
-import { receiveUiConnections } from './ui-connections.js';
-import { ExtensionVatWorkerClient } from './VatWorkerClient.js';
+import { handlePanelMessage } from './handle-panel-message.ts';
+import { receiveUiConnections } from './ui-connections.ts';
+import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 const logger = makeLogger('[kernel worker]');
 
@@ -37,7 +40,7 @@ async function main(): Promise<void> {
   );
   const kvStore = await makeSQLKVStore();
 
-  const kernel = new Kernel(kernelStream, vatWorkerClient, kvStore, {
+  const kernel = await Kernel.make(kernelStream, vatWorkerClient, kvStore, {
     // XXX Warning: Clearing storage here is a hack to aid development
     // debugging, wherein extension reloads are almost exclusively used for
     // retrying after tweaking some fix. The following line will prevent
@@ -48,7 +51,6 @@ async function main(): Promise<void> {
     async (message) => handlePanelMessage(kernel, kvStore, message),
     logger,
   );
-  await kernel.init();
 
   const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
     new URL('../vats/default-cluster.json', import.meta.url).href,
@@ -68,8 +70,8 @@ async function main(): Promise<void> {
     // with startup wedging and some poor soul is reading through the code
     // trying to diagnose it.
     (async () => {
-      const roots = await kernel.launchSubcluster(defaultSubcluster);
-      console.log(`Subcluster launched: ${JSON.stringify(roots)}`);
+      const result = await kernel.launchSubcluster(defaultSubcluster);
+      console.log(`Subcluster launched: ${JSON.stringify(result)}`);
     })(),
   ]);
 }

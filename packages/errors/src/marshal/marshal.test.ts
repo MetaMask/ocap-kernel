@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { marshalError } from './marshalError.js';
-import { unmarshalError } from './unmarshalError.js';
-import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.js';
+import { marshalError } from './marshalError.ts';
+import { unmarshalError } from './unmarshalError.ts';
+import { VatAlreadyExistsError } from '../errors/VatAlreadyExistsError.ts';
 
 describe('marshal', () => {
   it('should round trip a thrown error', async () => {

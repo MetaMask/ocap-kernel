@@ -1,26 +1,23 @@
+import type {
+  Message,
+  VatSyscallObject,
+  VatOneResolution,
+} from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
-// XXX Reenable the following once the packaging of liveslots is fixed (and at
-// the same time remove the below import of ./ag-types.js)
-// import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 
-import type {
-  Message,
-  VatSyscallObject,
-  VatOneResolution,
-} from './ag-types.js';
-import type { Kernel } from './Kernel.js';
-import { VatCommandMethod } from './messages/index.js';
+import type { Kernel } from './Kernel.ts';
+import { VatCommandMethod } from './messages/index.ts';
 import type {
   VatCommandReply,
   VatCommand,
   VatCommandReturnType,
-} from './messages/index.js';
-import type { KernelStore } from './store/kernel-store.js';
+} from './messages/index.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import type {
   PromiseCallbacks,
   VatId,
@@ -28,7 +25,7 @@ import type {
   VRef,
   KRef,
   RunQueueItemSend,
-} from './types.js';
+} from './types.ts';
 
 const VERBOSE = false;
 
@@ -82,7 +79,8 @@ export class VatHandle {
    * @param params.storage - The kernel's persistent state store.
    * @param params.logger - Optional logger for error and diagnostic output.
    */
-  constructor({
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor({
     kernel,
     vatId,
     vatConfig,
@@ -97,6 +95,64 @@ export class VatHandle {
     this.#messageCounter = makeCounter();
     this.#vatStream = vatStream;
     this.#storage = storage;
+  }
+
+  /**
+   * Create a new VatHandle instance.
+   *
+   * @param params - Named constructor parameters.
+   * @param params.kernel - The kernel.
+   * @param params.vatId - Our vat ID.
+   * @param params.vatConfig - The configuration for this vat.
+   * @param params.vatStream - Communications channel connected to the vat worker.
+   * @param params.storage - The kernel's persistent state store.
+   * @param params.logger - Optional logger for error and diagnostic output.
+   * @returns A promise for the new VatHandle instance.
+   */
+  static async make({
+    kernel,
+    vatId,
+    vatConfig,
+    vatStream,
+    storage,
+    logger,
+  }: VatConstructorProps): Promise<VatHandle> {
+    const vat = new VatHandle({
+      kernel,
+      vatId,
+      vatConfig,
+      vatStream,
+      storage,
+      logger,
+    });
+    await vat.#init();
+    return vat;
+  }
+
+  /**
+   * Initializes the vat.
+   *
+   * @returns A promise that resolves when the vat is initialized.
+   */
+  async #init(): Promise<void> {
+    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
+      async (error) => {
+        this.#logger.error(`Unexpected read error`, error);
+        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
+      },
+    );
+
+    // XXX This initial `ping` was originally put here as a sanity check to make
+    // sure that the vat was actually running and able to exchange message
+    // traffic with the kernel, but the addition of the `initVat` message to the
+    // startup flow has, I'm fairly sure, obviated the need for that as it
+    // effectively performs the same function. Probably this ping should be
+    // removed.
+    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
+    await this.sendVatCommand({
+      method: VatCommandMethod.initVat,
+      params: this.config,
+    });
   }
 
   /**
@@ -356,7 +412,7 @@ export class VatHandle {
     // vat. All others will be replies to messages originally sent by the kernel TO the
     // vat.
     if (payload.method === VatCommandMethod.syscall) {
-      await this.#handleSyscall(payload.params);
+      await this.#handleSyscall(payload.params as VatSyscallObject);
     } else {
       const promiseCallbacks = this.#unresolvedMessages.get(id);
       if (promiseCallbacks === undefined) {
@@ -366,33 +422,6 @@ export class VatHandle {
         promiseCallbacks.resolve(payload.params);
       }
     }
-  }
-
-  /**
-   * Initializes the vat.
-   *
-   * @returns A promise that resolves when the vat is initialized.
-   */
-  async init(): Promise<void> {
-    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
-      async (error) => {
-        this.#logger.error(`Unexpected read error`, error);
-        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
-      },
-    );
-
-    // XXX This initial `ping` was originally put here as a sanity check to make
-    // sure that the vat was actually running and able to exchange message
-    // traffic with the kernel, but the addition of the `initVat` message to the
-    // startup flow has, I'm fairly sure, obviated the need for that as it
-    // effectively performs the same function. Probably this ping should be
-    // removed.
-    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
-    await this.sendVatCommand({
-      method: VatCommandMethod.initVat,
-      params: this.config,
-    });
-    this.#logger.debug('Created');
   }
 
   /**
@@ -444,9 +473,6 @@ export class VatHandle {
   async sendVatCommand<Method extends VatCommand['payload']['method']>(
     payload: Extract<VatCommand['payload'], { method: Method }>,
   ): Promise<VatCommandReturnType[Method]> {
-    if (VERBOSE) {
-      this.#logger.debug('Sending message to vat', payload);
-    }
     const { promise, reject, resolve } = makePromiseKit();
     const messageId = this.#nextMessageId();
     this.#unresolvedMessages.set(messageId, { reject, resolve });

@@ -1,10 +1,10 @@
-import { isMarshaledOcapError } from './isMarshaledOcapError.js';
-import { errorClasses } from '../errors/index.js';
+import { isMarshaledOcapError } from './isMarshaledOcapError.ts';
+import { errorClasses } from '../errors/index.ts';
 import type {
   ErrorOptionsWithStack,
   MarshaledError,
   OcapError,
-} from '../types.js';
+} from '../types.ts';
 
 /**
  * Unmarshals a {@link MarshaledError} into an {@link Error}.

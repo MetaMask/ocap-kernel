@@ -1,7 +1,7 @@
 import { VatNotFoundError } from '@ocap/errors';
 import { describe, it, expect } from 'vitest';
 
-import { stringify } from './stringify.js';
+import { stringify } from './stringify.ts';
 
 describe('stringify', () => {
   it.each([

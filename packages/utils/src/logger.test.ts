@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { makeLogger } from './logger.js';
+import { makeLogger } from './logger.ts';
 
 describe('makeLogger', () => {
   const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;

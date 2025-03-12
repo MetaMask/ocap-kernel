@@ -1,12 +1,12 @@
 import { render, screen, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { VatTable } from './VatTable.js';
-import { useVats } from '../hooks/useVats.js';
-import type { VatRecord } from '../types.js';
+import { VatTable } from './VatTable.tsx';
+import { useVats } from '../hooks/useVats.ts';
+import type { VatRecord } from '../types.ts';
 
-vi.mock('../hooks/useVats.js', () => ({
+vi.mock('../hooks/useVats.ts', () => ({
   useVats: vi.fn(),
 }));
 

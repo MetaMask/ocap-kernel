@@ -1,11 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
     /**
      * Here we ensure that TypeScript resolves `@ocap/*` imports to the
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
+      "@ocap/store/sqlite/nodejs": ["../store/src/sqlite/nodejs.ts"],
+      "@ocap/store/sqlite/wasm": ["../store/src/sqlite/wasm.ts"],
       "@ocap/*": ["../*/src"]
     }
   }
