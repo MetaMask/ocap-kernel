@@ -4,14 +4,12 @@ import type { StoreContext } from '../types.ts';
 /**
  * Create a refcount store object that provides functionality for managing reference counts.
  *
- * @param context - The store context.
+ * @param ctx - The store context.
  * @returns A refcount store object that maps various persistent kernel data
  * structures onto `kv`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function getRefCountMethods(context: StoreContext) {
-  const { kv } = context;
-
+export function getRefCountMethods(ctx: StoreContext) {
   /**
    * Generate the storage key for a kernel entity's reference count.
    *
@@ -29,7 +27,7 @@ export function getRefCountMethods(context: StoreContext) {
    * @returns the reference count of the indicated kernel entity.
    */
   function getRefCount(kref: KRef): number {
-    return Number(kv.get(refCountKey(kref)));
+    return Number(ctx.kv.get(refCountKey(kref)));
   }
 
   /**
@@ -40,8 +38,8 @@ export function getRefCountMethods(context: StoreContext) {
    */
   function incRefCount(kref: KRef): number {
     const key = refCountKey(kref);
-    const newCount = Number(kv.get(key)) + 1;
-    kv.set(key, `${newCount}`);
+    const newCount = Number(ctx.kv.get(key)) + 1;
+    ctx.kv.set(key, `${newCount}`);
     return newCount;
   }
 
@@ -53,8 +51,8 @@ export function getRefCountMethods(context: StoreContext) {
    */
   function decRefCount(kref: KRef): number {
     const key = refCountKey(kref);
-    const newCount = Number(kv.get(key)) - 1;
-    kv.set(key, `${newCount}`);
+    const newCount = Number(ctx.kv.get(key)) - 1;
+    ctx.kv.set(key, `${newCount}`);
     return newCount;
   }
 
@@ -65,7 +63,7 @@ export function getRefCountMethods(context: StoreContext) {
    * @returns True if the kernel object exists, false otherwise.
    */
   function kernelRefExists(kref: KRef): boolean {
-    return Boolean(kv.get(refCountKey(kref)));
+    return Boolean(ctx.kv.get(refCountKey(kref)));
   }
 
   return {

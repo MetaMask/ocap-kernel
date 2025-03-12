@@ -21,8 +21,7 @@ import {
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getCListMethods(ctx: StoreContext) {
-  const { kv, maybeFreeKrefs } = ctx;
-  const { getSlotKey } = getBaseMethods(kv);
+  const { getSlotKey } = getBaseMethods(ctx.kv);
   const { clearReachableFlag } = getGCMethods(ctx);
   const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
   const { kernelRefExists, refCountKey } = getRefCountMethods(ctx);
@@ -37,8 +36,11 @@ export function getCListMethods(ctx: StoreContext) {
    * @param eref - The ERef.
    */
   function addClistEntry(endpointId: EndpointId, kref: KRef, eref: ERef): void {
-    kv.set(getSlotKey(endpointId, kref), buildReachableAndVatSlot(true, eref));
-    kv.set(getSlotKey(endpointId, eref), kref);
+    ctx.kv.set(
+      getSlotKey(endpointId, kref),
+      buildReachableAndVatSlot(true, eref),
+    );
+    ctx.kv.set(getSlotKey(endpointId, eref), kref);
   }
 
   /**
@@ -49,7 +51,7 @@ export function getCListMethods(ctx: StoreContext) {
    * @returns true iff this vat has a c-list entry mapping for `slot`.
    */
   function hasCListEntry(endpointId: EndpointId, slot: string): boolean {
-    return kv.get(getSlotKey(endpointId, slot)) !== undefined;
+    return ctx.kv.get(getSlotKey(endpointId, slot)) !== undefined;
   }
 
   /**
@@ -66,15 +68,15 @@ export function getCListMethods(ctx: StoreContext) {
   ): void {
     const kernelKey = getSlotKey(endpointId, kref);
     const vatKey = getSlotKey(endpointId, eref);
-    assert(kv.get(kernelKey));
+    assert(ctx.kv.get(kernelKey));
     clearReachableFlag(endpointId, kref);
     const { direction } = parseRef(eref);
     decrementRefCount(kref, {
       isExport: direction === 'export',
       onlyRecognizable: true,
     });
-    kv.delete(kernelKey);
-    kv.delete(vatKey);
+    ctx.kv.delete(kernelKey);
+    ctx.kv.delete(vatKey);
   }
 
   /**
@@ -91,12 +93,12 @@ export function getCListMethods(ctx: StoreContext) {
     const refTag = endpointId.startsWith('v') ? '' : endpointId[0];
     let refType;
     if (isPromiseRef(kref)) {
-      id = kv.get(`e.nextPromiseId.${endpointId}`);
-      kv.set(`e.nextPromiseId.${endpointId}`, `${Number(id) + 1}`);
+      id = ctx.kv.get(`e.nextPromiseId.${endpointId}`);
+      ctx.kv.set(`e.nextPromiseId.${endpointId}`, `${Number(id) + 1}`);
       refType = 'p';
     } else {
-      id = kv.get(`e.nextObjectId.${endpointId}`);
-      kv.set(`e.nextObjectId.${endpointId}`, `${Number(id) + 1}`);
+      id = ctx.kv.get(`e.nextObjectId.${endpointId}`);
+      ctx.kv.set(`e.nextObjectId.${endpointId}`, `${Number(id) + 1}`);
       refType = 'o';
     }
     const eref = `${refTag}${refType}-${id}`;
@@ -113,7 +115,7 @@ export function getCListMethods(ctx: StoreContext) {
    * if there is no such mapping.
    */
   function erefToKref(endpointId: EndpointId, eref: ERef): KRef | undefined {
-    return kv.get(getSlotKey(endpointId, eref));
+    return ctx.kv.get(getSlotKey(endpointId, eref));
   }
 
   /**
@@ -126,7 +128,7 @@ export function getCListMethods(ctx: StoreContext) {
    */
   function krefToEref(endpointId: EndpointId, kref: KRef): ERef | undefined {
     const key = getSlotKey(endpointId, kref);
-    const data = kv.get(key);
+    const data = ctx.kv.get(key);
     if (!data) {
       return undefined;
     }
@@ -183,8 +185,8 @@ export function getCListMethods(ctx: StoreContext) {
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
-      const refCount = Number(kv.get(refCountKey(kref))) + 1;
-      kv.set(refCountKey(kref), `${refCount}`);
+      const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
+      ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
 
@@ -222,12 +224,12 @@ export function getCListMethods(ctx: StoreContext) {
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
-      let refCount = Number(kv.get(refCountKey(kref)));
+      let refCount = Number(ctx.kv.get(refCountKey(kref)));
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
-      kv.set(refCountKey(kref), `${refCount}`);
+      ctx.kv.set(refCountKey(kref), `${refCount}`);
       if (refCount === 0) {
-        maybeFreeKrefs.add(kref);
+        ctx.maybeFreeKrefs.add(kref);
         return true;
       }
       return false;
@@ -243,7 +245,7 @@ export function getCListMethods(ctx: StoreContext) {
     }
     counts.recognizable -= 1;
     if (!counts.reachable || !counts.recognizable) {
-      maybeFreeKrefs.add(kref);
+      ctx.maybeFreeKrefs.add(kref);
     }
     setObjectRefCount(kref, counts);
 

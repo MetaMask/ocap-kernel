@@ -11,12 +11,7 @@ import type { StoreContext } from '../types.ts';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getIdMethods(ctx: StoreContext) {
   const { kv } = ctx;
-  const { provideCachedStoredValue, incCounter } = getBaseMethods(kv);
-
-  /** Counter for allocating VatIDs */
-  let nextVatId = provideCachedStoredValue('nextVatId', '1');
-  /** Counter for allocating RemoteIDs */
-  let nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+  const { incCounter } = getBaseMethods(kv);
 
   /**
    * Obtain an ID for a new vat.
@@ -24,7 +19,7 @@ export function getIdMethods(ctx: StoreContext) {
    * @returns The next VatID use.
    */
   function getNextVatId(): VatId {
-    return `v${incCounter(nextVatId)}`;
+    return `v${incCounter(ctx.nextVatId)}`;
   }
 
   /**
@@ -33,7 +28,7 @@ export function getIdMethods(ctx: StoreContext) {
    * @returns The next remote ID use.
    */
   function getNextRemoteId(): RemoteId {
-    return `r${incCounter(nextRemoteId)}`;
+    return `r${incCounter(ctx.nextRemoteId)}`;
   }
 
   /**
@@ -46,18 +41,9 @@ export function getIdMethods(ctx: StoreContext) {
     kv.set(`e.nextObjectId.${endpointId}`, '1');
   }
 
-  /**
-   * Clear the kernel's persistent state and reset all counters.
-   */
-  function reset(): void {
-    nextVatId = provideCachedStoredValue('nextVatId', '1');
-    nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
-  }
-
   return {
     getNextVatId,
     getNextRemoteId,
     initEndpoint,
-    reset,
   };
 }

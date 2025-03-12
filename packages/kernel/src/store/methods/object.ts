@@ -15,8 +15,7 @@ import { makeKernelSlot } from '../utils/kernel-slots.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getObjectMethods(ctx: StoreContext) {
-  const { kv, nextObjectId } = ctx;
-  const { incCounter } = getBaseMethods(kv);
+  const { incCounter } = getBaseMethods(ctx.kv);
   const { refCountKey } = getRefCountMethods(ctx);
 
   /**
@@ -29,7 +28,7 @@ export function getObjectMethods(ctx: StoreContext) {
    */
   function initKernelObject(owner: EndpointId): KRef {
     const koId = getNextObjectId();
-    kv.set(`${koId}.owner`, owner);
+    ctx.kv.set(`${koId}.owner`, owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
     return koId;
   }
@@ -41,7 +40,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The identity of the vat or remote that owns the object.
    */
   function getOwner(koId: KRef): EndpointId {
-    const owner = kv.get(`${koId}.owner`);
+    const owner = ctx.kv.get(`${koId}.owner`);
     if (owner === undefined) {
       throw Error(`unknown kernel object ${koId}`);
     }
@@ -54,8 +53,8 @@ export function getObjectMethods(ctx: StoreContext) {
    * @param koId - The KRef of the kernel object to delete.
    */
   function deleteKernelObject(koId: KRef): void {
-    kv.delete(`${koId}.owner`);
-    kv.delete(refCountKey(koId));
+    ctx.kv.delete(`${koId}.owner`);
+    ctx.kv.delete(refCountKey(koId));
   }
 
   /**
@@ -64,7 +63,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The next koId use.
    */
   function getNextObjectId(): KRef {
-    return makeKernelSlot('object', incCounter(nextObjectId));
+    return makeKernelSlot('object', incCounter(ctx.nextObjectId));
   }
 
   /**
@@ -77,7 +76,7 @@ export function getObjectMethods(ctx: StoreContext) {
     reachable: number;
     recognizable: number;
   } {
-    const data = kv.get(refCountKey(kref));
+    const data = ctx.kv.get(refCountKey(kref));
     if (!data) {
       return { reachable: 0, recognizable: 0 };
     }
@@ -106,7 +105,7 @@ export function getObjectMethods(ctx: StoreContext) {
       Fail`${kref} underflow ${reachable},${recognizable}`;
     reachable <= recognizable ||
       Fail`refMismatch(set) ${kref} ${reachable},${recognizable}`;
-    kv.set(refCountKey(kref), `${reachable},${recognizable}`);
+    ctx.kv.set(refCountKey(kref), `${reachable},${recognizable}`);
   }
 
   return {

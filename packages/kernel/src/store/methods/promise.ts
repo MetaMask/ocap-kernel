@@ -20,8 +20,7 @@ import { parseRef } from '../utils/parse-ref.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getPromiseMethods(ctx: StoreContext) {
-  const { kv, nextPromiseId } = ctx;
-  const { incCounter } = getBaseMethods(kv);
+  const { incCounter } = getBaseMethods(ctx.kv);
   const { createStoredQueue, provideStoredQueue } = getQueueMethods(ctx.kv);
   const { refCountKey } = getRefCountMethods(ctx);
 
@@ -40,9 +39,9 @@ export function getPromiseMethods(ctx: StoreContext) {
     };
     const kpid = getNextPromiseId();
     createStoredQueue(kpid, false);
-    kv.set(`${kpid}.state`, 'unresolved');
-    kv.set(`${kpid}.subscribers`, '[]');
-    kv.set(refCountKey(kpid), '1');
+    ctx.kv.set(`${kpid}.state`, 'unresolved');
+    ctx.kv.set(`${kpid}.subscribers`, '[]');
+    ctx.kv.set(refCountKey(kpid), '1');
     return [kpid, kpr];
   }
 
@@ -55,24 +54,24 @@ export function getPromiseMethods(ctx: StoreContext) {
   function getKernelPromise(kpid: KRef): KernelPromise {
     const { context, isPromise } = parseRef(kpid);
     assert(context === 'kernel' && isPromise);
-    const state = kv.get(`${kpid}.state`) as PromiseState;
+    const state = ctx.kv.get(`${kpid}.state`) as PromiseState;
     if (state === undefined) {
       throw Error(`unknown kernel promise ${kpid}`);
     }
     const result: KernelPromise = { state };
     switch (state as string) {
       case 'unresolved': {
-        const decider = kv.get(`${kpid}.decider`);
+        const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
           result.decider = decider;
         }
-        const subscribers = kv.getRequired(`${kpid}.subscribers`);
+        const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
         result.subscribers = JSON.parse(subscribers);
         break;
       }
       case 'fulfilled':
       case 'rejected': {
-        result.value = JSON.parse(kv.getRequired(`${kpid}.value`));
+        result.value = JSON.parse(ctx.kv.getRequired(`${kpid}.value`));
         break;
       }
       default:
@@ -87,11 +86,11 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the kernel promise to delete.
    */
   function deleteKernelPromise(kpid: KRef): void {
-    kv.delete(`${kpid}.state`);
-    kv.delete(`${kpid}.decider`);
-    kv.delete(`${kpid}.subscribers`);
-    kv.delete(`${kpid}.value`);
-    kv.delete(refCountKey(kpid));
+    ctx.kv.delete(`${kpid}.state`);
+    ctx.kv.delete(`${kpid}.decider`);
+    ctx.kv.delete(`${kpid}.subscribers`);
+    ctx.kv.delete(`${kpid}.value`);
+    ctx.kv.delete(refCountKey(kpid));
     provideStoredQueue(kpid).delete();
   }
 
@@ -101,7 +100,7 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @returns The next kpid use.
    */
   function getNextPromiseId(): KRef {
-    return makeKernelSlot('promise', incCounter(nextPromiseId));
+    return makeKernelSlot('promise', incCounter(ctx.nextPromiseId));
   }
 
   /**
@@ -119,7 +118,7 @@ export function getPromiseMethods(ctx: StoreContext) {
     tempSet.add(vatId);
     const newSubscribers = Array.from(tempSet).sort();
     const key = `${kpid}.subscribers`;
-    kv.set(key, JSON.stringify(newSubscribers));
+    ctx.kv.set(key, JSON.stringify(newSubscribers));
   }
 
   /**
@@ -131,7 +130,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   function setPromiseDecider(kpid: KRef, vatId: VatId): void {
     insistVatId(vatId);
     if (kpid) {
-      kv.set(`${kpid}.decider`, vatId);
+      ctx.kv.set(`${kpid}.decider`, vatId);
     }
   }
 
@@ -151,10 +150,10 @@ export function getPromiseMethods(ctx: StoreContext) {
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       queue.enqueue(message);
     }
-    kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
-    kv.set(`${kpid}.value`, JSON.stringify(value));
-    kv.delete(`${kpid}.decider`);
-    kv.delete(`${kpid}.subscribers`);
+    ctx.kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
+    ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
+    ctx.kv.delete(`${kpid}.decider`);
+    ctx.kv.delete(`${kpid}.subscribers`);
   }
 
   /**

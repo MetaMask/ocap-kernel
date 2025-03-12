@@ -29,8 +29,7 @@ import {
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getGCMethods(ctx: StoreContext) {
-  const { kv, maybeFreeKrefs, gcActions, reapQueue } = ctx;
-  const { getSlotKey } = getBaseMethods(kv);
+  const { getSlotKey } = getBaseMethods(ctx.kv);
   const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
   const { kernelRefExists } = getRefCountMethods(ctx);
 
@@ -40,7 +39,7 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The set of GC actions to perform.
    */
   function getGCActions(): Set<GCAction> {
-    return new Set(JSON.parse(gcActions.get() ?? '[]'));
+    return new Set(JSON.parse(ctx.gcActions.get() ?? '[]'));
   }
 
   /**
@@ -51,7 +50,7 @@ export function getGCMethods(ctx: StoreContext) {
   function setGCActions(actions: Set<GCAction>): void {
     const a = Array.from(actions);
     a.sort();
-    gcActions.set(JSON.stringify(a));
+    ctx.gcActions.set(JSON.stringify(a));
   }
 
   /**
@@ -81,7 +80,7 @@ export function getGCMethods(ctx: StoreContext) {
    */
   function getReachableFlag(endpointId: EndpointId, kref: KRef): boolean {
     const key = getSlotKey(endpointId, kref);
-    const data = kv.getRequired(key);
+    const data = ctx.kv.getRequired(key);
     const { isReachable } = parseReachableAndVatSlot(data);
     return isReachable;
   }
@@ -95,9 +94,9 @@ export function getGCMethods(ctx: StoreContext) {
   function clearReachableFlag(endpointId: EndpointId, kref: KRef): void {
     const key = getSlotKey(endpointId, kref);
     const { isReachable, vatSlot } = parseReachableAndVatSlot(
-      kv.getRequired(key),
+      ctx.kv.getRequired(key),
     );
-    kv.set(key, buildReachableAndVatSlot(false, vatSlot));
+    ctx.kv.set(key, buildReachableAndVatSlot(false, vatSlot));
     const { direction, isPromise } = parseRef(vatSlot);
     // decrement 'reachable' part of refcount, but only for object imports
     if (
@@ -110,7 +109,7 @@ export function getGCMethods(ctx: StoreContext) {
       counts.reachable -= 1;
       setObjectRefCount(kref, counts);
       if (counts.reachable === 0) {
-        maybeFreeKrefs.add(kref);
+        ctx.maybeFreeKrefs.add(kref);
       }
     }
   }
@@ -121,10 +120,10 @@ export function getGCMethods(ctx: StoreContext) {
    * @param vatId - The vat to schedule for reaping.
    */
   function scheduleReap(vatId: VatId): void {
-    const queue = JSON.parse(reapQueue.get() ?? '[]');
+    const queue = JSON.parse(ctx.reapQueue.get() ?? '[]');
     if (!queue.includes(vatId)) {
       queue.push(vatId);
-      reapQueue.set(JSON.stringify(queue));
+      ctx.reapQueue.set(JSON.stringify(queue));
     }
   }
 
@@ -134,10 +133,10 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The next reap action, or undefined if the queue is empty.
    */
   function nextReapAction(): RunQueueItemBringOutYourDead | undefined {
-    const queue = JSON.parse(reapQueue.get() ?? '[]');
+    const queue = JSON.parse(ctx.reapQueue.get() ?? '[]');
     if (queue.length > 0) {
       const vatId = queue.shift();
-      reapQueue.set(JSON.stringify(queue));
+      ctx.reapQueue.set(JSON.stringify(queue));
       return harden({ type: RunQueueItemType.bringOutYourDead, vatId });
     }
     return undefined;

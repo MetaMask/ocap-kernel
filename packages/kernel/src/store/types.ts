@@ -7,6 +7,8 @@ export type StoreContext = {
   runQueue: StoredQueue;
   nextObjectId: StoredValue;
   nextPromiseId: StoredValue;
+  nextVatId: StoredValue;
+  nextRemoteId: StoredValue;
   maybeFreeKrefs: Set<KRef>;
   gcActions: StoredValue;
   reapQueue: StoredValue;

@@ -90,37 +90,32 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const { provideCachedStoredValue } = getBaseMethods(kv);
   const queue = getQueueMethods(kv);
 
-  /** The kernel's run queue. */
-  const runQueue = queue.createStoredQueue('run', true);
-  /** Counter for allocating kernel object IDs */
-  const nextObjectId = provideCachedStoredValue('nextObjectId', '1');
-  /** Counter for allocating kernel promise IDs */
-  const nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
-
-  // As refcounts are decremented, we accumulate a set of krefs for which
-  // action might need to be taken:
-  //   * promises which are now resolved and unreferenced can be deleted
-  //   * objects which are no longer reachable: export can be dropped
-  //   * objects which are no longer recognizable: export can be retired
-  // This set is ephemeral: it lives in RAM, grows as deliveries and syscalls
-  // cause decrefs, and will be harvested by processRefcounts(). This needs to be
-  // called in the same transaction window as the syscalls/etc which prompted
-  // the change, else removals might be lost (not performed during the next
-  // replay).
-  const maybeFreeKrefs = new Set<KRef>();
-
-  // Garbage collection
-  const gcActions = provideCachedStoredValue('gcActions', '[]');
-  const reapQueue = provideCachedStoredValue('reapQueue', '[]');
-
   const context: StoreContext = {
     kv,
-    runQueue,
-    nextObjectId,
-    nextPromiseId,
-    maybeFreeKrefs,
-    gcActions,
-    reapQueue,
+    /** The kernel's run queue. */
+    runQueue: queue.createStoredQueue('run', true),
+    /** Counter for allocating kernel object IDs */
+    nextObjectId: provideCachedStoredValue('nextObjectId', '1'),
+    /** Counter for allocating kernel promise IDs */
+    nextPromiseId: provideCachedStoredValue('nextPromiseId', '1'),
+    /** Counter for allocating VatIDs */
+    nextVatId: provideCachedStoredValue('nextVatId', '1'),
+    /** Counter for allocating RemoteIDs */
+    nextRemoteId: provideCachedStoredValue('nextRemoteId', '1'),
+    // As refcounts are decremented, we accumulate a set of krefs for which
+    // action might need to be taken:
+    //   * promises which are now resolved and unreferenced can be deleted
+    //   * objects which are no longer reachable: export can be dropped
+    //   * objects which are no longer recognizable: export can be retired
+    // This set is ephemeral: it lives in RAM, grows as deliveries and syscalls
+    // cause decrefs, and will be harvested by processRefcounts(). This needs to be
+    // called in the same transaction window as the syscalls/etc which prompted
+    // the change, else removals might be lost (not performed during the next
+    // replay).
+    maybeFreeKrefs: new Set<KRef>(),
+    // Garbage collection
+    gcActions: provideCachedStoredValue('gcActions', '[]'),
+    reapQueue: provideCachedStoredValue('reapQueue', '[]'),
   };
 
   const id = getIdMethods(context);
@@ -159,13 +154,6 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
-   * Delete everything from the database.
-   */
-  function clear(): void {
-    kdb.clear();
-  }
-
-  /**
    * Create a new VatStore for a vat.
    *
    * @param vatID - The vat for which this is being done.
@@ -177,7 +165,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
-   * Reset the kernel's persistent queues and counters.
+   * Reset the kernel's persistent state and reset all counters.
    */
   function reset(): void {
     kdb.clear();
@@ -187,6 +175,15 @@ export function makeKernelStore(kdb: KernelDatabase) {
     context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
     context.nextObjectId = provideCachedStoredValue('nextObjectId', '1');
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
+    context.nextVatId = provideCachedStoredValue('nextVatId', '1');
+    context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+  }
+
+  /**
+   * Delete everything from the database.
+   */
+  function clear(): void {
+    kdb.clear();
   }
 
   return harden({
