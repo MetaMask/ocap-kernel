@@ -55,14 +55,16 @@
 
 import type { KernelDatabase, KVStore, VatStore } from '@ocap/store';
 
-import { makeBaseStore } from './base-store.ts';
-import { makeCListStore } from './clist-store.ts';
-import { makeGCStore } from './gc-store.ts';
-import { makeIdStore } from './id-store.ts';
-import { makeObjectStore } from './object-store.ts';
-import { makePromiseStore } from './promise-store.ts';
-import { makeQueueStore } from './queue-store.ts';
-import { makeRefCountStore } from './refcount-store.ts';
+import { getBaseMethods } from './methods/base.ts';
+import { getCListMethods } from './methods/clist.ts';
+import { getGCMethods } from './methods/gc.ts';
+import { getIdMethods } from './methods/id.ts';
+import { getObjectMethods } from './methods/object.ts';
+import { getPromiseMethods } from './methods/promise.ts';
+import { getQueueMethods } from './methods/queue.ts';
+import { getRefCountMethods } from './methods/refcount.ts';
+import type { StoreContext } from './types.ts';
+import type { KRef, RunQueueItem } from '../types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -85,25 +87,76 @@ export function makeKernelStore(kdb: KernelDatabase) {
   /** KV store in which all the kernel's own state is kept. */
   const kv: KVStore = kdb.kernelKVStore;
 
-  const baseStore = makeBaseStore(kv);
-  const idStore = makeIdStore(kv, baseStore);
-  const queueStore = makeQueueStore(kv, baseStore);
-  const refCountStore = makeRefCountStore(kv);
-  const objectStore = makeObjectStore(kv, baseStore, refCountStore);
-  const promiseStore = makePromiseStore(
+  const { provideCachedStoredValue } = getBaseMethods(kv);
+  const queue = getQueueMethods(kv);
+
+  /** The kernel's run queue. */
+  const runQueue = queue.createStoredQueue('run', true);
+  /** Counter for allocating kernel object IDs */
+  const nextObjectId = provideCachedStoredValue('nextObjectId', '1');
+  /** Counter for allocating kernel promise IDs */
+  const nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
+
+  // As refcounts are decremented, we accumulate a set of krefs for which
+  // action might need to be taken:
+  //   * promises which are now resolved and unreferenced can be deleted
+  //   * objects which are no longer reachable: export can be dropped
+  //   * objects which are no longer recognizable: export can be retired
+  // This set is ephemeral: it lives in RAM, grows as deliveries and syscalls
+  // cause decrefs, and will be harvested by processRefcounts(). This needs to be
+  // called in the same transaction window as the syscalls/etc which prompted
+  // the change, else removals might be lost (not performed during the next
+  // replay).
+  const maybeFreeKrefs = new Set<KRef>();
+
+  // Garbage collection
+  const gcActions = provideCachedStoredValue('gcActions', '[]');
+  const reapQueue = provideCachedStoredValue('reapQueue', '[]');
+
+  const context: StoreContext = {
     kv,
-    baseStore,
-    refCountStore,
-    queueStore,
-  );
-  const gcStore = makeGCStore(kv, baseStore, refCountStore, objectStore);
-  const cListStore = makeCListStore(
-    kv,
-    baseStore,
-    gcStore,
-    objectStore,
-    refCountStore,
-  );
+    runQueue,
+    nextObjectId,
+    nextPromiseId,
+    maybeFreeKrefs,
+    gcActions,
+    reapQueue,
+  };
+
+  const id = getIdMethods(context);
+  const refCount = getRefCountMethods(context);
+  const object = getObjectMethods(context);
+  const promise = getPromiseMethods(context);
+  const gc = getGCMethods(context);
+  const cList = getCListMethods(context);
+
+  /**
+   * Append a message to the kernel's run queue.
+   *
+   * @param message - The message to enqueue.
+   */
+  function enqueueRun(message: RunQueueItem): void {
+    context.runQueue.enqueue(message);
+  }
+
+  /**
+   * Fetch the next message on the kernel's run queue.
+   *
+   * @returns The next message on the run queue, or undefined if the queue is
+   * empty.
+   */
+  function dequeueRun(): RunQueueItem | undefined {
+    return context.runQueue.dequeue() as RunQueueItem | undefined;
+  }
+
+  /**
+   * Obtain the number of entries in the run queue.
+   *
+   * @returns the number of items in the run queue.
+   */
+  function runQueueLength(): number {
+    return queue.getQueueLength('run');
+  }
 
   /**
    * Delete everything from the database.
@@ -128,21 +181,25 @@ export function makeKernelStore(kdb: KernelDatabase) {
    */
   function reset(): void {
     kdb.clear();
-    queueStore.reset();
-    objectStore.reset();
-    promiseStore.reset();
-    gcStore.reset();
-    idStore.reset();
+    context.maybeFreeKrefs.clear();
+    context.runQueue = queue.createStoredQueue('run', true);
+    context.gcActions = provideCachedStoredValue('gcActions', '[]');
+    context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
+    context.nextObjectId = provideCachedStoredValue('nextObjectId', '1');
+    context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
   }
 
   return harden({
-    ...idStore,
-    ...queueStore,
-    ...refCountStore,
-    ...objectStore,
-    ...promiseStore,
-    ...gcStore,
-    ...cListStore,
+    ...id,
+    ...queue,
+    ...refCount,
+    ...object,
+    ...promise,
+    ...gc,
+    ...cList,
+    enqueueRun,
+    dequeueRun,
+    runQueueLength,
     makeVatStore,
     clear,
     reset,

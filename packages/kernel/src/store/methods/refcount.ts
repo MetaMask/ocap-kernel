@@ -1,16 +1,17 @@
-import type { KVStore } from '@ocap/store';
-
-import type { KRef } from '../types.ts';
+import type { KRef } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
 
 /**
  * Create a refcount store object that provides functionality for managing reference counts.
  *
- * @param kv - The key-value store to use for persistent storage.
+ * @param context - The store context.
  * @returns A refcount store object that maps various persistent kernel data
  * structures onto `kv`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeRefCountStore(kv: KVStore) {
+export function getRefCountMethods(context: StoreContext) {
+  const { kv } = context;
+
   /**
    * Generate the storage key for a kernel entity's reference count.
    *

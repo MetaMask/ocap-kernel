@@ -1,35 +1,29 @@
 import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
-import type { KVStore } from '@ocap/store';
 
-import type { makeBaseStore } from './base-store.ts';
-import type { makeQueueStore } from './queue-store.ts';
-import type { makeRefCountStore } from './refcount-store.ts';
-import { makeKernelSlot } from './utils/kernel-slots.ts';
-import { parseRef } from './utils/parse-ref.ts';
-import type { KRef, KernelPromise, PromiseState, VatId } from '../types.ts';
-import { insistVatId } from '../types.ts';
+import { getBaseMethods } from './base.ts';
+import { getQueueMethods } from './queue.ts';
+import { getRefCountMethods } from './refcount.ts';
+import type { KRef, KernelPromise, PromiseState, VatId } from '../../types.ts';
+import { insistVatId } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
+import { makeKernelSlot } from '../utils/kernel-slots.ts';
+import { parseRef } from '../utils/parse-ref.ts';
 
 /**
  * Create a promise store object that provides functionality for managing kernel promises.
  *
- * @param kv - The key-value store to use for persistent storage.
- * @param baseStore - The base store to use for the promise store.
- * @param refCountStore - The refcount store to use for the promise store.
- * @param queueStore - The queue store to use for the promise store.
+ * @param ctx - The store context.
  * @returns A promise store object that maps various persistent kernel data
  * structures onto `kv`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makePromiseStore(
-  kv: KVStore,
-  baseStore: ReturnType<typeof makeBaseStore>,
-  refCountStore: ReturnType<typeof makeRefCountStore>,
-  queueStore: ReturnType<typeof makeQueueStore>,
-) {
-  /** Counter for allocating kernel promise IDs */
-  let nextPromiseId = baseStore.provideCachedStoredValue('nextPromiseId', '1');
+export function getPromiseMethods(ctx: StoreContext) {
+  const { kv, nextPromiseId } = ctx;
+  const { incCounter } = getBaseMethods(kv);
+  const { createStoredQueue, provideStoredQueue } = getQueueMethods(ctx.kv);
+  const { refCountKey } = getRefCountMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with
@@ -45,10 +39,10 @@ export function makePromiseStore(
       subscribers: [],
     };
     const kpid = getNextPromiseId();
-    queueStore.createStoredQueue(kpid, false);
+    createStoredQueue(kpid, false);
     kv.set(`${kpid}.state`, 'unresolved');
     kv.set(`${kpid}.subscribers`, '[]');
-    kv.set(refCountStore.refCountKey(kpid), '1');
+    kv.set(refCountKey(kpid), '1');
     return [kpid, kpr];
   }
 
@@ -97,8 +91,8 @@ export function makePromiseStore(
     kv.delete(`${kpid}.decider`);
     kv.delete(`${kpid}.subscribers`);
     kv.delete(`${kpid}.value`);
-    kv.delete(refCountStore.refCountKey(kpid));
-    queueStore.provideStoredQueue(kpid).delete();
+    kv.delete(refCountKey(kpid));
+    provideStoredQueue(kpid).delete();
   }
 
   /**
@@ -107,7 +101,7 @@ export function makePromiseStore(
    * @returns The next kpid use.
    */
   function getNextPromiseId(): KRef {
-    return makeKernelSlot('promise', baseStore.incCounter(nextPromiseId));
+    return makeKernelSlot('promise', incCounter(nextPromiseId));
   }
 
   /**
@@ -153,7 +147,7 @@ export function makePromiseStore(
     rejected: boolean,
     value: CapData<KRef>,
   ): void {
-    const queue = queueStore.provideStoredQueue(kpid, false);
+    const queue = provideStoredQueue(kpid, false);
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       queue.enqueue(message);
     }
@@ -170,7 +164,7 @@ export function makePromiseStore(
    * @param message - The message to enqueue.
    */
   function enqueuePromiseMessage(kpid: KRef, message: Message): void {
-    queueStore.provideStoredQueue(kpid, false).enqueue(message);
+    provideStoredQueue(kpid, false).enqueue(message);
   }
 
   /**
@@ -181,7 +175,7 @@ export function makePromiseStore(
    */
   function getKernelPromiseMessageQueue(kpid: KRef): Message[] {
     const result: Message[] = [];
-    const queue = queueStore.provideStoredQueue(kpid, false);
+    const queue = provideStoredQueue(kpid, false);
     for (;;) {
       const message = queue.dequeue() as Message;
       if (message) {
@@ -190,13 +184,6 @@ export function makePromiseStore(
         return result;
       }
     }
-  }
-
-  /**
-   *
-   */
-  function reset(): void {
-    nextPromiseId = baseStore.provideCachedStoredValue('nextPromiseId', '1');
   }
 
   return {
@@ -214,8 +201,5 @@ export function makePromiseStore(
     // Promise messaging
     enqueuePromiseMessage,
     getKernelPromiseMessageQueue,
-
-    // Reset
-    reset,
   };
 }

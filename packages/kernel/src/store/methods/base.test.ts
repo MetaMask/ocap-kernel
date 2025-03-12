@@ -1,16 +1,16 @@
 import type { KVStore } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { makeBaseStore } from './base-store.ts';
-import { makeMapKVStore } from '../../test/storage.ts';
+import { getBaseMethods } from './base.ts';
+import { makeMapKVStore } from '../../../test/storage.ts';
 
-describe('base-store', () => {
-  let mockKVStore: KVStore;
-  let baseStore: ReturnType<typeof makeBaseStore>;
+describe('base-methods', () => {
+  let kv: KVStore;
+  let baseStore: ReturnType<typeof getBaseMethods>;
 
   beforeEach(() => {
-    mockKVStore = makeMapKVStore();
-    baseStore = makeBaseStore(mockKVStore);
+    kv = makeMapKVStore();
+    baseStore = getBaseMethods(kv);
   });
 
   describe('getSlotKey', () => {
@@ -42,11 +42,11 @@ describe('base-store', () => {
     it('creates a new value if it does not exist', () => {
       const value = baseStore.provideCachedStoredValue('new-key', 'initial');
       expect(value.get()).toBe('initial');
-      expect(mockKVStore.get('new-key')).toBe('initial');
+      expect(kv.get('new-key')).toBe('initial');
     });
 
     it('retrieves an existing value', () => {
-      mockKVStore.set('existing-key', 'existing-value');
+      kv.set('existing-key', 'existing-value');
       const value = baseStore.provideCachedStoredValue('existing-key');
       expect(value.get()).toBe('existing-value');
     });
@@ -57,10 +57,10 @@ describe('base-store', () => {
       // Change the value through the stored value object
       value.set('updated');
       expect(value.get()).toBe('updated');
-      expect(mockKVStore.get('cached-key')).toBe('updated');
+      expect(kv.get('cached-key')).toBe('updated');
 
       // Change the value directly in the KV store
-      mockKVStore.set('cached-key', 'changed-externally');
+      kv.set('cached-key', 'changed-externally');
 
       // The cached value should still return the cached value, not the updated KV store value
       // This is because the value is cached in memory
@@ -80,7 +80,7 @@ describe('base-store', () => {
 
       value.delete();
       expect(value.get()).toBeUndefined();
-      expect(mockKVStore.get('delete-key')).toBeUndefined();
+      expect(kv.get('delete-key')).toBeUndefined();
     });
   });
 
@@ -88,11 +88,11 @@ describe('base-store', () => {
     it('creates a new value if it does not exist', () => {
       const value = baseStore.provideRawStoredValue('new-raw-key', 'initial');
       expect(value.get()).toBe('initial');
-      expect(mockKVStore.get('new-raw-key')).toBe('initial');
+      expect(kv.get('new-raw-key')).toBe('initial');
     });
 
     it('retrieves an existing value', () => {
-      mockKVStore.set('existing-raw-key', 'existing-value');
+      kv.set('existing-raw-key', 'existing-value');
       const value = baseStore.provideRawStoredValue('existing-raw-key');
       expect(value.get()).toBe('existing-value');
     });
@@ -103,10 +103,10 @@ describe('base-store', () => {
       // Change the value through the stored value object
       value.set('updated');
       expect(value.get()).toBe('updated');
-      expect(mockKVStore.get('raw-key')).toBe('updated');
+      expect(kv.get('raw-key')).toBe('updated');
 
       // Change the value directly in the KV store
-      mockKVStore.set('raw-key', 'changed-externally');
+      kv.set('raw-key', 'changed-externally');
 
       // The raw value should always read from the KV store
       expect(value.get()).toBe('changed-externally');
@@ -121,28 +121,7 @@ describe('base-store', () => {
 
       value.delete();
       expect(value.get()).toBeUndefined();
-      expect(mockKVStore.get('delete-raw-key')).toBeUndefined();
-    });
-  });
-
-  describe('maybeFreeKrefs', () => {
-    it('maintains a set of krefs that might need to be freed', () => {
-      expect(baseStore.maybeFreeKrefs.size).toBe(0);
-
-      baseStore.maybeFreeKrefs.add('ko1');
-      baseStore.maybeFreeKrefs.add('kp2');
-
-      expect(baseStore.maybeFreeKrefs.size).toBe(2);
-      expect(baseStore.maybeFreeKrefs.has('ko1')).toBe(true);
-      expect(baseStore.maybeFreeKrefs.has('kp2')).toBe(true);
-
-      baseStore.maybeFreeKrefs.delete('ko1');
-      expect(baseStore.maybeFreeKrefs.size).toBe(1);
-      expect(baseStore.maybeFreeKrefs.has('ko1')).toBe(false);
-      expect(baseStore.maybeFreeKrefs.has('kp2')).toBe(true);
-
-      baseStore.maybeFreeKrefs.clear();
-      expect(baseStore.maybeFreeKrefs.size).toBe(0);
+      expect(kv.get('delete-raw-key')).toBeUndefined();
     });
   });
 
@@ -169,8 +148,8 @@ describe('base-store', () => {
       expect(rawValue.get()).toBe('raw-value');
 
       // Modify directly in KV store
-      mockKVStore.set('cached', 'modified-cached');
-      mockKVStore.set('raw', 'modified-raw');
+      kv.set('cached', 'modified-cached');
+      kv.set('raw', 'modified-raw');
 
       // Cached value should still return the cached value
       expect(cachedValue.get()).toBe('cached-value');

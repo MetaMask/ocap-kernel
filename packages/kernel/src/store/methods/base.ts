@@ -1,33 +1,16 @@
 import type { KVStore } from '@ocap/store';
 
-import type { EndpointId, KRef } from '../types.ts';
-
-export type StoredValue = {
-  get(): string | undefined;
-  set(newValue: string): void;
-  delete(): void;
-};
+import type { EndpointId, KRef } from '../../types.ts';
+import type { StoredValue } from '../types.ts';
 
 /**
- * Create a base store object that provides functionality for managing stored values and queues.
+ * Get the base store methods for managing stored values and queues.
  *
- * @param kv - The key-value store to use for persistent storage.
+ * @param kv - The key/value store to provide the underlying persistence mechanism.
  * @returns An object with methods for managing stored values and queues.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeBaseStore(kv: KVStore) {
-  // As refcounts are decremented, we accumulate a set of krefs for which
-  // action might need to be taken:
-  //   * promises which are now resolved and unreferenced can be deleted
-  //   * objects which are no longer reachable: export can be dropped
-  //   * objects which are no longer recognizable: export can be retired
-  // This set is ephemeral: it lives in RAM, grows as deliveries and syscalls
-  // cause decrefs, and will be harvested by processRefcounts(). This needs to be
-  // called in the same transaction window as the syscalls/etc which prompted
-  // the change, else removals might be lost (not performed during the next
-  // replay).
-  const maybeFreeKrefs = new Set();
-
+export function getBaseMethods(kv: KVStore) {
   /**
    * Get the key for the reachable flag and vatSlot for a given endpoint and kref.
    *
@@ -111,7 +94,6 @@ export function makeBaseStore(kv: KVStore) {
   }
 
   return {
-    maybeFreeKrefs,
     getSlotKey,
     incCounter,
     // Stored value

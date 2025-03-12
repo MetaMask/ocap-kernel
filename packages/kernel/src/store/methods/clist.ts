@@ -1,36 +1,32 @@
 import { Fail } from '@endo/errors';
-import type { KVStore } from '@ocap/store';
 
-import type { makeBaseStore } from './base-store.ts';
-import type { makeGCStore } from './gc-store.ts';
-import type { makeObjectStore } from './object-store.ts';
-import type { makeRefCountStore } from './refcount-store.ts';
-import { parseRef } from './utils/parse-ref.ts';
-import { isPromiseRef } from './utils/promise-ref.ts';
+import { getBaseMethods } from './base.ts';
+import { getGCMethods } from './gc.ts';
+import { getObjectMethods } from './object.ts';
+import { getRefCountMethods } from './refcount.ts';
+import type { EndpointId, KRef, ERef } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
+import { parseRef } from '../utils/parse-ref.ts';
+import { isPromiseRef } from '../utils/promise-ref.ts';
 import {
   buildReachableAndVatSlot,
   parseReachableAndVatSlot,
-} from './utils/reachable.ts';
-import type { EndpointId, KRef, ERef } from '../types.ts';
+} from '../utils/reachable.ts';
 
 /**
- * Create a store for the c-list.
+ * Get the c-list methods that provide functionality for managing c-lists.
  *
- * @param kv - The key-value store to use for persistent storage.
- * @param baseStore - The base store to use for the c-list store.
- * @param gcStore - The GC store to use for the c-list store.
- * @param objectStore - The object store to use for the c-list store.
- * @param refCountStore - The refcount store to use for the c-list store.
+ * @param ctx - The store context.
  * @returns The c-list store.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeCListStore(
-  kv: KVStore,
-  baseStore: ReturnType<typeof makeBaseStore>,
-  gcStore: ReturnType<typeof makeGCStore>,
-  objectStore: ReturnType<typeof makeObjectStore>,
-  refCountStore: ReturnType<typeof makeRefCountStore>,
-) {
+export function getCListMethods(ctx: StoreContext) {
+  const { kv, maybeFreeKrefs } = ctx;
+  const { getSlotKey } = getBaseMethods(kv);
+  const { clearReachableFlag } = getGCMethods(ctx);
+  const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
+  const { kernelRefExists, refCountKey } = getRefCountMethods(ctx);
+
   /**
    * Add an entry to an endpoint's c-list, creating a new bidirectional mapping
    * between an ERef belonging to the endpoint and a KRef belonging to the
@@ -41,11 +37,8 @@ export function makeCListStore(
    * @param eref - The ERef.
    */
   function addClistEntry(endpointId: EndpointId, kref: KRef, eref: ERef): void {
-    kv.set(
-      baseStore.getSlotKey(endpointId, kref),
-      buildReachableAndVatSlot(true, eref),
-    );
-    kv.set(baseStore.getSlotKey(endpointId, eref), kref);
+    kv.set(getSlotKey(endpointId, kref), buildReachableAndVatSlot(true, eref));
+    kv.set(getSlotKey(endpointId, eref), kref);
   }
 
   /**
@@ -56,7 +49,7 @@ export function makeCListStore(
    * @returns true iff this vat has a c-list entry mapping for `slot`.
    */
   function hasCListEntry(endpointId: EndpointId, slot: string): boolean {
-    return kv.get(baseStore.getSlotKey(endpointId, slot)) !== undefined;
+    return kv.get(getSlotKey(endpointId, slot)) !== undefined;
   }
 
   /**
@@ -71,10 +64,10 @@ export function makeCListStore(
     kref: KRef,
     eref: ERef,
   ): void {
-    const kernelKey = baseStore.getSlotKey(endpointId, kref);
-    const vatKey = baseStore.getSlotKey(endpointId, eref);
+    const kernelKey = getSlotKey(endpointId, kref);
+    const vatKey = getSlotKey(endpointId, eref);
     assert(kv.get(kernelKey));
-    gcStore.clearReachableFlag(endpointId, kref);
+    clearReachableFlag(endpointId, kref);
     const { direction } = parseRef(eref);
     decrementRefCount(kref, {
       isExport: direction === 'export',
@@ -120,7 +113,7 @@ export function makeCListStore(
    * if there is no such mapping.
    */
   function erefToKref(endpointId: EndpointId, eref: ERef): KRef | undefined {
-    return kv.get(baseStore.getSlotKey(endpointId, eref));
+    return kv.get(getSlotKey(endpointId, eref));
   }
 
   /**
@@ -132,7 +125,7 @@ export function makeCListStore(
    * there is no such mapping.
    */
   function krefToEref(endpointId: EndpointId, kref: KRef): ERef | undefined {
-    const key = baseStore.getSlotKey(endpointId, kref);
+    const key = getSlotKey(endpointId, kref);
     const data = kv.get(key);
     if (!data) {
       return undefined;
@@ -190,8 +183,8 @@ export function makeCListStore(
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
-      const refCount = Number(kv.get(refCountStore.refCountKey(kref))) + 1;
-      kv.set(refCountStore.refCountKey(kref), `${refCount}`);
+      const refCount = Number(kv.get(refCountKey(kref))) + 1;
+      kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
 
@@ -200,12 +193,12 @@ export function makeCListStore(
       return;
     }
 
-    const counts = objectStore.getObjectRefCount(kref);
+    const counts = getObjectRefCount(kref);
     if (!onlyRecognizable) {
       counts.reachable += 1;
     }
     counts.recognizable += 1;
-    objectStore.setObjectRefCount(kref, counts);
+    setObjectRefCount(kref, counts);
   }
 
   /**
@@ -229,30 +222,30 @@ export function makeCListStore(
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
-      let refCount = Number(kv.get(refCountStore.refCountKey(kref)));
+      let refCount = Number(kv.get(refCountKey(kref)));
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
-      kv.set(refCountStore.refCountKey(kref), `${refCount}`);
+      kv.set(refCountKey(kref), `${refCount}`);
       if (refCount === 0) {
-        baseStore.maybeFreeKrefs.add(kref);
+        maybeFreeKrefs.add(kref);
         return true;
       }
       return false;
     }
 
-    if (isExport || !refCountStore.kernelRefExists(kref)) {
+    if (isExport || !kernelRefExists(kref)) {
       return false;
     }
 
-    const counts = objectStore.getObjectRefCount(kref);
+    const counts = getObjectRefCount(kref);
     if (!onlyRecognizable) {
       counts.reachable -= 1;
     }
     counts.recognizable -= 1;
     if (!counts.reachable || !counts.recognizable) {
-      baseStore.maybeFreeKrefs.add(kref);
+      maybeFreeKrefs.add(kref);
     }
-    objectStore.setObjectRefCount(kref, counts);
+    setObjectRefCount(kref, counts);
 
     return false;
   }

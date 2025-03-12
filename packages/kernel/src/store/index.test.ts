@@ -2,9 +2,9 @@ import type { Message } from '@agoric/swingset-liveslots';
 import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { makeKernelStore } from './index.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { RunQueueItem } from '../types.ts';
-import { makeKernelStore } from './kernel-store.ts';
 
 /**
  * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they

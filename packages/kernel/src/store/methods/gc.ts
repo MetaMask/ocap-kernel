@@ -1,41 +1,38 @@
-import type { KVStore } from '@ocap/store';
-
-import type { makeBaseStore } from './base-store.ts';
-import type { makeObjectStore } from './object-store.ts';
-import type { makeRefCountStore } from './refcount-store.ts';
-import { insistKernelType } from './utils/kernel-slots.ts';
-import { parseRef } from './utils/parse-ref.ts';
-import {
-  buildReachableAndVatSlot,
-  parseReachableAndVatSlot,
-} from './utils/reachable.ts';
+import { getBaseMethods } from './base.ts';
+import { getObjectMethods } from './object.ts';
+import { getRefCountMethods } from './refcount.ts';
 import type {
   VatId,
   EndpointId,
   KRef,
   GCAction,
   RunQueueItemBringOutYourDead,
-} from '../types.ts';
-import { insistGCActionType, insistVatId, RunQueueItemType } from '../types.ts';
+} from '../../types.ts';
+import {
+  insistGCActionType,
+  insistVatId,
+  RunQueueItemType,
+} from '../../types.ts';
+import type { StoreContext } from '../types.ts';
+import { insistKernelType } from '../utils/kernel-slots.ts';
+import { parseRef } from '../utils/parse-ref.ts';
+import {
+  buildReachableAndVatSlot,
+  parseReachableAndVatSlot,
+} from '../utils/reachable.ts';
 
 /**
  * Create a store for garbage collection.
  *
- * @param kv - The key-value store to use for persistent storage.
- * @param baseStore - The base store to use for the GC store.
- * @param refCountStore - The refcount store to use for the GC store.
- * @param objectStore - The object store to use for the GC store.
+ * @param ctx - The store context.
  * @returns The GC store.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeGCStore(
-  kv: KVStore,
-  baseStore: ReturnType<typeof makeBaseStore>,
-  refCountStore: ReturnType<typeof makeRefCountStore>,
-  objectStore: ReturnType<typeof makeObjectStore>,
-) {
-  let gcActions = baseStore.provideCachedStoredValue('gcActions', '[]');
-  let reapQueue = baseStore.provideCachedStoredValue('reapQueue', '[]');
+export function getGCMethods(ctx: StoreContext) {
+  const { kv, maybeFreeKrefs, gcActions, reapQueue } = ctx;
+  const { getSlotKey } = getBaseMethods(kv);
+  const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
+  const { kernelRefExists } = getRefCountMethods(ctx);
 
   /**
    * Get the set of GC actions to perform.
@@ -83,7 +80,7 @@ export function makeGCStore(
    * @returns True if the kernel object is reachable, false otherwise.
    */
   function getReachableFlag(endpointId: EndpointId, kref: KRef): boolean {
-    const key = baseStore.getSlotKey(endpointId, kref);
+    const key = getSlotKey(endpointId, kref);
     const data = kv.getRequired(key);
     const { isReachable } = parseReachableAndVatSlot(data);
     return isReachable;
@@ -96,7 +93,7 @@ export function makeGCStore(
    * @param kref - The kref.
    */
   function clearReachableFlag(endpointId: EndpointId, kref: KRef): void {
-    const key = baseStore.getSlotKey(endpointId, kref);
+    const key = getSlotKey(endpointId, kref);
     const { isReachable, vatSlot } = parseReachableAndVatSlot(
       kv.getRequired(key),
     );
@@ -107,13 +104,13 @@ export function makeGCStore(
       isReachable &&
       !isPromise &&
       direction === 'import' &&
-      refCountStore.kernelRefExists(kref)
+      kernelRefExists(kref)
     ) {
-      const counts = objectStore.getObjectRefCount(kref);
+      const counts = getObjectRefCount(kref);
       counts.reachable -= 1;
-      objectStore.setObjectRefCount(kref, counts);
+      setObjectRefCount(kref, counts);
       if (counts.reachable === 0) {
-        baseStore.maybeFreeKrefs.add(kref);
+        maybeFreeKrefs.add(kref);
       }
     }
   }
@@ -146,15 +143,6 @@ export function makeGCStore(
     return undefined;
   }
 
-  /**
-   * Reset the GC store.
-   */
-  function reset(): void {
-    baseStore.maybeFreeKrefs.clear();
-    gcActions = baseStore.provideCachedStoredValue('gcActions', '[]');
-    reapQueue = baseStore.provideCachedStoredValue('reapQueue', '[]');
-  }
-
   return {
     // GC actions
     getGCActions,
@@ -166,7 +154,5 @@ export function makeGCStore(
     // Reaping
     scheduleReap,
     nextReapAction,
-    // Reset
-    reset,
   };
 }

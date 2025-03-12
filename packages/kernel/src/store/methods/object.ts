@@ -1,28 +1,23 @@
 import { Fail } from '@endo/errors';
-import type { KVStore } from '@ocap/store';
 
-import type { makeBaseStore } from './base-store.ts';
-import type { makeRefCountStore } from './refcount-store.ts';
-import { makeKernelSlot } from './utils/kernel-slots.ts';
-import type { EndpointId, KRef } from '../types.ts';
+import { getBaseMethods } from './base.ts';
+import { getRefCountMethods } from './refcount.ts';
+import type { EndpointId, KRef } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
+import { makeKernelSlot } from '../utils/kernel-slots.ts';
 
 /**
  * Create an object store object that provides functionality for managing kernel objects.
  *
- * @param kv - The key-value store to use for persistent storage.
- * @param baseStore - The base store to use for the object store.
- * @param refCountStore - The refcount store to use for the object store.
+ * @param ctx - The store context.
  * @returns An object store object that maps various persistent kernel data
  * structures onto `kv`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeObjectStore(
-  kv: KVStore,
-  baseStore: ReturnType<typeof makeBaseStore>,
-  refCountStore: ReturnType<typeof makeRefCountStore>,
-) {
-  /** Counter for allocating kernel object IDs */
-  let nextObjectId = baseStore.provideCachedStoredValue('nextObjectId', '1');
+export function getObjectMethods(ctx: StoreContext) {
+  const { kv, nextObjectId } = ctx;
+  const { incCounter } = getBaseMethods(kv);
+  const { refCountKey } = getRefCountMethods(ctx);
 
   /**
    * Create a new kernel object.  The new object will be born with reference and
@@ -60,7 +55,7 @@ export function makeObjectStore(
    */
   function deleteKernelObject(koId: KRef): void {
     kv.delete(`${koId}.owner`);
-    kv.delete(refCountStore.refCountKey(koId));
+    kv.delete(refCountKey(koId));
   }
 
   /**
@@ -69,7 +64,7 @@ export function makeObjectStore(
    * @returns The next koId use.
    */
   function getNextObjectId(): KRef {
-    return makeKernelSlot('object', baseStore.incCounter(nextObjectId));
+    return makeKernelSlot('object', incCounter(nextObjectId));
   }
 
   /**
@@ -82,7 +77,7 @@ export function makeObjectStore(
     reachable: number;
     recognizable: number;
   } {
-    const data = kv.get(refCountStore.refCountKey(kref));
+    const data = kv.get(refCountKey(kref));
     if (!data) {
       return { reachable: 0, recognizable: 0 };
     }
@@ -111,14 +106,7 @@ export function makeObjectStore(
       Fail`${kref} underflow ${reachable},${recognizable}`;
     reachable <= recognizable ||
       Fail`refMismatch(set) ${kref} ${reachable},${recognizable}`;
-    kv.set(refCountStore.refCountKey(kref), `${reachable},${recognizable}`);
-  }
-
-  /**
-   * Reset the object store.
-   */
-  function reset(): void {
-    nextObjectId = baseStore.provideCachedStoredValue('nextObjectId', '1');
+    kv.set(refCountKey(kref), `${reachable},${recognizable}`);
   }
 
   return {
@@ -128,6 +116,5 @@ export function makeObjectStore(
     getNextObjectId,
     getObjectRefCount,
     setObjectRefCount,
-    reset,
   };
 }
