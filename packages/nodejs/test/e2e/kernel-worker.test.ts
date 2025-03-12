@@ -33,7 +33,7 @@ describe('Kernel Worker', () => {
       kernelPort.close();
     }
     kernelPort = new NodeMessageChannel().port1;
-    kernel = await makeKernel(kernelPort);
+    kernel = await makeKernel({ port: kernelPort });
   });
 
   afterEach(async () => {
