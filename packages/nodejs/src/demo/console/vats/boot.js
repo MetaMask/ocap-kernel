@@ -50,7 +50,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
           }
           display(count);
         }
-      }
+      };
 
       await Promise.all([
         readCounter(counterReader0, 10, counter0),

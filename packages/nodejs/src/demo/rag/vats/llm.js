@@ -1,5 +1,6 @@
 import { Far } from '@endo/marshal';
 import { makePipe } from '@endo/stream';
+
 import { makeLogger } from '../../../../dist/demo/logger.mjs';
 
 // The default LLM model to use.
@@ -22,7 +23,7 @@ const parseResponse = (response) => {
  * always* generated as complete tokens, and *never* partially as strings.
  *
  * @param {*} response - An async generator yielding a deepseek token stream.
- * @returns An object with async generator properties 'thought' and 'speech'.
+ * @returns {object} An object with async generator properties 'thought' and 'speech'.
  */
 const parseResponseStream = (response) => {
   const [thought, thoughtWriter] = makePipe();

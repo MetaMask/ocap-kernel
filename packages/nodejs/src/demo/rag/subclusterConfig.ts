@@ -3,7 +3,8 @@ import type { ClusterConfig, VatConfig } from '@ocap/kernel';
 type ModelSize = '1.5b' | '7b' | '8b' | '14b' | '32b' | '70b' | '671b';
 type Model = `deepseek-r1:${ModelSize}${string}`;
 
-const makeBundleSpec = (name: string) => `http://localhost:3000/${name}.bundle`;
+const makeBundleSpec = (name: string): string =>
+  `http://localhost:3000/${name}.bundle`;
 
 type UserConfig = {
   model: Model;
@@ -107,4 +108,4 @@ export const makeSubclusterConfig = (verbose: boolean): ClusterConfig => {
       ...eveConfig,
     },
   };
-}
+};

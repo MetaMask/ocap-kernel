@@ -1,4 +1,5 @@
 import { Far } from '@endo/marshal';
+
 import { makeLogger } from '../../../../dist/demo/logger.mjs';
 import { makeStreamMaker } from '../../../../dist/demo/stream.mjs';
 
@@ -14,6 +15,7 @@ import { makeStreamMaker } from '../../../../dist/demo/stream.mjs';
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
   const { verbose } = parameters;
+  // eslint-disable-next-line no-shadow
   const { setInterval, clearInterval } = vatPowers;
 
   const logger = makeLogger({ label: 'asyncGen', verbose });
@@ -25,7 +27,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   const makeCounter = (start = 0, ms = 100) => {
     const { id, writer } = makeStream();
     let count = start;
-  
+
     const interval = setInterval(async () => {
       const thisCount = count;
       count += 1;
@@ -38,9 +40,9 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       counters.delete(id);
     };
 
-    counters.set(id, harden({ stop }));
+    counters.set(id, { stop });
     return id;
-  }
+  };
 
   const getCounter = (id) => {
     const counter = counters.get(id);
@@ -48,7 +50,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       throw new Error(`No such counterId ${id}`, { cause: id });
     }
     return counter;
-  }
+  };
 
   return Far('root', {
     async ping() {
@@ -59,7 +61,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
     async stop(counterId) {
       verbose && logger.debug(`stopping [${counterId}]`);
       await getCounter(counterId).stop();
-      return true;
+      return removeStream(counterId);
     },
   });
 }

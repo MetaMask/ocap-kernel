@@ -12,10 +12,7 @@ export const makeInitUser = (
     logger.debug('initUser:user', user);
     const languageModel = vats[`${user}.llm`];
     const vectorStore = vats[`${user}.vectorStore`];
-    await Promise.all([
-      E(languageModel).init(),
-      E(vectorStore).init(),
-    ]);
+    await Promise.all([E(languageModel).init(), E(vectorStore).init()]);
     const defaultDocumentView = await E(vectorStore).makeDocumentView();
     const response = await E(vats[user]).init(
       languageModel,

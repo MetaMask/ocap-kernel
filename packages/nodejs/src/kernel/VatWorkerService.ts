@@ -24,18 +24,18 @@ const DEFAULT_WORKER_FILE = new URL(
 
 export type MakeDocumentRoot = (vatId: VatId) => Promise<string>;
 
-const makeDocumentRootDefault = async (vatId: VatId) => {
+const makeDocumentRootDefault = async (vatId: VatId): Promise<string> => {
   const root = join(tmpdir(), 'vats', vatId);
   await mkdir(root, { recursive: true });
   return root;
-} 
+};
 
 export class NodejsVatWorkerService implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #workerFilePath: string;
 
-  readonly #makeDocumentRoot: MakeDocumentRoot; 
+  readonly #makeDocumentRoot: MakeDocumentRoot;
 
   workers = new Map<
     VatId,
@@ -49,6 +49,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
    * @param args - A bag of optional arguments.
    * @param args.workerFilePath - An optional path to a file defining the worker's routine. Defaults to 'vat-worker.mjs'.
    * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   * @param args.makeDocumentRoot - An optional function that returns a path to a directory for storing documents. Defaults to a function that creates a directory in the system temp directory.
    */
   constructor(args: {
     workerFilePath?: string | undefined;

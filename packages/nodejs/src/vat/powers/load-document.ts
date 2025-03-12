@@ -1,26 +1,40 @@
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { readFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { readFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+export type Args =
+  | {
+      useTmpDir?: boolean;
+      root: string;
+    }
+  | {
+      useTmpDir: true;
+      root?: never;
+    };
 
-export type Args = {
-  useTmpDir?: boolean,
-  root: string,
-} | {
-  useTmpDir: true,
-  root?: never,
-}
+type LoadDocument = (
+  name: string,
+  secrecy: string,
+) => Promise<
+  {
+    pageContent: string;
+    metadata: { source: string; secrecy: string };
+  }[]
+>;
 
 /**
  * Makes a view which loads .txt documents from the root
- * 
+ *
  * @param args - The arguments
  * @param args.root - The base filepath to load documents from.
  * @param args.useTmpDir - Whether to .
- * @returns A method for loading a document by name. 
+ * @returns A method for loading a document by name.
  */
-export default function makeLoadDocument({ root, useTmpDir }: Args) {
+export default function makeLoadDocument({
+  root,
+  useTmpDir,
+}: Args): LoadDocument {
   if (root === undefined && useTmpDir === undefined) {
     throw new Error('Bad arguments', { cause: { root, useTmpDir } });
   }
@@ -29,11 +43,11 @@ export default function makeLoadDocument({ root, useTmpDir }: Args) {
     base = base ? join(base, root) : root;
   }
   // XXX name might exit 'base' via '..'s or symlinks
-  const resolve = (name: string) => `${base}/${name}.txt`;
+  const resolve = (name: string): string => `${base}/${name}.txt`;
 
-  const loadDocument = async (name: string, secrecy: string) => {
+  const loadDocument: LoadDocument = async (name: string, secrecy: string) => {
     const source = resolve(name);
-    const pageContent = await readFile(source, "utf8");
+    const pageContent = await readFile(source, 'utf8');
     if (!pageContent) {
       throw new Error(`Could not find document ${name}`);
     }
@@ -41,16 +55,21 @@ export default function makeLoadDocument({ root, useTmpDir }: Args) {
       chunkSize: 384,
       chunkOverlap: 64,
     });
-    const splitDocs = await splitter.splitDocuments([{
-      pageContent,
+    const splitDocs = await splitter.splitDocuments([
+      {
+        pageContent,
+        metadata: {},
+      },
+    ]);
+    if (!splitDocs.length) {
+      throw new Error(`Document ${name} produced no content after splitting`);
+    }
+    return splitDocs.map((doc) => ({
+      pageContent: doc.pageContent,
       // XXX secrecy should be handled in a separate routine
-      metadata: { source: name, secrecy },
-    }]);
-    return splitDocs.map((document) => ({
-      pageContent: document.pageContent,
-      metadata: { ...document.metadata },
+      metadata: { source: name, secrecy, ...doc.metadata },
     }));
-  }
+  };
 
   return loadDocument;
 }

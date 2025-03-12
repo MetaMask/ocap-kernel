@@ -2,8 +2,9 @@ import { readFile } from 'fs/promises';
 import ollama from 'ollama';
 
 /**
+ * Streams the response from Ollama to the console.
  *
- * @param response
+ * @param {*} response - The response from Ollama.
  */
 async function streamResponse(response) {
   const thinkEndToken = '</think>';

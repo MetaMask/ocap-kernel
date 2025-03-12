@@ -1,10 +1,12 @@
-import { Ollama } from "ollama";
+import { Ollama } from 'ollama';
 
 /**
  * Returns a promise that resolves when the ollama service is running,
  * or rejects if the API is unreachable.
+ *
+ * @param host - The url to reach the local ollama server.
  */
-export const ollamaOnline = async (host: string) => {
+export const ollamaOnline = async (host: string): Promise<void> => {
   const response = await (await fetch(host)).text();
   const expectation = 'Ollama is running';
   if (response !== expectation) {
@@ -14,13 +16,17 @@ export const ollamaOnline = async (host: string) => {
 
 /**
  * Ensure the ollama server is running and return a connection to it.
- * 
+ *
  * @param param0 - The args.
  * @param param0.host - The url to reach the local ollama server.
  * @returns An Ollama API object.
  * @throws If the ollama server cannot be reached at the provided host url.
  */
-export default async function makeOllama({ host } : {host: string}) {
+export default async function makeOllama({
+  host,
+}: {
+  host: string;
+}): Promise<Ollama> {
   await ollamaOnline(host);
   return new Ollama({ host });
 }

@@ -15,18 +15,18 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
 
   const logger = {
     log: console.log,
-    debug: verbose ? console.debug : () => {},
+    debug: verbose ? console.debug : () => undefined,
     error: console.error,
   };
 
   const caps = {
     languageModel: undefined,
     documentViews: new Map(),
-  }
+  };
 
   const getDocumentView = (user) => {
     return caps.documentViews.get(user) ?? caps.documentViews.get('default');
-  }
+  };
 
   const messageHistory = [];
   const pushMessage = (message) => messageHistory.push(message);
@@ -63,11 +63,11 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
    * Validate that the JSON response meets its schema, given some parameters.
    *
    * XXX This validation logic is hardcoded.
-   * XXX Ideal would be to have a tree-shaken langchainjs import available
+   * XXX Ideal would be to have a tree-shaken langchainjs import available.
    *
-   * @param {*} response - The response to be validated.
-   * @param {*} params - Parameters for validating the response.
-   * @param parsedResponse
+   * @param {string} parsedResponse - The parsed response to be validated.
+   * @param {object} context - The context in which the response is being validated.
+   * @param {string} context.responder - The name of the responder.
    */
   const validateProposeNextMessageResponse = (
     parsedResponse,
@@ -244,12 +244,15 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   };
 
   /**
+   * Process a message from a sender.
    *
-   * @param sender
-   * @param message
-   * @param conversationHistory
+   * @param {string} sender - The sender of the message.
+   * @param {object} message - The message to be processed.
+   * @param {object} context - The context in which the message is being processed.
+   * @param {object[]} context.conversationHistory - The history of messages in the conversation.
+   * @returns {Promise<string>} The response to the message.
    */
-  async function processMessage(sender, message, conversationHistory) {
+  async function processMessage(sender, message, { conversationHistory }) {
     // XXX Fallaciously assume the caller has truthfully self-identified.
     const knowledge = await E(getDocumentView(sender)).query(message.content);
     logger.debug('user.processMessage:knowledge', knowledge);
@@ -267,10 +270,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   return Far('root', {
     /**
      * Initialize the vat's peer capabilities.
-     * 
+     *
      * @param {*} languageModel - A llm capability for next token generation.
      * @param {*} documentView - The default DocumentView.
-     * @returns A result object with some currently unutilized properties.
+     * @returns {Promise<object>} A result object with some currently unutilized properties.
      */
     async init(languageModel, documentView) {
       caps.languageModel = languageModel;
@@ -279,8 +282,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return { name, stream };
     },
 
-    getTrust(user) { return trust[user] ?? 0.0; },
-    setPeerDocumentView (peer, documentView) {
+    getTrust(user) {
+      return trust[user] ?? 0.0;
+    },
+    setPeerDocumentView(peer, documentView) {
       caps.documentViews.set(peer, documentView);
     },
 
@@ -288,11 +293,9 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       const message = { sender, recipient: name, content };
       const conversationHistory = getConversation(sender);
       pushMessage(message);
-      const response = await processMessage(
-        sender,
-        message,
+      const response = await processMessage(sender, message, {
         conversationHistory,
-      ).catch((problem) => {
+      }).catch((problem) => {
         logger.error(problem);
         return 'Error: bad brain';
       });

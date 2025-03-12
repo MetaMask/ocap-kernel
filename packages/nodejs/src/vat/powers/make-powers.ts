@@ -1,7 +1,7 @@
-import makeLoadDocument from './load-document';
-import type { Args as LoadDocumentArgs } from './load-document.js';
-import makeGetOllama from './ollama';
-import makeGetVectorStore from './vector-store';
+import makeLoadDocument from './load-document.ts';
+import type { Args as LoadDocumentArgs } from './load-document.ts';
+import makeGetOllama from './ollama.ts';
+import makeGetVectorStore from './vector-store.ts';
 
 type Args = {
   loadDocument?: LoadDocumentArgs;
