@@ -32,7 +32,7 @@ export const useStatusPolling = (
       try {
         const result = await sendMessage({
           method: 'getStatus',
-          params: null,
+          params: [],
         });
         if (isErrorResponse(result)) {
           throw new Error(result.error);

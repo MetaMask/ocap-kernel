@@ -1,17 +1,15 @@
+import { createAsyncMiddleware } from '@metamask/json-rpc-engine';
+import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine';
+import type { Json, JsonRpcParams } from '@metamask/utils';
 import { makeLogger } from '@ocap/utils';
-
-import type { Middleware } from '../command-registry.ts';
 
 export const logger = makeLogger('[kernel-commands]');
 
-export const loggingMiddleware: Middleware =
-  (next) =>
-  async (...args) => {
+export const loggingMiddleware: JsonRpcMiddleware<JsonRpcParams, Json> =
+  createAsyncMiddleware(async (_req, _res, next) => {
     const start = performance.now();
-    try {
-      return await next(...args);
-    } finally {
-      const duration = performance.now() - start;
-      logger.debug(`Command executed in ${duration}ms`);
-    }
-  };
+    // eslint-disable-next-line n/callback-return
+    await next();
+    const duration = performance.now() - start;
+    logger.debug(`Command executed in ${duration}ms`);
+  });

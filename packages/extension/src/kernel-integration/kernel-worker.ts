@@ -1,3 +1,4 @@
+import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import type {
   ClusterConfig,
   KernelCommand,
@@ -12,7 +13,8 @@ import {
 } from '@ocap/streams/browser';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
-import { handlePanelMessage } from './handle-panel-message.ts';
+import { createPanelMessageMiddleware } from './handle-panel-message.ts';
+import { loggingMiddleware } from './middleware/logging.ts';
 import { receiveUiConnections } from './ui-connections.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
@@ -55,10 +57,10 @@ async function main(): Promise<void> {
       resetStorage: true,
     },
   );
-  receiveUiConnections(
-    async (message) => handlePanelMessage(kernel, kernelDatabase, message),
-    logger,
-  );
+  const kernelEngine = new JsonRpcEngine();
+  kernelEngine.push(loggingMiddleware);
+  kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
+  receiveUiConnections(async (request) => kernelEngine.handle(request), logger);
 
   const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
     new URL('../vats/default-cluster.json', import.meta.url).href,
