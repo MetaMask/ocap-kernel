@@ -24,7 +24,10 @@ export function useKernelActions(): {
   const sendKernelCommand = useCallback(() => {
     sendMessage({
       method: 'sendVatCommand',
-      params: JSON.parse(messageContent),
+      params: {
+        id: null,
+        payload: JSON.parse(messageContent),
+      },
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));
@@ -36,7 +39,7 @@ export function useKernelActions(): {
   const terminateAllVats = useCallback(() => {
     sendMessage({
       method: 'terminateAllVats',
-      params: null,
+      params: [],
     })
       .then(() => logMessage('All vats terminated', 'success'))
       .catch(() => logMessage('Failed to terminate all vats', 'error'));
@@ -48,7 +51,7 @@ export function useKernelActions(): {
   const clearState = useCallback(() => {
     sendMessage({
       method: 'clearState',
-      params: null,
+      params: [],
     })
       .then(() => logMessage('State cleared', 'success'))
       .catch(() => logMessage('Failed to clear state', 'error'));
@@ -60,7 +63,7 @@ export function useKernelActions(): {
   const reload = useCallback(() => {
     sendMessage({
       method: 'reload',
-      params: null,
+      params: [],
     })
       .then(() => logMessage('Default sub-cluster reloaded', 'success'))
       .catch(() => logMessage('Failed to reload', 'error'));

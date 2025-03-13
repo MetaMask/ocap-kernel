@@ -7,9 +7,9 @@ import {
   is,
   string,
   record,
+  empty,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import {
   ClusterConfigStruct,
@@ -30,6 +30,8 @@ const KernelStatusStruct = type({
 
 export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
+const EmptyArrayStruct = empty(array(UnsafeJsonStruct));
+
 // Command payload structs
 export const KernelCommandPayloadStructs = {
   launchVat: object({
@@ -46,26 +48,26 @@ export const KernelCommandPayloadStructs = {
   }),
   terminateAllVats: object({
     method: literal('terminateAllVats'),
-    params: literal(null),
+    params: EmptyArrayStruct,
   }),
   getStatus: object({
     method: literal('getStatus'),
-    params: literal(null),
+    params: EmptyArrayStruct,
   }),
   reload: object({
     method: literal('reload'),
-    params: literal(null),
+    params: EmptyArrayStruct,
   }),
   sendVatCommand: object({
     method: literal('sendVatCommand'),
     params: object({
-      id: union([VatIdStruct, literal(undefined)]),
+      id: union([VatIdStruct, literal(null)]),
       payload: UnsafeJsonStruct,
     }),
   }),
   clearState: object({
     method: literal('clearState'),
-    params: literal(null),
+    params: EmptyArrayStruct,
   }),
   executeDBQuery: object({
     method: literal('executeDBQuery'),
@@ -84,91 +86,84 @@ export const KernelCommandPayloadStructs = {
 export const KernelReplyPayloadStructs = {
   launchVat: object({
     method: literal('launchVat'),
-    params: union([literal(null), object({ error: string() })]),
+    result: union([literal(null), object({ error: string() })]),
   }),
   restartVat: object({
     method: literal('restartVat'),
-    params: union([literal(null), object({ error: string() })]),
+    result: union([literal(null), object({ error: string() })]),
   }),
   terminateVat: object({
     method: literal('terminateVat'),
-    params: union([literal(null), object({ error: string() })]),
+    result: union([literal(null), object({ error: string() })]),
   }),
   terminateAllVats: object({
     method: literal('terminateAllVats'),
-    params: union([literal(null), object({ error: string() })]),
+    result: union([literal(null), object({ error: string() })]),
   }),
   getStatus: object({
     method: literal('getStatus'),
-    params: union([KernelStatusStruct, object({ error: string() })]),
+    result: union([KernelStatusStruct, object({ error: string() })]),
   }),
   reload: object({
     method: literal('reload'),
-    params: union([literal(null), object({ error: string() })]),
+    result: union([literal(null), object({ error: string() })]),
   }),
   sendVatCommand: object({
     method: literal('sendVatCommand'),
-    params: UnsafeJsonStruct,
+    result: UnsafeJsonStruct,
   }),
   clearState: object({
     method: literal('clearState'),
-    params: literal(null),
+    result: literal(null),
   }),
   executeDBQuery: object({
     method: literal('executeDBQuery'),
-    params: union([
+    result: union([
       array(record(string(), string())),
       object({ error: string() }),
     ]),
   }),
   updateClusterConfig: object({
     method: literal('updateClusterConfig'),
-    params: literal(null),
+    result: literal(null),
   }),
 } as const;
 
-const KernelControlCommandStruct = object({
-  id: string(),
-  payload: union([
-    KernelCommandPayloadStructs.launchVat,
-    KernelCommandPayloadStructs.restartVat,
-    KernelCommandPayloadStructs.terminateVat,
-    KernelCommandPayloadStructs.terminateAllVats,
-    KernelCommandPayloadStructs.getStatus,
-    KernelCommandPayloadStructs.reload,
-    KernelCommandPayloadStructs.sendVatCommand,
-    KernelCommandPayloadStructs.clearState,
-    KernelCommandPayloadStructs.executeDBQuery,
-    KernelCommandPayloadStructs.updateClusterConfig,
-  ]),
-});
+const KernelControlCommandStruct = union([
+  KernelCommandPayloadStructs.launchVat,
+  KernelCommandPayloadStructs.restartVat,
+  KernelCommandPayloadStructs.terminateVat,
+  KernelCommandPayloadStructs.terminateAllVats,
+  KernelCommandPayloadStructs.getStatus,
+  KernelCommandPayloadStructs.reload,
+  KernelCommandPayloadStructs.sendVatCommand,
+  KernelCommandPayloadStructs.clearState,
+  KernelCommandPayloadStructs.executeDBQuery,
+  KernelCommandPayloadStructs.updateClusterConfig,
+]);
 
-const KernelControlReplyStruct = object({
-  id: string(),
-  payload: union([
-    KernelReplyPayloadStructs.launchVat,
-    KernelReplyPayloadStructs.restartVat,
-    KernelReplyPayloadStructs.terminateVat,
-    KernelReplyPayloadStructs.terminateAllVats,
-    KernelReplyPayloadStructs.getStatus,
-    KernelReplyPayloadStructs.reload,
-    KernelReplyPayloadStructs.sendVatCommand,
-    KernelReplyPayloadStructs.clearState,
-    KernelReplyPayloadStructs.executeDBQuery,
-    KernelReplyPayloadStructs.updateClusterConfig,
-  ]),
-});
+const KernelControlReplyStruct = union([
+  KernelReplyPayloadStructs.launchVat,
+  KernelReplyPayloadStructs.restartVat,
+  KernelReplyPayloadStructs.terminateVat,
+  KernelReplyPayloadStructs.terminateAllVats,
+  KernelReplyPayloadStructs.getStatus,
+  KernelReplyPayloadStructs.reload,
+  KernelReplyPayloadStructs.sendVatCommand,
+  KernelReplyPayloadStructs.clearState,
+  KernelReplyPayloadStructs.executeDBQuery,
+  KernelReplyPayloadStructs.updateClusterConfig,
+]);
 
-export type KernelControlCommand = Infer<typeof KernelControlCommandStruct> &
-  Json;
+export type KernelControlCommand = Infer<typeof KernelControlCommandStruct>;
 export type KernelControlReply = Infer<typeof KernelControlReplyStruct>;
 
-export type KernelReplyParams<
+export type KernelControlResult<
   Method extends keyof typeof KernelReplyPayloadStructs,
-> = Infer<(typeof KernelReplyPayloadStructs)[Method]>['params'];
+> = Infer<(typeof KernelReplyPayloadStructs)[Method]>['result'];
 
 export type KernelControlReturnType = {
-  [Method in keyof typeof KernelReplyPayloadStructs]: KernelReplyParams<Method>;
+  [Method in keyof typeof KernelReplyPayloadStructs]: KernelControlResult<Method>;
 };
 
 export const isKernelControlCommand: TypeGuard<KernelControlCommand> = (

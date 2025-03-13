@@ -1,3 +1,4 @@
+import { isJsonRpcSuccess } from '@metamask/utils';
 import { MessageResolver } from '@ocap/kernel';
 
 import { logger } from './logger.ts';
@@ -9,7 +10,7 @@ import type {
 import { establishKernelConnection } from '../../kernel-integration/ui-connections.ts';
 
 export type SendMessageFunction = <Method extends KernelControlMethod>(
-  payload: Extract<KernelControlCommand['payload'], { method: Method }>,
+  command: Extract<KernelControlCommand, { method: Method }>,
 ) => Promise<KernelControlReturnType[Method]>;
 
 /**
@@ -34,8 +35,16 @@ export async function setupStream(): Promise<{
   window.addEventListener('unload', cleanup);
 
   kernelStream
-    .drain(async ({ id, payload }) => {
-      resolver.handleResponse(id, payload.params);
+    .drain(async (response) => {
+      if (typeof response.id !== 'string') {
+        throw new Error('Invalid response id');
+      }
+
+      if (isJsonRpcSuccess(response)) {
+        resolver.handleResponse(response.id, response.result);
+      } else {
+        resolver.handleResponse(response.id, response.error);
+      }
     })
     .catch((error) => {
       logger.error('error draining kernel stream', error);
@@ -46,9 +55,10 @@ export async function setupStream(): Promise<{
     logger.log('sending message', payload);
     return resolver.createMessage(async (messageId) => {
       await kernelStream.write({
+        ...payload,
         id: messageId,
-        payload,
-      } as KernelControlCommand);
+        jsonrpc: '2.0',
+      });
     });
   };
 
