@@ -22,7 +22,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 
   const counters = new Map();
 
-  const { readStreamFacet, makeStream, removeStream } = makeStreamMaker();
+  const { readStreamFacet, makeStream } = makeStreamMaker();
 
   const makeCounter = (start = 0, ms = 100) => {
     const { id, writer } = makeStream();
@@ -61,7 +61,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
     async stop(counterId) {
       verbose && logger.debug(`stopping [${counterId}]`);
       await getCounter(counterId).stop();
-      return removeStream(counterId);
+      return true;
     },
   });
 }

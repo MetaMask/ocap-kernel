@@ -26,6 +26,7 @@
     "demo:rag": "node ./dist/demo/rag/run.mjs",
     "demo:rag:ci": "./scripts/demo-rag-ci.sh",
     "demo:console": "node ./dist/demo/console/run.mjs",
+    "demo:console:ci": "./scripts/demo-console-ci.sh",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
