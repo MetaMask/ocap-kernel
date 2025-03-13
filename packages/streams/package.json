@@ -60,7 +60,7 @@
     "@endo/promise-kit": "^1.1.6",
     "@endo/stream": "^1.2.6",
     "@metamask/superstruct": "^3.1.0",
-    "@metamask/utils": "^11.0.1",
+    "@metamask/utils": "^11.3.0",
     "@ocap/errors": "workspace:^",
     "@ocap/utils": "workspace:^"
   },
