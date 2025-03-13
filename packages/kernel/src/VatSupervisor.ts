@@ -57,7 +57,7 @@ export class VatSupervisor {
   /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
-  /** An initialization routine for powers bestowed to this vat. */
+  /** Capability to create the powers for this vat. */
   readonly #makePowers: () => Promise<Record<string, unknown>>;
 
   /** Capability to fetch the bundle of code to run in this vat. */
@@ -73,7 +73,7 @@ export class VatSupervisor {
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.makeKVStore - Capability to create the store for this vat.
-   * @param params.makePowers - Capability to create powers this vat.
+   * @param params.makePowers - Capability to create the powers for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
   constructor({
