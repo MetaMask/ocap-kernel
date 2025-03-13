@@ -2260,8 +2260,13 @@ __metadata:
   resolution: "@ocap/nodejs@workspace:packages/nodejs"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.3"
+    "@endo/base64": "npm:^1.0.9"
     "@endo/eventual-send": "npm:^1.2.6"
+    "@endo/exo": "npm:^1.5.8"
+    "@endo/far": "npm:^1.1.9"
     "@endo/marshal": "npm:^1.6.2"
+    "@endo/pass-style": "npm:^1.4.7"
+    "@endo/patterns": "npm:^1.4.8"
     "@endo/promise-kit": "npm:^1.1.6"
     "@endo/stream": "npm:^1.2.6"
     "@langchain/core": "npm:^0.3.37"
