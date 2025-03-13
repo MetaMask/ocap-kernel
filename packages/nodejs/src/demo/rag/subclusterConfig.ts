@@ -57,6 +57,8 @@ export const makeSubclusterConfig = (verbose: boolean): ClusterConfig => {
     trust: {
       // Alice trusts Bob thoroughly
       bob: 1,
+      // Alice has never heard of Carol
+      // carol: ?
       // Alice does not trust Eve
       eve: 0,
     },
@@ -65,17 +67,33 @@ export const makeSubclusterConfig = (verbose: boolean): ClusterConfig => {
   const bobConfig = makeUserConfig('bob', {
     // Bob big brain
     model: 'deepseek-r1:7b-8k',
-    // Bob know much
+    // Bob know security
     docs: [
       { path: 'ambient-authority', secrecy: 0 },
       { path: 'confused-deputy-problem', secrecy: 0 },
-      { path: 'consensys-ipo', secrecy: 0.6 },
     ],
     trust: {
       // Bob trusts Alice well
       alice: 0.7,
+      // Bob trusts Carol well
+      carol: 1.0,
       // Bob does not trust Eve
       eve: 0,
+    },
+    verbose,
+  });
+  const carolConfig = makeUserConfig('carol', {
+    // Carol smol brain
+    model: 'deepseek-r1:1.5b',
+    // Carol know secrets
+    docs: [{ path: 'consensys-ipo', secrecy: 0.6 }],
+    trust: {
+      // Carol trusts Alice well
+      alice: 0.7,
+      // Carol trusts Bob well as well
+      bob: 0.7,
+      // Carol has never heard of Eve
+      // eve: ?
     },
     verbose,
   });
@@ -89,6 +107,8 @@ export const makeSubclusterConfig = (verbose: boolean): ClusterConfig => {
       alice: 0.2,
       // Eve trusts Bob very well
       bob: 0.9,
+      // Eve has never heard of Carol
+      // carol: ?
     },
     verbose,
   });
@@ -99,12 +119,13 @@ export const makeSubclusterConfig = (verbose: boolean): ClusterConfig => {
       boot: {
         bundleSpec: 'http://localhost:3000/boot.bundle',
         parameters: {
-          users: ['alice', 'bob', 'eve'],
+          users: ['alice', 'bob', 'carol', 'eve'],
           verbose,
         },
       },
       ...aliceConfig,
       ...bobConfig,
+      ...carolConfig,
       ...eveConfig,
     },
   };

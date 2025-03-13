@@ -1,6 +1,8 @@
 import { E } from '@endo/eventual-send';
 import { Far } from '@endo/marshal';
 
+import { mergeDocumentViews } from '../../../../dist/demo/rag/documents/view.mjs';
+
 /**
  * Build function for the LLM test vat.
  *
@@ -287,6 +289,21 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     },
     setPeerDocumentView(peer, documentView) {
       caps.documentViews.set(peer, documentView);
+    },
+    getPeerDocumentView(peer) {
+      return getDocumentView(peer);
+    },
+
+    /**
+     * Augment the knowledge of a peer with additional document views.
+     *
+     * @param {string} peer - The peer to augment the knowledge of.
+     * @param {import('../documents/view').DocumentView[]} documentViews - The document views to augment the knowledge with.
+     */
+    augmentKnowledge(peer, documentViews) {
+      const peerView = getDocumentView(peer);
+      const augmentedView = mergeDocumentViews(peerView, ...documentViews);
+      caps.documentViews.set(peer, augmentedView);
     },
 
     async message(sender, content) {

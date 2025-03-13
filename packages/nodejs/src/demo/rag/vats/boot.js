@@ -62,17 +62,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     //     B  .7  -  0
     //     E  .9  1  -
 
-    // Current Script
-    // --------------
-
-    // xAlice and xEve both ask xBob for public but specialized information
-    // xBob responds to both helpfully, using the RAG capability
-    // xAlice and xEve both ask xBob for private information
-    // xBob responds to xAlice with the information because Bob trusts Alice
-    // xBob responds to xEve with ignorance because Bob does not trust Eve
-
-    // Next Script
-    // -----------
+    // Script
+    // ------
 
     // xAlice asks xBob "/wen ConsenSys IPO?"
     // xBob doesn't know so he asks xCarol
@@ -81,31 +72,36 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     // xEve asks xBob "/wen ConsenSys IPO?"
     // Bob doesn't trust Eve, so xBob answers with ignorance
 
-    const interactWithBob = async (user) => {
-      let whatUserSaid = 'What is the "confused deputy problem"?';
-
-      showUserMessage(user, 'bob', whatUserSaid);
-
-      console.time(`bob:${user}`);
-      let whatBobSaid = await E(vats.bob).message(user, whatUserSaid);
-      await Promise.resolve();
-      console.timeEnd(`bob:${user}`);
-
-      showUserMessage('bob', user, whatBobSaid);
-
-      whatUserSaid = 'When does Consensys IPO?';
-
-      showUserMessage(user, 'bob', whatUserSaid);
-
-      console.time(`bob:${user}`);
-      whatBobSaid = await E(vats.bob).message(user, whatUserSaid);
-      await Promise.resolve();
-      console.timeEnd(`bob:${user}`);
-
-      showUserMessage('bob', user, whatBobSaid);
+    const askBob = async (user, message) => {
+      showUserMessage(user, 'bob', message);
+      const bobsResponse = await E(vats.bob).message(user, message);
+      showUserMessage('bob', user, bobsResponse);
     };
 
-    await Promise.all([interactWithBob('alice'), interactWithBob('eve')]);
+    const firstQuestion = 'When will ConsenSys IPO?';
+    display(
+      "Alice asks Bob about a private matter, and Bob doesn't know the answer.",
+    );
+    await askBob('alice', firstQuestion);
+    display(
+      "Similarly, Eve asks Bob about a private matter, and Bob doesn't know.",
+    );
+    await askBob('eve', firstQuestion);
+
+    display("Carol augments Bob's document view for Alice's use.");
+    await E(vats.bob).augmentKnowledge('alice', [
+      E(vats.carol).getPeerDocumentView('bob'),
+    ]);
+
+    const secondQuestion = 'Any news on the ConsenSys IPO?';
+    display(
+      'Alice asks Bob about a private matter once more, and this time, Bob knows and shares the answer!',
+    );
+    await askBob('alice', secondQuestion);
+    display(
+      'Eve asks Bob again, but as far as she can tell, Bob is just as oblivious as before.',
+    );
+    await askBob('eve', secondQuestion);
 
     display('Complete');
   };
