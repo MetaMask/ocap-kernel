@@ -3,6 +3,7 @@ import { Far } from '@endo/marshal';
 
 import { makeLogger } from '../../../../dist/demo/logger.mjs';
 import { makeInitUser } from '../../../../dist/demo/rag/user.mjs';
+import { makeRefReader } from '../../../../dist/ref-reader.mjs';
 
 /**
  * Build function for the LLM test vat.
@@ -15,7 +16,7 @@ import { makeInitUser } from '../../../../dist/demo/rag/user.mjs';
 export function buildRootObject(_vatPowers, parameters, _baggage) {
   const { verbose, users } = parameters;
 
-  const logger = makeLogger({ label: 'boot', verbose });
+  const logger = makeLogger({ label: '', verbose });
 
   const displayWithBanner = (title, content) => {
     const sep = ''.padStart(title.length, '-');
@@ -80,28 +81,33 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
 
     const firstQuestion = 'When will ConsenSys IPO?';
     display(
-      "Alice asks Bob about a private matter, and Bob doesn't know the answer.",
+      `Alice asks Bob about a private matter, and Bob doesn't know the answer.`,
     );
     await askBob('alice', firstQuestion);
+    /*
     display(
-      "Similarly, Eve asks Bob about a private matter, and Bob doesn't know.",
+      `Similarly, Eve asks Bob about a private matter, and Bob doesn't know.`,
     );
     await askBob('eve', firstQuestion);
+    */
 
-    display("Carol augments Bob's document view for Alice's use.");
+    display(`Bob's friend Carol shares the ConsenSys IPO date in the signal alpha channel.`);
+    showUserMessage('carol', 'bob', 'Peep the announcement from Cyber J.O.E. >_>');
     await E(vats.bob).augmentKnowledge('alice', [
       E(vats.carol).getPeerDocumentView('bob'),
     ]);
 
     const secondQuestion = 'Any news on the ConsenSys IPO?';
     display(
-      'Alice asks Bob about a private matter once more, and this time, Bob knows and shares the answer!',
+      `Alice asks Bob about a private matter once more, and this time Bob knows and shares the answer.`,
     );
     await askBob('alice', secondQuestion);
+    /*
     display(
-      'Eve asks Bob again, but as far as she can tell, Bob is just as oblivious as before.',
+      `Eve asks Bob again, too, but, as far as she can tell, Bob is just as oblivious as before.`,
     );
     await askBob('eve', secondQuestion);
+    */
 
     display('Complete');
   };

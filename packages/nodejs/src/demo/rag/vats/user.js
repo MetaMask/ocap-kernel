@@ -2,6 +2,7 @@ import { E } from '@endo/eventual-send';
 import { Far } from '@endo/marshal';
 
 import { mergeDocumentViews } from '../../../../dist/demo/rag/documents/view.mjs';
+import { makeReaderRef } from '../../../../dist/reader-ref.mjs';
 
 /**
  * Build function for the LLM test vat.
@@ -269,6 +270,12 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     return nextMessage;
   }
 
+  const helloWorldStreamGen = async function* () {
+    for await (const chunk of ['Hello', ' ', 'world', '!']) {
+      yield chunk;
+    }
+  };
+
   return Far('root', {
     /**
      * Initialize the vat's peer capabilities.
@@ -323,6 +330,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     async sendMessageTo(content, recipient) {
       pushMessage({ sender: name, recipient, content });
       return await E(recipient).message(name, content);
+    },
+
+    async helloWorldStream() {
+      return makeReaderRef(helloWorldStreamGen());
     },
   });
 }

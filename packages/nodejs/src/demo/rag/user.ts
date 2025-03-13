@@ -1,12 +1,17 @@
 import { E } from '@endo/eventual-send';
 import type { Logger } from '@ocap/utils';
 
+type MakeInitUser = (
+  user: string,
+  peers: string[],
+) => Promise<Record<string, unknown>>;
+
 export const makeInitUser = (
   // Importing the necessary type declaration is more trouble than it is worth.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   vats: Record<string, any>,
   logger: Logger,
-) => {
+): MakeInitUser => {
   console.debug('makeInitUser', JSON.stringify({ vats, logger }));
   return async (user: string, peers: string[]) => {
     logger.debug('initUser:user', user);
