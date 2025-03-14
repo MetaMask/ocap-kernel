@@ -12,68 +12,50 @@ describe('isKernelControlCommand', () => {
     [
       'launch vat command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'launchVat',
-          params: { sourceSpec: 'test.js' },
-        },
+        method: 'launchVat',
+        params: { sourceSpec: 'test.js' },
       },
       true,
     ],
     [
       'restart vat command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'restartVat',
-          params: { id: 'v0' },
-        },
+        method: 'restartVat',
+        params: { id: 'v0' },
       },
       true,
     ],
     [
       'terminate vat command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'terminateVat',
-          params: { id: 'v0' },
-        },
+        method: 'terminateVat',
+        params: { id: 'v0' },
       },
       true,
     ],
     [
       'terminate all vats command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'terminateAllVats',
-          params: null,
-        },
+        method: 'terminateAllVats',
+        params: [],
       },
       true,
     ],
     [
       'get status command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'getStatus',
-          params: null,
-        },
+        method: 'getStatus',
+        params: [],
       },
       true,
     ],
     [
       'send message command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'sendVatCommand',
-          params: {
-            id: 'v0',
-            payload: { test: 'data' },
-          },
+        method: 'sendVatCommand',
+        params: {
+          id: 'v0',
+          payload: { test: 'data' },
         },
       },
       true,
@@ -81,23 +63,17 @@ describe('isKernelControlCommand', () => {
     [
       'clear state command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'clearState',
-          params: null,
-        },
+        method: 'clearState',
+        params: [],
       },
       true,
     ],
     [
       'execute DB query command',
       {
-        id: 'test-1',
-        payload: {
-          method: 'executeDBQuery',
-          params: {
-            sql: 'SELECT * FROM test',
-          },
+        method: 'executeDBQuery',
+        params: {
+          sql: 'SELECT * FROM test',
         },
       },
       true,
@@ -136,40 +112,31 @@ describe('isKernelControlReply', () => {
     [
       'launch vat success reply',
       {
-        id: 'test-1',
-        payload: {
-          method: 'launchVat',
-          params: null,
-        },
+        method: 'launchVat',
+        result: null,
       },
       true,
     ],
     [
       'launch vat error reply',
       {
-        id: 'test-1',
-        payload: {
-          method: 'launchVat',
-          params: { error: 'Failed to launch vat' },
-        },
+        method: 'launchVat',
+        result: { error: 'Failed to launch vat' },
       },
       true,
     ],
     [
       'get status reply',
       {
-        id: 'test-1',
-        payload: {
-          method: 'getStatus',
-          params: {
-            clusterConfig,
-            vats: [
-              {
-                id: 'v0',
-                config: { sourceSpec: 'test.js' },
-              },
-            ],
-          },
+        method: 'getStatus',
+        result: {
+          clusterConfig,
+          vats: [
+            {
+              id: 'v0',
+              config: { sourceSpec: 'test.js' },
+            },
+          ],
         },
       },
       true,
@@ -177,11 +144,8 @@ describe('isKernelControlReply', () => {
     [
       'send message reply',
       {
-        id: 'test-1',
-        payload: {
-          method: 'sendVatCommand',
-          params: { result: 'success' },
-        },
+        method: 'sendVatCommand',
+        result: { result: 'success' },
       },
       true,
     ],
@@ -193,19 +157,16 @@ describe('isKernelControlReply', () => {
     [
       'invalid method',
       {
-        id: 'test',
-        payload: { method: 'invalidMethod' },
+        method: 'invalidMethod',
+        result: null,
       },
       false,
     ],
     [
-      'invalid params',
+      'invalid result',
       {
-        id: 'test',
-        payload: {
-          method: 'launchVat',
-          params: 'invalid',
-        },
+        method: 'launchVat',
+        result: 'invalid',
       },
       false,
     ],

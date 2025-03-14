@@ -24,10 +24,7 @@ export function useKernelActions(): {
   const sendKernelCommand = useCallback(() => {
     sendMessage({
       method: 'sendVatCommand',
-      params: {
-        id: null,
-        payload: JSON.parse(messageContent),
-      },
+      params: JSON.parse(messageContent),
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));

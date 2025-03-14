@@ -33,13 +33,13 @@ describe('useKernelActions', () => {
     it('sends message with payload', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
-      const expectedPayload = { test: 'content' };
+      const expectedParams = { test: 'content' };
       mockSendMessage.mockResolvedValueOnce({ success: true });
       result.current.sendKernelCommand();
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'sendVatCommand',
-          params: expectedPayload,
+          params: expectedParams,
         });
       });
     });
@@ -85,7 +85,7 @@ describe('useKernelActions', () => {
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'terminateAllVats',
-          params: null,
+          params: [],
         });
       });
       expect(mockLogMessage).toHaveBeenCalledWith(
@@ -121,7 +121,7 @@ describe('useKernelActions', () => {
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'clearState',
-          params: null,
+          params: [],
         });
       });
       expect(mockLogMessage).toHaveBeenCalledWith('State cleared', 'success');
@@ -154,7 +154,7 @@ describe('useKernelActions', () => {
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'reload',
-          params: null,
+          params: [],
         });
       });
       expect(mockLogMessage).toHaveBeenCalledWith(

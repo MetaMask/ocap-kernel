@@ -43,7 +43,7 @@ export async function setupStream(): Promise<{
       if (isJsonRpcSuccess(response)) {
         resolver.handleResponse(response.id, response.result);
       } else {
-        resolver.handleResponse(response.id, response.error);
+        resolver.handleResponse(response.id, response);
       }
     })
     .catch((error) => {

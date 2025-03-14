@@ -30,7 +30,7 @@ describe('getStatusHandler', () => {
     const result = await getStatusHandler.implementation(
       mockKernel,
       mockKernelDatabase,
-      null,
+      [],
     );
     expect(mockKernel.getVats).toHaveBeenCalledOnce();
     expect(result).toStrictEqual({ vats: mockVats, clusterConfig });

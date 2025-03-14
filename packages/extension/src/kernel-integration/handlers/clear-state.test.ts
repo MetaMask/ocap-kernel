@@ -23,7 +23,7 @@ describe('clearStateHandler', () => {
     const result = await clearStateHandler.implementation(
       mockKernel,
       mockKernelDatabase,
-      null,
+      [],
     );
     expect(mockKernel.reset).toHaveBeenCalledOnce();
     expect(result).toBeNull();
@@ -33,7 +33,7 @@ describe('clearStateHandler', () => {
     const error = new Error('Reset failed');
     vi.mocked(mockKernel.reset).mockRejectedValueOnce(error);
     await expect(
-      clearStateHandler.implementation(mockKernel, mockKernelDatabase, null),
+      clearStateHandler.implementation(mockKernel, mockKernelDatabase, []),
     ).rejects.toThrow(error);
   });
 });
