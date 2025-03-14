@@ -19,7 +19,7 @@ describe('terminateAllVatsHandler', () => {
     const result = await terminateAllVatsHandler.implementation(
       mockKernel,
       mockKernelDatabase,
-      null,
+      [],
     );
     expect(mockKernel.terminateAllVats).toHaveBeenCalledOnce();
     expect(result).toBeNull();
@@ -32,7 +32,7 @@ describe('terminateAllVatsHandler', () => {
       terminateAllVatsHandler.implementation(
         mockKernel,
         mockKernelDatabase,
-        null,
+        [],
       ),
     ).rejects.toThrow(error);
   });

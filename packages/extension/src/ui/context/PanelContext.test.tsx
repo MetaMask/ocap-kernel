@@ -11,8 +11,8 @@ vi.mock('../services/logger.ts', () => ({
   },
 }));
 
-vi.mock('../utils.ts', () => ({
-  isErrorResponse: vi.fn(),
+vi.mock('@metamask/utils', () => ({
+  isJsonRpcFailure: vi.fn(),
 }));
 
 vi.mock('../hooks/useStatusPolling.ts', () => ({
@@ -30,9 +30,9 @@ describe('PanelContext', () => {
       const payload = { test: 'data' };
       const response = { success: true };
       mockSendMessage.mockResolvedValueOnce(response);
-      vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
-        false,
-      );
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
           <PanelProvider sendMessage={mockSendMessage}>
@@ -53,9 +53,9 @@ describe('PanelContext', () => {
       const payload = { test: 'data' };
       const errorResponse = { error: 'Test error' };
       mockSendMessage.mockResolvedValueOnce(errorResponse);
-      vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
-        true,
-      );
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(true);
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
           <PanelProvider sendMessage={mockSendMessage}>

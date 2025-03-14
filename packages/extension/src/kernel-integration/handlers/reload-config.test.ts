@@ -19,7 +19,7 @@ describe('reloadConfigHandler', () => {
     const result = await reloadConfigHandler.implementation(
       mockKernel as Kernel,
       mockKernelDatabase,
-      null,
+      [],
     );
 
     expect(mockKernel.reload).toHaveBeenCalledTimes(1);
@@ -42,7 +42,7 @@ describe('reloadConfigHandler', () => {
       reloadConfigHandler.implementation(
         mockKernel as Kernel,
         mockKernelDatabase,
-        null,
+        [],
       ),
     ).rejects.toThrow(error);
   });

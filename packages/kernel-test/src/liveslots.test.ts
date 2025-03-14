@@ -1,6 +1,7 @@
 import '@ocap/shims/endoify';
 import { makePromiseKit } from '@endo/promise-kit';
 import { Kernel } from '@ocap/kernel';
+import type { ClusterConfig } from '@ocap/kernel';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
@@ -18,31 +19,35 @@ process.stdout.write = (buffer: string, encoding, callback): void => {
   origStdoutWrite(buffer, encoding, callback);
 };
 
-const testSubcluster = {
+const makeTestSubcluster = (
+  testName: string,
+  bundleSpec: string,
+): ClusterConfig => ({
   bootstrap: 'alice',
   forceReset: true,
+  bundles: null,
   vats: {
     alice: {
-      bundleSpec: 'bundle name',
+      bundleSpec,
       parameters: {
         name: 'Alice',
-        test: 'put the test name here',
+        test: testName,
       },
     },
     bob: {
-      bundleSpec: 'bundle name',
+      bundleSpec,
       parameters: {
         name: 'Bob',
       },
     },
     carol: {
-      bundleSpec: 'bundle name',
+      bundleSpec,
       parameters: {
         name: 'Carol',
       },
     },
   },
-};
+});
 
 describe('liveslots promise handling', () => {
   let kernel: Kernel;
@@ -73,11 +78,9 @@ describe('liveslots promise handling', () => {
       `${bundleName}.bundle`,
       import.meta.url,
     ).toString();
-    testSubcluster.vats.alice.parameters.test = testName;
-    testSubcluster.vats.alice.bundleSpec = bundleSpec;
-    testSubcluster.vats.bob.bundleSpec = bundleSpec;
-    testSubcluster.vats.carol.bundleSpec = bundleSpec;
-    const bootstrapResultRaw = await kernel.launchSubcluster(testSubcluster);
+    const bootstrapResultRaw = await kernel.launchSubcluster(
+      makeTestSubcluster(testName, bundleSpec),
+    );
 
     const { promise, resolve } = makePromiseKit();
     setTimeout(() => resolve(null), 1000);

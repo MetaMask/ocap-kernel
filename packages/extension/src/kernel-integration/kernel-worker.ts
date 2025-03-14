@@ -13,8 +13,8 @@ import {
 } from '@ocap/streams/browser';
 import { fetchValidatedJson, makeLogger } from '@ocap/utils';
 
-import { createPanelMessageMiddleware } from './handle-panel-message.ts';
 import { loggingMiddleware } from './middleware/logging.ts';
+import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 import { receiveUiConnections } from './ui-connections.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 

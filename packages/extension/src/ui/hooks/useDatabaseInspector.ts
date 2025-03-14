@@ -1,8 +1,8 @@
+import { hasProperty } from '@metamask/utils';
 import { stringify } from '@ocap/utils';
 import { useCallback, useEffect, useState } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { isErrorResponse } from '../utils.ts';
 
 /**
  * Hook for the database inspector.
@@ -31,7 +31,7 @@ export function useDatabaseInspector(): {
       })
         .then((result) => {
           logMessage(stringify(result, 0), 'received');
-          if (!isErrorResponse(result)) {
+          if (!hasProperty(result, 'error')) {
             setTableData(result);
           }
           return result;
@@ -49,8 +49,8 @@ export function useDatabaseInspector(): {
       method: 'executeDBQuery',
       params: { sql: "SELECT name FROM sqlite_master WHERE type='table'" },
     });
-    if (!isErrorResponse(result)) {
-      logMessage(stringify(result, 0), 'received');
+    logMessage(stringify(result, 0), 'received');
+    if (!hasProperty(result, 'error')) {
       const tableNames = result
         .map((row: Record<string, string>) => row.name)
         .filter((name): name is string => name !== undefined);
@@ -68,8 +68,8 @@ export function useDatabaseInspector(): {
         method: 'executeDBQuery',
         params: { sql: `SELECT * FROM ${tableName}` },
       });
-      if (!isErrorResponse(result)) {
-        logMessage(stringify(result, 0), 'received');
+      logMessage(stringify(result, 0), 'received');
+      if (!hasProperty(result, 'error')) {
         setTableData(result);
       }
     },

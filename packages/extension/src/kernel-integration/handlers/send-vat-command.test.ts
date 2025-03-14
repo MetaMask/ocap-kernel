@@ -33,15 +33,11 @@ describe('sendVatCommandHandler', () => {
   });
 
   it('should throw error when vat ID is missing', async () => {
-    const params = {
-      payload: { method: 'ping', params: null },
-    };
     await expect(
-      sendVatCommandHandler.implementation(
-        mockKernel,
-        mockKernelDatabase,
-        params,
-      ),
+      sendVatCommandHandler.implementation(mockKernel, mockKernelDatabase, {
+        id: null,
+        payload: { method: 'ping', params: null },
+      }),
     ).rejects.toThrow('Vat ID required for this command');
   });
 });

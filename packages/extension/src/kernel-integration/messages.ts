@@ -30,7 +30,7 @@ const KernelStatusStruct = type({
 
 export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
-const EmptyArrayStruct = empty(array(UnsafeJsonStruct));
+const EmptyJsonArrayStruct = empty(array(UnsafeJsonStruct));
 
 // Command payload structs
 export const KernelCommandPayloadStructs = {
@@ -48,15 +48,15 @@ export const KernelCommandPayloadStructs = {
   }),
   terminateAllVats: object({
     method: literal('terminateAllVats'),
-    params: EmptyArrayStruct,
+    params: EmptyJsonArrayStruct,
   }),
   getStatus: object({
     method: literal('getStatus'),
-    params: EmptyArrayStruct,
+    params: EmptyJsonArrayStruct,
   }),
   reload: object({
     method: literal('reload'),
-    params: EmptyArrayStruct,
+    params: EmptyJsonArrayStruct,
   }),
   sendVatCommand: object({
     method: literal('sendVatCommand'),
@@ -67,7 +67,7 @@ export const KernelCommandPayloadStructs = {
   }),
   clearState: object({
     method: literal('clearState'),
-    params: EmptyArrayStruct,
+    params: EmptyJsonArrayStruct,
   }),
   executeDBQuery: object({
     method: literal('executeDBQuery'),

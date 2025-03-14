@@ -4,10 +4,10 @@ import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
 import type { KernelDatabase } from '@ocap/store';
 
-import { KernelCommandRegistry } from './command-registry.ts';
-import type { CommandHandler } from './command-registry.ts';
-import { handlers } from './handlers/index.ts';
-import type { KernelControlCommand } from './messages.ts';
+import { KernelCommandRegistry } from '../command-registry.ts';
+import type { CommandHandler } from '../command-registry.ts';
+import { handlers } from '../handlers/index.ts';
+import type { KernelControlCommand } from '../messages.ts';
 
 const registry = new KernelCommandRegistry();
 

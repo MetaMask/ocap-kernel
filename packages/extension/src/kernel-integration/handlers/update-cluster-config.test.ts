@@ -1,4 +1,4 @@
-import type { Kernel } from '@ocap/kernel';
+import type { ClusterConfig, Kernel } from '@ocap/kernel';
 import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect } from 'vitest';
 
@@ -11,8 +11,10 @@ describe('updateClusterConfigHandler', () => {
 
   const mockKernelDatabase = {} as KernelDatabase;
 
-  const testConfig = {
+  const testConfig: ClusterConfig = {
     bootstrap: 'testVat',
+    forceReset: true,
+    bundles: null,
     vats: {
       testVat: {
         sourceSpec: 'test-source',
