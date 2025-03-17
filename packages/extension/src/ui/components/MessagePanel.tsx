@@ -40,7 +40,11 @@ export const MessagePanel: React.FC = () => {
     <div className={styles.outputSection}>
       <div className={styles.outputHeader}>
         <h4>Message History</h4>
-        <button className={styles.smallButton} onClick={clearLogs}>
+        <button
+          className={styles.smallButton}
+          data-testid="clear-logs-button"
+          onClick={clearLogs}
+        >
           Clear
         </button>
       </div>
@@ -65,7 +69,7 @@ export const MessagePanel: React.FC = () => {
             type="text"
             value={messageContent}
             onChange={(event) => setMessageContent(event.target.value)}
-            placeholder="Enter message (as JSON)"
+            placeholder="Enter sendVatCommand params (as JSON)"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && messageContent.trim()) {
                 sendKernelCommand();

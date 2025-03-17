@@ -236,4 +236,25 @@ test.describe('Vat Manager', () => {
       minimalClusterConfig.vats.main.parameters.name,
     );
   });
+
+  test('should send a message from the message panel', async () => {
+    await launchVat();
+    const clearLogsButton = popupPage.locator(
+      '[data-testid="clear-logs-button"]',
+    );
+    await clearLogsButton.click();
+    await popupPage.fill(
+      'input[placeholder="Enter sendVatCommand params (as JSON)"]',
+      `{
+        "id": "v1",
+        "payload": {
+          "method": "ping",
+          "params": null
+        }
+      }`,
+    );
+    await popupPage.click('button:text("Send")');
+    await expect(popupPage.locator('#root')).toContainText('"method": "ping",');
+    await expect(popupPage.locator('#root')).toContainText('{"result":"pong"}');
+  });
 });

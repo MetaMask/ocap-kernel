@@ -16,8 +16,7 @@ export function useKernelActions(): {
   launchVat: (bundleUrl: string, vatName: string) => void;
   updateClusterConfig: (config: ClusterConfig) => Promise<void>;
 } {
-  const { sendMessage, logMessage, messageContent, selectedVatId } =
-    usePanelContext();
+  const { sendMessage, logMessage, messageContent } = usePanelContext();
 
   /**
    * Sends a kernel command.
@@ -25,14 +24,11 @@ export function useKernelActions(): {
   const sendKernelCommand = useCallback(() => {
     sendMessage({
       method: 'sendVatCommand',
-      params: {
-        payload: JSON.parse(messageContent),
-        ...(selectedVatId ? { id: selectedVatId } : {}),
-      },
+      params: JSON.parse(messageContent),
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));
-  }, [messageContent, selectedVatId, sendMessage, logMessage]);
+  }, [messageContent, sendMessage, logMessage]);
 
   /**
    * Terminates all vats.

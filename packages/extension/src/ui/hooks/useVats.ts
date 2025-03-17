@@ -13,14 +13,11 @@ import type { VatRecord } from '../types.ts';
  */
 export const useVats = (): {
   vats: VatRecord[];
-  selectedVatId: VatId | undefined;
-  setSelectedVatId: (id: VatId | undefined) => void;
   pingVat: (id: VatId) => void;
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
 } => {
-  const { sendMessage, status, selectedVatId, setSelectedVatId, logMessage } =
-    usePanelContext();
+  const { sendMessage, status, logMessage } = usePanelContext();
 
   const vats = useMemo(() => {
     return (
@@ -90,8 +87,6 @@ export const useVats = (): {
 
   return {
     vats,
-    selectedVatId,
-    setSelectedVatId,
     pingVat,
     restartVat,
     terminateVat,

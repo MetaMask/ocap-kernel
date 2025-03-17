@@ -1,4 +1,3 @@
-import type { VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { createContext, useCallback, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -23,8 +22,6 @@ export type PanelContextType = {
   messageContent: string;
   setMessageContent: (content: string) => void;
   panelLogs: PanelLog[];
-  selectedVatId: VatId | undefined;
-  setSelectedVatId: (id: VatId | undefined) => void;
   clearLogs: () => void;
 };
 
@@ -36,7 +33,6 @@ export const PanelProvider: React.FC<{
 }> = ({ children, sendMessage }) => {
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
-  const [selectedVatId, setSelectedVatId] = useState<VatId | undefined>();
 
   const logMessage = useCallback(
     (message: string, type: OutputType = 'received'): void => {
@@ -77,8 +73,6 @@ export const PanelProvider: React.FC<{
         messageContent,
         setMessageContent,
         panelLogs,
-        selectedVatId,
-        setSelectedVatId,
         clearLogs,
       }}
     >
