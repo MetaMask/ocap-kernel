@@ -146,9 +146,9 @@ test.describe('Vat Manager', () => {
     );
     await clearLogsButton.click();
     await popupPage.click('button:text("Reload Kernel")');
-    await expect(
-      popupPage.locator('[data-testid="notification-message"]'),
-    ).toContainText('Default sub-cluster reloaded', { timeout: 10000 });
+    await expect(popupPage.locator('#root')).toContainText(
+      'Default sub-cluster reloaded',
+    );
     // Verify the table is visible and has the correct number of rows (header + vats)
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
