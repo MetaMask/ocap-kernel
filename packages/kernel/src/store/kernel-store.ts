@@ -56,7 +56,7 @@
 import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
-import type { KVStore } from '@ocap/store';
+import type { KVStore, VatStore, KernelDatabase } from '@ocap/store';
 
 import type {
   VatId,
@@ -152,22 +152,25 @@ export function parseRef(ref: string): RefParts {
 }
 
 /**
- * Create a new KernelStore object wrapped around a simple string-to-string
- * key/value store. The resulting object provides a variety of operations for
- * accessing various kernel-relevent persistent data structure abstractions on
- * their own terms, without burdening the kernel with the particular details of
- * how they are stored.  It is our hope that these operations may be later
- * reimplemented on top of a more sophisticated storage layer that can realize
+ * Create a new KernelStore object wrapped around a raw kernel database. The
+ * resulting object provides a variety of operations for accessing various
+ * kernel-relevent persistent data structure abstractions on their own terms,
+ * without burdening the kernel with the particular details of how they are
+ * represented in storage.  It is our hope that these operations may be later
+ * reimplemented on top of a more sophisticated database layer that can realize
  * them more directly (and thus, one hopes, more efficiently) without requiring
  * the kernel itself to be any the wiser.
  *
- * @param kv - A key/value store to provide the underlying persistence mechanism.
+ * @param kdb - The kernel database this store is based on.
  * @returns A KernelStore object that maps various persistent kernel data
- * structures onto `kv`.
+ * structures onto `kdb`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeKernelStore(kv: KVStore) {
+export function makeKernelStore(kdb: KernelDatabase) {
   // Initialize core state
+
+  /** KV store in which all the kernel's own state is kept. */
+  const kv: KVStore = kdb.kernelKVStore;
 
   /** The kernel's run queue. */
   let runQueue = createStoredQueue('run', true);
@@ -764,10 +767,28 @@ export function makeKernelStore(kv: KVStore) {
   }
 
   /**
-   * Clear the kernel's persistent state and reset all counters.
+   * Delete everything from the database.
+   */
+  function clear(): void {
+    kdb.clear();
+  }
+
+  /**
+   * Create a new VatStore for a vat.
+   *
+   * @param vatID - The vat for which this is being done.
+   *
+   * @returns a a VatStore object for the given vat.
+   */
+  function makeVatStore(vatID: string): VatStore {
+    return kdb.makeVatStore(vatID);
+  }
+
+  /**
+   * Reset the kernel's persistent queues and counters.
    */
   function reset(): void {
-    kv.clear();
+    kdb.clear();
     runQueue = createStoredQueue('run', true);
     nextVatId = provideCachedStoredValue('nextVatId', '1');
     nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
@@ -802,6 +823,8 @@ export function makeKernelStore(kv: KVStore) {
     addClistEntry,
     forgetEref,
     forgetKref,
+    clear,
+    makeVatStore,
     reset,
     kv,
   });

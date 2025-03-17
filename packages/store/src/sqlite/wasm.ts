@@ -1,9 +1,10 @@
+import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
-import type { Database } from '@sqlite.org/sqlite-wasm';
+import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { SQL_QUERIES } from './common.ts';
-import type { KVStore } from '../types.ts';
+import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
  * Ensure that SQLite is initialized.
@@ -22,25 +23,30 @@ async function initDB(dbFilename: string): Promise<Database> {
 }
 
 /**
- * Makes a {@link KVStore} for low-level persistent storage.
+ * Helper function to paper over SQLite-wasm awfulness.  Runs a prepared
+ * statement as it would be run in a more sensible API.
  *
- * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param verbose - If true, generate logger output; if false, be quiet.
- * @returns A key/value store to base higher level stores on.
+ * @param stmt - A prepared statement to run.
+ * @param bindings - Optional parameters to bind for execution.
  */
-export async function makeSQLKVStore(
-  dbFilename: string = 'store.db',
-  label: string = '[sqlite]',
-  verbose: boolean = false,
-): Promise<KVStore> {
-  const logger = makeLogger(label);
-  const db = await initDB(dbFilename);
-
-  if (verbose) {
-    logger.log('Initializing kv store');
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function run(stmt: PreparedStatement, ...bindings: string[]): void {
+  if (bindings && bindings.length > 0) {
+    stmt.bind(bindings);
   }
+  stmt.step();
+  stmt.reset();
+}
 
+/**
+ * Makes a {@link KVStore} on top of a SQLite database
+ *
+ * @param db - The (open) database to use.
+ * @param logger - A logger object for recording activity.
+ * @param label - Label string for this store, for use in log messages.
+ * @returns A key/value store using the given database.
+ */
+function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
   db.exec(SQL_QUERIES.CREATE_TABLE);
 
   const sqlKVGet = db.prepare(SQL_QUERIES.GET);
@@ -122,10 +128,44 @@ export async function makeSQLKVStore(
     sqlKVDelete.reset();
   }
 
+  return {
+    get: (key) => kvGet(key, false),
+    getNextKey: kvGetNextKey,
+    getRequired: (key) => kvGet(key, true) as string,
+    set: kvSet,
+    delete: kvDelete,
+  };
+}
+
+/**
+ * Makes a {@link KernelDatabase} for low-level persistent storage.
+ *
+ * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose - If true, generate logger output; if false, be quiet.
+ * @returns A key/value store to base higher level stores on.
+ */
+export async function makeSQLKernelDatabase(
+  dbFilename: string = 'store.db',
+  label: string = '[sqlite]',
+  verbose: boolean = false,
+): Promise<KernelDatabase> {
+  const logger = makeLogger(label);
+  const db = await initDB(dbFilename);
+
+  if (verbose) {
+    logger.log('Initializing kernel store');
+  }
+
+  const kvStore = makeKVStore(db, logger, label);
+
+  db.exec(SQL_QUERIES.CREATE_TABLE_VS);
+
   const sqlKVClear = db.prepare(SQL_QUERIES.CLEAR);
+  const sqlKVClearVS = db.prepare(SQL_QUERIES.CLEAR_VS);
 
   /**
-   * Delete all entries from the database.
+   * Delete everything from the database.
    */
   function kvClear(): void {
     if (verbose) {
@@ -133,6 +173,8 @@ export async function makeSQLKVStore(
     }
     sqlKVClear.step();
     sqlKVClear.reset();
+    sqlKVClearVS.step();
+    sqlKVClearVS.reset();
   }
 
   /**
@@ -162,13 +204,83 @@ export async function makeSQLKVStore(
     return results;
   }
 
+  const sqlVatstoreGetAll = db.prepare(SQL_QUERIES.GET_ALL_VS);
+  const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
+  const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
+  const sqlBeginTransaction = db.prepare(SQL_QUERIES.BEGIN_TRANSACTION);
+  const sqlCommitTransaction = db.prepare(SQL_QUERIES.COMMIT_TRANSACTION);
+  const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
+
+  /**
+   * Create a new VatStore for a vat.
+   *
+   * @param vatID - The vat for which this is being done.
+   *
+   * @returns a a VatStore object for the given vat.
+   */
+  function makeVatStore(vatID: string): VatStore {
+    /**
+     * Fetch all the data in the vatstore.
+     *
+     * @returns the vatstore contents as a key-value Map.
+     */
+    function getKVData(): Map<string, string> {
+      const result = new Map<string, string>();
+      sqlVatstoreGetAll.bind([vatID]);
+      try {
+        while (sqlVatstoreGetAll.step()) {
+          const key = sqlVatstoreGetAll.getString(0) as string;
+          const value = sqlVatstoreGetAll.getString(1) as string;
+          result.set(key, value);
+        }
+      } finally {
+        sqlVatstoreGetAll.reset();
+      }
+      return result;
+    }
+
+    /**
+     * Update the state of the vatstore
+     *
+     * @param sets - A map of key values that have been changed.
+     * @param deletes - A set of keys that have been deleted.
+     */
+    function updateKVData(
+      sets: Map<string, string>,
+      deletes: Set<string>,
+    ): void {
+      try {
+        sqlBeginTransaction.step();
+        sqlBeginTransaction.reset();
+        for (const [key, value] of sets.entries()) {
+          sqlVatstoreSet.bind([vatID, key, value]);
+          sqlVatstoreSet.step();
+          sqlVatstoreSet.reset();
+        }
+        for (const value of deletes.values()) {
+          sqlVatstoreDelete.bind([vatID, value]);
+          sqlVatstoreDelete.step();
+          sqlVatstoreDelete.reset();
+        }
+        sqlCommitTransaction.step();
+        sqlCommitTransaction.reset();
+      } catch (problem) {
+        sqlAbortTransaction.step();
+        sqlAbortTransaction.reset();
+        throw problem;
+      }
+    }
+
+    return {
+      getKVData,
+      updateKVData,
+    };
+  }
+
   return {
-    get: (key) => kvGet(key, false),
-    getNextKey: kvGetNextKey,
-    getRequired: (key) => kvGet(key, true) as string,
-    set: kvSet,
-    delete: kvDelete,
+    kernelKVStore: kvStore,
     clear: kvClear,
     executeQuery,
+    makeVatStore,
   };
 }

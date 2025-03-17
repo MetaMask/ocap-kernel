@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { reloadConfigHandler } from './reload-config.ts';
@@ -9,7 +9,7 @@ describe('reloadConfigHandler', () => {
     reload: vi.fn().mockResolvedValue(undefined),
   } as Partial<Kernel>;
 
-  const mockKVStore = {} as KVStore;
+  const mockKernelDatabase = {} as KernelDatabase;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -18,7 +18,7 @@ describe('reloadConfigHandler', () => {
   it('should call kernel.reload() and return null', async () => {
     const result = await reloadConfigHandler.implementation(
       mockKernel as Kernel,
-      mockKVStore,
+      mockKernelDatabase,
       null,
     );
 
@@ -41,7 +41,7 @@ describe('reloadConfigHandler', () => {
     await expect(
       reloadConfigHandler.implementation(
         mockKernel as Kernel,
-        mockKVStore,
+        mockKernelDatabase,
         null,
       ),
     ).rejects.toThrow(error);

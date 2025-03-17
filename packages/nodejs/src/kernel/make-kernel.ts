@@ -1,6 +1,6 @@
 import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
 import { Kernel } from '@ocap/kernel';
-import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
+import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
@@ -26,12 +26,17 @@ export async function makeKernel(
   const vatWorkerClient = new NodejsVatWorkerService({ workerFilePath });
 
   // Initialize kernel store.
-  const kvStore = await makeSQLKVStore();
+  const kernelDatabase = await makeSQLKernelDatabase();
 
   // Create and start kernel.
-  const kernel = await Kernel.make(nodeStream, vatWorkerClient, kvStore, {
-    resetStorage,
-  });
+  const kernel = await Kernel.make(
+    nodeStream,
+    vatWorkerClient,
+    kernelDatabase,
+    {
+      resetStorage,
+    },
+  );
 
   return kernel;
 }

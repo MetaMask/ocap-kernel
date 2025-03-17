@@ -1,26 +1,26 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { loggingMiddleware, logger } from './logging.ts';
 
 describe('loggingMiddleware', () => {
-  const mockKVStore = {} as unknown as KVStore;
+  const mockKernelDatabase = {} as unknown as KernelDatabase;
   const mockKernel = {} as unknown as Kernel;
 
   it('should call the next function with the provided arguments', async () => {
     const next = vi.fn();
     const middleware = loggingMiddleware(next);
     const params = { arg1: 'arg1', arg2: 'arg2' };
-    await middleware(mockKernel, mockKVStore, params);
-    expect(next).toHaveBeenCalledWith(mockKernel, mockKVStore, params);
+    await middleware(mockKernel, mockKernelDatabase, params);
+    expect(next).toHaveBeenCalledWith(mockKernel, mockKernelDatabase, params);
   });
 
   it('should return the result from the next function', async () => {
     const expectedResult = 'test result';
     const next = vi.fn().mockResolvedValue(expectedResult);
     const middleware = loggingMiddleware(next);
-    const result = await middleware(mockKernel, mockKVStore, {});
+    const result = await middleware(mockKernel, mockKernelDatabase, {});
     expect(result).toBe(expectedResult);
   });
 
@@ -33,7 +33,7 @@ describe('loggingMiddleware', () => {
         }),
     );
     const middleware = loggingMiddleware(next);
-    await middleware(mockKernel, mockKVStore, {});
+    await middleware(mockKernel, mockKernelDatabase, {});
     expect(debugSpy).toHaveBeenCalledWith(
       expect.stringMatching(/Command executed in \d*\.?\d+ms/u),
     );
@@ -44,9 +44,9 @@ describe('loggingMiddleware', () => {
     const error = new Error('Test error');
     const next = vi.fn().mockRejectedValue(error);
     const middleware = loggingMiddleware(next);
-    await expect(middleware(mockKernel, mockKVStore, {})).rejects.toThrow(
-      error,
-    );
+    await expect(
+      middleware(mockKernel, mockKernelDatabase, {}),
+    ).rejects.toThrow(error);
     expect(debugSpy).toHaveBeenCalledWith(
       expect.stringMatching(/Command executed in \d*\.?\d+ms/u),
     );

@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KVStore } from '@ocap/store';
+import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { clearStateHandler } from './clear-state.ts';
@@ -9,7 +9,7 @@ describe('clearStateHandler', () => {
     reset: vi.fn().mockResolvedValue(undefined),
   } as unknown as Kernel;
 
-  const mockKVStore = {} as unknown as KVStore;
+  const mockKernelDatabase = {} as unknown as KernelDatabase;
 
   it('should have the correct method', () => {
     expect(clearStateHandler.method).toBe('clearState');
@@ -22,7 +22,7 @@ describe('clearStateHandler', () => {
   it('should call kernel.reset() and return null', async () => {
     const result = await clearStateHandler.implementation(
       mockKernel,
-      mockKVStore,
+      mockKernelDatabase,
       null,
     );
     expect(mockKernel.reset).toHaveBeenCalledOnce();
@@ -33,7 +33,7 @@ describe('clearStateHandler', () => {
     const error = new Error('Reset failed');
     vi.mocked(mockKernel.reset).mockRejectedValueOnce(error);
     await expect(
-      clearStateHandler.implementation(mockKernel, mockKVStore, null),
+      clearStateHandler.implementation(mockKernel, mockKernelDatabase, null),
     ).rejects.toThrow(error);
   });
 });
