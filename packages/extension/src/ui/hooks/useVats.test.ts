@@ -186,11 +186,4 @@ describe('useVats', () => {
       });
     });
   });
-
-  it('should expose selectedVatId and setSelectedVatId', async () => {
-    const { useVats } = await import('./useVats.ts');
-    const { result } = renderHook(() => useVats());
-    expect(result.current.selectedVatId).toBe(mockVatId);
-    expect(result.current.setSelectedVatId).toBe(mockSetSelectedVatId);
-  });
 });

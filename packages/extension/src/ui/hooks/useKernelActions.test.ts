@@ -15,7 +15,6 @@ describe('useKernelActions', () => {
   const mockSendMessage = vi.fn();
   const mockLogMessage = vi.fn();
   const mockMessageContent = '{"test": "content"}';
-  const mockSelectedVatId = 'v1';
 
   beforeEach(async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
@@ -23,61 +22,24 @@ describe('useKernelActions', () => {
       sendMessage: mockSendMessage,
       logMessage: mockLogMessage,
       messageContent: mockMessageContent,
-      selectedVatId: mockSelectedVatId,
       setMessageContent: vi.fn(),
       status: undefined,
       panelLogs: [],
-      setSelectedVatId: vi.fn(),
       clearLogs: vi.fn(),
     });
   });
 
   describe('sendKernelCommand', () => {
-    it('sends message with payload and selected vat ID', async () => {
+    it('sends message with payload', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       const expectedPayload = { test: 'content' };
-
       mockSendMessage.mockResolvedValueOnce({ success: true });
-
       result.current.sendKernelCommand();
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'sendVatCommand',
-          params: {
-            payload: expectedPayload,
-            id: mockSelectedVatId,
-          },
-        });
-      });
-    });
-
-    it('sends message without vat ID when none selected', async () => {
-      const { usePanelContext } = await import('../context/PanelContext.tsx');
-      vi.mocked(usePanelContext).mockReturnValue({
-        sendMessage: mockSendMessage,
-        logMessage: mockLogMessage,
-        messageContent: mockMessageContent,
-        selectedVatId: undefined,
-        setMessageContent: vi.fn(),
-        status: undefined,
-        panelLogs: [],
-        setSelectedVatId: vi.fn(),
-        clearLogs: vi.fn(),
-      });
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      const expectedPayload = { test: 'content' };
-
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-
-      result.current.sendKernelCommand();
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendVatCommand',
-          params: {
-            payload: expectedPayload,
-          },
+          params: expectedPayload,
         });
       });
     });

@@ -54,7 +54,7 @@ describe('MessagePanel Component', () => {
     expect(screen.getByText('Message History')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText('Enter message (as JSON)'),
+      screen.getByPlaceholderText('Enter sendVatCommand params (as JSON)'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
@@ -90,7 +90,9 @@ describe('MessagePanel Component', () => {
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
-    const inputField = screen.getByPlaceholderText('Enter message (as JSON)');
+    const inputField = screen.getByPlaceholderText(
+      'Enter sendVatCommand params (as JSON)',
+    );
     await userEvent.click(inputField);
     await userEvent.keyboard('{Enter}');
     expect(sendKernelCommand).toHaveBeenCalledTimes(1);
@@ -123,7 +125,9 @@ describe('MessagePanel Component', () => {
   it('updates messageContent state when typing in the input field', async () => {
     const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
-    const inputField = screen.getByPlaceholderText('Enter message (as JSON)');
+    const inputField = screen.getByPlaceholderText(
+      'Enter sendVatCommand params (as JSON)',
+    );
     await userEvent.type(inputField, 'T');
     expect(setMessageContent).toHaveBeenLastCalledWith('T');
   });
