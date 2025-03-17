@@ -28,11 +28,12 @@ import { waitUntilQuiescent } from './waitUntilQuiescent.ts';
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
 // eslint-disable-next-line n/no-unsupported-features/node-builtins
-type FetchBlob = (bundleURL: string) => Promise<Response>;
+export type FetchBlob = (bundleURL: string) => Promise<Response>;
 
 type SupervisorConstructorProps = {
   id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
+  vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
 };
 
@@ -56,6 +57,9 @@ export class VatSupervisor {
   /** In-memory KVStore cache for this vat. */
   #vatKVStore: VatKVStore | undefined;
 
+  /** External capabilities for this vat. */
+  readonly #vatPowers: Record<string, unknown>;
+
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
 
@@ -68,14 +72,21 @@ export class VatSupervisor {
    * @param params - Named constructor parameters.
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
+   * @param params.vatPowers - The external capabilities for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
-  constructor({ id, commandStream, fetchBlob }: SupervisorConstructorProps) {
+  constructor({
+    id,
+    commandStream,
+    vatPowers,
+    fetchBlob,
+  }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
+    this.#vatPowers = vatPowers ?? {};
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
-      fetch(bundleURL);
+      await fetch(bundleURL);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
 
     Promise.all([
@@ -215,7 +226,6 @@ export class VatSupervisor {
 
     this.#vatKVStore = makeVatKVStore(state);
     const syscall = makeSupervisorSyscall(this, this.#vatKVStore);
-    const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
@@ -239,7 +249,6 @@ export class VatSupervisor {
       throw Error(`fetch of user code ${bundleSpec} failed: ${fetched.status}`);
     }
     const bundle = await fetched.json();
-
     const buildVatNamespace = async (
       lsEndowments: object,
       inescapableGlobalProperties: object,
@@ -255,7 +264,7 @@ export class VatSupervisor {
     const liveslots = makeLiveSlots(
       syscall,
       this.id,
-      vatPowers,
+      this.#vatPowers,
       liveSlotsOptions,
       gcTools,
       console,

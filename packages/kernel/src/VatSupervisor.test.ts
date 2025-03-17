@@ -7,9 +7,27 @@ import { VatCommandMethod } from './messages/index.ts';
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 
-const makeVatSupervisor = async (
-  handleWrite: (input: unknown) => void | Promise<void> = () => undefined,
-): Promise<{
+vi.mock('./syscall.ts', () => ({
+  makeSupervisorSyscall: vi.fn(() => ({
+    vatstoreGet: () => '{ "ok": true }',
+    vatstoreSet: vi.fn(),
+  })),
+}));
+
+vi.mock('@agoric/swingset-liveslots', () => ({
+  makeLiveSlots: vi.fn(() => ({
+    dispatch: vi.fn(),
+    makeVat: vi.fn(),
+  })),
+}));
+
+const makeVatSupervisor = async ({
+  handleWrite = () => undefined,
+  vatPowers = {},
+}: {
+  handleWrite?: (input: unknown) => void | Promise<void>;
+  vatPowers?: Record<string, unknown>;
+}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<VatCommand, VatCommandReply>;
 }> => {
@@ -21,8 +39,7 @@ const makeVatSupervisor = async (
     supervisor: new VatSupervisor({
       id: 'test-id',
       commandStream,
-      // @ts-expect-error Mock
-      makeKVStore: async () => ({}),
+      vatPowers,
     }),
     stream: commandStream,
   };
@@ -31,13 +48,13 @@ const makeVatSupervisor = async (
 describe('VatSupervisor', () => {
   describe('init', () => {
     it('initializes the VatSupervisor correctly', async () => {
-      const { supervisor } = await makeVatSupervisor();
+      const { supervisor } = await makeVatSupervisor({});
       expect(supervisor).toBeInstanceOf(VatSupervisor);
       expect(supervisor.id).toBe('test-id');
     });
 
     it('throws if the stream throws', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor({});
       const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
@@ -50,7 +67,7 @@ describe('VatSupervisor', () => {
 
   describe('handleMessage', () => {
     it('throws if receiving an unexpected message', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor({});
 
       const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput({
@@ -66,7 +83,7 @@ describe('VatSupervisor', () => {
     });
 
     it('handles Ping messages', async () => {
-      const { supervisor } = await makeVatSupervisor();
+      const { supervisor } = await makeVatSupervisor({});
       const replySpy = vi.spyOn(supervisor, 'replyToMessage');
 
       await supervisor.handleMessage({
@@ -81,7 +98,7 @@ describe('VatSupervisor', () => {
     });
 
     it('handles unknown message types', async () => {
-      const { supervisor } = await makeVatSupervisor();
+      const { supervisor } = await makeVatSupervisor({});
 
       await expect(
         supervisor.handleMessage({
@@ -95,7 +112,7 @@ describe('VatSupervisor', () => {
 
   describe('terminate', () => {
     it('terminates correctly', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
+      const { supervisor, stream } = await makeVatSupervisor({});
 
       await supervisor.terminate();
       expect(await stream.next()).toStrictEqual({
