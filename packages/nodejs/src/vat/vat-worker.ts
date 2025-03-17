@@ -7,9 +7,11 @@ import { makeLogger } from '@ocap/utils';
 import fs from 'node:fs/promises';
 import url from 'node:url';
 
+import makePowers from './powers/make-powers.ts';
 import { makeCommandStream } from './streams.ts';
 
-const vatId = process.env.NODE_VAT_ID as VatId;
+const vatId: VatId = process.env.NODE_VAT_ID as VatId;
+const documentRoot = process.env.NODE_DOCUMENT_ROOT as string;
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
@@ -44,11 +46,27 @@ async function fetchBlob(blobURL: string): Promise<Response> {
 async function main(): Promise<void> {
   const commandStream = makeCommandStream();
   await commandStream.synchronize();
+
+  const ollamaUrl = 'http://localhost:11434';
+
   // eslint-disable-next-line no-void
   void new VatSupervisor({
     id: vatId,
     commandStream,
     makeKVStore: makeSQLKVStore,
+    // XXX This makes duplicate powers, even for vats that don't need them >:[
+    // Some method is necessary for designating the appropriate powers when the
+    // kernel is starting the vat. Running software doesn't need full isolation;
+    // only its access within the program must be attenuated by some tame facade.
+    makePowers: async () =>
+      await makePowers({
+        loadDocument: { root: documentRoot },
+        ollama: { host: ollamaUrl },
+        vectorStore: {
+          host: ollamaUrl,
+          model: (process.env.EMBED_MODEL as string) ?? undefined,
+        },
+      }),
     fetchBlob,
   });
 }

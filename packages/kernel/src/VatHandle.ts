@@ -27,6 +27,8 @@ import type {
   RunQueueItemSend,
 } from './types.ts';
 
+const VERBOSE = false;
+
 type VatConstructorProps = {
   kernel: Kernel;
   vatId: VatId;
@@ -35,6 +37,10 @@ type VatConstructorProps = {
   storage: KernelStore;
   logger?: Logger | undefined;
 };
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const clip = (content: string, length = 10) =>
+  `${content.substring(0, length)}${content.length > length ? '...' : ''}`;
 
 export class VatHandle {
   /** The ID of the vat this is the VatHandle for */
@@ -323,12 +329,14 @@ export class VatHandle {
     const kso: VatSyscallObject = this.#translateSyscallVtoK(vso);
     const [op] = kso;
     const { vatId } = this;
-    const { log } = console;
+    const log = VERBOSE ? console.log : (_: unknown) => undefined;
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    const glimpse = (obj: unknown) => clip(JSON.stringify(obj));
     switch (op) {
       case 'send': {
         // [KRef, Message];
         const [, target, message] = kso;
-        log(`@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`);
+        log(`@@@@ ${vatId} syscall send ${target}<-${glimpse(message)}`);
         this.#handleSyscallSend(target, message);
         break;
       }
@@ -342,38 +350,38 @@ export class VatHandle {
       case 'resolve': {
         // [VatOneResolution[]];
         const [, resolutions] = kso;
-        log(`@@@@ ${vatId} syscall resolve ${JSON.stringify(resolutions)}`);
+        log(`@@@@ ${vatId} syscall resolve ${glimpse(resolutions)}`);
         this.#handleSyscallResolve(resolutions as VatOneResolution[]);
         break;
       }
       case 'exit': {
         // [boolean, SwingSetCapData];
         const [, fail, info] = kso;
-        log(`@@@@ ${vatId} syscall exit fail=${fail} ${JSON.stringify(info)}`);
+        log(`@@@@ ${vatId} syscall exit fail=${fail} ${glimpse(info)}`);
         break;
       }
       case 'dropImports': {
         // [KRef[]];
         const [, refs] = kso;
-        log(`@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`);
+        log(`@@@@ ${vatId} syscall dropImports ${glimpse(refs)}`);
         break;
       }
       case 'retireImports': {
         // [KRef[]];
         const [, refs] = kso;
-        log(`@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`);
+        log(`@@@@ ${vatId} syscall retireImports ${glimpse(refs)}`);
         break;
       }
       case 'retireExports': {
         // [KRef[]];
         const [, refs] = kso;
-        log(`@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`);
+        log(`@@@@ ${vatId} syscall retireExports ${glimpse(refs)}`);
         break;
       }
       case 'abandonExports': {
         // [KRef[]];
         const [, refs] = kso;
-        log(`@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`);
+        log(`@@@@ ${vatId} syscall abandonExports ${glimpse(refs)}`);
         break;
       }
       case 'callNow':

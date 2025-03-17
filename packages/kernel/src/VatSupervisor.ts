@@ -33,6 +33,7 @@ type SupervisorConstructorProps = {
   id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   makeKVStore: MakeKVStore;
+  makePowers?: () => Promise<Record<string, unknown>>;
   fetchBlob?: FetchBlob;
 };
 
@@ -56,6 +57,9 @@ export class VatSupervisor {
   /** Capability to create the store for this vat. */
   readonly #makeKVStore: MakeKVStore;
 
+  /** An initialization routine for powers bestowed to this vat. */
+  readonly #makePowers: () => Promise<Record<string, unknown>>;
+
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
 
@@ -69,17 +73,20 @@ export class VatSupervisor {
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.makeKVStore - Capability to create the store for this vat.
+   * @param params.makePowers - Capability to create powers this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
   constructor({
     id,
     commandStream,
     makeKVStore,
+    makePowers,
     fetchBlob,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
     this.#makeKVStore = makeKVStore;
+    this.#makePowers = makePowers ?? (async () => ({}));
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
       fetch(bundleURL);
@@ -219,7 +226,7 @@ export class VatSupervisor {
       `[vat-${this.id}]`,
     );
     const syscall = makeSupervisorSyscall(this, kvStore);
-    const vatPowers = {}; // XXX should be something more real
+    const vatPowers = await this.#makePowers();
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
