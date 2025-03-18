@@ -572,33 +572,6 @@ export class VatHandle {
   }
 
   /**
-   * Initializes the vat.
-   *
-   * @returns A promise that resolves when the vat is initialized.
-   */
-  async init(): Promise<void> {
-    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
-      async (error) => {
-        this.#logger.error(`Unexpected read error`, error);
-        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
-      },
-    );
-
-    // XXX This initial `ping` was originally put here as a sanity check to make
-    // sure that the vat was actually running and able to exchange message
-    // traffic with the kernel, but the addition of the `initVat` message to the
-    // startup flow has, I'm fairly sure, obviated the need for that as it
-    // effectively performs the same function. Probably this ping should be
-    // removed.
-    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
-    await this.sendVatCommand({
-      method: VatCommandMethod.initVat,
-      params: { vatConfig: this.config, state: this.#vatStore.getKVData() },
-    });
-    this.#logger.debug('Created');
-  }
-
-  /**
    * Terminates the vat.
    *
    * @param error - The error to terminate the vat with.
