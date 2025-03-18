@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { makeMapKVStore } from '../../../test/storage.ts';
+import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import { RunQueueItemType } from '../../types.ts';
 import type { GCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
@@ -9,8 +9,7 @@ describe('GC methods', () => {
   let kernelStore: ReturnType<typeof makeKernelStore>;
 
   beforeEach(() => {
-    const mockKVStore = makeMapKVStore();
-    kernelStore = makeKernelStore(mockKVStore);
+    kernelStore = makeKernelStore(makeMapKernelDatabase());
   });
 
   describe('GC actions', () => {

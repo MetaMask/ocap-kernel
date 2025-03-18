@@ -192,13 +192,13 @@ export class Kernel {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
-      const gcAction = processGCActionSet(this.#storage);
+      const gcAction = processGCActionSet(this.#kernelStore);
       if (gcAction) {
         yield gcAction;
         continue;
       }
 
-      const reapAction = this.#storage.nextReapAction();
+      const reapAction = this.#kernelStore.nextReapAction();
       if (reapAction) {
         yield reapAction;
         continue;

@@ -327,7 +327,7 @@ export class VatHandle {
           `vat ${this.vatId} issued invalid syscall dropImports for ${kref}`,
         );
       }
-      this.#storage.clearReachableFlag(this.vatId, kref);
+      this.#kernelStore.clearReachableFlag(this.vatId, kref);
     }
   }
 
@@ -345,12 +345,12 @@ export class VatHandle {
           `vat ${this.vatId} issued invalid syscall retireImports for ${kref}`,
         );
       }
-      if (this.#storage.getReachableFlag(this.vatId, kref)) {
+      if (this.#kernelStore.getReachableFlag(this.vatId, kref)) {
         throw Error(`syscall.retireImports but ${kref} is still reachable`);
       }
       // deleting the clist entry will decrement the recognizable count, but
       // not the reachable count (because it was unreachable, as we asserted)
-      this.#storage.forgetKref(this.vatId, kref);
+      this.#kernelStore.forgetKref(this.vatId, kref);
     }
   }
 
@@ -372,13 +372,13 @@ export class VatHandle {
         );
       }
       if (checkReachable) {
-        if (this.#storage.getReachableFlag(this.vatId, kref)) {
+        if (this.#kernelStore.getReachableFlag(this.vatId, kref)) {
           throw Error(
             `syscall.${action}Exports but ${kref} is still reachable`,
           );
         }
       }
-      this.#storage.forgetKref(this.vatId, kref);
+      this.#kernelStore.forgetKref(this.vatId, kref);
       this.#logger.debug(`${action}Exports: deleted object ${kref}`);
     }
   }
@@ -522,7 +522,7 @@ export class VatHandle {
     await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
     await this.sendVatCommand({
       method: VatCommandMethod.initVat,
-      params: this.config,
+      params: { vatConfig: this.config, state: this.#vatStore.getKVData() },
     });
     this.#logger.debug('Created');
   }

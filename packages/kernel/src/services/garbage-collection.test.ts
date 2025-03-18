@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { processGCActionSet } from './garbage-collection.ts';
-import { makeMapKVStore } from '../../test/storage.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
 import { makeKernelStore } from '../store/index.ts';
 import { RunQueueItemType } from '../types.ts';
 
@@ -10,8 +10,7 @@ describe('garbage-collection', () => {
     let kernelStore: ReturnType<typeof makeKernelStore>;
 
     beforeEach(() => {
-      const mockKVStore = makeMapKVStore();
-      kernelStore = makeKernelStore(mockKVStore);
+      kernelStore = makeKernelStore(makeMapKernelDatabase());
     });
 
     it('processes dropExport actions', () => {

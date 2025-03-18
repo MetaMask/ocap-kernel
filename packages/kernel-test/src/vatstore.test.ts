@@ -17,7 +17,7 @@ import {
 } from 'node:worker_threads';
 import { describe, vi, expect, it } from 'vitest';
 
-import { kunser } from '../../kernel/src/kernel-marshal.ts';
+import { kunser } from '../../kernel/src/services/kernel-marshal.ts';
 import { NodejsVatWorkerService } from '../../nodejs/src/kernel/VatWorkerService.ts';
 
 /**
