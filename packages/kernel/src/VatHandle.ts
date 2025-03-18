@@ -501,6 +501,19 @@ export class VatHandle {
   }
 
   /**
+   * Make a 'message' delivery to the vat.
+   *
+   * @param target - The VRef of the object to which the message is addressed.
+   * @param message - The message to deliver.
+   */
+  async deliverMessage(target: VRef, message: Message): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['message', target, message],
+    });
+  }
+
+  /**
    * Make a 'notify' delivery to the vat.
    *
    * @param resolutions - One or more promise resolutions to deliver.
@@ -624,17 +637,4 @@ export class VatHandle {
   readonly #nextMessageId = (): VatCommand['id'] => {
     return `${this.vatId}:${this.#messageCounter()}`;
   };
-
-  /**
-   * Make a 'message' delivery to the vat.
-   *
-   * @param target - The VRef of the object to which the message is addressed.
-   * @param message - The message to deliver.
-   */
-  async deliverMessage(target: VRef, message: Message): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['message', target, message],
-    });
-  }
 }
