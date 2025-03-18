@@ -501,6 +501,64 @@ export class VatHandle {
   }
 
   /**
+   * Make a 'notify' delivery to the vat.
+   *
+   * @param resolutions - One or more promise resolutions to deliver.
+   */
+  async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['notify', resolutions],
+    });
+  }
+
+  /**
+   * Make a 'dropExports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the exports to be dropped.
+   */
+  async deliverDropExports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['dropExports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'retireExports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the exports to be retired.
+   */
+  async deliverRetireExports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['retireExports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'retireImports' delivery to the vat.
+   *
+   * @param krefs - The KRefs of the imports to be retired.
+   */
+  async deliverRetireImports(krefs: KRef[]): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['retireImports', krefs],
+    });
+  }
+
+  /**
+   * Make a 'bringOutYourDead' delivery to the vat.
+   */
+  async deliverBringOutYourDead(): Promise<void> {
+    await this.sendVatCommand({
+      method: VatCommandMethod.deliver,
+      params: ['bringOutYourDead'],
+    });
+  }
+
+  /**
    * Initializes the vat.
    *
    * @returns A promise that resolves when the vat is initialized.
@@ -577,64 +635,6 @@ export class VatHandle {
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
       params: ['message', target, message],
-    });
-  }
-
-  /**
-   * Make a 'notify' delivery to the vat.
-   *
-   * @param resolutions - One or more promise resolutions to deliver.
-   */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['notify', resolutions],
-    });
-  }
-
-  /**
-   * Make a 'dropExports' delivery to the vat.
-   *
-   * @param krefs - The KRefs of the exports to be dropped.
-   */
-  async deliverDropExports(krefs: KRef[]): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['dropExports', krefs],
-    });
-  }
-
-  /**
-   * Make a 'retireExports' delivery to the vat.
-   *
-   * @param krefs - The KRefs of the exports to be retired.
-   */
-  async deliverRetireExports(krefs: KRef[]): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['retireExports', krefs],
-    });
-  }
-
-  /**
-   * Make a 'retireImports' delivery to the vat.
-   *
-   * @param krefs - The KRefs of the imports to be retired.
-   */
-  async deliverRetireImports(krefs: KRef[]): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['retireImports', krefs],
-    });
-  }
-
-  /**
-   * Make a 'bringOutYourDead' delivery to the vat.
-   */
-  async deliverBringOutYourDead(): Promise<void> {
-    await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
-      params: ['bringOutYourDead'],
     });
   }
 }
