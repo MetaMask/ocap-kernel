@@ -1,11 +1,12 @@
 import '@ocap/shims/endoify';
-import { describe, it, expect, vi } from 'vitest';
 import { VatSupervisor, VatCommandMethod } from '@ocap/kernel';
 import type { VatCommand, VatConfig, VatCommandReply } from '@ocap/kernel';
-import { TestDuplexStream } from '../../streams/test/stream-mocks';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { kser } from '../../kernel/src/kernel-marshal';
+import { describe, it, expect } from 'vitest';
+
+import { kser } from '../../kernel/src/kernel-marshal.ts';
+import { TestDuplexStream } from '../../streams/test/stream-mocks.ts';
 
 const makeVatSupervisor = async ({
   handleWrite = () => undefined,
@@ -13,27 +14,31 @@ const makeVatSupervisor = async ({
 }: {
   handleWrite?: (input: unknown) => void | Promise<void>;
   vatPowers?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 }) => {
-  const commandStream = await TestDuplexStream.make<VatCommand, VatCommandReply>(
-    handleWrite,
-  );
+  const commandStream = await TestDuplexStream.make<
+    VatCommand,
+    VatCommandReply
+  >(handleWrite);
 
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
       commandStream,
       vatPowers,
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
       fetchBlob: async (url: string): Promise<Response> => {
         if (!url.endsWith('.bundle')) {
           throw new Error(`Unexpected URL: ${url}`);
         }
-        const bundleName = url.split('/').pop();
-        const bundlePath = join(__dirname, bundleName!);
+        const bundleName = url.split('/').pop() ?? url;
+        const bundlePath = join(__dirname, bundleName);
         const bundleContent = await readFile(bundlePath, 'utf-8');
         return {
           ok: true,
           text: async () => bundleContent,
           json: async () => JSON.parse(bundleContent),
+          // eslint-disable-next-line n/no-unsupported-features/node-builtins
         } as Response;
       },
     }),
