@@ -70,3 +70,8 @@ export const SQL_QUERIES = {
     ROLLBACK TRANSACTION
   `,
 } as const;
+
+/**
+ * The default filename for the SQLite database; ":memory:" is an ephemeral in-memory database.
+ */
+export const DEFAULT_DB_FILENAME = ':memory:';

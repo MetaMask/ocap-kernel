@@ -3,7 +3,7 @@ import { makeLogger } from '@ocap/utils';
 import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import { SQL_QUERIES } from './common.ts';
+import { SQL_QUERIES, DEFAULT_DB_FILENAME } from './common.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -140,13 +140,13 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
 /**
  * Makes a {@link KernelDatabase} for low-level persistent storage.
  *
- * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
  * @param label - A logger prefix label. Defaults to '[sqlite]'.
  * @param verbose - If true, generate logger output; if false, be quiet.
  * @returns A key/value store to base higher level stores on.
  */
 export async function makeSQLKernelDatabase(
-  dbFilename: string = 'store.db',
+  dbFilename: string = DEFAULT_DB_FILENAME,
   label: string = '[sqlite]',
   verbose: boolean = false,
 ): Promise<KernelDatabase> {
