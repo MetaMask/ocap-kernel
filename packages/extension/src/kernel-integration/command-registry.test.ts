@@ -8,7 +8,8 @@ import type { CommandHandler } from './command-registry.ts';
 import { handlers } from './handlers/index.ts';
 
 // Mock logger
-vi.mock('@ocap/utils', () => ({
+vi.mock('@ocap/utils', async (importOriginal) => ({
+  ...(await importOriginal()),
   makeLogger: () => ({
     error: vi.fn(),
     debug: vi.fn(),
@@ -216,7 +217,7 @@ describe('KernelCommandRegistry', () => {
       await expect(
         registry.execute(mockKernel, mockKernelDatabase, 'sendVatCommand', {
           id: null,
-          payload: { method: 'ping', params: null },
+          payload: { method: 'ping', params: [] },
         }),
       ).rejects.toThrow('Vat ID required for this command');
     });

@@ -5,10 +5,10 @@
   },
   "references": [
     { "path": "../errors" },
+    { "path": "../store" },
     { "path": "../streams" },
     { "path": "../utils" },
-    { "path": "../test-utils" },
-    { "path": "../store" }
+    { "path": "../test-utils" }
   ],
   "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]
 }

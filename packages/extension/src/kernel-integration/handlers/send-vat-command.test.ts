@@ -18,8 +18,8 @@ describe('sendVatCommandHandler', () => {
   it('should handle vat messages', async () => {
     const params = {
       id: 'v0',
-      payload: { method: 'ping', params: null },
-    } as const;
+      payload: { method: 'ping', params: [] },
+    };
     const result = await sendVatCommandHandler.implementation(
       mockKernel,
       mockKernelDatabase,
@@ -27,7 +27,7 @@ describe('sendVatCommandHandler', () => {
     );
     expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
       method: 'ping',
-      params: null,
+      params: [],
     });
     expect(result).toStrictEqual({ result: 'success' });
   });
@@ -36,7 +36,7 @@ describe('sendVatCommandHandler', () => {
     await expect(
       sendVatCommandHandler.implementation(mockKernel, mockKernelDatabase, {
         id: null,
-        payload: { method: 'ping', params: null },
+        payload: { method: 'ping', params: [] },
       }),
     ).rejects.toThrow('Vat ID required for this command');
   });

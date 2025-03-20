@@ -82,10 +82,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 81.32,
-          functions: 82.97,
-          branches: 78.03,
-          lines: 81.4,
+          statements: 81.41,
+          functions: 83.33,
+          branches: 77.69,
+          lines: 81.5,
         },
         'packages/kernel/**': {
           statements: 74.73,

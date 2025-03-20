@@ -8,10 +8,10 @@
     "types": ["ses"]
   },
   "references": [
-    { "path": "../streams/tsconfig.build.json" },
-    { "path": "../utils/tsconfig.build.json" },
     { "path": "../errors/tsconfig.build.json" },
-    { "path": "../store/tsconfig.build.json" }
+    { "path": "../streams/tsconfig.build.json" },
+    { "path": "../store/tsconfig.build.json" },
+    { "path": "../utils/tsconfig.build.json" }
   ],
   "include": ["./src"]
 }
