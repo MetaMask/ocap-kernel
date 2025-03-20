@@ -96,7 +96,7 @@ describe('useVats', () => {
             id: mockVatId,
             payload: {
               method: 'ping',
-              params: null,
+              params: [],
             },
           },
         });

@@ -42,7 +42,7 @@ async function main(): Promise<void> {
       value: async () =>
         sendClusterCommand({
           method: KernelCommandMethod.ping,
-          params: null,
+          params: [],
         }),
     },
     sendMessage: {
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   chrome.action.onClicked.addListener(() => {
     sendClusterCommand({
       method: KernelCommandMethod.ping,
-      params: null,
+      params: [],
     }).catch(console.error);
   });
 

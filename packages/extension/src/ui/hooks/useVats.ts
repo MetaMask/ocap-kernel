@@ -45,7 +45,7 @@ export const useVats = (): {
           id,
           payload: {
             method: VatCommandMethod.ping,
-            params: null,
+            params: [],
           },
         },
       })
