@@ -78,7 +78,7 @@ describe('Kernel Worker', () => {
         async (vatId: VatId) =>
           await kernel.sendVatCommand(vatId, {
             method: VatCommandMethod.ping,
-            params: null,
+            params: [],
           }),
       ),
     );

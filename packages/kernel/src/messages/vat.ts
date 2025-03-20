@@ -12,7 +12,8 @@ import {
   boolean,
   is,
 } from '@metamask/superstruct';
-import type { Infer } from '@metamask/superstruct';
+import type { Infer, Struct } from '@metamask/superstruct';
+import type { Json } from '@metamask/utils';
 import { EmptyJsonArray } from '@ocap/utils';
 
 import {
@@ -46,12 +47,29 @@ export const VatCommandMethod = {
 
 const VatMessageIdStruct = refine(string(), 'VatMessageId', isVatMessageId);
 
+/**
+ * This type only exists due to a TS2742 error that occurs during CommonJS
+ * builds by ts-bridge.
+ */
+export type VatTestMethodStructs = {
+  readonly ping: Struct<
+    {
+      method: 'ping';
+      params: Json[];
+    },
+    {
+      method: Struct<'ping', 'ping'>;
+      params: Struct<Json[], Struct<Json>>;
+    }
+  >;
+};
+
 export const VatTestMethodStructs = {
   [VatCommandMethod.ping]: object({
     method: literal(VatCommandMethod.ping),
     params: EmptyJsonArray,
   }),
-};
+} as VatTestMethodStructs;
 
 const VatOneResolutionStruct = tuple([string(), boolean(), CapDataStruct]);
 
