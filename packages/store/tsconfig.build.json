@@ -5,8 +5,7 @@
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["ses"],
-    "composite": true
+    "types": ["ses"]
   },
   "references": [{ "path": "../utils/tsconfig.build.json" }],
   "include": ["./src/**/*.ts", "./src/sqlite/*.ts"]

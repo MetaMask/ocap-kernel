@@ -7,7 +7,6 @@ import {
   is,
   string,
   record,
-  empty,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
@@ -16,6 +15,7 @@ import {
   VatConfigStruct,
   VatIdStruct,
 } from '@ocap/kernel';
+import { EmptyJsonArray } from '@ocap/utils';
 import type { TypeGuard } from '@ocap/utils';
 
 const KernelStatusStruct = type({
@@ -29,8 +29,6 @@ const KernelStatusStruct = type({
 });
 
 export type KernelStatus = Infer<typeof KernelStatusStruct>;
-
-const EmptyJsonArrayStruct = empty(array(UnsafeJsonStruct));
 
 // Command payload structs
 export const KernelCommandPayloadStructs = {
@@ -48,15 +46,15 @@ export const KernelCommandPayloadStructs = {
   }),
   terminateAllVats: object({
     method: literal('terminateAllVats'),
-    params: EmptyJsonArrayStruct,
+    params: EmptyJsonArray,
   }),
   getStatus: object({
     method: literal('getStatus'),
-    params: EmptyJsonArrayStruct,
+    params: EmptyJsonArray,
   }),
   reload: object({
     method: literal('reload'),
-    params: EmptyJsonArrayStruct,
+    params: EmptyJsonArray,
   }),
   sendVatCommand: object({
     method: literal('sendVatCommand'),
@@ -67,7 +65,7 @@ export const KernelCommandPayloadStructs = {
   }),
   clearState: object({
     method: literal('clearState'),
-    params: EmptyJsonArrayStruct,
+    params: EmptyJsonArray,
   }),
   executeDBQuery: object({
     method: literal('executeDBQuery'),

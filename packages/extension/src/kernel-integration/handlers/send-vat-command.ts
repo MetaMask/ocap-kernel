@@ -14,7 +14,6 @@ export const sendVatCommandHandler: CommandHandler<'sendVatCommand'> = {
     _kdb: KernelDatabase,
     params: CommandParams['sendVatCommand'],
   ): Promise<Json> => {
-    // TODO:rekm Fix the underlying type to not expect `null` here
     if (!isKernelCommand(params.payload)) {
       throw new Error('Invalid command payload');
     }

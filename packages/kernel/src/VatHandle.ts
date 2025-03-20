@@ -146,7 +146,7 @@ export class VatHandle {
     // startup flow has, I'm fairly sure, obviated the need for that as it
     // effectively performs the same function. Probably this ping should be
     // removed.
-    await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
+    await this.sendVatCommand({ method: VatCommandMethod.ping, params: [] });
     await this.sendVatCommand({
       method: VatCommandMethod.initVat,
       params: { vatConfig: this.config, state: this.#vatStore.getKVData() },

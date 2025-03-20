@@ -13,6 +13,7 @@ import {
   is,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
+import { EmptyJsonArray } from '@ocap/utils';
 
 import {
   isVatId,
@@ -48,9 +49,9 @@ const VatMessageIdStruct = refine(string(), 'VatMessageId', isVatMessageId);
 export const VatTestMethodStructs = {
   [VatCommandMethod.ping]: object({
     method: literal(VatCommandMethod.ping),
-    params: literal(null),
+    params: EmptyJsonArray,
   }),
-} as const;
+};
 
 const VatOneResolutionStruct = tuple([string(), boolean(), CapDataStruct]);
 
