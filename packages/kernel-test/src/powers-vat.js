@@ -9,13 +9,9 @@ import { Far } from '@endo/marshal';
  * @returns {unknown} The root object for the new vat.
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  const name = parameters?.bar ?? 'anonymous';
-  console.log(`buildRootObject "${name}"`);
-
   return Far('root', {
-    async bootstrap(_) {
-      console.log(`vat ${name} is bootstrap`);
-      await vatPowers.foo(parameters.bar);
+    async fizz() {
+      return await vatPowers.foo?.(parameters.bar);
     },
   });
 }

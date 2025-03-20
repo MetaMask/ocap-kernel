@@ -36,7 +36,6 @@ const makeVatSupervisor = async ({
         const bundleContent = await readFile(bundlePath, 'utf-8');
         return {
           ok: true,
-          text: async () => bundleContent,
           json: async () => JSON.parse(bundleContent),
           // eslint-disable-next-line n/no-unsupported-features/node-builtins
         } as Response;
@@ -57,7 +56,7 @@ describe('VatSupervisor', () => {
 
       const vatConfig: VatConfig = {
         bundleSpec: new URL('powers-vat.bundle', import.meta.url).toString(),
-        parameters: { bar: 'baz' },
+        parameters: { bar: 'buzz' },
       };
 
       await supervisor.handleMessage({
@@ -75,11 +74,11 @@ describe('VatSupervisor', () => {
         id: 'test-id',
         payload: {
           method: VatCommandMethod.deliver,
-          params: ['message', 'o+0', { methargs: kser(['bootstrap', []]) }],
+          params: ['message', 'o+0', { methargs: kser(['fizz', []]) }],
         },
       });
 
-      expect(localValue).toBe('baz');
+      expect(localValue).toBe('buzz');
     });
   });
 });
