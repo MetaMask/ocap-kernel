@@ -4,6 +4,10 @@ import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { SQL_QUERIES } from './common.ts';
+<<<<<<< HEAD
+=======
+import { getDBFolder } from './env.ts';
+>>>>>>> 4768b8c (prevent concurrent requests and improve loading states and e2e tests)
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -14,12 +18,26 @@ import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
  */
 async function initDB(dbFilename: string): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
-  if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb(dbFilename, 'cw');
-  }
-  console.warn(`OPFS not enabled, database will be ephemeral`);
+  let db: Database;
 
-  return new sqlite3.oo1.DB(`:memory:`, 'cw');
+  if (sqlite3.oo1.OpfsDb) {
+    db = new sqlite3.oo1.OpfsDb(
+      dbFilename.startsWith(':')
+        ? dbFilename
+        : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-'),
+      'cw',
+    );
+  } else {
+    console.warn(`OPFS not enabled, database will be ephemeral`);
+    db = new sqlite3.oo1.DB(`:memory:`, 'cw');
+  }
+
+  // Configure WAL mode for better concurrency handling
+  db.exec('PRAGMA journal_mode = WAL');
+  // Set a busy timeout to prevent lock contention
+  db.exec('PRAGMA busy_timeout = 5000');
+
+  return db;
 }
 
 /**

@@ -7,6 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { SQL_QUERIES } from './common.ts';
+import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -24,9 +25,16 @@ async function initDB(
 ): Promise<Database> {
   const dbPath = await getDBFilename(dbFilename);
   logger.debug('dbPath:', dbPath);
-  return new Sqlite(dbPath, {
+  const db = new Sqlite(dbPath, {
     verbose: verbose ? (...args) => logger.info(...args) : undefined,
   });
+
+  // Configure WAL mode for better concurrency handling
+  db.pragma('journal_mode = WAL');
+  // Set a busy timeout to prevent lock contention
+  db.pragma('busy_timeout = 5000');
+
+  return db;
 }
 
 /**
@@ -225,7 +233,7 @@ export async function getDBFilename(label: string): Promise<string> {
   if (label.startsWith(':')) {
     return label;
   }
-  const dbRoot = join(tmpdir(), './ocap-sqlite');
+  const dbRoot = join(tmpdir(), './ocap-sqlite', getDBFolder());
   await mkdir(dbRoot, { recursive: true });
   return join(dbRoot, label);
 }

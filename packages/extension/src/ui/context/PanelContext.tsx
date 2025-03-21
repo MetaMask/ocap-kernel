@@ -1,5 +1,11 @@
 import { stringify } from '@ocap/utils';
-import { createContext, useCallback, useContext, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useRef,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import type { KernelStatus } from '../../kernel-integration/messages.ts';
@@ -23,6 +29,7 @@ export type PanelContextType = {
   setMessageContent: (content: string) => void;
   panelLogs: PanelLog[];
   clearLogs: () => void;
+  isLoading: boolean;
 };
 
 const PanelContext = createContext<PanelContextType | undefined>(undefined);
@@ -33,6 +40,8 @@ export const PanelProvider: React.FC<{
 }> = ({ children, sendMessage }) => {
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const isRequestInProgress = useRef(false);
 
   const logMessage = useCallback(
     (message: string, type: OutputType = 'received'): void => {
@@ -47,8 +56,20 @@ export const PanelProvider: React.FC<{
 
   const sendMessageWrapper: SendMessageFunction = useCallback(
     async (payload) => {
+      if (isRequestInProgress.current) {
+        throw new Error('A request is already in progress');
+      }
+
+      const cleanup = (): void => {
+        isRequestInProgress.current = false;
+        setIsLoading(false);
+      };
+
       try {
+        isRequestInProgress.current = true;
+        setIsLoading(true);
         logMessage(stringify(payload, 2), 'sent');
+
         const response = await sendMessage(payload);
         if (isErrorResponse(response)) {
           throw new Error(stringify(response.error, 0));
@@ -57,12 +78,14 @@ export const PanelProvider: React.FC<{
       } catch (error) {
         logger.error(String(error), 'error');
         throw error;
+      } finally {
+        cleanup();
       }
     },
     [sendMessage],
   );
 
-  const status = useStatusPolling(sendMessage, 1000);
+  const status = useStatusPolling(sendMessage, isRequestInProgress);
 
   return (
     <PanelContext.Provider
@@ -74,6 +97,7 @@ export const PanelProvider: React.FC<{
         setMessageContent,
         panelLogs,
         clearLogs,
+        isLoading,
       }}
     >
       {children}
