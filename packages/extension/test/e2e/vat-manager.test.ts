@@ -1,15 +1,18 @@
 import { test, expect } from '@playwright/test';
-import type { Page, BrowserContext } from '@playwright/test';
+import type { Page, BrowserContext, Locator } from '@playwright/test';
 
 // Vitest/Playwright needs the import assertions
 import defaultClusterConfig from '../../src/vats/default-cluster.json' assert { type: 'json' };
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension.ts';
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Vat Manager', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
   let extensionId: string;
+  let messageOutput: Locator;
 
   test.beforeAll(async () => {
     const extension = await makeLoadExtension();
@@ -22,15 +25,20 @@ test.describe('Vat Manager', () => {
     await extensionContext.close();
   });
 
+  // Each test starts with a fresh state, with all vats terminated and no logs.
   test.beforeEach(async () => {
     await popupPage.waitForSelector('h2:text("Kernel Vats")');
-    const messageOutput = popupPage.locator('[data-testid="message-output"]');
+    messageOutput = popupPage.locator('[data-testid="message-output"]');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
     await expect(messageOutput).toContainText('');
-    await popupPage.click('button:text("Clear All State")');
     await popupPage.fill('input[placeholder="Vat Name"]', '');
     await popupPage.fill('input[placeholder="Bundle URL"]', '');
+    await popupPage.click('button:text("Clear All State")');
     await expect(messageOutput).toContainText('State cleared');
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    await expect(vatTable).not.toBeVisible();
+    await popupPage.locator('[data-testid="clear-logs-button"]').click();
+    await expect(messageOutput).toContainText('');
   });
 
   /**
@@ -45,9 +53,7 @@ test.describe('Vat Manager', () => {
       'http://localhost:3000/sample-vat.bundle',
     );
     await popupPage.click('button:text("Launch Vat")');
-    await expect(popupPage.locator('#root')).toContainText(
-      `Launched vat "${name}"`,
-    );
+    await expect(messageOutput).toContainText(`Launched vat "${name}"`);
   }
 
   test('should load popup with kernel panel', async () => {
@@ -93,9 +99,7 @@ test.describe('Vat Manager', () => {
     await launchVat();
     await expect(popupPage.locator('button:text("Restart")')).toBeVisible();
     await popupPage.click('button:text("Restart")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Restarted vat "v1"',
-    );
+    await expect(messageOutput).toContainText('Restarted vat "v1"');
   });
 
   test('should terminate a vat', async () => {
@@ -104,9 +108,7 @@ test.describe('Vat Manager', () => {
       popupPage.locator('td button:text("Terminate")'),
     ).toBeVisible();
     await popupPage.click('td button:text("Terminate")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Terminated vat "v1"',
-    );
+    await expect(messageOutput).toContainText('Terminated vat "v1"');
     await expect(popupPage.locator('table')).not.toBeVisible();
   });
 
@@ -114,8 +116,8 @@ test.describe('Vat Manager', () => {
     await launchVat();
     await expect(popupPage.locator('td button:text("Ping")')).toBeVisible();
     await popupPage.click('td button:text("Ping")');
-    await expect(popupPage.locator('#root')).toContainText('"method": "ping",');
-    await expect(popupPage.locator('#root')).toContainText('{"result":"pong"}');
+    await expect(messageOutput).toContainText('"method": "ping",');
+    await expect(messageOutput).toContainText('{"result":"pong"}');
   });
 
   test('should terminate all vats', async () => {
@@ -124,9 +126,7 @@ test.describe('Vat Manager', () => {
       popupPage.locator('button:text("Terminate All Vats")'),
     ).toBeVisible();
     await popupPage.click('button:text("Terminate All Vats")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'All vats terminated',
-    );
+    await expect(messageOutput).toContainText('All vats terminated');
     await expect(popupPage.locator('table')).not.toBeVisible();
   });
 
@@ -135,6 +135,7 @@ test.describe('Vat Manager', () => {
     await launchVat('test-vat-2');
     await expect(popupPage.locator('table tr')).toHaveCount(3); // Header + 2 rows
     await popupPage.click('button:text("Clear All State")');
+    await expect(messageOutput).toContainText('State cleared');
     await expect(popupPage.locator('table')).not.toBeVisible();
     await launchVat('test-vat-new');
     await expect(popupPage.locator('table tr')).toHaveCount(2); // Header + 1 row
@@ -144,17 +145,13 @@ test.describe('Vat Manager', () => {
     await expect(
       popupPage.locator('button:text("Reload Kernel")'),
     ).toBeVisible();
-    const clearLogsButton = popupPage.locator(
-      '[data-testid="clear-logs-button"]',
-    );
-    await clearLogsButton.click();
-    await popupPage.click('button:text("Reload Kernel")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Default sub-cluster reloaded',
-    );
-    // Verify the table is visible and has the correct number of rows (header + vats)
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible();
+    await popupPage.click('button:text("Reload Kernel")');
+    await expect(messageOutput).toContainText('"method": "reload"');
+    await expect(messageOutput).toContainText('Default sub-cluster reloaded', {
+      timeout: 10000,
+    });
+    // Verify the table is visible and has the correct number of rows (header + vats)
     await expect(vatTable.locator('tr')).toHaveCount(
       Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
     );
@@ -172,17 +169,24 @@ test.describe('Vat Manager', () => {
     await expect(configTextarea).toHaveValue(
       JSON.stringify(defaultClusterConfig, null, 2),
     );
+    // Reload kernel to load default vats
+    await popupPage.click('button:text("Reload Kernel")');
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    await expect(vatTable).toBeVisible({ timeout: 10000 });
+    await expect(vatTable.locator('tr')).toHaveCount(
+      Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
+    );
     // Test invalid JSON handling
     await configTextarea.fill('{ invalid json }');
     await popupPage.click('button:text("Update Config")');
-    await expect(popupPage.locator('#root')).toContainText('SyntaxError');
+    await expect(messageOutput).toContainText('SyntaxError');
     // Verify original vats still exist
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
     const firstVatKey = Object.keys(
       defaultClusterConfig.vats,
     )[0] as keyof typeof defaultClusterConfig.vats;
     const originalVatName =
       defaultClusterConfig.vats[firstVatKey].parameters.name;
+    await expect(vatTable).toBeVisible({ timeout: 10000 });
     await expect(vatTable).toContainText(originalVatName);
     // Modify config with new vat name
     const modifiedConfig = structuredClone(defaultClusterConfig);
@@ -259,7 +263,7 @@ test.describe('Vat Manager', () => {
       }`,
     );
     await popupPage.click('button:text("Send")');
-    await expect(popupPage.locator('#root')).toContainText('"method": "ping",');
-    await expect(popupPage.locator('#root')).toContainText('{"result":"pong"}');
+    await expect(messageOutput).toContainText('"method": "ping",');
+    await expect(messageOutput).toContainText('{"result":"pong"}');
   });
 });
