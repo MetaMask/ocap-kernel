@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { LoadingDots } from './LoadingDots.tsx';
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { OutputType } from '../context/PanelContext.tsx';
@@ -23,7 +24,7 @@ const getLogTypeIcon = (type: OutputType): string => {
  * @returns A panel for sending messages to the kernel.
  */
 export const MessagePanel: React.FC = () => {
-  const { messageContent, setMessageContent, panelLogs, clearLogs } =
+  const { messageContent, setMessageContent, panelLogs, clearLogs, isLoading } =
     usePanelContext();
   const { sendKernelCommand } = useKernelActions();
   const messageScrollRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export const MessagePanel: React.FC = () => {
       <div className={styles.messageOutput}>
         <div
           className={styles.messageScrollWrapper}
+          data-testid="message-output"
           ref={messageScrollRef}
           role="log"
         >
@@ -60,6 +62,7 @@ export const MessagePanel: React.FC = () => {
               <span className={styles.logMessage}>{log.message}</span>
             </div>
           ))}
+          {isLoading && <LoadingDots />}
         </div>
       </div>
       <div className={styles.messageInputSection}>

@@ -9,12 +9,13 @@ import { isErrorResponse } from '../utils.ts';
  * Hook to start polling for kernel status
  *
  * @param sendMessage - Function to send a message to the kernel
+ * @param isRequestInProgress - Ref to track if a request is in progress
  * @param interval - Polling interval in milliseconds
- *
  * @returns The kernel status
  */
 export const useStatusPolling = (
   sendMessage: StreamState['sendMessage'],
+  isRequestInProgress: React.RefObject<boolean>,
   interval: number = 1000,
 ): KernelStatus | undefined => {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,7 +26,7 @@ export const useStatusPolling = (
    */
   useEffect(() => {
     const fetchStatus = async (): Promise<void> => {
-      if (!sendMessage) {
+      if (!sendMessage || isRequestInProgress.current) {
         return;
       }
       try {
@@ -53,7 +54,7 @@ export const useStatusPolling = (
         clearInterval(pollingRef.current);
       }
     };
-  }, [sendMessage, interval]);
+  }, [sendMessage, interval, isRequestInProgress]);
 
   return status;
 };
