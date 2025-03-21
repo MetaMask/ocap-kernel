@@ -17,6 +17,7 @@ import { receiveUiConnections } from './ui-connections.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 const logger = makeLogger('[kernel worker]');
+const DB_FILENAME = 'store.db';
 
 main().catch(logger.error);
 
@@ -38,7 +39,9 @@ async function main(): Promise<void> {
   const vatWorkerClient = ExtensionVatWorkerClient.make(
     globalThis as PostMessageTarget,
   );
-  const kernelDatabase = await makeSQLKernelDatabase();
+  const kernelDatabase = await makeSQLKernelDatabase({
+    dbFilename: DB_FILENAME,
+  });
 
   const kernel = await Kernel.make(
     kernelStream,

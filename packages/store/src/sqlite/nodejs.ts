@@ -6,7 +6,7 @@ import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SQL_QUERIES } from './common.ts';
+import { SQL_QUERIES, DEFAULT_DB_FILENAME } from './common.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -111,18 +111,23 @@ function makeKVStore(db: Database): KVStore {
 /**
  * Makes a {@link KernelDatabase} for low-level persistent storage.
  *
- * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param verbose - If true, generate logger output; if false, be quiet.
+ * @param options - The options for the database.
+ * @param options.dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
+ * @param options.label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param options.verbose - If true, generate logger output; if false, be quiet.
  * @returns The key/value store to base the kernel store on.
  */
-export async function makeSQLKernelDatabase(
-  dbFilename: string = 'store.db',
-  label: string = '[sqlite]',
-  verbose: boolean = false,
-): Promise<KernelDatabase> {
-  const logger = makeLogger(label);
-  const db = await initDB(dbFilename, logger, verbose);
+export async function makeSQLKernelDatabase({
+  dbFilename,
+  label,
+  verbose = false,
+}: {
+  dbFilename?: string | undefined;
+  label?: string | undefined;
+  verbose?: boolean | undefined;
+}): Promise<KernelDatabase> {
+  const logger = makeLogger(label ?? '[sqlite]');
+  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger, verbose);
 
   const kvStore = makeKVStore(db);
 
