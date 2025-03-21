@@ -25,6 +25,7 @@ const mockStatement = {
 const mockDb = {
   prepare: vi.fn(() => mockStatement),
   transaction: vi.fn((fn) => fn),
+  pragma: vi.fn(),
 };
 
 vi.mock('better-sqlite3', () => ({

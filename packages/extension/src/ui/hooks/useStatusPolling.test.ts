@@ -16,6 +16,11 @@ vi.mock('../utils.ts', () => ({
 describe('useStatusPolling', () => {
   const mockSendMessage = vi.fn();
   const mockInterval = 100;
+  const mockIsRequestInProgress = { current: false };
+
+  beforeEach(() => {
+    mockIsRequestInProgress.current = false;
+  });
 
   it('should start polling and fetch initial status', async () => {
     const mockStatus = { vats: [], clusterConfig };
@@ -24,7 +29,9 @@ describe('useStatusPolling', () => {
       false,
     );
     const { useStatusPolling } = await import('./useStatusPolling.ts');
-    const { result } = renderHook(() => useStatusPolling(mockSendMessage, 100));
+    const { result } = renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
@@ -39,7 +46,9 @@ describe('useStatusPolling', () => {
     vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
       true,
     );
-    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
+    renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
@@ -53,7 +62,9 @@ describe('useStatusPolling', () => {
     const { useStatusPolling } = await import('./useStatusPolling.ts');
     const error = new Error('Network error');
     mockSendMessage.mockRejectedValueOnce(error);
-    renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
+    renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
     expect(mockSendMessage).toHaveBeenCalledWith({
       method: 'getStatus',
       params: null,
@@ -61,6 +72,15 @@ describe('useStatusPolling', () => {
     expect(
       vi.mocked(await import('../services/logger.ts')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', error);
+  });
+
+  it('should not fetch status when request is in progress', async () => {
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
+    mockIsRequestInProgress.current = true;
+    renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   describe('polling', () => {
@@ -83,7 +103,13 @@ describe('useStatusPolling', () => {
       vi.mocked(await import('../utils.ts')).isErrorResponse.mockReturnValue(
         false,
       );
-      renderHook(() => useStatusPolling(mockSendMessage, mockInterval));
+      renderHook(() =>
+        useStatusPolling(
+          mockSendMessage,
+          mockIsRequestInProgress,
+          mockInterval,
+        ),
+      );
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       vi.advanceTimersByTime(mockInterval);
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
@@ -99,7 +125,11 @@ describe('useStatusPolling', () => {
         false,
       );
       const { unmount } = renderHook(() =>
-        useStatusPolling(mockSendMessage, mockInterval),
+        useStatusPolling(
+          mockSendMessage,
+          mockIsRequestInProgress,
+          mockInterval,
+        ),
       );
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
       unmount();

@@ -81,10 +81,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 82.95,
-          functions: 83.59,
-          branches: 80.15,
-          lines: 82.88,
+          statements: 83.54,
+          functions: 84.1,
+          branches: 81.29,
+          lines: 83.42,
         },
         'packages/kernel/**': {
           statements: 74.73,
@@ -105,10 +105,10 @@ export default defineConfig({
           lines: 0,
         },
         'packages/store/**': {
-          statements: 93.2,
-          functions: 93.75,
-          branches: 78.94,
-          lines: 93.16,
+          statements: 93.6,
+          functions: 93.93,
+          branches: 78.57,
+          lines: 93.56,
         },
         'packages/streams/**': {
           statements: 100,

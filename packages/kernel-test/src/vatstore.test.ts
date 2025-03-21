@@ -178,7 +178,7 @@ const referenceKVUpdates = [
 
 describe('exercise vatstore', async () => {
   it('exercise vatstore', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase();
+    const kernelDatabase = await makeSQLKernelDatabase(':memory:');
     const origMakeVatStore = kernelDatabase.makeVatStore;
     const kvUpdates: VatCheckpoint[] = [];
     vi.spyOn(kernelDatabase, 'makeVatStore').mockImplementation(

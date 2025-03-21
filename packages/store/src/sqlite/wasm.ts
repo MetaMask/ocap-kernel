@@ -22,7 +22,6 @@ async function initDB(dbFilename: string): Promise<Database> {
       ? dbFilename
       : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-');
     db = new sqlite3.oo1.OpfsDb(dbName, 'cw');
-    console.debug('OPFS database name:', dbName);
   } else {
     console.warn(`OPFS not enabled, database will be ephemeral`);
     db = new sqlite3.oo1.DB(`:memory:`, 'cw');
@@ -86,6 +85,7 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
     if (required) {
       throw Error(`[${label}] no record matching key '${key}'`);
     }
+    console.log('DBfolder', getDBFolder());
     return undefined;
   }
 
@@ -126,6 +126,7 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
     sqlKVSet.bind([key, value]);
     sqlKVSet.step();
     sqlKVSet.reset();
+    console.log('DBfolder', getDBFolder());
   }
 
   const sqlKVDelete = db.prepare(SQL_QUERIES.DELETE);
