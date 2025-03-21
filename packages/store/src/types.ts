@@ -16,4 +16,5 @@ export type KernelDatabase = {
   executeQuery(sql: string): Record<string, string>[];
   clear(): void;
   makeVatStore(vatID: string): VatStore;
+  deleteVatStore(vatID: string): void;
 };

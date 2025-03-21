@@ -82,9 +82,6 @@ export class Kernel {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
 
-  /** Count of currently pending entries in the kernel's run queue */
-  #runQueueLength: number;
-
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
@@ -120,13 +117,11 @@ export class Kernel {
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
 
-    if (options.resetStorage) {
-      kernelDatabase.clear();
-    }
-
     this.#kernelStore = makeKernelStore(kernelDatabase);
+    if (options.resetStorage) {
+      this.#resetKernelState();
+    }
     this.#logger = options.logger ?? makeLogger('[ocap kernel]');
-    this.#runQueueLength = this.#kernelStore.runQueueLength();
     this.#wakeUpTheRunQueue = null;
   }
 
@@ -169,6 +164,11 @@ export class Kernel {
       this.#logger.error('Stream read error:', error);
       throw new StreamReadError({ kernelId: 'kernel' }, error);
     });
+    const starts: Promise<void>[] = [];
+    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
+      starts.push(this.#runVat(vatID, vatConfig));
+    }
+    await Promise.all(starts);
     this.#run().catch((error) => {
       this.#logger.error('Run loop error:', error);
       throw error;
@@ -204,7 +204,7 @@ export class Kernel {
         continue;
       }
 
-      while (this.#runQueueLength > 0) {
+      while (this.#kernelStore.runQueueLength() > 0) {
         const item = this.#dequeueRun();
         if (item) {
           yield item;
@@ -213,7 +213,7 @@ export class Kernel {
         }
       }
 
-      if (this.#runQueueLength === 0) {
+      if (this.#kernelStore.runQueueLength() === 0) {
         const { promise, resolve } = makePromiseKit<void>();
         if (this.#wakeUpTheRunQueue !== null) {
           Fail`wakeUpTheRunQueue function already set`;
@@ -316,14 +316,28 @@ export class Kernel {
   }
 
   /**
+   * Launches a new vat.
+   *
+   * @param vatConfig - Configuration for the new vat.
+   *
+   * @returns a promise for the KRef of the new vat's root object.
+   */
+  async launchVat(vatConfig: VatConfig): Promise<KRef> {
+    const vatId = this.#kernelStore.getNextVatId();
+    await this.#runVat(vatId, vatConfig);
+    this.#kernelStore.initEndpoint(vatId);
+    const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
+    this.#kernelStore.setVatConfig(vatId, vatConfig);
+    return rootRef;
+  }
+
+  /**
    * Start a new or resurrected vat running.
    *
    * @param vatId - The ID of the vat to start.
    * @param vatConfig - Its configuration.
-   *
-   * @returns a promise for the KRef of the vat's root object.
    */
-  async #startVat(vatId: VatId, vatConfig: VatConfig): Promise<KRef> {
+  async #runVat(vatId: VatId, vatConfig: VatConfig): Promise<void> {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
@@ -336,20 +350,6 @@ export class Kernel {
       kernelStore: this.#kernelStore,
     });
     this.#vats.set(vatId, vat);
-    this.#kernelStore.initEndpoint(vatId);
-    const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
-    return rootRef;
-  }
-
-  /**
-   * Launches a vat.
-   *
-   * @param vatConfig - Configuration for the new vat.
-   *
-   * @returns a promise for the KRef of the new vat's root object.
-   */
-  async launchVat(vatConfig: VatConfig): Promise<KRef> {
-    return this.#startVat(this.#kernelStore.getNextVatId(), vatConfig);
   }
 
   /**
@@ -417,8 +417,7 @@ export class Kernel {
    */
   enqueueRun(item: RunQueueItem): void {
     this.#kernelStore.enqueueRun(item);
-    this.#runQueueLength += 1;
-    if (this.#runQueueLength === 1 && this.#wakeUpTheRunQueue) {
+    if (this.#kernelStore.runQueueLength() === 1 && this.#wakeUpTheRunQueue) {
       const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
       this.#wakeUpTheRunQueue = null;
       wakeUpTheRunQueue();
@@ -431,9 +430,7 @@ export class Kernel {
    * @returns the next item in the run queue, or undefined if the queue is empty.
    */
   #dequeueRun(): RunQueueItem | undefined {
-    this.#runQueueLength -= 1;
-    const result = this.#kernelStore.dequeueRun();
-    return result;
+    return this.#kernelStore.dequeueRun();
   }
 
   /**
@@ -558,7 +555,7 @@ export class Kernel {
           context === 'kernel' && isPromise,
           `${kpid} is not a kernel promise`,
         );
-        log(`@@@@ deliver ${vatId} notify ${kpid}`);
+        log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
         const promise = this.#kernelStore.getKernelPromise(kpid);
         const { state, value } = promise;
         assert(value, `no value for promise ${kpid}`);
@@ -591,7 +588,7 @@ export class Kernel {
         }
         const vat = this.#getVat(vatId);
         await vat.deliverNotify(resolutions);
-        log(`@@@@ done ${vatId} notify ${kpid}`);
+        log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
         break;
       }
       case 'dropExports': {
@@ -772,17 +769,13 @@ export class Kernel {
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
-    let resultP: Promise<CapData<KRef> | undefined> =
-      Promise.resolve(undefined);
     if (config.bootstrap) {
       const bootstrapRoot = rootIds[config.bootstrap];
       if (bootstrapRoot) {
-        resultP = this.queueMessageFromKernel(bootstrapRoot, 'bootstrap', [
-          roots,
-        ]);
+        return this.queueMessageFromKernel(bootstrapRoot, 'bootstrap', [roots]);
       }
     }
-    return resultP;
+    return undefined;
   }
 
   /**
@@ -797,24 +790,41 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     const { config } = vat;
-    await this.terminateVat(vatId);
-    await this.#startVat(vatId, config);
+    await this.#stopVat(vatId, false);
+    await this.#runVat(vatId, config);
     return vat;
   }
 
   /**
-   * Terminate a vat.
+   * Stop a vat from running.
+   *
+   * Note that after this operation, the vat will be in a weird twilight zone
+   * between existence and nonexistence, so this operation should only be used
+   * as a component of vat restart (which will push it back into existence) or
+   * vat termination (which will push it all the way into nonexistence).
    *
    * @param vatId - The ID of the vat.
+   * @param terminating - If true, the vat is being killed, if false, it's being
+   *   restarted.
    */
-  async terminateVat(vatId: VatId): Promise<void> {
+  async #stopVat(vatId: VatId, terminating: boolean): Promise<void> {
     const vat = this.#getVat(vatId);
     if (!vat) {
       throw new VatNotFoundError(vatId);
     }
-    await vat.terminate();
+    await vat.terminate(terminating);
     await this.#vatWorkerService.terminate(vatId).catch(console.error);
     this.#vats.delete(vatId);
+  }
+
+  /**
+   * Terminate a vat with extreme prejudice.
+   *
+   * @param vatId - The ID of the vat.
+   */
+  async terminateVat(vatId: VatId): Promise<void> {
+    await this.#stopVat(vatId, true);
+    this.#kernelStore.deleteVatConfig(vatId);
   }
 
   /**
@@ -823,16 +833,14 @@ export class Kernel {
   async terminateAllVats(): Promise<void> {
     await Promise.all(
       this.getVatIds().map(async (id) => {
-        const vat = this.#getVat(id);
-        await vat.terminate();
-        this.#vats.delete(id);
+        await this.terminateVat(id);
       }),
     );
-    await this.#vatWorkerService.terminateAll();
   }
 
   /**
-   * Reload the kernel.
+   * Terminate all running vats and reload the default subcluster.
+   * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
     if (!this.#mostRecentSubcluster) {
@@ -867,10 +875,17 @@ export class Kernel {
   }
 
   /**
-   * Reset the kernel state.
+   * Stop all running vats and reset the kernel state.
    */
   async reset(): Promise<void> {
     await this.terminateAllVats();
+    this.#resetKernelState();
+  }
+
+  /**
+   * Reset the kernel state.
+   */
+  #resetKernelState(): void {
     this.#kernelStore.clear();
     this.#kernelStore.reset();
   }

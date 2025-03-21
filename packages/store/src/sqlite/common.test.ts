@@ -48,6 +48,7 @@ describe('SQL_QUERIES', () => {
       'CREATE_TABLE_VS',
       'DELETE',
       'DELETE_VS',
+      'DELETE_VS_ALL',
       'DROP',
       'DROP_VS',
       'GET',

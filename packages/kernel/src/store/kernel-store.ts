@@ -39,14 +39,16 @@
  *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
  *
  * C-lists
- *   cle.${endpointId}.${eref} = ${kref}      // ERef->KRef mapping
- *   clk.${endpointId}.${kref} = ${eref}      // KRef->ERef mapping
+ *   cle.${endid}.${eref} = ${kref}           // ERef->KRef mapping
+ *   clk.${endid}.${kref} = ${eref}           // KRef->ERef mapping
  *
  * Vat bookkeeping
  *   e.nextObjectId.${endid} = NN             // allocation counter for imported object ERefs
  *   e.nextPromiseId.${endid} = NN            // allocation counter for imported promise ERefs
+ *   vatConfig.${vatid} = JSON(CONFIG)        // vat's configuration object
  *
  * Kernel bookkeeping
+ *   initialized = true                       // if set, indicates the store has been initialized
  *   nextVatId = NN                           // allocation counter for vat IDs
  *   nextRemoteId = NN                        // allocation counter for remote IDs
  *   k.nextObjectId = NN                      // allocation counter for object KRefs
@@ -71,10 +73,12 @@ import type {
   KRef,
   ERef,
   RunQueueItem,
+  RunQueueItemSend,
   PromiseState,
   KernelPromise,
   RunQueueItemBringOutYourDead,
   GCAction,
+  VatConfig,
 } from '../types.ts';
 import { insistGCActionType, insistVatId, RunQueueItemType } from '../types.ts';
 
@@ -89,6 +93,14 @@ type StoredQueue = {
   dequeue(): object | undefined;
   delete(): void;
 };
+
+type VatRecord = {
+  vatID: VatId;
+  vatConfig: VatConfig;
+};
+
+const VAT_CONFIG_BASE = 'vatConfig.';
+const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 
 /**
  * Test if a KRef designates a promise.
@@ -123,7 +135,9 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const kv: KVStore = kdb.kernelKVStore;
 
   /** The kernel's run queue. */
-  let runQueue = createStoredQueue('run', true);
+  let runQueue = provideStoredQueue('run', true);
+  /** Cache of the run queue's current length */
+  let runQueueLengthCache = -1;
   /** Counter for allocating VatIDs */
   let nextVatId = provideCachedStoredValue('nextVatId', '1');
   /** Counter for allocating RemoteIDs */
@@ -220,23 +234,6 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
-   * Create a new (empty) persistently stored queue.
-   *
-   * @param queueName - The name for the queue (must be unique among queues).
-   * @param cached - Optional flag: set to true if the queue should cache its
-   * @returns An object for interacting with the new queue.
-   */
-  function createStoredQueue(
-    queueName: string,
-    cached: boolean = false,
-  ): StoredQueue {
-    const qk = `queue.${queueName}`;
-    kv.set(`${qk}.head`, '1');
-    kv.set(`${qk}.tail`, '1');
-    return provideStoredQueue(queueName, cached);
-  }
-
-  /**
    * Find out how long some queue is.
    *
    * @param queueName - The name of the queue of interest.
@@ -271,8 +268,8 @@ export function makeKernelStore(kdb: KernelDatabase) {
     const provideValue = cached
       ? provideCachedStoredValue
       : provideRawStoredValue;
-    const head = provideValue(`${qk}.head`);
-    const tail = provideValue(`${qk}.tail`);
+    const head = provideValue(`${qk}.head`, '1');
+    const tail = provideValue(`${qk}.tail`, '1');
     if (head.get() === undefined || tail.get() === undefined) {
       throw Error(`queue ${queueName} not initialized`);
     }
@@ -319,6 +316,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * @param message - The message to enqueue.
    */
   function enqueueRun(message: RunQueueItem): void {
+    runQueueLengthCache += 1;
     runQueue.enqueue(message);
   }
 
@@ -329,6 +327,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * empty.
    */
   function dequeueRun(): RunQueueItem | undefined {
+    runQueueLengthCache -= 1;
     return runQueue.dequeue() as RunQueueItem | undefined;
   }
 
@@ -338,7 +337,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * @returns the number of items in the run queue.
    */
   function runQueueLength(): number {
-    return getQueueLength('run');
+    if (runQueueLengthCache < 0) {
+      runQueueLengthCache = getQueueLength('run');
+    }
+    return runQueueLengthCache;
   }
 
   /**
@@ -513,7 +515,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
       subscribers: [],
     };
     const kpid = getNextPromiseId();
-    createStoredQueue(kpid, false);
+    provideStoredQueue(kpid, false);
     kv.set(`${kpid}.state`, 'unresolved');
     kv.set(`${kpid}.subscribers`, '[]');
     kv.set(refCountKey(kpid), '1');
@@ -629,12 +631,18 @@ export function makeKernelStore(kdb: KernelDatabase) {
   ): void {
     const queue = provideStoredQueue(kpid, false);
     for (const message of getKernelPromiseMessageQueue(kpid)) {
-      queue.enqueue(message);
+      const messageItem: RunQueueItemSend = {
+        type: 'send',
+        target: kpid,
+        message,
+      };
+      enqueueRun(messageItem);
     }
     kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
     kv.set(`${kpid}.value`, JSON.stringify(value));
     kv.delete(`${kpid}.decider`);
     kv.delete(`${kpid}.subscribers`);
+    queue.delete();
   }
 
   /**
@@ -747,6 +755,117 @@ export function makeKernelStore(kdb: KernelDatabase) {
   }
 
   /**
+   * Generator that yields all the keys beginning with a given prefix.
+   *
+   * @param prefix - The prefix of interest.
+   *
+   * @yields the keys that start with `prefix`.
+   */
+  function* getPrefixedKeys(prefix: string): Generator<string> {
+    let key: string | undefined = prefix;
+    for (;;) {
+      key = kv.getNextKey(key);
+      if (!key) {
+        break;
+      }
+      if (!key.startsWith(prefix)) {
+        break;
+      }
+      yield key;
+    }
+  }
+
+  /**
+   * Generator that yield the promises decided by a given vat.
+   *
+   * @param decider - The vat ID of the vat of interest.
+   *
+   * @yields the kpids of all the promises decided by `decider`.
+   */
+  function* getPromisesByDecider(decider: VatId): Generator<string> {
+    const basePrefix = `cle.${decider}.`;
+    for (const key of getPrefixedKeys(`${basePrefix}p`)) {
+      const kpid = kv.getRequired(key);
+      const kp = getKernelPromise(kpid);
+      if (kp.state === 'unresolved' && kp.decider === decider) {
+        yield kpid;
+      }
+    }
+  }
+
+  /**
+   * Delete all persistent state associated with an endpoint.
+   *
+   * @param endpointId - The endpoint whose state is to be deleted.
+   */
+  function deleteEndpoint(endpointId: EndpointId): void {
+    for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
+      kv.delete(key);
+    }
+    for (const key of getPrefixedKeys(`clk.${endpointId}.`)) {
+      kv.delete(key);
+    }
+    kv.delete(`e.nextObjectId.${endpointId}`);
+    kv.delete(`e.nextPromiseId.${endpointId}`);
+  }
+
+  /**
+   * Delete all persistent state associated with a vat.
+   *
+   * @param vatId - The vat whose state is to be deleted.
+   */
+  function deleteVat(vatId: VatId): void {
+    deleteEndpoint(vatId);
+    kv.delete(`${VAT_CONFIG_BASE}${vatId}`);
+    kdb.deleteVatStore(vatId);
+  }
+
+  /**
+   * Generator that yields the configurations of running vats.
+   *
+   * @yields a series of vat records for all configured vats.
+   */
+  function* getAllVatRecords(): Generator<VatRecord> {
+    for (const vatKey of getPrefixedKeys(VAT_CONFIG_BASE)) {
+      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN);
+      const vatConfig = getVatConfig(vatID);
+      yield { vatID, vatConfig };
+    }
+  }
+
+  /**
+   * Fetch the stored configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is sought.
+   *
+   * @returns the configuration for the given vat.
+   */
+  function getVatConfig(vatID: VatId): VatConfig {
+    return JSON.parse(
+      kv.getRequired(`${VAT_CONFIG_BASE}${vatID}`),
+    ) as VatConfig;
+  }
+
+  /**
+   * Store the configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is to be set.
+   * @param vatConfig - The configuration to write.
+   */
+  function setVatConfig(vatID: VatId, vatConfig: VatConfig): void {
+    kv.set(`${VAT_CONFIG_BASE}${vatID}`, JSON.stringify(vatConfig));
+  }
+
+  /**
+   * Delete the stored configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is to be deleted.
+   */
+  function deleteVatConfig(vatID: VatId): void {
+    kv.delete(`${VAT_CONFIG_BASE}${vatID}`);
+  }
+
+  /**
    * Delete everything from the database.
    */
   function clear(): void {
@@ -769,7 +888,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    */
   function reset(): void {
     kdb.clear();
-    runQueue = createStoredQueue('run', true);
+    runQueue = provideStoredQueue('run', true);
     nextVatId = provideCachedStoredValue('nextVatId', '1');
     nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
     nextObjectId = provideCachedStoredValue('nextObjectId', '1');
@@ -1048,7 +1167,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
       maybeFreeKrefs.add(kref);
     }
     setObjectRefCount(kref, counts);
-
+    kv.set('initialized', 'true');
     return false;
   }
 
@@ -1079,7 +1198,14 @@ export function makeKernelStore(kdb: KernelDatabase) {
     addClistEntry,
     forgetEref,
     forgetKref,
+    getAllVatRecords,
+    getVatConfig,
+    setVatConfig,
+    deleteVatConfig,
+    getPromisesByDecider,
     clear,
+    deleteEndpoint,
+    deleteVat,
     makeVatStore,
     reset,
     kv,
@@ -1096,7 +1222,6 @@ export function makeKernelStore(kdb: KernelDatabase) {
     scheduleReap,
     incrementRefCount,
     decrementRefCount,
-    createStoredQueue,
     deleteClistEntry,
     getQueueLength,
   });

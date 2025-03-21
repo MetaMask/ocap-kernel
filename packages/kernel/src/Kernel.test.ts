@@ -194,8 +194,8 @@ describe('Kernel', () => {
 
   describe('terminateAllVats()', () => {
     it('deletes all vats from the kernel without errors', async () => {
-      const workerTerminateAllMock = vi
-        .spyOn(mockWorkerService, 'terminateAll')
+      const workerTerminateMock = vi
+        .spyOn(mockWorkerService, 'terminate')
         .mockResolvedValue(undefined);
       const kernel = await Kernel.make(
         mockStream,
@@ -209,7 +209,7 @@ describe('Kernel', () => {
       await kernel.terminateAllVats();
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(vatHandles[1]?.terminate).toHaveBeenCalledOnce();
-      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(workerTerminateMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
   });
@@ -367,15 +367,11 @@ describe('Kernel', () => {
       );
       kernel.clusterConfig = makeMockClusterConfig();
       await kernel.launchVat(makeMockVatConfig());
-      const workerTerminateAllMock = vi
-        .spyOn(mockWorkerService, 'terminateAll')
-        .mockResolvedValue(undefined);
       const launchSubclusterMock = vi
         .spyOn(kernel, 'launchSubcluster')
         .mockResolvedValueOnce(undefined);
       await kernel.reload();
       expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
-      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
       expect(launchSubclusterMock).toHaveBeenCalledOnce();
     });
 
@@ -396,7 +392,7 @@ describe('Kernel', () => {
       );
       kernel.clusterConfig = makeMockClusterConfig();
       const error = new Error('Termination failed');
-      vi.spyOn(mockWorkerService, 'terminateAll').mockRejectedValueOnce(error);
+      vi.spyOn(kernel, 'terminateAllVats').mockRejectedValueOnce(error);
       await expect(kernel.reload()).rejects.toThrow(error);
     });
   });

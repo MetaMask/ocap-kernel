@@ -144,9 +144,10 @@ describe('VatHandle', () => {
         params: [],
       });
 
-      await vat.terminate();
+      await vat.terminate(true);
 
       await expect(messagePromise).rejects.toThrow('Vat was deleted.');
+
       expect(await stream.next()).toStrictEqual({
         done: true,
         value: undefined,

@@ -48,6 +48,10 @@ export const SQL_QUERIES = {
     DELETE FROM kv_vatstore
     WHERE vatID = ? AND key = ?
   `,
+  DELETE_VS_ALL: `
+    DELETE FROM kv_vatstore
+    WHERE vatID = ?
+  `,
   CLEAR: `
     DELETE FROM kv
   `,

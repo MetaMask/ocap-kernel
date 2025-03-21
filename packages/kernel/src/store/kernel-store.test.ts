@@ -59,18 +59,21 @@ describe('kernel store', () => {
         'allocateErefForKref',
         'clear',
         'clearReachableFlag',
-        'createStoredQueue',
         'decRefCount',
         'decrementRefCount',
         'deleteClistEntry',
+        'deleteEndpoint',
         'deleteKernelObject',
         'deleteKernelPromise',
+        'deleteVat',
+        'deleteVatConfig',
         'dequeueRun',
         'enqueuePromiseMessage',
         'enqueueRun',
         'erefToKref',
         'forgetEref',
         'forgetKref',
+        'getAllVatRecords',
         'getGCActions',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
@@ -78,9 +81,12 @@ describe('kernel store', () => {
         'getNextVatId',
         'getObjectRefCount',
         'getOwner',
+        'getPromisesByDecider',
         'getQueueLength',
         'getReachableFlag',
         'getRefCount',
+        'getRefCount',
+        'getVatConfig',
         'hasCListEntry',
         'incRefCount',
         'incrementRefCount',
@@ -99,6 +105,7 @@ describe('kernel store', () => {
         'setGCActions',
         'setObjectRefCount',
         'setPromiseDecider',
+        'setVatConfig',
       ]);
     });
   });
@@ -190,12 +197,6 @@ describe('kernel store', () => {
       ks.deleteKernelPromise('kp1');
       expect(() => ks.getKernelPromise('kp1')).toThrow(
         'unknown kernel promise kp1',
-      );
-      expect(() => ks.enqueuePromiseMessage('kp1', mm('not really'))).toThrow(
-        'queue kp1 not initialized',
-      );
-      expect(() => ks.getKernelPromiseMessageQueue('kp1')).toThrow(
-        'queue kp1 not initialized',
       );
       expect(() => ks.getKernelPromise('kp99')).toThrow(
         'unknown kernel promise kp99',

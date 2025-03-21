@@ -11,6 +11,7 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
 
+import { kser } from './kernel-marshal.ts';
 import type { Kernel } from './Kernel.ts';
 import { VatCommandMethod } from './messages/index.ts';
 import type {
@@ -138,7 +139,10 @@ export class VatHandle {
     Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
       async (error) => {
         this.#logger.error(`Unexpected read error`, error);
-        await this.terminate(new StreamReadError({ vatId: this.vatId }, error));
+        await this.terminate(
+          true,
+          new StreamReadError({ vatId: this.vatId }, error),
+        );
       },
     );
 
@@ -574,20 +578,33 @@ export class VatHandle {
   /**
    * Terminates the vat.
    *
+   * @param terminating - If true, the vat is being killed permanently, so clean
+   *   up its state and reject any promises that would be left dangling.
    * @param error - The error to terminate the vat with.
    */
-  async terminate(error?: Error): Promise<void> {
+  async terminate(terminating: boolean, error?: Error): Promise<void> {
     await this.#vatStream.end(error);
 
-    // Handle orphaned messages
-    for (const [messageId, promiseCallback] of this.#unresolvedMessages) {
-      promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
-      this.#unresolvedMessages.delete(messageId);
+    if (terminating) {
+      // Reject promises exported to other vats for which this vat is the decider
+      const failure = kser(new VatDeletedError(this.vatId));
+      for (const kpid of this.#kernelStore.getPromisesByDecider(this.vatId)) {
+        this.#kernel.doResolve(this.vatId, [[kpid, true, failure]]);
+      }
+
+      // Reject promises for results of method invocations from the kernel
+      for (const [messageId, promiseCallback] of this.#unresolvedMessages) {
+        promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
+        this.#unresolvedMessages.delete(messageId);
+      }
+
+      // Expunge this vat's persistent state
+      this.#kernelStore.deleteVat(this.vatId);
     }
   }
 
   /**
-   * Send a command to a vat.
+   * Send a command into the vat.
    *
    * @param payload - The command to send.
    * @returns A promise that resolves the response to the command.

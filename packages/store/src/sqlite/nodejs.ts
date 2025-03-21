@@ -160,6 +160,7 @@ export async function makeSQLKernelDatabase({
   const sqlVatstoreGetAll = db.prepare(SQL_QUERIES.GET_ALL_VS);
   const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
   const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
+  const sqlVatstoreDeleteAll = db.prepare(SQL_QUERIES.DELETE_VS_ALL);
 
   /**
    * Create a new VatStore for a vat.
@@ -213,11 +214,21 @@ export async function makeSQLKernelDatabase({
     };
   }
 
+  /**
+   * Delete an entire VatStore.
+   *
+   * @param vatId - The vat whose store is to be deleted.
+   */
+  function deleteVatStore(vatId: string): void {
+    sqlVatstoreDeleteAll.run(vatId);
+  }
+
   return {
     kernelKVStore: kvStore,
     executeQuery: kvExecuteQuery,
     clear: db.transaction(kvClear),
     makeVatStore,
+    deleteVatStore,
   };
 }
 

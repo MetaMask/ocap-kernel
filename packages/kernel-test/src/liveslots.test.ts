@@ -304,4 +304,23 @@ describe('liveslots promise handling', () => {
     ];
     expect(vatLogs).toStrictEqual(reference);
   }, 30000);
+
+  it('messageToPromise: send to promise before resolution', async () => {
+    const [bootstrapResult, vatLogs] = await runTestVats(
+      'message-to-promise-vat',
+      'messageToPromise',
+    );
+    expect(bootstrapResult).toBe('p2succ');
+    const reference = [
+      `Alice: running test messageToPromise`,
+      `Alice: invoking loopback`,
+      `Alice: second result resolved to 'deferred something'`,
+      `Alice: loopback done`,
+      `Bob: setup`,
+      `Bob: doResolve`,
+      `Bob: thing.doSomething`,
+      `Bob: loopback`,
+    ];
+    expect(vatLogs).toStrictEqual(reference);
+  }, 30000);
 });
