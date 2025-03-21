@@ -4,10 +4,7 @@ import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { SQL_QUERIES } from './common.ts';
-<<<<<<< HEAD
-=======
 import { getDBFolder } from './env.ts';
->>>>>>> 4768b8c (prevent concurrent requests and improve loading states and e2e tests)
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -21,12 +18,11 @@ async function initDB(dbFilename: string): Promise<Database> {
   let db: Database;
 
   if (sqlite3.oo1.OpfsDb) {
-    db = new sqlite3.oo1.OpfsDb(
-      dbFilename.startsWith(':')
-        ? dbFilename
-        : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-'),
-      'cw',
-    );
+    const dbName = dbFilename.startsWith(':')
+      ? dbFilename
+      : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-');
+    db = new sqlite3.oo1.OpfsDb(dbName, 'cw');
+    console.debug('OPFS database name:', dbName);
   } else {
     console.warn(`OPFS not enabled, database will be ephemeral`);
     db = new sqlite3.oo1.DB(`:memory:`, 'cw');
