@@ -1,7 +1,7 @@
 import type { Json } from '@metamask/utils';
 import { isKernelCommand } from '@ocap/kernel';
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 
 import type { CommandHandler, CommandParams } from '../command-registry.ts';
 import { KernelCommandPayloadStructs } from '../messages.ts';
@@ -11,7 +11,7 @@ export const sendVatCommandHandler: CommandHandler<'sendVatCommand'> = {
   schema: KernelCommandPayloadStructs.sendVatCommand.schema.params,
   implementation: async (
     kernel: Kernel,
-    _kdb: KernelDatabase,
+    _kvStore: KVStore,
     params: CommandParams['sendVatCommand'],
   ): Promise<Json> => {
     if (!isKernelCommand(params.payload)) {

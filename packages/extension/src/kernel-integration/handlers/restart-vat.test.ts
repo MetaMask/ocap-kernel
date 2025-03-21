@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { restartVatHandler } from './restart-vat.ts';
@@ -9,7 +9,7 @@ describe('restartVatHandler', () => {
     restartVat: vi.fn().mockResolvedValue(undefined),
   } as unknown as Kernel;
 
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
+  const mockKVStore = {} as unknown as KVStore;
 
   it('should have the correct method', () => {
     expect(restartVatHandler.method).toBe('restartVat');
@@ -23,7 +23,7 @@ describe('restartVatHandler', () => {
     const params = { id: 'v0' } as const;
     const result = await restartVatHandler.implementation(
       mockKernel,
-      mockKernelDatabase,
+      mockKVStore,
       params,
     );
     expect(mockKernel.restartVat).toHaveBeenCalledWith(params.id);
@@ -35,7 +35,7 @@ describe('restartVatHandler', () => {
     vi.mocked(mockKernel.restartVat).mockRejectedValueOnce(error);
     const params = { id: 'v0' } as const;
     await expect(
-      restartVatHandler.implementation(mockKernel, mockKernelDatabase, params),
+      restartVatHandler.implementation(mockKernel, mockKVStore, params),
     ).rejects.toThrow(error);
   });
 });

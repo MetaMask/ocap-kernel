@@ -2,6 +2,7 @@ import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
 import { VatSupervisor } from '@ocap/kernel';
+import { makeSQLKVStore } from '@ocap/store/sqlite/nodejs';
 import { makeLogger } from '@ocap/utils';
 import fs from 'node:fs/promises';
 import url from 'node:url';
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
   void new VatSupervisor({
     id: vatId,
     commandStream,
+    makeKVStore: makeSQLKVStore,
     fetchBlob,
   });
 }

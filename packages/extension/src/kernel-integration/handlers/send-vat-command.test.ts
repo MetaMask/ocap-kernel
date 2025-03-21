@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { sendVatCommandHandler } from './send-vat-command.ts';
@@ -9,7 +9,7 @@ describe('sendVatCommandHandler', () => {
     sendVatCommand: vi.fn(() => 'success'),
   } as unknown as Kernel;
 
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
+  const mockKVStore = {} as unknown as KVStore;
 
   it('should have the correct method', () => {
     expect(sendVatCommandHandler.method).toBe('sendVatCommand');
@@ -22,7 +22,7 @@ describe('sendVatCommandHandler', () => {
     } as const;
     const result = await sendVatCommandHandler.implementation(
       mockKernel,
-      mockKernelDatabase,
+      mockKVStore,
       params,
     );
     expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
@@ -37,11 +37,7 @@ describe('sendVatCommandHandler', () => {
       payload: { method: 'ping', params: null },
     };
     await expect(
-      sendVatCommandHandler.implementation(
-        mockKernel,
-        mockKernelDatabase,
-        params,
-      ),
+      sendVatCommandHandler.implementation(mockKernel, mockKVStore, params),
     ).rejects.toThrow('Vat ID required for this command');
   });
 });

@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect } from 'vitest';
 
 import { updateClusterConfigHandler } from './update-cluster-config.ts';
@@ -9,7 +9,7 @@ describe('updateClusterConfigHandler', () => {
     clusterConfig: null,
   } as Partial<Kernel>;
 
-  const mockKernelDatabase = {} as KernelDatabase;
+  const mockKvStore = {} as KVStore;
 
   const testConfig = {
     bootstrap: 'testVat',
@@ -23,7 +23,7 @@ describe('updateClusterConfigHandler', () => {
   it('should update kernel cluster config', async () => {
     const result = await updateClusterConfigHandler.implementation(
       mockKernel as Kernel,
-      mockKernelDatabase,
+      mockKvStore,
       { config: testConfig },
     );
 

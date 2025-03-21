@@ -2,7 +2,7 @@ import { assert } from '@metamask/superstruct';
 import type { Infer, Struct } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 
 import type { KernelControlMethod } from './handlers/index.ts';
 import type { KernelCommandPayloadStructs } from './messages.ts';
@@ -25,28 +25,20 @@ export type CommandHandler<Method extends KernelControlMethod> = {
    * Implementation of the command.
    *
    * @param kernel - The kernel instance.
-   * @param kernelDatabase - The kernel database instance.
+   * @param kvStore - The KV store instance.
    * @param params - The parameters.
    * @returns The result of the command.
    */
   implementation: (
     kernel: Kernel,
-    kernelDatabase: KernelDatabase,
+    kvStore: KVStore,
     params: CommandParams[Method],
   ) => Promise<Json>;
 };
 
 export type Middleware = (
-  next: (
-    kernel: Kernel,
-    kernelDatabase: KernelDatabase,
-    params: unknown,
-  ) => Promise<Json>,
-) => (
-  kernel: Kernel,
-  kernelDatabase: KernelDatabase,
-  params: unknown,
-) => Promise<Json>;
+  next: (kernel: Kernel, kvStore: KVStore, params: unknown) => Promise<Json>,
+) => (kernel: Kernel, kvStore: KVStore, params: unknown) => Promise<Json>;
 
 /**
  * A registry for kernel commands.
@@ -85,14 +77,14 @@ export class KernelCommandRegistry {
    * Execute a command.
    *
    * @param kernel - The kernel.
-   * @param kernelDatabase - The kernel database.
+   * @param kvStore - The KV store.
    * @param method - The method name.
    * @param params - The parameters.
    * @returns The result.
    */
   async execute<Method extends KernelControlMethod>(
     kernel: Kernel,
-    kernelDatabase: KernelDatabase,
+    kvStore: KVStore,
     method: Method,
     params: CommandParams[Method],
   ): Promise<Json> {
@@ -103,11 +95,11 @@ export class KernelCommandRegistry {
 
     let chain = async (
       k: Kernel,
-      kdb: KernelDatabase,
+      kv: KVStore,
       param: unknown,
     ): Promise<Json> => {
       assert(param, handler.schema);
-      return handler.implementation(k, kdb, param);
+      return handler.implementation(k, kv, param);
     };
 
     // Apply middlewares in reverse order
@@ -115,6 +107,6 @@ export class KernelCommandRegistry {
       chain = middleware(chain);
     }
 
-    return chain(kernel, kernelDatabase, params);
+    return chain(kernel, kvStore, params);
   }
 }

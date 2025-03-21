@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { launchVatHandler } from './launch-vat.ts';
@@ -9,7 +9,7 @@ describe('launchVatHandler', () => {
     launchVat: vi.fn().mockResolvedValue(undefined),
   } as unknown as Kernel;
 
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
+  const mockKVStore = {} as unknown as KVStore;
 
   it('should have the correct method', () => {
     expect(launchVatHandler.method).toBe('launchVat');
@@ -23,7 +23,7 @@ describe('launchVatHandler', () => {
     const params = { sourceSpec: 'test.js' };
     const result = await launchVatHandler.implementation(
       mockKernel,
-      mockKernelDatabase,
+      mockKVStore,
       params,
     );
     expect(mockKernel.launchVat).toHaveBeenCalledWith(params);
@@ -35,7 +35,7 @@ describe('launchVatHandler', () => {
     vi.mocked(mockKernel.launchVat).mockRejectedValueOnce(error);
     const params = { sourceSpec: 'test.js' };
     await expect(
-      launchVatHandler.implementation(mockKernel, mockKernelDatabase, params),
+      launchVatHandler.implementation(mockKernel, mockKVStore, params),
     ).rejects.toThrow(error);
   });
 });

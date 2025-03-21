@@ -8,6 +8,7 @@ import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@ocap/errors';
+import type { MakeKVStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 
 import type {
@@ -21,8 +22,6 @@ import { VatCommandMethod } from './messages/index.ts';
 import { makeSupervisorSyscall } from './syscall.ts';
 import type { VatConfig, VatId, VRef } from './types.ts';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.ts';
-import type { VatKVStore } from './VatKVStore.ts';
-import { makeVatKVStore } from './VatKVStore.ts';
 import { waitUntilQuiescent } from './waitUntilQuiescent.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
@@ -33,6 +32,7 @@ type FetchBlob = (bundleURL: string) => Promise<Response>;
 type SupervisorConstructorProps = {
   id: VatId;
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
+  makeKVStore: MakeKVStore;
   fetchBlob?: FetchBlob;
 };
 
@@ -53,8 +53,8 @@ export class VatSupervisor {
   /** Function to dispatch deliveries into liveslots */
   #dispatch: DispatchFn | null;
 
-  /** In-memory KVStore cache for this vat. */
-  #vatKVStore: VatKVStore | undefined;
+  /** Capability to create the store for this vat. */
+  readonly #makeKVStore: MakeKVStore;
 
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
@@ -68,11 +68,18 @@ export class VatSupervisor {
    * @param params - Named constructor parameters.
    * @param params.id - The id of the vat being supervised.
    * @param params.commandStream - Communications channel connected to the kernel.
+   * @param params.makeKVStore - Capability to create the store for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
-  constructor({ id, commandStream, fetchBlob }: SupervisorConstructorProps) {
+  constructor({
+    id,
+    commandStream,
+    makeKVStore,
+    fetchBlob,
+  }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
+    this.#makeKVStore = makeKVStore;
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
       fetch(bundleURL);
@@ -117,18 +124,16 @@ export class VatSupervisor {
         this.#syscallsInFlight.length = 0;
         await this.replyToMessage(id, {
           method: VatCommandMethod.deliver,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          params: this.#vatKVStore!.checkpoint(),
+          params: null, // XXX eventually this should be the actual result?
         });
         break;
       }
 
       case VatCommandMethod.initVat: {
-        await this.#initVat(payload.params.vatConfig, payload.params.state);
+        const rootObjectVref = await this.#initVat(payload.params);
         await this.replyToMessage(id, {
           method: VatCommandMethod.initVat,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          params: this.#vatKVStore!.checkpoint(),
+          params: rootObjectVref,
         });
         break;
       }
@@ -189,14 +194,10 @@ export class VatSupervisor {
    * instance to manage it.
    *
    * @param vatConfig - Configuration object describing the vat to be intialized.
-   * @param state - A Map representing the current persistent state of the vat.
    *
    * @returns a promise for the VRef of the new vat's root object.
    */
-  async #initVat(
-    vatConfig: VatConfig,
-    state: Map<string, string>,
-  ): Promise<VRef> {
+  async #initVat(vatConfig: VatConfig): Promise<VRef> {
     if (this.#loaded) {
       throw Error(
         'VatSupervisor received initVat after user code already loaded',
@@ -213,8 +214,11 @@ export class VatSupervisor {
     }
     this.#loaded = true;
 
-    this.#vatKVStore = makeVatKVStore(state);
-    const syscall = makeSupervisorSyscall(this, this.#vatKVStore);
+    const kvStore = await this.#makeKVStore(
+      `vat-${this.id}.db`,
+      `[vat-${this.id}]`,
+    );
+    const syscall = makeSupervisorSyscall(this, kvStore);
     const vatPowers = {}; // XXX should be something more real
     const liveSlotsOptions = {}; // XXX should be something more real
 

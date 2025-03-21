@@ -1,13 +1,13 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { executeDBQueryHandler } from './execute-db-query.ts';
 
 describe('executeDBQueryHandler', () => {
-  const mockKernelDatabase = {
+  const mockKVStore = {
     executeQuery: vi.fn(() => 'test'),
-  } as unknown as KernelDatabase;
+  } as unknown as KVStore;
 
   const mockKernel = {} as unknown as Kernel;
 
@@ -19,23 +19,19 @@ describe('executeDBQueryHandler', () => {
     const params = { sql: 'SELECT * FROM test' };
     const result = await executeDBQueryHandler.implementation(
       mockKernel,
-      mockKernelDatabase,
+      mockKVStore,
       params,
     );
-    expect(mockKernelDatabase.executeQuery).toHaveBeenCalledWith(params.sql);
+    expect(mockKVStore.executeQuery).toHaveBeenCalledWith(params.sql);
     expect(result).toBe('test');
   });
 
   it('should propagate errors from executeQuery', async () => {
     const error = new Error('Query failed');
-    vi.mocked(mockKernelDatabase.executeQuery).mockRejectedValueOnce(error);
+    vi.mocked(mockKVStore.executeQuery).mockRejectedValueOnce(error);
     const params = { sql: 'SELECT * FROM test' };
     await expect(
-      executeDBQueryHandler.implementation(
-        mockKernel,
-        mockKernelDatabase,
-        params,
-      ),
+      executeDBQueryHandler.implementation(mockKernel, mockKVStore, params),
     ).rejects.toThrow(error);
   });
 });

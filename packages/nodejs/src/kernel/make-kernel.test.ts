@@ -10,11 +10,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeKernel } from './make-kernel.ts';
 
 vi.mock('@ocap/store/sqlite/nodejs', async () => {
-  const { makeMapKernelDatabase } = await import(
-    '../../../kernel/test/storage.ts'
-  );
+  const { makeMapKVStore } = await import('../../../kernel/test/storage.ts');
   return {
-    makeSQLKernelDatabase: makeMapKernelDatabase,
+    makeSQLKVStore: makeMapKVStore,
   };
 });
 

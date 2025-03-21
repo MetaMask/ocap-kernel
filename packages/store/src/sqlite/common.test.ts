@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { SQL_QUERIES } from './common.ts';
 
 describe('SQL_QUERIES', () => {
-  // XXX Is this test actually useful? It's basically testing that the source code matches itself.
   it.each([
     [
       'CREATE_TABLE',
@@ -39,22 +38,13 @@ describe('SQL_QUERIES', () => {
 
   it('has all expected query properties', () => {
     expect(Object.keys(SQL_QUERIES).sort()).toStrictEqual([
-      'ABORT_TRANSACTION',
-      'BEGIN_TRANSACTION',
       'CLEAR',
-      'CLEAR_VS',
-      'COMMIT_TRANSACTION',
       'CREATE_TABLE',
-      'CREATE_TABLE_VS',
       'DELETE',
-      'DELETE_VS',
       'DROP',
-      'DROP_VS',
       'GET',
-      'GET_ALL_VS',
       'GET_NEXT',
       'SET',
-      'SET_VS',
     ]);
   });
 });

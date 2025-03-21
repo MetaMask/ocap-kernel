@@ -5,7 +5,6 @@ import {
   unknown,
   tuple,
   union,
-  map,
   literal,
   refine,
   string,
@@ -18,7 +17,6 @@ import {
   isVatId,
   MessageStruct,
   VatConfigStruct,
-  VatCheckpointStruct,
   CapDataStruct,
 } from '../types.ts';
 import type { VatId } from '../types.ts';
@@ -200,10 +198,7 @@ export const VatMethodStructs = {
   ...VatTestMethodStructs,
   [VatCommandMethod.initVat]: object({
     method: literal(VatCommandMethod.initVat),
-    params: object({
-      vatConfig: VatConfigStruct,
-      state: map(string(), string()),
-    }),
+    params: VatConfigStruct,
   }),
   [VatCommandMethod.deliver]: object({
     method: literal(VatCommandMethod.deliver),
@@ -228,11 +223,11 @@ const VatReplyStructs = {
   ...VatTestReplyStructs,
   [VatCommandMethod.initVat]: object({
     method: literal(VatCommandMethod.initVat),
-    params: VatCheckpointStruct,
+    params: string(),
   }),
   [VatCommandMethod.deliver]: object({
     method: literal(VatCommandMethod.deliver),
-    params: VatCheckpointStruct,
+    params: literal(null),
   }),
   [VatCommandMethod.syscall]: object({
     method: literal(VatCommandMethod.syscall),

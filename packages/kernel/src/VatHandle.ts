@@ -6,7 +6,6 @@ import type {
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
-import type { VatStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
@@ -33,7 +32,7 @@ type VatConstructorProps = {
   vatId: VatId;
   vatConfig: VatConfig;
   vatStream: DuplexStream<VatCommandReply, VatCommand>;
-  kernelStore: KernelStore;
+  storage: KernelStore;
   logger?: Logger | undefined;
 };
 
@@ -54,10 +53,7 @@ export class VatHandle {
   readonly #messageCounter: () => number;
 
   /** Storage holding the kernel's persistent state */
-  readonly #kernelStore: KernelStore;
-
-  /** Storage holding this vat's persistent state */
-  readonly #vatStore: VatStore;
+  readonly #storage: KernelStore;
 
   /** The kernel we are working for. */
   readonly #kernel: Kernel;
@@ -74,7 +70,7 @@ export class VatHandle {
    * @param params.vatId - Our vat ID.
    * @param params.vatConfig - The configuration for this vat.
    * @param params.vatStream - Communications channel connected to the vat worker.
-   * @param params.kernelStore - The kernel's persistent state store.
+   * @param params.storage - The kernel's persistent state store.
    * @param params.logger - Optional logger for error and diagnostic output.
    */
   // eslint-disable-next-line no-restricted-syntax
@@ -83,7 +79,7 @@ export class VatHandle {
     vatId,
     vatConfig,
     vatStream,
-    kernelStore,
+    storage,
     logger,
   }: VatConstructorProps) {
     this.#kernel = kernel;
@@ -92,8 +88,7 @@ export class VatHandle {
     this.#logger = logger ?? makeLogger(`[vat ${vatId}]`);
     this.#messageCounter = makeCounter();
     this.#vatStream = vatStream;
-    this.#kernelStore = kernelStore;
-    this.#vatStore = kernelStore.makeVatStore(vatId);
+    this.#storage = storage;
   }
 
   /**
@@ -104,7 +99,7 @@ export class VatHandle {
    * @param params.vatId - Our vat ID.
    * @param params.vatConfig - The configuration for this vat.
    * @param params.vatStream - Communications channel connected to the vat worker.
-   * @param params.kernelStore - The kernel's persistent state store.
+   * @param params.storage - The kernel's persistent state store.
    * @param params.logger - Optional logger for error and diagnostic output.
    * @returns A promise for the new VatHandle instance.
    */
@@ -113,7 +108,7 @@ export class VatHandle {
     vatId,
     vatConfig,
     vatStream,
-    kernelStore,
+    storage,
     logger,
   }: VatConstructorProps): Promise<VatHandle> {
     const vat = new VatHandle({
@@ -121,7 +116,7 @@ export class VatHandle {
       vatId,
       vatConfig,
       vatStream,
-      kernelStore,
+      storage,
       logger,
     });
     await vat.#init();
@@ -150,7 +145,7 @@ export class VatHandle {
     await this.sendVatCommand({ method: VatCommandMethod.ping, params: null });
     await this.sendVatCommand({
       method: VatCommandMethod.initVat,
-      params: { vatConfig: this.config, state: this.#vatStore.getKVData() },
+      params: this.config,
     });
   }
 
@@ -162,7 +157,7 @@ export class VatHandle {
    * @returns the KRef corresponding to `vref` in this vat.
    */
   #translateRefVtoK(vref: VRef): KRef {
-    let kref = this.#kernelStore.erefToKref(this.vatId, vref);
+    let kref = this.#storage.erefToKref(this.vatId, vref);
     if (!kref) {
       kref = this.#kernel.exportFromVat(this.vatId, vref);
     }
@@ -311,9 +306,9 @@ export class VatHandle {
    * @param kpid - The KRef of the promise being subscribed to.
    */
   #handleSyscallSubscribe(kpid: KRef): void {
-    const kp = this.#kernelStore.getKernelPromise(kpid);
+    const kp = this.#storage.getKernelPromise(kpid);
     if (kp.state === 'unresolved') {
-      this.#kernelStore.addPromiseSubscriber(this.vatId, kpid);
+      this.#storage.addPromiseSubscriber(this.vatId, kpid);
     } else {
       this.#kernel.notify(this.vatId, kpid);
     }
@@ -411,23 +406,12 @@ export class VatHandle {
     if (payload.method === VatCommandMethod.syscall) {
       await this.#handleSyscall(payload.params as VatSyscallObject);
     } else {
-      let result;
-      if (
-        payload.method === VatCommandMethod.deliver ||
-        payload.method === VatCommandMethod.initVat
-      ) {
-        result = null;
-        const [sets, deletes] = payload.params;
-        this.#vatStore.updateKVData(sets, deletes);
-      } else {
-        result = payload.params;
-      }
       const promiseCallbacks = this.#unresolvedMessages.get(id);
       if (promiseCallbacks === undefined) {
         this.#logger.error(`No unresolved message with id "${id}".`);
       } else {
         this.#unresolvedMessages.delete(id);
-        promiseCallbacks.resolve(result);
+        promiseCallbacks.resolve(payload.params);
       }
     }
   }

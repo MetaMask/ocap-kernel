@@ -8,7 +8,7 @@ import { join } from 'path';
 
 import { SQL_QUERIES } from './common.ts';
 import { getDBFolder } from './env.ts';
-import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
+import type { KVStore } from '../types.ts';
 
 /**
  * Ensure that SQLite is initialized.
@@ -38,13 +38,23 @@ async function initDB(
 }
 
 /**
- * Makes a persistent {@link KVStore} on top of a SQLite database.
+ * Makes a {@link KVStore} for low-level persistent storage.
  *
- * @param db - The (open) database to use.
- * @returns A key/value store using the given database.
+ * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
+ * @param label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param verbose - If true, generate logger output; if false, be quiet.
+ * @returns The key/value store to base the kernel store on.
  */
-function makeKVStore(db: Database): KVStore {
+export async function makeSQLKVStore(
+  dbFilename: string = 'store.db',
+  label: string = '[sqlite]',
+  verbose: boolean = false,
+): Promise<KVStore> {
+  const logger = makeLogger(label);
+  const db = await initDB(dbFilename, logger, verbose);
+
   const sqlKVInit = db.prepare(SQL_QUERIES.CREATE_TABLE);
+
   sqlKVInit.run();
 
   const sqlKVGet = db.prepare<[string], string>(SQL_QUERIES.GET);
@@ -107,45 +117,14 @@ function makeKVStore(db: Database): KVStore {
     sqlKVDelete.run(key);
   }
 
-  return {
-    get: (key) => kvGet(key, false),
-    getNextKey: kvGetNextKey,
-    getRequired: (key) => kvGet(key, true) as string,
-    set: kvSet,
-    delete: kvDelete,
-  };
-}
-
-/**
- * Makes a {@link KernelDatabase} for low-level persistent storage.
- *
- * @param dbFilename - The filename of the database to use. Defaults to 'store.db'.
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param verbose - If true, generate logger output; if false, be quiet.
- * @returns The key/value store to base the kernel store on.
- */
-export async function makeSQLKernelDatabase(
-  dbFilename: string = 'store.db',
-  label: string = '[sqlite]',
-  verbose: boolean = false,
-): Promise<KernelDatabase> {
-  const logger = makeLogger(label);
-  const db = await initDB(dbFilename, logger, verbose);
-
-  const kvStore = makeKVStore(db);
-
-  const sqlKVInitVS = db.prepare(SQL_QUERIES.CREATE_TABLE_VS);
-  sqlKVInitVS.run();
-
-  const sqlKVClear = db.prepare(SQL_QUERIES.CLEAR);
-  const sqlKVClearVS = db.prepare(SQL_QUERIES.CLEAR_VS);
+  const sqlKVDrop = db.prepare(SQL_QUERIES.DROP);
 
   /**
-   * Delete everything from the database.
+   * Delete all keys and values from the database.
    */
   function kvClear(): void {
-    sqlKVClear.run();
-    sqlKVClearVS.run();
+    sqlKVDrop.run();
+    sqlKVInit.run();
   }
 
   /**
@@ -159,67 +138,14 @@ export async function makeSQLKernelDatabase(
     return query.all() as Record<string, string>[];
   }
 
-  const sqlVatstoreGetAll = db.prepare(SQL_QUERIES.GET_ALL_VS);
-  const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
-  const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
-
-  /**
-   * Create a new VatStore for a vat.
-   *
-   * @param vatID - The vat for which this is being done.
-   *
-   * @returns a a VatStore object for the given vat.
-   */
-  function makeVatStore(vatID: string): VatStore {
-    /**
-     * Fetch all the data in the vatstore.
-     *
-     * @returns the vatstore contents as a key-value Map.
-     */
-    function getKVData(): Map<string, string> {
-      const result = new Map<string, string>();
-      type KVPair = {
-        key: string;
-        value: string;
-      };
-      for (const kvPair of sqlVatstoreGetAll.iterate(vatID)) {
-        const { key, value } = kvPair as KVPair;
-        result.set(key, value);
-      }
-      return result;
-    }
-
-    /**
-     * Update the state of the vatstore
-     *
-     * @param sets - A map of key values that have been changed.
-     * @param deletes - A set of keys that have been deleted.
-     */
-    function updateKVData(
-      sets: Map<string, string>,
-      deletes: Set<string>,
-    ): void {
-      db.transaction(() => {
-        for (const [key, value] of sets.entries()) {
-          sqlVatstoreSet.run(vatID, key, value);
-        }
-        for (const value of deletes.values()) {
-          sqlVatstoreDelete.run(vatID, value);
-        }
-      })();
-    }
-
-    return {
-      getKVData,
-      updateKVData,
-    };
-  }
-
   return {
-    kernelKVStore: kvStore,
+    get: (key) => kvGet(key, false),
+    getNextKey: kvGetNextKey,
+    getRequired: (key) => kvGet(key, true) as string,
+    set: kvSet,
+    delete: kvDelete,
     executeQuery: kvExecuteQuery,
     clear: db.transaction(kvClear),
-    makeVatStore,
   };
 }
 

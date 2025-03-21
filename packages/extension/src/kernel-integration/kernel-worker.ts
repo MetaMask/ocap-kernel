@@ -4,7 +4,7 @@ import type {
   KernelCommandReply,
 } from '@ocap/kernel';
 import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
-import { makeSQLKernelDatabase } from '@ocap/store/sqlite/wasm';
+import { makeSQLKVStore } from '@ocap/store/sqlite/wasm';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import {
   MessagePortDuplexStream,
@@ -38,22 +38,17 @@ async function main(): Promise<void> {
   const vatWorkerClient = ExtensionVatWorkerClient.make(
     globalThis as PostMessageTarget,
   );
-  const kernelDatabase = await makeSQLKernelDatabase();
+  const kvStore = await makeSQLKVStore();
 
-  const kernel = await Kernel.make(
-    kernelStream,
-    vatWorkerClient,
-    kernelDatabase,
-    {
-      // XXX Warning: Clearing storage here is a hack to aid development
-      // debugging, wherein extension reloads are almost exclusively used for
-      // retrying after tweaking some fix. The following line will prevent
-      // the accumulation of long term kernel state.
-      resetStorage: true,
-    },
-  );
+  const kernel = await Kernel.make(kernelStream, vatWorkerClient, kvStore, {
+    // XXX Warning: Clearing storage here is a hack to aid development
+    // debugging, wherein extension reloads are almost exclusively used for
+    // retrying after tweaking some fix. The following line will prevent
+    // the accumulation of long term kernel state.
+    resetStorage: true,
+  });
   receiveUiConnections(
-    async (message) => handlePanelMessage(kernel, kernelDatabase, message),
+    async (message) => handlePanelMessage(kernel, kvStore, message),
     logger,
   );
 

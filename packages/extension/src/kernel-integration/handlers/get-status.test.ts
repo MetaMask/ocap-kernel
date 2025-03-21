@@ -1,5 +1,5 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import type { KVStore } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { getStatusHandler } from './get-status.ts';
@@ -16,7 +16,7 @@ describe('getStatusHandler', () => {
     getVats: vi.fn(() => mockVats),
   } as unknown as Kernel;
 
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
+  const mockKVStore = {} as unknown as KVStore;
 
   it('should have the correct method', () => {
     expect(getStatusHandler.method).toBe('getStatus');
@@ -29,7 +29,7 @@ describe('getStatusHandler', () => {
   it('should return vats status and cluster config', async () => {
     const result = await getStatusHandler.implementation(
       mockKernel,
-      mockKernelDatabase,
+      mockKVStore,
       null,
     );
     expect(mockKernel.getVats).toHaveBeenCalledOnce();

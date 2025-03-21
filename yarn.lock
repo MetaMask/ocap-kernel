@@ -2062,8 +2062,6 @@ __metadata:
     "@ocap/cli": "workspace:^"
     "@ocap/kernel": "workspace:^"
     "@ocap/shims": "workspace:^"
-    "@ocap/store": "workspace:^"
-    "@ocap/streams": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.26.1"

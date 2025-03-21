@@ -1,5 +1,6 @@
 import { isVatCommand, VatSupervisor } from '@ocap/kernel';
 import type { VatCommand, VatCommandReply } from '@ocap/kernel';
+import { makeSQLKVStore } from '@ocap/store/sqlite/wasm';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
@@ -28,5 +29,6 @@ async function main(): Promise<void> {
   new VatSupervisor({
     id: vatId,
     commandStream,
+    makeKVStore: makeSQLKVStore,
   });
 }
