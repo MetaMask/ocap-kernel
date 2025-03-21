@@ -185,7 +185,7 @@ jobs:
           cd node_modules/better-sqlite3
           yarn build-release
           cd -
-      - run: yarn build
+      - run: VITE_DB_FOLDER=e2e-${{ github.job }} yarn build
       - run: yarn test:e2e:ci
       - name: Require clean working directory
         shell: bash
