@@ -6,6 +6,8 @@ import defaultClusterConfig from '../../src/vats/default-cluster.json' assert { 
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension.ts';
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Vat Manager', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
@@ -52,22 +54,6 @@ test.describe('Vat Manager', () => {
     );
     await popupPage.click('button:text("Launch Vat")');
     await expect(messageOutput).toContainText(`Launched vat "${name}"`);
-  }
-
-  /**
-   * Relaunches the browser and reloads the extension.
-   */
-  async function relaunchBrowser(): Promise<void> {
-    await extensionContext.close();
-    const extension = await makeLoadExtension();
-    // eslint-disable-next-line require-atomic-updates
-    extensionContext = extension.browserContext;
-    popupPage = extension.popupPage;
-    extensionId = extension.extensionId;
-    messageOutput = popupPage.locator('[data-testid="message-output"]');
-    await popupPage.waitForSelector('h2:text("Kernel Vats")');
-    await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
   }
 
   test('should load popup with kernel panel', async () => {
@@ -155,20 +141,16 @@ test.describe('Vat Manager', () => {
     await expect(popupPage.locator('table tr')).toHaveCount(2); // Header + 1 row
   });
 
-  test('should reload kernel state and load default vats', async ({
-    page: _page,
-  }, testInfo) => {
-    // If the test fails, we need to relaunch the browser to get a fresh state
-    if (testInfo.retry) {
-      await relaunchBrowser();
-    }
+  test('should reload kernel state and load default vats', async () => {
     await expect(
       popupPage.locator('button:text("Reload Kernel")'),
     ).toBeVisible();
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await popupPage.click('button:text("Reload Kernel")');
     await expect(messageOutput).toContainText('"method": "reload"');
-    await expect(messageOutput).toContainText('Default sub-cluster reloaded');
+    await expect(messageOutput).toContainText('Default sub-cluster reloaded', {
+      timeout: 10000,
+    });
     // Verify the table is visible and has the correct number of rows (header + vats)
     await expect(vatTable.locator('tr')).toHaveCount(
       Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
@@ -190,7 +172,7 @@ test.describe('Vat Manager', () => {
     // Reload kernel to load default vats
     await popupPage.click('button:text("Reload Kernel")');
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible();
+    await expect(vatTable).toBeVisible({ timeout: 10000 });
     await expect(vatTable.locator('tr')).toHaveCount(
       Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
     );
@@ -204,7 +186,7 @@ test.describe('Vat Manager', () => {
     )[0] as keyof typeof defaultClusterConfig.vats;
     const originalVatName =
       defaultClusterConfig.vats[firstVatKey].parameters.name;
-    await expect(vatTable).toBeVisible();
+    await expect(vatTable).toBeVisible({ timeout: 10000 });
     await expect(vatTable).toContainText(originalVatName);
     // Modify config with new vat name
     const modifiedConfig = structuredClone(defaultClusterConfig);
@@ -217,9 +199,7 @@ test.describe('Vat Manager', () => {
     await expect(vatTable).toContainText('SuperAlice');
   });
 
-  // Temporarily disabled due to mysterious integration problems.  Not clear if this test is
-  // actually needed, but keeping it here for now in case it can be salvaged.
-  test.skip('should initialize vat with correct ID from kernel', async () => {
+  test('should initialize vat with correct ID from kernel', async () => {
     // Open the offscreen page where vat logs appear
     const offscreenPage = await extensionContext.newPage();
     await offscreenPage.goto(
@@ -237,7 +217,7 @@ test.describe('Vat Manager', () => {
     await expect
       .poll(() =>
         logs.some((log) =>
-          log.includes(`[vat-${vatId}] Initializing kv store`),
+          log.includes(`VatSupervisor initialized with vatId: ${vatId}`),
         ),
       )
       .toBeTruthy();
