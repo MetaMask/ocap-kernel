@@ -26,7 +26,9 @@ describe('makeKernel', () => {
   });
 
   it('should return a Kernel', async () => {
-    const kernel = await makeKernel(kernelPort);
+    const kernel = await makeKernel({
+      port: kernelPort,
+    });
 
     expect(kernel).toBeInstanceOf(Kernel);
   });

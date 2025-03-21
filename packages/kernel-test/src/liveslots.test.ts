@@ -49,7 +49,11 @@ describe('liveslots promise handling', () => {
 
   beforeEach(async () => {
     const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
-    kernel = await makeKernel(kernelPort, undefined, true);
+    kernel = await makeKernel({
+      port: kernelPort,
+      resetStorage: true,
+      dbFilename: ':memory:',
+    });
   });
 
   /**

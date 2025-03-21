@@ -140,24 +140,30 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
 /**
  * Makes a {@link KernelDatabase} for low-level persistent storage.
  *
- * @param dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
- * @param label - A logger prefix label. Defaults to '[sqlite]'.
- * @param verbose - If true, generate logger output; if false, be quiet.
+ * @param options - The options for the database.
+ * @param options.dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
+ * @param options.label - A logger prefix label. Defaults to '[sqlite]'.
+ * @param options.verbose - If true, generate logger output; if false, be quiet.
  * @returns A key/value store to base higher level stores on.
  */
-export async function makeSQLKernelDatabase(
-  dbFilename: string = DEFAULT_DB_FILENAME,
-  label: string = '[sqlite]',
-  verbose: boolean = false,
-): Promise<KernelDatabase> {
-  const logger = makeLogger(label);
-  const db = await initDB(dbFilename);
+export async function makeSQLKernelDatabase({
+  dbFilename,
+  label,
+  verbose = false,
+}: {
+  dbFilename?: string | undefined;
+  label?: string | undefined;
+  verbose?: boolean | undefined;
+}): Promise<KernelDatabase> {
+  const thisLabel = label ?? '[sqlite]';
+  const logger = makeLogger(thisLabel);
+  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME);
 
   if (verbose) {
     logger.log('Initializing kernel store');
   }
 
-  const kvStore = makeKVStore(db, logger, label);
+  const kvStore = makeKVStore(db, logger, thisLabel);
 
   db.exec(SQL_QUERIES.CREATE_TABLE_VS);
 
