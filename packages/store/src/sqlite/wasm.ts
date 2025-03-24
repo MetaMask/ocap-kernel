@@ -3,7 +3,8 @@ import { makeLogger } from '@ocap/utils';
 import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import { SQL_QUERIES, DEFAULT_DB_FILENAME } from './common.ts';
+import { DEFAULT_DB_FILENAME, SQL_QUERIES } from './common.ts';
+import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -12,14 +13,24 @@ import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
  * @param dbFilename - The filename of the database to use.
  * @returns The SQLite database object.
  */
-async function initDB(dbFilename: string): Promise<Database> {
+export async function initDB(dbFilename: string): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
-  if (sqlite3.oo1.OpfsDb) {
-    return new sqlite3.oo1.OpfsDb(dbFilename, 'cw');
-  }
-  console.warn(`OPFS not enabled, database will be ephemeral`);
+  let db: Database;
 
-  return new sqlite3.oo1.DB(`:memory:`, 'cw');
+  if (sqlite3.oo1.OpfsDb) {
+    const dbName = dbFilename.startsWith(':')
+      ? dbFilename
+      : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-');
+
+    console.log('dbName', dbName);
+
+    db = new sqlite3.oo1.OpfsDb(dbName, 'cw');
+  } else {
+    console.warn(`OPFS not enabled, database will be ephemeral`);
+    db = new sqlite3.oo1.DB(`:memory:`, 'cw');
+  }
+
+  return db;
 }
 
 /**

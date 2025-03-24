@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   optimizeDeps: {
+    exclude: ['@sqlite.org/sqlite-wasm'],
     include: [
       '@vitest/coverage-istanbul',
       'vitest-fetch-mock',
