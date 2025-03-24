@@ -21,9 +21,6 @@ export async function initDB(dbFilename: string): Promise<Database> {
     const dbName = dbFilename.startsWith(':')
       ? dbFilename
       : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-');
-
-    console.log('dbName', dbName);
-
     db = new sqlite3.oo1.OpfsDb(dbName, 'cw');
   } else {
     console.warn(`OPFS not enabled, database will be ephemeral`);

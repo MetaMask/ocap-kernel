@@ -106,10 +106,10 @@ export default defineConfig({
           lines: 0,
         },
         'packages/store/**': {
-          statements: 93.45,
+          statements: 94.08,
           functions: 93.93,
-          branches: 80.43,
-          lines: 93.41,
+          branches: 85.41,
+          lines: 94.04,
         },
         'packages/streams/**': {
           statements: 100,
