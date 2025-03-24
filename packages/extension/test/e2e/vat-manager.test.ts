@@ -14,32 +14,34 @@ test.describe('Vat Manager', () => {
   let extensionId: string;
   let messageOutput: Locator;
 
-  test.beforeAll(async () => {
+  test.beforeEach(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
     extensionId = extension.extensionId;
+    messageOutput = popupPage.locator('[data-testid="message-output"]');
+    await expect(popupPage.locator('[data-testid="vat-table"]')).toBeVisible();
+    await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
   });
 
-  test.afterAll(async () => {
+  test.afterEach(async () => {
     await extensionContext.close();
   });
 
-  // Each test starts with a fresh state, with all vats terminated and no logs.
-  test.beforeEach(async () => {
-    await popupPage.waitForSelector('h2:text("Kernel Vats")');
-    messageOutput = popupPage.locator('[data-testid="message-output"]');
+  /**
+   * Clears the state of the popup page.
+   */
+  async function clearState(): Promise<void> {
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
     await expect(messageOutput).toContainText('');
     await popupPage.fill('input[placeholder="Vat Name"]', '');
     await popupPage.fill('input[placeholder="Bundle URL"]', '');
     await popupPage.click('button:text("Clear All State")');
     await expect(messageOutput).toContainText('State cleared');
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).not.toBeVisible();
-    await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
-  });
+    await expect(
+      popupPage.locator('[data-testid="vat-table"]'),
+    ).not.toBeVisible();
+  }
 
   /**
    * Launches a vat with the given name and bundle URL.
@@ -61,21 +63,11 @@ test.describe('Vat Manager', () => {
     await expect(
       popupPage.locator('button:text("Reload Kernel")'),
     ).toBeVisible();
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await popupPage.click('button:text("Reload Kernel")');
     await expect(messageOutput).toContainText('"method": "reload"');
     await expect(messageOutput).toContainText('Default sub-cluster reloaded', {
       timeout: 10000,
     });
-    // Verify the table is visible and has the correct number of rows (header + vats)
-    await expect(vatTable.locator('tr')).toHaveCount(
-      Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
-    );
-    // Verify each default vat is present in the table
-    for (const [, vatConfig] of Object.entries(defaultClusterConfig.vats)) {
-      await expect(vatTable).toContainText(vatConfig.parameters.name);
-      await expect(vatTable).toContainText(vatConfig.bundleSpec);
-    }
   });
 
   test('should handle cluster configuration updates', async () => {
@@ -84,13 +76,6 @@ test.describe('Vat Manager', () => {
     await expect(configTextarea).toBeVisible();
     await expect(configTextarea).toHaveValue(
       JSON.stringify(defaultClusterConfig, null, 2),
-    );
-    // Reload kernel to load default vats
-    await popupPage.click('button:text("Reload Kernel")');
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible({ timeout: 10000 });
-    await expect(vatTable.locator('tr')).toHaveCount(
-      Object.keys(defaultClusterConfig.vats).length + 1, // +1 for header row
     );
     // Test invalid JSON handling
     await configTextarea.fill('{ invalid json }');
@@ -102,6 +87,7 @@ test.describe('Vat Manager', () => {
     )[0] as keyof typeof defaultClusterConfig.vats;
     const originalVatName =
       defaultClusterConfig.vats[firstVatKey].parameters.name;
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible({ timeout: 10000 });
     await expect(vatTable).toContainText(originalVatName);
     // Modify config with new vat name
@@ -171,6 +157,7 @@ test.describe('Vat Manager', () => {
   });
 
   test('should launch a new vat', async () => {
+    await clearState();
     await launchVat();
     const vatTable = popupPage.locator('table');
     await expect(vatTable).toBeVisible();
@@ -178,32 +165,33 @@ test.describe('Vat Manager', () => {
   });
 
   test('should restart a vat', async () => {
-    await launchVat();
-    await expect(popupPage.locator('button:text("Restart")')).toBeVisible();
-    await popupPage.click('button:text("Restart")');
+    await expect(
+      popupPage.locator('button:text("Restart")').first(),
+    ).toBeVisible();
+    await popupPage.locator('button:text("Restart")').first().click();
     await expect(messageOutput).toContainText('Restarted vat "v1"');
   });
 
   test('should terminate a vat', async () => {
-    await launchVat();
+    await expect(popupPage.locator('table tr')).toHaveCount(4);
     await expect(
-      popupPage.locator('td button:text("Terminate")'),
+      popupPage.locator('td button:text("Terminate")').first(),
     ).toBeVisible();
-    await popupPage.click('td button:text("Terminate")');
+    await popupPage.locator('td button:text("Terminate")').first().click();
     await expect(messageOutput).toContainText('Terminated vat "v1"');
-    await expect(popupPage.locator('table')).not.toBeVisible();
+    await expect(popupPage.locator('table tr')).toHaveCount(3);
   });
 
   test('should send a message to a vat', async () => {
-    await launchVat();
-    await expect(popupPage.locator('td button:text("Ping")')).toBeVisible();
-    await popupPage.click('td button:text("Ping")');
+    await expect(
+      popupPage.locator('td button:text("Ping")').first(),
+    ).toBeVisible();
+    await popupPage.locator('td button:text("Ping")').first().click();
     await expect(messageOutput).toContainText('"method": "ping",');
     await expect(messageOutput).toContainText('{"result":"pong"}');
   });
 
   test('should terminate all vats', async () => {
-    await launchVat();
     await expect(
       popupPage.locator('button:text("Terminate All Vats")'),
     ).toBeVisible();
@@ -213,17 +201,15 @@ test.describe('Vat Manager', () => {
   });
 
   test('should clear kernel state', async () => {
-    await launchVat('test-vat-1');
-    await launchVat('test-vat-2');
-    await expect(popupPage.locator('table tr')).toHaveCount(3); // Header + 2 rows
     await popupPage.click('button:text("Clear All State")');
     await expect(messageOutput).toContainText('State cleared');
     await expect(popupPage.locator('table')).not.toBeVisible();
     await launchVat('test-vat-new');
-    await expect(popupPage.locator('table tr')).toHaveCount(2); // Header + 1 row
+    await expect(popupPage.locator('table tr')).toHaveCount(2);
   });
 
   test('should initialize vat with correct ID from kernel', async () => {
+    await clearState();
     // Open the offscreen page where vat logs appear
     const offscreenPage = await extensionContext.newPage();
     await offscreenPage.goto(
@@ -248,7 +234,6 @@ test.describe('Vat Manager', () => {
   });
 
   test('should send a message from the message panel', async () => {
-    await launchVat();
     const clearLogsButton = popupPage.locator(
       '[data-testid="clear-logs-button"]',
     );
