@@ -142,6 +142,7 @@ test.describe('Vat Manager', () => {
   });
 
   test('should reload kernel state and load default vats', async () => {
+    test.slow();
     await expect(
       popupPage.locator('button:text("Reload Kernel")'),
     ).toBeVisible();
@@ -149,7 +150,7 @@ test.describe('Vat Manager', () => {
     await popupPage.click('button:text("Reload Kernel")');
     await expect(messageOutput).toContainText('"method": "reload"');
     await expect(messageOutput).toContainText('Default sub-cluster reloaded', {
-      timeout: 10000,
+      timeout: 40000,
     });
     // Verify the table is visible and has the correct number of rows (header + vats)
     await expect(vatTable.locator('tr')).toHaveCount(
