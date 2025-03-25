@@ -29,12 +29,13 @@ const mockDb = {
   exec: vi.fn(),
   prepare: vi.fn(() => mockStatement),
 };
-
+const OpfsDbMock = vi.fn(() => mockDb);
+const DBMock = vi.fn(() => mockDb);
 vi.mock('@sqlite.org/sqlite-wasm', () => ({
   default: vi.fn(async () => ({
     oo1: {
-      OpfsDb: vi.fn(() => mockDb),
-      DB: vi.fn(() => mockDb),
+      OpfsDb: OpfsDbMock,
+      DB: DBMock,
     },
   })),
 }));
@@ -326,6 +327,7 @@ describe('makeSQLKernelDatabase', () => {
     it('should preserve special filenames starting with ":"', async () => {
       await makeSQLKernelDatabase({ dbFilename: ':memory:' });
       expect(getDBFolder).not.toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(':memory:', 'cw');
       expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
     });
 
@@ -333,9 +335,10 @@ describe('makeSQLKernelDatabase', () => {
       const regularFilename = 'test.db';
       await makeSQLKernelDatabase({ dbFilename: regularFilename });
       expect(getDBFolder).toHaveBeenCalled();
-      expect(
-        vi.mocked(await import('@sqlite.org/sqlite-wasm')).default,
-      ).toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(
+        `ocap-test-folder-${regularFilename}`,
+        'cw',
+      );
       expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
     });
 
@@ -344,9 +347,7 @@ describe('makeSQLKernelDatabase', () => {
       const regularFilename = 'test.db';
       await makeSQLKernelDatabase({ dbFilename: regularFilename });
       expect(getDBFolder).toHaveBeenCalled();
-      expect(
-        vi.mocked(await import('@sqlite.org/sqlite-wasm')).default,
-      ).toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(`ocap-${regularFilename}`, 'cw');
       expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
     });
   });

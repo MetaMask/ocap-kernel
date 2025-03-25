@@ -154,9 +154,11 @@ test.describe('Vat Manager', () => {
     offscreenPage.on('console', (message) => logs.push(message.text()));
     // Launch a vat and get its ID from the table
     await launchVat('test-vat');
-    const vatTable = popupPage.locator('table');
-    const vatRow = vatTable.locator('tr').nth(1);
-    const vatId = await vatRow.getAttribute('data-vat-id');
+    const vatId = await popupPage
+      .locator('table')
+      .locator('tr')
+      .nth(1)
+      .getAttribute('data-vat-id');
     // Verify the KV store initialization log shows the correct vat ID
     await expect
       .poll(() =>
@@ -172,8 +174,8 @@ test.describe('Vat Manager', () => {
       '[data-testid="clear-logs-button"]',
     );
     await clearLogsButton.click();
-    await popupPage.fill(
-      'input[placeholder="Enter sendVatCommand params (as JSON)"]',
+    const input = popupPage.locator('[data-testid="send-command-input"]');
+    await input.fill(
       `{
         "id": "v1",
         "payload": {

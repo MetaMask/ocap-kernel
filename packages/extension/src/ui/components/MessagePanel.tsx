@@ -72,6 +72,7 @@ export const MessagePanel: React.FC = () => {
             type="text"
             value={messageContent}
             onChange={(event) => setMessageContent(event.target.value)}
+            data-testid="send-command-input"
             placeholder="Enter sendVatCommand params (as JSON)"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && messageContent.trim()) {

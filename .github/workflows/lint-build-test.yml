@@ -185,7 +185,7 @@ jobs:
           cd node_modules/better-sqlite3
           yarn build-release
           cd -
-      - run: VITE_IS_E2E=true yarn build
+      - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
         run: yarn test:e2e:ci
