@@ -180,7 +180,7 @@ test.describe('Vat Manager', () => {
         "id": "v1",
         "payload": {
           "method": "ping",
-          "params": null
+          "params": []
         }
       }`,
     );
