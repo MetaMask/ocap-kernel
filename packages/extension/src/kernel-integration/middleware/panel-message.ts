@@ -31,6 +31,6 @@ export const createPanelMessageMiddleware = (
 ): JsonRpcMiddleware<KernelControlParams, Json> =>
   createAsyncMiddleware(async (req, res, _next) => {
     const { method, params } = req;
-    // @ts-expect-error - TODO:rekm method is just a string and not a literal
+    // @ts-expect-error - TODO:rekm execute() should probably just expect a string "method"
     res.result = await registry.execute(kernel, kernelDatabase, method, params);
   });
