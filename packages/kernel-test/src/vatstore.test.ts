@@ -10,6 +10,7 @@ import { Kernel } from '@ocap/kernel';
 import type { KernelDatabase, VatStore } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
+import deepEqual from 'fast-deep-equal';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
@@ -169,11 +170,16 @@ const referenceKVUpdates = [
   ],
   // notification of 'go' result from Carol allows 'bootstrap' method to
   // complete, deleting "goAway" from baggage and dropping the baggage entry
-  // count to 1.
+  // count to 1.  Sending 'loopback' consumes a promise ID.
   [
-    new Map([['vc.1.|entryCount', '1']]),
+    new Map([
+      ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":8}'],
+      ['vc.1.|entryCount', '1'],
+    ]),
     new Set(['vc.1.sgoAway']),
-  ]
+  ],
+  // notification of 'loopback' result changes nothing
+  [emptyMap, emptySet],
 ]
 
 describe('exercise vatstore', async () => {
@@ -210,11 +216,11 @@ describe('exercise vatstore', async () => {
       vsKv.set(entry.key, entry.value);
     }
     expect(vsKv.get('idCounters')).toBe(
-      '{"exportID":10,"collectionID":5,"promiseID":7}',
+      '{"exportID":10,"collectionID":5,"promiseID":8}',
     );
     expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
     expect(vsKv.get('vc.1.|entryCount')).toBe('1');
 
-    expect(kvUpdates).toStrictEqual(referenceKVUpdates);
+    expect(deepEqual(kvUpdates, referenceKVUpdates)).toBe(true);
   }, 30000);
 });
