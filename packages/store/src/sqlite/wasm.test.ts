@@ -2,6 +2,7 @@ import type { Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.ts';
+import { getDBFolder } from './env.ts';
 import { makeSQLKernelDatabase } from './wasm.ts';
 
 const mockKVData = [
@@ -28,14 +29,19 @@ const mockDb = {
   exec: vi.fn(),
   prepare: vi.fn(() => mockStatement),
 };
-
+const OpfsDbMock = vi.fn(() => mockDb);
+const DBMock = vi.fn(() => mockDb);
 vi.mock('@sqlite.org/sqlite-wasm', () => ({
   default: vi.fn(async () => ({
     oo1: {
-      OpfsDb: vi.fn(() => mockDb),
-      DB: vi.fn(() => mockDb),
+      OpfsDb: OpfsDbMock,
+      DB: DBMock,
     },
   })),
+}));
+
+vi.mock('./env.ts', () => ({
+  getDBFolder: vi.fn(() => 'test-folder'),
 }));
 
 describe('makeSQLKernelDatabase', () => {
@@ -279,6 +285,82 @@ describe('makeSQLKernelDatabase', () => {
       const result = store.getNextKey('current-key');
       expect(result).toBeUndefined();
       expect(mockStatement.bind).toHaveBeenCalledWith(['current-key']);
+      expect(mockStatement.reset).toHaveBeenCalled();
+    });
+  });
+
+  describe('initialization options', () => {
+    it('should use custom dbFilename when provided', async () => {
+      const customFilename = 'custom.db';
+      await makeSQLKernelDatabase({ dbFilename: customFilename });
+      expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
+    });
+
+    it('should use custom label in logs', async () => {
+      const customLabel = '[custom-store]';
+      const db = await makeSQLKernelDatabase({
+        label: customLabel,
+        verbose: true,
+      });
+      const store = db.kernelKVStore;
+      mockStatement.step.mockReturnValueOnce(false);
+      expect(() => store.getRequired('missing-key')).toThrow(
+        `[${customLabel}] no record matching key 'missing-key'`,
+      );
+    });
+
+    it('should handle verbose logging', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      await makeSQLKernelDatabase({ verbose: true });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[sqlite]',
+        'Initializing kernel store',
+      );
+    });
+  });
+
+  describe('database path construction', () => {
+    beforeEach(() => {
+      vi.mocked(getDBFolder).mockClear();
+    });
+
+    it('should preserve special filenames starting with ":"', async () => {
+      await makeSQLKernelDatabase({ dbFilename: ':memory:' });
+      expect(getDBFolder).not.toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(':memory:', 'cw');
+      expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
+    });
+
+    it('should construct proper path with folder for regular filenames', async () => {
+      const regularFilename = 'test.db';
+      await makeSQLKernelDatabase({ dbFilename: regularFilename });
+      expect(getDBFolder).toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(
+        `ocap-test-folder-${regularFilename}`,
+        'cw',
+      );
+      expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
+    });
+
+    it('should handle empty folder path', async () => {
+      vi.mocked(getDBFolder).mockReturnValueOnce('');
+      const regularFilename = 'test.db';
+      await makeSQLKernelDatabase({ dbFilename: regularFilename });
+      expect(getDBFolder).toHaveBeenCalled();
+      expect(OpfsDbMock).toHaveBeenCalledWith(`ocap-${regularFilename}`, 'cw');
+      expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle SQL execution errors', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockStatement.step.mockImplementationOnce(() => {
+        throw new Error('SQL execution error');
+      });
+      expect(() => db.executeQuery('SELECT * FROM invalid_table')).toThrow(
+        'SQL execution error',
+      );
       expect(mockStatement.reset).toHaveBeenCalled();
     });
   });

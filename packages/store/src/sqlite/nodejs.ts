@@ -7,6 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { SQL_QUERIES, DEFAULT_DB_FILENAME } from './common.ts';
+import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
 /**
@@ -230,7 +231,7 @@ export async function getDBFilename(label: string): Promise<string> {
   if (label.startsWith(':')) {
     return label;
   }
-  const dbRoot = join(tmpdir(), './ocap-sqlite');
+  const dbRoot = join(tmpdir(), './ocap-sqlite', getDBFolder());
   await mkdir(dbRoot, { recursive: true });
   return join(dbRoot, label);
 }

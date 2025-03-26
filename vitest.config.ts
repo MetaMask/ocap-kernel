@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   optimizeDeps: {
+    exclude: ['@sqlite.org/sqlite-wasm'],
     include: [
       '@vitest/coverage-istanbul',
       'vitest-fetch-mock',
@@ -81,10 +82,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 82.79,
-          functions: 83.59,
-          branches: 80.15,
-          lines: 82.73,
+          statements: 83.24,
+          functions: 84.1,
+          branches: 81.29,
+          lines: 83.11,
         },
         'packages/kernel/**': {
           statements: 80.92,
@@ -105,10 +106,10 @@ export default defineConfig({
           lines: 0,
         },
         'packages/store/**': {
-          statements: 93.29,
-          functions: 93.75,
-          branches: 80.95,
-          lines: 93.25,
+          statements: 94.01,
+          functions: 93.93,
+          branches: 84.78,
+          lines: 93.97,
         },
         'packages/streams/**': {
           statements: 100,

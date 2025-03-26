@@ -331,6 +331,11 @@ div + .sent {
   line-height: 1.4;
 }
 
+.loading {
+  padding: var(--spacing-md) 0;
+  color: var(--color-gray-600);
+}
+
 .messageInputSection {
   border-top: 1px solid var(--color-gray-300);
   padding: var(--spacing-md);

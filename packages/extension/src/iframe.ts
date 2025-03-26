@@ -29,4 +29,6 @@ async function main(): Promise<void> {
     id: vatId,
     commandStream,
   });
+
+  console.log('VatSupervisor initialized with vatId:', vatId);
 }

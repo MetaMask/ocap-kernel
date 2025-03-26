@@ -185,8 +185,16 @@ jobs:
           cd node_modules/better-sqlite3
           yarn build-release
           cd -
-      - run: yarn build
-      - run: yarn test:e2e:ci
+      - run: VITE_DB_FOLDER=e2e yarn build
+      - name: Run E2E tests
+        id: e2e
+        run: yarn test:e2e:ci
+      - name: Upload test artifacts
+        if: ${{ failure() && steps.e2e.conclusion == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: packages/extension/test-results
       - name: Require clean working directory
         shell: bash
         run: |
