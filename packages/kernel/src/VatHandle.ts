@@ -141,13 +141,6 @@ export class VatHandle {
       },
     );
 
-    // XXX This initial `ping` was originally put here as a sanity check to make
-    // sure that the vat was actually running and able to exchange message
-    // traffic with the kernel, but the addition of the `initVat` message to the
-    // startup flow has, I'm fairly sure, obviated the need for that as it
-    // effectively performs the same function. Probably this ping should be
-    // removed.
-    await this.sendVatCommand({ method: VatCommandMethod.ping, params: [] });
     await this.sendVatCommand({
       method: VatCommandMethod.initVat,
       params: { vatConfig: this.config, state: this.#vatStore.getKVData() },

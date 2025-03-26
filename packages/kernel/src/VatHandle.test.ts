@@ -55,18 +55,14 @@ describe('VatHandle', () => {
     mockKernelStore = makeKernelStore(makeMapKernelDatabase());
     sendVatCommandMock = vi
       .spyOn(VatHandle.prototype, 'sendVatCommand')
-      .mockResolvedValueOnce('fake')
       .mockResolvedValueOnce('fake');
   });
 
   describe('init', () => {
-    it('initializes the vat and sends ping & initVat messages', async () => {
+    it('initializes the vat and sends initVat message', async () => {
       await makeVat();
 
-      expect(sendVatCommandMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.ping,
-        params: [],
-      });
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
       expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.initVat,
         params: {
