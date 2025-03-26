@@ -28,6 +28,7 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       console.log(`vat ${name} got "go" answer from Bob: '${await pb}'`);
       console.log(`vat ${name} got "go" answer from Carol: '${await pc}'`);
       baggage.delete(testKey2);
+      await E(vats.bob).loopback();
     },
     bump(bumper) {
       const value = baggage.get(testKey1);
@@ -39,6 +40,9 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       console.log(message);
       E(bumpee).bump(name);
       return message;
+    },
+    loopback() {
+      return undefined;
     },
   });
 }
