@@ -43,6 +43,10 @@ export default defineConfig(({ mode }) => {
   return {
     root: sourceDir,
 
+    optimizeDeps: {
+      exclude: ['v8', 'vm', 'module'],
+    },
+
     build: {
       emptyOutDir: true,
       outDir: buildDir,
@@ -62,6 +66,7 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: '[name].js',
           assetFileNames: '[name].[ext]',
         },
+        external: ['v8', 'vm', 'module'],
       },
       ...(isDev
         ? {
