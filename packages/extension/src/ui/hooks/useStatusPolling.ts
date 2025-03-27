@@ -1,9 +1,10 @@
+import { hasProperty } from '@metamask/utils';
+import { stringify } from '@ocap/utils';
 import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.ts';
 import type { KernelStatus } from '../../kernel-integration/messages.ts';
 import { logger } from '../services/logger.ts';
-import { isErrorResponse } from '../utils.ts';
 
 /**
  * Hook to start polling for kernel status
@@ -32,10 +33,10 @@ export const useStatusPolling = (
       try {
         const result = await sendMessage({
           method: 'getStatus',
-          params: null,
+          params: [],
         });
-        if (isErrorResponse(result)) {
-          throw new Error(result.error);
+        if (hasProperty(result, 'error')) {
+          throw new Error(stringify(result.error, 0));
         }
         setStatus(result);
       } catch (error) {

@@ -44,6 +44,7 @@
     "@endo/eventual-send": "^1.2.6",
     "@endo/marshal": "^1.6.2",
     "@endo/promise-kit": "^1.1.6",
+    "@metamask/json-rpc-engine": "^10.0.3",
     "@metamask/snaps-utils": "^8.3.0",
     "@metamask/superstruct": "^3.1.0",
     "@metamask/utils": "^11.3.0",

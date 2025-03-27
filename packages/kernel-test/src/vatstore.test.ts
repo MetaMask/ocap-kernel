@@ -31,9 +31,10 @@ function bundleSpec(bundleName: string): string {
   return new URL(`${bundleName}.bundle`, import.meta.url).toString();
 }
 
-const testSubcluster = {
+const makeTestSubcluster = (): ClusterConfig => ({
   bootstrap: 'alice',
   forceReset: true,
+  bundles: null,
   vats: {
     alice: {
       bundleSpec: bundleSpec('vatstore-vat'),
@@ -54,7 +55,7 @@ const testSubcluster = {
       },
     },
   },
-};
+});
 
 /**
  * Handle all the boilerplate to set up a kernel instance.
@@ -205,7 +206,7 @@ describe('exercise vatstore', async () => {
       },
     );
     const kernel = await makeKernel(kernelDatabase, true);
-    await runTestVats(kernel, testSubcluster);
+    await runTestVats(kernel, makeTestSubcluster());
 
     type VSRecord = { key: string; value: string };
     const vsContents = kernelDatabase.executeQuery(

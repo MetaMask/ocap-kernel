@@ -1,9 +1,10 @@
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelControlCommand, KernelControlReply } from './messages.ts';
+import type { KernelControlReply } from './messages.ts';
 import {
   establishKernelConnection,
   receiveUiConnections,
@@ -162,12 +163,12 @@ describe('ui-connections', () => {
     const logger = makeMockLogger();
 
     const mockHandleMessage = vi.fn(
-      async (_message: KernelControlCommand): Promise<KernelControlReply> => ({
+      async (
+        _request: JsonRpcRequest,
+      ): Promise<JsonRpcResponse<KernelControlReply['result']>> => ({
         id: 'foo',
-        payload: {
-          method: 'getStatus',
-          params: { vats: [], clusterConfig },
-        },
+        jsonrpc: '2.0' as const,
+        result: { vats: [], clusterConfig },
       }),
     );
 

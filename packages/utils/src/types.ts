@@ -1,5 +1,8 @@
 import type { Primitive } from '@endo/captp';
-import { isObject } from '@metamask/utils';
+import type { PromiseKit } from '@endo/promise-kit';
+import type { Infer } from '@metamask/superstruct';
+import { array, empty } from '@metamask/superstruct';
+import { isObject, UnsafeJsonStruct } from '@metamask/utils';
 
 export type TypeGuard<Type> = (value: unknown) => value is Type;
 
@@ -20,6 +23,7 @@ const primitives = new Set([
   'null',
   'undefined',
 ]);
+
 export const isPrimitive = (value: unknown): value is Primitive =>
   value === null || primitives.has(typeof value);
 
@@ -34,3 +38,12 @@ export const isTypedObject = <ValueType>(
   isValue: TypeGuard<ValueType>,
 ): value is { [Key in keyof object]: ValueType } =>
   isObject(value) && !Object.values(value).some((val) => !isValue(val));
+
+export type PromiseCallbacks<Resolve = unknown> = Omit<
+  PromiseKit<Resolve>,
+  'promise'
+>;
+
+export const EmptyJsonArray = empty(array(UnsafeJsonStruct));
+
+export type EmptyJsonArray = Infer<typeof EmptyJsonArray>;

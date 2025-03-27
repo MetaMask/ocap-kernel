@@ -3,14 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { useDatabaseInspector } from './useDatabaseInspector.ts';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { isErrorResponse } from '../utils.ts';
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
-}));
-
-vi.mock('../utils.ts', () => ({
-  isErrorResponse: vi.fn(),
 }));
 
 vi.mock('@ocap/utils', () => ({
@@ -45,7 +40,6 @@ describe('useDatabaseInspector', () => {
     it('should fetch tables on mount', async () => {
       const mockTables = [{ name: 'table1' }, { name: 'table2' }];
       mockSendMessage.mockResolvedValueOnce(mockTables);
-      vi.mocked(isErrorResponse).mockReturnValue(false);
       renderHook(() => useDatabaseInspector());
       expect(mockSendMessage).toHaveBeenCalledWith({
         method: 'executeDBQuery',
@@ -59,7 +53,6 @@ describe('useDatabaseInspector', () => {
       const { result } = renderHook(() => useDatabaseInspector());
       const mockTableData = [{ id: 1, name: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockTableData);
-      vi.mocked(isErrorResponse).mockReturnValue(false);
       await act(async () => {
         result.current.setSelectedTable('testTable');
       });
@@ -73,7 +66,6 @@ describe('useDatabaseInspector', () => {
     it('should set first table as selected when tables are fetched', async () => {
       const mockTables = [{ name: 'table1' }, { name: 'table2' }];
       mockSendMessage.mockResolvedValueOnce(mockTables);
-      vi.mocked(isErrorResponse).mockReturnValue(false);
       const { result } = renderHook(() => useDatabaseInspector());
       await waitFor(() => {
         expect(result.current.selectedTable).toBe('table1');
@@ -86,7 +78,6 @@ describe('useDatabaseInspector', () => {
       const { result } = renderHook(() => useDatabaseInspector());
       const mockQueryResult = [{ id: 1, value: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockQueryResult);
-      vi.mocked(isErrorResponse).mockReturnValue(false);
       await act(async () => {
         result.current.executeQuery('SELECT * FROM test');
       });
@@ -117,7 +108,6 @@ describe('useDatabaseInspector', () => {
       const { result } = renderHook(() => useDatabaseInspector());
       const errorResponse = { error: 'Invalid query' };
       mockSendMessage.mockResolvedValueOnce(errorResponse);
-      vi.mocked(isErrorResponse).mockReturnValue(true);
       await act(async () => {
         result.current.executeQuery('SELECT * FROM test');
       });
@@ -130,7 +120,6 @@ describe('useDatabaseInspector', () => {
       const { result } = renderHook(() => useDatabaseInspector());
       const mockTableData = [{ id: 1, name: 'test' }];
       mockSendMessage.mockResolvedValueOnce(mockTableData);
-      vi.mocked(isErrorResponse).mockReturnValue(false);
       await act(async () => {
         result.current.setSelectedTable('testTable');
       });

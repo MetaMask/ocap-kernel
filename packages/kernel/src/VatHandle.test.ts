@@ -55,18 +55,14 @@ describe('VatHandle', () => {
     mockKernelStore = makeKernelStore(makeMapKernelDatabase());
     sendVatCommandMock = vi
       .spyOn(VatHandle.prototype, 'sendVatCommand')
-      .mockResolvedValueOnce('fake')
       .mockResolvedValueOnce('fake');
   });
 
   describe('init', () => {
-    it('initializes the vat and sends ping & initVat messages', async () => {
+    it('initializes the vat and sends initVat message', async () => {
       await makeVat();
 
-      expect(sendVatCommandMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.ping,
-        params: null,
-      });
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
       expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.initVat,
         params: {
@@ -96,7 +92,7 @@ describe('VatHandle', () => {
       const { vat } = await makeVat();
       const mockMessage = {
         method: VatCommandMethod.ping,
-        params: null,
+        params: [],
       } as VatCommand['payload'];
 
       const sendVatCommandPromise = vat.sendVatCommand(mockMessage);
@@ -127,7 +123,7 @@ describe('VatHandle', () => {
       // Create a pending message first
       const messagePromise = vat.sendVatCommand({
         method: VatCommandMethod.ping,
-        params: null,
+        params: [],
       });
 
       // Handle the response
@@ -145,7 +141,7 @@ describe('VatHandle', () => {
       // Create a pending message that should be rejected on terminate
       const messagePromise = vat.sendVatCommand({
         method: VatCommandMethod.ping,
-        params: null,
+        params: [],
       });
 
       await vat.terminate();

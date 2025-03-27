@@ -36,18 +36,6 @@ export type CommandHandler<Method extends KernelControlMethod> = {
   ) => Promise<Json>;
 };
 
-export type Middleware = (
-  next: (
-    kernel: Kernel,
-    kernelDatabase: KernelDatabase,
-    params: unknown,
-  ) => Promise<Json>,
-) => (
-  kernel: Kernel,
-  kernelDatabase: KernelDatabase,
-  params: unknown,
-) => Promise<Json>;
-
 /**
  * A registry for kernel commands.
  */
@@ -56,8 +44,6 @@ export class KernelCommandRegistry {
     KernelControlMethod,
     CommandHandler<KernelControlMethod>
   >();
-
-  readonly #middlewares: Middleware[] = [];
 
   /**
    * Register a command handler.
@@ -70,15 +56,6 @@ export class KernelCommandRegistry {
 
   register(handler: CommandHandler<KernelControlMethod>): void {
     this.#handlers.set(handler.method, handler);
-  }
-
-  /**
-   * Register a middleware.
-   *
-   * @param middleware - The middleware.
-   */
-  use(middleware: Middleware): void {
-    this.#middlewares.push(middleware);
   }
 
   /**
@@ -101,20 +78,7 @@ export class KernelCommandRegistry {
       throw new Error(`Unknown method: ${method}`);
     }
 
-    let chain = async (
-      k: Kernel,
-      kdb: KernelDatabase,
-      param: unknown,
-    ): Promise<Json> => {
-      assert(param, handler.schema);
-      return handler.implementation(k, kdb, param);
-    };
-
-    // Apply middlewares in reverse order
-    for (const middleware of [...this.#middlewares].reverse()) {
-      chain = middleware(chain);
-    }
-
-    return chain(kernel, kernelDatabase, params);
+    assert(params, handler.schema);
+    return handler.implementation(kernel, kernelDatabase, params);
   }
 }

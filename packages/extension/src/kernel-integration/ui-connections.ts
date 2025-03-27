@@ -1,34 +1,28 @@
+import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { nanoid } from 'nanoid';
 
-import {
-  isKernelControlCommand,
-  isKernelControlReply,
-  isUiControlCommand,
-} from './messages.ts';
-import type {
-  KernelControlCommand,
-  KernelControlReply,
-  UiControlCommand,
-} from './messages.ts';
+import { isUiControlCommand } from './messages.ts';
+import type { KernelControlReply, UiControlCommand } from './messages.ts';
 
 export const UI_CONTROL_CHANNEL_NAME = 'ui-control';
 
 export type KernelControlStream = PostMessageDuplexStream<
-  KernelControlCommand,
-  KernelControlReply
+  JsonRpcRequest,
+  JsonRpcResponse
 >;
 
 export type KernelControlReplyStream = PostMessageDuplexStream<
-  KernelControlReply,
-  KernelControlCommand
+  JsonRpcResponse,
+  JsonRpcRequest
 >;
 
 type HandleInstanceMessage = (
-  message: KernelControlCommand,
-) => Promise<KernelControlReply>;
+  request: JsonRpcRequest,
+) => Promise<JsonRpcResponse<KernelControlReply['result']>>;
 
 /**
  * Establishes a connection between a UI instance and the kernel. Should be called
@@ -50,10 +44,10 @@ export const establishKernelConnection = async (
   } as UiControlCommand);
 
   const kernelStream = await PostMessageDuplexStream.make<
-    KernelControlReply,
-    KernelControlCommand
+    JsonRpcResponse,
+    JsonRpcRequest
   >({
-    validateInput: isKernelControlReply,
+    validateInput: isJsonRpcResponse,
     messageTarget: instanceChannel,
     onEnd: () => {
       instanceChannel.close();
@@ -81,7 +75,7 @@ const connectToNextUiInstance = async (
   const instanceChannel = new BroadcastChannel(channelName);
   const instanceStream: KernelControlStream =
     await PostMessageDuplexStream.make({
-      validateInput: isKernelControlCommand,
+      validateInput: isJsonRpcRequest,
       messageTarget: instanceChannel,
       onEnd: () => {
         instanceChannel.close();

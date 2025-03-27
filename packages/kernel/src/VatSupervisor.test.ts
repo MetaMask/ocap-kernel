@@ -85,7 +85,7 @@ describe('VatSupervisor', () => {
 
       await supervisor.handleMessage({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.ping, params: null },
+        payload: { method: VatCommandMethod.ping, params: [] },
       });
 
       expect(replySpy).toHaveBeenCalledWith('v0:0', {

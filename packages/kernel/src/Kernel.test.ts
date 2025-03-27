@@ -34,6 +34,8 @@ describe('Kernel', () => {
   });
   const makeMockClusterConfig = (): ClusterConfig => ({
     bootstrap: 'alice',
+    forceReset: null,
+    bundles: null,
     vats: {
       alice: {
         bundleSpec: 'http://localhost:3000/sample-vat.bundle',
