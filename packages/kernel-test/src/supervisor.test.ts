@@ -5,7 +5,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
 
-import { kser } from '../../kernel/src/kernel-marshal.ts';
+import { kser } from '../../kernel/src/services/kernel-marshal.ts';
 import { TestDuplexStream } from '../../streams/test/stream-mocks.ts';
 
 const makeVatSupervisor = async ({
