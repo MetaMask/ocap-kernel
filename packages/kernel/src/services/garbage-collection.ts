@@ -1,4 +1,4 @@
-import type { KernelStore } from '../store';
+import type { KernelStore } from '../store/kernel-store.ts';
 import { insistKernelType } from '../store/utils/kernel-slots.ts';
 import type {
   GCAction,

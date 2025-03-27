@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { processGCActionSet } from './garbage-collection.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
-import { makeKernelStore } from '../store/index.ts';
+import { makeKernelStore } from '../store/kernel-store.ts';
 import { RunQueueItemType } from '../types.ts';
 
 describe('garbage-collection', () => {

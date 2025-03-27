@@ -8,8 +8,8 @@ import type { MockInstance } from 'vitest';
 import { Kernel } from './Kernel.ts';
 import { isVatCommandReply, VatCommandMethod } from './messages/index.ts';
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
+import { makeKernelStore } from './store/kernel-store.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 

@@ -22,8 +22,8 @@ import type {
 import { processGCActionSet } from './services/garbage-collection.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { kser, kunser, krefOf, kslot } from './services/kernel-marshal.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
+import { makeKernelStore } from './store/kernel-store.ts';
+import type { KernelStore } from './store/kernel-store.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {

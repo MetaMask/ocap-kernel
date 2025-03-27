@@ -2,7 +2,7 @@ import type { Message } from '@agoric/swingset-liveslots';
 import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { makeKernelStore } from './index.ts';
+import { makeKernelStore } from './kernel-store.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { RunQueueItem } from '../types.ts';
 
@@ -74,8 +74,6 @@ describe('kernel store', () => {
         'getGCActions',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
-        'getNextObjectId',
-        'getNextPromiseId',
         'getNextRemoteId',
         'getNextVatId',
         'getObjectRefCount',
@@ -94,8 +92,6 @@ describe('kernel store', () => {
         'kv',
         'makeVatStore',
         'nextReapAction',
-        'provideStoredQueue',
-        'refCountKey',
         'reset',
         'resolveKernelPromise',
         'runQueueLength',
