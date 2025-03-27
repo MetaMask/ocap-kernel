@@ -1,6 +1,7 @@
 import type { KVStore } from '@ocap/store';
 
 import type { VatCheckpoint } from './types.ts';
+import { keySearch } from './utils/key-search.ts';
 
 export type VatKVStore = KVStore & {
   checkpoint(): VatCheckpoint;
@@ -23,45 +24,6 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
   let lastNextKey: string | null = null;
   let lastNextKeyIndex: number = -1;
 
-  /**
-   * Binary search for key position.
-   * I totally can't believe I have to write this in 2025.
-   *
-   * @param key - The key to search `keyCache` for.
-   *
-   * @returns the index into `keyCache` of the first key that is greater than
-   *   `key`, or -1 if no such key exists.
-   */
-  function search(key: string): number {
-    if (keyCache === null) {
-      // This shouldn't happen, but just in case...
-      return -1;
-    }
-    let beg = 0;
-    let end = keyCache.length - 1;
-    if (key < (keyCache[beg] as string)) {
-      return beg;
-    }
-    if ((keyCache[end] as string) < key) {
-      return -1;
-    }
-    while (beg <= end) {
-      const mid = Math.floor((beg + end) / 2);
-      if (keyCache[mid] === key) {
-        return mid;
-      }
-      if (key < (keyCache[mid] as string)) {
-        end = mid - 1;
-      } else {
-        beg = mid + 1;
-      }
-      if (beg === end) {
-        return beg;
-      }
-    }
-    return -1;
-  }
-
   return {
     get(key: string): string | undefined {
       return state.get(key);
@@ -77,7 +39,8 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
       if (keyCache === null) {
         keyCache = Array.from(state.keys()).sort();
       }
-      const index = lastNextKey === key ? lastNextKeyIndex : search(key);
+      const index =
+        lastNextKey === key ? lastNextKeyIndex : keySearch(keyCache, key);
       if (index < 0) {
         lastNextKey = null;
         lastNextKeyIndex = -1;
