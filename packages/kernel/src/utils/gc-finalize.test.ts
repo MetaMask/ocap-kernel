@@ -11,6 +11,7 @@ describe('Garbage Collection', () => {
     expect(weakRef.deref()).toBe(obj);
     // @ts-expect-error - Remove the reference to the object
     obj = null;
+    expect(weakRef.deref()).toBeDefined();
     await gcAndFinalize();
     expect(weakRef.deref()).toBeUndefined();
   });
@@ -96,9 +97,8 @@ describe('Garbage Collection', () => {
     objA.ref = null;
     // @ts-expect-error - Null assignment
     objB = null;
-    // Run GC
+    expect(weakRef.deref()).toBeDefined();
     await gcAndFinalize();
-    // The WeakRef should now be empty
     expect(weakRef.deref()).toBeUndefined();
   });
 });
