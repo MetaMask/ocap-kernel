@@ -16,4 +16,4 @@ awk '
 ' "$CONFIG_FILE" > "$TMP_FILE"
 
 # Replace original file with modified content
-mv "$TMP_FILE" "$CONFIG_FILE" 
+mv "$TMP_FILE" "$CONFIG_FILE"
