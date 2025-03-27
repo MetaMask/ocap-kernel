@@ -11,7 +11,6 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger, makeCounter } from '@ocap/utils';
 
-import { kser } from './kernel-marshal.ts';
 import type { Kernel } from './Kernel.ts';
 import { VatCommandMethod } from './messages/index.ts';
 import type {
@@ -19,6 +18,7 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
+import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/kernel-store.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import type {

@@ -85,7 +85,6 @@ describe('kernel store', () => {
         'getQueueLength',
         'getReachableFlag',
         'getRefCount',
-        'getRefCount',
         'getVatConfig',
         'hasCListEntry',
         'incRefCount',

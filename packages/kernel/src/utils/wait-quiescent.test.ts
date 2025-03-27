@@ -41,8 +41,10 @@ describe('wait-quiescent', () => {
       // Create nested promise chains
       await Promise.resolve().then(async () => {
         results.push(1);
+        // eslint-disable-next-line promise/no-nesting
         await Promise.resolve().then(async () => {
           results.push(2);
+          // eslint-disable-next-line promise/no-nesting
           await Promise.resolve().then(() => {
             results.push(3);
             return results;
