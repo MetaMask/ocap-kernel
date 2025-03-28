@@ -18,3 +18,4 @@ export {
   VatConfigStruct,
   ClusterConfigStruct,
 } from './types.ts';
+export { kunser, kser } from './services/kernel-marshal.ts';

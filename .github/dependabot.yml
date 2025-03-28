@@ -10,7 +10,7 @@ updates:
       day: 'monday'
       time: '06:00' # UTC
     target-branch: 'main'
-    versioning-strategy: 'increase-if-necessary'
+    versioning-strategy: 'widen'
     open-pull-requests-limit: 10
     groups:
       vite:

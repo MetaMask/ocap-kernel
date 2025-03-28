@@ -1,15 +1,15 @@
 import '@ocap/shims/endoify';
-import { makePromiseKit } from '@endo/promise-kit';
-import { Kernel } from '@ocap/kernel';
+import { Kernel, kunser } from '@ocap/kernel';
 import type { ClusterConfig } from '@ocap/kernel';
+import { makeKernel } from '@ocap/nodejs';
+import { waitUntilQuiescent } from '@ocap/utils';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { kunser } from '../../kernel/src/services/kernel-marshal.ts';
-import { makeKernel } from '../../nodejs/src/kernel/make-kernel.ts';
+import { extractVatLogs, getBundleSpec } from './utils.ts';
 
 const origStdoutWrite = process.stdout.write.bind(process.stdout);
 let buffered: string = '';
@@ -73,37 +73,12 @@ describe('liveslots promise handling', () => {
     testName: string,
   ): Promise<[unknown, string[]]> {
     buffered = '';
-    const bundleSpec = new URL(
-      `${bundleName}.bundle`,
-      import.meta.url,
-    ).toString();
+    const bundleSpec = getBundleSpec(bundleName);
     const bootstrapResultRaw = await kernel.launchSubcluster(
       makeTestSubcluster(testName, bundleSpec),
     );
-
-    const { promise, resolve } = makePromiseKit();
-    setTimeout(() => resolve(null), 1000);
-    await promise;
-
-    const vatLogs = buffered
-      .split('\n')
-      .filter((line: string) => line.startsWith('::> '))
-      .map((line: string) => line.slice(4));
-
-    // de-interleave various vats' output to squeeze out interprocess I/O non-determinism in CI
-    vatLogs.sort((a: string, b: string): number => {
-      const colonA = a.indexOf(':');
-      if (colonA < 0) {
-        return 0;
-      }
-      const prefixA = a.substring(0, colonA);
-      const colonB = b.indexOf(':');
-      if (colonB < 0) {
-        return 0;
-      }
-      const prefixB = b.substring(0, colonB);
-      return prefixA.localeCompare(prefixB);
-    });
+    await waitUntilQuiescent(1000);
+    const vatLogs = extractVatLogs(buffered);
     if (bootstrapResultRaw === undefined) {
       throw Error(`this can't happen but eslint is stupid`);
     }

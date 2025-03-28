@@ -10,3 +10,4 @@ export {
   isTypedObject,
 } from './types.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
+export { waitUntilQuiescent } from './wait-quiescent.ts';

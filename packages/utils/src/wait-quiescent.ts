@@ -9,14 +9,20 @@ import { makePromiseKit } from '@endo/promise-kit';
  * promise resolves, the holder can be assured that the environment no longer
  * has agency.
  *
+ * @param delay - Optional delay (in ms) to wait for things to catch up.
+ *
  * @returns a Promise that can await the compartment becoming quiescent.
  */
-export async function waitUntilQuiescent(): Promise<void> {
+export async function waitUntilQuiescent(delay: number = 0): Promise<void> {
   // the delivery might cause some number of (native) Promises to be
   // created and resolved, so we use the IO queue to detect when the
   // Promise queue is empty. The IO queue (setImmediate and setTimeout) is
   // lower-priority than the Promise queue on browsers.
   const { promise: queueEmptyP, resolve } = makePromiseKit<void>();
-  setImmediate(() => resolve());
+  if (delay > 0) {
+    setTimeout(() => resolve(), delay);
+  } else {
+    setImmediate(() => resolve());
+  }
   return queueEmptyP;
 }

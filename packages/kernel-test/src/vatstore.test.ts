@@ -1,112 +1,36 @@
 import '@ocap/shims/endoify';
-import { makePromiseKit } from '@endo/promise-kit';
-import type {
-  KernelCommand,
-  KernelCommandReply,
-  ClusterConfig,
-  VatCheckpoint,
-} from '@ocap/kernel';
-import { Kernel } from '@ocap/kernel';
-import type { KernelDatabase, VatStore } from '@ocap/store';
+import type { ClusterConfig, VatCheckpoint } from '@ocap/kernel';
+import type { VatStore } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
 import deepEqual from 'fast-deep-equal';
-import {
-  MessagePort as NodeMessagePort,
-  MessageChannel as NodeMessageChannel,
-} from 'node:worker_threads';
 import { describe, vi, expect, it } from 'vitest';
 
-import { kunser } from '../../kernel/src/services/kernel-marshal.ts';
-import { NodejsVatWorkerService } from '../../nodejs/src/kernel/VatWorkerService.ts';
-
-/**
- * Construct a bundle path URL from a bundle name.
- *
- * @param bundleName - The name of the bundle.
- *
- * @returns a path string for the named bundle.
- */
-function bundleSpec(bundleName: string): string {
-  return new URL(`${bundleName}.bundle`, import.meta.url).toString();
-}
+import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';
 
 const makeTestSubcluster = (): ClusterConfig => ({
   bootstrap: 'alice',
   forceReset: true,
   vats: {
     alice: {
-      bundleSpec: bundleSpec('vatstore-vat'),
+      bundleSpec: getBundleSpec('vatstore-vat'),
       parameters: {
         name: 'Alice',
       },
     },
     bob: {
-      bundleSpec: bundleSpec('vatstore-vat'),
+      bundleSpec: getBundleSpec('vatstore-vat'),
       parameters: {
         name: 'Bob',
       },
     },
     carol: {
-      bundleSpec: bundleSpec('vatstore-vat'),
+      bundleSpec: getBundleSpec('vatstore-vat'),
       parameters: {
         name: 'Carol',
       },
     },
   },
 });
-
-/**
- * Handle all the boilerplate to set up a kernel instance.
- *
- * @param kernelDatabase - The database that will hold the persistent state.
- * @param resetStorage - If true, reset the database as part of setting up.
- *
- * @returns the new kernel instance.
- */
-async function makeKernel(
-  kernelDatabase: KernelDatabase,
-  resetStorage: boolean,
-): Promise<Kernel> {
-  const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
-  const nodeStream = new NodeWorkerDuplexStream<
-    KernelCommand,
-    KernelCommandReply
-  >(kernelPort);
-  const vatWorkerClient = new NodejsVatWorkerService({});
-  const kernel = await Kernel.make(
-    nodeStream,
-    vatWorkerClient,
-    kernelDatabase,
-    {
-      resetStorage,
-    },
-  );
-  return kernel;
-}
-
-/**
- * Run the set of test vats.
- *
- * @param kernel - The kernel to run in.
- * @param config - Subcluster configuration telling what vats to run.
- *
- * @returns the bootstrap result.
- */
-async function runTestVats(
-  kernel: Kernel,
-  config: ClusterConfig,
-): Promise<unknown> {
-  const bootstrapResultRaw = await kernel.launchSubcluster(config);
-
-  const { promise, resolve } = makePromiseKit();
-  setTimeout(() => resolve(null), 0);
-  await promise;
-  if (bootstrapResultRaw === undefined) {
-    throw Error(`this can't happen but eslint is stupid`);
-  }
-  return kunser(bootstrapResultRaw);
-}
 
 const emptyMap = new Map();
 const emptySet = new Set();
@@ -206,7 +130,6 @@ describe('exercise vatstore', async () => {
     );
     const kernel = await makeKernel(kernelDatabase, true);
     await runTestVats(kernel, makeTestSubcluster());
-
     type VSRecord = { key: string; value: string };
     const vsContents = kernelDatabase.executeQuery(
       `SELECT key, value from kv_vatStore where vatID = 'v1'`,
@@ -220,7 +143,6 @@ describe('exercise vatstore', async () => {
     );
     expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
     expect(vsKv.get('vc.1.|entryCount')).toBe('1');
-
     expect(deepEqual(kvUpdates, referenceKVUpdates)).toBe(true);
   }, 30000);
 });
