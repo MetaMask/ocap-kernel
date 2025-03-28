@@ -19,7 +19,7 @@ import type {
   VatCommandReturnType,
 } from './messages/index.ts';
 import { kser } from './services/kernel-marshal.ts';
-import type { KernelStore } from './store/kernel-store.ts';
+import type { KernelStore } from './store/index.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import type {
   PromiseCallbacks,

@@ -1,0 +1,92 @@
+import { getBaseMethods } from './base.ts';
+import type { EndpointId, VatConfig, VatId } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
+
+type VatRecord = {
+  vatID: VatId;
+  vatConfig: VatConfig;
+};
+
+const VAT_CONFIG_BASE = 'vatConfig.';
+const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
+
+/**
+ * Get a vat store object that provides functionality for managing vat records.
+ *
+ * @param ctx - The store context.
+ * @returns A vat store object that maps various persistent kernel data
+ */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function getVatMethods(ctx: StoreContext) {
+  const { kv } = ctx;
+  const { getPrefixedKeys } = getBaseMethods(ctx.kv);
+
+  /**
+   * Delete all persistent state associated with an endpoint.
+   *
+   * @param endpointId - The endpoint whose state is to be deleted.
+   */
+  function deleteEndpoint(endpointId: EndpointId): void {
+    for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
+      kv.delete(key);
+    }
+    for (const key of getPrefixedKeys(`clk.${endpointId}.`)) {
+      kv.delete(key);
+    }
+    kv.delete(`e.nextObjectId.${endpointId}`);
+    kv.delete(`e.nextPromiseId.${endpointId}`);
+  }
+
+  /**
+   * Generator that yields the configurations of running vats.
+   *
+   * @yields a series of vat records for all configured vats.
+   */
+  function* getAllVatRecords(): Generator<VatRecord> {
+    for (const vatKey of getPrefixedKeys(VAT_CONFIG_BASE)) {
+      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN);
+      const vatConfig = getVatConfig(vatID);
+      yield { vatID, vatConfig };
+    }
+  }
+
+  /**
+   * Fetch the stored configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is sought.
+   *
+   * @returns the configuration for the given vat.
+   */
+  function getVatConfig(vatID: VatId): VatConfig {
+    return JSON.parse(
+      kv.getRequired(`${VAT_CONFIG_BASE}${vatID}`),
+    ) as VatConfig;
+  }
+
+  /**
+   * Store the configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is to be set.
+   * @param vatConfig - The configuration to write.
+   */
+  function setVatConfig(vatID: VatId, vatConfig: VatConfig): void {
+    kv.set(`${VAT_CONFIG_BASE}${vatID}`, JSON.stringify(vatConfig));
+  }
+
+  /**
+   * Delete the stored configuration for a vat.
+   *
+   * @param vatID - The vat whose configuration is to be deleted.
+   */
+  function deleteVatConfig(vatID: VatId): void {
+    kv.delete(`${VAT_CONFIG_BASE}${vatID}`);
+  }
+
+  return {
+    deleteEndpoint,
+    getAllVatRecords,
+    getVatConfig,
+    setVatConfig,
+    deleteVatConfig,
+  };
+}
