@@ -5,7 +5,6 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["ES2022"],
-    "noEmit": true,
     "types": ["node", "ses", "vitest"]
   },
   "references": [

@@ -5,6 +5,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
 
+import { getBundleSpec } from './utils.ts';
 import { kser } from '../../kernel/src/services/kernel-marshal.ts';
 import { TestDuplexStream } from '../../streams/test/stream-mocks.ts';
 
@@ -32,7 +33,7 @@ const makeVatSupervisor = async ({
           throw new Error(`Unexpected URL: ${url}`);
         }
         const bundleName = url.split('/').pop() ?? url;
-        const bundlePath = join(__dirname, bundleName);
+        const bundlePath = join(__dirname, 'vats', bundleName);
         const bundleContent = await readFile(bundlePath, 'utf-8');
         return {
           ok: true,
@@ -55,7 +56,7 @@ describe('VatSupervisor', () => {
       const { supervisor } = await makeVatSupervisor({ vatPowers });
 
       const vatConfig: VatConfig = {
-        bundleSpec: new URL('powers-vat.bundle', import.meta.url).toString(),
+        bundleSpec: getBundleSpec('powers-vat'),
         parameters: { bar: 'buzz' },
       };
 

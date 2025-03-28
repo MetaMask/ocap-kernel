@@ -1,15 +1,15 @@
 import '@ocap/shims/endoify';
 import { makePromiseKit } from '@endo/promise-kit';
-import { Kernel } from '@ocap/kernel';
 import type { ClusterConfig } from '@ocap/kernel';
+import { Kernel, kunser } from '@ocap/kernel';
+import { makeKernel } from '@ocap/nodejs';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { kunser } from '../../kernel/src/services/kernel-marshal.ts';
-import { makeKernel } from '../../nodejs/src/kernel/make-kernel.ts';
+import { getBundleSpec } from './utils.ts';
 
 const origStdoutWrite = process.stdout.write.bind(process.stdout);
 let buffered: string = '';
@@ -74,10 +74,7 @@ describe('liveslots promise handling', () => {
     testName: string,
   ): Promise<[unknown, string[]]> {
     buffered = '';
-    const bundleSpec = new URL(
-      `${bundleName}.bundle`,
-      import.meta.url,
-    ).toString();
+    const bundleSpec = getBundleSpec(bundleName);
     const bootstrapResultRaw = await kernel.launchSubcluster(
       makeTestSubcluster(testName, bundleSpec),
     );

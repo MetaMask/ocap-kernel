@@ -24,6 +24,7 @@ describe('index', () => {
       'isVatId',
       'isVatWorkerServiceCommand',
       'isVatWorkerServiceReply',
+      'kunser',
     ]);
   });
 });

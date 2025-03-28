@@ -11,7 +11,8 @@
     { "path": "../test-utils" },
     { "path": "../utils" },
     { "path": "../nodejs" },
-    { "path": "../kernel" }
+    { "path": "../kernel" },
+    { "path": "../store" }
   ],
   "include": [
     "../../vitest.config.ts",

@@ -1,4 +1,3 @@
-import 'setimmediate';
 import { makePromiseKit } from '@endo/promise-kit';
 
 // Note: This can only be imported from the Start Compartment, where the tricks

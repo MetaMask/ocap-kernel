@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean && yarn build:vats",
-    "build:vats": "ocap bundle src",
+    "build:vats": "ocap bundle src/vats",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-test",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist './src/*.bundle'",
@@ -55,6 +55,8 @@
     "@ocap/cli": "workspace:^",
     "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",
+    "@ocap/nodejs": "workspace:^",
+    "@ocap/utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.26.1",
