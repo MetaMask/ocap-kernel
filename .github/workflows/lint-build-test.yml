@@ -149,7 +149,7 @@ jobs:
           yarn build-release
           cd -
       - run: yarn build
-      - run: yarn run test
+      - run: yarn test:ci
       - name: Require clean working directory
         shell: bash
         run: |
