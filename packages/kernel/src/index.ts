@@ -19,3 +19,6 @@ export {
   ClusterConfigStruct,
 } from './types.ts';
 export { kunser, kser } from './services/kernel-marshal.ts';
+export { makeKernelStore } from './store/kernel-store.ts';
+export type { KernelStore } from './store/kernel-store.ts';
+export { parseRef } from './store/utils/parse-ref.ts';

@@ -120,6 +120,7 @@ export class VatSupervisor {
           console.error(`cannot deliver before vat is loaded`);
           return;
         }
+        console.log('*** handleMessage deliver', payload.params);
         await this.#dispatch(harden(payload.params) as VatDeliveryObject);
         await Promise.all(this.#syscallsInFlight);
         this.#syscallsInFlight.length = 0;

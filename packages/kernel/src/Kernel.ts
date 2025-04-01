@@ -181,6 +181,7 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
+      console.log('*** run loop item', item);
       await this.#deliver(item);
     }
   }
@@ -922,5 +923,14 @@ export class Kernel {
   get clusterConfig(): ClusterConfig | null {
     return this.#mostRecentSubcluster;
   }
+
+  /**
+   * Reap all vats.
+   */
+  reapAllVats(): void {
+    for (const vatID of this.getVatIds()) {
+      this.#kernelStore.scheduleReap(vatID);
+    }
+  }
 }
-// harden(Kernel); // XXX restore this once vitest is able to cope
+harden(Kernel); // XXX restore this once vitest is able to cope

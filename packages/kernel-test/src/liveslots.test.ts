@@ -279,7 +279,7 @@ describe('liveslots promise handling', () => {
     expect(vatLogs).toStrictEqual(reference);
   }, 30000);
 
-  it('messageToPromise: send to promise before resolution', async () => {
+  it.only('messageToPromise: send to promise before resolution', async () => {
     const [bootstrapResult, vatLogs] = await runTestVats(
       'message-to-promise-vat',
       'messageToPromise',

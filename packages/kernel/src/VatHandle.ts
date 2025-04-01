@@ -567,6 +567,7 @@ export class VatHandle {
    * Make a 'bringOutYourDead' delivery to the vat.
    */
   async deliverBringOutYourDead(): Promise<void> {
+    console.log('*** deliverBringOutYourDead');
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
       params: ['bringOutYourDead'],
