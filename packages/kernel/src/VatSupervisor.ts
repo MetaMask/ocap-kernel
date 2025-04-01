@@ -18,7 +18,7 @@ import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
 import type { VatConfig, VatId, VRef } from './types.ts';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.ts';
-import { gcAndFinalize } from './utils/gc-finalize.ts';
+import { makeGCAndFinalize } from './utils/gc-finalize.ts';
 import type { VatKVStore } from './VatKVStore.ts';
 import { makeVatKVStore } from './VatKVStore.ts';
 
@@ -230,7 +230,7 @@ export class VatSupervisor {
       WeakRef,
       FinalizationRegistry,
       waitUntilQuiescent,
-      gcAndFinalize,
+      gcAndFinalize: makeGCAndFinalize(),
       meterControl: makeDummyMeterControl(),
     });
 

@@ -60,8 +60,25 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return obj;
     },
 
-    getExportedObjectCount() {
-      return exportedObjects.size;
+    // Check if an object exists in our maps
+    isObjectPresent(objId) {
+      return exportedObjects.has(objId);
+    },
+
+    // Remove an object from our tracking, allowing it to be GC'd
+    forgetObject(objId) {
+      if (exportedObjects.has(objId)) {
+        tlog(`Forgetting object ${objId}`);
+        exportedObjects.delete(objId);
+        return true;
+      }
+      tlog(`Cannot forget nonexistent object: ${objId}`);
+      return false;
+    },
+
+    // No-op to help trigger crank cycles
+    noop() {
+      return 'noop';
     },
 
     // Create a weak reference to an object
@@ -110,27 +127,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       } catch (error) {
         return { status: 'error', message: String(error) };
       }
-    },
-
-    // Check if an object exists in our maps
-    isObjectPresent(objId) {
-      return exportedObjects.has(objId);
-    },
-
-    // Remove an object from our tracking, allowing it to be GC'd
-    forgetObject(objId) {
-      if (exportedObjects.has(objId)) {
-        tlog(`Forgetting object ${objId}`);
-        exportedObjects.delete(objId);
-        return true;
-      }
-      tlog(`Cannot forget nonexistent object: ${objId}`);
-      return false;
-    },
-
-    // No-op to help trigger crank cycles
-    noop() {
-      return 'noop';
     },
   });
 }

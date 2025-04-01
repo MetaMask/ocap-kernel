@@ -135,3 +135,18 @@ export function extractVatLogs(buffer: string): string[] {
     .map((line: string) => line.slice(4));
   return sortLogs(result);
 }
+
+/**
+ * Parse a message body into a JSON object.
+ *
+ * @param body - The message body to parse.
+ *
+ * @returns The parsed JSON object, or the original body if parsing fails.
+ */
+export function parseReplyBody(body: string): unknown {
+  try {
+    return JSON.parse(body.slice(1));
+  } catch {
+    return body;
+  }
+}

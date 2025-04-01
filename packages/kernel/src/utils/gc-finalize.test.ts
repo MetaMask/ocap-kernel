@@ -1,7 +1,9 @@
 import { delay } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { gcAndFinalize, makeGCAndFinalize } from './gc-finalize.ts';
+import { makeGCAndFinalize } from './gc-finalize.ts';
+
+const gcAndFinalize = makeGCAndFinalize();
 
 describe('Garbage Collection', () => {
   it('should clean up unreachable objects', async () => {

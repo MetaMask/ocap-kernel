@@ -321,6 +321,7 @@ export class VatHandle {
    * @param krefs - The KRefs of the imports to be dropped.
    */
   #handleSyscallDropImports(krefs: KRef[]): void {
+    console.log('$$$ handleSyscallDropImports', krefs);
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an import - meaning this vat received this object from somewhere else
@@ -339,6 +340,7 @@ export class VatHandle {
    * @param krefs - The KRefs of the imports to be retired.
    */
   #handleSyscallRetireImports(krefs: KRef[]): void {
+    console.log('$$$ handleSyscallRetireImports', krefs);
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an import - meaning this vat received this object from somewhere else
@@ -364,7 +366,12 @@ export class VatHandle {
    */
   #handleSyscallExportCleanup(krefs: KRef[], checkReachable: boolean): void {
     const action = checkReachable ? 'retire' : 'abandon';
-
+    console.log(
+      '$$$ handleSyscallExportCleanup',
+      `${action}Export`,
+      krefs,
+      checkReachable,
+    );
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an export - meaning this vat created/owns this object

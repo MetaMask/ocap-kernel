@@ -33,7 +33,7 @@ async function getGCFunction(): Promise<GCFunction | undefined> {
  *
  * @returns A function that triggers GC and finalization when possible
  */
-function makeGCAndFinalize(): () => Promise<void> {
+export function makeGCAndFinalize(): () => Promise<void> {
   // Cache the GC function promise
   const gcFunctionPromise = getGCFunction();
 
@@ -64,9 +64,3 @@ function makeGCAndFinalize(): () => Promise<void> {
     }
   };
 }
-
-// Create and export a singleton instance to be used throughout the codebase
-export const gcAndFinalize = makeGCAndFinalize();
-
-// Still export the factory function for testing or cases where a fresh instance is needed
-export { makeGCAndFinalize };

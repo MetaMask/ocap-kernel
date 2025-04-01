@@ -11,14 +11,12 @@ import { Far } from '@endo/marshal';
  */
 export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
-  // const { getSyscall } = vatPowers;
-  // const syscall = getSyscall();
+
+  /** @type {WeakMap<object, string>} */
+  let weakMap = new WeakMap();
+
+  /** @type {Map<string, object>} */
   const importedObjects = new Map();
-  const weakRefs = new Map();
-  const finalizer = new FinalizationRegistry((id) => {
-    console.log(`::> ${name}: Imported object ${id} was finalized`);
-    weakRefs.delete(id);
-  });
 
   /**
    * Print a message to the log.
@@ -45,12 +43,27 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return this;
     },
 
+    /**
+     * Store an imported object by ID, keeping a strong reference
+     * and a weak map entry for reverse lookup or GC observation.
+     *
+     * @param {object} obj - The imported object to store.
+     * @param {string} [id] - The ID to store the object under.
+     * @returns {string} The string 'stored'.
+     */
     storeImport(obj, id = 'default') {
       tlog(`Storing import ${id}`, obj);
       importedObjects.set(id, obj);
+      weakMap.set(obj, id);
       return 'stored';
     },
 
+    /**
+     * Use the imported object by ID and call its method.
+     *
+     * @param {string} id - The ID of the object to use.
+     * @returns {*} The result of calling the object's method.
+     */
     useImport(id = 'default') {
       tlog(`useImport ${id}`);
       const obj = importedObjects.get(id);
@@ -61,6 +74,13 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return E(obj).getValue();
     },
 
+    /**
+     * Make the reference to an imported object weak by
+     * removing the strong reference, keeping only the weak one.
+     *
+     * @param {string} id - The ID of the object to make weak.
+     * @returns {boolean} True if the object was successfully made weak, false if it doesn't exist.
+     */
     makeWeak(id) {
       const obj = importedObjects.get(id);
       if (!obj) {
@@ -68,24 +88,21 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
         return false;
       }
 
-      tlog(`Making weak reference to ${id}`);
-      const ref = new WeakRef(obj);
-      weakRefs.set(id, ref);
-      finalizer.register(obj, id);
-      importedObjects.delete(id);
+      tlog(`Making weak reference to ${id} (dropping strong ref)`);
+      importedObjects.delete(id); // remove strong ref
+      // weakMap still holds a weak ref: GC can now drop it
       return true;
     },
 
-    forgetImport(id) {
-      const had = importedObjects.has(id);
-      if (had) {
-        tlog(`Forgetting import ${id}`);
-        importedObjects.delete(id);
-        weakRefs.delete(id);
-      } else {
-        tlog(`Cannot forget nonexistent import: ${id}`);
-      }
-      return had;
+    /**
+     * Completely forget about the imported object.
+     * Once all vats forget it, retireImports() should trigger.
+     *
+     * @returns {boolean} True if the object was successfully forgotten, false if it doesn't exist.
+     */
+    forgetImport() {
+      weakMap = new WeakMap();
+      return true;
     },
 
     getImportedObjectCount() {
@@ -96,30 +113,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return Array.from(importedObjects.keys());
     },
 
-    checkAccess(id) {
-      if (importedObjects.has(id)) {
-        return { status: 'strong', accessible: true };
-      }
-
-      const weakRef = weakRefs.get(id);
-      if (!weakRef) {
-        return { status: 'no reference' };
-      }
-
-      const obj = weakRef.deref();
-      if (!obj) {
-        return { status: 'collected' };
-      }
-
-      try {
-        const value = E(obj).getValue();
-        return { status: 'weak', accessible: true, value };
-      } catch (error) {
-        return { status: 'error', message: String(error) };
-      }
-    },
-
-    // No-op to help trigger crank cycles
     noop() {
       return 'noop';
     },
