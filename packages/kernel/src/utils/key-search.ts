@@ -12,31 +12,43 @@
  *   `key`, or -1 if no such key exists.
  */
 export function keySearch(arr: string[], key: string): number {
-  if (arr === null) {
-    // This shouldn't happen, but just in case...
+  if (arr === null || arr.length === 0) {
     return -1;
   }
+
   let beg = 0;
   let end = arr.length - 1;
-  if (key < (arr[beg] as string)) {
-    return beg;
+
+  // Key is less than first element
+  if (key < (arr[0] as string)) {
+    return 0;
   }
-  if ((arr[end] as string) < key) {
+
+  // Key is greater than last element
+  if (key > (arr[arr.length - 1] as string)) {
     return -1;
   }
-  while (beg <= end) {
+
+  // Exact match with first element
+  if (key === arr[0]) {
+    return 0;
+  }
+
+  // Binary search algorithm
+  while (beg < end) {
     const mid = Math.floor((beg + end) / 2);
+
+    // Exact match
     if (arr[mid] === key) {
       return mid;
     }
+
     if (key < (arr[mid] as string)) {
-      end = mid - 1;
+      end = mid;
     } else {
       beg = mid + 1;
     }
-    if (beg === end) {
-      return beg;
-    }
   }
-  return -1;
+
+  return beg;
 }

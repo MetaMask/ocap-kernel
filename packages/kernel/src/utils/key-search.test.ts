@@ -13,8 +13,8 @@ describe('keySearch', () => {
   it('returns the index of the first key greater than the search key', () => {
     const arr = ['a', 'c', 'e', 'g', 'i'];
     expect(keySearch(arr, 'b')).toBe(1);
-    expect(keySearch(arr, 'd')).toBe(1);
-    expect(keySearch(arr, 'f')).toBe(-1);
+    expect(keySearch(arr, 'd')).toBe(2);
+    expect(keySearch(arr, 'f')).toBe(3);
   });
 
   it('returns 0 when the search key is less than the first element', () => {
@@ -71,7 +71,7 @@ describe('keySearch', () => {
     const arr = ['a', 'bb', 'ccc', 'dddd', 'eeeee'];
     expect(keySearch(arr, 'bb')).toBe(1);
     expect(keySearch(arr, 'b')).toBe(1);
-    expect(keySearch(arr, 'cc')).toBe(1);
+    expect(keySearch(arr, 'cc')).toBe(2);
   });
 
   it('preserves lexicographic ordering', () => {
