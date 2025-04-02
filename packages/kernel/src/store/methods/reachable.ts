@@ -1,9 +1,8 @@
-import type { EndpointId, KRef } from 'src/types';
-
 import { getBaseMethods } from './base.ts';
 import { getObjectMethods } from './object.ts';
 import { getRefCountMethods } from './refcount.ts';
-import type { StoreContext } from '../types';
+import type { EndpointId, KRef } from '../../types.ts';
+import type { StoreContext } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import {
   parseReachableAndVatSlot,
