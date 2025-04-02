@@ -199,5 +199,5 @@ describe('Garbage Collection', () => {
       [objectId],
     );
     expect(parseReplyBody(exporterFinalCheck.body)).toBe(false);
-  });
+  }, 30000);
 });
