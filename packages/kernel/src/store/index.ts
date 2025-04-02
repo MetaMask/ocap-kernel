@@ -64,6 +64,7 @@ import { getIdMethods } from './methods/id.ts';
 import { getObjectMethods } from './methods/object.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
+import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
@@ -120,6 +121,8 @@ export function makeKernelStore(kdb: KernelDatabase) {
     // Garbage collection
     gcActions: provideCachedStoredValue('gcActions', '[]'),
     reapQueue: provideCachedStoredValue('reapQueue', '[]'),
+    // TODO: Store terminated vats in DB and fetch from there
+    terminatedVats: [],
   };
 
   const id = getIdMethods(context);
@@ -130,6 +133,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const cList = getCListMethods(context);
   const queue = getQueueMethods(context);
   const vat = getVatMethods(context);
+  const reachable = getReachableMethods(context);
 
   /**
    * Create a new VatStore for a vat.
@@ -159,6 +163,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   function reset(): void {
     kdb.clear();
     context.maybeFreeKrefs.clear();
+    context.terminatedVats = [];
     context.runQueue = provideStoredQueue('run', true);
     context.gcActions = provideCachedStoredValue('gcActions', '[]');
     context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
@@ -182,6 +187,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...object,
     ...promise,
     ...gc,
+    ...reachable,
     ...cList,
     ...vat,
     makeVatStore,

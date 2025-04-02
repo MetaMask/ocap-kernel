@@ -1,6 +1,8 @@
 import { getBaseMethods } from './base.ts';
-import type { EndpointId, VatConfig, VatId } from '../../types.ts';
+import type { EndpointId, KRef, VatConfig, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
+import { parseRef } from '../utils/parse-ref.ts';
+import { parseReachableAndVatSlot } from '../utils/reachable.ts';
 
 type VatRecord = {
   vatID: VatId;
@@ -19,7 +21,7 @@ const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
-  const { getPrefixedKeys } = getBaseMethods(ctx.kv);
+  const { getPrefixedKeys, getSlotKey } = getBaseMethods(ctx.kv);
 
   /**
    * Delete all persistent state associated with an endpoint.
@@ -48,6 +50,17 @@ export function getVatMethods(ctx: StoreContext) {
       const vatConfig = getVatConfig(vatID);
       yield { vatID, vatConfig };
     }
+  }
+
+  /**
+   * Get all vat IDs from the store.
+   *
+   * @returns an array of vat IDs.
+   */
+  function getVatIDs(): VatId[] {
+    return Array.from(getPrefixedKeys(VAT_CONFIG_BASE)).map((vatKey) =>
+      vatKey.slice(VAT_CONFIG_BASE_LEN),
+    );
   }
 
   /**
@@ -82,11 +95,48 @@ export function getVatMethods(ctx: StoreContext) {
     kv.delete(`${VAT_CONFIG_BASE}${vatID}`);
   }
 
+  /**
+   * Checks if a vat imports the specified kernel slot.
+   *
+   * @param vatID - The ID of the vat to check.
+   * @param kernelSlot - The kernel slot reference.
+   * @returns True if the vat imports the kernel slot, false otherwise.
+   */
+  function importsKernelSlot(vatID: VatId, kernelSlot: KRef): boolean {
+    const data = ctx.kv.get(getSlotKey(vatID, kernelSlot));
+    if (data) {
+      const { vatSlot } = parseReachableAndVatSlot(data);
+      const { direction } = parseRef(vatSlot);
+      if (direction === 'import') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Gets all vats that import a specific kernel object.
+   *
+   * @param koid - The kernel object ID.
+   * @returns An array of vat IDs that import the kernel object.
+   */
+  function getImporters(koid: KRef): VatId[] {
+    const importers = [];
+    importers.push(
+      ...getVatIDs().filter((vatID) => importsKernelSlot(vatID, koid)),
+    );
+    importers.sort();
+    return importers;
+  }
+
   return {
     deleteEndpoint,
     getAllVatRecords,
     getVatConfig,
     setVatConfig,
     deleteVatConfig,
+    getVatIDs,
+    importsKernelSlot,
+    getImporters,
   };
 }

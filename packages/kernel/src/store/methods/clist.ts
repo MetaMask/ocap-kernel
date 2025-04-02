@@ -1,8 +1,8 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { getGCMethods } from './gc.ts';
 import { getObjectMethods } from './object.ts';
+import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import type { EndpointId, KRef, ERef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
@@ -22,7 +22,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getCListMethods(ctx: StoreContext) {
   const { getSlotKey } = getBaseMethods(ctx.kv);
-  const { clearReachableFlag } = getGCMethods(ctx);
+  const { clearReachableFlag } = getReachableMethods(ctx);
   const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
   const { kernelRefExists, refCountKey } = getRefCountMethods(ctx);
 
@@ -218,7 +218,7 @@ export function getCListMethods(ctx: StoreContext) {
     {
       isExport = false,
       onlyRecognizable = false,
-    }: { isExport?: boolean; onlyRecognizable?: boolean },
+    }: { isExport?: boolean; onlyRecognizable?: boolean } = {},
   ): boolean {
     kref || Fail`decrementRefCount called with empty kref`;
 

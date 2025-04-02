@@ -183,6 +183,7 @@ export class Kernel {
     for await (const item of this.#runQueueItems()) {
       console.log('*** run loop item', item);
       await this.#deliver(item);
+      this.#kernelStore.collectGarbage();
     }
   }
 
