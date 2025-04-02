@@ -47,7 +47,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     async bootstrap(vats) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);
-      console.log('$$$ vats', vats);
       const promise1 = E(vats.bob).setup();
       const promise2 = E(promise1).doSomething();
       const doneP = promise2.then(

@@ -1,4 +1,3 @@
-// import { E } from '@endo/eventual-send';
 import { Far } from '@endo/marshal';
 
 /**
@@ -33,22 +32,15 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     console.log(`::> ${name}: ${message}`, ...args);
   }
 
-  // Track objects we've created
   const exportedObjects = new Map();
-  // Track WeakRefs
-  const weakRefs = new Map();
-  // FinalizationRegistry to know when objects are GC'd
-  const finalizer = new FinalizationRegistry((id) => {
-    console.log(`::> ${name}: Object ${id} was finalized`);
-    weakRefs.delete(id);
-  });
 
   return Far('root', {
     bootstrap() {
       log(`bootstrap`);
-      return this;
+      return `bootstrap-${name}`;
     },
 
+    // Create an object in our maps
     createObject(id) {
       const obj = Far('SharedObject', {
         getValue() {
@@ -79,54 +71,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     // No-op to help trigger crank cycles
     noop() {
       return 'noop';
-    },
-
-    // Create a weak reference to an object
-    makeWeakRef(objId) {
-      const obj = exportedObjects.get(objId);
-      if (obj) {
-        tlog(`Creating weak reference to object ${objId}`);
-        const ref = new WeakRef(obj);
-        weakRefs.set(objId, ref);
-        finalizer.register(obj, objId);
-        return true;
-      }
-      return false;
-    },
-
-    // Remove the strong reference, keeping only the weak reference
-    removeStrongRef(objId) {
-      if (this.makeWeakRef(objId)) {
-        tlog(`Removing strong reference to object ${objId}`);
-        exportedObjects.delete(objId);
-        return true;
-      }
-      return false;
-    },
-
-    // Check if an object is still held strongly
-    isStronglyHeld(objId) {
-      return exportedObjects.has(objId);
-    },
-
-    // Try to access a potentially GC'd object through its weak reference
-    tryAccessWeakRef(objId) {
-      const weakRef = weakRefs.get(objId);
-      if (!weakRef) {
-        return { status: 'no weak ref' };
-      }
-
-      const obj = weakRef.deref();
-      if (!obj) {
-        return { status: 'collected' };
-      }
-
-      try {
-        const value = obj.getValue();
-        return { status: 'alive', value };
-      } catch (error) {
-        return { status: 'error', message: String(error) };
-      }
     },
   });
 }

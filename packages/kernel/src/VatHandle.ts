@@ -321,7 +321,6 @@ export class VatHandle {
    * @param krefs - The KRefs of the imports to be dropped.
    */
   #handleSyscallDropImports(krefs: KRef[]): void {
-    console.log('$$$ handleSyscallDropImports', krefs);
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an import - meaning this vat received this object from somewhere else
@@ -340,7 +339,6 @@ export class VatHandle {
    * @param krefs - The KRefs of the imports to be retired.
    */
   #handleSyscallRetireImports(krefs: KRef[]): void {
-    console.log('$$$ handleSyscallRetireImports', krefs);
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an import - meaning this vat received this object from somewhere else
@@ -366,12 +364,6 @@ export class VatHandle {
    */
   #handleSyscallExportCleanup(krefs: KRef[], checkReachable: boolean): void {
     const action = checkReachable ? 'retire' : 'abandon';
-    console.log(
-      '$$$ handleSyscallExportCleanup',
-      `${action}Export`,
-      krefs,
-      checkReachable,
-    );
     for (const kref of krefs) {
       const { direction, isPromise } = parseRef(kref);
       // We validate it's an export - meaning this vat created/owns this object
@@ -537,36 +529,36 @@ export class VatHandle {
   /**
    * Make a 'dropExports' delivery to the vat.
    *
-   * @param krefs - The KRefs of the exports to be dropped.
+   * @param vrefs - The VRefs of the exports to be dropped.
    */
-  async deliverDropExports(krefs: KRef[]): Promise<void> {
+  async deliverDropExports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
-      params: ['dropExports', krefs],
+      params: ['dropExports', vrefs],
     });
   }
 
   /**
    * Make a 'retireExports' delivery to the vat.
    *
-   * @param krefs - The KRefs of the exports to be retired.
+   * @param vrefs - The VRefs of the exports to be retired.
    */
-  async deliverRetireExports(krefs: KRef[]): Promise<void> {
+  async deliverRetireExports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
-      params: ['retireExports', krefs],
+      params: ['retireExports', vrefs],
     });
   }
 
   /**
    * Make a 'retireImports' delivery to the vat.
    *
-   * @param krefs - The KRefs of the imports to be retired.
+   * @param vrefs - The VRefs of the imports to be retired.
    */
-  async deliverRetireImports(krefs: KRef[]): Promise<void> {
+  async deliverRetireImports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
-      params: ['retireImports', krefs],
+      params: ['retireImports', vrefs],
     });
   }
 
@@ -574,7 +566,6 @@ export class VatHandle {
    * Make a 'bringOutYourDead' delivery to the vat.
    */
   async deliverBringOutYourDead(): Promise<void> {
-    console.log('*** deliverBringOutYourDead');
     await this.sendVatCommand({
       method: VatCommandMethod.deliver,
       params: ['bringOutYourDead'],

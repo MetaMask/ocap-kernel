@@ -40,12 +40,12 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   return Far('root', {
     bootstrap() {
       log(`bootstrap`);
-      return this;
+      return `bootstrap-${name}`;
     },
 
     /**
-     * Store an imported object by ID, keeping a strong reference
-     * and a weak map entry for reverse lookup or GC observation.
+     * Store an imported object by ID
+     * keeping a strong reference and a weak map entry.
      *
      * @param {object} obj - The imported object to store.
      * @param {string} [id] - The ID to store the object under.
@@ -87,10 +87,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
         tlog(`Cannot make weak reference to nonexistent object: ${id}`);
         return false;
       }
-
       tlog(`Making weak reference to ${id} (dropping strong ref)`);
-      importedObjects.delete(id); // remove strong ref
-      // weakMap still holds a weak ref: GC can now drop it
+      importedObjects.delete(id);
       return true;
     },
 
@@ -105,14 +103,20 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return true;
     },
 
-    getImportedObjectCount() {
-      return importedObjects.size;
-    },
-
+    /**
+     * List all imported objects.
+     *
+     * @returns {string[]} An array of all imported object IDs.
+     */
     listImportedObjects() {
       return Array.from(importedObjects.keys());
     },
 
+    /**
+     * No-op method.
+     *
+     * @returns {string} The string 'noop'.
+     */
     noop() {
       return 'noop';
     },

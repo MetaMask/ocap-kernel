@@ -24,6 +24,10 @@ describe('index', () => {
       'isVatId',
       'isVatWorkerServiceCommand',
       'isVatWorkerServiceReply',
+      'kser',
+      'kunser',
+      'makeKernelStore',
+      'parseRef',
     ]);
   });
 });

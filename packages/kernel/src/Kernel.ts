@@ -181,7 +181,6 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
-      console.log('*** run loop item', item);
       await this.#deliver(item);
       this.#kernelStore.collectGarbage();
     }
@@ -597,7 +596,11 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} dropExports`, krefs);
         const vat = this.#getVat(vatId);
-        await vat.deliverDropExports(krefs);
+        const vrefs: VRef[] = krefs
+          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
+          .filter((ref): ref is VRef => typeof ref === 'string');
+        log(`@@@@ deliver ${vatId} dropExports`, vrefs);
+        await vat.deliverDropExports(vrefs);
         log(`@@@@ done ${vatId} dropExports`, krefs);
         break;
       }
@@ -605,7 +608,11 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} retireExports`, krefs);
         const vat = this.#getVat(vatId);
-        await vat.deliverRetireExports(krefs);
+        const vrefs: VRef[] = krefs
+          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
+          .filter((ref): ref is VRef => typeof ref === 'string');
+        log(`@@@@ deliver ${vatId} retireExports`, vrefs);
+        await vat.deliverRetireExports(vrefs);
         log(`@@@@ done ${vatId} retireExports`, krefs);
         break;
       }
@@ -613,7 +620,11 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} retireImports`, krefs);
         const vat = this.#getVat(vatId);
-        await vat.deliverRetireImports(krefs);
+        const vrefs: VRef[] = krefs
+          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
+          .filter((ref): ref is VRef => typeof ref === 'string');
+        log(`@@@@ deliver ${vatId} retireImports`, vrefs);
+        await vat.deliverRetireImports(vrefs);
         log(`@@@@ done ${vatId} retireImports`, krefs);
         break;
       }
@@ -926,12 +937,16 @@ export class Kernel {
   }
 
   /**
-   * Reap all vats.
+   * Reap vats that match the filter.
+   *
+   * @param filter - A function that returns true if the vat should be reaped.
    */
-  reapAllVats(): void {
+  reapVats(filter: (vatId: VatId) => boolean = () => true): void {
     for (const vatID of this.getVatIds()) {
-      this.#kernelStore.scheduleReap(vatID);
+      if (filter(vatID)) {
+        this.#kernelStore.scheduleReap(vatID);
+      }
     }
   }
 }
-harden(Kernel); // XXX restore this once vitest is able to cope
+// harden(Kernel); // XXX restore this once vitest is able to cope

@@ -37,12 +37,10 @@ function makeSupervisorSyscall(
    * @returns the result from performing the syscall.
    */
   function doSyscall(vso: VatSyscallObject): SyscallResult {
-    console.log('$$$ VAT doSyscall', vso);
     insistVatSyscallObject(vso);
     let syscallResult;
     try {
       syscallResult = supervisor.executeSyscall(vso);
-      console.log('$$$ VAT syscallResult', syscallResult);
     } catch (problem) {
       console.warn(`supervisor got error during syscall:`, problem);
       throw problem;

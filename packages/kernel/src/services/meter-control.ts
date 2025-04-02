@@ -63,7 +63,6 @@ export function makeDummyMeterControl(): MeterControl {
   async function runWithoutMeteringAsync(
     thunk: () => unknown,
   ): Promise<unknown> {
-    console.log('*** runWithoutMeteringAsync');
     meteringDisabled += 1;
     return Promise.resolve()
       .then(() => thunk())

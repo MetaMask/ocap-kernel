@@ -186,4 +186,60 @@ describe('vat store methods', () => {
       expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`clk.${endpointId}.`);
     });
   });
+
+  describe('getVatIDs', () => {
+    it('returns all vat IDs from storage', () => {
+      mockGetPrefixedKeys.mockReturnValue([
+        `vatConfig.${vatID1}`,
+        `vatConfig.${vatID2}`,
+        `vatConfig.v3`,
+      ]);
+
+      const result = vatMethods.getVatIDs();
+
+      expect(result).toStrictEqual([vatID1, vatID2, 'v3']);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith('vatConfig.');
+    });
+
+    it('returns an empty array when no vats are configured', () => {
+      mockGetPrefixedKeys.mockReturnValue([]);
+
+      const result = vatMethods.getVatIDs();
+
+      expect(result).toStrictEqual([]);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith('vatConfig.');
+    });
+  });
+
+  describe('getImporters', () => {
+    it('handles case with no vats', () => {
+      const kernelObject = 'ko123';
+
+      // Mock empty array of vat IDs
+      mockGetPrefixedKeys.mockImplementation((prefix) => {
+        if (prefix === 'vatConfig.') {
+          return [];
+        }
+        return [];
+      });
+
+      // This shouldn't be called
+      const mockImportsKernelSlot = vi.fn();
+
+      // Replace the importsKernelSlot method for this test
+      const originalImportsKernelSlot = vatMethods.importsKernelSlot;
+      vatMethods.importsKernelSlot = mockImportsKernelSlot;
+
+      try {
+        const result = vatMethods.getImporters(kernelObject);
+
+        expect(result).toStrictEqual([]);
+        expect(mockGetPrefixedKeys).toHaveBeenCalledWith('vatConfig.');
+        expect(mockImportsKernelSlot).not.toHaveBeenCalled();
+      } finally {
+        // Restore original method
+        vatMethods.importsKernelSlot = originalImportsKernelSlot;
+      }
+    });
+  });
 });
