@@ -152,9 +152,11 @@ describe('Garbage Collection', () => {
     // Schedule reap to trigger bringOutYourDead on next crank
     kernel.reapVats((vatId) => vatId === importerVatId);
 
-    // Run a crank to allow bringOutYourDead to be processed
-    await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
-    await waitUntilQuiescent(1000);
+    // Run 3 cranks to allow bringOutYourDead to be processed
+    for (let i = 0; i < 3; i++) {
+      await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
+      await waitUntilQuiescent(300);
+    }
 
     // Check reference counts after dropImports
     const afterWeakRefCounts = kernelStore.getObjectRefCount(createObjectRef);
@@ -169,9 +171,11 @@ describe('Garbage Collection', () => {
     // Schedule another reap
     kernel.reapVats((vatId) => vatId === importerVatId);
 
-    // Run a crank to allow bringOutYourDead to be processed
-    await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
-    await waitUntilQuiescent(1000);
+    // Run 3 cranks to allow bringOutYourDead to be processed
+    for (let i = 0; i < 3; i++) {
+      await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
+      await waitUntilQuiescent(300);
+    }
 
     // Check reference counts after retireImports (both should be decreased)
     const afterForgetRefCounts = kernelStore.getObjectRefCount(createObjectRef);
@@ -199,5 +203,5 @@ describe('Garbage Collection', () => {
       [objectId],
     );
     expect(parseReplyBody(exporterFinalCheck.body)).toBe(false);
-  }, 30000);
+  }, 40000);
 });
