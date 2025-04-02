@@ -22,7 +22,6 @@ function makeTestSubcluster(): ClusterConfig {
   return {
     bootstrap: 'exporter',
     forceReset: true,
-    bundles: null,
     vats: {
       exporter: {
         bundleSpec: getBundleSpec('exporter-vat'),
@@ -40,7 +39,7 @@ function makeTestSubcluster(): ClusterConfig {
   };
 }
 
-describe('Garbage Collection E2E Tests', () => {
+describe('Garbage Collection', () => {
   let kernel: Kernel;
   let kernelDatabase: KernelDatabase;
   let kernelStore: KernelStore;

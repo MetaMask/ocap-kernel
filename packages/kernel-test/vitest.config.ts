@@ -8,7 +8,6 @@ const config = mergeConfig(
     test: {
       name: 'kernel-test',
       pool: 'forks',
-      exclude: ['./src/utils.ts'],
     },
   }),
 );
