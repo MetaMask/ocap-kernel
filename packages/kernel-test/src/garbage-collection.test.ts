@@ -154,7 +154,7 @@ describe('Garbage Collection', () => {
 
     // Run a crank to allow bringOutYourDead to be processed
     await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
-    await waitUntilQuiescent();
+    await waitUntilQuiescent(100);
 
     // Check reference counts after dropImports
     const afterWeakRefCounts = kernelStore.getObjectRefCount(createObjectRef);
