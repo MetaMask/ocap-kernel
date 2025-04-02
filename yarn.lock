@@ -1630,10 +1630,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/superstruct@npm:^3.1.0":
-  version: 3.1.0
-  resolution: "@metamask/superstruct@npm:3.1.0"
-  checksum: 10/5066fe228d5f11da387606d7f9545de2b473ab5a9e0f1bb8aea2f52d3e2c9d25e427151acde61f4a2de80a07a9871fe9505ad06abca6a61b7c3b54ed5c403b01
+"@metamask/superstruct@npm:^3.1.0, @metamask/superstruct@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "@metamask/superstruct@npm:3.2.0"
+  checksum: 10/9279e9ae11b204762214c6df8d6ba14168c4e41fb27047cfa1ecc9b15857eb421df24c979a2b7d9b98e9c6bddd5fa95a3ceed11d58f087684687a01846ca5149
   languageName: node
   linkType: hard
 
@@ -1949,7 +1949,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.3.0"
     "@ocap/cli": "workspace:^"
     "@ocap/test-utils": "workspace:^"
@@ -1994,7 +1994,7 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/json-rpc-engine": "npm:^10.0.3"
     "@metamask/snaps-utils": "npm:^8.3.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.3.0"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
@@ -2107,7 +2107,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.3.0"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
@@ -2327,7 +2327,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.3.0"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
@@ -2370,7 +2370,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@ocap/cli": "workspace:^"
     "@typescript-eslint/eslint-plugin": "npm:^8.26.1"
     "@typescript-eslint/parser": "npm:^8.26.1"
@@ -2405,7 +2405,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.3.0"
     "@ocap/errors": "workspace:^"
     "@ocap/test-utils": "workspace:^"
