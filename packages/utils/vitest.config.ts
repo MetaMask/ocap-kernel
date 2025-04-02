@@ -11,7 +11,10 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'utils',
-        setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
+        setupFiles: path.resolve(
+          __dirname,
+          '../test-utils/src/env/mock-endoify.ts',
+        ),
       },
     }),
   );
