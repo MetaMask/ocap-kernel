@@ -3,9 +3,9 @@ import {
   define,
   literal,
   string,
-  optional,
   boolean,
   record,
+  exactOptional,
 } from '@metamask/superstruct';
 import { vi } from 'vitest';
 
@@ -36,9 +36,9 @@ export const setupOcapKernelMock = (): {
       VatConfigStruct,
       ClusterConfigStruct: object({
         bootstrap: string(),
-        forceReset: optional(boolean()),
+        forceReset: exactOptional(boolean()),
         vats: record(string(), VatConfigStruct),
-        bundles: optional(record(string(), VatConfigStruct)),
+        bundles: exactOptional(record(string(), VatConfigStruct)),
       }),
       KernelSendMessageStruct: object({
         id: literal('v0'),

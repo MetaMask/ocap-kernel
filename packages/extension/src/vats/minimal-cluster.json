@@ -1,7 +1,6 @@
 {
   "bootstrap": "main",
   "forceReset": true,
-  "bundles": null,
   "vats": {
     "main": {
       "bundleSpec": "http://localhost:3000/empty-vat.bundle",

@@ -40,7 +40,6 @@ function bundleSpec(bundleName: string): string {
 const testSubcluster = {
   bootstrap: 'alice',
   forceReset: true,
-  bundles: null, // grrrrr
   vats: {
     alice: {
       bundleSpec: bundleSpec('resume-vat'),

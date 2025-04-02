@@ -14,7 +14,6 @@ describe('updateClusterConfigHandler', () => {
   const testConfig: ClusterConfig = {
     bootstrap: 'testVat',
     forceReset: true,
-    bundles: null,
     vats: {
       testVat: {
         sourceSpec: 'test-source',

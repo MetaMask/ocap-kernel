@@ -34,7 +34,6 @@ function bundleSpec(bundleName: string): string {
 const makeTestSubcluster = (): ClusterConfig => ({
   bootstrap: 'alice',
   forceReset: true,
-  bundles: null,
   vats: {
     alice: {
       bundleSpec: bundleSpec('vatstore-vat'),
