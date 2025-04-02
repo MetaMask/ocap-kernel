@@ -1,5 +1,7 @@
 import { execa } from 'execa';
 import { promises as fs } from 'fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import path from 'path';
 import { format as prettierFormat } from 'prettier';
 import type { Options as PrettierOptions } from 'prettier';
@@ -8,10 +10,10 @@ import { MonorepoFile, Placeholder } from './constants.ts';
 import type { FileMap } from './fs-utils.ts';
 import { readAllFiles, writeFiles } from './fs-utils.ts';
 
-const { dirname } = import.meta;
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
-const PACKAGE_TEMPLATE_DIR = path.join(dirname, 'package-template');
-const REPO_ROOT = path.join(dirname, '..', '..', '..');
+const PACKAGE_TEMPLATE_DIR = path.join(currentDir, 'package-template');
+const REPO_ROOT = path.join(currentDir, '..', '..', '..');
 const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
 const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);
@@ -23,10 +25,8 @@ const allPlaceholdersRegex = new RegExp(
 );
 
 // Our lint config really hates this, but it works.
-// eslint-disable-next-line
-const prettierRc = await import(path.join(
-  REPO_ROOT,
-  '.prettierrc.cjs',
+const prettierRc = (await import(
+  path.join(REPO_ROOT, '.prettierrc.cjs')
 )) as PrettierOptions;
 
 /**
