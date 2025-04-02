@@ -7,7 +7,7 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'kernel-test',
-      pool: 'forks',
+      pool: 'threads',
     },
   }),
 );
