@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { delay, makeCounter } from './misc.ts';
+
+vi.useFakeTimers();
 
 describe('makeCounter', () => {
   it('starts at 1 by default', () => {
@@ -25,13 +27,9 @@ describe('makeCounter', () => {
 
 describe('delay', () => {
   it('delays execution by the specified number of milliseconds', async () => {
-    const epsilon = 15;
-    const target = 100;
-    const start = Date.now();
-    await delay(target);
-    const end = Date.now();
-    const delta = end - start;
-    expect(delta).toBeGreaterThan(target - epsilon);
-    expect(delta).toBeLessThan(target + epsilon); // Intentional large margin of error
+    const delayTime = 100;
+    const delayP = delay(delayTime);
+    vi.advanceTimersByTime(delayTime);
+    expect(await delayP).toBeUndefined();
   });
 });
