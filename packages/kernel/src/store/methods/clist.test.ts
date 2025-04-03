@@ -169,6 +169,40 @@ describe('clist-methods', () => {
     });
   });
 
+  describe('krefsToExistingErefs', () => {
+    it('returns the ERefs for existing KRefs', () => {
+      const endpointId: EndpointId = 'v1';
+      const kref1: KRef = 'ko1';
+      const kref2: KRef = 'ko2';
+      const eref1: ERef = 'o-1';
+      const eref2: ERef = 'o-2';
+
+      clistMethods.addClistEntry(endpointId, kref1, eref1);
+      clistMethods.addClistEntry(endpointId, kref2, eref2);
+
+      expect(
+        clistMethods.krefsToExistingErefs(endpointId, [kref1, kref2]),
+      ).toStrictEqual([eref1, eref2]);
+    });
+
+    it('returns an empty array for non-existent KRefs', () => {
+      const endpointId: EndpointId = 'v1';
+      const kref: KRef = 'ko1';
+
+      expect(
+        clistMethods.krefsToExistingErefs(endpointId, [kref]),
+      ).toStrictEqual([]);
+    });
+
+    it('returns an empty array for empty KRef array', () => {
+      const endpointId: EndpointId = 'v1';
+
+      expect(clistMethods.krefsToExistingErefs(endpointId, [])).toStrictEqual(
+        [],
+      );
+    });
+  });
+
   describe('incrementRefCount', () => {
     it('increments promise reference counts', () => {
       const kref: KRef = 'kp1';

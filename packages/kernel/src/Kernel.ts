@@ -596,9 +596,7 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} dropExports`, krefs);
         const vat = this.#getVat(vatId);
-        const vrefs: VRef[] = krefs
-          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
-          .filter((ref): ref is VRef => typeof ref === 'string');
+        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
         log(`@@@@ deliver ${vatId} dropExports`, vrefs);
         await vat.deliverDropExports(vrefs);
         log(`@@@@ done ${vatId} dropExports`, krefs);
@@ -608,9 +606,7 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} retireExports`, krefs);
         const vat = this.#getVat(vatId);
-        const vrefs: VRef[] = krefs
-          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
-          .filter((ref): ref is VRef => typeof ref === 'string');
+        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
         log(`@@@@ deliver ${vatId} retireExports`, vrefs);
         await vat.deliverRetireExports(vrefs);
         log(`@@@@ done ${vatId} retireExports`, krefs);
@@ -620,9 +616,7 @@ export class Kernel {
         const { vatId, krefs } = item;
         log(`@@@@ deliver ${vatId} retireImports`, krefs);
         const vat = this.#getVat(vatId);
-        const vrefs: VRef[] = krefs
-          .map((kref) => this.#kernelStore.krefToEref(vatId, kref))
-          .filter((ref): ref is VRef => typeof ref === 'string');
+        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
         log(`@@@@ deliver ${vatId} retireImports`, vrefs);
         await vat.deliverRetireImports(vrefs);
         log(`@@@@ done ${vatId} retireImports`, krefs);

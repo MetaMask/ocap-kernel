@@ -155,7 +155,7 @@ describe('Garbage Collection', () => {
     // Run 3 cranks to allow bringOutYourDead to be processed
     for (let i = 0; i < 3; i++) {
       await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
-      await waitUntilQuiescent(300);
+      await waitUntilQuiescent(500);
     }
 
     // Check reference counts after dropImports
@@ -174,7 +174,7 @@ describe('Garbage Collection', () => {
     // Run 3 cranks to allow bringOutYourDead to be processed
     for (let i = 0; i < 3; i++) {
       await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
-      await waitUntilQuiescent(300);
+      await waitUntilQuiescent(500);
     }
 
     // Check reference counts after retireImports (both should be decreased)

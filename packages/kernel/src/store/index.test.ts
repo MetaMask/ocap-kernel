@@ -101,6 +101,7 @@ describe('kernel store', () => {
         'initKernelPromise',
         'kernelRefExists',
         'krefToEref',
+        'krefsToExistingErefs',
         'kv',
         'makeVatStore',
         'nextReapAction',

@@ -137,6 +137,19 @@ export function getCListMethods(ctx: StoreContext) {
   }
 
   /**
+   * Look up the ERef that and endpoint's c-list maps a KRef to.
+   *
+   * @param endpointId - The endpoint in question.
+   * @param krefs - The KRefs to look up.
+   * @returns The given endpoint's ERefs corresponding to `krefs`
+   */
+  function krefsToExistingErefs(endpointId: EndpointId, krefs: KRef[]): ERef[] {
+    return krefs
+      .map((kref) => krefToEref(endpointId, kref))
+      .filter((eref): eref is ERef => Boolean(eref));
+  }
+
+  /**
    * Remove an entry from an endpoint's c-list given an eref.
    *
    * @param endpointId - The endpoint whose c-list entry is to be removed.
@@ -263,6 +276,7 @@ export function getCListMethods(ctx: StoreContext) {
     krefToEref,
     forgetEref,
     forgetKref,
+    krefsToExistingErefs,
     // Refcount management
     incrementRefCount,
     decrementRefCount,
