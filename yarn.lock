@@ -2121,7 +2121,7 @@ __metadata:
     eslint-plugin-n: "npm:^17.11.1"
     eslint-plugin-prettier: "npm:^5.2.1"
     eslint-plugin-promise: "npm:^7.1.0"
-    node-gyp: "npm:^11.0.0"
+    node-gyp: "npm:^11.2.0"
     prettier: "npm:^3.3.3"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.9.0"
@@ -2180,7 +2180,7 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
-    "@sqlite.org/sqlite-wasm": "npm:^3.48.0-build1"
+    "@sqlite.org/sqlite-wasm": "npm:^3.49.1-build3"
     "@ts-bridge/cli": "npm:^0.6.2"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/better-sqlite3": "npm:^7.6.12"
@@ -2188,7 +2188,7 @@ __metadata:
     "@typescript-eslint/parser": "npm:^8.26.1"
     "@typescript-eslint/utils": "npm:^8.26.1"
     "@vitest/eslint-plugin": "npm:^1.1.39"
-    better-sqlite3: "npm:^11.8.1"
+    better-sqlite3: "npm:^11.9.1"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.12.0"
     eslint-config-prettier: "npm:^9.1.0"
@@ -2816,12 +2816,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sqlite.org/sqlite-wasm@npm:^3.48.0-build1":
-  version: 3.48.0-build4
-  resolution: "@sqlite.org/sqlite-wasm@npm:3.48.0-build4"
+"@sqlite.org/sqlite-wasm@npm:^3.49.1-build3":
+  version: 3.49.1-build3
+  resolution: "@sqlite.org/sqlite-wasm@npm:3.49.1-build3"
   bin:
     sqlite-wasm: bin/index.js
-  checksum: 10/bea0df489d6ce62f5123872f9bcfe3ea59118ac75804b389615fda588ed0c3f4758975ccdb7463b5580919f2fb84e033092724eefb209dfeede35109bc658199
+  checksum: 10/2dd0f2279aadee49fe897d045f2cfb4661391025c72cd610b15c959a44eb7e77e2cf8900d5a0a5a51faf6e94ba9cf2af36a368d9aef84204aec4ff46aea52064
   languageName: node
   linkType: hard
 
@@ -3883,14 +3883,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"better-sqlite3@npm:^11.8.1":
-  version: 11.8.1
-  resolution: "better-sqlite3@npm:11.8.1"
+"better-sqlite3@npm:^11.9.1":
+  version: 11.9.1
+  resolution: "better-sqlite3@npm:11.9.1"
   dependencies:
     bindings: "npm:^1.5.0"
     node-gyp: "npm:latest"
     prebuild-install: "npm:^7.1.1"
-  checksum: 10/d7f40fe0d00d29191eccc69b06b3c7990bcc1f3e8ca44118fadcc24f83c85c52c0dd5ce30c07b24fcb5580a3121d0fbf6dd24e9b322de65dbcb821a502b3609b
+  checksum: 10/bfd820e7a32d6f8bbc43607ccb3a27d89ce20923118bf5c5f6c1550b55e8ce3b1c69db2273131791d866a078be66d3b15e6fedea96824cd3aeac3e492c61d1e1
   languageName: node
   linkType: hard
 
@@ -8084,7 +8084,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-gyp@npm:^11.0.0, node-gyp@npm:latest":
+"node-gyp@npm:^11.2.0":
+  version: 11.2.0
+  resolution: "node-gyp@npm:11.2.0"
+  dependencies:
+    env-paths: "npm:^2.2.0"
+    exponential-backoff: "npm:^3.1.1"
+    graceful-fs: "npm:^4.2.6"
+    make-fetch-happen: "npm:^14.0.3"
+    nopt: "npm:^8.0.0"
+    proc-log: "npm:^5.0.0"
+    semver: "npm:^7.3.5"
+    tar: "npm:^7.4.3"
+    tinyglobby: "npm:^0.2.12"
+    which: "npm:^5.0.0"
+  bin:
+    node-gyp: bin/node-gyp.js
+  checksum: 10/806fd8e3adc9157e17bf0d4a2c899cf6b98a0bbe9f453f630094ce791866271f6cddcaf2133e6513715d934fcba2014d287c7053d5d7934937b3a34d5a3d84ad
+  languageName: node
+  linkType: hard
+
+"node-gyp@npm:latest":
   version: 11.1.0
   resolution: "node-gyp@npm:11.1.0"
   dependencies:
