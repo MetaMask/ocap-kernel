@@ -60,13 +60,13 @@
     "@endo/promise-kit": "^1.1.6",
     "@endo/stream": "^1.2.6",
     "@metamask/superstruct": "^3.2.0",
-    "@metamask/utils": "^11.3.0",
+    "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
     "@ocap/utils": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.3",
-    "@metamask/auto-changelog": "^4.0.0",
+    "@metamask/auto-changelog": "^5.0.1",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
