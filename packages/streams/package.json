@@ -74,12 +74,12 @@
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.2",
     "@ts-bridge/shims": "^0.1.1",
-    "@types/chrome": "^0.0.293",
+    "@types/chrome": "^0.0.313",
     "@typescript-eslint/eslint-plugin": "^8.26.1",
     "@typescript-eslint/parser": "^8.26.1",
     "@typescript-eslint/utils": "^8.26.1",
-    "@vitest/browser": "^3.0.5",
-    "@vitest/eslint-plugin": "^1.1.25",
+    "@vitest/browser": "^3.1.1",
+    "@vitest/eslint-plugin": "^1.1.39",
     "cookie": "^1.0.2",
     "depcheck": "^1.4.7",
     "eslint": "^9.12.0",
@@ -97,8 +97,8 @@
     "typedoc": "^0.27.9",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.26.1",
-    "vite": "^6.0.11",
-    "vitest": "^3.0.5"
+    "vite": "^6.2.5",
+    "vitest": "^3.1.1"
   },
   "engines": {
     "node": "^20 || >=22"
