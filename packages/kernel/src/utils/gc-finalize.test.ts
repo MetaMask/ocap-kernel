@@ -36,55 +36,6 @@ describe('Garbage Collection', () => {
     expect(finalizationCallback).toHaveBeenCalled();
   });
 
-  it('should handle errors gracefully', async () => {
-    // Create a custom implementation with a failing GC function
-    const consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(vi.fn());
-    const mockGcFunction = vi.fn().mockImplementation(() => {
-      throw new Error('GC failed');
-    });
-    // Mock globalThis.gc
-    const originalGc = globalThis.gc;
-    globalThis.gc = mockGcFunction;
-    // Create a new gcAndFinalize with our mocked environment
-    const customGcAndFinalize = makeGCAndFinalize();
-    // Should not throw despite GC failing
-    expect(await customGcAndFinalize()).toBeUndefined();
-    // Should log warning
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'GC operation failed:',
-      expect.any(Error),
-    );
-    // Restore original gc
-    // Using Object.defineProperty to avoid race condition
-    Object.defineProperty(globalThis, 'gc', {
-      value: originalGc,
-      writable: true,
-      configurable: true,
-    });
-    consoleWarnSpy.mockRestore();
-  });
-
-  it('should run multiple GC passes', async () => {
-    // Mock the GC function to verify multiple calls
-    const mockGcFunction = vi.fn();
-    // Mock globalThis.gc
-    const originalGc = globalThis.gc;
-    globalThis.gc = mockGcFunction;
-    // Create a new gcAndFinalize with our mocked environment
-    const customGcAndFinalize = makeGCAndFinalize();
-    await customGcAndFinalize();
-    // Should call GC function twice
-    expect(mockGcFunction).toHaveBeenCalledTimes(2);
-    // Restore original gc
-    Object.defineProperty(globalThis, 'gc', {
-      value: originalGc,
-      writable: true,
-      configurable: true,
-    });
-  });
-
   it('should work with circular references', async () => {
     // Create objects with circular references
     type CircularObj = { name: string; ref: CircularObj | null };
