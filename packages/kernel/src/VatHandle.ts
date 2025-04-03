@@ -161,9 +161,7 @@ export class VatHandle {
    */
   #translateRefVtoK(vref: VRef): KRef {
     let kref = this.#kernelStore.erefToKref(this.vatId, vref);
-    if (!kref) {
-      kref = this.#kernel.exportFromVat(this.vatId, vref);
-    }
+    kref ??= this.#kernel.exportFromVat(this.vatId, vref);
     return kref;
   }
 

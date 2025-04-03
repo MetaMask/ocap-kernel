@@ -31,9 +31,7 @@ function makeMapKVStoreInternal(map: Map<string, string>): KVStore {
       return map.get(key);
     },
     getNextKey(key: string): string | undefined {
-      if (keyCache === null) {
-        keyCache = Array.from(map.keys()).sort();
-      }
+      keyCache ??= Array.from(map.keys()).sort();
       const index =
         lastNextKey === key ? lastNextKeyIndex : keySearch(keyCache, key);
       if (index < 0) {

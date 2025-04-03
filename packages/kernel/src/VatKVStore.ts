@@ -36,9 +36,7 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
       throw Error(`no value matching key '${key}'`);
     },
     getNextKey(key: string): string | undefined {
-      if (keyCache === null) {
-        keyCache = Array.from(state.keys()).sort();
-      }
+      keyCache ??= Array.from(state.keys()).sort();
       const index =
         lastNextKey === key ? lastNextKeyIndex : keySearch(keyCache, key);
       if (index < 0) {
