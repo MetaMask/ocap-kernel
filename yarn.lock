@@ -2097,7 +2097,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
-    "@vitest/coverage-istanbul": "npm:^3.0.5"
+    "@vitest/coverage-istanbul": "npm:^3.1.1"
     "@vitest/eslint-plugin": "npm:^1.1.39"
     "@yarnpkg/types": "npm:^4.0.1"
     depcheck: "npm:^1.4.7"
@@ -3540,7 +3540,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vitest/coverage-istanbul@npm:^3.0.5":
+"@vitest/coverage-istanbul@npm:^3.1.1":
   version: 3.1.1
   resolution: "@vitest/coverage-istanbul@npm:3.1.1"
   dependencies:
