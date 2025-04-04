@@ -5,6 +5,7 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@ocap/store';
+import { makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeSupervisorSyscall } from './syscall.ts';
@@ -62,6 +63,43 @@ describe('syscall', () => {
       expect(syscall).toHaveProperty('vatstoreGetNextKey');
       expect(syscall).toHaveProperty('vatstoreSet');
       expect(syscall).toHaveProperty('vatstoreDelete');
+    });
+
+    it('uses provided logger for error logging', () => {
+      const supervisor = createMockSupervisor();
+      const kv = createMockKVStore();
+      const logger = makeLogger('[test-syscall]');
+      const warnSpy = vi
+        .spyOn(logger, 'warn')
+        .mockImplementation(() => undefined);
+
+      // Force an error in the syscall
+      vi.spyOn(supervisor, 'executeSyscall').mockImplementation(() => {
+        throw new Error('test error');
+      });
+
+      const syscall = makeSupervisorSyscall(supervisor, kv, logger);
+
+      expect(() => syscall.send('target', { body: '', slots: [] })).toThrow(
+        'test error',
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        'supervisor got error during syscall:',
+        expect.any(Error),
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it('creates a default logger if none provided', () => {
+      const supervisor = createMockSupervisor();
+      const kv = createMockKVStore();
+
+      // Create a syscall without providing a logger
+      const syscall = makeSupervisorSyscall(supervisor, kv);
+
+      // Just verify the syscall works - we can't easily test the internal logger creation
+      expect(syscall).toHaveProperty('send');
     });
 
     describe('syscall methods', () => {

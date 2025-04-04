@@ -247,7 +247,7 @@ export class Kernel {
           await this.#replyToCommand({ method, params: 'pong' });
           break;
         default:
-          console.error(
+          this.#logger.error(
             'kernel worker received unexpected command',
             // @ts-expect-error Compile-time exhaustiveness check
             { method: method.valueOf(), params },
@@ -341,15 +341,23 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = await VatHandle.make({
-      kernel: this,
+
+    // Create a child logger with the vat's ID
+    const vatLogger = makeLogger(`[vat ${vatId}]`, this.#logger);
+
+    const vatStream = await this.#vatWorkerService.launch(vatId, vatConfig);
+
+    this.#vats.set(
       vatId,
-      vatConfig,
-      vatStream: commandStream,
-      kernelStore: this.#kernelStore,
-    });
-    this.#vats.set(vatId, vat);
+      await VatHandle.make({
+        kernel: this,
+        vatId,
+        vatConfig,
+        vatStream,
+        kernelStore: this.#kernelStore,
+        logger: vatLogger,
+      }),
+    );
   }
 
   /**
@@ -515,14 +523,13 @@ export class Kernel {
    * @param item - The message/notification to deliver.
    */
   async #deliver(item: RunQueueItem): Promise<void> {
-    const { log } = console;
     switch (item.type) {
       case 'send': {
         const route = this.#routeMessage(item);
         if (route) {
           const { vatId, target } = route;
           const { message } = item;
-          log(
+          this.#logger.log(
             `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
           );
           if (vatId) {
@@ -543,7 +550,9 @@ export class Kernel {
           } else {
             this.#kernelStore.enqueuePromiseMessage(target, message);
           }
-          log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
+          this.#logger.log(
+            `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
+          );
         }
         break;
       }
@@ -555,7 +564,7 @@ export class Kernel {
           context === 'kernel' && isPromise,
           `${kpid} is not a kernel promise`,
         );
-        log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
+        this.#logger.log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
         const promise = this.#kernelStore.getKernelPromise(kpid);
         const { state, value } = promise;
         assert(value, `no value for promise ${kpid}`);
@@ -588,39 +597,39 @@ export class Kernel {
         }
         const vat = this.#getVat(vatId);
         await vat.deliverNotify(resolutions);
-        log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
+        this.#logger.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
         break;
       }
       case 'dropExports': {
         const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} dropExports`, krefs);
+        this.#logger.log(`@@@@ deliver ${vatId} dropExports`, krefs);
         const vat = this.#getVat(vatId);
         await vat.deliverDropExports(krefs);
-        log(`@@@@ done ${vatId} dropExports`, krefs);
+        this.#logger.log(`@@@@ done ${vatId} dropExports`, krefs);
         break;
       }
       case 'retireExports': {
         const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} retireExports`, krefs);
+        this.#logger.log(`@@@@ deliver ${vatId} retireExports`, krefs);
         const vat = this.#getVat(vatId);
         await vat.deliverRetireExports(krefs);
-        log(`@@@@ done ${vatId} retireExports`, krefs);
+        this.#logger.log(`@@@@ done ${vatId} retireExports`, krefs);
         break;
       }
       case 'retireImports': {
         const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} retireImports`, krefs);
+        this.#logger.log(`@@@@ deliver ${vatId} retireImports`, krefs);
         const vat = this.#getVat(vatId);
         await vat.deliverRetireImports(krefs);
-        log(`@@@@ done ${vatId} retireImports`, krefs);
+        this.#logger.log(`@@@@ done ${vatId} retireImports`, krefs);
         break;
       }
       case 'bringOutYourDead': {
         const { vatId } = item;
-        log(`@@@@ deliver ${vatId} bringOutYourDead`);
+        this.#logger.log(`@@@@ deliver ${vatId} bringOutYourDead`);
         const vat = this.#getVat(vatId);
         await vat.deliverBringOutYourDead();
-        log(`@@@@ done ${vatId} bringOutYourDead`);
+        this.#logger.log(`@@@@ done ${vatId} bringOutYourDead`);
         break;
       }
       default:
@@ -813,7 +822,9 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     await vat.terminate(terminating);
-    await this.#vatWorkerService.terminate(vatId).catch(console.error);
+    await this.#vatWorkerService.terminate(vatId).catch((error) => {
+      this.#logger.error('Error terminating vat worker:', error);
+    });
     this.#vats.delete(vatId);
   }
 

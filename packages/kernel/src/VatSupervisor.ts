@@ -9,6 +9,8 @@ import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@ocap/errors';
 import type { DuplexStream } from '@ocap/streams';
+import type { Logger } from '@ocap/utils';
+import { makeLogger } from '@ocap/utils';
 
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { VatCommandMethod } from './messages/index.ts';
@@ -31,6 +33,7 @@ type SupervisorConstructorProps = {
   commandStream: DuplexStream<VatCommand, VatCommandReply>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
+  logger?: Logger;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -43,6 +46,9 @@ export class VatSupervisor {
 
   /** Communications channel between this vat and the kernel */
   readonly #commandStream: DuplexStream<VatCommand, VatCommandReply>;
+
+  /** Logger for outputting messages (such as errors) to the console */
+  readonly #logger: Logger;
 
   /** Flag that the user code has been loaded */
   #loaded: boolean = false;
@@ -70,12 +76,14 @@ export class VatSupervisor {
    * @param params.commandStream - Communications channel connected to the kernel.
    * @param params.vatPowers - The external capabilities for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
+   * @param params.logger - Logger for outputting messages (such as errors) to the console.
    */
   constructor({
     id,
     commandStream,
     vatPowers,
     fetchBlob,
+    logger,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#commandStream = commandStream;
@@ -84,11 +92,12 @@ export class VatSupervisor {
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
       await fetch(bundleURL);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
+    this.#logger = logger ?? makeLogger(`[vat-supervisor ${id}]`);
 
     Promise.all([
       this.#commandStream.drain(this.handleMessage.bind(this)),
     ]).catch(async (error) => {
-      console.error(
+      this.#logger.error(
         `Unexpected read error from VatSupervisor "${this.id}"`,
         error,
       );
@@ -116,7 +125,7 @@ export class VatSupervisor {
     switch (payload.method) {
       case VatCommandMethod.deliver: {
         if (!this.#dispatch) {
-          console.error(`cannot deliver before vat is loaded`);
+          this.#logger.error(`cannot deliver before vat is loaded`);
           return;
         }
         await this.#dispatch(harden(payload.params) as VatDeliveryObject);
@@ -154,7 +163,7 @@ export class VatSupervisor {
           // only from some kind of internal system problem, so if it happens we
           // die.
           const errMsg = `syscall failure ${failure}`;
-          console.error(errMsg);
+          this.#logger.error(errMsg);
           await this.terminate(Error(errMsg));
         }
         break;
@@ -221,7 +230,7 @@ export class VatSupervisor {
     this.#loaded = true;
 
     this.#vatKVStore = makeVatKVStore(state);
-    const syscall = makeSupervisorSyscall(this, this.#vatKVStore);
+    const syscall = makeSupervisorSyscall(this, this.#vatKVStore, this.#logger);
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
@@ -234,7 +243,7 @@ export class VatSupervisor {
     });
 
     const workerEndowments = {
-      console,
+      console: makeLogger(`[vat ${this.id}]`, this.#logger),
       assert: globalThis.assert,
     };
 
@@ -263,7 +272,7 @@ export class VatSupervisor {
       this.#vatPowers,
       liveSlotsOptions,
       gcTools,
-      console,
+      this.#logger,
       buildVatNamespace,
     );
 

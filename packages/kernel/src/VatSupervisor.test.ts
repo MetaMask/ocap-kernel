@@ -1,6 +1,7 @@
 import '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import { delay } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
+import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatCommandMethod } from './messages/index.ts';
@@ -27,7 +28,9 @@ const makeVatSupervisor = async (
 ): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<VatCommand, VatCommandReply>;
+  logger: Logger;
 }> => {
+  const logger = makeLogger('[test-vat-supervisor]');
   const commandStream = await TestDuplexStream.make<
     VatCommand,
     VatCommandReply
@@ -37,8 +40,10 @@ const makeVatSupervisor = async (
       id: 'test-id',
       commandStream,
       vatPowers: vatPowers ?? {},
+      logger,
     }),
     stream: commandStream,
+    logger,
   };
 };
 
@@ -51,32 +56,38 @@ describe('VatSupervisor', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const { supervisor, stream, logger } = await makeVatSupervisor();
+      const errorSpy = vi
+        .spyOn(logger, 'error')
+        .mockImplementation(() => undefined);
       await stream.receiveInput(NaN);
       await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledWith(
         `Unexpected read error from VatSupervisor "${supervisor.id}"`,
         expect.any(Error),
       );
+      errorSpy.mockRestore();
     });
   });
 
   describe('handleMessage', () => {
     it('throws if receiving an unexpected message', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
+      const { supervisor, stream, logger } = await makeVatSupervisor();
 
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const errorSpy = vi
+        .spyOn(logger, 'error')
+        .mockImplementation(() => undefined);
       await stream.receiveInput({
         channel: 'command',
         payload: { method: 'test' },
       });
       await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledOnce();
+      expect(errorSpy).toHaveBeenCalledWith(
         `Unexpected read error from VatSupervisor "${supervisor.id}"`,
         new Error(`VatSupervisor received unexpected command method: "test"`),
       );
+      errorSpy.mockRestore();
     });
 
     it('handles Ping messages', async () => {

@@ -1,17 +1,21 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import { makeCounter } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
+import { makeLogger, makeCounter } from '@ocap/utils';
 
 import type { PromiseCallbacks } from '../types.ts';
 
 export class MessageResolver {
   readonly #prefix: string;
 
+  readonly #logger: Logger;
+
   readonly unresolvedMessages = new Map<string, PromiseCallbacks>();
 
   readonly #messageCounter = makeCounter();
 
-  constructor(prefix: string) {
+  constructor(prefix: string, parentLogger?: Logger) {
     this.#prefix = prefix;
+    this.#logger = makeLogger(`[message-resolver ${prefix}]`, parentLogger);
   }
 
   async createMessage<Method>(
@@ -25,14 +29,14 @@ export class MessageResolver {
       reject,
     });
 
-    sendMessage(messageId).catch(console.error);
+    sendMessage(messageId).catch((error) => this.#logger.error(error));
     return promise;
   }
 
   handleResponse(messageId: string, value: unknown): void {
     const promiseCallbacks = this.unresolvedMessages.get(messageId);
     if (promiseCallbacks === undefined) {
-      console.error(`No unresolved message with id "${messageId}".`);
+      this.#logger.error(`No unresolved message with id "${messageId}".`);
     } else {
       this.unresolvedMessages.delete(messageId);
       promiseCallbacks.resolve(value);
