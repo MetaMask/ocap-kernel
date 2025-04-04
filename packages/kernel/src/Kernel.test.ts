@@ -1,6 +1,7 @@
 import { VatNotFoundError } from '@ocap/errors';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
+import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -20,6 +21,21 @@ import type {
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
+const makeMockVatConfig = (): VatConfig => ({
+  sourceSpec: 'not-really-there.js',
+});
+const makeMockClusterConfig = (): ClusterConfig => ({
+  bootstrap: 'alice',
+  vats: {
+    alice: {
+      bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+      parameters: {
+        name: 'Alice',
+      },
+    },
+  },
+});
+
 describe('Kernel', () => {
   let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;
   let mockWorkerService: VatWorkerService;
@@ -29,33 +45,15 @@ describe('Kernel', () => {
   let vatHandles: Mocked<VatHandle>[];
   let mockKernelDatabase: KernelDatabase;
 
-  const makeMockVatConfig = (): VatConfig => ({
-    sourceSpec: 'not-really-there.js',
-  });
-  const makeMockClusterConfig = (): ClusterConfig => ({
-    bootstrap: 'alice',
-    vats: {
-      alice: {
-        bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-        parameters: {
-          name: 'Alice',
-        },
-      },
-    },
-  });
-
-  beforeEach(() => {
-    mockStream = {
-      write: vi.fn(),
-      next: vi.fn(),
-      return: vi.fn(),
-      drain: vi.fn(),
-      throw: vi.fn(),
-      [Symbol.asyncIterator]: vi.fn(() => mockStream),
-    } as unknown as DuplexStream<KernelCommand, KernelCommandReply>;
+  beforeEach(async () => {
+    const dummyDispatch = vi.fn();
+    mockStream = await TestDuplexStream.make<KernelCommand, KernelCommandReply>(
+      dummyDispatch,
+    );
 
     mockWorkerService = {
-      launch: async () => ({}),
+      launch: async () =>
+        ({}) as unknown as DuplexStream<VatCommandReply, VatCommand>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
     } as unknown as VatWorkerService;
@@ -305,12 +303,11 @@ describe('Kernel', () => {
       );
       await kernel.launchVat(makeMockVatConfig());
       vatHandles[0]?.sendVatCommand.mockResolvedValueOnce('test');
-      expect(
-        await kernel.sendVatCommand(
-          'v1',
-          'test' as unknown as VatCommand['payload'],
-        ),
-      ).toBe('test');
+      const result = await kernel.sendVatCommand(
+        'v1',
+        'test' as unknown as VatCommand['payload'],
+      );
+      expect(result).toBe('test');
     });
 
     it('throws an error when sending a message to the vat that does not exist in the kernel', async () => {
@@ -340,7 +337,7 @@ describe('Kernel', () => {
   });
 
   describe('constructor()', () => {
-    it('initializes the kernel without errors', () => {
+    it('initializes the kernel without errors', async () => {
       expect(
         async () =>
           await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase),
@@ -350,9 +347,7 @@ describe('Kernel', () => {
 
   describe('init()', () => {
     it.todo('initializes the kernel store');
-
     it.todo('starts receiving messages');
-
     it.todo('throws if the stream throws');
   });
 

@@ -60,7 +60,7 @@
     "@typescript-eslint/eslint-plugin": "^8.26.1",
     "@typescript-eslint/parser": "^8.26.1",
     "@typescript-eslint/utils": "^8.26.1",
-    "@vitest/eslint-plugin": "^1.1.25",
+    "@vitest/eslint-plugin": "^1.1.39",
     "depcheck": "^1.4.7",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
@@ -76,8 +76,8 @@
     "typedoc": "^0.27.9",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.26.1",
-    "vite": "^6.0.11",
-    "vitest": "^3.0.5"
+    "vite": "^6.2.5",
+    "vitest": "^3.1.1"
   },
   "engines": {
     "node": "^20 || >=22"

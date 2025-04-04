@@ -5,7 +5,7 @@ import styles from '../App.module.css';
 /**
  * @returns A component that displays a loading animation with dots.
  */
-export const LoadingDots = (): JSX.Element => {
+export const LoadingDots: React.FC = () => {
   const [dots, setDots] = useState('.');
 
   useEffect(() => {
