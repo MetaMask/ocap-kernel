@@ -7,6 +7,8 @@ import metamaskVitestConfig from '@metamask/eslint-config-vitest';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const config = createConfig([
   {
@@ -44,7 +46,7 @@ const config = createConfig([
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: process.cwd(),
+        tsconfigRootDir: dirname(fileURLToPath(import.meta.url)),
       },
     },
   },
