@@ -10,8 +10,6 @@ import { Far } from '@endo/marshal';
  */
 export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
-  //   const { getSyscall } = vatPowers;
-  //   const syscall = getSyscall();
 
   /**
    * Print a message to the log.
