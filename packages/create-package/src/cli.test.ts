@@ -74,9 +74,7 @@ describe('create-package/cli', () => {
         tsConfig: {},
         tsConfigBuild: {},
         nodeVersions: '>=18.0.0',
-        // TODO: Replace `any` with type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as utils.MonorepoFileData);
       vi.spyOn(utils, 'finalizeAndWriteData').mockResolvedValue();
 
       expect(
@@ -100,9 +98,7 @@ describe('create-package/cli', () => {
         tsConfig: {},
         tsConfigBuild: {},
         nodeVersions: '>=18.0.0',
-        // TODO: Replace `any` with type
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as utils.MonorepoFileData);
       vi.spyOn(utils, 'finalizeAndWriteData').mockResolvedValue();
 
       expect(

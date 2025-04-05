@@ -17,7 +17,6 @@ import {
   makeStreamErrorSignal,
 } from '../utils.ts';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeMockMessageTarget = () => {
   const listeners: ((payload: unknown) => void)[] = [];
   const postMessage = vi.fn((message: unknown, _transfer?: Transferable[]) => {
@@ -208,7 +207,6 @@ describe('PostMessageDuplexStream', () => {
     postRemoteMessage?: PostMessage;
     validateInput?: ValidateInput<Read>;
     onEnd?: () => Promise<void>;
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   } = {}) => {
     const postLocalMessage = messageTarget.postMessage;
     // @ts-expect-error In reality you have to be explicit about `messageEventMode`

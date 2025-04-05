@@ -1,62 +1,35 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { Struct } from '@metamask/superstruct';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { assertIsJsonRpcResponse, isJsonRpcFailure } from '@metamask/utils';
-import type { Json, JsonRpcParams } from '@metamask/utils';
+import type { JsonRpcParams } from '@metamask/utils';
 import { makeCounter } from '@ocap/utils';
 import type { PromiseCallbacks } from '@ocap/utils';
 
-export type MethodSignature<
-  Method extends string,
-  Params extends JsonRpcParams,
-  Result extends Json,
-> = (method: Method, params: Params) => Promise<Result>;
-
-type ExtractMethodName<
-  Methods extends MethodSignature<string, JsonRpcParams, Json>,
-> = Methods extends (
-  method: infer Method,
-  params: JsonRpcParams,
-) => Promise<Json>
-  ? Method
-  : never;
-
-type ExtractParams<
-  Methods extends MethodSignature<string, JsonRpcParams, Json>,
-> = Methods extends (method: string, params: infer Params) => Promise<Json>
-  ? Params
-  : never;
-
-type ExtractResult<
-  Methods extends MethodSignature<string, JsonRpcParams, Json>,
-> = Methods extends (
-  method: string,
-  params: JsonRpcParams,
-) => Promise<infer Result>
-  ? Result
-  : never;
-
-export type MethodSpec<Method extends string, Result extends Json> = {
-  method: Method;
-  result: Struct<Result>;
-};
-
-type MethodSpecs<Methods extends MethodSignature<string, JsonRpcParams, Json>> =
-  Record<
-    ExtractMethodName<Methods>,
-    MethodSpec<ExtractMethodName<Methods>, ExtractResult<Methods>>
-  >;
+import type {
+  MethodSpec,
+  ExtractParams,
+  ExtractResult,
+  ExtractMethod,
+  MethodSpecRecord,
+} from './utils.ts';
 
 type RpcPayload = {
   method: string;
   params: JsonRpcParams;
 };
 
-type SendMessage = (messageId: string, payload: RpcPayload) => Promise<void>;
+export type SendMessage = (
+  messageId: string,
+  payload: RpcPayload,
+) => Promise<void>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export class RpcClient<Methods extends MethodSignature<string, any, any>> {
-  readonly #methods: MethodSpecs<Methods>;
+export class RpcClient<
+  // The class picks up its type from the `methods` argument,
+  // so using `any` in this constraint is safe.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Methods extends MethodSpecRecord<MethodSpec<string, any, any>>,
+> {
+  readonly #methods: Methods;
 
   readonly #prefix: string;
 
@@ -66,20 +39,16 @@ export class RpcClient<Methods extends MethodSignature<string, any, any>> {
 
   readonly #sendMessage: SendMessage;
 
-  constructor(
-    methods: MethodSpecs<Methods>,
-    sendMessage: SendMessage,
-    prefix: string,
-  ) {
+  constructor(methods: Methods, sendMessage: SendMessage, prefix: string) {
     this.#methods = methods;
     this.#sendMessage = sendMessage;
     this.#prefix = prefix;
   }
 
-  async call<Method extends Methods>(
-    method: ExtractMethodName<Method>,
-    params: ExtractParams<Method>,
-  ): Promise<ExtractResult<Method>> {
+  async call<Method extends ExtractMethod<Methods>>(
+    method: Method,
+    params: ExtractParams<Method, Methods>,
+  ): Promise<ExtractResult<Method, Methods>> {
     const response = await this.#createMessage({
       method,
       params,
@@ -90,8 +59,21 @@ export class RpcClient<Methods extends MethodSignature<string, any, any>> {
       throw new Error(`${response.error.message}`);
     }
 
-    assertResult(response.result, this.#methods[method].result);
+    this.#assertResult(method, response.result);
     return response.result;
+  }
+
+  #assertResult<Method extends ExtractMethod<Methods>>(
+    method: Method,
+    result: unknown,
+  ): asserts result is ExtractResult<Method, Methods> {
+    try {
+      // @ts-expect-error - TODO: For unknown reasons, TypeScript fails to recognize that
+      // `Method` must be a key of `this.#methods`.
+      assertStruct(result, this.#methods[method].result);
+    } catch (error) {
+      throw new Error(`Invalid result: ${(error as Error).message}`);
+    }
   }
 
   async #createMessage(payload: RpcPayload): Promise<unknown> {
@@ -126,21 +108,5 @@ export class RpcClient<Methods extends MethodSignature<string, any, any>> {
 
   #nextMessageId(): string {
     return `${this.#prefix}:${this.#messageCounter()}`;
-  }
-}
-
-/**
- * @param result - The result to assert.
- * @param struct - The struct to assert the result against.
- * @throws If the result is invalid.
- */
-function assertResult<Result extends Json>(
-  result: unknown,
-  struct: Struct<Result>,
-): asserts result is Result {
-  try {
-    assertStruct(result, struct);
-  } catch (error) {
-    throw new Error(`Invalid result: ${(error as Error).message}`);
   }
 }

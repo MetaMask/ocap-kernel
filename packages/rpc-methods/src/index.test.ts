@@ -7,6 +7,7 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'RpcClient',
       'RpcService',
+      'mergeRecords',
     ]);
   });
 });

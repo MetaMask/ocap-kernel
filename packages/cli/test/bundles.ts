@@ -11,7 +11,6 @@ export const invalidTestBundleNames = ['bad-vat.fails'];
 
 const testRoot = new URL('.', import.meta.url).pathname;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeTestBundleRoot = async () => {
   const stageRoot = resolve(tmpdir(), 'test');
 
@@ -32,7 +31,6 @@ const makeTestBundleRoot = async () => {
   return stageBundleRoot;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const makeTestBundleStage = async () => {
   const stageBundleRoot = await makeTestBundleRoot();
 
@@ -44,7 +42,6 @@ export const makeTestBundleStage = async () => {
     return join(stageBundleRoot, `${bundleName}.js`);
   };
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const getTestBundleSpecs = (testBundleNames: string[]) =>
     testBundleNames.map((bundleName) => ({
       name: bundleName,

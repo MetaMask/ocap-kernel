@@ -31,8 +31,6 @@ const makeEnvelope = (
 
 const EXTENSION_ID = 'test-extension-id';
 
-// This function declares its own return type.
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeRuntime = (extensionId: string = EXTENSION_ID) => {
   const listeners: ((...args: unknown[]) => void)[] = [];
   const dispatchRuntimeMessage = (
@@ -304,7 +302,6 @@ describe.concurrent('ChromeRuntimeWriter', () => {
 });
 
 describe.concurrent('ChromeRuntimeDuplexStream', () => {
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const makeDuplexStream = async (validateInput?: ValidateInput<number>) => {
     const { runtime, dispatchRuntimeMessage } = makeRuntime();
     const duplexStreamP = ChromeRuntimeDuplexStream.make(

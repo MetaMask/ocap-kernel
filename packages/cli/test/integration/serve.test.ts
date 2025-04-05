@@ -53,7 +53,6 @@ describe('serve', async () => {
   });
 
   describe('server', () => {
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const makeServer = (root: string = testBundleRoot) => {
       const port = getServerPort();
       const { listen } = getServer({

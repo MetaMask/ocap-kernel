@@ -130,6 +130,13 @@ const config = createConfig([
   },
 
   {
+    files: ['**/test/**/*', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
+
+  {
     files: ['**/*.types.test.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',

@@ -1,36 +1,7 @@
-import { number, string, tuple } from '@metamask/superstruct';
 import { describe, it, expect } from 'vitest';
 
 import { RpcService } from './RpcService.ts';
-import type { Handler } from './RpcService.ts';
-
-const getHooks = () =>
-  ({
-    hook1: () => undefined,
-    hook2: () => undefined,
-    hook3: () => undefined,
-  }) as const;
-
-type Hooks = ReturnType<typeof getHooks>;
-
-const getHandlers = () =>
-  ({
-    method1: {
-      method: 'method1',
-      implementation: () => null,
-      params: tuple([string()]),
-      hooks: ['hook1', 'hook2'] as const,
-    } as Handler<Hooks, 'method1', [string], null>,
-    method2: {
-      method: 'method2',
-      implementation: (hooks, [value]) => {
-        hooks.hook3();
-        return value * 2;
-      },
-      params: tuple([number()]),
-      hooks: ['hook3'] as const,
-    } as Handler<Hooks, 'method2', [number], number>,
-  }) as const;
+import { getHandlers, getHooks } from '../test/methods.ts';
 
 describe('RpcService', () => {
   describe('constructor', () => {

@@ -14,7 +14,6 @@ const makeVatSupervisor = async ({
 }: {
   handleWrite?: (input: unknown) => void | Promise<void>;
   vatPowers?: Record<string, unknown>;
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 }) => {
   const commandStream = await TestDuplexStream.make<
     VatCommand,

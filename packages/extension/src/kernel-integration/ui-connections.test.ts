@@ -85,7 +85,6 @@ class MockBroadcastChannel {
 
 vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeMockLogger = () =>
   ({
     ...console,

@@ -1,16 +1,8 @@
-import { string } from '@metamask/superstruct';
 import { jsonrpc2 } from '@metamask/utils';
 import { describe, it, vi, expect } from 'vitest';
 
 import { RpcClient } from './RpcClient.ts';
-
-const getMethods = () =>
-  ({
-    method1: {
-      method: 'method1',
-      result: string(),
-    },
-  }) as const;
+import { getMethods } from '../test/methods.ts';
 
 describe('RpcClient', () => {
   describe('constructor', () => {
@@ -23,19 +15,19 @@ describe('RpcClient', () => {
   describe('call', () => {
     it('should call a method', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const resultP = client.call('method1', 'test');
+      const resultP = client.call('method1', ['test']);
       client.handleResponse('test:1', {
         jsonrpc: jsonrpc2,
         id: 'test:1',
-        result: 'test',
+        result: null,
       });
 
-      expect(await resultP).toBe('test');
+      expect(await resultP).toBeNull();
     });
 
     it('should throw an error for error responses', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const resultP = client.call('method1', 'test');
+      const resultP = client.call('method1', ['test']);
       client.handleResponse('test:1', {
         jsonrpc: jsonrpc2,
         id: 'test:1',
@@ -50,20 +42,20 @@ describe('RpcClient', () => {
 
     it('should throw an error for invalid results', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const resultP = client.call('method1', 'test');
+      const resultP = client.call('method1', ['test']);
       client.handleResponse('test:1', {
         jsonrpc: jsonrpc2,
         id: 'test:1',
         result: 42,
       });
       await expect(resultP).rejects.toThrow(
-        'Invalid result: Expected a string, but received: 42',
+        'Invalid result: Expected the literal `null`, but received: 42',
       );
     });
 
     it('should throw an error for invalid responses', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const resultP = client.call('method1', 'test');
+      const resultP = client.call('method1', ['test']);
       client.handleResponse('test:1', 'invalid');
       await expect(resultP).rejects.toThrow('Invalid JSON-RPC response:');
     });
@@ -83,8 +75,8 @@ describe('RpcClient', () => {
   describe('rejectAll', () => {
     it('should reject all unresolved messages', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const p1 = client.call('method1', 'test');
-      const p2 = client.call('method1', 'test');
+      const p1 = client.call('method1', ['test']);
+      const p2 = client.call('method1', ['test']);
       client.rejectAll(new Error('test error'));
       await expect(p1).rejects.toThrow('test error');
       await expect(p2).rejects.toThrow('test error');
