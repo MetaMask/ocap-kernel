@@ -1,18 +1,52 @@
-import type { Json } from '@metamask/utils';
+import { nullable, type, array, object } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+import {
+  ClusterConfigStruct,
+  VatConfigStruct,
+  VatIdStruct,
+} from '@ocap/kernel';
 import type { Kernel } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
+import { EmptyJsonArray } from '@ocap/utils';
 
-import type { CommandHandler } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
+const KernelStatusStruct = type({
+  clusterConfig: nullable(ClusterConfigStruct),
+  vats: array(
+    object({
+      id: VatIdStruct,
+      config: VatConfigStruct,
+    }),
+  ),
+});
 
-type GetStatusMethod = 'getStatus';
+type KernelStatus = Infer<typeof KernelStatusStruct>;
 
-export const getStatusHandler: CommandHandler<GetStatusMethod> = {
+export const getStatusSpec: MethodSpec<
+  'getStatus',
+  EmptyJsonArray,
+  Infer<typeof KernelStatusStruct>
+> = {
   method: 'getStatus',
-  schema: KernelCommandPayloadStructs.getStatus.schema.params,
-  implementation: async (kernel: Kernel): Promise<Json> => {
-    return {
-      vats: kernel.getVats(),
-      clusterConfig: kernel.clusterConfig,
-    } as Json;
-  },
+  params: EmptyJsonArray,
+  result: KernelStatusStruct,
+};
+
+export type GetStatusHooks = {
+  kernel: Pick<Kernel, 'getVats' | 'clusterConfig'>;
+};
+
+export const getStatusHandler: Handler<
+  'getStatus',
+  EmptyJsonArray,
+  KernelStatus,
+  GetStatusHooks
+> = {
+  ...getStatusSpec,
+  hooks: { kernel: true },
+  implementation: async ({
+    kernel,
+  }: GetStatusHooks): Promise<KernelStatus> => ({
+    vats: kernel.getVats(),
+    clusterConfig: kernel.clusterConfig,
+  }),
 };

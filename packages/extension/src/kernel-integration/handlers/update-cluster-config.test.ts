@@ -1,17 +1,10 @@
-import type { ClusterConfig, Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect } from 'vitest';
+import type { ClusterConfig } from '@ocap/kernel';
+import { describe, it, expect, vi } from 'vitest';
 
 import { updateClusterConfigHandler } from './update-cluster-config.ts';
 
 describe('updateClusterConfigHandler', () => {
-  const mockKernel = {
-    clusterConfig: null,
-  } as Partial<Kernel>;
-
-  const mockKernelDatabase = {} as KernelDatabase;
-
-  const testConfig: ClusterConfig = {
+  const makeTestConfig = (): ClusterConfig => ({
     bootstrap: 'testVat',
     forceReset: true,
     vats: {
@@ -19,24 +12,30 @@ describe('updateClusterConfigHandler', () => {
         sourceSpec: 'test-source',
       },
     },
-  };
+  });
 
   it('should update kernel cluster config', async () => {
+    const updateClusterConfig = vi.fn();
+    const testConfig = makeTestConfig();
     const result = await updateClusterConfigHandler.implementation(
-      mockKernel as Kernel,
-      mockKernelDatabase,
+      { updateClusterConfig },
       { config: testConfig },
     );
 
-    expect(mockKernel.clusterConfig).toStrictEqual(testConfig);
+    expect(updateClusterConfig).toHaveBeenCalledWith(testConfig);
     expect(result).toBeNull();
   });
 
-  it('should use the correct method name', () => {
-    expect(updateClusterConfigHandler.method).toBe('updateClusterConfig');
-  });
-
-  it('should validate the config using the correct schema', () => {
-    expect(updateClusterConfigHandler.schema).toBeDefined();
+  it('should propagate errors from updateClusterConfig', async () => {
+    const error = new Error('Update failed');
+    const updateClusterConfig = vi.fn(() => {
+      throw error;
+    });
+    await expect(
+      updateClusterConfigHandler.implementation(
+        { updateClusterConfig },
+        { config: makeTestConfig() },
+      ),
+    ).rejects.toThrow(error);
   });
 });

@@ -50,6 +50,7 @@
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
     "@ocap/kernel": "workspace:^",
+    "@ocap/rpc-methods": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",

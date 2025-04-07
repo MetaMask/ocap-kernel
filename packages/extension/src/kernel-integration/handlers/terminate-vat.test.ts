@@ -1,25 +1,20 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { terminateVatHandler } from './terminate-vat.ts';
 
 describe('terminateVatHandler', () => {
-  const mockKernel = {
-    terminateVat: vi.fn().mockResolvedValue(undefined),
-  } as unknown as Kernel;
-
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
-
-  it('should have the correct method', () => {
-    expect(terminateVatHandler.method).toBe('terminateVat');
+  let mockKernel: Kernel;
+  beforeEach(() => {
+    mockKernel = {
+      terminateVat: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Kernel;
   });
 
   it('should terminate vat and return null', async () => {
     const params = { id: 'v0' } as const;
     const result = await terminateVatHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
+      { kernel: mockKernel },
       params,
     );
     expect(mockKernel.terminateVat).toHaveBeenCalledWith(params.id);
@@ -31,11 +26,7 @@ describe('terminateVatHandler', () => {
     vi.mocked(mockKernel.terminateVat).mockRejectedValueOnce(error);
     const params = { id: 'v0' } as const;
     await expect(
-      terminateVatHandler.implementation(
-        mockKernel,
-        mockKernelDatabase,
-        params,
-      ),
+      terminateVatHandler.implementation({ kernel: mockKernel }, params),
     ).rejects.toThrow(error);
   });
 });

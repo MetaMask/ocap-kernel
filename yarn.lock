@@ -1952,6 +1952,7 @@ __metadata:
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
     "@ocap/kernel": "workspace:^"
+    "@ocap/rpc-methods": "workspace:^"
     "@ocap/shims": "workspace:^"
     "@ocap/store": "workspace:^"
     "@ocap/streams": "workspace:^"
@@ -2195,7 +2196,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/rpc-methods@workspace:packages/rpc-methods":
+"@ocap/rpc-methods@workspace:^, @ocap/rpc-methods@workspace:packages/rpc-methods":
   version: 0.0.0-use.local
   resolution: "@ocap/rpc-methods@workspace:packages/rpc-methods"
   dependencies:
@@ -2205,6 +2206,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/rpc-errors": "npm:^7.0.2"
     "@metamask/superstruct": "npm:^3.2.0"
     "@metamask/utils": "npm:^11.4.0"
     "@ocap/test-utils": "workspace:^"

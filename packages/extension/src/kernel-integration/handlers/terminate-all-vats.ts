@@ -1,13 +1,32 @@
+import { literal } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
+import { EmptyJsonArray } from '@ocap/utils';
 
-import type { CommandHandler } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const terminateAllVatsHandler: CommandHandler<'terminateAllVats'> = {
+export const terminateAllVatsSpec: MethodSpec<
+  'terminateAllVats',
+  Json[],
+  null
+> = {
   method: 'terminateAllVats',
-  schema: KernelCommandPayloadStructs.terminateAllVats.schema.params,
-  implementation: async (kernel: Kernel): Promise<Json> => {
+  params: EmptyJsonArray,
+  result: literal(null),
+};
+
+export type TerminateAllVatsHooks = {
+  kernel: Pick<Kernel, 'terminateAllVats'>;
+};
+
+export const terminateAllVatsHandler: Handler<
+  'terminateAllVats',
+  Json[],
+  null,
+  TerminateAllVatsHooks
+> = {
+  ...terminateAllVatsSpec,
+  hooks: { kernel: true },
+  implementation: async ({ kernel }: TerminateAllVatsHooks): Promise<null> => {
     await kernel.terminateAllVats();
     return null;
   },

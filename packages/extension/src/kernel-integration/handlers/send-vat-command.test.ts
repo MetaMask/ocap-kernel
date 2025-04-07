@@ -1,43 +1,47 @@
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect, vi } from 'vitest';
+import type { VatId, Kernel } from '@ocap/kernel';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { sendVatCommandHandler } from './send-vat-command.ts';
 
 describe('sendVatCommandHandler', () => {
-  const mockKernel = {
-    sendVatCommand: vi.fn(() => 'success'),
-  } as unknown as Kernel;
-
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
-
-  it('should have the correct method', () => {
-    expect(sendVatCommandHandler.method).toBe('sendVatCommand');
+  let mockKernel: Kernel;
+  beforeEach(() => {
+    mockKernel = {
+      sendVatCommand: vi.fn(),
+    } as unknown as Kernel;
   });
 
-  it('should handle vat messages', async () => {
-    const params = {
-      id: 'v0',
-      payload: { method: 'ping', params: [] },
-    };
+  it('sends a command to a vat', async () => {
+    const vatId = 'vat1' as VatId;
+    vi.mocked(mockKernel.sendVatCommand).mockResolvedValueOnce('foo');
+
     const result = await sendVatCommandHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
-      params,
+      { kernel: mockKernel },
+      {
+        id: vatId,
+        payload: { method: 'ping', params: [] },
+      },
     );
-    expect(mockKernel.sendVatCommand).toHaveBeenCalledWith('v0', {
+
+    expect(mockKernel.sendVatCommand).toHaveBeenCalledWith(vatId, {
       method: 'ping',
       params: [],
     });
-    expect(result).toStrictEqual({ result: 'success' });
+    expect(result).toStrictEqual({ result: 'foo' });
   });
 
-  it('should throw error when vat ID is missing', async () => {
+  it('throws if payload is not a valid kernel command', async () => {
+    const vatId = 'vat1' as VatId;
+
     await expect(
-      sendVatCommandHandler.implementation(mockKernel, mockKernelDatabase, {
-        id: null,
-        payload: { method: 'ping', params: [] },
-      }),
-    ).rejects.toThrow('Vat ID required for this command');
+      sendVatCommandHandler.implementation(
+        { kernel: mockKernel },
+        {
+          id: vatId,
+          payload: { notACommand: true },
+        },
+      ),
+    ).rejects.toThrow('Invalid command payload');
+    expect(mockKernel.sendVatCommand).not.toHaveBeenCalled();
   });
 });

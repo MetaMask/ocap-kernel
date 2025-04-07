@@ -1,29 +1,20 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { restartVatHandler } from './restart-vat.ts';
 
 describe('restartVatHandler', () => {
-  const mockKernel = {
-    restartVat: vi.fn().mockResolvedValue(undefined),
-  } as unknown as Kernel;
-
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
-
-  it('should have the correct method', () => {
-    expect(restartVatHandler.method).toBe('restartVat');
-  });
-
-  it('should have a schema', () => {
-    expect(restartVatHandler.schema).toBeDefined();
+  let mockKernel: Kernel;
+  beforeEach(() => {
+    mockKernel = {
+      restartVat: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Kernel;
   });
 
   it('should restart vat and return null', async () => {
     const params = { id: 'v0' } as const;
     const result = await restartVatHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
+      { kernel: mockKernel },
       params,
     );
     expect(mockKernel.restartVat).toHaveBeenCalledWith(params.id);
@@ -35,7 +26,7 @@ describe('restartVatHandler', () => {
     vi.mocked(mockKernel.restartVat).mockRejectedValueOnce(error);
     const params = { id: 'v0' } as const;
     await expect(
-      restartVatHandler.implementation(mockKernel, mockKernelDatabase, params),
+      restartVatHandler.implementation({ kernel: mockKernel }, params),
     ).rejects.toThrow(error);
   });
 });

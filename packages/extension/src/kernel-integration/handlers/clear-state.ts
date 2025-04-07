@@ -1,13 +1,27 @@
+import { literal } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import type { Kernel } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
+import { EmptyJsonArray } from '@ocap/utils';
 
-import type { CommandHandler } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const clearStateHandler: CommandHandler<'clearState'> = {
+export const clearStateSpec: MethodSpec<'clearState', Json[], null> = {
   method: 'clearState',
-  schema: KernelCommandPayloadStructs.clearState.schema.params,
-  implementation: async (kernel: Kernel): Promise<Json> => {
+  params: EmptyJsonArray,
+  result: literal(null),
+};
+
+export type ClearStateHooks = { kernel: Pick<Kernel, 'reset'> };
+
+export const clearStateHandler: Handler<
+  'clearState',
+  Json[],
+  null,
+  ClearStateHooks
+> = {
+  ...clearStateSpec,
+  method: 'clearState',
+  hooks: { kernel: true },
+  implementation: async ({ kernel }: ClearStateHooks): Promise<null> => {
     await kernel.reset();
     return null;
   },

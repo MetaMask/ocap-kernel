@@ -21,7 +21,7 @@ describe('RpcService', () => {
     it('should throw if the method is not found', () => {
       const service = new RpcService(getHandlers(), getHooks());
       expect(() => service.assertHasMethod('method3')).toThrow(
-        'Method "method3" not found in registry.',
+        'The method does not exist / is not available.',
       );
     });
   });
@@ -40,7 +40,7 @@ describe('RpcService', () => {
     it('should throw an error if the method is not found', () => {
       const service = new RpcService(getHandlers(), getHooks());
       // @ts-expect-error Intentional destructive testing
-      expect(() => service.execute('method3', [2])).not.toThrow(
+      expect(async () => service.execute('method3', [2])).not.toThrow(
         // This is not a _good_ error, but we only care about type safety in this instance.
         'TypeError: Cannot read properties of undefined (reading "params")',
       );
@@ -48,7 +48,9 @@ describe('RpcService', () => {
 
     it('should throw if passed invalid params', () => {
       const service = new RpcService(getHandlers(), getHooks());
-      expect(() => service.execute('method1', [2])).toThrow('Invalid params');
+      expect(async () => service.execute('method1', [2])).toThrow(
+        'Invalid params',
+      );
     });
   });
 });

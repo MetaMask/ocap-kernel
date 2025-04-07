@@ -1,20 +1,32 @@
-import type { Json } from '@metamask/utils';
-import type { ClusterConfig, Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { object, literal } from '@metamask/superstruct';
+import type { ClusterConfig } from '@ocap/kernel';
+import { ClusterConfigStruct } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
+export const updateClusterConfigSpec: MethodSpec<
+  'updateClusterConfig',
+  { config: ClusterConfig },
+  null
+> = {
+  method: 'updateClusterConfig',
+  params: object({ config: ClusterConfigStruct }),
+  result: literal(null),
+};
 
-export const updateClusterConfigHandler: CommandHandler<'updateClusterConfig'> =
-  {
-    method: 'updateClusterConfig',
-    schema: KernelCommandPayloadStructs.updateClusterConfig.schema.params,
-    implementation: async (
-      kernel: Kernel,
-      _kdb: KernelDatabase,
-      params: { config: ClusterConfig },
-    ): Promise<Json> => {
-      kernel.clusterConfig = params.config;
-      return null;
-    },
-  };
+export type UpdateClusterConfigHooks = {
+  updateClusterConfig: (config: ClusterConfig) => void;
+};
+
+export const updateClusterConfigHandler: Handler<
+  'updateClusterConfig',
+  { config: ClusterConfig },
+  null,
+  UpdateClusterConfigHooks
+> = {
+  ...updateClusterConfigSpec,
+  hooks: { updateClusterConfig: true },
+  implementation: async ({ updateClusterConfig }, params): Promise<null> => {
+    updateClusterConfig(params.config);
+    return null;
+  },
+};

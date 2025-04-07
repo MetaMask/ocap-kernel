@@ -1,18 +1,30 @@
-import type { Json } from '@metamask/utils';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { literal } from '@metamask/superstruct';
+import { VatConfigStruct } from '@ocap/kernel';
+import type { Kernel, VatConfig } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler, CommandParams } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const launchVatHandler: CommandHandler<'launchVat'> = {
+export const launchVatSpec: MethodSpec<'launchVat', VatConfig, null> = {
   method: 'launchVat',
-  schema: KernelCommandPayloadStructs.launchVat.schema.params,
+  params: VatConfigStruct,
+  result: literal(null),
+};
+
+export type LaunchVatHooks = {
+  kernel: Pick<Kernel, 'launchVat'>;
+};
+
+export const launchVatHandler: Handler<
+  'launchVat',
+  VatConfig,
+  null,
+  LaunchVatHooks
+> = {
+  ...launchVatSpec,
+  hooks: { kernel: true },
   implementation: async (
-    kernel: Kernel,
-    _kdb: KernelDatabase,
-    params: CommandParams['launchVat'],
-  ): Promise<Json> => {
+    { kernel }: LaunchVatHooks,
+    params: VatConfig,
+  ): Promise<null> => {
     await kernel.launchVat(params);
     return null;
   },

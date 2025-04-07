@@ -1,29 +1,21 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { launchVatHandler } from './launch-vat.ts';
 
 describe('launchVatHandler', () => {
-  const mockKernel = {
-    launchVat: vi.fn().mockResolvedValue(undefined),
-  } as unknown as Kernel;
+  let mockKernel: Kernel;
 
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
-
-  it('should have the correct method', () => {
-    expect(launchVatHandler.method).toBe('launchVat');
-  });
-
-  it('should have a schema', () => {
-    expect(launchVatHandler.schema).toBeDefined();
+  beforeEach(() => {
+    mockKernel = {
+      launchVat: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Kernel;
   });
 
   it('should launch vat and return null', async () => {
     const params = { sourceSpec: 'test.js' };
     const result = await launchVatHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
+      { kernel: mockKernel },
       params,
     );
     expect(mockKernel.launchVat).toHaveBeenCalledWith(params);
@@ -35,7 +27,7 @@ describe('launchVatHandler', () => {
     vi.mocked(mockKernel.launchVat).mockRejectedValueOnce(error);
     const params = { sourceSpec: 'test.js' };
     await expect(
-      launchVatHandler.implementation(mockKernel, mockKernelDatabase, params),
+      launchVatHandler.implementation({ kernel: mockKernel }, params),
     ).rejects.toThrow(error);
   });
 });

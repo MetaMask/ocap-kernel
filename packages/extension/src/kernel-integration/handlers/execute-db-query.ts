@@ -1,18 +1,34 @@
-import type { Json } from '@metamask/utils';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { array, object, record, string } from '@metamask/superstruct';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler, CommandParams } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const executeDBQueryHandler: CommandHandler<'executeDBQuery'> = {
+const executeDBQuerySpec: MethodSpec<
+  'executeDBQuery',
+  { sql: string },
+  Record<string, string>[]
+> = {
   method: 'executeDBQuery',
-  schema: KernelCommandPayloadStructs.executeDBQuery.schema.params,
-  implementation: async (
-    _kernel: Kernel,
-    kdb: KernelDatabase,
-    params: CommandParams['executeDBQuery'],
-  ): Promise<Json> => {
-    return kdb.executeQuery(params.sql);
+  params: object({
+    sql: string(),
+  }),
+  result: array(record(string(), string())),
+} as const;
+
+export type ExecuteDBQueryHooks = {
+  executeDBQuery: (sql: string) => Record<string, string>[];
+};
+
+export const executeDBQueryHandler: Handler<
+  'executeDBQuery',
+  { sql: string },
+  Record<string, string>[],
+  ExecuteDBQueryHooks
+> = {
+  ...executeDBQuerySpec,
+  hooks: { executeDBQuery: true },
+  implementation: (
+    { executeDBQuery }: ExecuteDBQueryHooks,
+    params: { sql: string },
+  ): Record<string, string>[] => {
+    return executeDBQuery(params.sql);
   },
 };

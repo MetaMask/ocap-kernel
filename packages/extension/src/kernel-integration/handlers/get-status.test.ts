@@ -1,38 +1,40 @@
 import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getStatusHandler } from './get-status.ts';
-import clusterConfig from '../../vats/default-cluster.json';
 
 describe('getStatusHandler', () => {
-  const mockVats = [
-    { id: 'v0', config: { sourceSpec: 'test.js' } },
-    { id: 'v1', config: { sourceSpec: 'test2.js' } },
-  ];
+  let mockKernel: Kernel;
 
-  const mockKernel = {
-    clusterConfig,
-    getVats: vi.fn(() => mockVats),
-  } as unknown as Kernel;
-
-  const mockKernelDatabase = {} as unknown as KernelDatabase;
-
-  it('should have the correct method', () => {
-    expect(getStatusHandler.method).toBe('getStatus');
-  });
-
-  it('should have a schema', () => {
-    expect(getStatusHandler.schema).toBeDefined();
+  beforeEach(() => {
+    mockKernel = {
+      getVats: vi.fn(),
+      clusterConfig: undefined,
+    } as unknown as Kernel;
+    Object.defineProperty(mockKernel, 'clusterConfig', {
+      get: vi.fn(() => ({ foo: 'bar' })),
+    });
   });
 
   it('should return vats status and cluster config', async () => {
+    vi.mocked(mockKernel.getVats).mockReturnValueOnce([]);
+
     const result = await getStatusHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
+      { kernel: mockKernel },
       [],
     );
-    expect(mockKernel.getVats).toHaveBeenCalledOnce();
-    expect(result).toStrictEqual({ vats: mockVats, clusterConfig });
+
+    expect(mockKernel.getVats).toHaveBeenCalledTimes(1);
+    expect(result).toStrictEqual({ vats: [], clusterConfig: { foo: 'bar' } });
+  });
+
+  it('should propagate errors from getVats', async () => {
+    const error = new Error('Status check failed');
+    vi.mocked(mockKernel.getVats).mockImplementationOnce(() => {
+      throw error;
+    });
+    await expect(
+      getStatusHandler.implementation({ kernel: mockKernel }, []),
+    ).rejects.toThrow(error);
   });
 });

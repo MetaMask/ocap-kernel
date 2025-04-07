@@ -1,18 +1,26 @@
-import type { Json } from '@metamask/utils';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { object, literal } from '@metamask/superstruct';
+import type { Kernel, VatId } from '@ocap/kernel';
+import { VatIdStruct } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler, CommandParams } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
+export const terminateVatSpec: MethodSpec<'terminateVat', { id: VatId }, null> =
+  {
+    method: 'terminateVat',
+    params: object({ id: VatIdStruct }),
+    result: literal(null),
+  };
 
-export const terminateVatHandler: CommandHandler<'terminateVat'> = {
-  method: 'terminateVat',
-  schema: KernelCommandPayloadStructs.terminateVat.schema.params,
-  implementation: async (
-    kernel: Kernel,
-    _kdb: KernelDatabase,
-    params: CommandParams['terminateVat'],
-  ): Promise<Json> => {
+export type TerminateVatHooks = { kernel: Pick<Kernel, 'terminateVat'> };
+
+export const terminateVatHandler: Handler<
+  'terminateVat',
+  { id: VatId },
+  null,
+  TerminateVatHooks
+> = {
+  ...terminateVatSpec,
+  hooks: { kernel: true },
+  implementation: async ({ kernel }, params): Promise<null> => {
     await kernel.terminateVat(params.id);
     return null;
   },

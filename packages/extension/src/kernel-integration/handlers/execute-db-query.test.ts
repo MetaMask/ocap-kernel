@@ -1,41 +1,35 @@
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi } from 'vitest';
 
 import { executeDBQueryHandler } from './execute-db-query.ts';
 
 describe('executeDBQueryHandler', () => {
-  const mockKernelDatabase = {
-    executeQuery: vi.fn(() => 'test'),
-  } as unknown as KernelDatabase;
+  it('executes a database query', () => {
+    const mockExecuteDBQuery = vi.fn().mockReturnValueOnce([{ key: 'value' }]);
 
-  const mockKernel = {} as unknown as Kernel;
-
-  it('should have the correct method', () => {
-    expect(executeDBQueryHandler.method).toBe('executeDBQuery');
-  });
-
-  it('should execute query and return result', async () => {
-    const params = { sql: 'SELECT * FROM test' };
-    const result = await executeDBQueryHandler.implementation(
-      mockKernel,
-      mockKernelDatabase,
-      params,
+    const result = executeDBQueryHandler.implementation(
+      { executeDBQuery: mockExecuteDBQuery },
+      {
+        sql: 'test-query',
+      },
     );
-    expect(mockKernelDatabase.executeQuery).toHaveBeenCalledWith(params.sql);
-    expect(result).toBe('test');
+
+    expect(mockExecuteDBQuery).toHaveBeenCalledWith('test-query');
+    expect(result).toStrictEqual([{ key: 'value' }]);
   });
 
-  it('should propagate errors from executeQuery', async () => {
+  it('should propagate errors from executeDBQuery', () => {
     const error = new Error('Query failed');
-    vi.mocked(mockKernelDatabase.executeQuery).mockRejectedValueOnce(error);
-    const params = { sql: 'SELECT * FROM test' };
-    await expect(
+    const mockExecuteDBQuery = vi.fn().mockImplementationOnce(() => {
+      throw error;
+    });
+
+    // TODO:rekm Fix upstream types to allow sync handlers
+    // eslint-disable-next-line @typescript-eslint/promise-function-async
+    expect(() =>
       executeDBQueryHandler.implementation(
-        mockKernel,
-        mockKernelDatabase,
-        params,
+        { executeDBQuery: mockExecuteDBQuery },
+        { sql: 'test-query' },
       ),
-    ).rejects.toThrow(error);
+    ).toThrow(error);
   });
 });

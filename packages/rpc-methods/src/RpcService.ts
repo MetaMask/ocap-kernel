@@ -1,3 +1,4 @@
+import { rpcErrors } from '@metamask/rpc-errors';
 import type { Struct } from '@metamask/superstruct';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { hasProperty } from '@metamask/utils';
@@ -63,7 +64,7 @@ export class RpcService<
     method: string,
   ): asserts method is ExtractMethods<Handlers[keyof Handlers]> {
     if (!this.#hasMethod(method as ExtractMethods<Handlers[keyof Handlers]>)) {
-      throw new Error(`Method "${String(method)}" not found in registry.`);
+      throw rpcErrors.methodNotFound();
     }
   }
 

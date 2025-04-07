@@ -1,13 +1,25 @@
-import type { Json } from '@metamask/utils';
+import { literal } from '@metamask/superstruct';
 import type { Kernel } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
+import { EmptyJsonArray } from '@ocap/utils';
 
-import type { CommandHandler } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const reloadConfigHandler: CommandHandler<'reload'> = {
+export const reloadConfigSpec: MethodSpec<'reload', EmptyJsonArray, null> = {
   method: 'reload',
-  schema: KernelCommandPayloadStructs.clearState.schema.params,
-  implementation: async (kernel: Kernel): Promise<Json> => {
+  params: EmptyJsonArray,
+  result: literal(null),
+};
+
+export type ReloadConfigHooks = { kernel: Pick<Kernel, 'reload'> };
+
+export const reloadConfigHandler: Handler<
+  'reload',
+  EmptyJsonArray,
+  null,
+  ReloadConfigHooks
+> = {
+  ...reloadConfigSpec,
+  hooks: { kernel: true },
+  implementation: async ({ kernel }: ReloadConfigHooks): Promise<null> => {
     await kernel.reload();
     return null;
   },

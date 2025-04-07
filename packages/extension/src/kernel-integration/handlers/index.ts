@@ -9,17 +9,18 @@ import { terminateAllVatsHandler } from './terminate-all-vats.ts';
 import { terminateVatHandler } from './terminate-vat.ts';
 import { updateClusterConfigHandler } from './update-cluster-config.ts';
 
-export const handlers = [
-  getStatusHandler,
-  clearStateHandler,
-  sendVatCommandHandler,
-  executeDBQueryHandler,
-  launchVatHandler,
-  reloadConfigHandler,
-  restartVatHandler,
-  terminateVatHandler,
-  terminateAllVatsHandler,
-  updateClusterConfigHandler,
-] as const;
+export const handlers = {
+  getStatus: getStatusHandler,
+  clearState: clearStateHandler,
+  sendVatCommand: sendVatCommandHandler,
+  executeDBQuery: executeDBQueryHandler,
+  launchVat: launchVatHandler,
+  reloadConfig: reloadConfigHandler,
+  restartVat: restartVatHandler,
+  terminateVat: terminateVatHandler,
+  terminateAllVats: terminateAllVatsHandler,
+  updateClusterConfig: updateClusterConfigHandler,
+} as const;
 
-export type KernelControlMethod = (typeof handlers)[number]['method'];
+export type KernelControlMethod =
+  (typeof handlers)[keyof typeof handlers]['method'];

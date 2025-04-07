@@ -1,18 +1,28 @@
-import type { Json } from '@metamask/utils';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { object, literal } from '@metamask/superstruct';
+import { VatIdStruct } from '@ocap/kernel';
+import type { Kernel, VatId } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler, CommandParams } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const restartVatHandler: CommandHandler<'restartVat'> = {
+export const restartVatSpec: MethodSpec<'restartVat', { id: VatId }, null> = {
   method: 'restartVat',
-  schema: KernelCommandPayloadStructs.restartVat.schema.params,
+  params: object({ id: VatIdStruct }),
+  result: literal(null),
+};
+
+export type RestartVatHooks = { kernel: Pick<Kernel, 'restartVat'> };
+
+export const restartVatHandler: Handler<
+  'restartVat',
+  { id: VatId },
+  null,
+  RestartVatHooks
+> = {
+  ...restartVatSpec,
+  hooks: { kernel: true },
   implementation: async (
-    kernel: Kernel,
-    _kdb: KernelDatabase,
-    params: CommandParams['restartVat'],
-  ): Promise<Json> => {
+    { kernel }: RestartVatHooks,
+    params: { id: VatId },
+  ): Promise<null> => {
     await kernel.restartVat(params.id);
     return null;
   },

@@ -1,25 +1,36 @@
+import { object } from '@metamask/superstruct';
+import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
-import { isKernelCommand } from '@ocap/kernel';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
+import { isKernelCommand, VatIdStruct } from '@ocap/kernel';
+import type { Kernel, VatId } from '@ocap/kernel';
+import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-import type { CommandHandler, CommandParams } from '../command-registry.ts';
-import { KernelCommandPayloadStructs } from '../messages.ts';
-
-export const sendVatCommandHandler: CommandHandler<'sendVatCommand'> = {
+export const sendVatCommandSpec: MethodSpec<
+  'sendVatCommand',
+  { id: VatId; payload: Json },
+  { result: Json }
+> = {
   method: 'sendVatCommand',
-  schema: KernelCommandPayloadStructs.sendVatCommand.schema.params,
-  implementation: async (
-    kernel: Kernel,
-    _kdb: KernelDatabase,
-    params: CommandParams['sendVatCommand'],
-  ): Promise<Json> => {
+  // TODO:rekm Use a more specific struct for the payload
+  params: object({ id: VatIdStruct, payload: UnsafeJsonStruct }),
+  result: object({ result: UnsafeJsonStruct }),
+};
+
+export type SendVatCommandHooks = {
+  kernel: Pick<Kernel, 'sendVatCommand'>;
+};
+
+export const sendVatCommandHandler: Handler<
+  'sendVatCommand',
+  { id: VatId; payload: Json },
+  { result: Json },
+  SendVatCommandHooks
+> = {
+  ...sendVatCommandSpec,
+  hooks: { kernel: true },
+  implementation: async ({ kernel }, params): Promise<{ result: Json }> => {
     if (!isKernelCommand(params.payload)) {
       throw new Error('Invalid command payload');
-    }
-
-    if (!params.id) {
-      throw new Error('Vat ID required for this command');
     }
 
     const result = await kernel.sendVatCommand(params.id, params.payload);

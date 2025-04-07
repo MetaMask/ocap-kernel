@@ -20,12 +20,13 @@
     ]
   },
   "references": [
+    { "path": "../kernel" },
+    { "path": "../rpc-methods" },
     { "path": "../shims" },
+    { "path": "../store" },
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../utils" },
-    { "path": "../kernel" },
-    { "path": "../store" }
+    { "path": "../utils" }
   ],
   "include": [
     "../../vitest.config.ts",

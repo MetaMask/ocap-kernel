@@ -6,21 +6,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { createPanelMessageMiddleware } from './panel-message.ts';
 
-const { mockRegister, mockExecute } = vi.hoisted(() => ({
-  mockRegister: vi.fn(),
+const { mockAssertHasMethod, mockExecute } = vi.hoisted(() => ({
+  mockAssertHasMethod: vi.fn(),
   mockExecute: vi.fn(),
 }));
 
-vi.mock('../command-registry.ts', () => ({
-  KernelCommandRegistry: vi.fn().mockImplementation(() => ({
-    register: mockRegister,
-    execute: mockExecute,
-  })),
+vi.mock('@ocap/rpc-methods', () => ({
+  RpcService: class MockRpcService {
+    assertHasMethod = mockAssertHasMethod;
+
+    execute = mockExecute;
+  },
 }));
 
-// Mock the handlers
 vi.mock('../handlers/index.ts', () => ({
-  handlers: [{ method: 'testMethod1' }, { method: 'testMethod2' }],
+  handlers: {
+    testMethod1: { method: 'testMethod1' },
+    testMethod2: { method: 'testMethod2' },
+  },
 }));
 
 describe('createPanelMessageMiddleware', () => {
@@ -53,14 +56,10 @@ describe('createPanelMessageMiddleware', () => {
 
     // Process the request
     const response = await engine.handle(request);
+    console.log('response', response);
 
     // Verify the middleware called execute with the right parameters
-    expect(mockExecute).toHaveBeenCalledWith(
-      mockKernel,
-      mockKernelDatabase,
-      'testMethod1',
-      { foo: 'bar' },
-    );
+    expect(mockExecute).toHaveBeenCalledWith('testMethod1', { foo: 'bar' });
 
     // Verify the response contains the expected result
     expect(response).toStrictEqual({
@@ -86,12 +85,7 @@ describe('createPanelMessageMiddleware', () => {
     const response = await engine.handle(request);
 
     // Verify the middleware called execute with the right parameters
-    expect(mockExecute).toHaveBeenCalledWith(
-      mockKernel,
-      mockKernelDatabase,
-      'testMethod2',
-      [],
-    );
+    expect(mockExecute).toHaveBeenCalledWith('testMethod2', []);
 
     // Verify the response contains the expected result
     expect(response).toStrictEqual({
@@ -118,12 +112,7 @@ describe('createPanelMessageMiddleware', () => {
     const response = await engine.handle(request);
 
     // Verify the middleware called execute
-    expect(mockExecute).toHaveBeenCalledWith(
-      mockKernel,
-      mockKernelDatabase,
-      'testMethod1',
-      { foo: 'bar' },
-    );
+    expect(mockExecute).toHaveBeenCalledWith('testMethod1', { foo: 'bar' });
 
     // Verify the response contains the error
     expect(response).toStrictEqual({
@@ -156,12 +145,7 @@ describe('createPanelMessageMiddleware', () => {
     const response = await engine.handle(request);
 
     // Verify the middleware called execute with the array params
-    expect(mockExecute).toHaveBeenCalledWith(
-      mockKernel,
-      mockKernelDatabase,
-      'testMethod1',
-      ['item1', 'item2'],
-    );
+    expect(mockExecute).toHaveBeenCalledWith('testMethod1', ['item1', 'item2']);
 
     // Verify the response contains the expected result
     expect(response).toStrictEqual({
@@ -187,18 +171,43 @@ describe('createPanelMessageMiddleware', () => {
     const response = await engine.handle(request);
 
     // Verify the middleware called execute with undefined params
-    expect(mockExecute).toHaveBeenCalledWith(
-      mockKernel,
-      mockKernelDatabase,
-      'testMethod2',
-      undefined,
-    );
+    expect(mockExecute).toHaveBeenCalledWith('testMethod2', undefined);
 
     // Verify the response contains the expected result
     expect(response).toStrictEqual({
       id: 5,
       jsonrpc: '2.0',
       result: { status: 'ok' },
+    });
+  });
+
+  it('rejects unknown methods', async () => {
+    const request = {
+      id: 6,
+      jsonrpc: '2.0',
+      method: 'unknownMethod',
+    } as JsonRpcRequest;
+
+    mockAssertHasMethod.mockImplementation(() => {
+      throw new Error('The method does not exist / is not available.');
+    });
+
+    const response = await engine.handle(request);
+
+    expect(mockExecute).not.toHaveBeenCalled();
+
+    // Verify the response contains the error
+    expect(response).toStrictEqual({
+      id: 6,
+      jsonrpc: '2.0',
+      error: expect.objectContaining({
+        code: -32603, // Internal error
+        data: expect.objectContaining({
+          cause: expect.objectContaining({
+            message: 'The method does not exist / is not available.',
+          }),
+        }),
+      }),
     });
   });
 });
