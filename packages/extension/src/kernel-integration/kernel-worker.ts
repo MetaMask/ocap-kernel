@@ -88,9 +88,9 @@ async function main(): Promise<void> {
     (async () => {
       if (launchDefaultSubcluster) {
         const result = await kernel.launchSubcluster(defaultSubcluster);
-        console.log(`Subcluster launched: ${JSON.stringify(result)}`);
+        logger.log(`Subcluster launched: ${JSON.stringify(result)}`);
       } else {
-        console.log(`Resuming kernel execution`);
+        logger.log(`Resuming kernel execution`);
       }
     })(),
   ]);

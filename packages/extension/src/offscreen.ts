@@ -61,7 +61,7 @@ async function makeKernelWorker(): Promise<{
 
   const vatWorkerServer = ExtensionVatWorkerServer.make(
     worker as PostMessageTarget,
-    (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
+    (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel, logger),
   );
 
   return {

@@ -1,6 +1,8 @@
 import { createWindow } from '@metamask/snaps-utils';
 import type { VatId, VatConfig } from '@ocap/kernel';
 import type { initializeMessageChannel } from '@ocap/streams/browser';
+import { makeLogger } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
 
 import type { VatWorker } from './VatWorkerServer.ts';
 
@@ -9,8 +11,10 @@ const IFRAME_URI = 'iframe.html';
 export const makeIframeVatWorker = (
   id: VatId,
   getPort: typeof initializeMessageChannel,
+  parentLogger?: Logger,
 ): VatWorker => {
   const vatHtmlId = `ocap-iframe-${id}`;
+  const logger = makeLogger(`[${vatHtmlId}]`, parentLogger);
   return {
     launch: async (_vatConfig: VatConfig) => {
       const newWindow = await createWindow({
@@ -27,7 +31,7 @@ export const makeIframeVatWorker = (
     terminate: async (): Promise<void> => {
       const iframe = document.getElementById(vatHtmlId);
       if (iframe === null) {
-        console.error(
+        logger.error(
           `iframe of vat with id "${id}" already removed from DOM (#${vatHtmlId})`,
         );
         return undefined;

@@ -2,11 +2,13 @@ import type { Json } from '@metamask/utils';
 import { KernelCommandMethod, isKernelCommandReply } from '@ocap/kernel';
 import type { KernelCommand } from '@ocap/kernel';
 import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
-import { delay } from '@ocap/utils';
+import { delay, makeLogger } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
-main().catch(console.error);
+const logger = makeLogger('[background]');
+
+main().catch(logger.error);
 
 /**
  * The main function for the background script.
@@ -36,7 +38,7 @@ async function main(): Promise<void> {
     await offscreenStream.write(command);
   };
 
-  // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
+  // globalThis.kernel will exist due to dev-logger.js in background-trusted-prelude.js
   Object.defineProperties(globalThis.kernel, {
     ping: {
       value: async () =>
@@ -56,22 +58,22 @@ async function main(): Promise<void> {
     sendClusterCommand({
       method: KernelCommandMethod.ping,
       params: [],
-    }).catch(console.error);
+    }).catch(logger.error);
   });
 
   // Handle replies from the offscreen document
   for await (const message of offscreenStream) {
     if (!isKernelCommandReply(message)) {
-      console.error('Background received unexpected message', message);
+      logger.error('Background received unexpected message', message);
       continue;
     }
 
     switch (message.method) {
       case KernelCommandMethod.ping:
-        console.log(message.params);
+        logger.log(message.params);
         break;
       default:
-        console.error(
+        logger.error(
           // @ts-expect-error Compile-time exhaustiveness check
           `Background received unexpected command method: "${message.method.valueOf()}"`,
         );
