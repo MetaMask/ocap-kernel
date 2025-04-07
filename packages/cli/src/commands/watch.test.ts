@@ -8,6 +8,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createBundleFile } from './bundle.ts';
 import { watchDir, makeWatchEvents } from './watch.ts';
 
+const mocks = vi.hoisted(() => ({
+  logger: {
+    log: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 vi.mock('fs/promises', () => ({
   unlink: vi.fn(async () => new Promise<void>(() => undefined)),
 }));
@@ -20,9 +30,13 @@ vi.mock('./bundle.ts', () => ({
   createBundleFile: vi.fn(async () => new Promise<void>(() => undefined)),
 }));
 
+vi.mock('../logger.ts', () => ({
+  logger: mocks.logger,
+}));
+
 vi.mock('chokidar', () => ({
   watch: () => {
-    console.log('returning watcher...');
+    mocks.logger.log('returning watcher...');
     const watcher = {
       on: () => watcher,
       close: async (): Promise<void> => undefined,
@@ -99,26 +113,25 @@ describe('makeWatchEvents', () => {
       expect(unlink).toHaveBeenLastCalledWith(`resolved:${testPath}`);
     });
 
-    it('calls console.info on success', async () => {
+    it('calls logger.info on success', async () => {
       const promise = Promise.resolve();
       vi.mocked(unlink).mockReturnValue(promise);
 
       const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn());
       const testPath = 'test-path';
-      const infoSpy = vi.spyOn(console, 'info');
 
       events.unlink(testPath);
 
       // wait for next crank turn
       await Promise.resolve();
 
-      expect(infoSpy).toHaveBeenCalledTimes(2);
-      expect(infoSpy).toHaveBeenNthCalledWith(
+      expect(mocks.logger.info).toHaveBeenCalledTimes(2);
+      expect(mocks.logger.info).toHaveBeenNthCalledWith(
         1,
         'Source file removed:',
         testPath,
       );
-      expect(infoSpy).toHaveBeenNthCalledWith(
+      expect(mocks.logger.info).toHaveBeenNthCalledWith(
         2,
         `removed resolved:${testPath}`,
       );

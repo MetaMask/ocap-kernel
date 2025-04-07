@@ -5,6 +5,7 @@ import { unlink } from 'fs/promises';
 import { resolve } from 'path';
 
 import { createBundleFile } from './bundle.ts';
+import { logger } from '../logger.ts';
 import { resolveBundlePath } from '../path.ts';
 
 type CloseWatcher = () => Promise<void>;
@@ -27,18 +28,18 @@ export const makeWatchEvents = (
 } => ({
   ready: () => readyResolve(watcher.close.bind(watcher)),
   add: (path) => {
-    console.info(`Source file added:`, path);
+    logger.info(`Source file added:`, path);
     createBundleFile(path, resolveBundlePath(path)).catch(throwError);
   },
   change: (path) => {
-    console.info(`Source file changed:`, path);
+    logger.info(`Source file changed:`, path);
     createBundleFile(path, resolveBundlePath(path)).catch(throwError);
   },
   unlink: (path) => {
-    console.info('Source file removed:', path);
+    logger.info('Source file removed:', path);
     const bundlePath = resolveBundlePath(path);
     unlink(bundlePath)
-      .then(() => console.info(`removed ${bundlePath}`))
+      .then(() => logger.info(`removed ${bundlePath}`))
       .catch((reason: unknown) => {
         if (reason instanceof Error && reason.message.match(/ENOENT/u)) {
           // If associated bundle does not exist, do nothing.

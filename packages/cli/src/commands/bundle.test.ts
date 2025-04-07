@@ -11,6 +11,13 @@ import { fileExists } from '../file.ts';
 
 const mocks = vi.hoisted(() => ({
   bundleSource: vi.fn(),
+  logger: {
+    log: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
 vi.mock('@endo/bundle-source', () => ({
@@ -18,6 +25,10 @@ vi.mock('@endo/bundle-source', () => ({
 }));
 
 vi.mock('@endo/init', () => ({}));
+
+vi.mock('../logger.ts', () => ({
+  logger: mocks.logger,
+}));
 
 describe('bundle', async () => {
   const { testBundleRoot, getTestBundleSpecs, globBundles, resolveBundlePath } =
@@ -34,6 +45,7 @@ describe('bundle', async () => {
   beforeEach(async () => {
     vi.resetModules();
     await deleteTestBundles();
+    vi.resetAllMocks();
   });
 
   describe('createBundleFile', () => {
@@ -57,11 +69,10 @@ describe('bundle', async () => {
       },
     );
 
-    it('calls console.error if bundling fails', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+    it('calls logger.error if bundling fails', async () => {
       const badBundle = resolveBundlePath('bad-vat.fails');
       await createBundleFile(badBundle);
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(mocks.logger.error).toHaveBeenCalledOnce();
     });
   });
 

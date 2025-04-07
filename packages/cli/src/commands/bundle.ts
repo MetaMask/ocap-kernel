@@ -5,6 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
 import { isDirectory } from '../file.ts';
+import { logger } from '../logger.ts';
 import { resolveBundlePath } from '../path.ts';
 
 /**
@@ -25,9 +26,9 @@ export async function createBundleFile(
     const bundle = await bundleSource(sourceFullPath);
     const bundleString = JSON.stringify(bundle);
     await writeFile(bundlePath, bundleString);
-    console.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
+    logger.log(`wrote ${bundlePath}: ${new Blob([bundleString]).size} bytes`);
   } catch (problem) {
-    console.error(problem);
+    logger.error(problem);
   }
 }
 
@@ -38,7 +39,7 @@ export async function createBundleFile(
  * @returns A promise that resolves when the bundles have been written.
  */
 export async function createBundleDir(sourceDir: string): Promise<void> {
-  console.log('bundling dir', sourceDir);
+  logger.log('bundling dir', sourceDir);
   await Promise.all(
     (await glob(join(sourceDir, '*.js'))).map(
       async (source) => await createBundleFile(source),
