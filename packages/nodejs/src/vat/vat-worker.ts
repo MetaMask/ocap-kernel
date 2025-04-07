@@ -2,22 +2,19 @@ import '@ocap/shims/endoify';
 
 import type { VatId } from '@ocap/kernel';
 import { VatSupervisor } from '@ocap/kernel';
-import { makeLogger } from '@ocap/utils';
 import fs from 'node:fs/promises';
 import url from 'node:url';
 
+import { makeVatLogger } from './logger.ts';
 import { makeCommandStream } from './streams.ts';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
-if (vatId) {
-  const logger = makeLogger(`[vat-worker (${vatId})]`);
-  main().catch((error) => logger.error(error));
-} else {
-  console.log('no vatId set for env variable NODE_VAT_ID');
-}
+const logger = makeVatLogger(vatId);
+
+main(vatId).catch((error) => logger.error(error));
 
 /**
  * Fetch a blob of bytes from a URL
@@ -39,14 +36,20 @@ async function fetchBlob(blobURL: string): Promise<Response> {
 
 /**
  * The main function for the iframe.
+ *
+ * @param id - The ID of the vat this worker is running.
  */
-async function main(): Promise<void> {
+async function main(id: VatId): Promise<void> {
+  if (!id) {
+    throw new Error('no vat ID set for env variable NODE_VAT_ID');
+  }
   const commandStream = makeCommandStream();
   await commandStream.synchronize();
   // eslint-disable-next-line no-void
   void new VatSupervisor({
-    id: vatId,
+    id,
     commandStream,
     fetchBlob,
+    logger,
   });
 }
