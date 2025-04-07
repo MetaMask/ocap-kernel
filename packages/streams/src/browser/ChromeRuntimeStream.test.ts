@@ -31,6 +31,21 @@ const makeEnvelope = (
 
 const EXTENSION_ID = 'test-extension-id';
 
+const mocks = vi.hoisted(() => ({
+  logger: {
+    debug: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
+vi.mock('@ocap/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ocap/utils')>();
+  return {
+    ...actual,
+    makeLogger: vi.fn(() => mocks.logger),
+  };
+});
+
 // This function declares its own return type.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const makeRuntime = (extensionId: string = EXTENSION_ID) => {
@@ -165,11 +180,11 @@ describe('ChromeRuntimeReader', () => {
 
     const nextP = reader.next();
 
-    vi.spyOn(console, 'debug');
+    const debugSpy = vi.spyOn(mocks.logger, 'debug');
     listeners[0]?.({ not: 'an envelope' }, { id: EXTENSION_ID });
 
-    expect(console.debug).toHaveBeenCalledWith(
-      `ChromeRuntimeReader received unexpected message: ${stringify({
+    expect(debugSpy).toHaveBeenCalledWith(
+      `received unexpected message: ${stringify({
         not: 'an envelope',
       })}`,
     );
@@ -189,7 +204,7 @@ describe('ChromeRuntimeReader', () => {
 
     const nextP = reader.next();
 
-    vi.spyOn(console, 'warn');
+    vi.spyOn(mocks.logger, 'warn');
     const message1 = { foo: 'bar' };
     dispatchRuntimeMessage(
       message1,

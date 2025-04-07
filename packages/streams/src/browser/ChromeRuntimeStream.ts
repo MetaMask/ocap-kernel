@@ -15,7 +15,8 @@
  */
 
 import type { Json } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
+import { makeLogger, stringify } from '@ocap/utils';
+import type { Logger } from '@ocap/utils';
 
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 import {
@@ -67,6 +68,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
   readonly #extensionId: string;
 
+  readonly #logger: Logger;
+
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeTarget,
@@ -91,6 +94,7 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     this.#target = target;
     this.#source = source;
     this.#extensionId = runtime.id;
+    this.#logger = makeLogger(`[chrome-runtime-reader ${this.#extensionId}]`);
 
     messageListener = this.#onMessage.bind(this);
     // Begin listening for messages from the Chrome runtime.
@@ -105,19 +109,15 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (!isMessageEnvelope(message)) {
-      console.debug(
-        `ChromeRuntimeReader received unexpected message: ${stringify(
-          message,
-        )}`,
-      );
+      this.#logger.debug(`received unexpected message: ${stringify(message)}`);
       return;
     }
 
     if (message.target !== this.#target || message.source !== this.#source) {
-      console.debug(
-        `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
-        `Expected target: ${this.#target}`,
-        `Expected source: ${this.#source}`,
+      this.#logger.debug(
+        `received message with incorrect target or source: ${stringify(message)}`,
+        `expected target: ${this.#target}`,
+        `expected source: ${this.#source}`,
       );
       return;
     }
