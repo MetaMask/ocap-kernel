@@ -15,7 +15,7 @@ export const handlers = {
   sendVatCommand: sendVatCommandHandler,
   executeDBQuery: executeDBQueryHandler,
   launchVat: launchVatHandler,
-  reloadConfig: reloadConfigHandler,
+  reload: reloadConfigHandler,
   restartVat: restartVatHandler,
   terminateVat: terminateVatHandler,
   terminateAllVats: terminateAllVatsHandler,

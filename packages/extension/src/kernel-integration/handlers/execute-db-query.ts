@@ -25,10 +25,10 @@ export const executeDBQueryHandler: Handler<
 > = {
   ...executeDBQuerySpec,
   hooks: { executeDBQuery: true },
-  implementation: (
+  implementation: async (
     { executeDBQuery }: ExecuteDBQueryHooks,
     params: { sql: string },
-  ): Record<string, string>[] => {
+  ): Promise<Record<string, string>[]> => {
     return executeDBQuery(params.sql);
   },
 };

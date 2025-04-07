@@ -3,10 +3,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { executeDBQueryHandler } from './execute-db-query.ts';
 
 describe('executeDBQueryHandler', () => {
-  it('executes a database query', () => {
+  it('executes a database query', async () => {
     const mockExecuteDBQuery = vi.fn().mockReturnValueOnce([{ key: 'value' }]);
 
-    const result = executeDBQueryHandler.implementation(
+    const result = await executeDBQueryHandler.implementation(
       { executeDBQuery: mockExecuteDBQuery },
       {
         sql: 'test-query',
@@ -17,19 +17,17 @@ describe('executeDBQueryHandler', () => {
     expect(result).toStrictEqual([{ key: 'value' }]);
   });
 
-  it('should propagate errors from executeDBQuery', () => {
+  it('should propagate errors from executeDBQuery', async () => {
     const error = new Error('Query failed');
     const mockExecuteDBQuery = vi.fn().mockImplementationOnce(() => {
       throw error;
     });
 
-    // TODO:rekm Fix upstream types to allow sync handlers
-    // eslint-disable-next-line @typescript-eslint/promise-function-async
-    expect(() =>
+    await expect(
       executeDBQueryHandler.implementation(
         { executeDBQuery: mockExecuteDBQuery },
         { sql: 'test-query' },
       ),
-    ).toThrow(error);
+    ).rejects.toThrow(error);
   });
 });
