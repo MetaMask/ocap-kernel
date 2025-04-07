@@ -77,10 +77,10 @@ export class RpcService<
    * @returns The result of the method execution.
    * @throws If the parameters are invalid.
    */
-  execute<Method extends ExtractMethods<Handlers[keyof Handlers]>>(
+  async execute<Method extends ExtractMethods<Handlers[keyof Handlers]>>(
     method: Method,
     params: unknown,
-  ): ReturnType<Handlers[Method]['implementation']> {
+  ): Promise<ReturnType<Handlers[Method]['implementation']>> {
     const handler = this.#getHandler(method);
     assertParams(params, handler.params);
 
@@ -88,7 +88,7 @@ export class RpcService<
     const selectedHooks = selectHooks(this.#hooks, handler.hooks);
 
     // Execute the handler with the selected hooks
-    return handler.implementation(selectedHooks, params);
+    return await handler.implementation(selectedHooks, params);
   }
 
   /**

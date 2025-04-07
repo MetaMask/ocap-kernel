@@ -57,7 +57,7 @@ export type HandlerFunction<
   Params extends JsonRpcParams,
   Result extends Json,
   Hooks extends Record<string, unknown>,
-> = (hooks: Hooks, params: Params) => Result | Promise<Result>;
+> = (hooks: Hooks, params: Params) => Promise<Result>;
 
 // Service-side types
 

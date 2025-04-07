@@ -27,28 +27,28 @@ describe('RpcService', () => {
   });
 
   describe('execute', () => {
-    it('should be able to execute a method', () => {
+    it('should execute a method', async () => {
       const service = new RpcService(getHandlers(), getHooks());
-      expect(service.execute('method1', ['test'])).toBeNull();
+      expect(await service.execute('method1', ['test'])).toBeNull();
     });
 
-    it('should be able to execute a method that uses a hook', () => {
+    it('should be able to execute a method that uses a hook', async () => {
       const service = new RpcService(getHandlers(), getHooks());
-      expect(service.execute('method2', [2])).toBe(4);
+      expect(await service.execute('method2', [2])).toBe(4);
     });
 
-    it('should throw an error if the method is not found', () => {
+    it('should throw an error if the method is not found', async () => {
       const service = new RpcService(getHandlers(), getHooks());
       // @ts-expect-error Intentional destructive testing
-      expect(async () => service.execute('method3', [2])).not.toThrow(
+      await expect(service.execute('method3', [2])).rejects.toThrow(
         // This is not a _good_ error, but we only care about type safety in this instance.
-        'TypeError: Cannot read properties of undefined (reading "params")',
+        "Cannot read properties of undefined (reading 'params')",
       );
     });
 
-    it('should throw if passed invalid params', () => {
+    it('should throw if passed invalid params', async () => {
       const service = new RpcService(getHandlers(), getHooks());
-      expect(async () => service.execute('method1', [2])).toThrow(
+      await expect(service.execute('method1', [2])).rejects.toThrow(
         'Invalid params',
       );
     });

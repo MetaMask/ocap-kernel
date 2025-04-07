@@ -30,7 +30,7 @@ export const getPartialHandlers = () =>
   ({
     method1: {
       method: 'method1',
-      implementation: (hooks, [_value]) => {
+      implementation: async (hooks, [_value]) => {
         hooks.hook1();
         return null;
       },
@@ -43,7 +43,7 @@ export const getPartialHandlers = () =>
     >,
     method2: {
       method: 'method2',
-      implementation: (hooks, [value]) => {
+      implementation: async (hooks, [value]) => {
         hooks.hook3();
         return value * 2;
       },
