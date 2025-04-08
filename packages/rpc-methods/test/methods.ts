@@ -1,6 +1,6 @@
 import { literal, number, string, tuple } from '@metamask/superstruct';
 
-import type { Handler, MethodSpec } from '../src/utils.ts';
+import type { Handler, MethodSpec } from '../src/types.ts';
 
 export const getHooks = () =>
   ({
