@@ -11,7 +11,7 @@ import type {
   ExtractResult,
   ExtractMethod,
   MethodSpecRecord,
-} from './utils.ts';
+} from './types.ts';
 
 export type SendMessage = (payload: JsonRpcRequest) => Promise<void>;
 

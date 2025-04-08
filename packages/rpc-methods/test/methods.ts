@@ -1,7 +1,6 @@
 import { literal, number, string, tuple } from '@metamask/superstruct';
 
-import { mergeRecords } from '../src/utils.ts';
-import type { MethodSpec, PartialHandler } from '../src/utils.ts';
+import type { Handler, MethodSpec } from '../src/utils.ts';
 
 export const getHooks = () =>
   ({
@@ -26,33 +25,27 @@ export const getMethods = () =>
     } as MethodSpec<'method2', [number], number>,
   }) as const;
 
-export const getPartialHandlers = () =>
-  ({
+export const getHandlers = () => {
+  const methods = getMethods();
+  return {
     method1: {
-      method: 'method1',
+      ...methods.method1,
+      hooks: { hook1: true, hook2: true } as const,
       implementation: async (hooks, [_value]) => {
         hooks.hook1();
         return null;
       },
-      hooks: { hook1: true, hook2: true } as const,
-    } as PartialHandler<
-      'method1',
-      [string],
-      null,
-      Pick<Hooks, 'hook1' | 'hook2'>
-    >,
+    } as Handler<'method1', [string], null, Pick<Hooks, 'hook1' | 'hook2'>>,
     method2: {
-      method: 'method2',
+      ...methods.method2,
+      hooks: { hook3: true } as const,
       implementation: async (hooks, [value]) => {
         hooks.hook3();
         return value * 2;
       },
-      hooks: { hook3: true } as const,
-    } as PartialHandler<'method2', [number], number, Pick<Hooks, 'hook3'>>,
-  }) as const;
-
-export const getHandlers = () =>
-  mergeRecords(getMethods(), getPartialHandlers());
+    } as Handler<'method2', [number], number, Pick<Hooks, 'hook3'>>,
+  };
+};
 
 type MethodNames = keyof ReturnType<typeof getMethods>;
 

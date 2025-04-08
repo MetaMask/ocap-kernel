@@ -4,7 +4,7 @@ import { assert as assertStruct } from '@metamask/superstruct';
 import { hasProperty } from '@metamask/utils';
 import type { Json, JsonRpcParams } from '@metamask/utils';
 
-import type { Handler } from './utils.ts';
+import type { Handler } from './types.ts';
 
 type ExtractHooks<Handlers> =
   // We only use this type to extract the hooks from the handlers,
