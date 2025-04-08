@@ -1,26 +1,60 @@
-import { clearStateHandler } from './clear-state.ts';
-import { executeDBQueryHandler } from './execute-db-query.ts';
-import { getStatusHandler } from './get-status.ts';
-import { launchVatHandler } from './launch-vat.ts';
-import { reloadConfigHandler } from './reload-config.ts';
-import { restartVatHandler } from './restart-vat.ts';
-import { sendVatCommandHandler } from './send-vat-command.ts';
-import { terminateAllVatsHandler } from './terminate-all-vats.ts';
-import { terminateVatHandler } from './terminate-vat.ts';
-import { updateClusterConfigHandler } from './update-cluster-config.ts';
+import { clearStateHandler, clearStateSpec } from './clear-state.ts';
+import {
+  executeDBQueryHandler,
+  executeDBQuerySpec,
+} from './execute-db-query.ts';
+import { getStatusHandler, getStatusSpec } from './get-status.ts';
+import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
+import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
+import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
+import {
+  sendVatCommandHandler,
+  sendVatCommandSpec,
+} from './send-vat-command.ts';
+import {
+  terminateAllVatsHandler,
+  terminateAllVatsSpec,
+} from './terminate-all-vats.ts';
+import { terminateVatHandler, terminateVatSpec } from './terminate-vat.ts';
+import {
+  updateClusterConfigHandler,
+  updateClusterConfigSpec,
+} from './update-cluster-config.ts';
 
+/**
+ * Call-ee side handlers for the kernel control methods.
+ */
 export const handlers = {
-  getStatus: getStatusHandler,
   clearState: clearStateHandler,
-  sendVatCommand: sendVatCommandHandler,
   executeDBQuery: executeDBQueryHandler,
+  getStatus: getStatusHandler,
   launchVat: launchVatHandler,
   reload: reloadConfigHandler,
   restartVat: restartVatHandler,
-  terminateVat: terminateVatHandler,
+  sendVatCommand: sendVatCommandHandler,
   terminateAllVats: terminateAllVatsHandler,
+  terminateVat: terminateVatHandler,
   updateClusterConfig: updateClusterConfigHandler,
 } as const;
 
-export type KernelControlMethod =
-  (typeof handlers)[keyof typeof handlers]['method'];
+/**
+ * Call-er side method specs for the kernel control methods.
+ */
+export const methodSpecs = {
+  clearState: clearStateSpec,
+  executeDBQuery: executeDBQuerySpec,
+  getStatus: getStatusSpec,
+  launchVat: launchVatSpec,
+  reload: reloadConfigSpec,
+  restartVat: restartVatSpec,
+  sendVatCommand: sendVatCommandSpec,
+  terminateAllVats: terminateAllVatsSpec,
+  terminateVat: terminateVatSpec,
+  updateClusterConfig: updateClusterConfigSpec,
+} as const;
+
+type Handlers = (typeof handlers)[keyof typeof handlers];
+
+export type KernelControlMethod = Handlers['method'];
+
+export type { KernelStatus } from './get-status.ts';

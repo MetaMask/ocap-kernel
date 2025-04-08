@@ -17,7 +17,7 @@ export const useVats = (): {
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
 } => {
-  const { sendMessage, status, logMessage } = usePanelContext();
+  const { callKernelMethod, status, logMessage } = usePanelContext();
 
   const vats = useMemo(() => {
     return (
@@ -39,7 +39,7 @@ export const useVats = (): {
    */
   const pingVat = useCallback(
     (id: VatId) => {
-      sendMessage({
+      callKernelMethod({
         method: 'sendVatCommand',
         params: {
           id,
@@ -52,7 +52,7 @@ export const useVats = (): {
         .then((result) => logMessage(stringify(result, 0), 'received'))
         .catch((error) => logMessage(error.message, 'error'));
     },
-    [sendMessage, logMessage],
+    [callKernelMethod, logMessage],
   );
 
   /**
@@ -60,14 +60,14 @@ export const useVats = (): {
    */
   const restartVat = useCallback(
     (id: VatId) => {
-      sendMessage({
+      callKernelMethod({
         method: 'restartVat',
         params: { id },
       })
         .then(() => logMessage(`Restarted vat "${id}"`, 'success'))
         .catch(() => logMessage(`Failed to restart vat "${id}"`, 'error'));
     },
-    [sendMessage, logMessage],
+    [callKernelMethod, logMessage],
   );
 
   /**
@@ -75,14 +75,14 @@ export const useVats = (): {
    */
   const terminateVat = useCallback(
     (id: VatId) => {
-      sendMessage({
+      callKernelMethod({
         method: 'terminateVat',
         params: { id },
       })
         .then(() => logMessage(`Terminated vat "${id}"`, 'success'))
         .catch(() => logMessage(`Failed to terminate vat "${id}"`, 'error'));
     },
-    [sendMessage, logMessage],
+    [callKernelMethod, logMessage],
   );
 
   return {

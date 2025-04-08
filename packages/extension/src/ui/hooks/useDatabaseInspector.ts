@@ -17,7 +17,7 @@ export function useDatabaseInspector(): {
   refreshData: () => void;
   executeQuery: (sql: string) => void;
 } {
-  const { sendMessage, logMessage } = usePanelContext();
+  const { callKernelMethod, logMessage } = usePanelContext();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [tableData, setTableData] = useState<Record<string, string>[]>([]);
@@ -25,7 +25,7 @@ export function useDatabaseInspector(): {
   // Execute a query and set the result as table data
   const executeQuery = useCallback(
     (sql: string): void => {
-      sendMessage({
+      callKernelMethod({
         method: 'executeDBQuery',
         params: { sql },
       })
@@ -40,12 +40,12 @@ export function useDatabaseInspector(): {
           logMessage(`Failed to execute query: ${error}`, 'error');
         });
     },
-    [logMessage, sendMessage],
+    [logMessage, callKernelMethod],
   );
 
   // Fetch available tables
   const fetchTables = useCallback(async (): Promise<void> => {
-    const result = await sendMessage({
+    const result = await callKernelMethod({
       method: 'executeDBQuery',
       params: { sql: "SELECT name FROM sqlite_master WHERE type='table'" },
     });
@@ -59,12 +59,12 @@ export function useDatabaseInspector(): {
         setSelectedTable(tableNames[0] ?? '');
       }
     }
-  }, [logMessage, sendMessage]);
+  }, [logMessage, callKernelMethod]);
 
   // Fetch data for selected table
   const fetchTableData = useCallback(
     async (tableName: string): Promise<void> => {
-      const result = await sendMessage({
+      const result = await callKernelMethod({
         method: 'executeDBQuery',
         params: { sql: `SELECT * FROM ${tableName}` },
       });
@@ -73,7 +73,7 @@ export function useDatabaseInspector(): {
         setTableData(result);
       }
     },
-    [logMessage, sendMessage],
+    [logMessage, callKernelMethod],
   );
 
   // Refresh data for selected table

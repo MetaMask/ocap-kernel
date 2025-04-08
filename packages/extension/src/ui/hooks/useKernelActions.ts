@@ -16,62 +16,62 @@ export function useKernelActions(): {
   launchVat: (bundleUrl: string, vatName: string) => void;
   updateClusterConfig: (config: ClusterConfig) => Promise<void>;
 } {
-  const { sendMessage, logMessage, messageContent } = usePanelContext();
+  const { callKernelMethod, logMessage, messageContent } = usePanelContext();
 
   /**
    * Sends a kernel command.
    */
   const sendKernelCommand = useCallback(() => {
-    sendMessage({
+    callKernelMethod({
       method: 'sendVatCommand',
       params: JSON.parse(messageContent),
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));
-  }, [messageContent, sendMessage, logMessage]);
+  }, [messageContent, callKernelMethod, logMessage]);
 
   /**
    * Terminates all vats.
    */
   const terminateAllVats = useCallback(() => {
-    sendMessage({
+    callKernelMethod({
       method: 'terminateAllVats',
       params: [],
     })
       .then(() => logMessage('All vats terminated', 'success'))
       .catch(() => logMessage('Failed to terminate all vats', 'error'));
-  }, [sendMessage, logMessage]);
+  }, [callKernelMethod, logMessage]);
 
   /**
    * Clears the kernel state.
    */
   const clearState = useCallback(() => {
-    sendMessage({
+    callKernelMethod({
       method: 'clearState',
       params: [],
     })
       .then(() => logMessage('State cleared', 'success'))
       .catch(() => logMessage('Failed to clear state', 'error'));
-  }, [sendMessage, logMessage]);
+  }, [callKernelMethod, logMessage]);
 
   /**
    * Reloads the kernel default sub-cluster.
    */
   const reload = useCallback(() => {
-    sendMessage({
+    callKernelMethod({
       method: 'reload',
       params: [],
     })
       .then(() => logMessage('Default sub-cluster reloaded', 'success'))
       .catch(() => logMessage('Failed to reload', 'error'));
-  }, [sendMessage, logMessage]);
+  }, [callKernelMethod, logMessage]);
 
   /**
    * Launches a vat.
    */
   const launchVat = useCallback(
     (bundleUrl: string, vatName: string) => {
-      sendMessage({
+      callKernelMethod({
         method: 'launchVat',
         params: {
           bundleSpec: bundleUrl,
@@ -83,7 +83,7 @@ export function useKernelActions(): {
         .then(() => logMessage(`Launched vat "${vatName}"`, 'success'))
         .catch(() => logMessage(`Failed to launch vat "${vatName}":`, 'error'));
     },
-    [sendMessage, logMessage],
+    [callKernelMethod, logMessage],
   );
 
   /**
@@ -91,14 +91,14 @@ export function useKernelActions(): {
    */
   const updateClusterConfig = useCallback(
     async (config: ClusterConfig) => {
-      return sendMessage({
+      return callKernelMethod({
         method: 'updateClusterConfig',
         params: { config },
       })
         .then(() => logMessage('Config updated', 'success'))
         .catch(() => logMessage('Failed to update config', 'error'));
     },
-    [sendMessage, logMessage],
+    [callKernelMethod, logMessage],
   );
 
   return {

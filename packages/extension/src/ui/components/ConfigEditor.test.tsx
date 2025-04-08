@@ -9,7 +9,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ConfigEditor } from './ConfigEditor.tsx';
-import type { KernelStatus } from '../../kernel-integration/messages.ts';
+import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import defaultClusterConfig from '../../vats/default-cluster.json';
 import minimalClusterConfig from '../../vats/minimal-cluster.json';
 import { usePanelContext } from '../context/PanelContext.tsx';
@@ -23,15 +23,16 @@ const mockStatus = {
 const mockLogMessage = vi.fn();
 
 const mockUsePanelContext = {
-  status: mockStatus,
+  callKernelMethod: vi.fn(),
+  clearLogs: vi.fn(),
+  isLoading: false,
   logMessage: mockLogMessage,
   messageContent: '',
-  setMessageContent: vi.fn(),
   panelLogs: [],
-  clearLogs: vi.fn(),
-  sendMessage: vi.fn(),
   selectedVatId: '1',
+  setMessageContent: vi.fn(),
   setSelectedVatId: vi.fn(),
+  status: mockStatus,
 };
 
 vi.mock('../hooks/useKernelActions.ts', () => ({

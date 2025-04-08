@@ -11,16 +11,16 @@ vi.mock('../services/stream.ts', () => ({
 describe('useStream', () => {
   const mockSendMessage = vi.fn();
 
-  it('should set sendMessage function when stream setup succeeds', async () => {
+  it('should set callKernelMethod function when stream setup succeeds', async () => {
     vi.mocked(setupStream).mockResolvedValueOnce({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
     });
     const { result } = renderHook(() => useStream());
     await waitFor(() => {
-      expect(result.current.sendMessage).toBeDefined();
+      expect(result.current.callKernelMethod).toBeDefined();
     });
     expect(result.current).toStrictEqual({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
     });
     expect(setupStream).toHaveBeenCalledTimes(1);
   });

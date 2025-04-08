@@ -37,7 +37,7 @@ describe('useVats', () => {
   beforeEach(async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
       status: mockStatus,
       selectedVatId: mockVatId,
       setSelectedVatId: mockSetSelectedVatId,
@@ -62,7 +62,7 @@ describe('useVats', () => {
   it('should handle missing vat config gracefully', async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
       status: { vats: [{ id: mockVatId, config: {} as VatConfig }] },
       selectedVatId: mockVatId,
       setSelectedVatId: mockSetSelectedVatId,

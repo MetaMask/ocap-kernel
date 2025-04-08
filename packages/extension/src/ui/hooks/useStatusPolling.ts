@@ -3,19 +3,19 @@ import { stringify } from '@ocap/utils';
 import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.ts';
-import type { KernelStatus } from '../../kernel-integration/messages.ts';
+import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import { logger } from '../services/logger.ts';
 
 /**
  * Hook to start polling for kernel status
  *
- * @param sendMessage - Function to send a message to the kernel
+ * @param callKernelMethod - Function to send a message to the kernel
  * @param isRequestInProgress - Ref to track if a request is in progress
  * @param interval - Polling interval in milliseconds
  * @returns The kernel status
  */
 export const useStatusPolling = (
-  sendMessage: StreamState['sendMessage'],
+  callKernelMethod: StreamState['callKernelMethod'],
   isRequestInProgress: React.RefObject<boolean>,
   interval: number = 1000,
 ): KernelStatus | undefined => {
@@ -27,11 +27,11 @@ export const useStatusPolling = (
    */
   useEffect(() => {
     const fetchStatus = async (): Promise<void> => {
-      if (!sendMessage || isRequestInProgress.current) {
+      if (!callKernelMethod || isRequestInProgress.current) {
         return;
       }
       try {
-        const result = await sendMessage({
+        const result = await callKernelMethod({
           method: 'getStatus',
           params: [],
         });
@@ -55,7 +55,7 @@ export const useStatusPolling = (
         clearInterval(pollingRef.current);
       }
     };
-  }, [sendMessage, interval, isRequestInProgress]);
+  }, [callKernelMethod, interval, isRequestInProgress]);
 
   return status;
 };

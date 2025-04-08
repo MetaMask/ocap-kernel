@@ -9,7 +9,7 @@ import { PanelProvider } from './context/PanelContext.tsx';
 import { useStream } from './hooks/useStream.ts';
 
 export const App: React.FC = () => {
-  const { sendMessage, error } = useStream();
+  const { callKernelMethod, error } = useStream();
   const [activeTab, setActiveTab] = useState('vats');
 
   if (error) {
@@ -22,7 +22,7 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!sendMessage) {
+  if (!callKernelMethod) {
     return (
       <div className={styles.panel}>
         <div>Connecting to kernel...</div>
@@ -31,7 +31,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <PanelProvider sendMessage={sendMessage}>
+    <PanelProvider callKernelMethod={callKernelMethod}>
       <div className={styles.panel}>
         <div className={styles.leftPanel}>
           <Tabs

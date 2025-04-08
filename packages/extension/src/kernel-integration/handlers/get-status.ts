@@ -19,7 +19,7 @@ const KernelStatusStruct = type({
   ),
 });
 
-type KernelStatus = Infer<typeof KernelStatusStruct>;
+export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 export const getStatusSpec: MethodSpec<
   'getStatus',

@@ -35,13 +35,13 @@ describe('PanelContext', () => {
       ).isJsonRpcFailure.mockReturnValue(false);
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
-          <PanelProvider sendMessage={mockSendMessage}>
+          <PanelProvider callKernelMethod={mockSendMessage}>
             {children}
           </PanelProvider>
         ),
       });
-      // @ts-expect-error - we are testing the sendMessage function
-      const actualResponse = await result.current.sendMessage(payload);
+      // @ts-expect-error - we are testing the callKernelMethod function
+      const actualResponse = await result.current.callKernelMethod(payload);
       expect(mockSendMessage).toHaveBeenCalledWith(payload);
       expect(actualResponse).toBe(response);
     });
@@ -58,13 +58,13 @@ describe('PanelContext', () => {
       ).isJsonRpcFailure.mockReturnValue(true);
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
-          <PanelProvider sendMessage={mockSendMessage}>
+          <PanelProvider callKernelMethod={mockSendMessage}>
             {children}
           </PanelProvider>
         ),
       });
-      // @ts-expect-error - we are testing the sendMessage function
-      await expect(result.current.sendMessage(payload)).rejects.toThrow(
+      // @ts-expect-error - we are testing the callKernelMethod function
+      await expect(result.current.callKernelMethod(payload)).rejects.toThrow(
         JSON.stringify(errorResponse.error),
       );
       expect(
@@ -84,13 +84,15 @@ describe('PanelContext', () => {
       mockSendMessage.mockRejectedValueOnce(error);
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
-          <PanelProvider sendMessage={mockSendMessage}>
+          <PanelProvider callKernelMethod={mockSendMessage}>
             {children}
           </PanelProvider>
         ),
       });
-      // @ts-expect-error - we are testing the sendMessage function
-      await expect(result.current.sendMessage(payload)).rejects.toThrow(error);
+      // @ts-expect-error - we are testing the callKernelMethod function
+      await expect(result.current.callKernelMethod(payload)).rejects.toThrow(
+        error,
+      );
       expect(
         vi.mocked(await import('../services/logger.ts')).logger.error,
       ).toHaveBeenCalledWith(`Error: ${error.message}`, 'error');
@@ -104,7 +106,7 @@ describe('PanelContext', () => {
       );
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
-          <PanelProvider sendMessage={mockSendMessage}>
+          <PanelProvider callKernelMethod={mockSendMessage}>
             {children}
           </PanelProvider>
         ),

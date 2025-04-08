@@ -38,8 +38,6 @@ const mockUseKernelActions = (overrides = {}): void => {
 const mockUseVats = (vats: VatRecord[] = []): void => {
   vi.mocked(useVats).mockReturnValue({
     vats,
-    selectedVatId: undefined,
-    setSelectedVatId: vi.fn(),
     pingVat: vi.fn(),
     restartVat: vi.fn(),
     terminateVat: vi.fn(),

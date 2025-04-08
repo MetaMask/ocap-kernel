@@ -1,7 +1,7 @@
 import { array, object, record, string } from '@metamask/superstruct';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-const executeDBQuerySpec: MethodSpec<
+export const executeDBQuerySpec: MethodSpec<
   'executeDBQuery',
   { sql: string },
   Record<string, string>[]

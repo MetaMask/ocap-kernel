@@ -19,7 +19,9 @@ export type MethodSpec<
   result: Struct<Result>;
 };
 
-type SpecConstraint = MethodSpec<string, JsonRpcParams, Json>;
+// `any` can safely be used in constraints.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SpecConstraint = MethodSpec<string, any, any>;
 
 export type MethodSpecRecord<Methods extends SpecConstraint> = Record<
   Methods['method'],

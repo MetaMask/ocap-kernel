@@ -19,7 +19,7 @@ describe('useKernelActions', () => {
   beforeEach(async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
       logMessage: mockLogMessage,
       messageContent: mockMessageContent,
       setMessageContent: vi.fn(),

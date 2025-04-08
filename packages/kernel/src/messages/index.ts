@@ -28,6 +28,3 @@ export type {
   VatWorkerServiceCommand,
   VatWorkerServiceReply,
 } from './vat-worker-service.ts';
-
-// Message resolver.
-export { MessageResolver } from './message-resolver.ts';

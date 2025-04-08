@@ -14,7 +14,8 @@ describe('RpcClient', () => {
 
   describe('call', () => {
     it('should call a method', async () => {
-      const client = new RpcClient(getMethods(), vi.fn(), 'test');
+      const sendMessage = vi.fn();
+      const client = new RpcClient(getMethods(), sendMessage, 'test');
       const resultP = client.call('method1', ['test']);
       client.handleResponse('test:1', {
         jsonrpc: jsonrpc2,
@@ -22,6 +23,12 @@ describe('RpcClient', () => {
         result: null,
       });
 
+      expect(sendMessage).toHaveBeenCalledWith({
+        jsonrpc: jsonrpc2,
+        id: 'test:1',
+        method: 'method1',
+        params: ['test'],
+      });
       expect(await resultP).toBeNull();
     });
 

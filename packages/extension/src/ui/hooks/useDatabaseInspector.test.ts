@@ -19,7 +19,7 @@ describe('useDatabaseInspector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(usePanelContext).mockReturnValue({
-      sendMessage: mockSendMessage,
+      callKernelMethod: mockSendMessage,
       logMessage: mockLogMessage,
     } as unknown as ReturnType<typeof usePanelContext>);
   });

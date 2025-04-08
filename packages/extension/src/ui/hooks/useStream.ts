@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 
 import { setupStream } from '../services/stream.ts';
-import type { SendMessageFunction } from '../services/stream.ts';
+import type { CallKernelMethod } from '../services/stream.ts';
 
 export type StreamState = {
-  sendMessage?: SendMessageFunction;
+  callKernelMethod?: CallKernelMethod;
   error?: Error;
 };
 
 /**
- * Hook to setup the stream and provide a sendMessage function.
+ * Hook to setup the stream and provide a callKernelMethod function.
  *
  * @returns The stream state.
  */
@@ -17,7 +17,7 @@ export function useStream(): StreamState {
   const [state, setState] = useState<StreamState>({});
 
   /**
-   * Effect to setup the stream and provide a sendMessage function.
+   * Effect to setup the stream and provide a callKernelMethod function.
    */
   useEffect(() => {
     setupStream()

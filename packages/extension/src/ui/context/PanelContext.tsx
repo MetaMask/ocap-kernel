@@ -9,10 +9,10 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
-import type { KernelStatus } from '../../kernel-integration/messages.ts';
+import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import { useStatusPolling } from '../hooks/useStatusPolling.ts';
 import { logger } from '../services/logger.ts';
-import type { SendMessageFunction } from '../services/stream.ts';
+import type { CallKernelMethod } from '../services/stream.ts';
 
 export type OutputType = 'sent' | 'received' | 'error' | 'success';
 
@@ -22,7 +22,7 @@ type PanelLog = {
 };
 
 export type PanelContextType = {
-  sendMessage: SendMessageFunction;
+  callKernelMethod: CallKernelMethod;
   status: KernelStatus | undefined;
   logMessage: (message: string, type?: OutputType) => void;
   messageContent: string;
@@ -36,8 +36,8 @@ const PanelContext = createContext<PanelContextType | undefined>(undefined);
 
 export const PanelProvider: React.FC<{
   children: ReactNode;
-  sendMessage: SendMessageFunction;
-}> = ({ children, sendMessage }) => {
+  callKernelMethod: CallKernelMethod;
+}> = ({ children, callKernelMethod }) => {
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,7 @@ export const PanelProvider: React.FC<{
     setPanelLogs([]);
   }, []);
 
-  const sendMessageWrapper: SendMessageFunction = useCallback(
+  const sendMessageWrapper: CallKernelMethod = useCallback(
     async (payload) => {
       if (isRequestInProgress.current) {
         throw new Error('A request is already in progress');
@@ -70,7 +70,7 @@ export const PanelProvider: React.FC<{
         setIsLoading(true);
         logMessage(stringify(payload, 2), 'sent');
 
-        const response = await sendMessage(payload);
+        const response = await callKernelMethod(payload);
         if (isJsonRpcFailure(response)) {
           throw new Error(stringify(response.error, 0));
         }
@@ -82,15 +82,15 @@ export const PanelProvider: React.FC<{
         cleanup();
       }
     },
-    [sendMessage],
+    [callKernelMethod],
   );
 
-  const status = useStatusPolling(sendMessage, isRequestInProgress);
+  const status = useStatusPolling(callKernelMethod, isRequestInProgress);
 
   return (
     <PanelContext.Provider
       value={{
-        sendMessage: sendMessageWrapper,
+        callKernelMethod: sendMessageWrapper,
         status,
         logMessage,
         messageContent,

@@ -5,8 +5,8 @@ import { stringify } from '@ocap/utils';
 import type { Logger } from '@ocap/utils';
 import { nanoid } from 'nanoid';
 
-import { isUiControlCommand } from './messages.ts';
-import type { KernelControlReply, UiControlCommand } from './messages.ts';
+import { isUiControlCommand } from './ui-control-command.ts';
+import type { UiControlCommand } from './ui-control-command.ts';
 
 export const UI_CONTROL_CHANNEL_NAME = 'ui-control';
 
@@ -22,7 +22,7 @@ export type KernelControlReplyStream = PostMessageDuplexStream<
 
 type HandleInstanceMessage = (
   request: JsonRpcRequest,
-) => Promise<JsonRpcResponse<KernelControlReply['result']>>;
+) => Promise<JsonRpcResponse>;
 
 /**
  * Establishes a connection between a UI instance and the kernel. Should be called

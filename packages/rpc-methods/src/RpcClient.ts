@@ -1,8 +1,8 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { assert as assertStruct } from '@metamask/superstruct';
-import { assertIsJsonRpcResponse, isJsonRpcFailure } from '@metamask/utils';
-import type { JsonRpcParams } from '@metamask/utils';
-import { makeCounter } from '@ocap/utils';
+import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
+import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
+import { makeCounter, stringify } from '@ocap/utils';
 import type { PromiseCallbacks } from '@ocap/utils';
 
 import type {
@@ -13,15 +13,7 @@ import type {
   MethodSpecRecord,
 } from './utils.ts';
 
-type RpcPayload = {
-  method: string;
-  params: JsonRpcParams;
-};
-
-export type SendMessage = (
-  messageId: string,
-  payload: RpcPayload,
-) => Promise<void>;
+export type SendMessage = (payload: JsonRpcRequest) => Promise<void>;
 
 export class RpcClient<
   // The class picks up its type from the `methods` argument,
@@ -49,15 +41,13 @@ export class RpcClient<
     method: Method,
     params: ExtractParams<Method, Methods>,
   ): Promise<ExtractResult<Method, Methods>> {
-    const response = await this.#createMessage({
+    const id = this.#nextMessageId();
+    const response = await this.#createMessage(id, {
+      id,
+      jsonrpc: '2.0',
       method,
       params,
     });
-    assertIsJsonRpcResponse(response);
-
-    if (isJsonRpcFailure(response)) {
-      throw new Error(`${response.error.message}`);
-    }
 
     this.#assertResult(method, response.result);
     return response.result;
@@ -76,26 +66,36 @@ export class RpcClient<
     }
   }
 
-  async #createMessage(payload: RpcPayload): Promise<unknown> {
-    const { promise, reject, resolve } = makePromiseKit<unknown>();
-    const messageId = this.#nextMessageId();
+  async #createMessage(
+    messageId: string,
+    payload: JsonRpcRequest,
+  ): Promise<JsonRpcSuccess> {
+    const { promise, reject, resolve } = makePromiseKit<JsonRpcSuccess>();
 
     this.#unresolvedMessages.set(messageId, {
       resolve: resolve as (value: unknown) => void,
       reject,
     });
 
-    await this.#sendMessage(messageId, payload);
+    await this.#sendMessage(payload);
     return promise;
   }
 
-  handleResponse(messageId: string, value: unknown): void {
-    const promiseCallbacks = this.#unresolvedMessages.get(messageId);
-    if (promiseCallbacks === undefined) {
+  handleResponse(messageId: string, response: unknown): void {
+    const requestCallbacks = this.#unresolvedMessages.get(messageId);
+    if (requestCallbacks === undefined) {
       console.error(`No unresolved message with id "${messageId}".`);
     } else {
       this.#unresolvedMessages.delete(messageId);
-      promiseCallbacks.resolve(value);
+      if (isJsonRpcSuccess(response)) {
+        requestCallbacks.resolve(response);
+      } else if (isJsonRpcFailure(response)) {
+        requestCallbacks.reject(response.error);
+      } else {
+        requestCallbacks.reject(
+          new Error(`Invalid JSON-RPC response: ${stringify(response)}`),
+        );
+      }
     }
   }
 
