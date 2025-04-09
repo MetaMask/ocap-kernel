@@ -47,7 +47,10 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "devDependencies": {
+    "@agoric/store": "0.9.3-u19.0",
     "@arethetypeswrong/cli": "^0.17.4",
+    "@endo/exo": "^1.5.9",
+    "@endo/patterns": "^1.5.0",
     "@metamask/auto-changelog": "^5.0.1",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",

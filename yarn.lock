@@ -89,6 +89,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@agoric/store@npm:0.9.3-u19.0":
+  version: 0.9.3-u19.0
+  resolution: "@agoric/store@npm:0.9.3-u19.0"
+  dependencies:
+    "@endo/errors": "npm:^1.2.9"
+    "@endo/exo": "npm:^1.5.8"
+    "@endo/marshal": "npm:^1.6.3"
+    "@endo/pass-style": "npm:^1.4.8"
+    "@endo/patterns": "npm:^1.4.8"
+  checksum: 10/3794e080ab0e17ff6d6645b782884eb62934a3d63e1dee325b66e1dd06003f03f78244338ad08c8f961fb15bb8cc042f5bc4e439c0af7411b778fc546e95d2d8
+  languageName: node
+  linkType: hard
+
 "@agoric/store@npm:0.9.3-upgrade-19-dev-aa5fa27.0+aa5fa27":
   version: 0.9.3-upgrade-19-dev-aa5fa27.0
   resolution: "@agoric/store@npm:0.9.3-upgrade-19-dev-aa5fa27.0"
@@ -648,6 +661,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@endo/exo@npm:^1.5.9":
+  version: 1.5.9
+  resolution: "@endo/exo@npm:1.5.9"
+  dependencies:
+    "@endo/common": "npm:^1.2.10"
+    "@endo/env-options": "npm:^1.1.8"
+    "@endo/errors": "npm:^1.2.10"
+    "@endo/eventual-send": "npm:^1.3.1"
+    "@endo/far": "npm:^1.1.11"
+    "@endo/pass-style": "npm:^1.5.0"
+    "@endo/patterns": "npm:^1.5.0"
+  checksum: 10/529338075e15b42bbf6611b0be99087f12ff91c857e5cdc59073ac241559829f6d620eab142d3bafda36d5b46225b6d23c4f68697a12b42da28ed3ddbd94f57e
+  languageName: node
+  linkType: hard
+
 "@endo/far@npm:^1.0.0, @endo/far@npm:^1.1.10, @endo/far@npm:^1.1.11, @endo/far@npm:^1.1.9":
   version: 1.1.11
   resolution: "@endo/far@npm:1.1.11"
@@ -749,6 +777,20 @@ __metadata:
     "@endo/marshal": "npm:^1.6.3"
     "@endo/promise-kit": "npm:^1.1.9"
   checksum: 10/8d547e8872754ea535df6a0e53dee66075bd95adc5b875bd553c6e34ce1fcf3c8c0bbfa67d88fcb265f2ae5660ec7a10d194ff738c2c261e51de3f630cbab353
+  languageName: node
+  linkType: hard
+
+"@endo/patterns@npm:^1.5.0":
+  version: 1.5.0
+  resolution: "@endo/patterns@npm:1.5.0"
+  dependencies:
+    "@endo/common": "npm:^1.2.10"
+    "@endo/errors": "npm:^1.2.10"
+    "@endo/eventual-send": "npm:^1.3.1"
+    "@endo/marshal": "npm:^1.6.4"
+    "@endo/pass-style": "npm:^1.5.0"
+    "@endo/promise-kit": "npm:^1.1.10"
+  checksum: 10/4cb54c0d844586dc7fde85a7e7cf409ef332aea056b850f6449e1f1c503e75b4b8bb5222bb983f2aa705d9d16a93d51cc781c9a5b2b64e92a70327a891645277
   languageName: node
   linkType: hard
 
@@ -2006,9 +2048,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ocap/kernel-test@workspace:packages/kernel-test"
   dependencies:
+    "@agoric/store": "npm:0.9.3-u19.0"
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.3.1"
+    "@endo/exo": "npm:^1.5.9"
     "@endo/marshal": "npm:^1.6.4"
+    "@endo/patterns": "npm:^1.5.0"
     "@endo/promise-kit": "npm:^1.1.10"
     "@metamask/auto-changelog": "npm:^5.0.1"
     "@metamask/eslint-config": "npm:^14.0.0"
