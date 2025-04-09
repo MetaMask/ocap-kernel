@@ -3,45 +3,82 @@
  */
 const consoleMethods = ['log', 'debug', 'info', 'warn', 'error'] as const;
 
-export type Logger<Label extends string = string> = {
-  label: Label;
-} & Console;
+export type Logger = Console & { tags?: string[] };
 
-type LoggerMethod = keyof Console & (typeof consoleMethods)[number];
+export type LogLevel = (typeof consoleMethods)[number] | 'silent';
+
+export const DEFAULT_LEVEL: LogLevel = 'info';
+
+export type LoggerContext = {
+  level?: LogLevel;
+  tags?: string[];
+};
+
+export type Transport = (context: LoggerContext, ...args: unknown[]) => void;
+
+const consoleTransport: Transport = (context, ...args) => {
+  const method = {
+    log: console.log,
+    debug: console.debug,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+    silent: () => undefined,
+  }[context.level ?? DEFAULT_LEVEL];
+  method(...[...(context.tags ?? []), ...args]);
+};
 
 /**
  * Make a proxy console which prepends the given label to its outputs.
  *
  * @param label - The label with which to prefix console outputs.
  * @param baseConsole - The base console to log to.
+ * @param transports - A list of methods which deliver the logs to storage, terminal, etc.
  * @returns A console prefixed with the given label.
  */
 export const makeLogger = <Label extends string>(
   label: Label,
-  baseConsole: Console = console,
-): Logger<Label> => {
-  /**
-   * Prepends the label to the beginning of the args of the baseConsole method.
-   *
-   * @param methodName - The method to prefix.
-   * @returns The modified method.
-   */
-  const prefixed = (
-    methodName: LoggerMethod,
-  ): [LoggerMethod, Console[typeof methodName]] => {
-    const method: Console[typeof methodName] = baseConsole[methodName];
-    return [
-      methodName,
-      ((message?: unknown, ...optionalParams: unknown[]) =>
-        method(
-          label,
-          ...(message ? [message, ...optionalParams] : optionalParams),
-        )) as Console[typeof methodName],
-    ];
+  baseConsole: Logger = console,
+  transports: Transport[] = [],
+): Logger => {
+  const dispatch = (context: LoggerContext, ...args: unknown[]): void => {
+    const errors = [consoleTransport, ...transports]
+      .map((transport) => {
+        try {
+          transport(context, ...args);
+          return undefined;
+        } catch (error) {
+          return error;
+        }
+      })
+      .filter(Boolean);
+    if (errors.length > 0) {
+      console.error('logging dispatch failed:', ...errors);
+    }
   };
 
-  return {
-    label,
-    ...Object.fromEntries(consoleMethods.map(prefixed)),
-  } as Logger<Label>;
+  const isLogLevel = (method: string): method is LogLevel => {
+    return ['silent', ...consoleMethods].includes(method as LogLevel);
+  };
+
+  const tags = [...(baseConsole.tags ?? []), label];
+
+  return new Proxy(
+    { ...baseConsole },
+    {
+      get(_target, prop: string, _receiver) {
+        if (prop === 'dispatch') {
+          return dispatch;
+        }
+        if (prop === 'tags') {
+          return tags;
+        }
+        if (isLogLevel(prop)) {
+          return (...args: unknown[]) =>
+            dispatch({ tags, level: prop }, ...args);
+        }
+        return baseConsole[prop as keyof typeof baseConsole];
+      },
+    },
+  );
 };
