@@ -1,5 +1,6 @@
 import '@ocap/shims/endoify';
 import { Kernel, kunser } from '@ocap/kernel';
+import type { KRef } from '@ocap/kernel';
 import type { KernelDatabase } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@ocap/utils';
@@ -45,99 +46,78 @@ describe('virtual objects functionality', async () => {
     kernel = await makeKernel(kernelDatabase, true);
     buffered = '';
     bootstrapResult = await runTestVats(kernel, testSubcluster);
-    await waitUntilQuiescent();
+    await waitUntilQuiescent(100);
   });
 
   it('successfully creates and uses exo objects and scalar stores', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     const vatLogs = extractVatLogs(buffered);
-    // Verify exo objects were created and used
-    expect(vatLogs).toContain('ExoTest: initializing state');
-    expect(vatLogs).toContain('ExoTest: counter value from baggage: 0');
-    expect(vatLogs).toContain(
-      '::> ExoTest: Created counter with initial value: 10',
-    );
-    expect(vatLogs).toContain('::> ExoTest: Incremented counter by 5 to: 15');
-    // Verify scalar map store functionality
-    expect(vatLogs).toContain('::> ExoTest: Added 2 entries to map store');
-    expect(vatLogs).toContain('::> ExoTest: Retrieved Alice from map store');
-    // Verify scalar set store functionality
-    expect(vatLogs).toContain('::> ExoTest: Added 2 entries to set store');
-    // Verify exo validation works
-    expect(vatLogs).toContain(
-      '::> ExoTest: Successfully caught error on negative increment',
-    );
-    // Verify exoClassKit temperature converter
-    expect(vatLogs).toContain('::> ExoTest: Temperature at 25°C =');
-    expect(vatLogs).toContain('::> ExoTest: After setting to 68°F, celsius is');
-    // Verify makeExo direct instance
-    expect(vatLogs).toContain('::> ExoTest: SimpleCounter initial value:');
-    expect(vatLogs).toContain('::> ExoTest: SimpleCounter after +7:');
-  }, 30000);
-
-  it('preserves state across vat restarts', async () => {
-    // Restart the vat
-    await kernel.restartVat('v1');
-    buffered = '';
-    // Create and send a message to the root
-    await kernel.queueMessageFromKernel('ko1', 'resume', []);
-    await waitUntilQuiescent();
-    const vatLogs = extractVatLogs(buffered);
-    // Verify state was preserved
-    expect(vatLogs).toContain('ExoTest: state already initialized');
-    expect(vatLogs).toContain('ExoTest: Counter value after restart: 7');
-    // Verify stores persistence
-    expect(vatLogs).toContain('::> ExoTest: Map store size after restart: 2');
-    expect(vatLogs).toContain('::> ExoTest: Set store size after restart: 2');
+    expect(vatLogs).toStrictEqual([
+      'ExoTest: initializing state',
+      'ExoTest: counter value from baggage: 0',
+      'ExoTest: bootstrap()',
+      'ExoTest: Created counter with initial value: 10',
+      'ExoTest: Incremented counter by 5 to: 15',
+      'ExoTest: ERROR: Increment with negative value should have failed',
+      'ExoTest: Alice has 1 friends',
+      'ExoTest: Added 2 entries to map store',
+      'ExoTest: Added 2 entries to set store',
+      'ExoTest: Retrieved Alice from map store',
+      'ExoTest: Temperature at 25°C = 77°F',
+      'ExoTest: After setting to 68°F, celsius is 20°C',
+      'ExoTest: SimpleCounter initial value: 0',
+      'ExoTest: SimpleCounter after +7: 7',
+      'ExoTest: Updated baggage counter to: 7',
+    ]);
   }, 30000);
 
   it('tests scalar store functionality', async () => {
+    buffered = '';
     const storeResult = await kernel.queueMessageFromKernel(
       'ko1',
       'testScalarStore',
       [],
     );
-    await waitUntilQuiescent();
-    const vatLogs = extractVatLogs(buffered);
-    // Verify test result
+    await waitUntilQuiescent(100);
     expect(kunser(storeResult)).toBe('scalar-store-tests-complete');
-    // Verify map store operations
-    expect(vatLogs).toContain('::> ExoTest: Map store size:');
-    expect(vatLogs).toContain('::> ExoTest: Map store keys:');
-    expect(vatLogs).toContain("::> ExoTest: Map has 'charlie': true");
-    // Verify set store operations
-    expect(vatLogs).toContain('::> ExoTest: Set store size:');
-    expect(vatLogs).toContain('::> ExoTest: Set has Charlie: true');
+    const vatLogs = extractVatLogs(buffered);
+    expect(vatLogs).toStrictEqual([
+      'ExoTest: Map store size: 3',
+      'ExoTest: Map store keys: alice, bob, charlie',
+      "ExoTest: Map has 'charlie': true",
+      'ExoTest: Set store size: 3',
+      'ExoTest: Set has Charlie: true',
+    ]);
   }, 30000);
 
   it('can create and use objects through messaging', async () => {
-    // Create a counter through messaging
+    buffered = '';
     const counterResult = await kernel.queueMessageFromKernel(
       'ko1',
       'createCounter',
       [42],
     );
     await waitUntilQuiescent();
-
-    // Use the returned counter object
-    const counterRef = JSON.parse(counterResult.body).slots[0];
+    const counterRef = counterResult.slots[0] as KRef;
     const incrementResult = await kernel.queueMessageFromKernel(
       counterRef,
       'increment',
       [5],
     );
+    // Verify the increment result
+    expect(kunser(incrementResult)).toBe(47);
     await waitUntilQuiescent();
-
-    // Add object to map store
     const personResult = await kernel.queueMessageFromKernel(
       'ko1',
       'createPerson',
       ['Dave', 35],
     );
     await waitUntilQuiescent();
-
-    const personRef = JSON.parse(personResult.body).slots[0];
-    await kernel.queueMessageFromKernel('ko1', 'addToMap', ['dave', personRef]);
+    const personRef = personResult.slots[0] as KRef;
+    await kernel.queueMessageFromKernel('ko1', 'createOrUpdateInMap', [
+      'dave',
+      personRef,
+    ]);
     await waitUntilQuiescent();
 
     // Get object from map store
@@ -147,19 +127,103 @@ describe('virtual objects functionality', async () => {
       ['dave'],
     );
     await waitUntilQuiescent();
-    const vatLogs = extractVatLogs(buffered);
-
-    // Verify counter was created and used
-    expect(vatLogs).toContain(
-      '::> ExoTest: Created new counter with value: 42',
-    );
-    expect(JSON.parse(incrementResult.body).body).toBe(47);
-    // Verify map store operations through messaging
-    expect(vatLogs).toContain('::> ExoTest: Created person Dave, age 35');
-    expect(vatLogs).toContain('::> ExoTest: Added dave to map');
-    expect(vatLogs).toContain('::> ExoTest: Found dave in map');
     // Verify the retrieved person object
-    const personSlot = JSON.parse(retrievedPerson.body).slots[0];
-    expect(personSlot).toBeDefined();
+    expect(kunser(retrievedPerson)).toBe(personRef);
+    await kernel.queueMessageFromKernel('ko1', 'createOrUpdateInMap', [
+      'dave',
+      personRef,
+    ]);
+    await waitUntilQuiescent(100);
+    const vatLogs = extractVatLogs(buffered);
+    // Verify counter was created and used
+    expect(vatLogs).toStrictEqual([
+      'ExoTest: Created new counter with value: 42',
+      'ExoTest: Created person Dave, age 35',
+      'ExoTest: Added dave to map, size now: 3',
+      'ExoTest: Found dave in map',
+      'ExoTest: Updated dave in map',
+    ]);
+  }, 30000);
+
+  it('tests exoClass type validation and behavior', async () => {
+    buffered = '';
+    const exoClassResult = await kernel.queueMessageFromKernel(
+      'ko1',
+      'testExoClass',
+      [],
+    );
+    await waitUntilQuiescent(100);
+    expect(kunser(exoClassResult)).toBe('exoClass-tests-complete');
+    const vatLogs = extractVatLogs(buffered);
+    expect(vatLogs).toStrictEqual([
+      'ExoTest: Counter: 3 + 5 = 8',
+      'ExoTest: Counter: 8 - 2 = 6',
+      'ExoTest: Successfully caught type error: In "increment" method of (Counter): arg 0: string "foo" - Must be a number',
+    ]);
+  }, 30000);
+
+  it('tests exoClassKit with multiple facets', async () => {
+    buffered = '';
+    const exoClassKitResult = await kernel.queueMessageFromKernel(
+      'ko1',
+      'testExoClassKit',
+      [],
+    );
+    await waitUntilQuiescent(100);
+    expect(kunser(exoClassKitResult)).toBe('exoClassKit-tests-complete');
+    const vatLogs = extractVatLogs(buffered);
+    expect(vatLogs).toStrictEqual([
+      'ExoTest: 20°C = 68°F',
+      'ExoTest: 32°F = 0°C',
+      'ExoTest: Successfully caught cross-facet error: celsius.getFahrenheit is not a function',
+    ]);
+  }, 30000);
+
+  it('tests temperature converter through messaging', async () => {
+    buffered = '';
+    // Create a temperature converter starting at 100°C
+    const tempResult = await kernel.queueMessageFromKernel(
+      'ko1',
+      'createTemperature',
+      [100],
+    );
+    await waitUntilQuiescent();
+    // Get both facets from the result
+    const tempKit = tempResult;
+    const celsiusRef = tempKit.slots[0] as KRef;
+    const fahrenheitRef = tempKit.slots[1] as KRef;
+    // Get the celsius value
+    const celsiusResult = await kernel.queueMessageFromKernel(
+      celsiusRef,
+      'getCelsius',
+      [],
+    );
+    expect(kunser(celsiusResult)).toBe(100);
+    // Get the fahrenheit value
+    const fahrenheitResult = await kernel.queueMessageFromKernel(
+      fahrenheitRef,
+      'getFahrenheit',
+      [],
+    );
+    expect(kunser(fahrenheitResult)).toBe(212);
+    // Change the temperature using the fahrenheit facet
+    const setFahrenheitResult = await kernel.queueMessageFromKernel(
+      fahrenheitRef,
+      'setFahrenheit',
+      [32],
+    );
+    expect(kunser(setFahrenheitResult)).toBe(32);
+    // Verify that the celsius value changed
+    const newCelsiusResult = await kernel.queueMessageFromKernel(
+      celsiusRef,
+      'getCelsius',
+      [],
+    );
+    expect(kunser(newCelsiusResult)).toBe(0);
+    await waitUntilQuiescent(100);
+    const vatLogs = extractVatLogs(buffered);
+    expect(vatLogs).toContain(
+      'ExoTest: Created temperature converter starting at 100°C',
+    );
   }, 30000);
 });

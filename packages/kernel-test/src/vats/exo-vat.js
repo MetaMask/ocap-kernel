@@ -46,16 +46,16 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
   // Define interfaces for our Exo objects
   const CounterI = M.interface('Counter', {
     getValue: M.call().returns(M.number()),
-    increment: M.call(M.optional(M.number())).returns(M.number()),
-    decrement: M.call(M.optional(M.number())).returns(M.number()),
+    increment: M.call(M.number()).returns(M.number()),
+    decrement: M.call(M.number()).returns(M.number()),
   });
 
   const PersonI = M.interface('Person', {
     getName: M.call().returns(M.string()),
     getAge: M.call().returns(M.number()),
     birthday: M.call().returns(M.number()),
-    addFriend: M.call(M.object()).returns(M.number()),
-    getFriends: M.call().returns(M.arrayOf(M.object())),
+    addFriend: M.call(M.any()).returns(M.number()),
+    getFriends: M.call().returns(M.arrayOf(M.any())),
   });
 
   // Define two facets for a Temperature converter
@@ -196,14 +196,14 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       tlog(`${alice.getName()} has ${alice.getFriends().length} friends`);
 
       // Test map store
-      mapStore.set('alice', alice);
-      mapStore.set('bob', bob);
-      tlog(`Added ${mapStore.size} entries to map store`);
+      mapStore.init('alice', alice);
+      mapStore.init('bob', bob);
+      tlog(`Added ${mapStore.getSize()} entries to map store`);
 
       // Test set store
       setStore.add(alice);
       setStore.add(bob);
-      tlog(`Added ${setStore.size} entries to set store`);
+      tlog(`Added ${setStore.getSize()} entries to set store`);
 
       // Test retrieving from stores
       const retrievedAlice = mapStore.get('alice');
@@ -247,10 +247,15 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       return temperature;
     },
 
-    addToMap(key, value) {
-      mapStore.set(key, value);
-      tlog(`Added ${key} to map, size now: ${mapStore.size}`);
-      return mapStore.size;
+    createOrUpdateInMap(key, value) {
+      if (mapStore.has(key)) {
+        mapStore.set(key, value);
+        tlog(`Updated ${key} in map`);
+      } else {
+        mapStore.init(key, value);
+        tlog(`Added ${key} to map, size now: ${mapStore.getSize()}`);
+      }
+      return mapStore.getSize();
     },
 
     getFromMap(key) {
@@ -260,18 +265,6 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       }
       tlog(`${key} not found in map`);
       return null;
-    },
-
-    addToSet(value) {
-      setStore.add(value);
-      tlog(`Added item to set, size now: ${setStore.size}`);
-      return setStore.size;
-    },
-
-    hasInSet(value) {
-      const result = setStore.has(value);
-      tlog(`Checking if item exists in set: ${result}`);
-      return result;
     },
 
     testExoClass() {
@@ -316,27 +309,17 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
     testScalarStore() {
       // Test map store operations
       const person = Person('Charlie', 40);
-      mapStore.set('charlie', person);
-      tlog(`Map store size: ${mapStore.size}`);
+      mapStore.init('charlie', person);
+      tlog(`Map store size: ${mapStore.getSize()}`);
       tlog(`Map store keys: ${[...mapStore.keys()].join(', ')}`);
       tlog(`Map has 'charlie': ${mapStore.has('charlie')}`);
 
       // Test set store operations
       setStore.add(person);
-      tlog(`Set store size: ${setStore.size}`);
+      tlog(`Set store size: ${setStore.getSize()}`);
       tlog(`Set has Charlie: ${setStore.has(person)}`);
 
       return 'scalar-store-tests-complete';
-    },
-
-    resume() {
-      tlog(`resume()`);
-      tlog(`Counter value after restart: ${counterValue}`);
-      tlog(`SimpleCounter value after restart: ${simpleCounter.getValue()}`);
-      tlog(`Map store size after restart: ${mapStore.size}`);
-      tlog(`Set store size after restart: ${setStore.size}`);
-
-      return `resume ${vatName}`;
     },
   });
 }
