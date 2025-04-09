@@ -1,8 +1,9 @@
 import '@ocap/shims/endoify';
-import { kunser } from '@ocap/kernel';
+import { Kernel, kunser } from '@ocap/kernel';
+import type { KernelDatabase } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@ocap/utils';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   extractVatLogs,
@@ -33,18 +34,23 @@ const testSubcluster = {
 };
 
 describe('virtual objects functionality', async () => {
-  it('successfully creates and uses exo objects and scalar stores', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
+  let kernel: Kernel;
+  let kernelDatabase: KernelDatabase;
+  let bootstrapResult: unknown;
+
+  beforeEach(async () => {
+    kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    const kernel = await makeKernel(kernelDatabase, true);
+    kernel = await makeKernel(kernelDatabase, true);
     buffered = '';
-
-    const bootstrapResult = await runTestVats(kernel, testSubcluster);
-    expect(bootstrapResult).toBe('exo-test-complete');
+    bootstrapResult = await runTestVats(kernel, testSubcluster);
     await waitUntilQuiescent();
-    const vatLogs = extractVatLogs(buffered);
+  });
 
+  it('successfully creates and uses exo objects and scalar stores', async () => {
+    expect(bootstrapResult).toBe('exo-test-complete');
+    const vatLogs = extractVatLogs(buffered);
     // Verify exo objects were created and used
     expect(vatLogs).toContain('ExoTest: initializing state');
     expect(vatLogs).toContain('ExoTest: counter value from baggage: 0');
@@ -70,24 +76,12 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('preserves state across vat restarts', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const kernel = await makeKernel(kernelDatabase, true);
-    buffered = '';
-
-    // Run the test vat first time
-    await runTestVats(kernel, testSubcluster);
-    await waitUntilQuiescent();
     // Restart the vat
     await kernel.restartVat('v1');
     buffered = '';
-
     // Create and send a message to the root
     await kernel.queueMessageFromKernel('ko1', 'resume', []);
     await waitUntilQuiescent();
-
-    // Extract logs to verify operations worked correctly
     const vatLogs = extractVatLogs(buffered);
     // Verify state was preserved
     expect(vatLogs).toContain('ExoTest: state already initialized');
@@ -98,16 +92,6 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('tests scalar store functionality', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const kernel = await makeKernel(kernelDatabase, true);
-
-    // Run the test vat
-    await runTestVats(kernel, testSubcluster);
-    await waitUntilQuiescent();
-    buffered = '';
-
     const storeResult = await kernel.queueMessageFromKernel(
       'ko1',
       'testScalarStore',
@@ -115,7 +99,6 @@ describe('virtual objects functionality', async () => {
     );
     await waitUntilQuiescent();
     const vatLogs = extractVatLogs(buffered);
-
     // Verify test result
     expect(kunser(storeResult)).toBe('scalar-store-tests-complete');
     // Verify map store operations
@@ -128,16 +111,6 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('can create and use objects through messaging', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const kernel = await makeKernel(kernelDatabase, true);
-
-    // Run the test vat
-    await runTestVats(kernel, testSubcluster);
-    await waitUntilQuiescent();
-    buffered = '';
-
     // Create a counter through messaging
     const counterResult = await kernel.queueMessageFromKernel(
       'ko1',
