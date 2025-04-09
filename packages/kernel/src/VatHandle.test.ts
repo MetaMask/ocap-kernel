@@ -1,7 +1,7 @@
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
+import { makeMockLogger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
@@ -75,7 +75,7 @@ describe('VatHandle', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const logger = makeLogger(`[vat v0]`);
+      const logger = makeMockLogger();
       const { stream } = await makeVat(logger);
       const logErrorSpy = vi.spyOn(logger, 'error');
       await stream.receiveInput(NaN);
