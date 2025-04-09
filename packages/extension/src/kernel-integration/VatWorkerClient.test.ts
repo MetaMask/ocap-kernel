@@ -3,7 +3,7 @@ import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
-import { delay, makeLogger } from '@ocap/utils';
+import { delay, makeMockLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';
@@ -97,7 +97,7 @@ describe('ExtensionVatWorkerClient', () => {
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
-      clientLogger = makeLogger('[test client]');
+      clientLogger = makeMockLogger();
       client = new ExtensionVatWorkerClient(
         stream as unknown as VatWorkerClientStream,
         clientLogger,

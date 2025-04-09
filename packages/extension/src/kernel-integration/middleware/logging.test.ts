@@ -7,6 +7,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { loggingMiddleware, logger } from './logging.ts';
 
+// Replace the imported logger with a test logger we can spy on
+vi.mock(
+  '@ocap/utils',
+  async (importOriginal: () => Promise<{ makeMockLogger: () => unknown }>) => {
+    const { makeMockLogger } = await importOriginal();
+    return { makeLogger: makeMockLogger };
+  },
+);
+
 describe('loggingMiddleware', () => {
   let engine: JsonRpcEngine;
 

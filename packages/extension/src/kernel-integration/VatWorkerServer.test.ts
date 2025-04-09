@@ -4,7 +4,7 @@ import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
-import { delay, makeLogger } from '@ocap/utils';
+import { delay, makeMockLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -121,7 +121,7 @@ describe('ExtensionVatWorkerServer', () => {
 
     beforeEach(async () => {
       workers = [];
-      logger = makeLogger('[test server]');
+      logger = makeMockLogger();
       stream = await TestDuplexStream.make(() => undefined);
       server = new ExtensionVatWorkerServer(
         stream as unknown as VatWorkerServerStream,
