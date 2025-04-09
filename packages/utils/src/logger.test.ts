@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { DEFAULT_LEVEL, makeLogger } from './logger.ts';
+import { DEFAULT_LEVEL, makeLogger, makeMockLogger } from './logger.ts';
 import type { Logger, LoggerContext } from './logger.ts';
 
 describe('makeLogger', () => {
@@ -60,7 +60,7 @@ describe('makeLogger', () => {
     );
   });
 
-  it('logs transport errors to console.error', async () => {
+  it('logs transport errors to console.error', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error');
     const error = new Error('transport error');
     const errorTransport = vi.fn().mockImplementation(() => {
@@ -78,7 +78,7 @@ describe('makeLogger', () => {
     dispatch: (context: LoggerContext, ...args: unknown[]) => void;
   };
 
-  it('does not output to console when silent', async () => {
+  it('does not output to console when silent', () => {
     const consoleMethodSpys = consoleMethod.map((method) =>
       vi.spyOn(console, method),
     );
@@ -89,10 +89,22 @@ describe('makeLogger', () => {
     }
   });
 
-  it(`logs to ${DEFAULT_LEVEL} by default`, async () => {
+  it(`logs to ${DEFAULT_LEVEL} by default`, () => {
     const consoleMethodSpy = vi.spyOn(console, DEFAULT_LEVEL as keyof Console);
     const testLogger = makeLogger('test') as TestLogger;
     testLogger.dispatch({ tags: ['test'] }, 'foo');
     expect(consoleMethodSpy).toHaveBeenCalledWith('test', 'foo');
+  });
+});
+
+describe('makeMockLogger', () => {
+  it('returns a mock logger with the expected methods', () => {
+    const mockLogger = makeMockLogger();
+    expect(mockLogger).toBeDefined();
+    expect(mockLogger.log).toBeDefined();
+    expect(mockLogger.debug).toBeDefined();
+    expect(mockLogger.info).toBeDefined();
+    expect(mockLogger.warn).toBeDefined();
+    expect(mockLogger.error).toBeDefined();
   });
 });

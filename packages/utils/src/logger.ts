@@ -82,3 +82,22 @@ export const makeLogger = <Label extends string>(
     },
   );
 };
+
+/**
+ * Creates a test logger with stable method references that tests can easily spy on.
+ * All logger methods are implemented as no-ops but have stable references for spying.
+ *
+ * @returns A Logger instance with stable method references
+ */
+export const makeMockLogger = (): Logger => {
+  const logger: Record<string, unknown> = {};
+
+  // Create stable method references for all console methods
+  consoleMethods.forEach((method) => {
+    logger[method] = (..._args: unknown[]): void => {
+      // No-op implementation
+    };
+  });
+
+  return logger as unknown as Logger;
+};
