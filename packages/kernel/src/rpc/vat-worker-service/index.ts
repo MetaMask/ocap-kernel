@@ -1,21 +1,12 @@
-import type { HandlerRecord, MethodSpecRecord } from '@ocap/rpc-methods';
+import type { MethodSpecRecord } from '@ocap/rpc-methods';
 
-import { launchHandler, launchSpec } from './launch.ts';
-import { terminateHandler, terminateSpec } from './terminate.ts';
-import { terminateAllHandler, terminateAllSpec } from './terminateAll.ts';
+import { launchSpec } from './launch.ts';
+import { terminateSpec } from './terminate.ts';
+import { terminateAllSpec } from './terminateAll.ts';
 
-type Handlers =
-  | typeof launchHandler
-  | typeof terminateHandler
-  | typeof terminateAllHandler;
-
-export type VatWorkerServiceMethod = Handlers['method'];
-
-export const handlers: HandlerRecord<Handlers> = {
-  launch: launchHandler,
-  terminate: terminateHandler,
-  terminateAll: terminateAllHandler,
-} as const;
+// This module only has method specifications and no handlers, because the method
+// implementations are highly platform-specific and do not warrant standalone
+// implementations.
 
 export type VatWorkerServiceMethodSpecs =
   | typeof launchSpec
@@ -27,3 +18,5 @@ export const methodSpecs: MethodSpecRecord<VatWorkerServiceMethodSpecs> = {
   terminate: terminateSpec,
   terminateAll: terminateAllSpec,
 } as const;
+
+export type VatWorkerServiceMethod = VatWorkerServiceMethodSpecs['method'];

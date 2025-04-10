@@ -12,7 +12,7 @@ import type {
   VatCommand,
   VatCommandReply,
 } from '@ocap/kernel';
-import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
+import { vatWorkerService } from '@ocap/kernel/rpc';
 import { RpcClient } from '@ocap/rpc-methods';
 import type { DuplexStream } from '@ocap/streams';
 import {
@@ -40,7 +40,7 @@ export class ExtensionVatWorkerClient implements VatWorkerClient {
 
   readonly #stream: VatWorkerClientStream;
 
-  readonly #rpcClient: RpcClient<typeof vatWorkerServiceMethodSpecs>;
+  readonly #rpcClient: RpcClient<typeof vatWorkerService.methodSpecs>;
 
   readonly #portMap: Map<JsonRpcId, MessagePort | undefined>;
 
@@ -66,7 +66,7 @@ export class ExtensionVatWorkerClient implements VatWorkerClient {
     this.#portMap = new Map();
     this.#logger = logger ?? makeLogger('[vat worker client]');
     this.#rpcClient = new RpcClient(
-      vatWorkerServiceMethodSpecs,
+      vatWorkerService.methodSpecs,
       async (request) => {
         if (request.method === 'launch') {
           this.#portMap.set(request.id, undefined);
