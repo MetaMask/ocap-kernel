@@ -1,19 +1,29 @@
+import type { HandlerRecord, MethodSpecRecord } from '@ocap/rpc-methods';
+
 import { launchHandler, launchSpec } from './launch.ts';
 import { terminateHandler, terminateSpec } from './terminate.ts';
 import { terminateAllHandler, terminateAllSpec } from './terminateAll.ts';
 
-export const handlers = {
+type Handlers =
+  | typeof launchHandler
+  | typeof terminateHandler
+  | typeof terminateAllHandler;
+
+export type VatWorkerServiceMethod = Handlers['method'];
+
+export const handlers: HandlerRecord<Handlers> = {
   launch: launchHandler,
   terminate: terminateHandler,
   terminateAll: terminateAllHandler,
 } as const;
 
-export const methodSpecs = {
+export type VatWorkerServiceMethodSpecs =
+  | typeof launchSpec
+  | typeof terminateSpec
+  | typeof terminateAllSpec;
+
+export const methodSpecs: MethodSpecRecord<VatWorkerServiceMethodSpecs> = {
   launch: launchSpec,
   terminate: terminateSpec,
   terminateAll: terminateAllSpec,
 } as const;
-
-type Handlers = (typeof handlers)[keyof typeof handlers];
-
-export type VatWorkerServiceMethod = Handlers['method'];

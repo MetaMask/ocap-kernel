@@ -23,10 +23,9 @@ export type MethodSpec<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SpecConstraint = MethodSpec<string, any, any>;
 
-export type MethodSpecRecord<Methods extends SpecConstraint> = Record<
-  Methods['method'],
-  Methods
->;
+export type MethodSpecRecord<Methods extends SpecConstraint> = {
+  [Key in Methods['method']]: Extract<Methods, { method: Key }>;
+};
 
 type SpecRecordConstraint = MethodSpecRecord<SpecConstraint>;
 
@@ -71,4 +70,12 @@ export type Handler<
 > = MethodSpec<Method, Params, Result> & {
   hooks: { [Key in keyof Hooks]: true };
   implementation: HandlerFunction<Params, Result, Hooks>;
+};
+
+// `any` can safely be used in constraints.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type HandlerConstraint = Handler<string, any, any, any>;
+
+export type HandlerRecord<Handlers extends HandlerConstraint> = {
+  [Key in Handlers['method']]: Extract<Handlers, { method: Key }>;
 };

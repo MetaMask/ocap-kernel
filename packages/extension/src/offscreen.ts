@@ -10,7 +10,7 @@ import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
-import { ExtensionVatWorkerServer } from './kernel-integration/VatWorkerServer.ts';
+import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerService.ts';
 
 const logger = makeLogger('[offscreen]');
 
@@ -29,11 +29,11 @@ async function main(): Promise<void> {
     KernelCommandReply
   >(chrome.runtime, 'offscreen', 'background');
 
-  const { kernelStream, vatWorkerServer } = await makeKernelWorker();
+  const { kernelStream, vatWorkerService } = await makeKernelWorker();
 
   // Handle messages from the background script / kernel
   await Promise.all([
-    vatWorkerServer.start(),
+    vatWorkerService.start(),
     kernelStream.pipe(backgroundStream),
     backgroundStream.pipe(kernelStream),
   ]);
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
  */
 async function makeKernelWorker(): Promise<{
   kernelStream: DuplexStream<KernelCommandReply, KernelCommand>;
-  vatWorkerServer: ExtensionVatWorkerServer;
+  vatWorkerService: ExtensionVatWorkerService;
 }> {
   const worker = new Worker('kernel-worker.js', { type: 'module' });
 
@@ -59,13 +59,13 @@ async function makeKernelWorker(): Promise<{
     KernelCommand
   >(port, isKernelCommandReply);
 
-  const vatWorkerServer = ExtensionVatWorkerServer.make(
+  const vatWorkerService = ExtensionVatWorkerService.make(
     worker as PostMessageTarget,
     (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
   );
 
   return {
     kernelStream,
-    vatWorkerServer,
+    vatWorkerService,
   };
 }

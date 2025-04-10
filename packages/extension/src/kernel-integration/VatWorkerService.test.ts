@@ -1,6 +1,7 @@
+import { rpcErrors } from '@metamask/rpc-errors';
+import type { JsonRpcRequest } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import { VatWorkerServiceCommandMethod } from '@ocap/kernel';
-import type { VatConfig, VatId, VatWorkerServiceCommand } from '@ocap/kernel';
+import type { VatConfig, VatId } from '@ocap/kernel';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Logger } from '@ocap/utils';
@@ -8,8 +9,8 @@ import { delay, makeLogger } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { ExtensionVatWorkerServer } from './VatWorkerServer.ts';
-import type { VatWorker, VatWorkerServerStream } from './VatWorkerServer.ts';
+import { ExtensionVatWorkerService } from './VatWorkerService.ts';
+import type { VatWorker, VatWorkerServiceStream } from './VatWorkerService.ts';
 
 vi.mock('@ocap/kernel', () => ({
   VatWorkerServiceCommandMethod: {
@@ -25,9 +26,11 @@ const makeVatConfig = (sourceSpec = 'bogus.js'): VatConfig => ({
 
 const makeMessageEvent = (
   messageId: `m${number}`,
-  payload: VatWorkerServiceCommand['payload'],
-): MessageEvent =>
-  new MessageEvent('message', { data: { id: messageId, payload } });
+  payload: Pick<JsonRpcRequest, 'method' | 'params'>,
+): MessageEvent<JsonRpcRequest> =>
+  new MessageEvent('message', {
+    data: { ...payload, id: messageId, jsonrpc: '2.0' },
+  });
 
 const makeLaunchMessageEvent = (
   messageId: `m${number}`,
@@ -35,7 +38,7 @@ const makeLaunchMessageEvent = (
   sourceSpec = 'bogus.js',
 ): MessageEvent =>
   makeMessageEvent(messageId, {
-    method: VatWorkerServiceCommandMethod.launch,
+    method: 'launch',
     params: { vatId, vatConfig: makeVatConfig(sourceSpec) },
   });
 
@@ -44,17 +47,17 @@ const makeTerminateMessageEvent = (
   vatId: VatId,
 ): MessageEvent =>
   makeMessageEvent(messageId, {
-    method: VatWorkerServiceCommandMethod.terminate,
+    method: 'terminate',
     params: { vatId },
   });
 
 const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
   makeMessageEvent(messageId, {
-    method: VatWorkerServiceCommandMethod.terminateAll,
-    params: null,
+    method: 'terminateAll',
+    params: [],
   });
 
-describe('ExtensionVatWorkerServer', () => {
+describe('ExtensionVatWorkerService', () => {
   let cleanup: (() => Promise<void>)[] = [];
 
   beforeEach(() => {
@@ -75,15 +78,15 @@ describe('ExtensionVatWorkerServer', () => {
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     expect(
-      new ExtensionVatWorkerServer(
-        stream as unknown as VatWorkerServerStream,
+      new ExtensionVatWorkerService(
+        stream as unknown as VatWorkerServiceStream,
         () => ({}) as unknown as VatWorker,
       ),
     ).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
-    const server = ExtensionVatWorkerServer.make(
+    const server = ExtensionVatWorkerService.make(
       {
         postMessage: vi.fn(),
         addEventListener: vi.fn(),
@@ -98,7 +101,7 @@ describe('ExtensionVatWorkerServer', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
-    let server: ExtensionVatWorkerServer;
+    let server: ExtensionVatWorkerService;
 
     const makeMockVatWorker = (
       _id: string,
@@ -123,8 +126,8 @@ describe('ExtensionVatWorkerServer', () => {
       workers = [];
       logger = makeLogger('[test server]');
       stream = await TestDuplexStream.make(() => undefined);
-      server = new ExtensionVatWorkerServer(
-        stream as unknown as VatWorkerServerStream,
+      server = new ExtensionVatWorkerService(
+        stream as unknown as VatWorkerServiceStream,
         makeMockVatWorker,
         logger,
       );
@@ -132,7 +135,6 @@ describe('ExtensionVatWorkerServer', () => {
         throw error;
       });
 
-      // Add cleanup
       addCleanup(async () => {
         await stream.return?.();
       });
@@ -140,14 +142,13 @@ describe('ExtensionVatWorkerServer', () => {
 
     it('logs an error for unexpected methods', async () => {
       const errorSpy = vi.spyOn(logger, 'error');
-      // @ts-expect-error Destructive testing.
       await stream.receiveInput(makeMessageEvent('m0', { method: 'foo' }));
       await delay(10);
 
       expect(errorSpy).toHaveBeenCalledOnce();
       expect(errorSpy).toHaveBeenCalledWith(
-        'Received message with unexpected method',
-        'foo',
+        'Error handling "foo" request:',
+        rpcErrors.methodNotFound(),
       );
     });
 
@@ -170,7 +171,7 @@ describe('ExtensionVatWorkerServer', () => {
 
         expect(errorSpy).toHaveBeenCalledOnce();
         expect(errorSpy).toHaveBeenCalledWith(
-          `Error handling ${VatWorkerServiceCommandMethod.launch} for vatId v0`,
+          'Error handling "launch" request:',
           new VatAlreadyExistsError('v0'),
         );
       });
@@ -200,7 +201,7 @@ describe('ExtensionVatWorkerServer', () => {
 
         expect(errorSpy).toHaveBeenCalledOnce();
         expect(errorSpy).toHaveBeenCalledWith(
-          `Error handling ${VatWorkerServiceCommandMethod.terminate} for vatId v0`,
+          'Error handling "terminate" request:',
           new VatNotFoundError('v0'),
         );
       });
@@ -221,7 +222,7 @@ describe('ExtensionVatWorkerServer', () => {
 
         expect(errorSpy).toHaveBeenCalledOnce();
         expect(errorSpy).toHaveBeenCalledWith(
-          `Error handling ${VatWorkerServiceCommandMethod.terminate} for vatId ${vatId}`,
+          'Error handling "terminate" request:',
           vatNotFoundError,
         );
       });
@@ -265,7 +266,7 @@ describe('ExtensionVatWorkerServer', () => {
 
         expect(errorSpy).toHaveBeenCalledOnce();
         expect(errorSpy).toHaveBeenCalledWith(
-          `Error handling ${VatWorkerServiceCommandMethod.terminateAll} for vatId ${vatId}`,
+          'Error handling "terminateAll" request:',
           vatNotFoundError,
         );
       });

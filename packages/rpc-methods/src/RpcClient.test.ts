@@ -1,4 +1,5 @@
 import { jsonrpc2 } from '@metamask/utils';
+import { makeLogger } from '@ocap/utils';
 import { describe, it, vi, expect } from 'vitest';
 
 import { RpcClient } from './RpcClient.ts';
@@ -17,15 +18,15 @@ describe('RpcClient', () => {
       const sendMessage = vi.fn();
       const client = new RpcClient(getMethods(), sendMessage, 'test');
       const resultP = client.call('method1', ['test']);
-      client.handleResponse('test:1', {
+      client.handleResponse('test1', {
         jsonrpc: jsonrpc2,
-        id: 'test:1',
+        id: 'test1',
         result: null,
       });
 
       expect(sendMessage).toHaveBeenCalledWith({
         jsonrpc: jsonrpc2,
-        id: 'test:1',
+        id: 'test1',
         method: 'method1',
         params: ['test'],
       });
@@ -35,9 +36,9 @@ describe('RpcClient', () => {
     it('should throw an error for error responses', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
       const resultP = client.call('method1', ['test']);
-      client.handleResponse('test:1', {
+      client.handleResponse('test1', {
         jsonrpc: jsonrpc2,
-        id: 'test:1',
+        id: 'test1',
         error: {
           code: -32000,
           message: 'test error',
@@ -50,9 +51,9 @@ describe('RpcClient', () => {
     it('should throw an error for invalid results', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
       const resultP = client.call('method1', ['test']);
-      client.handleResponse('test:1', {
+      client.handleResponse('test1', {
         jsonrpc: jsonrpc2,
-        id: 'test:1',
+        id: 'test1',
         result: 42,
       });
       await expect(resultP).rejects.toThrow(
@@ -63,18 +64,34 @@ describe('RpcClient', () => {
     it('should throw an error for invalid responses', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');
       const resultP = client.call('method1', ['test']);
-      client.handleResponse('test:1', 'invalid');
+      client.handleResponse('test1', 'invalid');
       await expect(resultP).rejects.toThrow('Invalid JSON-RPC response:');
+    });
+  });
+
+  describe('callAndGetId', () => {
+    it('should call a method and return the id', async () => {
+      const client = new RpcClient(getMethods(), vi.fn(), 'test');
+      const callP = client.callAndGetId('method1', ['test']);
+      client.handleResponse('test1', {
+        jsonrpc: jsonrpc2,
+        id: 'test1',
+        result: null,
+      });
+      const [id, result] = await callP;
+      expect(id).toBe('test1');
+      expect(result).toBeNull();
     });
   });
 
   describe('handleResponse', () => {
     it('should log an error if the message id is not found', () => {
-      const client = new RpcClient(getMethods(), vi.fn(), 'test');
-      const logError = vi.spyOn(console, 'error');
-      client.handleResponse('test:1', 'test');
+      const logger = makeLogger('[test]');
+      const client = new RpcClient(getMethods(), vi.fn(), 'test', logger);
+      const logError = vi.spyOn(logger, 'error');
+      client.handleResponse('test1', 'test');
       expect(logError).toHaveBeenCalledWith(
-        'No unresolved message with id "test:1".',
+        'Received response with unexpected id "test1".',
       );
     });
   });

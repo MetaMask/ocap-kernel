@@ -1,14 +1,16 @@
-import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import {
-  isVatWorkerServiceCommand,
-  VatWorkerServiceCommandMethod,
-} from '@ocap/kernel';
+import { rpcErrors, serializeError } from '@metamask/rpc-errors';
+import { hasProperty, isJsonRpcRequest } from '@metamask/utils';
 import type {
-  VatWorkerServiceReply,
-  VatId,
-  VatConfig,
-  VatWorkerServiceCommand,
-} from '@ocap/kernel';
+  JsonRpcId,
+  JsonRpcParams,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from '@metamask/utils';
+import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
+import type { VatId, VatConfig } from '@ocap/kernel';
+import type { VatWorkerServiceMethod } from '@ocap/kernel/rpc';
+import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
+import type { ExtractParams } from '@ocap/rpc-methods';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import type {
   PostMessageEnvelope,
@@ -26,22 +28,22 @@ export type VatWorker = {
   terminate: () => Promise<void>;
 };
 
-export type VatWorkerServerStream = PostMessageDuplexStream<
-  MessageEvent<VatWorkerServiceCommand>,
-  PostMessageEnvelope<VatWorkerServiceReply>
+export type VatWorkerServiceStream = PostMessageDuplexStream<
+  MessageEvent<JsonRpcRequest>,
+  PostMessageEnvelope<JsonRpcResponse>
 >;
 
-export class ExtensionVatWorkerServer {
+export class ExtensionVatWorkerService {
   readonly #logger;
 
-  readonly #stream: VatWorkerServerStream;
+  readonly #stream: VatWorkerServiceStream;
 
   readonly #vatWorkers: Map<VatId, VatWorker> = new Map();
 
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
   /**
-   * **ATTN:** Prefer {@link ExtensionVatWorkerServer.make} over constructing
+   * **ATTN:** Prefer {@link ExtensionVatWorkerService.make} over constructing
    * this class directly.
    *
    * The server end of the vat worker service, intended to be constructed in
@@ -49,7 +51,7 @@ export class ExtensionVatWorkerServer {
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
    *
-   * Note that {@link ExtensionVatWorkerServer.start} must be called to start
+   * Note that {@link ExtensionVatWorkerService.start} must be called to start
    * the server.
    *
    * @see {@link ExtensionVatWorkerClient} for the other end of the service.
@@ -59,7 +61,7 @@ export class ExtensionVatWorkerServer {
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker server]'.
    */
   constructor(
-    stream: VatWorkerServerStream,
+    stream: VatWorkerServiceStream,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
   ) {
@@ -69,29 +71,26 @@ export class ExtensionVatWorkerServer {
   }
 
   /**
-   * Create a new {@link ExtensionVatWorkerServer}. Does not start the server.
+   * Create a new {@link ExtensionVatWorkerService}. Does not start the server.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param makeWorker - A method for making a {@link VatWorker}.
    * @param logger - An optional {@link Logger}.
-   * @returns A new {@link ExtensionVatWorkerServer}.
+   * @returns A new {@link ExtensionVatWorkerService}.
    */
   static make(
     messageTarget: PostMessageTarget,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
-  ): ExtensionVatWorkerServer {
-    const stream: VatWorkerServerStream = new PostMessageDuplexStream({
+  ): ExtensionVatWorkerService {
+    const stream: VatWorkerServiceStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
-      validateInput: (
-        message,
-      ): message is MessageEvent<VatWorkerServiceCommand> =>
-        message instanceof MessageEvent &&
-        isVatWorkerServiceCommand(message.data),
+      validateInput: (message): message is MessageEvent<JsonRpcRequest> =>
+        message instanceof MessageEvent && isJsonRpcRequest(message.data),
     });
 
-    return new ExtensionVatWorkerServer(stream, makeWorker, logger);
+    return new ExtensionVatWorkerService(stream, makeWorker, logger);
   }
 
   /**
@@ -105,45 +104,63 @@ export class ExtensionVatWorkerServer {
       .then(async () => this.#stream.drain(this.#handleMessage.bind(this)));
   }
 
-  async #handleMessage(
-    event: MessageEvent<VatWorkerServiceCommand>,
-  ): Promise<void> {
-    const { id, payload } = event.data;
-    const { method, params } = payload;
+  #assertHasMethod(method: string): asserts method is VatWorkerServiceMethod {
+    if (!hasProperty(vatWorkerServiceMethodSpecs, method)) {
+      throw rpcErrors.methodNotFound();
+    }
+  }
 
-    const handleError = (error: Error, vatId: VatId): void => {
-      this.#logger.error(`Error handling ${method} for vatId ${vatId}`, error);
-      // eslint-disable-next-line promise/no-promise-in-callback
+  #assertParams<Method extends VatWorkerServiceMethod>(
+    method: Method,
+    params: unknown,
+  ): asserts params is ExtractParams<
+    Method,
+    typeof vatWorkerServiceMethodSpecs
+  > {
+    vatWorkerServiceMethodSpecs[method].params.assert(params);
+  }
+
+  async #handleMessage(event: MessageEvent<JsonRpcRequest>): Promise<void> {
+    const { id, method, params } = event.data;
+    try {
+      await this.#executeMethod(id, method, params);
+    } catch (error) {
+      this.#logger.error(`Error handling "${method}" request:`, error);
       this.#sendMessage({
         id,
-        payload: { method, params: { vatId, error } },
+        error: serializeError(error),
+        jsonrpc: '2.0',
       }).catch(() => undefined);
-    };
+    }
+  }
+
+  async #executeMethod(
+    messageId: JsonRpcId,
+    method: string,
+    params: JsonRpcParams | undefined,
+  ): Promise<void> {
+    this.#assertHasMethod(method);
+
+    let port: MessagePort | undefined;
 
     switch (method) {
-      case VatWorkerServiceCommandMethod.launch: {
+      case 'launch': {
+        this.#assertParams(method, params);
         const { vatId, vatConfig } = params;
-        const replyParams = { vatId };
-        const replyPayload = { method, params: replyParams };
-        await this.#launch(vatId, vatConfig)
-          .then(async (port) =>
-            this.#sendMessage({ id, payload: replyPayload }, port),
-          )
-          .catch(async (error) => handleError(error, vatId));
+        port = await this.#launch(vatId, vatConfig);
         break;
       }
-      case VatWorkerServiceCommandMethod.terminate:
-        await this.#terminate(params.vatId)
-          .then(async () => this.#sendMessage({ id, payload }))
-          .catch(async (error) => handleError(error, params.vatId));
+      case 'terminate':
+        this.#assertParams(method, params);
+        await this.#terminate(params.vatId);
         break;
-      case VatWorkerServiceCommandMethod.terminateAll:
+      case 'terminateAll':
+        this.#assertParams(method, params);
         await Promise.all(
           Array.from(this.#vatWorkers.keys()).map(async (vatId) =>
-            this.#terminate(vatId).catch((error) => handleError(error, vatId)),
+            this.#terminate(vatId),
           ),
         );
-        await this.#sendMessage({ id, payload });
         break;
       default:
         this.#logger.error(
@@ -151,11 +168,16 @@ export class ExtensionVatWorkerServer {
           // @ts-expect-error Compile-time exhaustiveness check
           method.valueOf(),
         );
+        throw rpcErrors.methodNotFound();
     }
+    await this.#sendMessage(
+      { id: messageId, result: null, jsonrpc: '2.0' },
+      port,
+    );
   }
 
   async #sendMessage(
-    message: VatWorkerServiceReply,
+    message: JsonRpcResponse,
     port?: MessagePort,
   ): Promise<void> {
     await this.#stream.write({
@@ -183,4 +205,4 @@ export class ExtensionVatWorkerServer {
     this.#vatWorkers.delete(vatId);
   }
 }
-harden(ExtensionVatWorkerServer);
+harden(ExtensionVatWorkerService);

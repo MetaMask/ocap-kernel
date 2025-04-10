@@ -14,7 +14,6 @@ describe('index', () => {
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
-      'VatWorkerServiceCommandMethod',
       'isKernelCommand',
       'isKernelCommandReply',
       'isVatCommand',
@@ -22,13 +21,10 @@ describe('index', () => {
       'isVatCommandReply',
       'isVatConfig',
       'isVatId',
-      'isVatWorkerServiceCommand',
-      'isVatWorkerServiceReply',
       'kser',
       'kunser',
       'makeKernelStore',
       'parseRef',
-      'rpc',
     ]);
   });
 });

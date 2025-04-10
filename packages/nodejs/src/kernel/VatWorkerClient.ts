@@ -1,7 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { isVatCommandReply } from '@ocap/kernel';
 import type {
-  VatWorkerService,
+  VatWorkerClient,
   VatId,
   VatCommand,
   VatCommandReply,
@@ -19,7 +19,7 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
-export class NodejsVatWorkerService implements VatWorkerService {
+export class NodejsVatWorkerClient implements VatWorkerClient {
   readonly #logger: Logger;
 
   readonly #workerFilePath: string;
@@ -92,4 +92,4 @@ export class NodejsVatWorkerService implements VatWorkerService {
     }
   }
 }
-harden(NodejsVatWorkerService);
+harden(NodejsVatWorkerClient);

@@ -1,2 +1,2 @@
-export { NodejsVatWorkerService } from './kernel/VatWorkerService.ts';
+export { NodejsVatWorkerClient } from './kernel/VatWorkerClient.ts';
 export { makeKernel } from './kernel/make-kernel.ts';

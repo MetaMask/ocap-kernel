@@ -30,7 +30,7 @@ import type {
   VatId,
   VRef,
   KRef,
-  VatWorkerService,
+  VatWorkerClient,
   ClusterConfig,
   VatConfig,
   RunQueueItem,
@@ -74,7 +74,7 @@ export class Kernel {
   readonly #vats: Map<VatId, VatHandle>;
 
   /** Service to spawn workers (in iframes) for vats to run in */
-  readonly #vatWorkerService: VatWorkerService;
+  readonly #vatWorkerService: VatWorkerClient;
 
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
@@ -105,7 +105,7 @@ export class Kernel {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
-    vatWorkerService: VatWorkerService,
+    vatWorkerService: VatWorkerClient,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
@@ -138,7 +138,7 @@ export class Kernel {
    */
   static async make(
     commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
-    vatWorkerService: VatWorkerService,
+    vatWorkerService: VatWorkerClient,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;

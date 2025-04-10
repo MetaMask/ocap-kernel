@@ -1,6 +1,5 @@
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { Struct } from '@metamask/superstruct';
-import { assert as assertStruct } from '@metamask/superstruct';
 import { hasProperty } from '@metamask/utils';
 import type { Json, JsonRpcParams } from '@metamask/utils';
 
@@ -127,7 +126,7 @@ function assertParams<Params extends JsonRpcParams>(
   struct: Struct<Params>,
 ): asserts params is Params {
   try {
-    assertStruct(params, struct);
+    struct.assert(params);
   } catch (error) {
     throw new Error(`Invalid params: ${(error as Error).message}`);
   }

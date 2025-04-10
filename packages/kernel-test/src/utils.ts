@@ -7,7 +7,7 @@ import type {
   KernelCommand,
   KernelCommandReply,
 } from '@ocap/kernel';
-import { NodejsVatWorkerService } from '@ocap/nodejs';
+import { NodejsVatWorkerClient } from '@ocap/nodejs';
 import type { KernelDatabase } from '@ocap/store';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { waitUntilQuiescent } from '@ocap/utils';
@@ -84,7 +84,7 @@ export async function makeKernel(
     KernelCommand,
     KernelCommandReply
   >(kernelPort);
-  const vatWorkerClient = new NodejsVatWorkerService({});
+  const vatWorkerClient = new NodejsVatWorkerClient({});
   const kernel = await Kernel.make(
     nodeStream,
     vatWorkerClient,

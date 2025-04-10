@@ -5,17 +5,17 @@ import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { NodejsVatWorkerService } from '../../src/kernel/VatWorkerService.ts';
+import { NodejsVatWorkerClient } from '../../src/kernel/VatWorkerClient.ts';
 import { getTestWorkerFile } from '../get-test-worker.ts';
 
-describe('NodejsVatWorkerService', () => {
+describe('NodejsVatWorkerClient', () => {
   const testWorkerFile = getTestWorkerFile('stream-sync');
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 
   describe('launch', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath: testWorkerFile,
       });
       const testVatId: VatId = getTestVatId();
@@ -33,8 +33,8 @@ describe('NodejsVatWorkerService', () => {
         })),
       }));
       vi.resetModules();
-      const NVWS = (await import('../../src/kernel/VatWorkerService.ts'))
-        .NodejsVatWorkerService;
+      const NVWS = (await import('../../src/kernel/VatWorkerClient.ts'))
+        .NodejsVatWorkerClient;
 
       const service = new NVWS({ workerFilePath: testWorkerFile });
       const testVatId: VatId = getTestVatId();
@@ -46,7 +46,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath: testWorkerFile,
       });
       const testVatId: VatId = getTestVatId();
@@ -59,7 +59,7 @@ describe('NodejsVatWorkerService', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath: testWorkerFile,
       });
       const testVatId: VatId = getTestVatId();
@@ -72,7 +72,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath: testWorkerFile,
       });
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];

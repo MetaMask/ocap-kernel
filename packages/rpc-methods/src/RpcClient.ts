@@ -2,8 +2,8 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
 import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
-import { makeCounter, stringify } from '@ocap/utils';
-import type { PromiseCallbacks } from '@ocap/utils';
+import { makeCounter, makeLogger, stringify } from '@ocap/utils';
+import type { Logger, PromiseCallbacks } from '@ocap/utils';
 
 import type {
   MethodSpec,
@@ -31,17 +31,25 @@ export class RpcClient<
 
   readonly #sendMessage: SendMessage;
 
-  constructor(methods: Methods, sendMessage: SendMessage, prefix: string) {
+  readonly #logger: Logger;
+
+  constructor(
+    methods: Methods,
+    sendMessage: SendMessage,
+    prefix: string,
+    logger: Logger = makeLogger('[rpc client]'),
+  ) {
     this.#methods = methods;
     this.#sendMessage = sendMessage;
     this.#prefix = prefix;
+    this.#logger = logger;
   }
 
-  async call<Method extends ExtractMethod<Methods>>(
+  async #call<Method extends ExtractMethod<Methods>>(
     method: Method,
     params: ExtractParams<Method, Methods>,
+    id: string,
   ): Promise<ExtractResult<Method, Methods>> {
-    const id = this.#nextMessageId();
     const response = await this.#createMessage(id, {
       id,
       jsonrpc: '2.0',
@@ -53,12 +61,41 @@ export class RpcClient<
     return response.result;
   }
 
+  /**
+   * Calls a JSON-RPC method and returns the result.
+   *
+   * @param method - The method to call.
+   * @param params - The parameters to pass to the method.
+   * @returns A promise that resolves to the result.
+   */
+  async call<Method extends ExtractMethod<Methods>>(
+    method: Method,
+    params: ExtractParams<Method, Methods>,
+  ): Promise<ExtractResult<Method, Methods>> {
+    return await this.#call(method, params, this.#nextMessageId());
+  }
+
+  /**
+   * Calls a JSON-RPC method and returns the message id and the result.
+   *
+   * @param method - The method to call.
+   * @param params - The parameters to pass to the method.
+   * @returns A promise that resolves to a tuple of the message id and the result.
+   */
+  async callAndGetId<Method extends ExtractMethod<Methods>>(
+    method: Method,
+    params: ExtractParams<Method, Methods>,
+  ): Promise<[string, ExtractResult<Method, Methods>]> {
+    const id = this.#nextMessageId();
+    return [id, await this.#call(method, params, id)];
+  }
+
   #assertResult<Method extends ExtractMethod<Methods>>(
     method: Method,
     result: unknown,
   ): asserts result is ExtractResult<Method, Methods> {
     try {
-      // @ts-expect-error - TODO: For unknown reasons, TypeScript fails to recognize that
+      // @ts-expect-error: For unknown reasons, TypeScript fails to recognize that
       // `Method` must be a key of `this.#methods`.
       assertStruct(result, this.#methods[method].result);
     } catch (error) {
@@ -81,10 +118,18 @@ export class RpcClient<
     return promise;
   }
 
+  /**
+   * Handles a JSON-RPC response to a previously made method call.
+   *
+   * @param messageId - The id of the message to handle.
+   * @param response - The response to handle.
+   */
   handleResponse(messageId: string, response: unknown): void {
     const requestCallbacks = this.#unresolvedMessages.get(messageId);
     if (requestCallbacks === undefined) {
-      console.error(`No unresolved message with id "${messageId}".`);
+      this.#logger.error(
+        `Received response with unexpected id "${messageId}".`,
+      );
     } else {
       this.#unresolvedMessages.delete(messageId);
       if (isJsonRpcSuccess(response)) {
@@ -99,6 +144,11 @@ export class RpcClient<
     }
   }
 
+  /**
+   * Rejects all unresolved messages with an error.
+   *
+   * @param error - The error to reject the messages with.
+   */
   rejectAll(error: Error): void {
     for (const [messageId, promiseCallback] of this.#unresolvedMessages) {
       promiseCallback?.reject(error);
@@ -107,6 +157,6 @@ export class RpcClient<
   }
 
   #nextMessageId(): string {
-    return `${this.#prefix}:${this.#messageCounter()}`;
+    return `${this.#prefix}${this.#messageCounter()}`;
   }
 }

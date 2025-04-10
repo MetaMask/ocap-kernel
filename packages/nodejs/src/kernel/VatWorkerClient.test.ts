@@ -4,7 +4,7 @@ import type { VatId } from '@ocap/kernel';
 import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { NodejsVatWorkerService } from './VatWorkerService.ts';
+import { NodejsVatWorkerClient } from './VatWorkerClient.ts';
 
 const mocks = vi.hoisted(() => ({
   worker: {
@@ -27,10 +27,10 @@ vi.mock('node:worker_threads', () => ({
   Worker: vi.fn(() => mocks.worker),
 }));
 
-describe('NodejsVatWorkerService', () => {
+describe('NodejsVatWorkerClient', () => {
   it('constructs an instance without any arguments', () => {
-    const instance = new NodejsVatWorkerService({});
-    expect(instance).toBeInstanceOf(NodejsVatWorkerService);
+    const instance = new NodejsVatWorkerClient({});
+    expect(instance).toBeInstanceOf(NodejsVatWorkerClient);
   });
 
   const workerFilePath = 'unused';
@@ -39,7 +39,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('launch', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
@@ -51,7 +51,7 @@ describe('NodejsVatWorkerService', () => {
     it('rejects if synchronize fails', async () => {
       const rejected = 'test-reject-value';
       mocks.stream.synchronize.mockRejectedValue(rejected);
-      const service = new NodejsVatWorkerService({ workerFilePath });
+      const service = new NodejsVatWorkerClient({ workerFilePath });
       const testVatId: VatId = getTestVatId();
       await expect(async () => await service.launch(testVatId)).rejects.toThrow(
         rejected,
@@ -61,7 +61,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
@@ -74,7 +74,7 @@ describe('NodejsVatWorkerService', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
@@ -87,7 +87,7 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsVatWorkerService({
+      const service = new NodejsVatWorkerClient({
         workerFilePath,
       });
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
