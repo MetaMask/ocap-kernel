@@ -313,7 +313,7 @@ describe('makeSQLKernelDatabase', () => {
       const consoleSpy = vi.spyOn(console, 'log');
       await makeSQLKernelDatabase({ verbose: true });
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[sqlite]',
+        ['[sqlite]'],
         'Initializing kernel store',
       );
     });

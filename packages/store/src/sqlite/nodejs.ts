@@ -26,7 +26,9 @@ async function initDB(
   const dbPath = await getDBFilename(dbFilename);
   logger.debug('dbPath:', dbPath);
   return new Sqlite(dbPath, {
-    verbose: verbose ? (...args) => logger.info(...args) : undefined,
+    verbose: (verbose ? logger.info.bind(logger) : undefined) as
+      | ((...args: unknown[]) => void)
+      | undefined,
   });
 }
 
