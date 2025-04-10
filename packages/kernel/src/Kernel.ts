@@ -181,6 +181,7 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
+      this.#kernelStore.nextTerminatedVatCleanup();
       await this.#deliver(item);
       this.#kernelStore.collectGarbage();
     }
@@ -832,6 +833,7 @@ export class Kernel {
   async terminateVat(vatId: VatId): Promise<void> {
     await this.#stopVat(vatId, true);
     this.#kernelStore.deleteVatConfig(vatId);
+    this.#kernelStore.markVatAsTerminated(vatId);
   }
 
   /**

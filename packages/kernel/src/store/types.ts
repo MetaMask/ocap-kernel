@@ -1,6 +1,6 @@
 import type { KVStore } from '@ocap/store';
 
-import type { KRef, VatId } from '../types.ts';
+import type { KRef } from '../types.ts';
 
 export type StoreContext = {
   kv: KVStore;
@@ -13,7 +13,7 @@ export type StoreContext = {
   maybeFreeKrefs: Set<KRef>;
   gcActions: StoredValue;
   reapQueue: StoredValue;
-  terminatedVats: VatId[];
+  terminatedVats: StoredValue;
 };
 
 export type StoredValue = {
@@ -26,4 +26,11 @@ export type StoredQueue = {
   enqueue(item: object): void;
   dequeue(): object | undefined;
   delete(): void;
+};
+
+export type VatCleanupWork = {
+  exports: number;
+  imports: number;
+  promises: number;
+  kv: number;
 };

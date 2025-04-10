@@ -121,8 +121,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     // Garbage collection
     gcActions: provideCachedStoredValue('gcActions', '[]'),
     reapQueue: provideCachedStoredValue('reapQueue', '[]'),
-    // TODO: Store terminated vats in DB and fetch from there
-    terminatedVats: [],
+    terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
   };
 
   const id = getIdMethods(context);
@@ -152,7 +151,6 @@ export function makeKernelStore(kdb: KernelDatabase) {
    * @param vatId - The vat whose state is to be deleted.
    */
   function deleteVat(vatId: VatId): void {
-    vat.deleteEndpoint(vatId);
     vat.deleteVatConfig(vatId);
     kdb.deleteVatStore(vatId);
   }
@@ -163,10 +161,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
   function reset(): void {
     kdb.clear();
     context.maybeFreeKrefs.clear();
-    context.terminatedVats = [];
     context.runQueue = provideStoredQueue('run', true);
     context.gcActions = provideCachedStoredValue('gcActions', '[]');
     context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
+    context.terminatedVats = provideCachedStoredValue('vats.terminated', '[]');
     context.nextObjectId = provideCachedStoredValue('nextObjectId', '1');
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
     context.nextVatId = provideCachedStoredValue('nextVatId', '1');

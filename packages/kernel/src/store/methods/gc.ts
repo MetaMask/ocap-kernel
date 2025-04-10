@@ -34,7 +34,7 @@ export function getGCMethods(ctx: StoreContext) {
   const { getObjectRefCount, deleteKernelObject } = getObjectMethods(ctx);
   const { getKernelPromise, deleteKernelPromise } = getPromiseMethods(ctx);
   const { decrementRefCount } = getCListMethods(ctx);
-  const { getImporters } = getVatMethods(ctx);
+  const { getImporters, isVatTerminated } = getVatMethods(ctx);
   const { getReachableFlag, getReachableAndVatSlot } = getReachableMethods(ctx);
   /**
    * Get the set of GC actions to perform.
@@ -154,7 +154,7 @@ export function getGCMethods(ctx: StoreContext) {
           // deleted). Message delivery should use that, but not us.
           const ownerKey = `${kref}.owner`;
           let ownerVatID = ctx.kv.get(ownerKey);
-          const terminated = ctx.terminatedVats.includes(ownerVatID as VatId);
+          const terminated = isVatTerminated(ownerVatID as VatId);
 
           // Some objects that are still owned, but the owning vat
           // might still alive, or might be terminated and in the
