@@ -18,6 +18,7 @@ describe('index', () => {
       'isKernelCommand',
       'isKernelCommandReply',
       'isVatCommand',
+      'isVatCommandPayloadUI',
       'isVatCommandReply',
       'isVatConfig',
       'isVatId',
