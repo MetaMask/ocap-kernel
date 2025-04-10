@@ -10,6 +10,7 @@ describe('index', () => {
         'isPrimitive',
         'isTypedArray',
         'isTypedObject',
+        'Logger',
         'makeCounter',
         'makeLogger',
         'stringify',
