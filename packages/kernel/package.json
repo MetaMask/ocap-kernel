@@ -52,6 +52,7 @@
     "@metamask/superstruct": "^3.2.0",
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
+    "@ocap/rpc-methods": "workspace:^",
     "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",
     "@ocap/utils": "workspace:^",

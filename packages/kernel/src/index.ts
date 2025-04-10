@@ -1,4 +1,5 @@
 export * from './messages/index.ts';
+export * as rpc from './rpc/index.ts';
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './VatHandle.ts';
 export { VatSupervisor } from './VatSupervisor.ts';

@@ -28,6 +28,7 @@ describe('index', () => {
       'kunser',
       'makeKernelStore',
       'parseRef',
+      'rpc',
     ]);
   });
 });

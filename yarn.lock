@@ -2084,6 +2084,7 @@ __metadata:
     "@metamask/utils": "npm:^11.4.0"
     "@ocap/cli": "workspace:^"
     "@ocap/errors": "workspace:^"
+    "@ocap/rpc-methods": "workspace:^"
     "@ocap/store": "workspace:^"
     "@ocap/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
