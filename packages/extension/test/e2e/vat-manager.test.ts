@@ -187,6 +187,15 @@ test.describe('Vat Manager', () => {
     await popupPage.click('button:text("Send")');
     await expect(messageOutput).toContainText('"method": "ping",');
     await expect(messageOutput).toContainText('{"result":"pong"}');
+    // Test deliver command
+    await clearLogsButton.click();
+    await input.fill(
+      `{ "id": "v1", "payload": { "method": "deliver", "params": ["bringOutYourDead"] } }`,
+    );
+    await popupPage.click('button:text("Send")');
+    await expect(messageOutput).toContainText('"method": "deliver",');
+    await expect(messageOutput).toContainText('"bringOutYourDead"');
+    await expect(messageOutput).toContainText('"result":null}');
   });
 
   test('should reload kernel state and load default vats', async () => {

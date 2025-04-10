@@ -294,3 +294,12 @@ export type VatReplyParams<Method extends keyof typeof VatReplyStructs> = Infer<
 export type VatCommandReturnType = {
   [Method in keyof typeof VatReplyStructs]: VatReplyParams<Method>;
 };
+
+const VatCommandPayloadUIStruct = union([
+  VatMethodStructs.ping,
+  VatMethodStructs.deliver,
+]);
+export type VatCommandPayloadUI = Infer<typeof VatCommandPayloadUIStruct>;
+export const isVatCommandPayloadUI = (
+  value: unknown,
+): value is VatCommandPayloadUI => is(value, VatCommandPayloadUIStruct);

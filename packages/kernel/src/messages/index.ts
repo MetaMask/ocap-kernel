@@ -10,7 +10,12 @@ export type { KernelCommand, KernelCommandReply } from './kernel.ts';
 
 // Vat commands.
 
-export { VatCommandMethod, isVatCommand, isVatCommandReply } from './vat.ts';
+export {
+  VatCommandMethod,
+  isVatCommand,
+  isVatCommandReply,
+  isVatCommandPayloadUI,
+} from './vat.ts';
 export type {
   VatCommand,
   VatCommandReply,

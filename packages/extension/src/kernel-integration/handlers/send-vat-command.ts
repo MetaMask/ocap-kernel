@@ -1,7 +1,7 @@
 import { object } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
-import { isKernelCommand, VatIdStruct } from '@ocap/kernel';
+import { isVatCommandPayloadUI, VatIdStruct } from '@ocap/kernel';
 import type { Kernel, VatId } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
@@ -29,7 +29,7 @@ export const sendVatCommandHandler: Handler<
   ...sendVatCommandSpec,
   hooks: { kernel: true },
   implementation: async ({ kernel }, params): Promise<{ result: Json }> => {
-    if (!isKernelCommand(params.payload)) {
+    if (!isVatCommandPayloadUI(params.payload)) {
       throw new Error('Invalid command payload');
     }
 
