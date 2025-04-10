@@ -199,7 +199,7 @@ export const VatMessageIdStruct = define<VatMessageId>(
   isVatMessageId,
 );
 
-export type VatWorkerClient = {
+export type VatWorkerManager = {
   /**
    * Launch a new worker with a specific vat id.
    *

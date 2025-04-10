@@ -10,7 +10,7 @@ import { getTestWorkerFile } from '../get-test-worker.ts';
 
 const { makePromiseKit } = makePromiseKitMock();
 
-describe('NodejsVatWorkerClient', () => {
+describe('NodejsVatWorkerManager', () => {
   let testWorkerFile: string;
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;

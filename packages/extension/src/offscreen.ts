@@ -10,7 +10,7 @@ import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay, makeLogger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
-import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerService.ts';
+import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerServer.ts';
 
 const logger = makeLogger('[offscreen]');
 

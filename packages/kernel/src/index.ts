@@ -5,7 +5,7 @@ export { VatSupervisor } from './VatSupervisor.ts';
 export type { Message } from '@agoric/swingset-liveslots';
 export type {
   VatId,
-  VatWorkerClient,
+  VatWorkerManager,
   ClusterConfig,
   VatConfig,
   VatCheckpoint,

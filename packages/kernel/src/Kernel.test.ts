@@ -15,7 +15,7 @@ import type {
 import type {
   VatId,
   VatConfig,
-  VatWorkerClient,
+  VatWorkerManager,
   ClusterConfig,
 } from './types.ts';
 import { VatHandle } from './VatHandle.ts';
@@ -38,7 +38,7 @@ const makeMockClusterConfig = (): ClusterConfig => ({
 
 describe('Kernel', () => {
   let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;
-  let mockWorkerService: VatWorkerClient;
+  let mockWorkerService: VatWorkerManager;
   let launchWorkerMock: MockInstance;
   let terminateWorkerMock: MockInstance;
   let makeVatHandleMock: MockInstance;
@@ -56,7 +56,7 @@ describe('Kernel', () => {
         ({}) as unknown as DuplexStream<VatCommandReply, VatCommand>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
-    } as unknown as VatWorkerClient;
+    } as unknown as VatWorkerManager;
 
     launchWorkerMock = vi
       .spyOn(mockWorkerService, 'launch')

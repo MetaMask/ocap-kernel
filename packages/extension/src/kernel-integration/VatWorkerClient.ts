@@ -6,7 +6,7 @@ import type {
 } from '@metamask/utils';
 import { isVatCommandReply } from '@ocap/kernel';
 import type {
-  VatWorkerClient,
+  VatWorkerManager,
   VatId,
   VatConfig,
   VatCommand,
@@ -28,14 +28,14 @@ import { makeLogger, stringify } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerService } from './VatWorkerService.ts';
+import type { ExtensionVatWorkerService } from './VatWorkerServer.ts';
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<JsonRpcResponse>,
   PostMessageEnvelope<JsonRpcRequest>
 >;
 
-export class ExtensionVatWorkerClient implements VatWorkerClient {
+export class ExtensionVatWorkerClient implements VatWorkerManager {
   readonly #logger: Logger;
 
   readonly #stream: VatWorkerClientStream;
