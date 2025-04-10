@@ -1,4 +1,53 @@
 /**
+ * A Logger is a logging facility that supports multiple transports and tags.
+ * The transports are the actual logging functions, and the tags are used to
+ * identify the source of the log message independent of its location in the
+ * code.
+ *
+ * @example
+ * ```ts
+ * const logger = new Logger('my-logger');
+ * logger.info('Hello, world!');
+ * >>> [my-logger] Hello, world!
+ * ```
+ *
+ * Sub-loggers can be created by calling the `subLogger` method. They inherit
+ * the tags and transports of their parent logger, and can add additional tags
+ * to their own messages.
+ *
+ *
+ * @example
+ * ```ts
+ * const subLogger = logger.subLogger({ tags: ['sub'] });
+ * subLogger.info('Hello, world!');
+ * >>> [my-logger, sub] Hello, world!
+ * ```
+ *
+ * The transports can be configured to ignore certain log levels, or to write
+ * different tags to different destinations, and so on. The default transports
+ * write to the console, but other transports can be added by passing a custom
+ * transport function to the constructor. The transports must be synchronous,
+ * but they can initiate asynchronous operations if needed.
+ *
+ * @example
+ * ```ts
+ * const logger = new Logger('my-logger', {
+ *   transports: [
+ *     (entry) => {
+ *       if (entry.tags.includes('vat')) {
+ *         fs.writeFile('vat.log', `${entry.message}\n`, { flag: 'a' }).catch(
+ *           (error) => {
+ *             console.error('Error writing to vat.log:', error);
+ *           },
+ *         );
+ *       }
+ *     },
+ *   ],
+ * });
+ * ```
+ */
+
+/**
  * The log level for the logger.
  */
 export type LogLevel = 'debug' | 'info' | 'log' | 'warn' | 'error' | 'silent';
@@ -92,6 +141,19 @@ type LogArgs = [string, ...unknown[]] | [];
 export class Logger {
   readonly #options: LoggerOptions;
 
+  /**
+   * The constructor for the logger. Sub-loggers can be created by calling the
+   * `subLogger` method. Sub-loggers inherit the transports and tags of their
+   * parent logger.
+   *
+   * @param options - The options for the logger.
+   * @param options.transports - The transports, which deliver the log messages
+   *   to the appropriate destination.
+   * @param options.level - The log level for the logger, used as a default
+   *   argument for the transports.
+   * @param options.tags - The tags for the logger, which are accumulated by
+   *   sub-loggers and passed to the transports.
+   */
   constructor(options: LoggerOptions = {}) {
     this.#options = options;
   }
