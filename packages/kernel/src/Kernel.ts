@@ -181,6 +181,7 @@ export class Kernel {
    */
   async #run(): Promise<void> {
     for await (const item of this.#runQueueItems()) {
+      console.log('run loop item', item);
       this.#kernelStore.nextTerminatedVatCleanup();
       await this.#deliver(item);
       this.#kernelStore.collectGarbage();
@@ -287,7 +288,7 @@ export class Kernel {
     } else {
       kref = this.#kernelStore.initKernelObject(vatId);
     }
-    this.#kernelStore.addClistEntry(vatId, kref, vref);
+    this.#kernelStore.addCListEntry(vatId, kref, vref);
     return kref;
   }
 
@@ -833,6 +834,7 @@ export class Kernel {
   async terminateVat(vatId: VatId): Promise<void> {
     await this.#stopVat(vatId, true);
     this.#kernelStore.deleteVatConfig(vatId);
+    // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
   }
 
@@ -855,9 +857,11 @@ export class Kernel {
     if (!this.#mostRecentSubcluster) {
       throw Error('no subcluster to reload');
     }
-
     await this.terminateAllVats();
-
+    while (this.#kernelStore.nextTerminatedVatCleanup()) {
+      // wait for all vats to be cleaned up
+      console.log('waiting for vats to be cleaned up');
+    }
     await this.launchSubcluster(this.#mostRecentSubcluster);
   }
 

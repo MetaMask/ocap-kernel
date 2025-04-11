@@ -1,3 +1,5 @@
+import { Fail } from '@endo/errors';
+
 import { getBaseMethods } from './base.ts';
 import { getCListMethods } from './clist.ts';
 import { getReachableMethods } from './reachable.ts';
@@ -24,8 +26,8 @@ const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
   const { getPrefixedKeys, getSlotKey } = getBaseMethods(ctx.kv);
-  const { decrementRefCount } = getCListMethods(ctx);
-  const { clearReachableFlag } = getReachableMethods(ctx);
+  const { deleteCListEntry } = getCListMethods(ctx);
+  const { getReachableAndVatSlot } = getReachableMethods(ctx);
 
   /**
    * Delete all persistent state associated with an endpoint.
@@ -33,6 +35,7 @@ export function getVatMethods(ctx: StoreContext) {
    * @param endpointId - The endpoint whose state is to be deleted.
    */
   function deleteEndpoint(endpointId: EndpointId): void {
+    console.log('deleteEndpoint', endpointId);
     for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
       kv.delete(key);
     }
@@ -158,6 +161,7 @@ export function getVatMethods(ctx: StoreContext) {
    * @param vatID - The ID of the vat to add.
    */
   function markVatAsTerminated(vatID: VatId): void {
+    console.log('markVatAsTerminated', vatID);
     const terminatedVats = getTerminatedVats();
     if (!terminatedVats.includes(vatID)) {
       terminatedVats.push(vatID);
@@ -171,6 +175,7 @@ export function getVatMethods(ctx: StoreContext) {
    * @param vatID - The ID of the vat to remove.
    */
   function forgetTerminatedVat(vatID: VatId): void {
+    console.log('forgetTerminatedVat', vatID);
     const terminatedVats = getTerminatedVats().filter((id) => id !== vatID);
     ctx.terminatedVats.set(JSON.stringify(terminatedVats));
   }
@@ -182,6 +187,7 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns The work done during the cleanup.
    */
   function cleanupTerminatedVat(vatID: VatId): VatCleanupWork {
+    console.log('cleanupTerminatedVat', vatID);
     const work = {
       exports: 0,
       imports: 0,
@@ -198,62 +204,71 @@ export function getVatMethods(ctx: StoreContext) {
     const importPrefix = `${clistPrefix}o-`;
     const promisePrefix = `${clistPrefix}p`;
 
-    // First, clean up exports (objects exported by the terminated vat)
+    // Note: ASCII order is "+,-./", and we rely upon this to split the
+    // keyspace into the various o+NN/o-NN/etc spaces. If we were using a
+    // more sophisticated database, we'd keep each section in a separate
+    // table.
+
+    // The current store semantics ensure this iteration is lexicographic.
+    // Any changes to the creation of the list of promises to be rejected (and
+    // thus to the order in which they *get* rejected) need to preserve this
+    // ordering in order to preserve determinism.
+
+    // first, scan for exported objects, which must be orphaned
     for (const key of getPrefixedKeys(exportPrefix)) {
+      // The void for an object exported by a vat will always be of the form
+      // `o+NN`.  The '+' means that the vat exported the object (rather than
+      // importing it) and therefore the object is owned by (i.e., within) the
+      // vat.  The corresponding void->koid c-list entry will thus always
+      // begin with `vMM.c.o+`.  In addition to deleting the c-list entry, we
+      // must also delete the corresponding kernel owner entry for the object,
+      // since the object will no longer be accessible.
+      assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
+      assert(vref.startsWith('o+'), vref);
       const kref = ctx.kv.get(key);
-      if (kref) {
-        const vatKey = getSlotKey(vatID, vref);
-        const kernelKey = getSlotKey(vatID, kref);
-        // Clear the reachable flag
-        clearReachableFlag(vatID, kref);
-        // Delete the c-list entries
-        ctx.kv.delete(kernelKey);
-        ctx.kv.delete(vatKey);
-        // Delete the owner entry
-        ctx.kv.delete(`${kref}.owner`);
-        // Add to maybeFreeKrefs for GC processing
-        ctx.maybeFreeKrefs.add(kref);
-        work.exports += 1;
-      }
+      assert(kref, key);
+      // deletes c-list and .owner, adds to maybeFreeKrefs
+      const ownerKey = `${kref}.owner`;
+      const ownerVat = ctx.kv.get(ownerKey);
+      ownerVat === vatID || Fail`export ${kref} not owned by old vat`;
+      ctx.kv.delete(ownerKey);
+      console.log('delete ownerKey', ownerKey);
+      const { vatSlot } = getReachableAndVatSlot(vatID, kref);
+      console.log('delete vatSlot', vatSlot);
+      ctx.kv.delete(`${vatID}.c.${vatSlot}`);
+      ctx.kv.delete(`${vatID}.c.${vatSlot}`);
+      ctx.maybeFreeKrefs.add(kref);
+      console.log('add kref to maybeFreeKrefs', kref);
+      work.exports += 1;
     }
 
-    // Next, clean up imports (objects imported by the terminated vat)
+    // then scan for imported objects, which must be decrefed
     for (const key of getPrefixedKeys(importPrefix)) {
+      // abandoned imports: delete the clist entry as if the vat did a
+      // drop+retire
+      const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
+      assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
-      const kref = ctx.kv.get(key);
-      if (kref) {
-        const vatKey = getSlotKey(vatID, vref);
-        const kernelKey = getSlotKey(vatID, kref);
-        // Clear the reachable flag
-        clearReachableFlag(vatID, kref);
-        // Decrement ref count for the import
-        decrementRefCount(kref, {
-          isExport: false,
-          onlyRecognizable: true,
-        });
-        // Delete the c-list entries
-        ctx.kv.delete(kernelKey);
-        ctx.kv.delete(vatKey);
-        work.imports += 1;
-      }
+      deleteCListEntry(vatID, kref, vref);
+      // that will also delete both db keys
+      work.imports += 1;
     }
+    console.log('deleted imports', work.imports);
 
-    // Clean up promises
+    // The caller used enumeratePromisesByDecider() before calling us,
+    // so they have already rejected the orphan promises, but those
+    // kpids are still present in the dead vat's c-list. Clean those up now.
     for (const key of getPrefixedKeys(promisePrefix)) {
+      const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
+      assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
-      const kref = ctx.kv.get(key);
-      if (kref) {
-        const vatKey = getSlotKey(vatID, vref);
-        const kernelKey = getSlotKey(vatID, kref);
-        // Decrement refcount for the promise
-        decrementRefCount(kref);
-        // Delete the c-list entries
-        ctx.kv.delete(kernelKey);
-        ctx.kv.delete(vatKey);
-        work.promises += 1;
-      }
+      console.log('delete promise', kref, vref);
+      deleteCListEntry(vatID, kref, vref);
+      // that will also delete both db keys
+      work.promises += 1;
     }
+    console.log('deleted promises', work.promises);
 
     // Finally, clean up any remaining KV entries for this vat
     for (const key of getPrefixedKeys(`${vatID}.`)) {
@@ -278,9 +293,11 @@ export function getVatMethods(ctx: StoreContext) {
    *
    * @returns The work done during the cleanup.
    */
-  function nextTerminatedVatCleanup(): VatCleanupWork | undefined {
+  function nextTerminatedVatCleanup(): boolean {
     const vatID = getTerminatedVats()?.[0];
-    return vatID ? cleanupTerminatedVat(vatID) : undefined;
+    vatID && cleanupTerminatedVat(vatID);
+    console.log('nextTerminatedVatCleanup', vatID);
+    return getTerminatedVats().length > 0;
   }
 
   return {

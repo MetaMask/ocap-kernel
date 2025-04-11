@@ -16,7 +16,7 @@ describe('garbage-collection', () => {
     it('processes dropExport actions', () => {
       // Setup: Create object and add GC action
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1'); // Export reference
+      kernelStore.addCListEntry('v1', ko1, 'o+1'); // Export reference
 
       // Set reachable count to 0 but keep recognizable count
       kernelStore.setObjectRefCount(ko1, { reachable: 0, recognizable: 1 });
@@ -47,7 +47,7 @@ describe('garbage-collection', () => {
     it('processes retireExport actions', () => {
       // Setup: Create object with zero refcounts
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
       kernelStore.setObjectRefCount(ko1, { reachable: 0, recognizable: 0 });
       kernelStore.addGCActions([`v1 retireExport ${ko1}`]);
 
@@ -68,7 +68,7 @@ describe('garbage-collection', () => {
     it('processes retireImport actions', () => {
       // Setup: Create object and add GC action
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v2', ko1, 'o-1'); // Import reference
+      kernelStore.addCListEntry('v2', ko1, 'o-1'); // Import reference
       kernelStore.addGCActions([`v2 retireImport ${ko1}`]);
 
       // Process GC actions
@@ -90,8 +90,8 @@ describe('garbage-collection', () => {
       const ko1 = kernelStore.initKernelObject('v1');
       const ko2 = kernelStore.initKernelObject('v1');
 
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
-      kernelStore.addClistEntry('v1', ko2, 'o+2');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko2, 'o+2');
 
       // Set up conditions for dropExport and retireExport
       kernelStore.setObjectRefCount(ko1, { reachable: 0, recognizable: 1 });
@@ -125,8 +125,8 @@ describe('garbage-collection', () => {
       const ko1 = kernelStore.initKernelObject('v2');
       const ko2 = kernelStore.initKernelObject('v1');
 
-      kernelStore.addClistEntry('v2', ko1, 'o+1');
-      kernelStore.addClistEntry('v1', ko2, 'o+1');
+      kernelStore.addCListEntry('v2', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko2, 'o+1');
 
       // Set up conditions for dropExport
       kernelStore.setObjectRefCount(ko1, { reachable: 0, recognizable: 1 });
@@ -157,7 +157,7 @@ describe('garbage-collection', () => {
 
     it('skips actions that should not be processed', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
 
       // Add dropExport action but set reachable to false (should skip)
       kernelStore.clearReachableFlag('v1', ko1);
@@ -178,7 +178,7 @@ describe('garbage-collection', () => {
 
     it('skips dropExport when object does not exist', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
 
       // Delete the object to simulate non-existence
       kernelStore.deleteKernelObject(ko1);
@@ -192,7 +192,7 @@ describe('garbage-collection', () => {
 
     it('skips retireExport when object has non-zero refcounts', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
 
       // Set non-zero refcounts
       kernelStore.setObjectRefCount(ko1, { reachable: 1, recognizable: 1 });
@@ -206,7 +206,7 @@ describe('garbage-collection', () => {
 
     it('skips retireExport when object does not exist', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
 
       // Delete the object
       kernelStore.deleteKernelObject(ko1);
@@ -241,7 +241,7 @@ describe('garbage-collection', () => {
 
     it('skips retireExport when object is recognizable', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o+1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
 
       // Set only recognizable count to non-zero
       kernelStore.setObjectRefCount(ko1, { reachable: 0, recognizable: 1 });

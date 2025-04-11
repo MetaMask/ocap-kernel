@@ -35,7 +35,7 @@ export function getCListMethods(ctx: StoreContext) {
    * @param kref - The KRef.
    * @param eref - The ERef.
    */
-  function addClistEntry(endpointId: EndpointId, kref: KRef, eref: ERef): void {
+  function addCListEntry(endpointId: EndpointId, kref: KRef, eref: ERef): void {
     ctx.kv.set(
       getSlotKey(endpointId, kref),
       buildReachableAndVatSlot(true, eref),
@@ -61,21 +61,26 @@ export function getCListMethods(ctx: StoreContext) {
    * @param kref - The KRef.
    * @param eref - The ERef.
    */
-  function deleteClistEntry(
+  function deleteCListEntry(
     endpointId: EndpointId,
     kref: KRef,
     eref: ERef,
   ): void {
     const kernelKey = getSlotKey(endpointId, kref);
     const vatKey = getSlotKey(endpointId, eref);
+    console.log('deleteCListEntry', kernelKey, vatKey);
     assert(ctx.kv.get(kernelKey));
+    console.log('clearReachableFlag', endpointId, kref);
     clearReachableFlag(endpointId, kref);
+    console.log('decrementRefCount from deleteCListEntry', kref);
     const { direction } = parseRef(eref);
     decrementRefCount(kref, {
       isExport: direction === 'export',
       onlyRecognizable: true,
     });
+    console.log('delete kernelKey', kernelKey);
     ctx.kv.delete(kernelKey);
+    console.log('delete vatKey', vatKey);
     ctx.kv.delete(vatKey);
   }
 
@@ -102,7 +107,7 @@ export function getCListMethods(ctx: StoreContext) {
       refType = 'o';
     }
     const eref = `${refTag}${refType}-${id}`;
-    addClistEntry(endpointId, kref, eref);
+    addCListEntry(endpointId, kref, eref);
     return eref;
   }
 
@@ -158,7 +163,7 @@ export function getCListMethods(ctx: StoreContext) {
   function forgetEref(endpointId: EndpointId, eref: ERef): void {
     const kref = erefToKref(endpointId, eref);
     if (kref) {
-      deleteClistEntry(endpointId, kref, eref);
+      deleteCListEntry(endpointId, kref, eref);
     }
   }
 
@@ -171,7 +176,7 @@ export function getCListMethods(ctx: StoreContext) {
   function forgetKref(endpointId: EndpointId, kref: KRef): void {
     const eref = krefToEref(endpointId, kref);
     if (eref) {
-      deleteClistEntry(endpointId, kref, eref);
+      deleteCListEntry(endpointId, kref, eref);
     }
   }
 
@@ -199,6 +204,7 @@ export function getCListMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
+      console.log('incrementRefCount', refCountKey(kref), refCount);
       ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
@@ -233,43 +239,57 @@ export function getCListMethods(ctx: StoreContext) {
       onlyRecognizable = false,
     }: { isExport?: boolean; onlyRecognizable?: boolean } = {},
   ): boolean {
+    console.log('decrementRefCount from decrementRefCount', kref);
     kref || Fail`decrementRefCount called with empty kref`;
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
+      console.log('isPromise');
       let refCount = Number(ctx.kv.get(refCountKey(kref)));
+      console.log('refCount', refCount);
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
+      console.log('refCount after decrement', refCount);
       ctx.kv.set(refCountKey(kref), `${refCount}`);
       if (refCount === 0) {
+        console.log('refCount is 0, add to maybeFreeKrefs', kref);
         ctx.maybeFreeKrefs.add(kref);
         return true;
       }
+      console.log('refCount is not 0, return false');
       return false;
     }
 
     if (isExport || !kernelRefExists(kref)) {
+      console.log('isExport or !kernelRefExists, return false');
       return false;
     }
 
     const counts = getObjectRefCount(kref);
     if (!onlyRecognizable) {
+      console.log('!onlyRecognizable, decrement reachable');
       counts.reachable -= 1;
     }
+    console.log('decrement recognizable');
     counts.recognizable -= 1;
     if (!counts.reachable || !counts.recognizable) {
+      console.log(
+        '!counts.reachable || !counts.recognizable, add to maybeFreeKrefs',
+        kref,
+      );
       ctx.maybeFreeKrefs.add(kref);
     }
     setObjectRefCount(kref, counts);
     ctx.kv.set('initialized', 'true');
+    console.log('return false');
     return false;
   }
 
   return {
     // C-List entries
-    addClistEntry,
+    addCListEntry,
     hasCListEntry,
-    deleteClistEntry,
+    deleteCListEntry,
     // Eref allocation
     allocateErefForKref,
     erefToKref,

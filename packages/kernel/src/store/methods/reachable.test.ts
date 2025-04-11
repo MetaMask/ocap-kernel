@@ -13,7 +13,7 @@ describe('GC methods', () => {
   describe('reachability tracking', () => {
     it('manages reachable flags', () => {
       const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addClistEntry('v1', ko1, 'o-1');
+      kernelStore.addCListEntry('v1', ko1, 'o-1');
 
       expect(kernelStore.getReachableFlag('v1', ko1)).toBe(true);
 
