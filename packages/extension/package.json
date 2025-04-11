@@ -46,7 +46,7 @@
     "@metamask/json-rpc-engine": "^10.0.3",
     "@metamask/rpc-errors": "^7.0.2",
     "@metamask/snaps-utils": "^9.1.0",
-    "@metamask/superstruct": "^3.2.0",
+    "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
     "@ocap/kernel": "workspace:^",

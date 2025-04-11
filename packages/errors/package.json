@@ -42,7 +42,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@metamask/superstruct": "^3.2.0",
+    "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0"
   },
   "devDependencies": {

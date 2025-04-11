@@ -59,7 +59,7 @@
   "dependencies": {
     "@endo/promise-kit": "^1.1.10",
     "@endo/stream": "^1.2.10",
-    "@metamask/superstruct": "^3.2.0",
+    "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
     "@ocap/utils": "workspace:^"
