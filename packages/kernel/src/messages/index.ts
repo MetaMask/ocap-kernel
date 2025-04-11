@@ -4,7 +4,6 @@ export {
   KernelCommandMethod,
   isKernelCommand,
   isKernelCommandReply,
-  KernelSendVatCommandStruct,
 } from './kernel.ts';
 export type { KernelCommand, KernelCommandReply } from './kernel.ts';
 

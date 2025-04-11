@@ -1,15 +1,12 @@
-import { object, union, is } from '@metamask/superstruct';
+import { union, is } from '@metamask/superstruct';
 import type { Infer, Struct } from '@metamask/superstruct';
-import type { Json } from '@metamask/utils';
-import type { TypeGuard } from '@ocap/utils';
+import type { EmptyJsonArray, TypeGuard } from '@ocap/utils';
 
 import {
-  VatMethodStructs,
   VatTestCommandMethod,
   VatTestMethodStructs,
   VatTestReplyStructs,
 } from './vat.ts';
-import { VatIdStruct } from '../types.ts';
 
 export const KernelCommandMethod = {
   ping: VatTestCommandMethod.ping,
@@ -20,7 +17,7 @@ export const KernelCommandMethod = {
 const KernelCommandStruct = union([VatTestMethodStructs.ping]) as Struct<
   {
     method: 'ping';
-    params: Json[];
+    params: EmptyJsonArray;
   },
   null
 >;
@@ -45,8 +42,3 @@ export const isKernelCommand: TypeGuard<KernelCommand> = (
 export const isKernelCommandReply: TypeGuard<KernelCommandReply> = (
   value: unknown,
 ): value is KernelCommandReply => is(value, KernelCommandReplyStruct);
-
-export const KernelSendVatCommandStruct = object({
-  id: VatIdStruct,
-  payload: union([VatMethodStructs.ping]),
-});

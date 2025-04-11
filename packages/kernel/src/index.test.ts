@@ -8,7 +8,6 @@ describe('index', () => {
       'ClusterConfigStruct',
       'Kernel',
       'KernelCommandMethod',
-      'KernelSendVatCommandStruct',
       'VatCommandMethod',
       'VatConfigStruct',
       'VatHandle',
