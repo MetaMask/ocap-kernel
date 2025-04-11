@@ -66,7 +66,7 @@ describe('VatHandle', () => {
       expect(sendVatCommandMock).toHaveBeenCalledWith({
         method: VatCommandMethod.initVat,
         params: {
-          state: new Map(),
+          state: {},
           vatConfig: {
             sourceSpec: 'not-really-there.js',
           },

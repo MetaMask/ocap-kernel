@@ -3,16 +3,12 @@ import type { CapData } from '@endo/marshal';
 import {
   define,
   is,
-  never,
   object,
-  optional,
   string,
   array,
   record,
   union,
   tuple,
-  map,
-  set,
   literal,
   boolean,
   exactOptional,
@@ -231,24 +227,6 @@ export type VatWorkerManager = {
 
 // Cluster configuration
 
-type UserCodeSpec =
-  // Ugly but working hack, absent TypeScript having a genuine exclusive union construct.
-  | {
-      sourceSpec: string;
-      bundleSpec?: never;
-      bundleName?: never;
-    }
-  | {
-      sourceSpec?: never;
-      bundleSpec: string;
-      bundleName?: never;
-    }
-  | {
-      sourceSpec?: never;
-      bundleSpec?: never;
-      bundleName: string;
-    };
-
 export type VatConfig = UserCodeSpec & {
   creationOptions?: Record<string, Json>;
   parameters?: Record<string, Json>;
@@ -257,20 +235,16 @@ export type VatConfig = UserCodeSpec & {
 const UserCodeSpecStruct = union([
   object({
     sourceSpec: string(),
-    bundleSpec: optional(never()),
-    bundleName: optional(never()),
   }),
   object({
-    sourceSpec: optional(never()),
     bundleSpec: string(),
-    bundleName: optional(never()),
   }),
   object({
-    sourceSpec: optional(never()),
-    bundleSpec: optional(never()),
     bundleName: string(),
   }),
 ]);
+
+type UserCodeSpec = Infer<typeof UserCodeSpecStruct>;
 
 export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
   if (!value) {
@@ -308,12 +282,12 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
 
-export type VatCheckpoint = [Map<string, string>, Set<string>];
-
 export const VatCheckpointStruct = tuple([
-  map(string(), string()),
-  set(string()),
+  record(string(), string()),
+  array(string()),
 ]);
+
+export type VatCheckpoint = Infer<typeof VatCheckpointStruct>;
 
 export type GCRunQueueType = 'dropExports' | 'retireExports' | 'retireImports';
 export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';

@@ -64,7 +64,7 @@ describe('VatSupervisor', () => {
           method: VatCommandMethod.initVat,
           params: {
             vatConfig,
-            state: new Map<string, string>(),
+            state: {},
           },
         },
       });

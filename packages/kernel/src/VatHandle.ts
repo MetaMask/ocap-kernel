@@ -135,7 +135,10 @@ export class VatHandle {
 
     await this.sendVatCommand({
       method: VatCommandMethod.initVat,
-      params: { vatConfig: this.config, state: this.#vatStore.getKVData() },
+      params: {
+        vatConfig: this.config,
+        state: Object.fromEntries(this.#vatStore.getKVData()),
+      },
     });
   }
 
@@ -160,7 +163,10 @@ export class VatHandle {
       ) {
         result = null;
         const [sets, deletes] = payload.params;
-        this.#vatStore.updateKVData(sets, deletes);
+        this.#vatStore.updateKVData(
+          new Map(Object.entries(sets)),
+          new Set(deletes),
+        );
       } else {
         result = payload.params;
       }

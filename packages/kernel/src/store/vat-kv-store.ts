@@ -72,7 +72,10 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
       keyCache = null;
     },
     checkpoint(): VatCheckpoint {
-      const result: VatCheckpoint = [sets, deletes];
+      const result: VatCheckpoint = [
+        Object.fromEntries(sets),
+        Array.from(deletes),
+      ];
       sets = new Map();
       deletes = new Set();
       return result;

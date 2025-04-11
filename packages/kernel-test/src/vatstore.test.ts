@@ -32,14 +32,14 @@ const makeTestSubcluster = (): ClusterConfig => ({
   },
 });
 
-const emptyMap = new Map();
-const emptySet = new Set();
+const emptyRecord: Record<string, string> = {};
+const emptyArray: string[] = [];
 
 // prettier-ignore
-const referenceKVUpdates = [
+const referenceKVUpdates: [Record<string, string>, string[]][] = [
   [
     // initVat initializes built-in tables and empty baggage
-    new Map([
+    Object.fromEntries([
       ['baggageID', 'o+d6/1'],
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":5}'],
       ['kindIDID', '1'],
@@ -62,48 +62,48 @@ const referenceKVUpdates = [
       ['watchedPromiseTableID', 'o+d6/4'],
       ['watcherTableID', 'o+d6/3'],
     ]),
-    emptySet,
+    emptyArray,
   ],
   // execution of 'bootstrap' initializes baggage, setting "thing" to 1 and
   // "goAway" to the string "now you see me", (and thus the baggage entry count
   // to 2).
   [
-    new Map([
+    Object.fromEntries([
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":7}'],
       ['vc.1.sgoAway', '{"body":"#\\"now you see me\\"","slots":[]}'],
       ['vc.1.sthing', '{"body":"#1","slots":[]}'],
       ['vc.1.|entryCount', '2'],
     ]),
-    emptySet,
+    emptyArray,
   ],
   // first 'bump' (from Bob) increments "thing" to 2
   [
-    new Map([
+    Object.fromEntries([
       ['vc.1.sthing', '{"body":"#2","slots":[]}'],
     ]),
-    emptySet,
+    emptyArray,
   ],
   // notification of 'go' result from Bob changes nothing
-  [emptyMap, emptySet],
+  [emptyRecord, emptyArray],
   // second 'bump' (from Carol) increments "thing" to 3
   [
-    new Map([
+    Object.fromEntries([
       ['vc.1.sthing', '{"body":"#3","slots":[]}'],
     ]),
-    emptySet,
+    emptyArray,
   ],
   // notification of 'go' result from Carol allows 'bootstrap' method to
   // complete, deleting "goAway" from baggage and dropping the baggage entry
   // count to 1.  Sending 'loopback' consumes a promise ID.
   [
-    new Map([
+    Object.fromEntries([
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":8}'],
       ['vc.1.|entryCount', '1'],
     ]),
-    new Set(['vc.1.sgoAway']),
+    ['vc.1.sgoAway'],
   ],
   // notification of 'loopback' result changes nothing
-  [emptyMap, emptySet],
+  [emptyRecord, emptyArray],
 ]
 
 describe('exercise vatstore', async () => {
@@ -120,7 +120,7 @@ describe('exercise vatstore', async () => {
           const origUpdateKVData = result.updateKVData;
           vi.spyOn(result, 'updateKVData').mockImplementation(
             (sets: Map<string, string>, deletes: Set<string>): void => {
-              kvUpdates.push([sets, deletes]);
+              kvUpdates.push([Object.fromEntries(sets), Array.from(deletes)]);
               origUpdateKVData(sets, deletes);
             },
           );

@@ -1,5 +1,5 @@
 import { VatCommandMethod } from '@ocap/kernel';
-import type { VatId } from '@ocap/kernel';
+import type { VatConfig, VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
 
@@ -19,15 +19,24 @@ export const useVats = (): {
 } => {
   const { callKernelMethod, status, logMessage } = usePanelContext();
 
+  const getSource = (config: VatConfig): string => {
+    if ('bundleSpec' in config) {
+      return config.bundleSpec;
+    }
+    if ('sourceSpec' in config) {
+      return config.sourceSpec;
+    }
+    if ('bundleName' in config) {
+      return config.bundleName;
+    }
+    return 'unknown';
+  };
+
   const vats = useMemo(() => {
     return (
       status?.vats.map(({ id, config }) => ({
         id,
-        source:
-          config?.bundleSpec ??
-          config?.sourceSpec ??
-          config?.bundleName ??
-          'unknown',
+        source: getSource(config),
         parameters: stringify(config?.parameters ?? {}, 0),
         creationOptions: stringify(config?.creationOptions ?? {}, 0),
       })) ?? []

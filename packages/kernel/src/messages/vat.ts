@@ -5,7 +5,6 @@ import {
   unknown,
   tuple,
   union,
-  map,
   literal,
   refine,
   string,
@@ -221,7 +220,7 @@ export const VatMethodStructs = {
     method: literal(VatCommandMethod.initVat),
     params: object({
       vatConfig: VatConfigStruct,
-      state: map(string(), string()),
+      state: record(string(), string()),
     }),
   }),
   [VatCommandMethod.deliver]: object({

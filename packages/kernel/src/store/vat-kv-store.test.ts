@@ -25,15 +25,15 @@ describe('VatKVStore', () => {
 
     const checkpoint = vatstore.checkpoint();
     expect(checkpoint).toStrictEqual([
-      new Map([
+      Object.fromEntries([
         ['key2', 'revisedValue2'],
         ['key4', 'value4'],
       ]),
-      new Set(['key1']),
+      ['key1'],
     ]);
 
     const checkpoint2 = vatstore.checkpoint();
-    expect(checkpoint2).toStrictEqual([new Map(), new Set()]);
+    expect(checkpoint2).toStrictEqual([{}, []]);
 
     expect(backingStore).toStrictEqual(
       new Map([

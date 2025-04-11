@@ -132,7 +132,10 @@ export class VatSupervisor {
       }
 
       case VatCommandMethod.initVat: {
-        await this.#initVat(payload.params.vatConfig, payload.params.state);
+        await this.#initVat(
+          payload.params.vatConfig,
+          new Map(Object.entries(payload.params.state)),
+        );
         await this.replyToMessage(id, {
           method: VatCommandMethod.initVat,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -214,9 +217,9 @@ export class VatSupervisor {
       throw Error('VatSupervisor received initVat with bad config parameter');
     }
     // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
-    if (!vatConfig.bundleSpec) {
+    if (!('bundleSpec' in vatConfig)) {
       throw Error(
-        'for now, only bundleSpec is support in vatConfig specifications',
+        'for now, only sourceSpec is support in vatConfig specifications',
       );
     }
     this.#loaded = true;
