@@ -135,11 +135,25 @@ export const mergeOptions = (
 
 type LogArgs = [string, ...unknown[]] | [];
 
+type LogMethod = (...args: LogArgs) => void;
+
+type LogAlias = 'debug' | 'info' | 'log' | 'warn' | 'error';
+
 /**
  * The logger class.
  */
 export class Logger {
   readonly #options: LoggerOptions;
+
+  log: LogMethod;
+
+  debug: LogMethod;
+
+  info: LogMethod;
+
+  warn: LogMethod;
+
+  error: LogMethod;
 
   /**
    * The constructor for the logger. Sub-loggers can be created by calling the
@@ -156,37 +170,30 @@ export class Logger {
    */
   constructor(options: LoggerOptions = {}) {
     this.#options = options;
+
+    // Create aliases for the log methods, allowing them to be used in a
+    // manner similar to the console object.
+    const bind = (alias: LogAlias): LogMethod =>
+      this.#dispatch.bind(this, {
+        ...this.#options,
+        level: alias as LogLevel,
+      }) as LogMethod;
+    this.log = bind('log');
+    this.debug = bind('debug');
+    this.info = bind('info');
+    this.warn = bind('warn');
+    this.error = bind('error');
   }
 
   subLogger(options: LoggerOptions = {}): Logger {
     return new Logger(mergeOptions(this.#options, options));
   }
 
-  #dispatch(options: LoggerOptions, args: LogArgs): void {
+  #dispatch(options: LoggerOptions, ...args: LogArgs): void {
     const { transports, level, tags } = mergeOptions(this.#options, options);
     const [message, ...data] = args;
     const entry: LogEntry = harden({ level, tags, message, data });
     [consoleTransport, ...transports].forEach((transport) => transport(entry));
-  }
-
-  debug(...args: LogArgs): void {
-    this.#dispatch({ ...this.#options, level: 'debug' }, args);
-  }
-
-  info(...args: LogArgs): void {
-    this.#dispatch({ ...this.#options, level: 'info' }, args);
-  }
-
-  log(...args: LogArgs): void {
-    this.#dispatch({ ...this.#options, level: 'log' }, args);
-  }
-
-  warn(...args: LogArgs): void {
-    this.#dispatch({ ...this.#options, level: 'warn' }, args);
-  }
-
-  error(...args: LogArgs): void {
-    this.#dispatch({ ...this.#options, level: 'error' }, args);
   }
 }
 
