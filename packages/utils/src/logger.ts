@@ -98,7 +98,7 @@ export type LoggerOptions = {
  * The default options for the logger.
  */
 export const DEFAULT_OPTIONS: Required<LoggerOptions> = {
-  transports: [],
+  transports: [consoleTransport],
   level: 'info',
   tags: [],
 };
@@ -207,7 +207,7 @@ export class Logger {
     const { transports, level, tags } = mergeOptions(this.#options, options);
     const [message, ...data] = args;
     const entry: LogEntry = harden({ level, tags, message, data });
-    [consoleTransport, ...transports].forEach((transport) => transport(entry));
+    transports.forEach((transport) => transport(entry));
   }
 }
 

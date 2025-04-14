@@ -180,7 +180,10 @@ describe('mergeOptions', () => {
     'merges transports as expected: $left and $right',
     ({ left, right, result }) => {
       const options = mergeOptions(left, right);
-      expect(options.transports).toStrictEqual(result);
+      expect(options.transports).toStrictEqual([
+        ...DEFAULT_OPTIONS.transports,
+        ...result,
+      ]);
     },
   );
 
