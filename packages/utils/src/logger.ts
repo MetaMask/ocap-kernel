@@ -18,7 +18,7 @@
  *
  * @example
  * ```ts
- * const subLogger = logger.subLogger({ tags: ['sub'] });
+ * const subLogger = logger.subLogger('sub');
  * subLogger.info('Hello, world!');
  * >>> [my-logger, sub] Hello, world!
  * ```
@@ -31,7 +31,8 @@
  *
  * @example
  * ```ts
- * const logger = new Logger('my-logger', {
+ * const logger = new Logger({
+ *   tags: ['my-logger'],
  *   transports: [
  *     (entry) => {
  *       if (entry.tags.includes('vat')) {
@@ -160,7 +161,8 @@ export class Logger {
    * `subLogger` method. Sub-loggers inherit the transports and tags of their
    * parent logger.
    *
-   * @param options - The options for the logger.
+   * @param options - The options for the logger, or a string to use as the
+   *   logger's tag.
    * @param options.transports - The transports, which deliver the log messages
    *   to the appropriate destination.
    * @param options.level - The log level for the logger, used as a default
@@ -168,8 +170,8 @@ export class Logger {
    * @param options.tags - The tags for the logger, which are accumulated by
    *   sub-loggers and passed to the transports.
    */
-  constructor(options: LoggerOptions = {}) {
-    this.#options = options;
+  constructor(options: LoggerOptions | string = {}) {
+    this.#options = typeof options === 'string' ? { tags: [options] } : options;
 
     // Create aliases for the log methods, allowing them to be used in a
     // manner similar to the console object.
@@ -185,8 +187,20 @@ export class Logger {
     this.error = bind('error');
   }
 
-  subLogger(options: LoggerOptions = {}): Logger {
-    return new Logger(mergeOptions(this.#options, options));
+  /**
+   * Creates a sub-logger with the given options.
+   *
+   * @param options - The options for the sub-logger, or a string to use as the
+   *   sub-logger's tag.
+   * @returns The sub-logger.
+   */
+  subLogger(options: LoggerOptions | string = {}): Logger {
+    return new Logger(
+      mergeOptions(
+        this.#options,
+        typeof options === 'string' ? { tags: [options] } : options,
+      ),
+    );
   }
 
   #dispatch(options: LoggerOptions, ...args: LogArgs): void {

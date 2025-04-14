@@ -12,6 +12,14 @@ import type { LoggerOptions, LogLevel } from './logger.ts';
 const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;
 
 describe('Logger', () => {
+  it('can be created from a string', () => {
+    const logSpy = vi.spyOn(console, 'log');
+    const logger = new Logger('test');
+    logger.log('foo');
+    expect(logger).toBeInstanceOf(Logger);
+    expect(logSpy).toHaveBeenCalledWith(['test'], 'foo');
+  });
+
   it.each(consoleMethod)('has method %j', (method) => {
     const testLogger = new Logger({ tags: ['test'] });
     expect(testLogger).toHaveProperty(method);
@@ -92,6 +100,15 @@ describe('Logger', () => {
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
       expect(consoleSpy).toHaveBeenCalledWith(['test'], 'foo');
+    });
+
+    it('works with a string', () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const logger = new Logger({ tags: ['test'] });
+      const subLogger = logger.subLogger('sub');
+      expect(subLogger).toBeInstanceOf(Logger);
+      subLogger.log('foo');
+      expect(consoleSpy).toHaveBeenCalledWith(['test', 'sub'], 'foo');
     });
   });
 });
