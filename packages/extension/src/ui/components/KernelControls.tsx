@@ -6,7 +6,8 @@ import { useVats } from '../hooks/useVats.ts';
  * @returns A panel for controlling the kernel.
  */
 export const KernelControls: React.FC = () => {
-  const { terminateAllVats, clearState, reload } = useKernelActions();
+  const { terminateAllVats, collectGarbage, clearState, reload } =
+    useKernelActions();
   const { vats } = useVats();
 
   return (
@@ -16,6 +17,9 @@ export const KernelControls: React.FC = () => {
           Terminate All Vats
         </button>
       )}
+      <button onClick={collectGarbage} className={styles.buttonGray}>
+        Collect Garbage
+      </button>
       <button className={styles.buttonDanger} onClick={clearState}>
         Clear All State
       </button>

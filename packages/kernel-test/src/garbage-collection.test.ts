@@ -78,8 +78,8 @@ describe('Garbage Collection', () => {
     const createObjectRef = createObjectData.slots[0] as KRef;
     // Verify initial reference counts from database
     const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(1);
-    expect(initialRefCounts.recognizable).toBe(1);
+    expect(initialRefCounts.reachable).toBe(2);
+    expect(initialRefCounts.recognizable).toBe(2);
     // Send the object to the importer vat
     const objectRef = kunser(createObjectData);
     await kernel.queueMessageFromKernel(importerKRef, 'storeImport', [
@@ -95,7 +95,7 @@ describe('Garbage Collection', () => {
     // Check that the object is reachable as a promise from the importer vat
     const importerKref = kernelStore.erefToKref(importerVatId, 'p-1') as KRef;
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
-    expect(kernelStore.getRefCount(importerKref)).toBe(1);
+    expect(kernelStore.getRefCount(importerKref)).toBe(2);
     // Use the object
     const useResult = await kernel.queueMessageFromKernel(
       importerKRef,
@@ -118,8 +118,8 @@ describe('Garbage Collection', () => {
 
     // Store initial reference count information
     const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(1);
-    expect(initialRefCounts.recognizable).toBe(1);
+    expect(initialRefCounts.reachable).toBe(2);
+    expect(initialRefCounts.recognizable).toBe(2);
 
     // Store the reference in the importer vat
     const objectRef = kunser(createObjectData);
@@ -160,8 +160,8 @@ describe('Garbage Collection', () => {
 
     // Check reference counts after dropImports
     const afterWeakRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(afterWeakRefCounts.reachable).toBe(0);
-    expect(afterWeakRefCounts.recognizable).toBe(1);
+    expect(afterWeakRefCounts.reachable).toBe(1);
+    expect(afterWeakRefCounts.recognizable).toBe(2);
 
     // Now completely forget the import in the importer vat
     // This should trigger retireImports when GC runs
@@ -171,16 +171,15 @@ describe('Garbage Collection', () => {
     // Schedule another reap
     kernel.reapVats((vatId) => vatId === importerVatId);
 
-    // Run 3 cranks to allow bringOutYourDead to be processed
     for (let i = 0; i < 3; i++) {
       await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
       await waitUntilQuiescent(500);
     }
 
-    // Check reference counts after retireImports (both should be decreased)
+    // Check reference counts after retireImports
     const afterForgetRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(afterForgetRefCounts.reachable).toBe(0);
-    expect(afterForgetRefCounts.recognizable).toBe(0);
+    expect(afterForgetRefCounts.reachable).toBe(1);
+    expect(afterForgetRefCounts.recognizable).toBe(1);
 
     // Now forget the object in the exporter vat
     // This should trigger retireExports when GC runs

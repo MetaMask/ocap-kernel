@@ -1,5 +1,9 @@
 import { clearStateHandler, clearStateSpec } from './clear-state.ts';
 import {
+  collectGarbageHandler,
+  collectGarbageSpec,
+} from './collect-garbage.ts';
+import {
   executeDBQueryHandler,
   executeDBQuerySpec,
 } from './execute-db-query.ts';
@@ -33,6 +37,7 @@ export const handlers = {
   restartVat: restartVatHandler,
   sendVatCommand: sendVatCommandHandler,
   terminateAllVats: terminateAllVatsHandler,
+  collectGarbage: collectGarbageHandler,
   terminateVat: terminateVatHandler,
   updateClusterConfig: updateClusterConfigHandler,
 } as const;
@@ -49,6 +54,7 @@ export const methodSpecs = {
   restartVat: restartVatSpec,
   sendVatCommand: sendVatCommandSpec,
   terminateAllVats: terminateAllVatsSpec,
+  collectGarbage: collectGarbageSpec,
   terminateVat: terminateVatSpec,
   updateClusterConfig: updateClusterConfigSpec,
 } as const;

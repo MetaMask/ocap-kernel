@@ -151,10 +151,18 @@ h6 {
   border: none;
 }
 
+.buttonGray {
+  composes: button;
+  background-color: var(--color-gray-300);
+  color: var(--color-black);
+  border: none;
+}
+
 .button:hover:not(:disabled) {
   background-color: var(--color-gray-800);
   color: var(--color-white);
 }
+
 .textButton {
   padding: 0;
   border: 0;

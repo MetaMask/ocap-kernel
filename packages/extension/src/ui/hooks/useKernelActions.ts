@@ -11,6 +11,7 @@ import { usePanelContext } from '../context/PanelContext.tsx';
 export function useKernelActions(): {
   sendKernelCommand: () => void;
   terminateAllVats: () => void;
+  collectGarbage: () => void;
   clearState: () => void;
   reload: () => void;
   launchVat: (bundleUrl: string, vatName: string) => void;
@@ -40,6 +41,18 @@ export function useKernelActions(): {
     })
       .then(() => logMessage('All vats terminated', 'success'))
       .catch(() => logMessage('Failed to terminate all vats', 'error'));
+  }, [callKernelMethod, logMessage]);
+
+  /**
+   * Collects garbage.
+   */
+  const collectGarbage = useCallback(() => {
+    callKernelMethod({
+      method: 'collectGarbage',
+      params: [],
+    })
+      .then(() => logMessage('Garbage collected', 'success'))
+      .catch(() => logMessage('Failed to collect garbage', 'error'));
   }, [callKernelMethod, logMessage]);
 
   /**
@@ -104,6 +117,7 @@ export function useKernelActions(): {
   return {
     sendKernelCommand,
     terminateAllVats,
+    collectGarbage,
     clearState,
     reload,
     launchVat,

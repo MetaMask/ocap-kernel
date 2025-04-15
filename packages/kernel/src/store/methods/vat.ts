@@ -35,7 +35,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @param endpointId - The endpoint whose state is to be deleted.
    */
   function deleteEndpoint(endpointId: EndpointId): void {
-    console.log('deleteEndpoint', endpointId);
     for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
       kv.delete(key);
     }
@@ -161,7 +160,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @param vatID - The ID of the vat to add.
    */
   function markVatAsTerminated(vatID: VatId): void {
-    console.log('markVatAsTerminated', vatID);
     const terminatedVats = getTerminatedVats();
     if (!terminatedVats.includes(vatID)) {
       terminatedVats.push(vatID);
@@ -175,7 +173,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @param vatID - The ID of the vat to remove.
    */
   function forgetTerminatedVat(vatID: VatId): void {
-    console.log('forgetTerminatedVat', vatID);
     const terminatedVats = getTerminatedVats().filter((id) => id !== vatID);
     ctx.terminatedVats.set(JSON.stringify(terminatedVats));
   }
@@ -187,7 +184,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns The work done during the cleanup.
    */
   function cleanupTerminatedVat(vatID: VatId): VatCleanupWork {
-    console.log('cleanupTerminatedVat', vatID);
     const work = {
       exports: 0,
       imports: 0,
@@ -233,13 +229,10 @@ export function getVatMethods(ctx: StoreContext) {
       const ownerVat = ctx.kv.get(ownerKey);
       ownerVat === vatID || Fail`export ${kref} not owned by old vat`;
       ctx.kv.delete(ownerKey);
-      console.log('delete ownerKey', ownerKey);
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
-      console.log('delete vatSlot', vatSlot);
-      ctx.kv.delete(`${vatID}.c.${vatSlot}`);
-      ctx.kv.delete(`${vatID}.c.${vatSlot}`);
+      ctx.kv.delete(getSlotKey(vatID, kref));
+      ctx.kv.delete(getSlotKey(vatID, vatSlot));
       ctx.maybeFreeKrefs.add(kref);
-      console.log('add kref to maybeFreeKrefs', kref);
       work.exports += 1;
     }
 
@@ -254,7 +247,6 @@ export function getVatMethods(ctx: StoreContext) {
       // that will also delete both db keys
       work.imports += 1;
     }
-    console.log('deleted imports', work.imports);
 
     // The caller used enumeratePromisesByDecider() before calling us,
     // so they have already rejected the orphan promises, but those
@@ -263,12 +255,10 @@ export function getVatMethods(ctx: StoreContext) {
       const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
-      console.log('delete promise', kref, vref);
       deleteCListEntry(vatID, kref, vref);
       // that will also delete both db keys
       work.promises += 1;
     }
-    console.log('deleted promises', work.promises);
 
     // Finally, clean up any remaining KV entries for this vat
     for (const key of getPrefixedKeys(`${vatID}.`)) {
@@ -296,7 +286,6 @@ export function getVatMethods(ctx: StoreContext) {
   function nextTerminatedVatCleanup(): boolean {
     const vatID = getTerminatedVats()?.[0];
     vatID && cleanupTerminatedVat(vatID);
-    console.log('nextTerminatedVatCleanup', vatID);
     return getTerminatedVats().length > 0;
   }
 

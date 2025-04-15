@@ -150,3 +150,13 @@ export function parseReplyBody(body: string): unknown {
     return body;
   }
 }
+
+/**
+ * Debug the database.
+ *
+ * @param kernelDatabase - The database to debug.
+ */
+export function logDatabase(kernelDatabase: KernelDatabase): void {
+  const result = kernelDatabase.executeQuery('SELECT * FROM kv');
+  console.log(result);
+}
