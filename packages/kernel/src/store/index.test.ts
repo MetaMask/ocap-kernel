@@ -102,7 +102,7 @@ describe('kernel store', () => {
         'initEndpoint',
         'initKernelObject',
         'initKernelPromise',
-        'isTerminatedVat',
+        'isVatTerminated',
         'kernelRefExists',
         'krefToEref',
         'krefsToExistingErefs',
@@ -147,23 +147,23 @@ describe('kernel store', () => {
       expect(refCounts.recognizable).toBe(1);
 
       // Increment the reference count
-      ks.incrementRefCount('ko1', {});
+      ks.incrementRefCount('ko1', 'test');
       expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
       expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
 
       // Increment again
-      ks.incrementRefCount('ko1', {});
+      ks.incrementRefCount('ko1', 'test');
       expect(ks.getObjectRefCount('ko1').reachable).toBe(3);
       expect(ks.getObjectRefCount('ko1').recognizable).toBe(3);
 
       // Decrement
-      ks.decrementRefCount('ko1', {});
+      ks.decrementRefCount('ko1', 'tess');
       expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
       expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
 
       // Decrement twice more to reach 0
-      ks.decrementRefCount('ko1', {});
-      ks.decrementRefCount('ko1', {});
+      ks.decrementRefCount('ko1', 'test');
+      ks.decrementRefCount('ko1', 'test');
       expect(ks.getObjectRefCount('ko1').reachable).toBe(0);
       expect(ks.getObjectRefCount('ko1').recognizable).toBe(0);
 

@@ -3,6 +3,7 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
+import { getCListMethods } from './clist.ts';
 import { getQueueMethods } from './queue.ts';
 import { getRefCountMethods } from './refcount.ts';
 import type {
@@ -31,6 +32,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   );
   const { enqueueRun } = getQueueMethods(ctx);
   const { refCountKey } = getRefCountMethods(ctx);
+  const { incrementRefCount } = getCListMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with
@@ -154,6 +156,12 @@ export function getPromiseMethods(ctx: StoreContext) {
     rejected: boolean,
     value: CapData<KRef>,
   ): void {
+    let idx = 0;
+    for (const dataSlot of value.slots) {
+      incrementRefCount(dataSlot, `resolve|${kpid}|s${idx}`);
+      idx += 1;
+    }
+
     const queue = provideStoredQueue(kpid, false);
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       const messageItem: RunQueueItemSend = {

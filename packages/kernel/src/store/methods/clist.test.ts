@@ -210,7 +210,7 @@ describe('clist-methods', () => {
       // Set up initial refCount
       kv.set(`${kref}.refCount`, '1');
 
-      clistMethods.incrementRefCount(kref, {});
+      clistMethods.incrementRefCount(kref, 'test');
 
       // Check that the refCount was incremented
       expect(kv.get(`${kref}.refCount`)).toBe('2');
@@ -219,7 +219,7 @@ describe('clist-methods', () => {
     it('does not increment object counts for exports', () => {
       const kref: KRef = 'ko1';
 
-      clistMethods.incrementRefCount(kref, { isExport: true });
+      clistMethods.incrementRefCount(kref, 'test', { isExport: true });
 
       // Should not call getObjectRefCount or setObjectRefCount
       expect(mockGetObjectRefCount).not.toHaveBeenCalled();
@@ -227,9 +227,9 @@ describe('clist-methods', () => {
     });
 
     it('throws for empty kref', () => {
-      expect(() => clistMethods.incrementRefCount('' as KRef, {})).toThrow(
-        'incrementRefCount called with empty kref',
-      );
+      expect(() =>
+        clistMethods.incrementRefCount('' as KRef, 'test', {}),
+      ).toThrow('incrementRefCount called with empty kref');
     });
   });
 
@@ -240,7 +240,7 @@ describe('clist-methods', () => {
       // Set up initial refCount
       kv.set(`${kref}.refCount`, '2');
 
-      const result = clistMethods.decrementRefCount(kref, {});
+      const result = clistMethods.decrementRefCount(kref, 'test');
 
       // Check that the refCount was decremented
       expect(kv.get(`${kref}.refCount`)).toBe('1');
@@ -254,7 +254,7 @@ describe('clist-methods', () => {
       // Set up initial refCount
       kv.set(`${kref}.refCount`, '1');
 
-      const result = clistMethods.decrementRefCount(kref, {});
+      const result = clistMethods.decrementRefCount(kref, 'test');
 
       // Check that the refCount was decremented to zero
       expect(kv.get(`${kref}.refCount`)).toBe('0');
@@ -265,7 +265,9 @@ describe('clist-methods', () => {
     it('does not decrement object counts for exports', () => {
       const kref: KRef = 'ko1';
 
-      const result = clistMethods.decrementRefCount(kref, { isExport: true });
+      const result = clistMethods.decrementRefCount(kref, 'test', {
+        isExport: true,
+      });
 
       // Should not call getObjectRefCount or setObjectRefCount
       expect(mockGetObjectRefCount).not.toHaveBeenCalled();
@@ -274,9 +276,9 @@ describe('clist-methods', () => {
     });
 
     it('throws for empty kref', () => {
-      expect(() => clistMethods.decrementRefCount('' as KRef, {})).toThrow(
-        'decrementRefCount called with empty kref',
-      );
+      expect(() =>
+        clistMethods.decrementRefCount('' as KRef, 'test', {}),
+      ).toThrow('decrementRefCount called with empty kref');
     });
 
     it('throws for underflow on promise refCount', () => {
@@ -285,7 +287,7 @@ describe('clist-methods', () => {
       // Set up initial refCount at 0
       kv.set(`${kref}.refCount`, '0');
 
-      expect(() => clistMethods.decrementRefCount(kref, {})).toThrow(
+      expect(() => clistMethods.decrementRefCount(kref, 'test')).toThrow(
         /refCount underflow/u,
       );
     });

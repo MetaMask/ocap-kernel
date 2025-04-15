@@ -24,7 +24,7 @@ export function getCListMethods(ctx: StoreContext) {
   const { getSlotKey } = getBaseMethods(ctx.kv);
   const { clearReachableFlag } = getReachableMethods(ctx);
   const { getObjectRefCount, setObjectRefCount } = getObjectMethods(ctx);
-  const { kernelRefExists, refCountKey, incRefCount } = getRefCountMethods(ctx);
+  const { kernelRefExists, refCountKey } = getRefCountMethods(ctx);
 
   /**
    * Add an entry to an endpoint's c-list, creating a new bidirectional mapping
@@ -71,7 +71,7 @@ export function getCListMethods(ctx: StoreContext) {
     assert(ctx.kv.get(kernelKey));
     clearReachableFlag(endpointId, kref);
     const { direction } = parseRef(eref);
-    decrementRefCount(kref, {
+    decrementRefCount(kref, 'delete|kref', {
       isExport: direction === 'export',
       onlyRecognizable: true,
     });
@@ -183,12 +183,14 @@ export function getCListMethods(ctx: StoreContext) {
    * and "recognizable" counts.
    *
    * @param kref - The kernel slot whose refcount is to be incremented.
+   * @param tag - The tag of the kernel slot.
    * @param options - Options for the increment.
    * @param options.isExport - True if the reference comes from a clist export, which counts for promises but not objects.
    * @param options.onlyRecognizable - True if the reference provides only recognition, not reachability.
    */
   function incrementRefCount(
     kref: KRef,
+    tag: string,
     {
       isExport = false,
       onlyRecognizable = false,
@@ -198,7 +200,9 @@ export function getCListMethods(ctx: StoreContext) {
 
     const { isPromise } = parseRef(kref);
     if (isPromise) {
-      incRefCount(kref);
+      const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
+      console.debug('++', refCountKey(kref), refCount, tag);
+      ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
 
@@ -212,6 +216,7 @@ export function getCListMethods(ctx: StoreContext) {
       counts.reachable += 1;
     }
     counts.recognizable += 1;
+    console.debug('++', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
   }
 
@@ -219,6 +224,7 @@ export function getCListMethods(ctx: StoreContext) {
    * Decrement the reference count associated with some kernel object.
    *
    * @param kref - The kernel slot whose refcount is to be decremented.
+   * @param tag - The tag of the kernel slot.
    * @param options - Options for the decrement.
    * @param options.isExport - True if the reference comes from a clist export, which counts for promises but not objects.
    * @param options.onlyRecognizable - True if the reference provides only recognition, not reachability.
@@ -227,6 +233,7 @@ export function getCListMethods(ctx: StoreContext) {
    */
   function decrementRefCount(
     kref: KRef,
+    tag: string,
     {
       isExport = false,
       onlyRecognizable = false,
@@ -237,6 +244,7 @@ export function getCListMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       let refCount = Number(ctx.kv.get(refCountKey(kref)));
+      console.debug('--', refCountKey(kref), refCount - 1, tag);
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
       ctx.kv.set(refCountKey(kref), `${refCount}`);
@@ -259,6 +267,7 @@ export function getCListMethods(ctx: StoreContext) {
     if (!counts.reachable || !counts.recognizable) {
       ctx.maybeFreeKrefs.add(kref);
     }
+    console.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
     ctx.kv.set('initialized', 'true');
     return false;

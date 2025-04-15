@@ -139,7 +139,7 @@ export function getGCMethods(ctx: StoreContext) {
               // Note: the following decrement can result in an addition to the
               // maybeFreeKrefs set, which we are in the midst of iterating.
               // TC39 went to a lot of trouble to ensure that this is kosher.
-              decrementRefCount(slot);
+              decrementRefCount(slot, 'gc|promise|slot');
             }
           }
           deleteKernelPromise(kpid);

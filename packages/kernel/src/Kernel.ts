@@ -288,7 +288,7 @@ export class Kernel {
       kref = this.#kernelStore.initKernelObject(vatId);
     }
     this.#kernelStore.addCListEntry(vatId, kref, vref);
-    this.#kernelStore.incrementRefCount(kref, {
+    this.#kernelStore.incrementRefCount(kref, 'export', {
       isExport: true,
       onlyRecognizable: true,
     });
@@ -333,7 +333,7 @@ export class Kernel {
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
-    this.#kernelStore.incrementRefCount(rootRef);
+    this.#kernelStore.incrementRefCount(rootRef, 'root');
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     return rootRef;
   }
@@ -540,15 +540,24 @@ export class Kernel {
                   throw TypeError('message result must be a string');
                 }
                 this.#kernelStore.setPromiseDecider(message.result, vatId);
-                this.#kernelStore.decrementRefCount(message.result);
+                this.#kernelStore.decrementRefCount(
+                  message.result,
+                  'deliver|send|result',
+                );
               }
               const vatTarget = this.#translateRefKtoV(vatId, target, false);
               const vatMessage = this.#translateMessageKtoV(vatId, message);
               await vat.deliverMessage(vatTarget, vatMessage);
-              // decrement refcount for processed 'send' items
-              this.#kernelStore.decrementRefCount(target);
+              // decrement refcount for processed 'send' items except for the root object
+              const vatKref = this.#kernelStore.erefToKref(vatId, 'o+0');
+              if (vatKref !== target) {
+                this.#kernelStore.decrementRefCount(
+                  target,
+                  'deliver|send|target',
+                );
+              }
               for (const slot of message.methargs.slots) {
-                this.#kernelStore.decrementRefCount(slot);
+                this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
               }
             } else {
               Fail`no owner for kernel object ${target}`;
@@ -559,12 +568,18 @@ export class Kernel {
           log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
         } else {
           // Message went splat
-          this.#kernelStore.decrementRefCount(item.target);
+          this.#kernelStore.decrementRefCount(
+            item.target,
+            'deliver|splat|target',
+          );
           if (item.message.result) {
-            this.#kernelStore.decrementRefCount(item.message.result);
+            this.#kernelStore.decrementRefCount(
+              item.message.result,
+              'deliver|splat|result',
+            );
           }
           for (const slot of item.message.methargs.slots) {
-            this.#kernelStore.decrementRefCount(slot);
+            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
           }
         }
         break;
@@ -608,16 +623,22 @@ export class Kernel {
             this.#translateCapDataKtoV(vatId, tPromise.value),
           ]);
           // delete the c-list entry for the promise being notified
-          const { vatSlot } = this.#kernelStore.getReachableAndVatSlot(
-            vatId,
-            toResolve,
-          );
-          this.#kernelStore.deleteCListEntry(vatId, toResolve, vatSlot);
+          // const { vatSlot } = this.#kernelStore.getReachableAndVatSlot(
+          //   vatId,
+          //   toResolve,
+          // );
+          // this.#kernelStore.deleteCListEntry(vatId, toResolve, vatSlot);
+          if (toResolve !== kpid) {
+            this.#kernelStore.decrementRefCount(
+              toResolve,
+              'deliver|notify|slot',
+            );
+          }
         }
         const vat = this.#getVat(vatId);
         await vat.deliverNotify(resolutions);
         // Decrement reference count for processed 'notify' item
-        this.#kernelStore.decrementRefCount(kpid);
+        this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
         log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
         break;
       }
@@ -716,7 +737,7 @@ export class Kernel {
     const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
     this.enqueueRun(notifyItem);
     // Increment reference count for the promise being notified about
-    this.#kernelStore.incrementRefCount(kpid);
+    this.#kernelStore.incrementRefCount(kpid, 'notify');
   }
 
   /**
@@ -733,9 +754,9 @@ export class Kernel {
       const [kpid, rejected, dataRaw] = resolution;
       const data = dataRaw as CapData<KRef>;
 
-      this.#kernelStore.incrementRefCount(kpid);
+      this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || []) {
-        this.#kernelStore.incrementRefCount(slot);
+        this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
       }
 
       const promise = this.#kernelStore.getKernelPromise(kpid);
@@ -782,12 +803,10 @@ export class Kernel {
       result,
     };
 
-    this.#kernelStore.incrementRefCount(target);
-    this.#kernelStore.incrementRefCount(result);
+    this.#kernelStore.incrementRefCount(target, 'queue|target');
+    this.#kernelStore.incrementRefCount(result, 'queue|result');
     for (const slot of message.methargs.slots || []) {
-      if (slot !== target) {
-        this.#kernelStore.incrementRefCount(slot);
-      }
+      this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
 
     const queueItem: RunQueueItemSend = {
@@ -997,7 +1016,6 @@ export class Kernel {
   collectGarbage(): void {
     while (this.#kernelStore.nextTerminatedVatCleanup()) {
       // wait for all vats to be cleaned up
-      console.log('waiting for vats to be cleaned up');
     }
     this.#kernelStore.collectGarbage();
   }

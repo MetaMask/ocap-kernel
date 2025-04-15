@@ -275,17 +275,19 @@ test.describe('Vat Manager', () => {
       '{"key":"ko3.owner","value":"v3"}',
       '{"key":"v3.c.ko3","value":"R o+0"}',
       '{"key":"v3.c.o+0","value":"ko3"}',
-      '{"key":"kp3.state","value":"fulfilled"}',
-      '{"key":"kp3.refCount","value":"1"}',
       '{"key":"v3.c.kp3","value":"R p-1"}',
       '{"key":"v3.c.p-1","value":"kp3"}',
-      '{"key":"kp3.value","value"',
     ];
     const v1ko3Values = [
-      '{"key":"ko3.refCount","value":"1,1"}',
       '{"key":"v1.c.ko3","value":"R o-2"}',
       '{"key":"v1.c.o-2","value":"ko3"}',
+      '{"key":"ko3.refCount","value":"2,2"}',
+      '{"key":"kp3.state","value":"fulfilled"}',
+      '{"key":"kp3.value","value"',
     ];
+    await expect(messageOutput).toContainText(
+      '{"key":"kp3.refCount","value":"2"}',
+    );
     await expect(messageOutput).toContainText('{"key":"vatConfig.v3","value"');
     for (const value of v3Values) {
       await expect(messageOutput).toContainText(value);
@@ -322,6 +324,10 @@ test.describe('Vat Manager', () => {
     for (const value of v1ko3Values) {
       await expect(messageOutput).toContainText(value);
     }
+    // kp3 reference dropped to 1
+    await expect(messageOutput).toContainText(
+      '{"key":"kp3.refCount","value":"1"}',
+    );
     await popupPage.click('button:text("Vat Manager")');
     // delete v1
     await popupPage.locator('td button:text("Terminate")').first().click();
@@ -337,9 +343,5 @@ test.describe('Vat Manager', () => {
     for (const value of v1ko3Values) {
       await expect(messageOutput).not.toContainText(value);
     }
-    // GC v2 exported references
-    await expect(messageOutput).toContainText(
-      '{"key":"gcActions","value":"[\\"v2 dropExport ko2\\",\\"v2 retireExport ko2\\"]"}',
-    );
   });
 });
