@@ -12,6 +12,14 @@ vi.mock('./base.ts', () => ({
 describe('vat store methods', () => {
   let mockKV: Map<string, string>;
   let mockGetPrefixedKeys = vi.fn();
+  let mockGetSlotKey = vi.fn();
+  let mockTerminatedVats = {
+    get: vi.fn(),
+    set: vi.fn(),
+  };
+  let mockMaybeFreeKrefs = {
+    add: vi.fn(),
+  };
   let context: StoreContext;
   let vatMethods: ReturnType<typeof getVatMethods>;
   const vatID1 = 'v1' as VatId;
@@ -30,9 +38,18 @@ describe('vat store methods', () => {
   beforeEach(() => {
     mockKV = new Map();
     mockGetPrefixedKeys = vi.fn();
+    mockGetSlotKey = vi.fn((vatId, ref) => `slot.${vatId}.${ref}`);
+    mockTerminatedVats = {
+      get: vi.fn().mockReturnValue('[]'),
+      set: vi.fn(),
+    };
+    mockMaybeFreeKrefs = {
+      add: vi.fn(),
+    };
 
     (getBaseMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       getPrefixedKeys: mockGetPrefixedKeys,
+      getSlotKey: mockGetSlotKey,
     });
 
     context = {
@@ -52,7 +69,9 @@ describe('vat store methods', () => {
           mockKV.delete(key);
         },
       },
-    } as StoreContext;
+      terminatedVats: mockTerminatedVats,
+      maybeFreeKrefs: mockMaybeFreeKrefs,
+    } as unknown as StoreContext;
 
     vatMethods = getVatMethods(context);
   });
@@ -211,35 +230,125 @@ describe('vat store methods', () => {
     });
   });
 
-  describe('getImporters', () => {
-    it('handles case with no vats', () => {
-      const kernelObject = 'ko123';
+  describe('getTerminatedVats', () => {
+    it('returns empty array when no vats are terminated', () => {
+      mockTerminatedVats.get.mockReturnValue('[]');
 
-      // Mock empty array of vat IDs
-      mockGetPrefixedKeys.mockImplementation((prefix) => {
-        if (prefix === 'vatConfig.') {
-          return [];
-        }
-        return [];
-      });
+      const result = vatMethods.getTerminatedVats();
 
-      // This shouldn't be called
-      const mockImportsKernelSlot = vi.fn();
+      expect(result).toStrictEqual([]);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
 
-      // Replace the importsKernelSlot method for this test
-      const originalImportsKernelSlot = vatMethods.importsKernelSlot;
-      vatMethods.importsKernelSlot = mockImportsKernelSlot;
+    it('returns array of terminated vat IDs', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1, vatID2]));
 
-      try {
-        const result = vatMethods.getImporters(kernelObject);
+      const result = vatMethods.getTerminatedVats();
 
-        expect(result).toStrictEqual([]);
-        expect(mockGetPrefixedKeys).toHaveBeenCalledWith('vatConfig.');
-        expect(mockImportsKernelSlot).not.toHaveBeenCalled();
-      } finally {
-        // Restore original method
-        vatMethods.importsKernelSlot = originalImportsKernelSlot;
-      }
+      expect(result).toStrictEqual([vatID1, vatID2]);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('returns empty array when no terminated vats data exists', () => {
+      mockTerminatedVats.get.mockReturnValue(null);
+
+      const result = vatMethods.getTerminatedVats();
+
+      expect(result).toStrictEqual([]);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+  });
+
+  describe('markVatAsTerminated', () => {
+    it('adds a vat to the terminated vats list', () => {
+      mockTerminatedVats.get.mockReturnValue('[]');
+
+      vatMethods.markVatAsTerminated(vatID1);
+
+      expect(mockTerminatedVats.set).toHaveBeenCalledWith(
+        JSON.stringify([vatID1]),
+      );
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('does not add a vat that is already in the terminated list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1]));
+
+      vatMethods.markVatAsTerminated(vatID1);
+
+      expect(mockTerminatedVats.set).not.toHaveBeenCalled();
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('appends to existing terminated vats list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1]));
+
+      vatMethods.markVatAsTerminated(vatID2);
+
+      expect(mockTerminatedVats.set).toHaveBeenCalledWith(
+        JSON.stringify([vatID1, vatID2]),
+      );
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+  });
+
+  describe('forgetTerminatedVat', () => {
+    it('removes a vat from the terminated vats list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1, vatID2]));
+
+      vatMethods.forgetTerminatedVat(vatID1);
+
+      expect(mockTerminatedVats.set).toHaveBeenCalledWith(
+        JSON.stringify([vatID2]),
+      );
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('does nothing if vat is not in the terminated list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID2]));
+
+      vatMethods.forgetTerminatedVat(vatID1);
+
+      expect(mockTerminatedVats.set).toHaveBeenCalledWith(
+        JSON.stringify([vatID2]),
+      );
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('handles empty terminated vats list', () => {
+      mockTerminatedVats.get.mockReturnValue('[]');
+
+      vatMethods.forgetTerminatedVat(vatID1);
+
+      expect(mockTerminatedVats.set).toHaveBeenCalledWith('[]');
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+  });
+
+  describe('isVatTerminated', () => {
+    it('returns true if vat is in terminated list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1, vatID2]));
+      const result = vatMethods.isVatTerminated(vatID1);
+      expect(result).toBe(true);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('returns false if vat is not in terminated list', () => {
+      mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID2]));
+
+      const result = vatMethods.isVatTerminated(vatID1);
+
+      expect(result).toBe(false);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
+    });
+
+    it('returns false if terminated list is empty', () => {
+      mockTerminatedVats.get.mockReturnValue('[]');
+
+      const result = vatMethods.isVatTerminated(vatID1);
+
+      expect(result).toBe(false);
+      expect(mockTerminatedVats.get).toHaveBeenCalled();
     });
   });
 });

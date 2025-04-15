@@ -622,12 +622,7 @@ export class Kernel {
             false,
             this.#translateCapDataKtoV(vatId, tPromise.value),
           ]);
-          // delete the c-list entry for the promise being notified
-          // const { vatSlot } = this.#kernelStore.getReachableAndVatSlot(
-          //   vatId,
-          //   toResolve,
-          // );
-          // this.#kernelStore.deleteCListEntry(vatId, toResolve, vatSlot);
+          // decrement refcount for the promise being notified
           if (toResolve !== kpid) {
             this.#kernelStore.decrementRefCount(
               toResolve,
