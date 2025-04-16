@@ -16,6 +16,12 @@ type VatSyscallProps = {
   kernelStore: KernelStore;
 };
 
+/**
+ * A VatSyscall is a class that handles syscalls from a vat.
+ *
+ * This class is responsible for handling syscalls from a vat, including
+ * sending messages, resolving promises, and dropping imports.
+ */
 export class VatSyscall {
   /** The ID of the vat */
   readonly vatId: VatId;

@@ -8,6 +8,12 @@ import { insistVatId } from './types.ts';
 import type { KRef, RunQueueItem, RunQueueItemNotify, VatId } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
+/**
+ * The kernel's run queue.
+ *
+ * This class manages the kernel's run queue, which is a queue of items that
+ * need to be processed.
+ */
 export class KernelQueue {
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
