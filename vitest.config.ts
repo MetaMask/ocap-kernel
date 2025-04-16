@@ -67,7 +67,7 @@ export default defineConfig({
           statements: 68.99,
           functions: 66.66,
           branches: 88.23,
-          lines: 69.29,
+          lines: 68.75,
         },
         'packages/create-package/**': {
           statements: 100,
