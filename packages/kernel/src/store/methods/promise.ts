@@ -17,6 +17,7 @@ import { insistVatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
 import { parseRef } from '../utils/parse-ref.ts';
+import { isPromiseRef } from '../utils/promise-ref.ts';
 
 /**
  * Create a promise store object that provides functionality for managing kernel promises.
@@ -224,6 +225,46 @@ export function getPromiseMethods(ctx: StoreContext) {
     }
   }
 
+  /**
+   * Given a promise that has just been resolved and the value it resolved to,
+   * find all promises reachable (recursively) from the new resolution value
+   * which are themselves already resolved. This will determine the set of
+   * resolutions that subscribers to the original promise will need to be
+   * notified of.
+   *
+   * This is needed because subscription to a promise carries with it an implied
+   * subscription to any promises that appear in its resolution value -- these
+   * subscriptions must be implied rather than explicit because they are
+   * necessarily unknown at the time of the original promise was subscribed to.
+   *
+   * @param origKpid - The original promise to start from.
+   * @param origValue - The value the original promise is resolved to.
+   * @returns An array of the kpids of the promises whose values become visible
+   * as a consequence of the resolution of `origKpid`.
+   */
+  function getKpidsToRetire(origKpid: KRef, origValue: CapData<KRef>): KRef[] {
+    const seen = new Set<KRef>();
+    const scanPromise = (kpid: KRef, value: CapData<KRef>): void => {
+      seen.add(kpid);
+      if (value) {
+        for (const slot of value.slots) {
+          if (isPromiseRef(slot)) {
+            if (!seen.has(slot)) {
+              const promise = getKernelPromise(slot);
+              if (promise.state !== 'unresolved') {
+                if (promise.value) {
+                  scanPromise(slot, promise.value);
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    scanPromise(origKpid, origValue);
+    return Array.from(seen);
+  }
+
   return {
     initKernelPromise,
     getKernelPromise,
@@ -235,5 +276,6 @@ export function getPromiseMethods(ctx: StoreContext) {
     enqueuePromiseMessage,
     getKernelPromiseMessageQueue,
     getPromisesByDecider,
+    getKpidsToRetire,
   };
 }

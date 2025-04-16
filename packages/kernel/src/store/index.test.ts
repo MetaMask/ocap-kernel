@@ -73,6 +73,7 @@ describe('kernel store', () => {
         'enqueuePromiseMessage',
         'enqueueRun',
         'erefToKref',
+        'exportFromVat',
         'forgetEref',
         'forgetKref',
         'forgetTerminatedVat',
@@ -81,6 +82,7 @@ describe('kernel store', () => {
         'getImporters',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
+        'getKpidsToRetire',
         'getNextObjectId',
         'getNextPromiseId',
         'getNextRemoteId',
@@ -121,6 +123,10 @@ describe('kernel store', () => {
         'setObjectRefCount',
         'setPromiseDecider',
         'setVatConfig',
+        'translateRefKtoV',
+        'translateCapDataKtoV',
+        'translateMessageKtoV',
+        'translateSyscallVtoK',
       ]);
     });
   });

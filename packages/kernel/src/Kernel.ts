@@ -28,7 +28,6 @@ import { parseRef } from './store/utils/parse-ref.ts';
 import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
   VatId,
-  VRef,
   KRef,
   VatWorkerManager,
   ClusterConfig,
@@ -268,34 +267,6 @@ export class Kernel {
   }
 
   /**
-   * Create the kernel's representation of an export from a vat.
-   *
-   * @param vatId - The vat doing the exporting.
-   * @param vref - The vat's ref for the entity in queestion.
-   *
-   * @returns the kref corresponding to the export of `vref` from `vatId`.
-   */
-  exportFromVat(vatId: VatId, vref: VRef): KRef {
-    insistVatId(vatId);
-    const { isPromise, context, direction } = parseRef(vref);
-    assert(context === 'vat', `${vref} is not a VRef`);
-    assert(direction === 'export', `${vref} is not an export reference`);
-    let kref;
-    if (isPromise) {
-      kref = this.#kernelStore.initKernelPromise()[0];
-      this.#kernelStore.setPromiseDecider(kref, vatId);
-    } else {
-      kref = this.#kernelStore.initKernelObject(vatId);
-    }
-    this.#kernelStore.addCListEntry(vatId, kref, vref);
-    this.#kernelStore.incrementRefCount(kref, 'export', {
-      isExport: true,
-      onlyRecognizable: true,
-    });
-    return kref;
-  }
-
-  /**
    * Gets a list of the IDs of all running vats.
    *
    * XXX Question: is this usefully different from `getVats`?
@@ -332,7 +303,7 @@ export class Kernel {
     const vatId = this.#kernelStore.getNextVatId();
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
-    const rootRef = this.exportFromVat(vatId, ROOT_OBJECT_VREF);
+    const rootRef = this.#kernelStore.exportFromVat(vatId, ROOT_OBJECT_VREF);
     this.#kernelStore.incrementRefCount(rootRef, 'root');
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     return rootRef;
@@ -357,64 +328,6 @@ export class Kernel {
       kernelStore: this.#kernelStore,
     });
     this.#vats.set(vatId, vat);
-  }
-
-  /**
-   * Translate a reference from kernel space into vat space.
-   *
-   * @param vatId - The vat for whom translation is desired.
-   * @param kref - The KRef of the entity of interest.
-   * @param importIfNeeded - If true, allocate a new clist entry if necessary;
-   *   if false, require that such an entry already exist.
-   *
-   * @returns the VRef corresponding to `kref` in `vatId`.
-   */
-  #translateRefKtoV(vatId: VatId, kref: KRef, importIfNeeded: boolean): VRef {
-    let eref = this.#kernelStore.krefToEref(vatId, kref);
-    if (!eref) {
-      if (importIfNeeded) {
-        eref = this.#kernelStore.allocateErefForKref(vatId, kref);
-      } else {
-        throw Fail`unmapped kref ${kref} vat=${vatId}`;
-      }
-    }
-    return eref;
-  }
-
-  /**
-   * Translate a capdata object from kernel space into vat space.
-   *
-   * @param vatId - The vat for whom translation is desired.
-   * @param capdata - The object to be translated.
-   *
-   * @returns a translated copy of `capdata` intelligible to `vatId`.
-   */
-  #translateCapDataKtoV(vatId: VatId, capdata: CapData<KRef>): CapData<VRef> {
-    const slots: VRef[] = [];
-    for (const slot of capdata.slots) {
-      slots.push(this.#translateRefKtoV(vatId, slot, true));
-    }
-    return { body: capdata.body, slots };
-  }
-
-  /**
-   * Translate a message from kernel space into vat space.
-   *
-   * @param vatId - The vat for whom translation is desired.
-   * @param message - The message to be translated.
-   *
-   * @returns a translated copy of `message` intelligible to `vatId`.
-   */
-  #translateMessageKtoV(vatId: VatId, message: Message): Message {
-    const methargs = this.#translateCapDataKtoV(
-      vatId,
-      message.methargs as CapData<KRef>,
-    );
-    const result = message.result
-      ? this.#translateRefKtoV(vatId, message.result, true)
-      : message.result;
-    const vatMessage = { ...message, methargs, result };
-    return vatMessage;
   }
 
   /**
@@ -545,8 +458,15 @@ export class Kernel {
                   'deliver|send|result',
                 );
               }
-              const vatTarget = this.#translateRefKtoV(vatId, target, false);
-              const vatMessage = this.#translateMessageKtoV(vatId, message);
+              const vatTarget = this.#kernelStore.translateRefKtoV(
+                vatId,
+                target,
+                false,
+              );
+              const vatMessage = this.#kernelStore.translateMessageKtoV(
+                vatId,
+                message,
+              );
               await vat.deliverMessage(vatTarget, vatMessage);
               // decrement refcount for processed 'send' items except for the root object
               const vatKref = this.#kernelStore.erefToKref(vatId, 'o+0');
@@ -603,7 +523,7 @@ export class Kernel {
           // no c-list entry, already done
           return;
         }
-        const targets = this.#getKpidsToRetire(kpid, value);
+        const targets = this.#kernelStore.getKpidsToRetire(kpid, value);
         if (targets.length === 0) {
           // no kpids to retire, already done
           return;
@@ -618,9 +538,9 @@ export class Kernel {
             throw Fail`target promise ${toResolve} has no value`;
           }
           resolutions.push([
-            this.#translateRefKtoV(vatId, toResolve, true),
+            this.#kernelStore.translateRefKtoV(vatId, toResolve, true),
             false,
-            this.#translateCapDataKtoV(vatId, tPromise.value),
+            this.#kernelStore.translateCapDataKtoV(vatId, tPromise.value),
           ]);
           // decrement refcount for the promise being notified
           if (toResolve !== kpid) {
@@ -679,46 +599,6 @@ export class Kernel {
         // @ts-expect-error Runtime does not respect "never".
         Fail`unsupported or unknown run queue item type ${item.type}`;
     }
-  }
-
-  /**
-   * Given a promise that has just been resolved and the value it resolved to,
-   * find all promises reachable (recursively) from the new resolution value
-   * which are themselves already resolved. This will determine the set of
-   * resolutions that subscribers to the original promise will need to be
-   * notified of.
-   *
-   * This is needed because subscription to a promise carries with it an implied
-   * subscription to any promises that appear in its resolution value -- these
-   * subscriptions must be implied rather than explicit because they are
-   * necessarily unknown at the time of the original promise was subscribed to.
-   *
-   * @param origKpid - The original promise to start from.
-   * @param origValue - The value the original promise is resolved to.
-   * @returns An array of the kpids of the promises whose values become visible
-   * as a consequence of the resolution of `origKpid`.
-   */
-  #getKpidsToRetire(origKpid: KRef, origValue: CapData<KRef>): KRef[] {
-    const seen = new Set<KRef>();
-    const scanPromise = (kpid: KRef, value: CapData<KRef>): void => {
-      seen.add(kpid);
-      if (value) {
-        for (const slot of value.slots) {
-          if (isPromiseRef(slot)) {
-            if (!seen.has(slot)) {
-              const promise = this.#kernelStore.getKernelPromise(slot);
-              if (promise.state !== 'unresolved') {
-                if (promise.value) {
-                  scanPromise(slot, promise.value);
-                }
-              }
-            }
-          }
-        }
-      }
-    };
-    scanPromise(origKpid, origValue);
-    return Array.from(seen);
   }
 
   /**

@@ -17,7 +17,7 @@ async function getGCFunction(): Promise<GCFunction | undefined> {
   ) {
     try {
       // Dynamic import of Node.js specific module so it's not included in browser builds
-      const { engineGC } = await import('../services/gc-engine.ts');
+      const { engineGC } = await import('./gc-engine.ts');
       return engineGC;
     } catch (error) {
       console.debug('Failed to load Node.js GC implementation:', error);

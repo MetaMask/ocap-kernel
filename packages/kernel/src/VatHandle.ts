@@ -3,7 +3,6 @@ import type {
   VatSyscallObject,
   VatOneResolution,
 } from '@agoric/swingset-liveslots';
-import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import type { VatStore } from '@ocap/store';
@@ -152,131 +151,6 @@ export class VatHandle {
   }
 
   /**
-   * Translate a reference from vat space into kernel space.
-   *
-   * @param vref - The VRef of the entity of interest.
-   *
-   * @returns the KRef corresponding to `vref` in this vat.
-   */
-  #translateRefVtoK(vref: VRef): KRef {
-    let kref = this.#kernelStore.erefToKref(this.vatId, vref);
-    kref ??= this.#kernel.exportFromVat(this.vatId, vref);
-    return kref;
-  }
-
-  /**
-   * Translate a capdata object from vat space into kernel space.
-   *
-   * @param capdata - The object to be translated.
-   *
-   * @returns a translated copy of `capdata` intelligible to the kernel.
-   */
-  #translateCapDataVtoK(capdata: CapData<VRef>): CapData<KRef> {
-    const slots: KRef[] = [];
-    for (const slot of capdata.slots) {
-      slots.push(this.#translateRefVtoK(slot));
-    }
-    return { body: capdata.body, slots };
-  }
-
-  /**
-   * Translate a message from vat space into kernel space.
-   *
-   * @param message - The message to be translated.
-   *
-   * @returns a translated copy of `message` intelligible to the kernel.
-   */
-  #translateMessageVtoK(message: Message): Message {
-    const methargs = this.#translateCapDataVtoK(
-      message.methargs as CapData<VRef>,
-    );
-    if (typeof message.result !== 'string') {
-      throw TypeError(`message result must be a string`);
-    }
-    const result = this.#translateRefVtoK(message.result);
-    return { methargs, result };
-  }
-
-  /**
-   * Translate a syscall from vat space into kernel space.
-   *
-   * @param vso - The syscall object to be translated.
-   *
-   * @returns a translated copy of `vso` intelligible to the kernel.
-   */
-  #translateSyscallVtoK(vso: VatSyscallObject): VatSyscallObject {
-    let kso: VatSyscallObject;
-    switch (vso[0]) {
-      case 'send': {
-        // [VRef, Message];
-        const [op, target, message] = vso;
-        kso = [
-          op,
-          this.#translateRefVtoK(target),
-          this.#translateMessageVtoK(message),
-        ];
-        break;
-      }
-      case 'subscribe': {
-        // [VRef];
-        const [op, promise] = vso;
-        kso = [op, this.#translateRefVtoK(promise)];
-        break;
-      }
-      case 'resolve': {
-        // [VatOneResolution[]];
-        const [op, resolutions] = vso;
-        const kResolutions: VatOneResolution[] = resolutions.map(
-          (resolution) => {
-            const [vpid, rejected, data] = resolution;
-            return [
-              this.#translateRefVtoK(vpid),
-              rejected,
-              this.#translateCapDataVtoK(data as CapData<VRef>),
-            ];
-          },
-        );
-        kso = [op, kResolutions];
-        break;
-      }
-      case 'exit': {
-        // [boolean, SwingSetCapData];
-        const [op, isFailure, info] = vso;
-        kso = [
-          op,
-          isFailure,
-          this.#translateCapDataVtoK(info as CapData<VRef>),
-        ];
-        break;
-      }
-      case 'dropImports':
-      case 'retireImports':
-      case 'retireExports':
-      case 'abandonExports': {
-        // [VRef[]];
-        const [op, vrefs] = vso;
-        const krefs = vrefs.map((ref) => this.#translateRefVtoK(ref));
-        kso = [op, krefs];
-        break;
-      }
-      case 'callNow':
-      case 'vatstoreGet':
-      case 'vatstoreGetNextKey':
-      case 'vatstoreSet':
-      case 'vatstoreDelete': {
-        const [op] = vso;
-        throw Error(`vat ${this.vatId} issued invalid syscall ${op}`);
-      }
-      default: {
-        // Compile-time exhaustiveness check
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw Error(`vat ${this.vatId} issued unknown syscall ${vso[0]}`);
-      }
-    }
-    return kso;
-  }
-
-  /**
    * Handle a 'send' syscall from the vat.
    *
    * @param target - The target of the message send.
@@ -389,7 +263,10 @@ export class VatHandle {
    * @param vso - The syscall that was received.
    */
   async #handleSyscall(vso: VatSyscallObject): Promise<void> {
-    const kso: VatSyscallObject = this.#translateSyscallVtoK(vso);
+    const kso: VatSyscallObject = this.#kernelStore.translateSyscallVtoK(
+      this.vatId,
+      vso,
+    );
     const [op] = kso;
     const { vatId } = this;
     const { log } = console;

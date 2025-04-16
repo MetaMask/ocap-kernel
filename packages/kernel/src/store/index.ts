@@ -57,6 +57,7 @@
 
 import type { KernelDatabase, KVStore, VatStore } from '@ocap/store';
 
+import type { KRef, VatId } from '../types.ts';
 import { getBaseMethods } from './methods/base.ts';
 import { getCListMethods } from './methods/clist.ts';
 import { getGCMethods } from './methods/gc.ts';
@@ -66,9 +67,9 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
-import type { KRef, VatId } from '../types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -133,7 +134,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const queue = getQueueMethods(context);
   const vat = getVatMethods(context);
   const reachable = getReachableMethods(context);
-
+  const translators = getTranslators(context);
   /**
    * Create a new VatStore for a vat.
    *
@@ -188,6 +189,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...reachable,
     ...cList,
     ...vat,
+    ...translators,
     makeVatStore,
     deleteVat,
     clear,

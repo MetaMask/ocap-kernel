@@ -13,14 +13,14 @@ import { waitUntilQuiescent } from '@ocap/utils';
 
 import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { VatCommandMethod } from './messages/index.ts';
+import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
 import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
+import type { VatKVStore } from './store/vat-kv-store.ts';
+import { makeVatKVStore } from './store/vat-kv-store.ts';
 import type { VatConfig, VatId, VRef } from './types.ts';
 import { ROOT_OBJECT_VREF, isVatConfig } from './types.ts';
-import { makeGCAndFinalize } from './utils/gc-finalize.ts';
-import type { VatKVStore } from './VatKVStore.ts';
-import { makeVatKVStore } from './VatKVStore.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 

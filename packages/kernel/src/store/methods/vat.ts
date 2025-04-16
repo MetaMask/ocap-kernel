@@ -2,8 +2,11 @@ import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
 import { getCListMethods } from './clist.ts';
+import { getObjectMethods } from './object.ts';
+import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
-import type { EndpointId, KRef, VatConfig, VatId } from '../../types.ts';
+import { insistVatId } from '../../types.ts';
+import type { EndpointId, KRef, VatConfig, VatId, VRef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { parseReachableAndVatSlot } from '../utils/reachable.ts';
@@ -28,6 +31,9 @@ export function getVatMethods(ctx: StoreContext) {
   const { getPrefixedKeys, getSlotKey } = getBaseMethods(ctx.kv);
   const { deleteCListEntry } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
+  const { initKernelPromise, setPromiseDecider } = getPromiseMethods(ctx);
+  const { initKernelObject } = getObjectMethods(ctx);
+  const { addCListEntry, incrementRefCount } = getCListMethods(ctx);
 
   /**
    * Delete all persistent state associated with an endpoint.
@@ -289,6 +295,34 @@ export function getVatMethods(ctx: StoreContext) {
     return getTerminatedVats().length > 0;
   }
 
+  /**
+   * Create the kernel's representation of an export from a vat.
+   *
+   * @param vatId - The vat doing the exporting.
+   * @param vref - The vat's ref for the entity in question.
+   *
+   * @returns the kref corresponding to the export of `vref` from `vatId`.
+   */
+  function exportFromVat(vatId: VatId, vref: VRef): KRef {
+    insistVatId(vatId);
+    const { isPromise, context, direction } = parseRef(vref);
+    assert(context === 'vat', `${vref} is not a VRef`);
+    assert(direction === 'export', `${vref} is not an export reference`);
+    let kref;
+    if (isPromise) {
+      kref = initKernelPromise()[0];
+      setPromiseDecider(kref, vatId);
+    } else {
+      kref = initKernelObject(vatId);
+    }
+    addCListEntry(vatId, kref, vref);
+    incrementRefCount(kref, 'export', {
+      isExport: true,
+      onlyRecognizable: true,
+    });
+    return kref;
+  }
+
   return {
     deleteEndpoint,
     getAllVatRecords,
@@ -304,5 +338,6 @@ export function getVatMethods(ctx: StoreContext) {
     isVatTerminated,
     cleanupTerminatedVat,
     nextTerminatedVatCleanup,
+    exportFromVat,
   };
 }

@@ -1,13 +1,12 @@
+/* eslint-disable no-lonely-if, no-else-return */
 import type { KVStore } from '@ocap/store';
 
-import type { VatCheckpoint } from './types.ts';
-import { keySearch } from './utils/key-search.ts';
+import type { VatCheckpoint } from '../types.ts';
+import { keySearch } from '../utils/key-search.ts';
 
 export type VatKVStore = KVStore & {
   checkpoint(): VatCheckpoint;
 };
-
-/* eslint-disable no-lonely-if, no-else-return */ // stupid rules that encourage unclear code
 
 /**
  * Create an in-memory VatKVStore for a vat, backed by a Map and tracking
