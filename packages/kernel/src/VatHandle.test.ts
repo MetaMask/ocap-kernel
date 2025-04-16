@@ -11,7 +11,6 @@ import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import { VatHandle } from './VatHandle.ts';
-import type { VatSyscall } from './VatSyscall.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
 vi.mock('@endo/eventual-send', () => ({
@@ -38,7 +37,6 @@ const makeVat = async (
   });
   return {
     vat: await VatHandle.make({
-      vatSyscall: null as unknown as VatSyscall,
       kernelQueue: null as unknown as KernelQueue,
       kernelStore: mockKernelStore,
       vatId: 'v0',

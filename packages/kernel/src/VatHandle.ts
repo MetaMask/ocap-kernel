@@ -7,8 +7,8 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import type { VatStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
-import type { Logger, PromiseCallbacks } from '@ocap/utils';
-import { makeLogger, makeCounter } from '@ocap/utils';
+import type { PromiseCallbacks } from '@ocap/utils';
+import { Logger, makeCounter } from '@ocap/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { VatCommandMethod } from './messages/index.ts';
@@ -20,14 +20,13 @@ import type {
 import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type { VatId, VatConfig, VRef } from './types.ts';
-import type { VatSyscall } from './VatSyscall.ts';
+import { VatSyscall } from './VatSyscall.ts';
 
 type VatConstructorProps = {
   vatId: VatId;
   vatConfig: VatConfig;
   vatStream: DuplexStream<VatCommandReply, VatCommand>;
   kernelStore: KernelStore;
-  vatSyscall: VatSyscall;
   kernelQueue: KernelQueue;
   logger?: Logger | undefined;
 };
@@ -73,7 +72,6 @@ export class VatHandle {
    * @param params.vatStream - Communications channel connected to the vat worker.
    * @param params.kernelStore - The kernel's persistent state store.
    * @param params.kernelQueue - The kernel's queue.
-   * @param params.vatSyscall - The vat's syscall.
    * @param params.logger - Optional logger for error and diagnostic output.
    */
   // eslint-disable-next-line no-restricted-syntax
@@ -82,19 +80,23 @@ export class VatHandle {
     vatConfig,
     vatStream,
     kernelStore,
-    vatSyscall,
     kernelQueue,
     logger,
   }: VatConstructorProps) {
-    this.#vatSyscall = vatSyscall;
     this.vatId = vatId;
     this.config = vatConfig;
-    this.#logger = logger ?? makeLogger(`[vat ${vatId}]`);
+    this.#logger = logger ?? new Logger(`[vat ${vatId}]`);
     this.#messageCounter = makeCounter();
     this.#vatStream = vatStream;
     this.#kernelStore = kernelStore;
     this.#vatStore = kernelStore.makeVatStore(vatId);
     this.#kernelQueue = kernelQueue;
+    this.#vatSyscall = new VatSyscall({
+      vatId,
+      kernelQueue: this.#kernelQueue,
+      kernelStore: this.#kernelStore,
+      logger: this.#logger.subLogger({ tags: ['syscall'] }),
+    });
   }
 
   /**
@@ -106,7 +108,6 @@ export class VatHandle {
    * @param params.vatStream - Communications channel connected to the vat worker.
    * @param params.kernelStore - The kernel's persistent state store.
    * @param params.kernelQueue - The kernel's queue.
-   * @param params.vatSyscall - The vat's syscall.
    * @param params.logger - Optional logger for error and diagnostic output.
    * @returns A promise for the new VatHandle instance.
    */

@@ -14,6 +14,7 @@ type VatSyscallProps = {
   vatId: VatId;
   kernelQueue: KernelQueue;
   kernelStore: KernelStore;
+  logger?: Logger;
 };
 
 /**
@@ -42,12 +43,14 @@ export class VatSyscall {
    * @param props.vatId - The ID of the vat.
    * @param props.kernelQueue - The kernel's run queue.
    * @param props.kernelStore - The kernel's store.
+   * @param props.logger - The logger for the VatSyscall.
    */
-  constructor({ vatId, kernelQueue, kernelStore }: VatSyscallProps) {
+  constructor({ vatId, kernelQueue, kernelStore, logger }: VatSyscallProps) {
     this.vatId = vatId;
     this.#kernelQueue = kernelQueue;
     this.#kernelStore = kernelStore;
-    this.#logger = new Logger(`[vat ${vatId}]`);
+    this.#logger =
+      logger ?? new Logger({ tags: [`[vat ${vatId}]`, 'syscall'] });
   }
 
   /**

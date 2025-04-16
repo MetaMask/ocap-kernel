@@ -43,7 +43,6 @@ import {
 } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
-import { VatSyscall } from './VatSyscall.ts';
 
 type MessageRoute = {
   vatId?: VatId;
@@ -224,15 +223,9 @@ export class Kernel {
       throw new VatAlreadyExistsError(vatId);
     }
     const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vatSyscall = new VatSyscall({
-      vatId,
-      kernelQueue: this.#kernelQueue,
-      kernelStore: this.#kernelStore,
-    });
     const vat = await VatHandle.make({
       vatId,
       vatConfig,
-      vatSyscall,
       vatStream: commandStream,
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
