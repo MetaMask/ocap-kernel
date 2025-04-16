@@ -1,3 +1,5 @@
+import '@endo/init';
+
 import { Logger } from '@ocap/utils';
 import path from 'node:path';
 import yargs from 'yargs';
