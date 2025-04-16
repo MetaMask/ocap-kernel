@@ -23,6 +23,7 @@ import { Fail } from '../../utils/assert.ts';
 export function getTranslators(ctx: StoreContext) {
   const { krefToEref, erefToKref, allocateErefForKref } = getCListMethods(ctx);
   const { exportFromVat } = getVatMethods(ctx);
+
   /**
    * Translate a reference from kernel space into vat space.
    *

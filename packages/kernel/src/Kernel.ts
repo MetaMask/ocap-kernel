@@ -1,5 +1,4 @@
 import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
-import { passStyleOf } from '@endo/far';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import {
@@ -12,6 +11,7 @@ import type { DuplexStream } from '@ocap/streams';
 import type { Logger } from '@ocap/utils';
 import { makeLogger } from '@ocap/utils';
 
+import { KernelQueue } from './KernelQueue.ts';
 import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
 import type {
   KernelCommand,
@@ -19,11 +19,11 @@ import type {
   VatCommand,
   VatCommandReturnType,
 } from './messages/index.ts';
-import { processGCActionSet } from './services/garbage-collection.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
-import { kser, kunser, krefOf, kslot } from './services/kernel-marshal.ts';
+import { kser, kslot } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
+import { extractSingleRef } from './store/utils/extract-ref.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
@@ -34,7 +34,6 @@ import type {
   VatConfig,
   RunQueueItem,
   RunQueueItemSend,
-  RunQueueItemNotify,
 } from './types.ts';
 import {
   ROOT_OBJECT_VREF,
@@ -44,21 +43,7 @@ import {
 } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
-
-/**
- * Obtain the KRef from a simple value represented as a CapData object.
- *
- * @param data - The data object to be examined.
- * @returns the single KRef that is `data`, or null if it isn't one.
- */
-function extractSingleRef(data: CapData<KRef>): KRef | null {
-  const value = kunser(data) as SlotValue;
-  const style: string = passStyleOf(value);
-  if (style === 'remotable' || style === 'promise') {
-    return krefOf(value);
-  }
-  return null;
-}
+import { VatSyscall } from './VatSyscall.ts';
 
 type MessageRoute = {
   vatId?: VatId;
@@ -81,15 +66,11 @@ export class Kernel {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
 
-  /** Thunk to signal run queue transition from empty to non-empty */
-  #wakeUpTheRunQueue: (() => void) | null;
-
   /** Configuration of the most recently launched vat subcluster (for debug purposes) */
   #mostRecentSubcluster: ClusterConfig | null;
 
-  /** Message results that the kernel itself has subscribed to */
-  readonly #kernelSubscriptions: Map<KRef, (value: CapData<KRef>) => void> =
-    new Map();
+  /** The kernel's run queue */
+  readonly #kernelQueue: KernelQueue;
 
   /**
    * Construct a new kernel instance.
@@ -121,7 +102,7 @@ export class Kernel {
       this.#resetKernelState();
     }
     this.#logger = options.logger ?? makeLogger('[ocap kernel]');
-    this.#wakeUpTheRunQueue = null;
+    this.#kernelQueue = new KernelQueue(this.#kernelStore);
   }
 
   /**
@@ -168,61 +149,10 @@ export class Kernel {
       starts.push(this.#runVat(vatID, vatConfig));
     }
     await Promise.all(starts);
-    this.#run().catch((error) => {
+    this.#kernelQueue.run(this.#deliver.bind(this)).catch((error) => {
       this.#logger.error('Run loop error:', error);
       throw error;
     });
-  }
-
-  /**
-   * The kernel's run loop: take an item off the run queue, deliver it,
-   * repeat. Note that this loops forever: the returned promise never resolves.
-   */
-  async #run(): Promise<void> {
-    for await (const item of this.#runQueueItems()) {
-      this.#kernelStore.nextTerminatedVatCleanup();
-      await this.#deliver(item);
-      this.#kernelStore.collectGarbage();
-    }
-  }
-
-  /**
-   * Async generator that yields the items from the kernel run queue, in order.
-   *
-   * @yields the next item in the run queue.
-   */
-  async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
-    for (;;) {
-      const gcAction = processGCActionSet(this.#kernelStore);
-      if (gcAction) {
-        yield gcAction;
-        continue;
-      }
-
-      const reapAction = this.#kernelStore.nextReapAction();
-      if (reapAction) {
-        yield reapAction;
-        continue;
-      }
-
-      while (this.#kernelStore.runQueueLength() > 0) {
-        const item = this.#dequeueRun();
-        if (item) {
-          yield item;
-        } else {
-          break;
-        }
-      }
-
-      if (this.#kernelStore.runQueueLength() === 0) {
-        const { promise, resolve } = makePromiseKit<void>();
-        if (this.#wakeUpTheRunQueue !== null) {
-          Fail`wakeUpTheRunQueue function already set`;
-        }
-        this.#wakeUpTheRunQueue = resolve;
-        await promise;
-      }
-    }
   }
 
   /**
@@ -267,32 +197,6 @@ export class Kernel {
   }
 
   /**
-   * Gets a list of the IDs of all running vats.
-   *
-   * XXX Question: is this usefully different from `getVats`?
-   *
-   * @returns An array of vat IDs.
-   */
-  getVatIds(): VatId[] {
-    return Array.from(this.#vats.keys());
-  }
-
-  /**
-   * Gets a list of information about all running vats.
-   *
-   * @returns An array of vat information records.
-   */
-  getVats(): {
-    id: VatId;
-    config: VatConfig;
-  }[] {
-    return Array.from(this.#vats.values()).map((vat) => ({
-      id: vat.vatId,
-      config: vat.config,
-    }));
-  }
-
-  /**
    * Launches a new vat.
    *
    * @param vatConfig - Configuration for the new vat.
@@ -320,37 +224,20 @@ export class Kernel {
       throw new VatAlreadyExistsError(vatId);
     }
     const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
-    const vat = await VatHandle.make({
-      kernel: this,
+    const vatSyscall = new VatSyscall({
       vatId,
-      vatConfig,
-      vatStream: commandStream,
+      kernelQueue: this.#kernelQueue,
       kernelStore: this.#kernelStore,
     });
+    const vat = await VatHandle.make({
+      vatId,
+      vatConfig,
+      vatSyscall,
+      vatStream: commandStream,
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+    });
     this.#vats.set(vatId, vat);
-  }
-
-  /**
-   * Add an item to the tail of the kernel's run queue.
-   *
-   * @param item - The item to add.
-   */
-  enqueueRun(item: RunQueueItem): void {
-    this.#kernelStore.enqueueRun(item);
-    if (this.#kernelStore.runQueueLength() === 1 && this.#wakeUpTheRunQueue) {
-      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUpTheRunQueue();
-    }
-  }
-
-  /**
-   * Remove an item from the head of the kernel's run queue and return it.
-   *
-   * @returns the next item in the run queue, or undefined if the queue is empty.
-   */
-  #dequeueRun(): RunQueueItem | undefined {
-    return this.#kernelStore.dequeueRun();
   }
 
   /**
@@ -375,7 +262,9 @@ export class Kernel {
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
-        this.doResolve(undefined, [[message.result, true, error]]);
+        this.#kernelQueue.resolvePromises(undefined, [
+          [message.result, true, error],
+        ]);
       }
       return null;
     };
@@ -602,63 +491,6 @@ export class Kernel {
   }
 
   /**
-   * Enqueue for delivery a notification to a vat about the resolution of a
-   * promise.
-   *
-   * @param vatId - The vat that will be notified.
-   * @param kpid - The promise of interest.
-   */
-  notify(vatId: VatId, kpid: KRef): void {
-    const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
-    this.enqueueRun(notifyItem);
-    // Increment reference count for the promise being notified about
-    this.#kernelStore.incrementRefCount(kpid, 'notify');
-  }
-
-  /**
-   * Process a set of promise resolutions coming from a vat.
-   *
-   * @param vatId - The vat doing the resolving, if there is one.
-   * @param resolutions - One or more resolutions, to be processed as a group.
-   */
-  doResolve(vatId: VatId | undefined, resolutions: VatOneResolution[]): void {
-    if (vatId) {
-      insistVatId(vatId);
-    }
-    for (const resolution of resolutions) {
-      const [kpid, rejected, dataRaw] = resolution;
-      const data = dataRaw as CapData<KRef>;
-
-      this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
-      for (const slot of data.slots || []) {
-        this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
-      }
-
-      const promise = this.#kernelStore.getKernelPromise(kpid);
-      const { state, decider, subscribers } = promise;
-      if (state !== 'unresolved') {
-        Fail`${kpid} was already resolved`;
-      }
-      if (decider !== vatId) {
-        const why = decider ? `its decider is ${decider}` : `it has no decider`;
-        Fail`${vatId} not permitted to resolve ${kpid} because ${why}`;
-      }
-      if (!subscribers) {
-        throw Fail`${kpid} subscribers not set`;
-      }
-      for (const subscriber of subscribers) {
-        this.notify(subscriber, kpid);
-      }
-      this.#kernelStore.resolveKernelPromise(kpid, rejected, data);
-      const kernelResolve = this.#kernelSubscriptions.get(kpid);
-      if (kernelResolve) {
-        this.#kernelSubscriptions.delete(kpid);
-        kernelResolve(data);
-      }
-    }
-  }
-
-  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -690,8 +522,8 @@ export class Kernel {
       message,
     };
     const { promise, resolve } = makePromiseKit<CapData<KRef>>();
-    this.#kernelSubscriptions.set(result, resolve);
-    this.enqueueRun(queueItem);
+    this.#kernelQueue.subscriptions.set(result, resolve);
+    this.#kernelQueue.enqueueRun(queueItem);
     return promise;
   }
 
@@ -850,6 +682,32 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     return vat;
+  }
+
+  /**
+   * Gets a list of the IDs of all running vats.
+   *
+   * XXX Question: is this usefully different from `getVats`?
+   *
+   * @returns An array of vat IDs.
+   */
+  getVatIds(): VatId[] {
+    return Array.from(this.#vats.keys());
+  }
+
+  /**
+   * Gets a list of information about all running vats.
+   *
+   * @returns An array of vat information records.
+   */
+  getVats(): {
+    id: VatId;
+    config: VatConfig;
+  }[] {
+    return Array.from(this.#vats.values()).map((vat) => ({
+      id: vat.vatId,
+      config: vat.config,
+    }));
   }
 
   /**
