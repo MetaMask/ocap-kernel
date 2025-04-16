@@ -8,7 +8,19 @@ import { copyFile, lstat, access } from 'fs/promises';
  * @returns A promise which resolves to true if the target path is a directory.
  */
 export async function isDirectory(target: string): Promise<boolean> {
-  return (await lstat(target)).isDirectory();
+  try {
+    return (await lstat(target)).isDirectory();
+  } catch (error) {
+    if (isErrorWithCode(error)) {
+      switch (error.code) {
+        case 'ENOENT':
+          return false;
+        default:
+          break;
+      }
+    }
+    throw error;
+  }
 }
 
 /**
@@ -33,7 +45,7 @@ export async function cp(source: string, destination: string): Promise<void> {
  */
 export async function fileExists(path: string): Promise<boolean> {
   try {
-    // if the file can be accessed, it didn't exist yet
+    // if the file can be accessed, it exists
     await access(path);
     return true;
   } catch (error) {
@@ -44,7 +56,7 @@ export async function fileExists(path: string): Promise<boolean> {
         case 'ENOENT':
           return false;
         default:
-          throw error as unknown as Error;
+          break;
       }
     }
     throw error;

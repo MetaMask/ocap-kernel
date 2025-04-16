@@ -1,25 +1,45 @@
+import { Logger } from '@ocap/utils';
 import { readFile, rm } from 'fs/promises';
 import { basename } from 'path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
-import { createBundleFile, createBundleDir } from './bundle.ts';
+import { bundleFile, bundleDir, bundleSource } from './bundle.ts';
 import {
   makeTestBundleStage,
   validTestBundleNames,
 } from '../../test/bundles.ts';
 import { fileExists } from '../file.ts';
 
-const mocks = vi.hoisted(() => ({
-  bundleSource: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  return {
+    endoBundleSource: vi.fn(),
+    Logger: vi.fn(() => ({
+      info: vi.fn(),
+      error: vi.fn(),
+      subLogger: vi.fn(),
+    })),
+    isDirectory: vi.fn(),
+  };
+});
 
 vi.mock('@endo/bundle-source', () => ({
-  default: mocks.bundleSource,
+  default: mocks.endoBundleSource,
 }));
 
 vi.mock('@endo/init', () => ({}));
 
+vi.mock('@ocap/utils', () => ({
+  Logger: mocks.Logger,
+}));
+
+vi.mock('../file.ts', async (importOriginal) => ({
+  ...(await importOriginal()),
+  isDirectory: mocks.isDirectory,
+}));
+
 describe('bundle', async () => {
+  let logger: Logger;
+
   const { testBundleRoot, getTestBundleSpecs, globBundles, resolveBundlePath } =
     await makeTestBundleStage();
   const testBundleSpecs = getTestBundleSpecs(validTestBundleNames);
@@ -32,20 +52,22 @@ describe('bundle', async () => {
   afterAll(deleteTestBundles);
 
   beforeEach(async () => {
-    vi.resetModules();
     await deleteTestBundles();
+    vi.resetModules();
+    logger = new Logger();
+    vi.resetAllMocks();
   });
 
-  describe('createBundleFile', () => {
+  describe('bundleFile', () => {
     it.each(testBundleSpecs)(
       'bundles a single file: $name',
       async ({ source, bundle }) => {
         expect(await fileExists(bundle)).toBe(false);
 
         const testContent = { source: 'test-content' };
-        mocks.bundleSource.mockImplementationOnce(() => testContent);
+        mocks.endoBundleSource.mockImplementationOnce(() => testContent);
 
-        await createBundleFile(source);
+        await bundleFile(logger, source);
 
         expect(await fileExists(bundle)).toBe(true);
 
@@ -57,27 +79,27 @@ describe('bundle', async () => {
       },
     );
 
-    it('calls console.error if bundling fails', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+    it('calls logger.error if bundling fails', async () => {
+      const loggerErrorSpy = vi.spyOn(logger, 'error');
       const badBundle = resolveBundlePath('bad-vat.fails');
-      await createBundleFile(badBundle);
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      await bundleFile(logger, badBundle);
+      expect(loggerErrorSpy).toHaveBeenCalledOnce();
     });
   });
 
-  describe('createBundleDir', () => {
+  describe('bundleDir', () => {
     it('bundles a directory', async () => {
       expect(await globBundles()).toStrictEqual([]);
 
       // mocked bundleSource fails iff the target filename has '.fails.'
-      mocks.bundleSource.mockImplementation((bundlePath) => {
+      mocks.endoBundleSource.mockImplementation((bundlePath) => {
         if (bundlePath.includes('.fails.')) {
           throw new Error(`Failed to bundle ${bundlePath}`);
         }
         return 'test content';
       });
 
-      await createBundleDir(testBundleRoot);
+      await bundleDir(logger, testBundleRoot);
 
       const bundledOutputs = (await globBundles()).map((bundlePath) =>
         basename(bundlePath, '.bundle'),
@@ -86,6 +108,20 @@ describe('bundle', async () => {
       expect(bundledOutputs.length).toBeGreaterThan(0);
 
       expect(bundledOutputs).toStrictEqual(validTestBundleNames);
+    });
+  });
+
+  describe('bundleSource', () => {
+    it('calls logger.error if bundling fails', async () => {
+      mocks.isDirectory.mockImplementationOnce(() => {
+        throw new Error('test error');
+      });
+      const loggerErrorSpy = vi.spyOn(logger, 'error');
+      await bundleSource(logger, resolveBundlePath('test'));
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('error bundling target'),
+        expect.any(Error),
+      );
     });
   });
 });

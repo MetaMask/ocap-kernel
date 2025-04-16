@@ -1,10 +1,11 @@
 import { makePromiseKit } from '@endo/promise-kit';
+import { Logger } from '@ocap/utils';
 import { watch } from 'chokidar';
-import type { FSWatcher } from 'chokidar';
+import type { FSWatcher, MatchFunction } from 'chokidar';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
 
-import { createBundleFile } from './bundle.ts';
+import { bundleFile } from './bundle.ts';
 import { resolveBundlePath } from '../path.ts';
 
 type CloseWatcher = () => Promise<void>;
@@ -18,6 +19,7 @@ export const makeWatchEvents = (
   watcher: FSWatcher,
   readyResolve: ReturnType<typeof makePromiseKit<CloseWatcher>>['resolve'],
   throwError: ReturnType<typeof makePromiseKit<never>>['reject'],
+  logger: Logger,
 ): {
   ready: () => void;
   add: (path: string) => void;
@@ -27,18 +29,18 @@ export const makeWatchEvents = (
 } => ({
   ready: () => readyResolve(watcher.close.bind(watcher)),
   add: (path) => {
-    console.info(`Source file added:`, path);
-    createBundleFile(path, resolveBundlePath(path)).catch(throwError);
+    logger.info(`Source file added:`, path);
+    bundleFile(logger, path, resolveBundlePath(path)).catch(throwError);
   },
   change: (path) => {
-    console.info(`Source file changed:`, path);
-    createBundleFile(path, resolveBundlePath(path)).catch(throwError);
+    logger.info(`Source file changed:`, path);
+    bundleFile(logger, path, resolveBundlePath(path)).catch(throwError);
   },
   unlink: (path) => {
-    console.info('Source file removed:', path);
+    logger.info('Source file removed:', path);
     const bundlePath = resolveBundlePath(path);
     unlink(bundlePath)
-      .then(() => console.info(`removed ${bundlePath}`))
+      .then(() => logger.info(`removed ${bundlePath}`))
       .catch((reason: unknown) => {
         if (reason instanceof Error && reason.message.match(/ENOENT/u)) {
           // If associated bundle does not exist, do nothing.
@@ -50,15 +52,19 @@ export const makeWatchEvents = (
   error: (error: Error) => throwError(error),
 });
 
+export const filterOnlyJsFiles: MatchFunction = (file, stats) =>
+  (stats?.isFile() ?? false) && file.endsWith('.js');
+
 /**
  * Start a watcher that bundles `.js` files in the target dir.
  *
  * @param dir - The directory to watch.
+ * @param logger - The logger to use.
  * @returns A {@link WatchDirReturn} object with `ready` and `error` properties which are promises.
  *  The `ready` promise resolves to an awaitable method to close the watcher.
  *  The `error` promise never resolves, but rejects when any of the watcher's behaviors encounters an irrecoverable error.
  */
-export function watchDir(dir: string): WatchDirReturn {
+export function watchDir(dir: string, logger: Logger): WatchDirReturn {
   const resolvedDir = resolve(dir);
 
   const { resolve: readyResolve, promise: readyPromise } =
@@ -73,11 +79,11 @@ export function watchDir(dir: string): WatchDirReturn {
       '**/*.test.js',
       '**/*.test.ts',
       '**/*.bundle',
-      (file, stats) => (stats?.isFile() ?? false) && !file.endsWith('.js'),
+      filterOnlyJsFiles,
     ],
   });
 
-  const events = makeWatchEvents(watcher, readyResolve, throwError);
+  const events = makeWatchEvents(watcher, readyResolve, throwError, logger);
 
   for (const key of Object.keys(events)) {
     watcher = watcher.on(key, events[key as keyof typeof events] as never);
