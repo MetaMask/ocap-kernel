@@ -3,17 +3,20 @@ import {
   JsonRpcEngine,
 } from '@metamask/json-rpc-engine';
 import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
+import { Logger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { loggingMiddleware, logger } from './logging.ts';
+import { makeLoggingMiddleware } from './logging.ts';
 
 describe('loggingMiddleware', () => {
   let engine: JsonRpcEngine;
+  let logger: Logger;
 
   beforeEach(() => {
     vi.clearAllMocks();
     engine = new JsonRpcEngine();
-    engine.push(loggingMiddleware);
+    logger = new Logger('test');
+    engine.push(makeLoggingMiddleware(logger));
   });
 
   it('should pass the request to the next middleware', async () => {

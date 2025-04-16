@@ -4,8 +4,11 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@ocap/streams/browser';
+import { Logger } from '@ocap/utils';
 
-main().catch(console.error);
+const logger = new Logger('iframe');
+
+main().catch(logger.error);
 
 /**
  * The main function for the iframe.
@@ -30,5 +33,5 @@ async function main(): Promise<void> {
     commandStream,
   });
 
-  console.log('VatSupervisor initialized with vatId:', vatId);
+  logger.info('VatSupervisor initialized with vatId:', vatId);
 }

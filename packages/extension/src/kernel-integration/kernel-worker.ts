@@ -11,14 +11,14 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@ocap/streams/browser';
-import { fetchValidatedJson, makeLogger } from '@ocap/utils';
+import { fetchValidatedJson, Logger } from '@ocap/utils';
 
-import { loggingMiddleware } from './middleware/logging.ts';
+import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 import { receiveUiConnections } from './ui-connections.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
-const logger = makeLogger('[kernel worker]');
+const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
 
 // XXX Warning: Setting this flag to true causes persistent storage to be
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
     },
   );
   const kernelEngine = new JsonRpcEngine();
-  kernelEngine.push(loggingMiddleware);
+  kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
   kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
   receiveUiConnections(async (request) => kernelEngine.handle(request), logger);
   const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
@@ -88,9 +88,9 @@ async function main(): Promise<void> {
     (async () => {
       if (launchDefaultSubcluster) {
         const result = await kernel.launchSubcluster(defaultSubcluster);
-        console.log(`Subcluster launched: ${JSON.stringify(result)}`);
+        logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
       } else {
-        console.log(`Resuming kernel execution`);
+        logger.info(`Resuming kernel execution`);
       }
     })(),
   ]);
