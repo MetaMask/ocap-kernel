@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { makeVatKVStore } from './VatKVStore.ts';
+import { makeVatKVStore } from './vat-kv-store.ts';
 
 describe('VatKVStore', () => {
   it('working VatKVStore', () => {

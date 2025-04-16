@@ -123,9 +123,9 @@ describe('kernel store', () => {
         'setObjectRefCount',
         'setPromiseDecider',
         'setVatConfig',
-        'translateRefKtoV',
         'translateCapDataKtoV',
         'translateMessageKtoV',
+        'translateRefKtoV',
         'translateSyscallVtoK',
       ]);
     });
