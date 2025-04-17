@@ -1,12 +1,14 @@
 import '@ocap/shims/endoify';
 
+import { Logger } from '@ocap/utils';
 import { watch } from 'chokidar';
 import type { FSWatcher } from 'chokidar';
+import type { Stats } from 'fs';
 import { unlink } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { createBundleFile } from './bundle.ts';
-import { watchDir, makeWatchEvents } from './watch.ts';
+import { bundleFile } from './bundle.ts';
+import { watchDir, makeWatchEvents, filterOnlyJsFiles } from './watch.ts';
 
 vi.mock('fs/promises', () => ({
   unlink: vi.fn(async () => new Promise<void>(() => undefined)),
@@ -17,12 +19,11 @@ vi.mock('../path.ts', () => ({
 }));
 
 vi.mock('./bundle.ts', () => ({
-  createBundleFile: vi.fn(async () => new Promise<void>(() => undefined)),
+  bundleFile: vi.fn(async () => new Promise<void>(() => undefined)),
 }));
 
 vi.mock('chokidar', () => ({
   watch: () => {
-    console.log('returning watcher...');
     const watcher = {
       on: () => watcher,
       close: async (): Promise<void> => undefined,
@@ -31,15 +32,35 @@ vi.mock('chokidar', () => ({
   },
 }));
 
+const logger = new Logger('test');
+
 describe('watchDir', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('returns an object with ready and error propertes', () => {
-    const watcher = watchDir('.');
+    const watcher = watchDir('.', logger);
     expect(watcher).toHaveProperty('ready');
     expect(watcher).toHaveProperty('error');
+  });
+});
+
+describe('filterOnlyJsFiles', () => {
+  const missingStats = undefined as unknown as Stats;
+  const fileStats = { isFile: () => true } as unknown as Stats;
+  const nonFileStats = { isFile: () => false } as unknown as Stats;
+
+  it.each`
+    description                    | file             | stats           | expectation
+    ${'a file with missing stats'} | ${'test.js'}     | ${missingStats} | ${false}
+    ${'a non-file'}                | ${'test.js'}     | ${nonFileStats} | ${false}
+    ${'a .ts file'}                | ${'test.ts'}     | ${fileStats}    | ${false}
+    ${'a .bundle file'}            | ${'test.bundle'} | ${fileStats}    | ${false}
+    ${'a .txt file'}               | ${'test.txt'}    | ${nonFileStats} | ${false}
+    ${'a .js file'}                | ${'test.js'}     | ${fileStats}    | ${true}
+  `('returns $expectation for $description', ({ file, expectation, stats }) => {
+    expect(filterOnlyJsFiles(file, stats)).toBe(expectation);
   });
 });
 
@@ -56,14 +77,14 @@ describe('makeWatchEvents', () => {
     ${'unlink'}
     ${'error'}
   `('returns an object with the expected property: $event', ({ event }) => {
-    const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn());
+    const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn(), logger);
     expect(events).toHaveProperty(event);
   });
 
   describe('ready', () => {
     it('calls the provided promise resolver', () => {
       const readyResolve = vi.fn();
-      const events = makeWatchEvents(watch('.'), readyResolve, vi.fn());
+      const events = makeWatchEvents(watch('.'), readyResolve, vi.fn(), logger);
       events.ready();
       expect(readyResolve).toHaveBeenCalledOnce();
     });
@@ -75,14 +96,14 @@ describe('makeWatchEvents', () => {
     ${'change'}
   `('$event', ({ event }: { event: 'add' | 'change' }) => {
     it('calls createBundleFile', () => {
-      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn());
+      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn(), logger);
       const testPath = 'test-path';
       events[event](testPath);
-      expect(createBundleFile).toHaveBeenCalledOnce();
-      expect(createBundleFile).toHaveBeenLastCalledWith(
-        testPath,
-        `resolved:${testPath}`,
-      );
+      expect(bundleFile).toHaveBeenCalledOnce();
+      expect(bundleFile).toHaveBeenLastCalledWith(testPath, {
+        logger,
+        targetPath: `resolved:${testPath}`,
+      });
     });
   });
 
@@ -92,20 +113,20 @@ describe('makeWatchEvents', () => {
     });
 
     it('calls unlink', () => {
-      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn());
+      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn(), logger);
       const testPath = 'test-path';
       events.unlink(testPath);
       expect(unlink).toHaveBeenCalledOnce();
       expect(unlink).toHaveBeenLastCalledWith(`resolved:${testPath}`);
     });
 
-    it('calls console.info on success', async () => {
+    it('calls logger.info on success', async () => {
       const promise = Promise.resolve();
       vi.mocked(unlink).mockReturnValue(promise);
 
-      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn());
+      const events = makeWatchEvents(watch('.'), vi.fn(), vi.fn(), logger);
       const testPath = 'test-path';
-      const infoSpy = vi.spyOn(console, 'info');
+      const infoSpy = vi.spyOn(logger, 'info');
 
       events.unlink(testPath);
 
@@ -128,7 +149,7 @@ describe('makeWatchEvents', () => {
       vi.mocked(unlink).mockRejectedValue(new Error('ENOENT'));
 
       const throwError = vi.fn();
-      const events = makeWatchEvents(watch('.'), vi.fn(), throwError);
+      const events = makeWatchEvents(watch('.'), vi.fn(), throwError, logger);
       const testPath = 'test-path';
 
       events.unlink(testPath);
@@ -144,7 +165,7 @@ describe('makeWatchEvents', () => {
       vi.mocked(unlink).mockRejectedValue(error);
 
       const throwError = vi.fn();
-      const events = makeWatchEvents(watch('.'), vi.fn(), throwError);
+      const events = makeWatchEvents(watch('.'), vi.fn(), throwError, logger);
       const testPath = 'test-path';
 
       events.unlink(testPath);
@@ -161,7 +182,7 @@ describe('makeWatchEvents', () => {
   describe('error', () => {
     it('calls throwError', () => {
       const throwError = vi.fn();
-      const events = makeWatchEvents(watch('.'), vi.fn(), throwError);
+      const events = makeWatchEvents(watch('.'), vi.fn(), throwError, logger);
       const testError = new Error('test');
 
       events.error(testError);

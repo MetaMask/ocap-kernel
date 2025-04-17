@@ -1,13 +1,18 @@
+import '@endo/init';
+
+import { Logger } from '@ocap/utils';
 import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { createBundle } from './commands/bundle.ts';
+import { bundleSource } from './commands/bundle.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
 import { withTimeout } from './utils.ts';
+
+const logger = new Logger('cli');
 
 await yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')
@@ -26,7 +31,9 @@ await yargs(hideBin(process.argv))
         describe: 'The files or directories of files to bundle',
       }),
     async (args) => {
-      await Promise.all(args.targets.map(createBundle));
+      await Promise.all(
+        args.targets.map(async (target) => bundleSource(target, logger)),
+      );
     },
   )
   .command(
@@ -55,7 +62,7 @@ await yargs(hideBin(process.argv))
         },
         dir: resolvedDir,
       };
-      console.info(`starting ${appName} in ${resolvedDir} on ${url}`);
+      logger.info(`starting ${appName} in ${resolvedDir} on ${url}`);
       const server = getServer(config);
       await server.listen();
     },
@@ -71,19 +78,19 @@ await yargs(hideBin(process.argv))
         describe: 'The directory to watch',
       }),
     (args) => {
-      const { ready, error } = watchDir(args.dir);
+      const { ready, error } = watchDir(args.dir, logger);
       let handleClose: undefined | (() => Promise<void>);
 
       ready
         .then((close) => {
           handleClose = close;
-          console.info(`Watching ${args.dir}...`);
+          logger.info(`Watching ${args.dir}...`);
           return undefined;
         })
-        .catch(console.error);
+        .catch(logger.error);
 
       error.catch(async (reason) => {
-        console.error(reason);
+        logger.error(reason);
         // If watching started, close the watcher.
         return handleClose ? withTimeout(handleClose(), 400) : undefined;
       });
@@ -109,7 +116,7 @@ await yargs(hideBin(process.argv))
       const closeHandlers: (() => Promise<void>)[] = [];
       const resolvedDir = path.resolve(args.dir);
 
-      await createBundle(resolvedDir);
+      await bundleSource(resolvedDir, logger);
 
       const handleClose = async (): Promise<void> => {
         await Promise.all(
@@ -117,10 +124,13 @@ await yargs(hideBin(process.argv))
         );
       };
 
-      const { ready: watchReady, error: watchError } = watchDir(resolvedDir);
+      const { ready: watchReady, error: watchError } = watchDir(
+        resolvedDir,
+        logger,
+      );
 
       watchError.catch(async (reason) => {
-        console.error(reason);
+        logger.error(reason);
         await handleClose();
       });
 
@@ -136,7 +146,7 @@ await yargs(hideBin(process.argv))
       const { close: closeServer, port } = await server.listen();
       closeHandlers.push(closeServer);
 
-      console.info(`bundling and serving ${resolvedDir} on localhost:${port}`);
+      logger.info(`bundling and serving ${resolvedDir} on localhost:${port}`);
     },
   )
   .help('help')
