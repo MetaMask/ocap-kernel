@@ -67,7 +67,7 @@ describe('bundle', async () => {
         const testContent = { source: 'test-content' };
         mocks.endoBundleSource.mockImplementationOnce(() => testContent);
 
-        await bundleFile(logger, source);
+        await bundleFile(source, { logger });
 
         expect(await fileExists(bundle)).toBe(true);
 
@@ -82,7 +82,7 @@ describe('bundle', async () => {
     it('calls logger.error if bundling fails', async () => {
       const loggerErrorSpy = vi.spyOn(logger, 'error');
       const badBundle = resolveBundlePath('bad-vat.fails');
-      await bundleFile(logger, badBundle);
+      await bundleFile(badBundle, { logger });
       expect(loggerErrorSpy).toHaveBeenCalledOnce();
     });
   });
@@ -99,7 +99,7 @@ describe('bundle', async () => {
         return 'test content';
       });
 
-      await bundleDir(logger, testBundleRoot);
+      await bundleDir(testBundleRoot, { logger });
 
       const bundledOutputs = (await globBundles()).map((bundlePath) =>
         basename(bundlePath, '.bundle'),
@@ -117,7 +117,7 @@ describe('bundle', async () => {
         throw new Error('test error');
       });
       const loggerErrorSpy = vi.spyOn(logger, 'error');
-      await bundleSource(logger, resolveBundlePath('test'));
+      await bundleSource(resolveBundlePath('test'), logger);
       expect(loggerErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('error bundling target'),
         expect.any(Error),

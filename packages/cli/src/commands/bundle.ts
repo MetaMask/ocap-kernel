@@ -8,20 +8,26 @@ import { resolve, join } from 'node:path';
 import { isDirectory } from '../file.ts';
 import { resolveBundlePath } from '../path.ts';
 
+type BundleFileOptions = {
+  logger: Logger;
+  targetPath?: string;
+};
+
 /**
  * Create a bundle given path to an entry point.
  *
- * @param logger - The logger to use for logging.
  * @param sourcePath - Path to the source file that is the root of the bundle.
- * @param targetPath - Optional path to which to write the bundle.
+ * @param options - Options for bundling the file.
+ * @param options.logger - The logger to use for logging (required).
+ * @param options.targetPath - Optional path to which to write the bundle.
  *  If not provided, defaults to sourcePath with `.bundle` extension.
  * @returns A promise that resolves when the bundle has been written.
  */
 export async function bundleFile(
-  logger: Logger,
   sourcePath: string,
-  targetPath?: string,
+  options: BundleFileOptions,
 ): Promise<void> {
+  const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
   try {
@@ -37,18 +43,20 @@ export async function bundleFile(
 /**
  * Create a bundle given path to an entry point.
  *
- * @param logger - The logger to use for logging.
  * @param sourceDir - Path to a directory of source files to bundle.
+ * @param options - Options for bundling the directory.
+ * @param options.logger - The logger to use for logging (required).
  * @returns A promise that resolves when the bundles have been written.
  */
 export async function bundleDir(
-  logger: Logger,
   sourceDir: string,
+  options: { logger: Logger },
 ): Promise<void> {
+  const { logger } = options;
   logger.info('bundling dir', sourceDir);
   await Promise.all(
     (await glob(join(sourceDir, '*.js'))).map(
-      async (source) => await bundleFile(logger, source),
+      async (source) => await bundleFile(source, { logger }),
     ),
   );
 }
@@ -56,17 +64,18 @@ export async function bundleDir(
 /**
  * Bundle a target file or every file in the target directory.
  *
- * @param logger - The logger to use for logging.
  * @param target - The file or directory to apply the bundler to.
+ * @param logger - The logger to use for logging.
+ *
  * @returns A promise that resolves when bundling is done.
  */
 export async function bundleSource(
-  logger: Logger,
   target: string,
+  logger: Logger,
 ): Promise<void> {
   try {
     const targetIsDirectory = await isDirectory(target);
-    await (targetIsDirectory ? bundleDir : bundleFile)(logger, target);
+    await (targetIsDirectory ? bundleDir : bundleFile)(target, { logger });
   } catch (problem) {
     logger.error(`error bundling target ${target}`, problem);
   }

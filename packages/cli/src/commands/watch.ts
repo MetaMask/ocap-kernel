@@ -30,11 +30,15 @@ export const makeWatchEvents = (
   ready: () => readyResolve(watcher.close.bind(watcher)),
   add: (path) => {
     logger.info(`Source file added:`, path);
-    bundleFile(logger, path, resolveBundlePath(path)).catch(throwError);
+    bundleFile(path, { logger, targetPath: resolveBundlePath(path) }).catch(
+      throwError,
+    );
   },
   change: (path) => {
     logger.info(`Source file changed:`, path);
-    bundleFile(logger, path, resolveBundlePath(path)).catch(throwError);
+    bundleFile(path, { logger, targetPath: resolveBundlePath(path) }).catch(
+      throwError,
+    );
   },
   unlink: (path) => {
     logger.info('Source file removed:', path);

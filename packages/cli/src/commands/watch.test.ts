@@ -100,11 +100,10 @@ describe('makeWatchEvents', () => {
       const testPath = 'test-path';
       events[event](testPath);
       expect(bundleFile).toHaveBeenCalledOnce();
-      expect(bundleFile).toHaveBeenLastCalledWith(
+      expect(bundleFile).toHaveBeenLastCalledWith(testPath, {
         logger,
-        testPath,
-        `resolved:${testPath}`,
-      );
+        targetPath: `resolved:${testPath}`,
+      });
     });
   });
 

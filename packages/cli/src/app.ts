@@ -32,7 +32,7 @@ await yargs(hideBin(process.argv))
       }),
     async (args) => {
       await Promise.all(
-        args.targets.map(async (target) => bundleSource(logger, target)),
+        args.targets.map(async (target) => bundleSource(target, logger)),
       );
     },
   )
@@ -116,7 +116,7 @@ await yargs(hideBin(process.argv))
       const closeHandlers: (() => Promise<void>)[] = [];
       const resolvedDir = path.resolve(args.dir);
 
-      await bundleSource(logger, resolvedDir);
+      await bundleSource(resolvedDir, logger);
 
       const handleClose = async (): Promise<void> => {
         await Promise.all(
