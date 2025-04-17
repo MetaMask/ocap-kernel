@@ -93,8 +93,8 @@ export class VatHandle {
     this.#kernelQueue = kernelQueue;
     this.#vatSyscall = new VatSyscall({
       vatId,
-      kernelQueue: this.#kernelQueue,
-      kernelStore: this.#kernelStore,
+      kernelQueue,
+      kernelStore,
       logger: this.#logger.subLogger({ tags: ['syscall'] }),
     });
   }

@@ -1,6 +1,4 @@
-import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
-import { makePromiseKit } from '@endo/promise-kit';
 import {
   StreamReadError,
   VatAlreadyExistsError,
@@ -8,10 +6,10 @@ import {
 } from '@ocap/errors';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
-import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
+import { Logger } from '@ocap/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
+import { KernelRouter } from './KernelRouter.ts';
 import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
 import type {
   KernelCommand,
@@ -20,34 +18,19 @@ import type {
   VatCommandReturnType,
 } from './messages/index.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
-import { kser, kslot } from './services/kernel-marshal.ts';
+import { kslot } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
-import { extractSingleRef } from './store/utils/extract-ref.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
-import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
   VatId,
   KRef,
   VatWorkerManager,
   ClusterConfig,
   VatConfig,
-  RunQueueItem,
-  RunQueueItemSend,
 } from './types.ts';
-import {
-  ROOT_OBJECT_VREF,
-  insistVatId,
-  insistMessage,
-  isClusterConfig,
-} from './types.ts';
-import { assert, Fail } from './utils/assert.ts';
+import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
+import { Fail } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
-
-type MessageRoute = {
-  vatId?: VatId;
-  target: KRef;
-} | null;
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
@@ -70,6 +53,9 @@ export class Kernel {
 
   /** The kernel's run queue */
   readonly #kernelQueue: KernelQueue;
+
+  /** The kernel's router */
+  readonly #kernelRouter: KernelRouter;
 
   /**
    * Construct a new kernel instance.
@@ -95,13 +81,17 @@ export class Kernel {
     this.#commandStream = commandStream;
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
-
+    this.#logger = options.logger ?? new Logger('[ocap kernel]');
     this.#kernelStore = makeKernelStore(kernelDatabase);
     if (options.resetStorage) {
       this.#resetKernelState();
     }
-    this.#logger = options.logger ?? makeLogger('[ocap kernel]');
     this.#kernelQueue = new KernelQueue(this.#kernelStore);
+    this.#kernelRouter = new KernelRouter(
+      this.#kernelStore,
+      this.#kernelQueue,
+      this.#getVat.bind(this),
+    );
   }
 
   /**
@@ -148,10 +138,12 @@ export class Kernel {
       starts.push(this.#runVat(vatID, vatConfig));
     }
     await Promise.all(starts);
-    this.#kernelQueue.run(this.#deliver.bind(this)).catch((error) => {
-      this.#logger.error('Run loop error:', error);
-      throw error;
-    });
+    this.#kernelQueue
+      .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
+      .catch((error) => {
+        this.#logger.error('Run loop error:', error);
+        throw error;
+      });
   }
 
   /**
@@ -234,256 +226,6 @@ export class Kernel {
   }
 
   /**
-   * Determine a message's destination route based on the target type and
-   * state. In the most general case, this route consists of a vatId and a
-   * destination object reference.
-   *
-   * There are three possible outcomes:
-   * - splat: message should be dropped (with optional error resolution),
-   *   indicated by a null return value
-   * - send: message should be delivered to a specific object in a specific vat
-   * - requeue: message should be put back on the run queue for later delivery
-   *   (for unresolved promises), indicated by absence of a target vat in the
-   *   return value
-   *
-   * @param item - The message to route.
-   * @returns the route for the message.
-   */
-  #routeMessage(item: RunQueueItemSend): MessageRoute {
-    const { target, message } = item;
-    insistMessage(message);
-
-    const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
-      if (message.result && error) {
-        this.#kernelQueue.resolvePromises(undefined, [
-          [message.result, true, error],
-        ]);
-      }
-      return null;
-    };
-    const routeAsSend = (targetObject: KRef): MessageRoute => {
-      const vatId = this.#kernelStore.getOwner(targetObject);
-      if (!vatId) {
-        return routeAsSplat(kser('no vat'));
-      }
-      return { vatId, target: targetObject };
-    };
-    const routeAsRequeue = (targetObject: KRef): MessageRoute => {
-      return { target: targetObject };
-    };
-
-    if (isPromiseRef(target)) {
-      const promise = this.#kernelStore.getKernelPromise(target);
-      switch (promise.state) {
-        case 'fulfilled': {
-          if (promise.value) {
-            const targetObject = extractSingleRef(promise.value);
-            if (targetObject) {
-              if (isPromiseRef(targetObject)) {
-                return routeAsRequeue(targetObject);
-              }
-              return routeAsSend(targetObject);
-            }
-          }
-          return routeAsSplat(kser('no object'));
-        }
-        case 'rejected':
-          return routeAsSplat(promise.value);
-        case 'unresolved':
-          return routeAsRequeue(target);
-        default:
-          throw Fail`unknown promise state ${promise.state}`;
-      }
-    } else {
-      return routeAsSend(target);
-    }
-  }
-
-  /**
-   * Deliver a run queue item to its target.
-   *
-   * If the item being delivered is message whose target is a promise, it is
-   * delivered based on the kernel's model of the promise's state:
-   * - unresolved: it is put onto the queue that the kernel maintains for that promise
-   * - fulfilled: it is forwarded to the promise resolution target
-   * - rejected: the result promise of the message is in turn rejected according
-   *   to the kernel's model of the promise's rejection value
-   *
-   * If the item being delivered is a notification, the kernel's model of the
-   * state of the promise being notified is updated, and any queue items
-   * enqueued for that promise are placed onto the run queue. The notification
-   * is also forwarded to all of the promise's registered subscribers.
-   *
-   * @param item - The message/notification to deliver.
-   */
-  async #deliver(item: RunQueueItem): Promise<void> {
-    const { log } = console;
-    switch (item.type) {
-      case 'send': {
-        const route = this.#routeMessage(item);
-        if (route) {
-          const { vatId, target } = route;
-          const { message } = item;
-          log(
-            `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
-          );
-          if (vatId) {
-            const vat = this.#getVat(vatId);
-            if (vat) {
-              if (message.result) {
-                if (typeof message.result !== 'string') {
-                  throw TypeError('message result must be a string');
-                }
-                this.#kernelStore.setPromiseDecider(message.result, vatId);
-                this.#kernelStore.decrementRefCount(
-                  message.result,
-                  'deliver|send|result',
-                );
-              }
-              const vatTarget = this.#kernelStore.translateRefKtoV(
-                vatId,
-                target,
-                false,
-              );
-              const vatMessage = this.#kernelStore.translateMessageKtoV(
-                vatId,
-                message,
-              );
-              await vat.deliverMessage(vatTarget, vatMessage);
-              // decrement refcount for processed 'send' items except for the root object
-              const vatKref = this.#kernelStore.erefToKref(vatId, 'o+0');
-              if (vatKref !== target) {
-                this.#kernelStore.decrementRefCount(
-                  target,
-                  'deliver|send|target',
-                );
-              }
-              for (const slot of message.methargs.slots) {
-                this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
-              }
-            } else {
-              Fail`no owner for kernel object ${target}`;
-            }
-          } else {
-            this.#kernelStore.enqueuePromiseMessage(target, message);
-          }
-          log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
-        } else {
-          // Message went splat
-          this.#kernelStore.decrementRefCount(
-            item.target,
-            'deliver|splat|target',
-          );
-          if (item.message.result) {
-            this.#kernelStore.decrementRefCount(
-              item.message.result,
-              'deliver|splat|result',
-            );
-          }
-          for (const slot of item.message.methargs.slots) {
-            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
-          }
-        }
-        break;
-      }
-      case 'notify': {
-        const { vatId, kpid } = item;
-        insistVatId(vatId);
-        const { context, isPromise } = parseRef(kpid);
-        assert(
-          context === 'kernel' && isPromise,
-          `${kpid} is not a kernel promise`,
-        );
-        log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
-        const promise = this.#kernelStore.getKernelPromise(kpid);
-        const { state, value } = promise;
-        assert(value, `no value for promise ${kpid}`);
-        if (state === 'unresolved') {
-          Fail`notification on unresolved promise ${kpid}`;
-        }
-        if (!this.#kernelStore.krefToEref(vatId, kpid)) {
-          // no c-list entry, already done
-          return;
-        }
-        const targets = this.#kernelStore.getKpidsToRetire(kpid, value);
-        if (targets.length === 0) {
-          // no kpids to retire, already done
-          return;
-        }
-        const resolutions: VatOneResolution[] = [];
-        for (const toResolve of targets) {
-          const tPromise = this.#kernelStore.getKernelPromise(toResolve);
-          if (tPromise.state === 'unresolved') {
-            Fail`target promise ${toResolve} is unresolved`;
-          }
-          if (!tPromise.value) {
-            throw Fail`target promise ${toResolve} has no value`;
-          }
-          resolutions.push([
-            this.#kernelStore.translateRefKtoV(vatId, toResolve, true),
-            false,
-            this.#kernelStore.translateCapDataKtoV(vatId, tPromise.value),
-          ]);
-          // decrement refcount for the promise being notified
-          if (toResolve !== kpid) {
-            this.#kernelStore.decrementRefCount(
-              toResolve,
-              'deliver|notify|slot',
-            );
-          }
-        }
-        const vat = this.#getVat(vatId);
-        await vat.deliverNotify(resolutions);
-        // Decrement reference count for processed 'notify' item
-        this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-        log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
-        break;
-      }
-      case 'dropExports': {
-        const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} dropExports`, krefs);
-        const vat = this.#getVat(vatId);
-        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
-        log(`@@@@ deliver ${vatId} dropExports`, vrefs);
-        await vat.deliverDropExports(vrefs);
-        log(`@@@@ done ${vatId} dropExports`, krefs);
-        break;
-      }
-      case 'retireExports': {
-        const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} retireExports`, krefs);
-        const vat = this.#getVat(vatId);
-        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
-        log(`@@@@ deliver ${vatId} retireExports`, vrefs);
-        await vat.deliverRetireExports(vrefs);
-        log(`@@@@ done ${vatId} retireExports`, krefs);
-        break;
-      }
-      case 'retireImports': {
-        const { vatId, krefs } = item;
-        log(`@@@@ deliver ${vatId} retireImports`, krefs);
-        const vat = this.#getVat(vatId);
-        const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
-        log(`@@@@ deliver ${vatId} retireImports`, vrefs);
-        await vat.deliverRetireImports(vrefs);
-        log(`@@@@ done ${vatId} retireImports`, krefs);
-        break;
-      }
-      case 'bringOutYourDead': {
-        const { vatId } = item;
-        log(`@@@@ deliver ${vatId} bringOutYourDead`);
-        const vat = this.#getVat(vatId);
-        await vat.deliverBringOutYourDead();
-        log(`@@@@ done ${vatId} bringOutYourDead`);
-        break;
-      }
-      default:
-        // @ts-expect-error Runtime does not respect "never".
-        Fail`unsupported or unknown run queue item type ${item.type}`;
-    }
-  }
-
-  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -497,27 +239,7 @@ export class Kernel {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
-    const result = this.#kernelStore.initKernelPromise()[0];
-    const message: Message = {
-      methargs: kser([method, args]),
-      result,
-    };
-
-    this.#kernelStore.incrementRefCount(target, 'queue|target');
-    this.#kernelStore.incrementRefCount(result, 'queue|result');
-    for (const slot of message.methargs.slots || []) {
-      this.#kernelStore.incrementRefCount(slot, 'queue|slot');
-    }
-
-    const queueItem: RunQueueItemSend = {
-      type: 'send',
-      target,
-      message,
-    };
-    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
-    this.#kernelQueue.subscriptions.set(result, resolve);
-    this.#kernelQueue.enqueueRun(queueItem);
-    return promise;
+    return this.#kernelRouter.queueMessage(target, method, args);
   }
 
   /**
