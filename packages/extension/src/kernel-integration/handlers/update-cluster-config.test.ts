@@ -14,10 +14,10 @@ describe('updateClusterConfigHandler', () => {
     },
   });
 
-  it('should update kernel cluster config', async () => {
+  it('should update kernel cluster config', () => {
     const updateClusterConfig = vi.fn();
     const testConfig = makeTestConfig();
-    const result = await updateClusterConfigHandler.implementation(
+    const result = updateClusterConfigHandler.implementation(
       { updateClusterConfig },
       { config: testConfig },
     );
@@ -26,16 +26,16 @@ describe('updateClusterConfigHandler', () => {
     expect(result).toBeNull();
   });
 
-  it('should propagate errors from updateClusterConfig', async () => {
+  it('should propagate errors from updateClusterConfig', () => {
     const error = new Error('Update failed');
     const updateClusterConfig = vi.fn(() => {
       throw error;
     });
-    await expect(
+    expect(() =>
       updateClusterConfigHandler.implementation(
         { updateClusterConfig },
         { config: makeTestConfig() },
       ),
-    ).rejects.toThrow(error);
+    ).toThrow(error);
   });
 });

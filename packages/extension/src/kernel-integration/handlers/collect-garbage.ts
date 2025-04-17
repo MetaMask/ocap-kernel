@@ -23,7 +23,7 @@ export const collectGarbageHandler: Handler<
 > = {
   ...collectGarbageSpec,
   hooks: { kernel: true },
-  implementation: async ({ kernel }): Promise<null> => {
+  implementation: ({ kernel }) => {
     kernel.collectGarbage();
     return null;
   },

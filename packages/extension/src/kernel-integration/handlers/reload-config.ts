@@ -3,7 +3,11 @@ import type { Kernel } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 import { EmptyJsonArray } from '@ocap/utils';
 
-export const reloadConfigSpec: MethodSpec<'reload', EmptyJsonArray, null> = {
+export const reloadConfigSpec: MethodSpec<
+  'reload',
+  EmptyJsonArray,
+  Promise<null>
+> = {
   method: 'reload',
   params: EmptyJsonArray,
   result: literal(null),
@@ -14,7 +18,7 @@ export type ReloadConfigHooks = { kernel: Pick<Kernel, 'reload'> };
 export const reloadConfigHandler: Handler<
   'reload',
   EmptyJsonArray,
-  null,
+  Promise<null>,
   ReloadConfigHooks
 > = {
   ...reloadConfigSpec,

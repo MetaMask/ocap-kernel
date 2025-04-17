@@ -4,7 +4,7 @@ import type { Kernel } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 import { EmptyJsonArray } from '@ocap/utils';
 
-export const clearStateSpec: MethodSpec<'clearState', Json[], null> = {
+export const clearStateSpec: MethodSpec<'clearState', Json[], Promise<null>> = {
   method: 'clearState',
   params: EmptyJsonArray,
   result: literal(null),
@@ -15,7 +15,7 @@ export type ClearStateHooks = { kernel: Pick<Kernel, 'reset'> };
 export const clearStateHandler: Handler<
   'clearState',
   Json[],
-  null,
+  Promise<null>,
   ClearStateHooks
 > = {
   ...clearStateSpec,

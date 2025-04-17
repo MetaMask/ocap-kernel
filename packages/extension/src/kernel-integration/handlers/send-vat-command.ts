@@ -8,7 +8,7 @@ import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 export const sendVatCommandSpec: MethodSpec<
   'sendVatCommand',
   { id: VatId; payload: Json },
-  { result: Json }
+  Promise<{ result: Json }>
 > = {
   method: 'sendVatCommand',
   // TODO:rekm Use a more specific struct for the payload
@@ -23,7 +23,7 @@ export type SendVatCommandHooks = {
 export const sendVatCommandHandler: Handler<
   'sendVatCommand',
   { id: VatId; payload: Json },
-  { result: Json },
+  Promise<{ result: Json }>,
   SendVatCommandHooks
 > = {
   ...sendVatCommandSpec,

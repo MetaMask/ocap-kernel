@@ -25,7 +25,7 @@ export const updateClusterConfigHandler: Handler<
 > = {
   ...updateClusterConfigSpec,
   hooks: { updateClusterConfig: true },
-  implementation: async ({ updateClusterConfig }, params): Promise<null> => {
+  implementation: ({ updateClusterConfig }, params): null => {
     updateClusterConfig(params.config);
     return null;
   },

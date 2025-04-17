@@ -6,17 +6,17 @@ import type { JsonRpcParams, Json } from '@metamask/utils';
 export type MethodSignature<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json,
-> = (method: Method, params: Params) => Promise<Result>;
+  Result extends Json | Promise<Json>,
+> = (method: Method, params: Params) => Result;
 
 export type MethodSpec<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json,
+  Result extends Json | Promise<Json>,
 > = {
   method: Method;
   params: Struct<Params>;
-  result: Struct<Result>;
+  result: Struct<UnwrapPromise<Result>>;
 };
 
 // `any` can safely be used in constraints.
@@ -29,12 +29,13 @@ export type MethodSpecRecord<Methods extends SpecConstraint> = {
 
 type SpecRecordConstraint = MethodSpecRecord<SpecConstraint>;
 
-export type ExtractMethodSignature<Spec extends SpecConstraint> = Spec extends (
-  method: infer Method extends string,
-  params: infer Params extends JsonRpcParams,
-) => Promise<infer Result extends Json>
-  ? MethodSignature<Method, Params, Result>
-  : never;
+export type ExtractMethodSignature<Spec extends SpecConstraint> =
+  Spec extends ((
+    method: infer Method extends string,
+    params: infer Params extends JsonRpcParams,
+  ) => infer Result extends Json | Promise<Json>)
+    ? MethodSignature<Method, Params, Result>
+    : never;
 
 export type ExtractMethodSpec<
   Specs extends SpecRecordConstraint,
@@ -52,20 +53,20 @@ export type ExtractParams<
 export type ExtractResult<
   Method extends string,
   Specs extends SpecRecordConstraint,
-> = Infer<ExtractMethodSpec<Specs, Method>['result']>;
+> = UnwrapPromise<Infer<ExtractMethodSpec<Specs, Method>['result']>>;
 
 export type HandlerFunction<
   Params extends JsonRpcParams,
-  Result extends Json,
+  Result extends Json | Promise<Json>,
   Hooks extends Record<string, unknown>,
-> = (hooks: Hooks, params: Params) => Promise<Result>;
+> = (hooks: Hooks, params: Params) => Result;
 
 // Service-side types
 
 export type Handler<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json,
+  Result extends Json | Promise<Json>,
   Hooks extends Record<string, unknown>,
 > = MethodSpec<Method, Params, Result> & {
   hooks: { [Key in keyof Hooks]: true };
@@ -79,3 +80,8 @@ type HandlerConstraint = Handler<string, any, any, any>;
 export type HandlerRecord<Handlers extends HandlerConstraint> = {
   [Key in Handlers['method']]: Extract<Handlers, { method: Key }>;
 };
+
+// Utils
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;

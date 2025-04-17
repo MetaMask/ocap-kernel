@@ -16,25 +16,22 @@ describe('getStatusHandler', () => {
     });
   });
 
-  it('should return vats status and cluster config', async () => {
+  it('should return vats status and cluster config', () => {
     vi.mocked(mockKernel.getVats).mockReturnValueOnce([]);
 
-    const result = await getStatusHandler.implementation(
-      { kernel: mockKernel },
-      [],
-    );
+    const result = getStatusHandler.implementation({ kernel: mockKernel }, []);
 
     expect(mockKernel.getVats).toHaveBeenCalledTimes(1);
     expect(result).toStrictEqual({ vats: [], clusterConfig: { foo: 'bar' } });
   });
 
-  it('should propagate errors from getVats', async () => {
+  it('should propagate errors from getVats', () => {
     const error = new Error('Status check failed');
     vi.mocked(mockKernel.getVats).mockImplementationOnce(() => {
       throw error;
     });
-    await expect(
+    expect(() =>
       getStatusHandler.implementation({ kernel: mockKernel }, []),
-    ).rejects.toThrow(error);
+    ).toThrow(error);
   });
 });

@@ -7,7 +7,7 @@ import { EmptyJsonArray } from '@ocap/utils';
 export const terminateAllVatsSpec: MethodSpec<
   'terminateAllVats',
   Json[],
-  null
+  Promise<null>
 > = {
   method: 'terminateAllVats',
   params: EmptyJsonArray,
@@ -21,7 +21,7 @@ export type TerminateAllVatsHooks = {
 export const terminateAllVatsHandler: Handler<
   'terminateAllVats',
   Json[],
-  null,
+  Promise<null>,
   TerminateAllVatsHooks
 > = {
   ...terminateAllVatsSpec,

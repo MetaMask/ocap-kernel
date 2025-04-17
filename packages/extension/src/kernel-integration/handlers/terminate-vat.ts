@@ -3,19 +3,22 @@ import type { Kernel, VatId } from '@ocap/kernel';
 import { VatIdStruct } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
-export const terminateVatSpec: MethodSpec<'terminateVat', { id: VatId }, null> =
-  {
-    method: 'terminateVat',
-    params: object({ id: VatIdStruct }),
-    result: literal(null),
-  };
+export const terminateVatSpec: MethodSpec<
+  'terminateVat',
+  { id: VatId },
+  Promise<null>
+> = {
+  method: 'terminateVat',
+  params: object({ id: VatIdStruct }),
+  result: literal(null),
+};
 
 export type TerminateVatHooks = { kernel: Pick<Kernel, 'terminateVat'> };
 
 export const terminateVatHandler: Handler<
   'terminateVat',
   { id: VatId },
-  null,
+  Promise<null>,
   TerminateVatHooks
 > = {
   ...terminateVatSpec,

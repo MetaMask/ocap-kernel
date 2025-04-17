@@ -4,7 +4,7 @@ import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 export const executeDBQuerySpec: MethodSpec<
   'executeDBQuery',
   { sql: string },
-  Record<string, string>[]
+  Promise<Record<string, string>[]>
 > = {
   method: 'executeDBQuery',
   params: object({
@@ -20,7 +20,7 @@ export type ExecuteDBQueryHooks = {
 export const executeDBQueryHandler: Handler<
   'executeDBQuery',
   { sql: string },
-  Record<string, string>[],
+  Promise<Record<string, string>[]>,
   ExecuteDBQueryHooks
 > = {
   ...executeDBQuerySpec,

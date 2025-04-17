@@ -17,7 +17,7 @@ export const getMethods = () =>
       method: 'method1',
       params: tuple([string()]),
       result: literal(null),
-    } as MethodSpec<'method1', [string], null>,
+    } as MethodSpec<'method1', [string], Promise<null>>,
     method2: {
       method: 'method2',
       params: tuple([number()]),
@@ -35,11 +35,16 @@ export const getHandlers = () => {
         hooks.hook1();
         return null;
       },
-    } as Handler<'method1', [string], null, Pick<Hooks, 'hook1' | 'hook2'>>,
+    } as Handler<
+      'method1',
+      [string],
+      Promise<null>,
+      Pick<Hooks, 'hook1' | 'hook2'>
+    >,
     method2: {
       ...methods.method2,
       hooks: { hook3: true } as const,
-      implementation: async (hooks, [value]) => {
+      implementation: (hooks, [value]) => {
         hooks.hook3();
         return value * 2;
       },

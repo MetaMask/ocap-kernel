@@ -43,9 +43,7 @@ export const getStatusHandler: Handler<
 > = {
   ...getStatusSpec,
   hooks: { kernel: true },
-  implementation: async ({
-    kernel,
-  }: GetStatusHooks): Promise<KernelStatus> => ({
+  implementation: ({ kernel }: GetStatusHooks): KernelStatus => ({
     vats: kernel.getVats(),
     clusterConfig: kernel.clusterConfig,
   }),
