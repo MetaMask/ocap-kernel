@@ -1,6 +1,5 @@
-import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
-import { makePromiseKit } from '@endo/promise-kit';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { kser } from './services/kernel-marshal.ts';
@@ -57,43 +56,6 @@ export class KernelRouter {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#getVat = getVat;
-  }
-
-  /**
-   * Send a message from the kernel to an object in a vat.
-   *
-   * @param target - The object to which the message is directed.
-   * @param method - The method to be invoked.
-   * @param args - Message arguments.
-   *
-   * @returns a promise for the (CapData encoded) result of the message invocation.
-   */
-  async queueMessage(
-    target: KRef,
-    method: string,
-    args: unknown[],
-  ): Promise<CapData<KRef>> {
-    const result = this.#kernelStore.initKernelPromise()[0];
-    const message: Message = {
-      methargs: kser([method, args]),
-      result,
-    };
-
-    this.#kernelStore.incrementRefCount(target, 'queue|target');
-    this.#kernelStore.incrementRefCount(result, 'queue|result');
-    for (const slot of message.methargs.slots || []) {
-      this.#kernelStore.incrementRefCount(slot, 'queue|slot');
-    }
-
-    const queueItem: RunQueueItemSend = {
-      type: 'send',
-      target,
-      message,
-    };
-    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
-    this.#kernelQueue.subscriptions.set(result, resolve);
-    this.#kernelQueue.enqueueRun(queueItem);
-    return promise;
   }
 
   /**

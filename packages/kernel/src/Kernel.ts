@@ -239,7 +239,7 @@ export class Kernel {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
-    return this.#kernelRouter.queueMessage(target, method, args);
+    return this.#kernelQueue.enqueueMessage(target, method, args);
   }
 
   /**
