@@ -8,6 +8,7 @@ import { copyFile, lstat, access } from 'fs/promises';
  * @returns A promise which resolves to true if the target path is a directory.
  */
 export async function isDirectory(target: string): Promise<boolean> {
+  // May not work on Windows.
   try {
     return (await lstat(target)).isDirectory();
   } catch (error) {
@@ -44,6 +45,7 @@ export async function cp(source: string, destination: string): Promise<void> {
  * @returns A promise that resolves to true iff a file exists at the given path
  */
 export async function fileExists(path: string): Promise<boolean> {
+  // May not work on Windows.
   try {
     // if the file can be accessed, it exists
     await access(path);

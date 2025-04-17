@@ -24,9 +24,6 @@ const makeTestError = (code?: string): Error & { code?: string } => {
 };
 
 describe('file', () => {
-  // Note: the behavior of isDirectory is negotiable. The current
-  // implementation is a guess at a platform-independent behavior. This test
-  // suite documents the behavior of the current implementation.
   describe('isDirectory', () => {
     it('should return true if the path is a directory', async () => {
       mocks.lstat.mockResolvedValue({ isDirectory: () => true });
@@ -79,9 +76,6 @@ describe('file', () => {
     });
   });
 
-  // Note: the behavior of fileExists is negotiable. The current implementation
-  // is a guess at a platform-independent behavior. This test suite documents
-  // the behavior of the current implementation.
   describe('fileExists', () => {
     it('should return true if the file can be accessed', async () => {
       mocks.access.mockResolvedValue(undefined);
