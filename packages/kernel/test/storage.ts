@@ -85,18 +85,20 @@ type ClearableVatStore = VatStore & {
  * @returns the mock {@link VatStore}.
  */
 function makeMapVatStore(_vatID: string): ClearableVatStore {
-  const map = new Map<string, string>();
+  let kvData: Record<string, string> = {};
   return {
-    getKVData: () => map,
-    updateKVData: (sets: Map<string, string>, deletes: Set<string>) => {
-      for (const [key, value] of sets.entries()) {
-        map.set(key, value);
+    getKVData: () => kvData,
+    updateKVData: (sets: Record<string, string>, deletes: string[]) => {
+      for (const [key, value] of Object.entries(sets)) {
+        kvData[key] = value;
       }
-      for (const key of deletes.values()) {
-        map.delete(key);
+      for (const key of deletes) {
+        delete kvData[key];
       }
     },
-    clear: () => map.clear(),
+    clear: () => {
+      kvData = {};
+    },
   };
 }
 

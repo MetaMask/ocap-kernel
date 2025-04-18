@@ -119,8 +119,8 @@ describe('exercise vatstore', async () => {
         if (vatID === 'v1') {
           const origUpdateKVData = result.updateKVData;
           vi.spyOn(result, 'updateKVData').mockImplementation(
-            (sets: Map<string, string>, deletes: Set<string>): void => {
-              kvUpdates.push([Object.fromEntries(sets), Array.from(deletes)]);
+            (sets: Record<string, string>, deletes: string[]): void => {
+              kvUpdates.push([sets, deletes]);
               origUpdateKVData(sets, deletes);
             },
           );

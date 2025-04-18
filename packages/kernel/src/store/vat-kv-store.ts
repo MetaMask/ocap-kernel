@@ -17,7 +17,7 @@ export type VatKVStore = KVStore & {
  * @returns a VatKVStore wrapped around `state`.
  */
 export function makeVatKVStore(state: Map<string, string>): VatKVStore {
-  let sets: Map<string, string> = new Map();
+  let sets: Record<string, string> = {};
   let deletes: Set<string> = new Set();
   let keyCache: string[] | null = null;
   let lastNextKey: string | null = null;
@@ -61,22 +61,19 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
     },
     set(key: string, value: string): void {
       state.set(key, value);
-      sets.set(key, value);
+      sets[key] = value;
       deletes.delete(key);
       keyCache = null;
     },
     delete(key: string): void {
       state.delete(key);
-      sets.delete(key);
+      delete sets[key];
       deletes.add(key);
       keyCache = null;
     },
     checkpoint(): VatCheckpoint {
-      const result: VatCheckpoint = [
-        Object.fromEntries(sets),
-        Array.from(deletes),
-      ];
-      sets = new Map();
+      const result: VatCheckpoint = [sets, Array.from(deletes)];
+      sets = {};
       deletes = new Set();
       return result;
     },

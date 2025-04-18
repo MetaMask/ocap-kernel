@@ -148,7 +148,7 @@ export class VatHandle {
       method: 'initVat',
       params: {
         vatConfig: this.config,
-        state: Object.fromEntries(this.#vatStore.getKVData()),
+        state: this.#vatStore.getKVData(),
       },
     });
   }
@@ -297,10 +297,7 @@ export class VatHandle {
     if (method === 'deliver' || method === 'initVat') {
       // TypeScript fails to narrow the result type on its own
       const [sets, deletes] = result as VatCheckpoint;
-      this.#vatStore.updateKVData(
-        new Map(Object.entries(sets)),
-        new Set(deletes),
-      );
+      this.#vatStore.updateKVData(sets, deletes);
     }
     return result;
   }

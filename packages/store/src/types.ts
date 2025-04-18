@@ -7,8 +7,8 @@ export type KVStore = {
 };
 
 export type VatStore = {
-  getKVData(): Map<string, string>;
-  updateKVData(sets: Map<string, string>, deletes: Set<string>): void;
+  getKVData(): Record<string, string>;
+  updateKVData(sets: Record<string, string>, deletes: string[]): void;
 };
 
 export type KernelDatabase = {

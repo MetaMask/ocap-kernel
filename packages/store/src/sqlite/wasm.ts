@@ -239,14 +239,14 @@ export async function makeSQLKernelDatabase({
      *
      * @returns the vatstore contents as a key-value Map.
      */
-    function getKVData(): Map<string, string> {
-      const result = new Map<string, string>();
+    function getKVData(): Record<string, string> {
+      const result: Record<string, string> = {};
       sqlVatstoreGetAll.bind([vatID]);
       try {
         while (sqlVatstoreGetAll.step()) {
           const key = sqlVatstoreGetAll.getString(0) as string;
           const value = sqlVatstoreGetAll.getString(1) as string;
-          result.set(key, value);
+          result[key] = value;
         }
       } finally {
         sqlVatstoreGetAll.reset();
@@ -261,18 +261,18 @@ export async function makeSQLKernelDatabase({
      * @param deletes - A set of keys that have been deleted.
      */
     function updateKVData(
-      sets: Map<string, string>,
-      deletes: Set<string>,
+      sets: Record<string, string>,
+      deletes: string[],
     ): void {
       try {
         sqlBeginTransaction.step();
         sqlBeginTransaction.reset();
-        for (const [key, value] of sets.entries()) {
+        for (const [key, value] of Object.entries(sets)) {
           sqlVatstoreSet.bind([vatID, key, value]);
           sqlVatstoreSet.step();
           sqlVatstoreSet.reset();
         }
-        for (const value of deletes.values()) {
+        for (const value of deletes) {
           sqlVatstoreDelete.bind([vatID, value]);
           sqlVatstoreDelete.step();
           sqlVatstoreDelete.reset();
