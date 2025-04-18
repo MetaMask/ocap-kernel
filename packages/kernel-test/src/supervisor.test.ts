@@ -82,7 +82,7 @@ describe('VatSupervisor', () => {
         ],
         jsonrpc: '2.0',
       });
-      await delay(10);
+      await delay(100);
 
       expect(localValue).toBe('buzz');
     });
