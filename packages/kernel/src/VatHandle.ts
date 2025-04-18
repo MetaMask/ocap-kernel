@@ -10,7 +10,6 @@ import type { JsonRpcMessage } from '@ocap/utils';
 import { Logger } from '@ocap/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
-import { VatCommandMethod } from './messages/index.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
 import type { VatMethod } from './rpc/index.ts';
 import { kser } from './services/kernel-marshal.ts';
@@ -146,7 +145,7 @@ export class VatHandle {
     );
 
     await this.sendVatCommand({
-      method: VatCommandMethod.initVat,
+      method: 'initVat',
       params: {
         vatConfig: this.config,
         state: Object.fromEntries(this.#vatStore.getKVData()),
@@ -194,7 +193,7 @@ export class VatHandle {
    */
   async deliverMessage(target: VRef, message: Message): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['message', target, message],
     });
   }
@@ -206,7 +205,7 @@ export class VatHandle {
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['notify', resolutions],
     });
   }
@@ -218,7 +217,7 @@ export class VatHandle {
    */
   async deliverDropExports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['dropExports', vrefs],
     });
   }
@@ -230,7 +229,7 @@ export class VatHandle {
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['retireExports', vrefs],
     });
   }
@@ -242,7 +241,7 @@ export class VatHandle {
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['retireImports', vrefs],
     });
   }
@@ -252,7 +251,7 @@ export class VatHandle {
    */
   async deliverBringOutYourDead(): Promise<void> {
     await this.sendVatCommand({
-      method: VatCommandMethod.deliver,
+      method: 'deliver',
       params: ['bringOutYourDead'],
     });
   }

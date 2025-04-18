@@ -33,15 +33,13 @@ describe('getPort', () => {
   });
 });
 
-describe('makeCommandStream', () => {
+describe('makeKernelStream', () => {
   it('returns a NodeWorkerDuplexStream', async () => {
     doMockParentPort(new MessageChannel().port1);
 
     const { NodeWorkerDuplexStream } = await import('@ocap/streams');
-    const { makeKernelStream: makeCommandStream } = await import(
-      './streams.ts'
-    );
-    const commandStream = makeCommandStream();
+    const { makeKernelStream } = await import('./streams.ts');
+    const commandStream = makeKernelStream();
     expect(commandStream).toBeInstanceOf(NodeWorkerDuplexStream);
   });
 });

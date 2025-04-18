@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
 
-import { Kernel, VatCommandMethod } from '@ocap/kernel';
+import { Kernel } from '@ocap/kernel';
 import type { VatConfig, VatId } from '@ocap/kernel';
 import {
   MessageChannel as NodeMessageChannel,
@@ -77,7 +77,7 @@ describe('Kernel Worker', () => {
       testVatIds.map(
         async (vatId: VatId) =>
           await kernel.sendVatCommand(vatId, {
-            method: VatCommandMethod.ping,
+            method: 'ping',
             params: [],
           }),
       ),

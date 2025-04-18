@@ -1,4 +1,3 @@
-import { VatCommandMethod } from '@ocap/kernel';
 import type { VatConfig, VatId } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback, useMemo } from 'react';
@@ -56,7 +55,7 @@ export const useVats = (): {
           payload: {
             id: nextMessageId(),
             jsonrpc: '2.0',
-            method: VatCommandMethod.ping,
+            method: 'ping',
             params: [],
           },
         },

@@ -47,10 +47,6 @@ export const setupOcapKernelMock = (): {
           params: literal(null),
         }),
       }),
-      isVatCommandReply: vi.fn(() => true),
-      VatCommandMethod: {
-        ping: 'ping',
-      },
       KernelCommandMethod: {},
       VatWorkerServiceCommandMethod: {
         launch: 'launch',

@@ -1,20 +1,20 @@
-import { union, is } from '@metamask/superstruct';
+import { is, literal, object, string, union } from '@metamask/superstruct';
 import type { Infer, Struct } from '@metamask/superstruct';
-import type { EmptyJsonArray, TypeGuard } from '@ocap/utils';
-
-import {
-  VatTestCommandMethod,
-  VatTestMethodStructs,
-  VatTestReplyStructs,
-} from './vat.ts';
+import { EmptyJsonArray } from '@ocap/utils';
+import type { TypeGuard } from '@ocap/utils';
 
 export const KernelCommandMethod = {
-  ping: VatTestCommandMethod.ping,
+  ping: 'ping',
 } as const;
 
 // Explicitly annotated due to a TS2742 error that occurs during CommonJS
 // builds by ts-bridge.
-const KernelCommandStruct = union([VatTestMethodStructs.ping]) as Struct<
+const KernelCommandStruct = union([
+  object({
+    method: literal('ping'),
+    params: EmptyJsonArray,
+  }),
+]) as Struct<
   {
     method: 'ping';
     params: EmptyJsonArray;
@@ -22,15 +22,10 @@ const KernelCommandStruct = union([VatTestMethodStructs.ping]) as Struct<
   null
 >;
 
-// Explicitly annotated due to a TS2742 error that occurs during CommonJS
-// builds by ts-bridge.
-const KernelCommandReplyStruct = union([VatTestReplyStructs.ping]) as Struct<
-  {
-    method: 'ping';
-    params: string;
-  },
-  null
->;
+const KernelCommandReplyStruct = object({
+  method: literal('ping'),
+  params: string(),
+});
 
 export type KernelCommand = Infer<typeof KernelCommandStruct>;
 export type KernelCommandReply = Infer<typeof KernelCommandReplyStruct>;

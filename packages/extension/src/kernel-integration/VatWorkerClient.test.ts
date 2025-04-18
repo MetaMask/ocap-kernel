@@ -10,15 +10,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
-vi.mock('@ocap/kernel', async () => ({
-  isVatCommandReply: vi.fn(() => true),
-  VatWorkerServiceCommandMethod: {
-    launch: 'launch',
-    terminate: 'terminate',
-    terminateAll: 'terminateAll',
-  },
-}));
-
 vi.mock('@ocap/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
   const { TestDuplexStream } = await import('@ocap/test-utils/streams');
@@ -110,14 +101,14 @@ describe('ExtensionVatWorkerClient', () => {
     });
 
     it('calls logger.error when receiving an unexpected reply', async () => {
-      const errorSpy = vi.spyOn(clientLogger, 'error');
+      const debugSpy = vi.spyOn(clientLogger, 'debug');
       const unexpectedReply = makeNullReply('m9');
 
       await stream.receiveInput(unexpectedReply);
       await delay(10);
 
-      expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy).toHaveBeenLastCalledWith(
+      expect(debugSpy).toHaveBeenCalledOnce();
+      expect(debugSpy).toHaveBeenLastCalledWith(
         'Received response with unexpected id "m9".',
       );
     });
