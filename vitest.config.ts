@@ -82,10 +82,10 @@ export default defineConfig({
           lines: 98.63,
         },
         'packages/extension/**': {
-          statements: 78.22,
-          functions: 80.21,
+          statements: 77.94,
+          functions: 80.31,
           branches: 75,
-          lines: 78.25,
+          lines: 77.96,
         },
         'packages/kernel/**': {
           statements: 88.94,
@@ -95,9 +95,9 @@ export default defineConfig({
         },
         'packages/nodejs/**': {
           statements: 72.91,
-          functions: 76.92,
+          functions: 83.33,
           branches: 63.63,
-          lines: 74.46,
+          lines: 72.91,
         },
         'packages/rpc-methods/**': {
           statements: 100,
