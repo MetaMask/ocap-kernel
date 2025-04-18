@@ -3,11 +3,13 @@ import type { Json } from '@metamask/utils';
 import { kernelMethodSpecs } from '@ocap/kernel/rpc';
 import { RpcClient } from '@ocap/rpc-methods';
 import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
-import { delay } from '@ocap/utils';
+import { delay, Logger } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
-main().catch(console.error);
+const logger = new Logger('background');
+
+main().catch(logger.error);
 
 /**
  * The main function for the background script.
@@ -38,7 +40,7 @@ async function main(): Promise<void> {
 
   const ping = async (): Promise<void> => {
     const result = await rpcClient.call('ping', []);
-    console.log(result);
+    logger.info(result);
   };
 
   // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
@@ -54,13 +56,13 @@ async function main(): Promise<void> {
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
-    ping().catch(console.error);
+    ping().catch(logger.error);
   });
 
   // Handle replies from the offscreen document
   for await (const message of offscreenStream) {
     if (!isJsonRpcResponse(message)) {
-      console.error('Background received unexpected message', message);
+      logger.error('Background received unexpected message', message);
       continue;
     }
     rpcClient.handleResponse(message.id as string, message);

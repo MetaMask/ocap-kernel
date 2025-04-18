@@ -2,6 +2,7 @@ import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
+import type { Logger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -86,11 +87,10 @@ vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
 
 const makeMockLogger = () =>
   ({
-    ...console,
-    label: 'test-logger',
     debug: vi.fn(),
     error: vi.fn(),
-  }) as Console & { label: string };
+    info: vi.fn(),
+  }) as unknown as Logger;
 
 describe('ui-connections', () => {
   beforeEach(() => {

@@ -7,12 +7,12 @@ import {
   MessagePortDuplexStream,
 } from '@ocap/streams/browser';
 import type { PostMessageTarget } from '@ocap/streams/browser';
-import { delay, makeLogger } from '@ocap/utils';
+import { delay, Logger } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
 import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerServer.ts';
 
-const logger = makeLogger('[offscreen]');
+const logger = new Logger('offscreen');
 
 main().catch(logger.error);
 
@@ -61,7 +61,14 @@ async function makeKernelWorker(): Promise<{
 
   const vatWorkerService = ExtensionVatWorkerService.make(
     worker as PostMessageTarget,
-    (vatId) => makeIframeVatWorker(vatId, initializeMessageChannel),
+    (vatId) =>
+      makeIframeVatWorker(
+        vatId,
+        initializeMessageChannel,
+        logger.subLogger({
+          tags: ['iframe-vat-worker', vatId],
+        }),
+      ),
   );
 
   return {

@@ -56,10 +56,6 @@ describe('createPanelMessageMiddleware', () => {
 
     // Process the request
     const response = await engine.handle(request);
-    console.log('response', response);
-
-    // Verify the middleware called execute with the right parameters
-    expect(mockExecute).toHaveBeenCalledWith('testMethod1', { foo: 'bar' });
 
     // Verify the response contains the expected result
     expect(response).toStrictEqual({
@@ -67,6 +63,9 @@ describe('createPanelMessageMiddleware', () => {
       jsonrpc: '2.0',
       result: expectedResult,
     });
+
+    // Verify the middleware called execute with the right parameters
+    expect(mockExecute).toHaveBeenCalledWith('testMethod1', { foo: 'bar' });
   });
 
   it('should handle command execution with empty params', async () => {
