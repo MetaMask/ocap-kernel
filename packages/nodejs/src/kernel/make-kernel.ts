@@ -1,4 +1,4 @@
-import type { KernelCommand, KernelCommandReply } from '@ocap/kernel';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { Kernel } from '@ocap/kernel';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
@@ -28,8 +28,8 @@ export async function makeKernel({
   dbFilename?: string;
 }): Promise<Kernel> {
   const nodeStream = new NodeWorkerDuplexStream<
-    KernelCommand,
-    KernelCommandReply
+    JsonRpcRequest,
+    JsonRpcResponse
   >(port);
   const vatWorkerClient = new NodejsVatWorkerManager({ workerFilePath });
 

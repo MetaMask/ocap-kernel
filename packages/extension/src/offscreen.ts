@@ -1,5 +1,5 @@
-import { isKernelCommandReply } from '@ocap/kernel';
-import type { KernelCommandReply, KernelCommand } from '@ocap/kernel';
+import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
 import {
   initializeMessageChannel,
@@ -25,9 +25,9 @@ async function main(): Promise<void> {
 
   // Create stream for messages from the background script
   const backgroundStream = await ChromeRuntimeDuplexStream.make<
-    KernelCommand,
-    KernelCommandReply
-  >(chrome.runtime, 'offscreen', 'background');
+    JsonRpcRequest,
+    JsonRpcResponse
+  >(chrome.runtime, 'offscreen', 'background', isJsonRpcRequest);
 
   const { kernelStream, vatWorkerService } = await makeKernelWorker();
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
  * @returns The message port stream for worker communication
  */
 async function makeKernelWorker(): Promise<{
-  kernelStream: DuplexStream<KernelCommandReply, KernelCommand>;
+  kernelStream: DuplexStream<JsonRpcResponse, JsonRpcRequest>;
   vatWorkerService: ExtensionVatWorkerService;
 }> {
   const worker = new Worker('kernel-worker.js', { type: 'module' });
@@ -55,9 +55,9 @@ async function makeKernelWorker(): Promise<{
   );
 
   const kernelStream = await MessagePortDuplexStream.make<
-    KernelCommandReply,
-    KernelCommand
-  >(port, isKernelCommandReply);
+    JsonRpcResponse,
+    JsonRpcRequest
+  >(port, isJsonRpcResponse);
 
   const vatWorkerService = ExtensionVatWorkerService.make(
     worker as PostMessageTarget,

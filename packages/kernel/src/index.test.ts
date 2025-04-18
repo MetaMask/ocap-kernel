@@ -7,13 +7,10 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'ClusterConfigStruct',
       'Kernel',
-      'KernelCommandMethod',
       'VatConfigStruct',
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
-      'isKernelCommand',
-      'isKernelCommandReply',
       'isVatConfig',
       'isVatId',
       'kser',

@@ -1,3 +1,4 @@
+import type { JsonRpcResponse, JsonRpcRequest } from '@metamask/utils';
 import { VatNotFoundError } from '@ocap/errors';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
@@ -7,7 +8,6 @@ import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.ts';
-import type { KernelCommand, KernelCommandReply } from './messages/index.ts';
 import type {
   VatId,
   VatConfig,
@@ -33,7 +33,7 @@ const makeMockClusterConfig = (): ClusterConfig => ({
 });
 
 describe('Kernel', () => {
-  let mockStream: DuplexStream<KernelCommand, KernelCommandReply>;
+  let mockStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>;
   let mockWorkerService: VatWorkerManager;
   let launchWorkerMock: MockInstance;
   let terminateWorkerMock: MockInstance;
@@ -43,7 +43,7 @@ describe('Kernel', () => {
 
   beforeEach(async () => {
     const dummyDispatch = vi.fn();
-    mockStream = await TestDuplexStream.make<KernelCommand, KernelCommandReply>(
+    mockStream = await TestDuplexStream.make<JsonRpcRequest, JsonRpcResponse>(
       dummyDispatch,
     );
 

@@ -1,12 +1,9 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vite/client" />
 
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { Kernel, kunser } from '@ocap/kernel';
-import type {
-  ClusterConfig,
-  KernelCommand,
-  KernelCommandReply,
-} from '@ocap/kernel';
+import type { ClusterConfig } from '@ocap/kernel';
 import { NodejsVatWorkerManager } from '@ocap/nodejs';
 import type { KernelDatabase } from '@ocap/store';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
@@ -81,8 +78,8 @@ export async function makeKernel(
 ): Promise<Kernel> {
   const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
   const nodeStream = new NodeWorkerDuplexStream<
-    KernelCommand,
-    KernelCommandReply
+    JsonRpcRequest,
+    JsonRpcResponse
   >(kernelPort);
   const vatWorkerClient = new NodejsVatWorkerManager({});
   const kernel = await Kernel.make(

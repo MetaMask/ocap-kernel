@@ -39,7 +39,7 @@ describe('makeKernelStream', () => {
 
     const { NodeWorkerDuplexStream } = await import('@ocap/streams');
     const { makeKernelStream } = await import('./streams.ts');
-    const commandStream = makeKernelStream();
-    expect(commandStream).toBeInstanceOf(NodeWorkerDuplexStream);
+    const kernelStream = makeKernelStream();
+    expect(kernelStream).toBeInstanceOf(NodeWorkerDuplexStream);
   });
 });

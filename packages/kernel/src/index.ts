@@ -1,4 +1,3 @@
-export * from './messages/index.ts';
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './VatHandle.ts';
 export { VatSupervisor } from './VatSupervisor.ts';

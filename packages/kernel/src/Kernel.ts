@@ -1,9 +1,12 @@
 import type { CapData } from '@endo/marshal';
+import { serializeError } from '@metamask/rpc-errors';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import {
   StreamReadError,
   VatAlreadyExistsError,
   VatNotFoundError,
 } from '@ocap/errors';
+import { RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
@@ -11,8 +14,7 @@ import { Logger } from '@ocap/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
-import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
-import type { KernelCommand, KernelCommandReply } from './messages/index.ts';
+import { kernelHandlers } from './rpc/index.ts';
 import type { VatMethod, vatMethodSpecs } from './rpc/index.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { kslot } from './services/kernel-marshal.ts';
@@ -31,7 +33,9 @@ import { VatHandle } from './VatHandle.ts';
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
-  readonly #commandStream: DuplexStream<KernelCommand, KernelCommandReply>;
+  readonly #commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+
+  readonly #rpcService: RpcService<typeof kernelHandlers>;
 
   /** Currently running vats, by ID */
   readonly #vats: Map<VatId, VatHandle>;
@@ -66,7 +70,7 @@ export class Kernel {
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
-    commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
+    commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>,
     vatWorkerService: VatWorkerManager,
     kernelDatabase: KernelDatabase,
     options: {
@@ -76,6 +80,7 @@ export class Kernel {
   ) {
     this.#mostRecentSubcluster = null;
     this.#commandStream = commandStream;
+    this.#rpcService = new RpcService(kernelHandlers, {});
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
     this.#logger = options.logger ?? new Logger('[ocap kernel]');
@@ -103,7 +108,7 @@ export class Kernel {
    * @returns A promise for the new kernel instance.
    */
   static async make(
-    commandStream: DuplexStream<KernelCommand, KernelCommandReply>,
+    commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>,
     vatWorkerService: VatWorkerManager,
     kernelDatabase: KernelDatabase,
     options: {
@@ -126,10 +131,12 @@ export class Kernel {
    * and then begin processing the run queue.
    */
   async #init(): Promise<void> {
-    this.#receiveCommandMessages().catch((error) => {
-      this.#logger.error('Stream read error:', error);
-      throw new StreamReadError({ kernelId: 'kernel' }, error);
-    });
+    this.#commandStream
+      .drain(this.#handleCommandMessage.bind(this))
+      .catch((error) => {
+        this.#logger.error('Stream read error:', error);
+        throw new StreamReadError({ kernelId: 'kernel' }, error);
+      });
     const starts: Promise<void>[] = [];
     for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
       starts.push(this.#runVat(vatID, vatConfig));
@@ -144,44 +151,30 @@ export class Kernel {
   }
 
   /**
-   * Process messages received over the command channel.
+   * Handle messages received over the command channel.
    *
-   * Note that all the messages currently handled here are for interactive
-   * testing support, not for normal operation or control of the kernel. We
-   * expect that in the fullness of time the command protocol will expand to
-   * include actual operational functions, while the things that are mere test
-   * scaffolding will be removed.
+   * @param message - The message to handle.
    */
-  async #receiveCommandMessages(): Promise<void> {
-    for await (const message of this.#commandStream) {
-      if (!isKernelCommand(message)) {
-        this.#logger.error('Received unexpected message', message);
-        continue;
-      }
-
-      const { method, params } = message;
-
-      switch (method) {
-        case KernelCommandMethod.ping:
-          await this.#replyToCommand({ method, params: 'pong' });
-          break;
-        default:
-          console.error(
-            'kernel worker received unexpected command',
-            // @ts-expect-error Compile-time exhaustiveness check
-            { method: method.valueOf(), params },
-          );
-      }
+  async #handleCommandMessage(message: JsonRpcRequest): Promise<void> {
+    try {
+      this.#rpcService.assertHasMethod(message.method);
+      const result = await this.#rpcService.execute(
+        message.method,
+        message.params,
+      );
+      await this.#commandStream.write({
+        id: message.id,
+        jsonrpc: '2.0',
+        result,
+      });
+    } catch (error) {
+      this.#logger.error('Error executing command', error);
+      await this.#commandStream.write({
+        id: message.id,
+        jsonrpc: '2.0',
+        error: serializeError(error),
+      });
     }
-  }
-
-  /**
-   * Transmit the reply to a command back to its requestor.
-   *
-   * @param message - The reply message to send.
-   */
-  async #replyToCommand(message: KernelCommandReply): Promise<void> {
-    await this.#commandStream.write(message);
   }
 
   /**

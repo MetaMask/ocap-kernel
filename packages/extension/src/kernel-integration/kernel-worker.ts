@@ -1,10 +1,8 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
-import type {
-  ClusterConfig,
-  KernelCommand,
-  KernelCommandReply,
-} from '@ocap/kernel';
-import { ClusterConfigStruct, isKernelCommand, Kernel } from '@ocap/kernel';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import { isJsonRpcRequest } from '@metamask/utils';
+import type { ClusterConfig } from '@ocap/kernel';
+import { ClusterConfigStruct, Kernel } from '@ocap/kernel';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/wasm';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import {
@@ -41,9 +39,9 @@ async function main(): Promise<void> {
   );
 
   const kernelStream = await MessagePortDuplexStream.make<
-    KernelCommand,
-    KernelCommandReply
-  >(port, isKernelCommand);
+    JsonRpcRequest,
+    JsonRpcResponse
+  >(port, isJsonRpcRequest);
 
   // Initialize kernel dependencies
   const vatWorkerClient = ExtensionVatWorkerClient.make(

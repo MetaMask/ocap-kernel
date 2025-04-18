@@ -46,6 +46,21 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
+  "dependencies": {
+    "@agoric/store": "0.9.3-u19.0",
+    "@endo/eventual-send": "^1.3.1",
+    "@endo/exo": "^1.5.9",
+    "@endo/marshal": "^1.6.4",
+    "@endo/patterns": "^1.5.0",
+    "@endo/promise-kit": "^1.1.10",
+    "@metamask/utils": "^11.4.0",
+    "@ocap/kernel": "workspace:^",
+    "@ocap/nodejs": "workspace:^",
+    "@ocap/shims": "workspace:^",
+    "@ocap/store": "workspace:^",
+    "@ocap/streams": "workspace:^",
+    "@ocap/utils": "workspace:^"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
     "@metamask/auto-changelog": "^5.0.1",
@@ -80,19 +95,5 @@
   },
   "engines": {
     "node": "^20 || >=22"
-  },
-  "dependencies": {
-    "@agoric/store": "0.9.3-u19.0",
-    "@endo/eventual-send": "^1.3.1",
-    "@endo/exo": "^1.5.9",
-    "@endo/marshal": "^1.6.4",
-    "@endo/patterns": "^1.5.0",
-    "@endo/promise-kit": "^1.1.10",
-    "@ocap/kernel": "workspace:^",
-    "@ocap/nodejs": "workspace:^",
-    "@ocap/shims": "workspace:^",
-    "@ocap/store": "workspace:^",
-    "@ocap/streams": "workspace:^",
-    "@ocap/utils": "workspace:^"
   }
 }

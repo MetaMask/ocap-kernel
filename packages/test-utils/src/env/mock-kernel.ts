@@ -13,7 +13,6 @@ type ResetMocks = () => void;
 type SetMockBehavior = (options: {
   isVatConfig?: boolean;
   isVatId?: boolean;
-  isKernelCommand?: boolean;
 }) => void;
 
 export const setupOcapKernelMock = (): {
@@ -22,14 +21,12 @@ export const setupOcapKernelMock = (): {
 } => {
   let isVatConfigMock = true;
   let isVatIdMock = true;
-  let isKernelCommandMock = true;
   // Mock implementation
   vi.doMock('@ocap/kernel', () => {
     const VatIdStruct = define<unknown>('VatId', () => isVatIdMock);
     const VatConfigStruct = define<unknown>('VatConfig', () => isVatConfigMock);
 
     return {
-      isKernelCommand: () => isKernelCommandMock,
       isVatId: () => isVatIdMock,
       isVatConfig: () => isVatConfigMock,
       VatIdStruct,
@@ -47,7 +44,6 @@ export const setupOcapKernelMock = (): {
           params: literal(null),
         }),
       }),
-      KernelCommandMethod: {},
       VatWorkerServiceCommandMethod: {
         launch: 'launch',
         terminate: 'terminate',
@@ -60,21 +56,16 @@ export const setupOcapKernelMock = (): {
     resetMocks: (): void => {
       isVatConfigMock = true;
       isVatIdMock = true;
-      isKernelCommandMock = true;
     },
     setMockBehavior: (options: {
       isVatConfig?: boolean;
       isVatId?: boolean;
-      isKernelCommand?: boolean;
     }): void => {
       if (typeof options.isVatConfig === 'boolean') {
         isVatConfigMock = options.isVatConfig;
       }
       if (typeof options.isVatId === 'boolean') {
         isVatIdMock = options.isVatId;
-      }
-      if (typeof options.isKernelCommand === 'boolean') {
-        isKernelCommandMock = options.isKernelCommand;
       }
     },
   };
