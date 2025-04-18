@@ -1,3 +1,5 @@
+import { makeCounter } from '@ocap/utils';
+
 /**
  * Validates a bundle URL.
  *
@@ -16,3 +18,6 @@ export function isValidBundleUrl(url?: string): boolean {
     return false;
   }
 }
+
+const idCounter = makeCounter();
+export const nextMessageId = (): string => `ui:${idCounter()}`;

@@ -21,6 +21,7 @@ import {
   VatConfigStruct,
   VatCheckpointStruct,
   CapDataStruct,
+  VatOneResolutionStruct,
 } from '../types.ts';
 import type { VatId } from '../types.ts';
 
@@ -69,8 +70,6 @@ export const VatTestMethodStructs = {
     params: EmptyJsonArray,
   }),
 } as VatTestMethodStructs;
-
-const VatOneResolutionStruct = tuple([string(), boolean(), CapDataStruct]);
 
 const VatDelivery = {
   message: 'message',

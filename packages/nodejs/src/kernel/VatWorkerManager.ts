@@ -1,15 +1,9 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import { isVatCommandReply } from '@ocap/kernel';
-import type {
-  VatWorkerManager,
-  VatId,
-  VatCommand,
-  VatCommandReply,
-} from '@ocap/kernel';
+import type { VatWorkerManager, VatId } from '@ocap/kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
-import { makeLogger } from '@ocap/utils';
-import type { Logger } from '@ocap/utils';
+import { isJsonRpcMessage, makeLogger } from '@ocap/utils';
+import type { JsonRpcMessage, Logger } from '@ocap/utils';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -26,7 +20,7 @@ export class NodejsVatWorkerManager implements VatWorkerManager {
 
   workers = new Map<
     VatId,
-    { worker: NodeWorker; stream: DuplexStream<VatCommandReply, VatCommand> }
+    { worker: NodeWorker; stream: DuplexStream<JsonRpcMessage, JsonRpcMessage> }
   >();
 
   /**
@@ -47,19 +41,19 @@ export class NodejsVatWorkerManager implements VatWorkerManager {
 
   async launch(
     vatId: VatId,
-  ): Promise<DuplexStream<VatCommandReply, VatCommand>> {
+  ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
     this.#logger.debug('launching vat', vatId);
     const { promise, resolve, reject } =
-      makePromiseKit<DuplexStream<VatCommandReply, VatCommand>>();
+      makePromiseKit<DuplexStream<JsonRpcMessage, JsonRpcMessage>>();
     const worker = new NodeWorker(this.#workerFilePath, {
       env: {
         NODE_VAT_ID: vatId,
       },
     });
     worker.once('online', () => {
-      const stream = new NodeWorkerDuplexStream<VatCommandReply, VatCommand>(
+      const stream = new NodeWorkerDuplexStream<JsonRpcMessage, JsonRpcMessage>(
         worker,
-        isVatCommandReply,
+        isJsonRpcMessage,
       );
       this.workers.set(vatId, { worker, stream });
       stream

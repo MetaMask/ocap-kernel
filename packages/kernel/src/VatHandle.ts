@@ -1,31 +1,33 @@
-import type {
-  Message,
-  VatSyscallObject,
-  VatOneResolution,
-} from '@agoric/swingset-liveslots';
-import { makePromiseKit } from '@endo/promise-kit';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
+import { serializeError } from '@metamask/rpc-errors';
+import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
+import { RpcClient, RpcService } from '@ocap/rpc-methods';
+import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 import type { VatStore } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
-import type { PromiseCallbacks } from '@ocap/utils';
-import { Logger, makeCounter } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
+import { Logger } from '@ocap/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { VatCommandMethod } from './messages/index.ts';
-import type {
-  VatCommandReply,
-  VatCommand,
-  VatCommandReturnType,
-} from './messages/index.ts';
+import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
+import type { VatMethod } from './rpc/index.ts';
 import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { VatId, VatConfig, VRef } from './types.ts';
+import type {
+  Message,
+  VatId,
+  VatConfig,
+  VRef,
+  VatCheckpoint,
+} from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type VatConstructorProps = {
   vatId: VatId;
   vatConfig: VatConfig;
-  vatStream: DuplexStream<VatCommandReply, VatCommand>;
+  vatStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger | undefined;
@@ -36,7 +38,7 @@ export class VatHandle {
   readonly vatId: VatId;
 
   /** Communications channel to and from the vat itself */
-  readonly #vatStream: DuplexStream<VatCommandReply, VatCommand>;
+  readonly #vatStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
 
   /** The vat's configuration */
   readonly config: VatConfig;
@@ -44,24 +46,21 @@ export class VatHandle {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
 
-  /** Counter for associating messages to the vat with their replies */
-  readonly #messageCounter: () => number;
-
   /** Storage holding the kernel's persistent state */
   readonly #kernelStore: KernelStore;
 
   /** Storage holding this vat's persistent state */
   readonly #vatStore: VatStore;
 
-  /** Callbacks to handle message replies, indexed by message id */
-  readonly #unresolvedMessages: Map<VatCommand['id'], PromiseCallbacks> =
-    new Map();
-
   /** The vat's syscall */
   readonly #vatSyscall: VatSyscall;
 
   /** The kernel's queue */
   readonly #kernelQueue: KernelQueue;
+
+  readonly #rpcClient: RpcClient<typeof vatMethodSpecs>;
+
+  readonly #rpcService: RpcService<typeof vatSyscallHandlers>;
 
   /**
    * Construct a new VatHandle instance.
@@ -86,7 +85,6 @@ export class VatHandle {
     this.vatId = vatId;
     this.config = vatConfig;
     this.#logger = logger ?? new Logger(`[vat ${vatId}]`);
-    this.#messageCounter = makeCounter();
     this.#vatStream = vatStream;
     this.#kernelStore = kernelStore;
     this.#vatStore = kernelStore.makeVatStore(vatId);
@@ -96,6 +94,20 @@ export class VatHandle {
       kernelQueue,
       kernelStore,
       logger: this.#logger.subLogger({ tags: ['syscall'] }),
+    });
+
+    this.#rpcClient = new RpcClient(
+      vatMethodSpecs,
+      async (request) => {
+        await this.#vatStream.write(request);
+      },
+      `${this.vatId}:`,
+    );
+    this.#rpcService = new RpcService(vatSyscallHandlers, {
+      handleSyscall: async (params) => {
+        await this.#vatSyscall.handleSyscall(params);
+        return ['ok', null]; // XXX TODO: Return actual results from syscalls
+      },
     });
   }
 
@@ -123,7 +135,7 @@ export class VatHandle {
    * @returns A promise that resolves when the vat is initialized.
    */
   async #init(): Promise<void> {
-    Promise.all([this.#vatStream.drain(this.handleMessage.bind(this))]).catch(
+    Promise.all([this.#vatStream.drain(this.#handleMessage.bind(this))]).catch(
       async (error) => {
         this.#logger.error(`Unexpected read error`, error);
         await this.terminate(
@@ -149,33 +161,27 @@ export class VatHandle {
    * @param message.id - The id of the message.
    * @param message.payload - The payload (i.e., the message itself) to handle.
    */
-  async handleMessage({ id, payload }: VatCommandReply): Promise<void> {
-    // Syscalls are currently the only messages that actually originate from the
-    // vat. All others will be replies to messages originally sent by the kernel TO the
-    // vat.
-    if (payload.method === VatCommandMethod.syscall) {
-      await this.#vatSyscall.handleSyscall(payload.params as VatSyscallObject);
-    } else {
-      let result;
-      if (
-        payload.method === VatCommandMethod.deliver ||
-        payload.method === VatCommandMethod.initVat
-      ) {
-        result = null;
-        const [sets, deletes] = payload.params;
-        this.#vatStore.updateKVData(
-          new Map(Object.entries(sets)),
-          new Set(deletes),
+  async #handleMessage(message: JsonRpcMessage): Promise<void> {
+    if (isJsonRpcResponse(message)) {
+      this.#rpcClient.handleResponse(message.id as string, message);
+    } else if (isJsonRpcRequest(message)) {
+      try {
+        this.#rpcService.assertHasMethod(message.method);
+        const result = await this.#rpcService.execute(
+          message.method,
+          message.params,
         );
-      } else {
-        result = payload.params;
-      }
-      const promiseCallbacks = this.#unresolvedMessages.get(id);
-      if (promiseCallbacks === undefined) {
-        this.#logger.error(`No unresolved message with id "${id}".`);
-      } else {
-        this.#unresolvedMessages.delete(id);
-        promiseCallbacks.resolve(result);
+        await this.#vatStream.write({
+          id: message.id,
+          result,
+          jsonrpc: '2.0',
+        });
+      } catch (error) {
+        await this.#vatStream.write({
+          id: message.id,
+          error: serializeError(error),
+          jsonrpc: '2.0',
+        });
       }
     }
   }
@@ -268,13 +274,7 @@ export class VatHandle {
         this.#kernelQueue.resolvePromises(this.vatId, [[kpid, true, failure]]);
       }
 
-      // Reject promises for results of method invocations from the kernel
-      for (const [messageId, promiseCallback] of this.#unresolvedMessages) {
-        promiseCallback?.reject(error ?? new VatDeletedError(this.vatId));
-        this.#unresolvedMessages.delete(messageId);
-      }
-
-      // Expunge this vat's persistent state
+      this.#rpcClient.rejectAll(error ?? new VatDeletedError(this.vatId));
       this.#kernelStore.deleteVat(this.vatId);
     }
   }
@@ -282,25 +282,27 @@ export class VatHandle {
   /**
    * Send a command into the vat.
    *
-   * @param payload - The command to send.
+   * @param payload - The payload of the command.
+   * @param payload.method - The method to call.
+   * @param payload.params - The parameters to pass to the method.
    * @returns A promise that resolves the response to the command.
    */
-  async sendVatCommand<Method extends VatCommand['payload']['method']>(
-    payload: Extract<VatCommand['payload'], { method: Method }>,
-  ): Promise<VatCommandReturnType[Method]> {
-    const { promise, reject, resolve } = makePromiseKit();
-    const messageId = this.#nextMessageId();
-    this.#unresolvedMessages.set(messageId, { reject, resolve });
-    await this.#vatStream.write({ id: messageId, payload });
-    return promise as Promise<VatCommandReturnType[Method]>;
+  async sendVatCommand<Method extends VatMethod>({
+    method,
+    params,
+  }: {
+    method: Method;
+    params: ExtractParams<Method, typeof vatMethodSpecs>;
+  }): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
+    const result = await this.#rpcClient.call(method, params);
+    if (method === 'deliver' || method === 'initVat') {
+      // TypeScript fails to narrow the result type on its own
+      const [sets, deletes] = result as VatCheckpoint;
+      this.#vatStore.updateKVData(
+        new Map(Object.entries(sets)),
+        new Set(deletes),
+      );
+    }
+    return result;
   }
-
-  /**
-   * Gets the next message ID.
-   *
-   * @returns The message ID.
-   */
-  readonly #nextMessageId = (): VatCommand['id'] => {
-    return `${this.vatId}:${this.#messageCounter()}`;
-  };
 }

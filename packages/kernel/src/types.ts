@@ -1,4 +1,8 @@
-import type { Message } from '@agoric/swingset-liveslots';
+import type {
+  Message as SwingsetMessage,
+  VatSyscallObject,
+  VatSyscallSend,
+} from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import {
   define,
@@ -17,8 +21,8 @@ import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { DuplexStream } from '@ocap/streams';
+import type { JsonRpcMessage } from '@ocap/utils';
 
-import type { VatCommandReply, VatCommand } from './messages/vat.ts';
 import { Fail } from './utils/assert.ts';
 
 export type VatId = string;
@@ -38,39 +42,110 @@ export const CapDataStruct = object({
   slots: array(string()),
 });
 
-export type RunQueueItemSend = {
-  type: 'send';
-  target: KRef;
-  message: Message;
-};
-
-export type RunQueueItemNotify = {
-  type: 'notify';
-  vatId: VatId;
-  kpid: KRef;
-};
-
-export type RunQueueItemGCAction = {
-  type: GCRunQueueType;
-  vatId: VatId;
-  krefs: KRef[];
-};
-
-export type RunQueueItemBringOutYourDead = {
-  type: 'bringOutYourDead';
-  vatId: VatId;
-};
-
-export type RunQueueItem =
-  | RunQueueItemSend
-  | RunQueueItemNotify
-  | RunQueueItemGCAction
-  | RunQueueItemBringOutYourDead;
+export const VatOneResolutionStruct = tuple([
+  string(),
+  boolean(),
+  CapDataStruct,
+]);
 
 export const MessageStruct = object({
   methargs: CapDataStruct,
-  result: union([string(), literal(undefined), literal(null)]),
+  result: union([string(), literal(null)]),
 });
+
+/**
+ * JSON-RPC-compatible Message type, originally from @agoric/swingset-liveslots.
+ */
+export type Message = Infer<typeof MessageStruct>;
+
+/**
+ * Coerce a {@link SwingsetMessage} to our own JSON-RPC-compatible {@link Message}.
+ *
+ * @param message - The SwingsetMessage to coerce.
+ * @returns The coerced Message.
+ */
+export function coerceMessage(message: SwingsetMessage): Message {
+  if (message.result === undefined) {
+    message.result = null;
+  }
+  return message as Message;
+}
+
+type JsonVatSyscallObject =
+  | Exclude<VatSyscallObject, VatSyscallSend>
+  | ['send', string, Message];
+
+/**
+ * Coerce a {@link VatSyscallObject} to a JSON-RPC-compatible {@link JsonVatSyscallObject}.
+ *
+ * @param vso - The VatSyscallObject to coerce.
+ * @returns The coerced VatSyscallObject.
+ */
+export function coerceVatSyscallObject(
+  vso: VatSyscallObject,
+): JsonVatSyscallObject {
+  if (vso[0] === 'send') {
+    return ['send', vso[1], coerceMessage(vso[2])];
+  }
+  return vso as JsonVatSyscallObject;
+}
+
+const RunQueueItemSendStruct = object({
+  type: literal('send'),
+  target: string(), // KRef
+  message: MessageStruct,
+});
+
+export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
+
+const RunQueueItemNotifyStruct = object({
+  type: literal('notify'),
+  vatId: string(),
+  kpid: string(),
+});
+
+export type RunQueueItemNotify = Infer<typeof RunQueueItemNotifyStruct>;
+
+const GCRunQueueTypeStruct = union([
+  literal('dropExports'),
+  literal('retireExports'),
+  literal('retireImports'),
+]);
+
+export type GCRunQueueType = Infer<typeof GCRunQueueTypeStruct>;
+
+export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';
+export const actionTypePriorities: GCActionType[] = [
+  'dropExport',
+  'retireExport',
+  'retireImport',
+];
+
+const RunQueueItemGCActionStruct = object({
+  type: GCRunQueueTypeStruct,
+  vatId: string(), // VatId
+  krefs: array(string()), // KRefs
+});
+
+export type RunQueueItemGCAction = Infer<typeof RunQueueItemGCActionStruct>;
+
+const RunQueueItemBringOutYourDeadStruct = object({
+  type: literal('bringOutYourDead'),
+  vatId: string(),
+});
+
+export type RunQueueItemBringOutYourDead = Infer<
+  typeof RunQueueItemBringOutYourDeadStruct
+>;
+
+export const RunQueueItemStruct = union([
+  RunQueueItemSendStruct,
+  RunQueueItemNotifyStruct,
+  RunQueueItemGCActionStruct,
+  RunQueueItemBringOutYourDeadStruct,
+]);
+
+export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
 
 /**
  * Assert that a value is a valid message.
@@ -81,50 +156,6 @@ export const MessageStruct = object({
 export function insistMessage(value: unknown): asserts value is Message {
   is(value, MessageStruct) || Fail`not a valid message`;
 }
-
-export const RunQueueItemType = {
-  send: 'send',
-  notify: 'notify',
-  dropExports: 'dropExports',
-  retireExports: 'retireExports',
-  retireImports: 'retireImports',
-  bringOutYourDead: 'bringOutYourDead',
-} as const;
-
-const RunQueueItemStructs = {
-  [RunQueueItemType.send]: object({
-    type: literal(RunQueueItemType.send),
-    target: string(),
-    message: MessageStruct,
-  }),
-  [RunQueueItemType.notify]: object({
-    type: literal(RunQueueItemType.notify),
-    vatId: string(),
-    kpid: string(),
-  }),
-  [RunQueueItemType.dropExports]: object({
-    type: literal(RunQueueItemType.dropExports),
-  }),
-  [RunQueueItemType.retireExports]: object({
-    type: literal(RunQueueItemType.retireExports),
-  }),
-  [RunQueueItemType.retireImports]: object({
-    type: literal(RunQueueItemType.retireImports),
-  }),
-  [RunQueueItemType.bringOutYourDead]: object({
-    type: literal(RunQueueItemType.bringOutYourDead),
-    vatId: string(),
-  }),
-};
-
-export const RunQueueItemStruct = union([
-  RunQueueItemStructs.send,
-  RunQueueItemStructs.notify,
-  RunQueueItemStructs.dropExports,
-  RunQueueItemStructs.retireExports,
-  RunQueueItemStructs.retireImports,
-  RunQueueItemStructs.bringOutYourDead,
-]);
 
 // Per-endpoint persistent state
 type EndpointState<IdType> = {
@@ -207,7 +238,7 @@ export type VatWorkerManager = {
   launch: (
     vatId: VatId,
     vatConfig: VatConfig,
-  ) => Promise<DuplexStream<VatCommandReply, VatCommand>>;
+  ) => Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>>;
   /**
    * Terminate a worker identified by its vat id.
    *
@@ -289,21 +320,14 @@ export const VatCheckpointStruct = tuple([
 
 export type VatCheckpoint = Infer<typeof VatCheckpointStruct>;
 
-export type GCRunQueueType = 'dropExports' | 'retireExports' | 'retireImports';
-export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';
-export const actionTypePriorities: GCActionType[] = [
-  'dropExport',
-  'retireExport',
-  'retireImport',
-];
-
 /**
  * A mapping of GC action type to queue event type.
  */
 export const queueTypeFromActionType = new Map<GCActionType, GCRunQueueType>([
-  ['dropExport', RunQueueItemType.dropExports],
-  ['retireExport', RunQueueItemType.retireExports],
-  ['retireImport', RunQueueItemType.retireImports],
+  // Note: From singular to plural
+  ['dropExport', 'dropExports'],
+  ['retireExport', 'retireExports'],
+  ['retireImport', 'retireImports'],
 ]);
 
 export const isGCActionType = (value: unknown): value is GCActionType =>

@@ -7,7 +7,8 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@ocap/utils', async (importOriginal) => ({
+  ...(await importOriginal()),
   stringify: JSON.stringify,
 }));
 
@@ -26,6 +27,7 @@ describe('useKernelActions', () => {
       status: undefined,
       panelLogs: [],
       clearLogs: vi.fn(),
+      isLoading: false,
     });
   });
 

@@ -127,7 +127,7 @@ export class RpcClient<
   handleResponse(messageId: string, response: unknown): void {
     const requestCallbacks = this.#unresolvedMessages.get(messageId);
     if (requestCallbacks === undefined) {
-      this.#logger.error(
+      this.#logger.debug(
         `Received response with unexpected id "${messageId}".`,
       );
     } else {

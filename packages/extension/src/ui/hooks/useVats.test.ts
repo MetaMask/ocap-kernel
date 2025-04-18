@@ -11,7 +11,8 @@ vi.mock('../context/PanelContext.tsx', () => ({
 
 setupOcapKernelMock();
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@ocap/utils', async (importOriginal) => ({
+  ...(await importOriginal()),
   stringify: JSON.stringify,
 }));
 
@@ -95,6 +96,8 @@ describe('useVats', () => {
           params: {
             id: mockVatId,
             payload: {
+              id: expect.any(String),
+              jsonrpc: '2.0',
               method: 'ping',
               params: [],
             },

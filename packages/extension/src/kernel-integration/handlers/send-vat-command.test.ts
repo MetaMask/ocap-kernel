@@ -19,29 +19,43 @@ describe('sendVatCommandHandler', () => {
       { kernel: mockKernel },
       {
         id: vatId,
-        payload: { method: 'ping', params: [] },
+        payload: {
+          id: 'test-id',
+          jsonrpc: '2.0',
+          method: 'ping',
+          params: [],
+        },
       },
     );
 
     expect(mockKernel.sendVatCommand).toHaveBeenCalledWith(vatId, {
+      id: 'test-id',
+      jsonrpc: '2.0',
       method: 'ping',
       params: [],
     });
     expect(result).toStrictEqual({ result: 'foo' });
   });
 
-  it('throws if payload is not a valid kernel command', async () => {
+  it('forwards errors from hooks', async () => {
     const vatId = 'vat1' as VatId;
+    vi.mocked(mockKernel.sendVatCommand).mockRejectedValueOnce(
+      new Error('foo'),
+    );
 
     await expect(
       sendVatCommandHandler.implementation(
         { kernel: mockKernel },
         {
           id: vatId,
-          payload: { notACommand: true },
+          payload: {
+            id: 'test-id',
+            jsonrpc: '2.0',
+            method: 'ping',
+            params: [],
+          },
         },
       ),
-    ).rejects.toThrow('Invalid command payload');
-    expect(mockKernel.sendVatCommand).not.toHaveBeenCalled();
+    ).rejects.toThrow('foo');
   });
 });

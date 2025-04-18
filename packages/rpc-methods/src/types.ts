@@ -85,3 +85,10 @@ export type HandlerRecord<Handlers extends HandlerConstraint> = {
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
+
+export type MethodRequest<Method extends SpecConstraint> = {
+  id: string | number | null;
+  jsonrpc: '2.0';
+  method: Method['method'];
+  params: Infer<Method['params']>;
+};

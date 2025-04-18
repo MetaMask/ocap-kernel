@@ -1,3 +1,3 @@
-export * as vatWorkerService from './vat-worker-service/index.ts';
-
-export type * from './vat-worker-service/index.ts';
+export * from './vat-worker-service/index.ts';
+export * from './vat/index.ts';
+export * from './vat-syscall/index.ts';

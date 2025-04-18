@@ -6,7 +6,7 @@ import { makeLogger } from '@ocap/utils';
 import fs from 'node:fs/promises';
 import url from 'node:url';
 
-import { makeCommandStream } from './streams.ts';
+import { makeKernelStream } from './streams.ts';
 
 const vatId = process.env.NODE_VAT_ID as VatId;
 
@@ -41,12 +41,12 @@ async function fetchBlob(blobURL: string): Promise<Response> {
  * The main function for the iframe.
  */
 async function main(): Promise<void> {
-  const commandStream = makeCommandStream();
-  await commandStream.synchronize();
+  const kernelStream = makeKernelStream();
+  await kernelStream.synchronize();
   // eslint-disable-next-line no-void
   void new VatSupervisor({
     id: vatId,
-    commandStream,
+    kernelStream,
     fetchBlob,
   });
 }

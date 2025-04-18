@@ -1,4 +1,4 @@
-import type { Message, VatOneResolution } from '@agoric/swingset-liveslots';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -8,6 +8,7 @@ import { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   KRef,
+  Message,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,

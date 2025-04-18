@@ -1,8 +1,14 @@
 import type { Primitive } from '@endo/captp';
 import type { PromiseKit } from '@endo/promise-kit';
-import type { Infer } from '@metamask/superstruct';
-import { array, empty } from '@metamask/superstruct';
-import { isObject, UnsafeJsonStruct } from '@metamask/utils';
+import type { Infer, Struct } from '@metamask/superstruct';
+import { array, empty, is, union } from '@metamask/superstruct';
+import {
+  isObject,
+  UnsafeJsonStruct,
+  JsonRpcRequestStruct,
+  JsonRpcResponseStruct,
+} from '@metamask/utils';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
 export type TypeGuard<Type> = (value: unknown) => value is Type;
 
@@ -47,3 +53,13 @@ export type PromiseCallbacks<Resolve = unknown> = Omit<
 export const EmptyJsonArray = empty(array(UnsafeJsonStruct));
 
 export type EmptyJsonArray = Infer<typeof EmptyJsonArray>;
+
+export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse;
+
+export const JsonRpcMessageStruct: Struct<JsonRpcMessage> = union([
+  JsonRpcRequestStruct,
+  JsonRpcResponseStruct,
+]);
+
+export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
+  is(value, JsonRpcMessageStruct);

@@ -5,6 +5,7 @@ import { useCallback, useMemo } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { VatRecord } from '../types.ts';
+import { nextMessageId } from '../utils.ts';
 
 /**
  * Hook to manage the vats state.
@@ -53,6 +54,8 @@ export const useVats = (): {
         params: {
           id,
           payload: {
+            id: nextMessageId(),
+            jsonrpc: '2.0',
             method: VatCommandMethod.ping,
             params: [],
           },

@@ -1,10 +1,10 @@
+import { rpcErrors } from '@metamask/rpc-errors';
 import '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import { delay } from '@ocap/utils';
+import { delay, isJsonRpcMessage } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
 import { describe, it, expect, vi } from 'vitest';
 
-import { VatCommandMethod } from './messages/index.ts';
-import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 
 vi.mock('./syscall.ts', () => ({
@@ -22,23 +22,23 @@ vi.mock('@agoric/swingset-liveslots', () => ({
 }));
 
 const makeVatSupervisor = async (
-  handleWrite?: (input: unknown) => void | Promise<void>,
+  dispatch?: (input: unknown) => void | Promise<void>,
   vatPowers?: Record<string, unknown>,
 ): Promise<{
   supervisor: VatSupervisor;
-  stream: TestDuplexStream<VatCommand, VatCommandReply>;
+  stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
 }> => {
-  const commandStream = await TestDuplexStream.make<
-    VatCommand,
-    VatCommandReply
-  >(handleWrite ?? (() => undefined));
+  const kernelStream = await TestDuplexStream.make<
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(dispatch ?? (() => undefined), { validateInput: isJsonRpcMessage });
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
-      commandStream,
+      kernelStream,
       vatPowers: vatPowers ?? {},
     }),
-    stream: commandStream,
+    stream: kernelStream,
   };
 };
 
@@ -63,47 +63,46 @@ describe('VatSupervisor', () => {
   });
 
   describe('handleMessage', () => {
-    it('throws if receiving an unexpected message', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
+    it('responds with an error for unknown methods', async () => {
+      const dispatch = vi.fn();
+      const { stream } = await makeVatSupervisor(dispatch);
 
-      const consoleErrorSpy = vi.spyOn(console, 'error');
       await stream.receiveInput({
-        channel: 'command',
-        payload: { method: 'test' },
+        id: 'v0:0',
+        method: 'bogus',
+        params: [],
+        jsonrpc: '2.0',
       });
       await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        `Unexpected read error from VatSupervisor "${supervisor.id}"`,
-        new Error(`VatSupervisor received unexpected command method: "test"`),
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'v0:0',
+          error: expect.objectContaining({
+            code: rpcErrors.methodNotFound().code,
+          }),
+        }),
       );
     });
 
-    it('handles Ping messages', async () => {
-      const { supervisor } = await makeVatSupervisor();
-      const replySpy = vi.spyOn(supervisor, 'replyToMessage');
+    it('handles "ping" requests', async () => {
+      const dispatch = vi.fn();
+      const { stream } = await makeVatSupervisor(dispatch);
 
-      await supervisor.handleMessage({
+      await stream.receiveInput({
         id: 'v0:0',
-        payload: { method: VatCommandMethod.ping, params: [] },
+        method: 'ping',
+        params: [],
+        jsonrpc: '2.0',
       });
+      await delay(10);
 
-      expect(replySpy).toHaveBeenCalledWith('v0:0', {
-        method: VatCommandMethod.ping,
-        params: 'pong',
-      });
-    });
-
-    it('handles unknown message types', async () => {
-      const { supervisor } = await makeVatSupervisor();
-
-      await expect(
-        supervisor.handleMessage({
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
           id: 'v0:0',
-          // @ts-expect-error - unknown message type.
-          payload: { method: 'UnknownType' },
+          result: 'pong',
         }),
-      ).rejects.toThrow('VatSupervisor received unexpected command method:');
+      );
     });
   });
 

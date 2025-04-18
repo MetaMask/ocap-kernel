@@ -9,7 +9,7 @@ import type {
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { VatId, VatConfig } from '@ocap/kernel';
 import type { VatWorkerServiceMethod } from '@ocap/kernel/rpc';
-import { vatWorkerService } from '@ocap/kernel/rpc';
+import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
 import type { ExtractParams } from '@ocap/rpc-methods';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import type {
@@ -105,7 +105,7 @@ export class ExtensionVatWorkerService {
   }
 
   #assertHasMethod(method: string): asserts method is VatWorkerServiceMethod {
-    if (!hasProperty(vatWorkerService.methodSpecs, method)) {
+    if (!hasProperty(vatWorkerServiceMethodSpecs, method)) {
       throw rpcErrors.methodNotFound();
     }
   }
@@ -115,9 +115,9 @@ export class ExtensionVatWorkerService {
     params: unknown,
   ): asserts params is ExtractParams<
     Method,
-    typeof vatWorkerService.methodSpecs
+    typeof vatWorkerServiceMethodSpecs
   > {
-    vatWorkerService.methodSpecs[method].params.assert(params);
+    vatWorkerServiceMethodSpecs[method].params.assert(params);
   }
 
   async #handleMessage(event: MessageEvent<JsonRpcRequest>): Promise<void> {

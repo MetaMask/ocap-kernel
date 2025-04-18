@@ -1,8 +1,11 @@
+import { hasProperty, isObject } from '@metamask/utils';
 import type { ClusterConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
+import { nextMessageId } from '../utils.ts';
+
 /**
  * Hook for handling kernel actions.
  *
@@ -25,7 +28,7 @@ export function useKernelActions(): {
   const sendKernelCommand = useCallback(() => {
     callKernelMethod({
       method: 'sendVatCommand',
-      params: JSON.parse(messageContent),
+      params: coerceCommandParams(JSON.parse(messageContent)),
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));
@@ -123,4 +126,30 @@ export function useKernelActions(): {
     launchVat,
     updateClusterConfig,
   };
+}
+
+/**
+ * Coerces sendVatCommand params to the expected format. Basically, turns the payload
+ * into a JSON-RPC request.
+ *
+ * @param params - The params to coerce.
+ * @returns The coerced params.
+ */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function coerceCommandParams<Params>(params: Params) {
+  if (
+    isObject(params) &&
+    isObject(params.payload) &&
+    hasProperty(params.payload, 'method')
+  ) {
+    return {
+      ...params,
+      payload: {
+        ...params.payload,
+        id: nextMessageId(),
+        jsonrpc: '2.0',
+      },
+    };
+  }
+  return params;
 }

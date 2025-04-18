@@ -1,4 +1,3 @@
-import type { Message as SwingsetMessage } from '@agoric/swingset-liveslots';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
@@ -6,6 +5,7 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
+  Message as SwingsetMessage,
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemNotify,

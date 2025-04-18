@@ -7,7 +7,6 @@ import {
   isGCActionType,
   insistGCActionType,
   isGCAction,
-  RunQueueItemType,
   isVatMessageId,
 } from './types.ts';
 
@@ -118,15 +117,10 @@ describe('insistMessage', () => {
 
 describe('queueTypeFromActionType', () => {
   it('maps GC action types to queue event types', () => {
-    expect(queueTypeFromActionType.get('dropExport')).toBe(
-      RunQueueItemType.dropExports,
-    );
-    expect(queueTypeFromActionType.get('retireExport')).toBe(
-      RunQueueItemType.retireExports,
-    );
-    expect(queueTypeFromActionType.get('retireImport')).toBe(
-      RunQueueItemType.retireImports,
-    );
+    // Note: From singular to plural
+    expect(queueTypeFromActionType.get('dropExport')).toBe('dropExports');
+    expect(queueTypeFromActionType.get('retireExport')).toBe('retireExports');
+    expect(queueTypeFromActionType.get('retireImport')).toBe('retireImports');
     expect(queueTypeFromActionType.size).toBe(3);
   });
 });

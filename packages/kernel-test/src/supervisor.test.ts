@@ -1,6 +1,8 @@
 import '@ocap/shims/endoify';
-import type { VatCommand, VatConfig, VatCommandReply } from '@ocap/kernel';
-import { VatSupervisor, VatCommandMethod, kser } from '@ocap/kernel';
+import type { VatConfig } from '@ocap/kernel';
+import { VatSupervisor, kser } from '@ocap/kernel';
+import { delay } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
@@ -9,21 +11,21 @@ import { getBundleSpec } from './utils.ts';
 import { TestDuplexStream } from '../../streams/test/stream-mocks.ts';
 
 const makeVatSupervisor = async ({
-  handleWrite = () => undefined,
+  dispatch = () => undefined,
   vatPowers,
 }: {
-  handleWrite?: (input: unknown) => void | Promise<void>;
+  dispatch?: (input: unknown) => void | Promise<void>;
   vatPowers?: Record<string, unknown>;
 }) => {
-  const commandStream = await TestDuplexStream.make<
-    VatCommand,
-    VatCommandReply
-  >(handleWrite);
+  const kernelStream = await TestDuplexStream.make<
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(dispatch);
 
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
-      commandStream,
+      kernelStream,
       vatPowers,
       // eslint-disable-next-line n/no-unsupported-features/node-builtins
       fetchBlob: async (url: string): Promise<Response> => {
@@ -40,7 +42,7 @@ const makeVatSupervisor = async ({
         } as Response;
       },
     }),
-    stream: commandStream,
+    stream: kernelStream,
   };
 };
 
@@ -51,31 +53,36 @@ describe('VatSupervisor', () => {
       const vatPowers = {
         foo: async (value: string) => (localValue = value),
       };
-      const { supervisor } = await makeVatSupervisor({ vatPowers });
+      const { stream } = await makeVatSupervisor({
+        vatPowers,
+      });
 
       const vatConfig: VatConfig = {
         bundleSpec: getBundleSpec('powers-vat'),
         parameters: { bar: 'buzz' },
       };
 
-      await supervisor.handleMessage({
-        id: 'test-id',
-        payload: {
-          method: VatCommandMethod.initVat,
-          params: {
-            vatConfig,
-            state: {},
-          },
+      await stream.receiveInput({
+        id: 'test-id-1',
+        method: 'initVat',
+        params: {
+          vatConfig,
+          state: {},
         },
+        jsonrpc: '2.0',
       });
 
-      await supervisor.handleMessage({
-        id: 'test-id',
-        payload: {
-          method: VatCommandMethod.deliver,
-          params: ['message', 'o+0', { methargs: kser(['fizz', []]) }],
-        },
+      await stream.receiveInput({
+        id: 'test-id-2',
+        method: 'deliver',
+        params: [
+          'message',
+          'o+0',
+          { methargs: kser(['fizz', []]), result: null },
+        ],
+        jsonrpc: '2.0',
       });
+      await delay(10);
 
       expect(localValue).toBe('buzz');
     });

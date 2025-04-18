@@ -22,7 +22,7 @@
     "./src/**/*-trusted-prelude.js",
     "./test/**/*.ts",
     "./vitest.config.ts",
-    "./vitest.config.e2e.ts",
-    "./test/workers/*.js"
-  ]
+    "./vitest.config.e2e.ts"
+  ],
+  "exclude": ["./test/workers/*.js"]
 }

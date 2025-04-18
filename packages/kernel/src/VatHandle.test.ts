@@ -1,13 +1,12 @@
+import type { Json } from '@metamask/utils';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
+import type { JsonRpcMessage, Logger } from '@ocap/utils';
+import { isJsonRpcMessage, makeLogger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
 import type { KernelQueue } from './KernelQueue.ts';
-import { isVatCommandReply, VatCommandMethod } from './messages/index.ts';
-import type { VatCommand, VatCommandReply } from './messages/index.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import { VatHandle } from './VatHandle.ts';
@@ -23,28 +22,32 @@ vi.mock('@endo/eventual-send', () => ({
 
 let mockKernelStore: KernelStore;
 
-const makeVat = async (
-  logger?: Logger,
-): Promise<{
+const makeVat = async ({
+  logger,
+  dispatch,
+}: {
+  logger?: Logger;
+  dispatch?: (input: unknown) => void | Promise<void>;
+} = {}): Promise<{
   vat: VatHandle;
-  stream: TestDuplexStream<VatCommandReply, VatCommand>;
+  stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
 }> => {
-  const commandStream = await TestDuplexStream.make<
-    VatCommandReply,
-    VatCommand
-  >(() => undefined, {
-    validateInput: isVatCommandReply,
-  });
+  const vatStream = await TestDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
+    dispatch ?? (() => undefined),
+    {
+      validateInput: isJsonRpcMessage,
+    },
+  );
   return {
     vat: await VatHandle.make({
       kernelQueue: null as unknown as KernelQueue,
       kernelStore: mockKernelStore,
       vatId: 'v0',
       vatConfig: { sourceSpec: 'not-really-there.js' },
-      vatStream: commandStream,
+      vatStream,
       logger,
     }),
-    stream: commandStream,
+    stream: vatStream,
   };
 };
 
@@ -64,7 +67,7 @@ describe('VatHandle', () => {
 
       expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
       expect(sendVatCommandMock).toHaveBeenCalledWith({
-        method: VatCommandMethod.initVat,
+        method: 'initVat' as const,
         params: {
           state: {},
           vatConfig: {
@@ -76,7 +79,7 @@ describe('VatHandle', () => {
 
     it('throws if the stream throws', async () => {
       const logger = makeLogger(`[vat v0]`);
-      const { stream } = await makeVat(logger);
+      const { stream } = await makeVat({ logger });
       const logErrorSpy = vi.spyOn(logger, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
@@ -89,48 +92,26 @@ describe('VatHandle', () => {
 
   describe('sendVatCommand', () => {
     it('sends a message and resolves the promise', async () => {
-      const { vat } = await makeVat();
+      const dispatch = vi.fn();
+      const { vat, stream } = await makeVat({ dispatch });
       const mockMessage = {
-        method: VatCommandMethod.ping,
-        params: [],
-      } as VatCommand['payload'];
-
-      const sendVatCommandPromise = vat.sendVatCommand(mockMessage);
-
-      // Simulate response using handleMessage instead of direct resolver access
-      await vat.handleMessage({
-        id: 'v0:1',
-        payload: {
-          method: VatCommandMethod.ping,
-          params: 'test-response',
-        },
-      });
-
-      const result = await sendVatCommandPromise;
-      expect(result).toBe('test-response');
-    });
-  });
-
-  describe('handleMessage', () => {
-    it('resolves the payload when the message id exists', async () => {
-      const { vat } = await makeVat();
-      const mockMessageId = 'v0:1';
-      const mockPayload: VatCommandReply['payload'] = {
-        method: VatCommandMethod.ping,
-        params: 'test',
+        method: 'ping' as const,
+        params: [] as Json[],
       };
 
-      // Create a pending message first
-      const messagePromise = vat.sendVatCommand({
-        method: VatCommandMethod.ping,
-        params: [],
+      const sendVatCommandPromise = vat.sendVatCommand(mockMessage);
+      await delay(10);
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining(mockMessage),
+      );
+
+      await stream.receiveInput({
+        id: 'v0:1',
+        result: 'test-response',
+        jsonrpc: '2.0',
       });
 
-      // Handle the response
-      await vat.handleMessage({ id: mockMessageId, payload: mockPayload });
-
-      const result = await messagePromise;
-      expect(result).toBe('test');
+      expect(await sendVatCommandPromise).toBe('test-response');
     });
   });
 
@@ -140,7 +121,7 @@ describe('VatHandle', () => {
 
       // Create a pending message that should be rejected on terminate
       const messagePromise = vat.sendVatCommand({
-        method: VatCommandMethod.ping,
+        method: 'ping' as const,
         params: [],
       });
 

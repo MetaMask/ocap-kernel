@@ -2,16 +2,12 @@ import { VatNotFoundError } from '@ocap/errors';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
+import type { JsonRpcMessage } from '@ocap/utils';
 import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.ts';
-import type {
-  KernelCommand,
-  KernelCommandReply,
-  VatCommand,
-  VatCommandReply,
-} from './messages/index.ts';
+import type { KernelCommand, KernelCommandReply } from './messages/index.ts';
 import type {
   VatId,
   VatConfig,
@@ -53,7 +49,7 @@ describe('Kernel', () => {
 
     mockWorkerService = {
       launch: async () =>
-        ({}) as unknown as DuplexStream<VatCommandReply, VatCommand>,
+        ({}) as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
     } as unknown as VatWorkerManager;
@@ -61,7 +57,7 @@ describe('Kernel', () => {
     launchWorkerMock = vi
       .spyOn(mockWorkerService, 'launch')
       .mockResolvedValue(
-        {} as unknown as DuplexStream<VatCommandReply, VatCommand>,
+        {} as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       );
     terminateWorkerMock = vi
       .spyOn(mockWorkerService, 'terminate')
@@ -303,10 +299,10 @@ describe('Kernel', () => {
       );
       await kernel.launchVat(makeMockVatConfig());
       vatHandles[0]?.sendVatCommand.mockResolvedValueOnce('test');
-      const result = await kernel.sendVatCommand(
-        'v1',
-        'test' as unknown as VatCommand['payload'],
-      );
+      const result = await kernel.sendVatCommand('v1', {
+        method: 'ping',
+        params: [],
+      });
       expect(result).toBe('test');
     });
 
@@ -318,7 +314,10 @@ describe('Kernel', () => {
       );
       const nonExistentVatId: VatId = 'v9';
       await expect(async () =>
-        kernel.sendVatCommand(nonExistentVatId, {} as VatCommand['payload']),
+        kernel.sendVatCommand(nonExistentVatId, {
+          method: 'ping',
+          params: [],
+        }),
       ).rejects.toThrow(VatNotFoundError);
     });
 
@@ -331,7 +330,10 @@ describe('Kernel', () => {
       await kernel.launchVat(makeMockVatConfig());
       vatHandles[0]?.sendVatCommand.mockRejectedValueOnce('error');
       await expect(async () =>
-        kernel.sendVatCommand('v1', {} as VatCommand['payload']),
+        kernel.sendVatCommand('v1', {
+          method: 'ping',
+          params: [],
+        }),
       ).rejects.toThrow('error');
     });
   });

@@ -13,10 +13,11 @@ export type VatWorkerServiceMethodSpecs =
   | typeof terminateSpec
   | typeof terminateAllSpec;
 
-export const methodSpecs: MethodSpecRecord<VatWorkerServiceMethodSpecs> = {
-  launch: launchSpec,
-  terminate: terminateSpec,
-  terminateAll: terminateAllSpec,
-} as const;
+export const vatWorkerServiceMethodSpecs: MethodSpecRecord<VatWorkerServiceMethodSpecs> =
+  {
+    launch: launchSpec,
+    terminate: terminateSpec,
+    terminateAll: terminateAllSpec,
+  } as const;
 
 export type VatWorkerServiceMethod = VatWorkerServiceMethodSpecs['method'];

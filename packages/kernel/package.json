@@ -59,6 +59,7 @@
     "@endo/marshal": "^1.6.4",
     "@endo/pass-style": "^1.5.0",
     "@endo/promise-kit": "^1.1.10",
+    "@metamask/rpc-errors": "^7.0.2",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",

@@ -4,6 +4,7 @@ import {
   VatAlreadyExistsError,
   VatNotFoundError,
 } from '@ocap/errors';
+import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import { Logger } from '@ocap/utils';
@@ -11,12 +12,8 @@ import { Logger } from '@ocap/utils';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { isKernelCommand, KernelCommandMethod } from './messages/index.ts';
-import type {
-  KernelCommand,
-  KernelCommandReply,
-  VatCommand,
-  VatCommandReturnType,
-} from './messages/index.ts';
+import type { KernelCommand, KernelCommandReply } from './messages/index.ts';
+import type { VatMethod, vatMethodSpecs } from './rpc/index.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { kslot } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
@@ -214,11 +211,11 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const commandStream = await this.#vatWorkerService.launch(vatId, vatConfig);
+    const vatStream = await this.#vatWorkerService.launch(vatId, vatConfig);
     const vat = await VatHandle.make({
       vatId,
       vatConfig,
-      vatStream: commandStream,
+      vatStream,
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
     });
@@ -359,14 +356,22 @@ export class Kernel {
    *
    * @param id - The id of the vat to send the command to.
    * @param command - The command to send.
+   * @param command.method - The method to call.
+   * @param command.params - The parameters to pass to the method.
    * @returns A promise that resolves the response to the command.
    */
-  async sendVatCommand<Method extends VatCommand['payload']['method']>(
+  async sendVatCommand<Method extends VatMethod>(
     id: VatId,
-    command: Extract<VatCommand['payload'], { method: Method }>,
-  ): Promise<VatCommandReturnType[Method]> {
+    {
+      method,
+      params,
+    }: {
+      method: Method;
+      params: ExtractParams<Method, typeof vatMethodSpecs>;
+    },
+  ): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
     const vat = this.#getVat(id);
-    return vat.sendVatCommand(command);
+    return vat.sendVatCommand({ method, params });
   }
 
   /**

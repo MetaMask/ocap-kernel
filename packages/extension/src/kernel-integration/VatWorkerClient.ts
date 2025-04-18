@@ -4,15 +4,8 @@ import type {
   JsonRpcRequest,
   JsonRpcResponse,
 } from '@metamask/utils';
-import { isVatCommandReply } from '@ocap/kernel';
-import type {
-  VatWorkerManager,
-  VatId,
-  VatConfig,
-  VatCommand,
-  VatCommandReply,
-} from '@ocap/kernel';
-import { vatWorkerService } from '@ocap/kernel/rpc';
+import type { VatWorkerManager, VatId, VatConfig } from '@ocap/kernel';
+import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
 import { RpcClient } from '@ocap/rpc-methods';
 import type { DuplexStream } from '@ocap/streams';
 import {
@@ -23,8 +16,8 @@ import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { Logger } from '@ocap/utils';
-import { makeLogger, stringify } from '@ocap/utils';
+import type { JsonRpcMessage, Logger } from '@ocap/utils';
+import { isJsonRpcMessage, makeLogger, stringify } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -40,7 +33,7 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
 
   readonly #stream: VatWorkerClientStream;
 
-  readonly #rpcClient: RpcClient<typeof vatWorkerService.methodSpecs>;
+  readonly #rpcClient: RpcClient<typeof vatWorkerServiceMethodSpecs>;
 
   readonly #portMap: Map<JsonRpcId, MessagePort | undefined>;
 
@@ -66,7 +59,7 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
     this.#portMap = new Map();
     this.#logger = logger ?? makeLogger('[vat worker client]');
     this.#rpcClient = new RpcClient(
-      vatWorkerService.methodSpecs,
+      vatWorkerServiceMethodSpecs,
       async (request) => {
         if (request.method === 'launch') {
           this.#portMap.set(request.id, undefined);
@@ -112,7 +105,7 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
   async launch(
     vatId: VatId,
     vatConfig: VatConfig,
-  ): Promise<DuplexStream<VatCommandReply, VatCommand>> {
+  ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
     const [id] = await this.#rpcClient.callAndGetId('launch', {
       vatId,
       vatConfig,
@@ -124,9 +117,9 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
       );
     }
     this.#portMap.delete(id);
-    return await MessagePortDuplexStream.make<VatCommandReply, VatCommand>(
+    return await MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
       port,
-      isVatCommandReply,
+      isJsonRpcMessage,
     );
   }
 

@@ -1,4 +1,3 @@
-import type { Message } from '@agoric/swingset-liveslots';
 import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
@@ -9,6 +8,7 @@ import { getRefCountMethods } from './refcount.ts';
 import type {
   KRef,
   KernelPromise,
+  Message,
   PromiseState,
   RunQueueItemSend,
   VatId,

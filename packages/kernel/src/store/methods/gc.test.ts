@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
-import { RunQueueItemType } from '../../types.ts';
 import type { GCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
@@ -103,7 +102,7 @@ describe('GC methods', () => {
       // Verify they are processed in order
       vatIds.forEach((vatId) => {
         expect(kernelStore.nextReapAction()).toStrictEqual({
-          type: RunQueueItemType.bringOutYourDead,
+          type: 'bringOutYourDead',
           vatId,
         });
       });
@@ -119,12 +118,12 @@ describe('GC methods', () => {
 
       // Should only process v1 once
       expect(kernelStore.nextReapAction()).toStrictEqual({
-        type: RunQueueItemType.bringOutYourDead,
+        type: 'bringOutYourDead',
         vatId: 'v1',
       });
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
-        type: RunQueueItemType.bringOutYourDead,
+        type: 'bringOutYourDead',
         vatId: 'v2',
       });
 

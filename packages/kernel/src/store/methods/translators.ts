@@ -1,11 +1,11 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import type { VatId, KRef, VRef } from '../../types.ts';
+import { coerceMessage } from '../../types.ts';
+import type { Message, VatId, KRef, VRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
 import { getVatMethods } from './vat.ts';
@@ -162,7 +162,7 @@ export function getTranslators(ctx: StoreContext) {
         kso = [
           op,
           translateRefVtoK(vatId, target),
-          translateMessageVtoK(vatId, message),
+          translateMessageVtoK(vatId, coerceMessage(message)),
         ];
         break;
       }

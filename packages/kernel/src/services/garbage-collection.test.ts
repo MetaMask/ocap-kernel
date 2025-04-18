@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { processGCActionSet } from './garbage-collection.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import { makeKernelStore } from '../store/index.ts';
-import { RunQueueItemType } from '../types.ts';
 
 describe('garbage-collection', () => {
   describe('processGCActionSet', () => {
@@ -35,7 +34,7 @@ describe('garbage-collection', () => {
 
       // Verify result
       expect(result).toStrictEqual({
-        type: RunQueueItemType.dropExports,
+        type: 'dropExports',
         vatId: 'v1',
         krefs: [ko1],
       });
@@ -56,7 +55,7 @@ describe('garbage-collection', () => {
 
       // Verify result
       expect(result).toStrictEqual({
-        type: RunQueueItemType.retireExports,
+        type: 'retireExports',
         vatId: 'v1',
         krefs: [ko1],
       });
@@ -76,7 +75,7 @@ describe('garbage-collection', () => {
 
       // Verify result
       expect(result).toStrictEqual({
-        type: RunQueueItemType.retireImports,
+        type: 'retireImports',
         vatId: 'v2',
         krefs: [ko1],
       });
@@ -106,7 +105,7 @@ describe('garbage-collection', () => {
       // Process first action - should be dropExport
       let result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
-        type: RunQueueItemType.dropExports,
+        type: 'dropExports',
         vatId: 'v1',
         krefs: [ko1],
       });
@@ -114,7 +113,7 @@ describe('garbage-collection', () => {
       // Process second action - should be retireExport
       result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
-        type: RunQueueItemType.retireExports,
+        type: 'retireExports',
         vatId: 'v1',
         krefs: [ko2],
       });
@@ -141,7 +140,7 @@ describe('garbage-collection', () => {
       // Process first action - should be v1
       let result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
-        type: RunQueueItemType.dropExports,
+        type: 'dropExports',
         vatId: 'v1',
         krefs: [ko2],
       });
@@ -149,7 +148,7 @@ describe('garbage-collection', () => {
       // Process second action - should be v2
       result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
-        type: RunQueueItemType.dropExports,
+        type: 'dropExports',
         vatId: 'v2',
         krefs: [ko1],
       });

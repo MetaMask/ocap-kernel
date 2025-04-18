@@ -13,11 +13,7 @@ import type {
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
-import {
-  insistGCActionType,
-  insistVatId,
-  RunQueueItemType,
-} from '../../types.ts';
+import { insistGCActionType, insistVatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
 
@@ -97,7 +93,7 @@ export function getGCMethods(ctx: StoreContext) {
     if (queue.length > 0) {
       const vatId = queue.shift();
       ctx.reapQueue.set(JSON.stringify(queue));
-      return harden({ type: RunQueueItemType.bringOutYourDead, vatId });
+      return harden({ type: 'bringOutYourDead', vatId });
     }
     return undefined;
   }

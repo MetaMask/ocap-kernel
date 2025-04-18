@@ -1,5 +1,4 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
@@ -8,7 +7,8 @@ import { Logger } from '@ocap/utils';
 import type { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
-import type { VatId, KRef, RunQueueItemSend } from './types.ts';
+import { coerceMessage } from './types.ts';
+import type { Message, VatId, KRef, RunQueueItemSend } from './types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -178,7 +178,7 @@ export class VatSyscall {
         // [KRef, Message];
         const [, target, message] = kso;
         log(`@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`);
-        this.#handleSyscallSend(target, message);
+        this.#handleSyscallSend(target, coerceMessage(message));
         break;
       }
       case 'subscribe': {

@@ -32,6 +32,7 @@ describe('MessagePanel Component', () => {
     vi.mocked(useKernelActions).mockReturnValue({
       sendKernelCommand,
       terminateAllVats: vi.fn(),
+      collectGarbage: vi.fn(),
       clearState: vi.fn(),
       reload: vi.fn(),
       launchVat: vi.fn(),
