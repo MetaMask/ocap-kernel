@@ -4,7 +4,7 @@ import { deliverHandler } from './deliver.ts';
 import type { HandleDelivery } from './deliver.ts';
 
 describe('deliverHandler', () => {
-  it('should initialize a vat', async () => {
+  it('should deliver a message', async () => {
     const handleDelivery = vi.fn(async () =>
       Promise.resolve({ checkpoint: 'fake' }),
     ) as unknown as HandleDelivery;
