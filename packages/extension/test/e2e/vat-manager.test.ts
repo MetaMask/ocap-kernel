@@ -195,7 +195,7 @@ test.describe('Vat Manager', () => {
     await popupPage.click('button:text("Send")');
     await expect(messageOutput).toContainText('"method": "deliver",');
     await expect(messageOutput).toContainText('"bringOutYourDead"');
-    await expect(messageOutput).toContainText('"result":[{},[]]}');
+    await expect(messageOutput).toContainText('"result":[[],[]]}');
   });
 
   test('should reload kernel state and load default vats', async () => {
