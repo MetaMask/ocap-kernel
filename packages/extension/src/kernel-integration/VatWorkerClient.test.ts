@@ -100,7 +100,7 @@ describe('ExtensionVatWorkerClient', () => {
       await expect(resultP).rejects.toThrow('foo');
     });
 
-    it('calls logger.error when receiving an unexpected reply', async () => {
+    it('calls logger.debug when receiving an unexpected reply', async () => {
       const debugSpy = vi.spyOn(clientLogger, 'debug');
       const unexpectedReply = makeNullReply('m9');
 
