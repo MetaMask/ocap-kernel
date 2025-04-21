@@ -1,4 +1,5 @@
 import { object } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
 import { VatIdStruct } from '@ocap/kernel';
@@ -17,6 +18,8 @@ export const sendVatCommandSpec: MethodSpec<
   result: object({ result: UnsafeJsonStruct }),
 };
 
+export type SendVatCommandParams = Infer<(typeof sendVatCommandSpec)['params']>;
+
 export type SendVatCommandHooks = {
   kernel: Pick<Kernel, 'sendVatCommand'>;
 };
@@ -34,3 +37,14 @@ export const sendVatCommandHandler: Handler<
     return { result };
   },
 };
+
+/**
+ * Asserts that the given params are valid for the `sendVatCommand` method.
+ *
+ * @param params - The params to assert.
+ */
+export function assertVatCommandParams(
+  params: unknown,
+): asserts params is SendVatCommandParams {
+  sendVatCommandSpec.params.assert(params);
+}

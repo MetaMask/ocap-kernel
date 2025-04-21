@@ -3,6 +3,8 @@ import type { ClusterConfig } from '@ocap/kernel';
 import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
+import { assertVatCommandParams } from '../../kernel-integration/handlers/send-vat-command.ts';
+import type { SendVatCommandParams } from '../../kernel-integration/handlers/send-vat-command.ts';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { nextMessageId } from '../utils.ts';
 
@@ -28,7 +30,7 @@ export function useKernelActions(): {
   const sendKernelCommand = useCallback(() => {
     callKernelMethod({
       method: 'sendVatCommand',
-      params: coerceCommandParams(JSON.parse(messageContent)),
+      params: parseCommandParams(messageContent),
     })
       .then((result) => logMessage(stringify(result, 0), 'received'))
       .catch((error) => logMessage(error.message, 'error'));
@@ -129,20 +131,20 @@ export function useKernelActions(): {
 }
 
 /**
- * Coerces sendVatCommand params to the expected format. Basically, turns the payload
+ * Parses sendVatCommand params to the expected format. Basically, turns the payload
  * into a JSON-RPC request.
  *
- * @param params - The params to coerce.
- * @returns The coerced params.
+ * @param rawParams - The raw, stringified params to parse.
+ * @returns The parsed params.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function coerceCommandParams<Params>(params: Params) {
+function parseCommandParams(rawParams: string): SendVatCommandParams {
+  const params = JSON.parse(rawParams);
   if (
     isObject(params) &&
     isObject(params.payload) &&
     hasProperty(params.payload, 'method')
   ) {
-    return {
+    const parsed = {
       ...params,
       payload: {
         ...params.payload,
@@ -150,6 +152,8 @@ function coerceCommandParams<Params>(params: Params) {
         jsonrpc: '2.0',
       },
     };
+    assertVatCommandParams(parsed);
+    return parsed;
   }
-  return params;
+  throw new Error('Invalid command params');
 }
