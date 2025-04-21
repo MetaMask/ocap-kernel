@@ -11,6 +11,7 @@ import { serializeError } from '@metamask/rpc-errors';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import { RpcClient, RpcService } from '@ocap/rpc-methods';
+import type { VatKVStore, VatCheckpoint } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import { waitUntilQuiescent } from '@ocap/utils';
 import type { JsonRpcMessage } from '@ocap/utils';
@@ -21,9 +22,8 @@ import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
 import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
-import type { VatKVStore } from './store/vat-kv-store.ts';
 import { makeVatKVStore } from './store/vat-kv-store.ts';
-import type { VatCheckpoint, VatId } from './types.ts';
+import type { VatId } from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;

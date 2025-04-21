@@ -4,7 +4,7 @@ import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import { RpcClient, RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
-import type { VatStore } from '@ocap/store';
+import type { VatStore, VatCheckpoint } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { JsonRpcMessage } from '@ocap/utils';
 import { Logger } from '@ocap/utils';
@@ -14,13 +14,7 @@ import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
 import type { VatMethod } from './rpc/index.ts';
 import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type {
-  Message,
-  VatId,
-  VatConfig,
-  VRef,
-  VatCheckpoint,
-} from './types.ts';
+import type { Message, VatId, VatConfig, VRef } from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type VatConstructorProps = {

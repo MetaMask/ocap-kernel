@@ -8,7 +8,6 @@ export type {
   VatId,
   VatWorkerManager,
   VatConfig,
-  VatCheckpoint,
 } from './types.ts';
 export {
   isVatId,

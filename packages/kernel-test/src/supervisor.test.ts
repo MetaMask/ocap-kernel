@@ -67,7 +67,7 @@ describe('VatSupervisor', () => {
         method: 'initVat',
         params: {
           vatConfig,
-          state: {},
+          state: [],
         },
         jsonrpc: '2.0',
       });

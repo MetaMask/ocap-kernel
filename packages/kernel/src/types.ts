@@ -313,13 +313,6 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
 
-export const VatCheckpointStruct = tuple([
-  record(string(), string()),
-  array(string()),
-]);
-
-export type VatCheckpoint = Infer<typeof VatCheckpointStruct>;
-
 /**
  * A mapping of GC action type to queue event type.
  */

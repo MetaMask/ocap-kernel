@@ -9,10 +9,10 @@ const mockKVData = [
   { key: 'key2', value: 'value2' },
 ];
 
-const mockKVDataForMap: Record<string, string> = {
-  key1: 'value1',
-  key2: 'value2',
-};
+const mockKVDataForMap: [string, string][] = [
+  ['key1', 'value1'],
+  ['key2', 'value2'],
+];
 
 const mockStatement = {
   run: vi.fn(),
@@ -122,13 +122,13 @@ describe('makeSQLKernelDatabase', () => {
     const db = await makeSQLKernelDatabase({});
     const vatStore = db.makeVatStore('vvat');
     const data = vatStore.getKVData();
-    expect(data).toStrictEqual({ ...mockKVDataForMap });
+    expect(data).toStrictEqual([...mockKVDataForMap]);
   });
 
   it('vatStore.updateKVData updates the database', async () => {
     const db = await makeSQLKernelDatabase({});
     const vatStore = db.makeVatStore('vvat');
-    vatStore.updateKVData({ ...mockKVDataForMap }, ['del1', 'del2']);
+    vatStore.updateKVData([...mockKVDataForMap], ['del1', 'del2']);
     expect(mockStatement.run).toHaveBeenCalled(); // begin transaction
     expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'key1', 'value1'); // set
     expect(mockStatement.run).toHaveBeenCalledWith('vvat', 'key2', 'value2'); // set

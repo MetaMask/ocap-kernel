@@ -6,9 +6,15 @@ export type KVStore = {
   delete(key: string): void;
 };
 
+export type VatCheckpoint = [[string, string][], string[]];
+
+export type VatKVStore = KVStore & {
+  checkpoint(): VatCheckpoint;
+};
+
 export type VatStore = {
-  getKVData(): Record<string, string>;
-  updateKVData(sets: Record<string, string>, deletes: string[]): void;
+  getKVData(): [string, string][];
+  updateKVData(sets: [string, string][], deletes: string[]): void;
 };
 
 export type KernelDatabase = {

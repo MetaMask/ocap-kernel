@@ -9,14 +9,14 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Handler, MethodSpec } from '@ocap/rpc-methods';
+import type { VatCheckpoint } from '@ocap/store';
 
+import { VatCheckpointStruct } from './shared.ts';
 import {
   CapDataStruct,
   MessageStruct,
   VatOneResolutionStruct,
-  VatCheckpointStruct,
 } from '../../types.ts';
-import type { VatCheckpoint } from '../../types.ts';
 
 const MessageDeliveryStruct = tuple([
   literal('message'),

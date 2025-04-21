@@ -1,1 +1,7 @@
-export type { KVStore, VatStore, KernelDatabase } from './types.ts';
+export type {
+  KVStore,
+  VatStore,
+  KernelDatabase,
+  VatKVStore,
+  VatCheckpoint,
+} from './types.ts';

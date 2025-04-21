@@ -10,7 +10,7 @@ describe('initVatHandler', () => {
       { initVat },
       {
         vatConfig: { sourceSpec: 'test' },
-        state: {},
+        state: [],
       },
     );
     expect(await result).toStrictEqual({
@@ -27,7 +27,7 @@ describe('initVatHandler', () => {
         { initVat },
         {
           vatConfig: { sourceSpec: 'test' },
-          state: {},
+          state: [],
         },
       ),
     ).rejects.toThrow('fake');

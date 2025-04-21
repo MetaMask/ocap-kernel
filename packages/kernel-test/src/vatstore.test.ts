@@ -1,8 +1,7 @@
 import '@ocap/shims/endoify';
-import type { ClusterConfig, VatCheckpoint } from '@ocap/kernel';
-import type { VatStore } from '@ocap/store';
+import type { ClusterConfig } from '@ocap/kernel';
+import type { VatStore, VatCheckpoint } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
-import deepEqual from 'fast-deep-equal';
 import { describe, vi, expect, it } from 'vitest';
 
 import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';
@@ -32,14 +31,14 @@ const makeTestSubcluster = (): ClusterConfig => ({
   },
 });
 
-const emptyRecord: Record<string, string> = {};
-const emptyArray: string[] = [];
+const emptySets: [string, string][] = [];
+const emptyDeletes: string[] = [];
 
 // prettier-ignore
-const referenceKVUpdates: [Record<string, string>, string[]][] = [
+const referenceKVUpdates: VatCheckpoint[] = [
   [
     // initVat initializes built-in tables and empty baggage
-    Object.fromEntries([
+    [
       ['baggageID', 'o+d6/1'],
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":5}'],
       ['kindIDID', '1'],
@@ -61,50 +60,50 @@ const referenceKVUpdates: [Record<string, string>, string[]][] = [
       ['vom.rc.o+d6/4', '1'],
       ['watchedPromiseTableID', 'o+d6/4'],
       ['watcherTableID', 'o+d6/3'],
-    ]),
-    emptyArray,
+    ],
+    emptyDeletes,
   ],
   // execution of 'bootstrap' initializes baggage, setting "thing" to 1 and
   // "goAway" to the string "now you see me", (and thus the baggage entry count
   // to 2).
   [
-    Object.fromEntries([
+    [
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":7}'],
       ['vc.1.sgoAway', '{"body":"#\\"now you see me\\"","slots":[]}'],
       ['vc.1.sthing', '{"body":"#1","slots":[]}'],
       ['vc.1.|entryCount', '2'],
-    ]),
-    emptyArray,
+    ],
+    emptyDeletes,
   ],
   // first 'bump' (from Bob) increments "thing" to 2
   [
-    Object.fromEntries([
+    [
       ['vc.1.sthing', '{"body":"#2","slots":[]}'],
-    ]),
-    emptyArray,
+    ],
+    emptyDeletes,
   ],
   // notification of 'go' result from Bob changes nothing
-  [emptyRecord, emptyArray],
+  [emptySets, emptyDeletes],
   // second 'bump' (from Carol) increments "thing" to 3
   [
-    Object.fromEntries([
+    [
       ['vc.1.sthing', '{"body":"#3","slots":[]}'],
-    ]),
-    emptyArray,
+    ],
+    emptyDeletes,
   ],
   // notification of 'go' result from Carol allows 'bootstrap' method to
   // complete, deleting "goAway" from baggage and dropping the baggage entry
   // count to 1.  Sending 'loopback' consumes a promise ID.
   [
-    Object.fromEntries([
+    [
       ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":8}'],
       ['vc.1.|entryCount', '1'],
-    ]),
+    ],
     ['vc.1.sgoAway'],
   ],
   // notification of 'loopback' result changes nothing
-  [emptyRecord, emptyArray],
-]
+  [emptySets, emptyDeletes],
+];
 
 describe('exercise vatstore', async () => {
   it('exercise vatstore', async () => {
@@ -119,7 +118,7 @@ describe('exercise vatstore', async () => {
         if (vatID === 'v1') {
           const origUpdateKVData = result.updateKVData;
           vi.spyOn(result, 'updateKVData').mockImplementation(
-            (sets: Record<string, string>, deletes: string[]): void => {
+            (sets: [string, string][], deletes: string[]): void => {
               kvUpdates.push([sets, deletes]);
               origUpdateKVData(sets, deletes);
             },
@@ -143,6 +142,27 @@ describe('exercise vatstore', async () => {
     );
     expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
     expect(vsKv.get('vc.1.|entryCount')).toBe('1');
-    expect(deepEqual(kvUpdates, referenceKVUpdates)).toBe(true);
+    expect(normalize(kvUpdates)).toStrictEqual(normalize(referenceKVUpdates));
   }, 30000);
 });
+
+/**
+ * Normalize an array of vat checkpoints to a comparable format.
+ *
+ * @param checkpoints - The vat checkpoints to normalize.
+ * @returns The normalized vat checkpoints.
+ */
+function normalize(
+  checkpoints: VatCheckpoint[],
+): [Record<string, string>, string[]][] {
+  return checkpoints.map((checkpoint) => {
+    const [sets, deletes] = checkpoint;
+    return [
+      sets.reduce<Record<string, string>>((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {}),
+      deletes.sort(),
+    ];
+  });
+}

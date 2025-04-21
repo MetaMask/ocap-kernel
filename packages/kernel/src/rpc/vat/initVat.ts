@@ -1,13 +1,15 @@
-import { object, record, string } from '@metamask/superstruct';
+import { array, object, string, tuple } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
+import type { VatCheckpoint } from '@ocap/store';
 
-import { VatCheckpointStruct, VatConfigStruct } from '../../types.ts';
-import type { VatCheckpoint, VatConfig } from '../../types.ts';
+import { VatCheckpointStruct } from './shared.ts';
+import { VatConfigStruct } from '../../types.ts';
+import type { VatConfig } from '../../types.ts';
 
 const paramsStruct = object({
   vatConfig: VatConfigStruct,
-  state: record(string(), string()),
+  state: array(tuple([string(), string()])),
 });
 
 type Params = Infer<typeof paramsStruct>;
@@ -40,9 +42,6 @@ export const initVatHandler: InitVatHandler = {
   ...initVatSpec,
   hooks: { initVat: true },
   implementation: async ({ initVat }, params) => {
-    return await initVat(
-      params.vatConfig,
-      new Map(Object.entries(params.state)),
-    );
+    return await initVat(params.vatConfig, new Map(params.state));
   },
 };
