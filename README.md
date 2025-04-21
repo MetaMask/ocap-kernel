@@ -69,3 +69,7 @@ See [`packages/create-package/README.md`](packages/create-package/README.md).
 ### Releasing
 
 For information on creating releases, see the [MetaMask/core release documentation](https://github.com/MetaMask/core/blob/main/docs/contributing.md#releasing-changes).
+
+## References
+
+- [Glossary](./docs/glossary.md)
