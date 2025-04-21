@@ -31,3 +31,7 @@ purposes only.
 ### Adding new packages
 
 See [`packages/create-package/README.md`](packages/create-package/README.md).
+
+## References
+
+- [Glossary](./GLOSSARY.md)
