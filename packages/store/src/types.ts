@@ -6,15 +6,22 @@ export type KVStore = {
   delete(key: string): void;
 };
 
-export type VatCheckpoint = [[string, string][], string[]];
+export type KVPair = [string, string];
+
+/**
+ * A vat checkpoint is a tuple of two arrays describing the changes since the previous checkpoint:
+ * - The first array contains updated key-value pairs.
+ * - The second array contains deleted keys.
+ */
+export type VatCheckpoint = [KVPair[], string[]];
 
 export type VatKVStore = KVStore & {
   checkpoint(): VatCheckpoint;
 };
 
 export type VatStore = {
-  getKVData(): [string, string][];
-  updateKVData(sets: [string, string][], deletes: string[]): void;
+  getKVData(): KVPair[];
+  updateKVData(sets: KVPair[], deletes: string[]): void;
 };
 
 export type KernelDatabase = {
