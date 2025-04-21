@@ -268,7 +268,6 @@ export class VatSupervisor {
     const serParam = marshal.toCapData(harden(parameters)) as CapData<string>;
     await this.#dispatch(harden(['startVat', serParam]));
 
-    // TODO:rekm: Should we reference ROOT_OBJECT_VREF here?
     return this.#vatKVStore.checkpoint();
   };
 }
