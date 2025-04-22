@@ -1,8 +1,8 @@
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { Logger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {

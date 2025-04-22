@@ -2,7 +2,7 @@ import type {
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
-import { Logger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';

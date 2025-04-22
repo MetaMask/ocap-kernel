@@ -2,10 +2,10 @@ import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcRequest } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { VatConfig, VatId } from '@ocap/kernel';
+import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { Logger } from '@ocap/utils';
-import { delay, makeLogger } from '@ocap/utils';
+import { delay } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -124,7 +124,7 @@ describe('ExtensionVatWorkerService', () => {
 
     beforeEach(async () => {
       workers = [];
-      logger = makeLogger('[test server]');
+      logger = new Logger('test-server');
       stream = await TestDuplexStream.make(() => undefined);
       server = new ExtensionVatWorkerService(
         stream as unknown as VatWorkerServiceStream,

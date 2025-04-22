@@ -1,8 +1,9 @@
 import type { Json } from '@metamask/utils';
+import type { Logger } from '@ocap/logger';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { JsonRpcMessage, Logger } from '@ocap/utils';
-import { isJsonRpcMessage, makeLogger } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
+import { isJsonRpcMessage } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
@@ -78,12 +79,14 @@ describe('VatHandle', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const logger = makeLogger(`[vat v0]`);
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
       const { stream } = await makeVat({ logger });
-      const logErrorSpy = vi.spyOn(logger, 'error');
       await stream.receiveInput(NaN);
       await delay(10);
-      expect(logErrorSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         'Unexpected read error',
         expect.any(Error),
       );

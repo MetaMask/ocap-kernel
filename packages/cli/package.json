@@ -38,6 +38,7 @@
     "@endo/promise-kit": "^1.1.10",
     "@metamask/snaps-utils": "^9.1.0",
     "@metamask/utils": "^11.4.0",
+    "@ocap/logger": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/utils": "workspace:^",
     "@types/node": "^22.13.1",

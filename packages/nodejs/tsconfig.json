@@ -9,10 +9,10 @@
   },
   "references": [
     { "path": "../kernel" },
+    { "path": "../logger" },
     { "path": "../streams" },
     { "path": "../utils" },
     { "path": "../test-utils" },
-    { "path": "../kernel" },
     { "path": "../store" }
   ],
   "include": [

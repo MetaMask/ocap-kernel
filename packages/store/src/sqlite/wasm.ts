@@ -1,5 +1,4 @@
-import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
@@ -160,11 +159,12 @@ export async function makeSQLKernelDatabase({
   verbose = false,
 }: {
   dbFilename?: string | undefined;
+  // XXX TODO:grypez use a logger argument instead
   label?: string | undefined;
   verbose?: boolean | undefined;
 }): Promise<KernelDatabase> {
   const thisLabel = label ?? '[sqlite]';
-  const logger = makeLogger(thisLabel);
+  const logger = new Logger(thisLabel);
   const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME);
 
   if (verbose) {

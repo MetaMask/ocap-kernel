@@ -1,9 +1,10 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { VatWorkerManager, VatId } from '@ocap/kernel';
+import { Logger } from '@ocap/logger';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
-import { isJsonRpcMessage, makeLogger } from '@ocap/utils';
-import type { JsonRpcMessage, Logger } from '@ocap/utils';
+import { isJsonRpcMessage } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -36,7 +37,7 @@ export class NodejsVatWorkerManager implements VatWorkerManager {
     logger?: Logger | undefined;
   }) {
     this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
-    this.#logger = args.logger ?? makeLogger('[vat worker service]');
+    this.#logger = args.logger ?? new Logger('vat-worker-service');
   }
 
   async launch(

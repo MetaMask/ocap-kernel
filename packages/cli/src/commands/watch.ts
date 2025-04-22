@@ -1,5 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import { Logger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 import { watch } from 'chokidar';
 import type { FSWatcher, MatchFunction } from 'chokidar';
 import { unlink } from 'fs/promises';

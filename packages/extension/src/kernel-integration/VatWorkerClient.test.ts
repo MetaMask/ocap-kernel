@@ -1,10 +1,10 @@
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcResponse } from '@metamask/utils';
 import type { VatId, VatConfig } from '@ocap/kernel';
+import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { Logger } from '@ocap/utils';
-import { delay, makeLogger, stringify } from '@ocap/utils';
+import { delay, stringify } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';
@@ -78,7 +78,7 @@ describe('ExtensionVatWorkerClient', () => {
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
-      clientLogger = makeLogger('[test client]');
+      clientLogger = new Logger('test-client');
       client = new ExtensionVatWorkerClient(
         stream as unknown as VatWorkerClientStream,
         clientLogger,

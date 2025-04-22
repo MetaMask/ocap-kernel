@@ -1,8 +1,8 @@
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { Logger } from '@ocap/logger';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { stringify } from '@ocap/utils';
-import type { Logger } from '@ocap/utils';
 import { nanoid } from 'nanoid';
 
 import { isUiControlCommand } from './ui-control-command.ts';

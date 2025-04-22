@@ -6,7 +6,11 @@
     "types": ["ses", "vitest", "node"],
     "noEmit": true
   },
-  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
+  "references": [
+    { "path": "../logger" },
+    { "path": "../test-utils" },
+    { "path": "../utils" }
+  ],
   "include": [
     "../../vitest.config.ts",
     "./src/**/*.ts",

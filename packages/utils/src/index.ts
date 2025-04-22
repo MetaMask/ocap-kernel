@@ -1,4 +1,3 @@
-export { Logger, makeLogger } from './logger.ts';
 export { delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export type {

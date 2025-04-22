@@ -1,27 +1,24 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import {
-  consoleTransport,
-  DEFAULT_OPTIONS,
-  Logger,
-  makeLogger,
-  mergeOptions,
-} from './logger.ts';
-import type { LoggerOptions, LogLevel } from './logger.ts';
+import { Logger } from './logger.ts';
+import { consoleTransport } from './transports.ts';
 
 const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;
+const transports = [consoleTransport];
 
 describe('Logger', () => {
-  it('can be created from a string', () => {
-    const logSpy = vi.spyOn(console, 'log');
-    const logger = new Logger('test');
-    logger.log('foo');
+  it.each([
+    ['no arguments', undefined],
+    ['an empty object', {}],
+    ['a string tag', 'test'],
+    ['an options bag', { tags: ['test'], transports: [consoleTransport] }],
+  ])('can be constructed with $description', (_description, options) => {
+    const logger = new Logger(options);
     expect(logger).toBeInstanceOf(Logger);
-    expect(logSpy).toHaveBeenCalledWith(['test'], 'foo');
   });
 
   it.each(consoleMethod)('has method %j', (method) => {
-    const testLogger = new Logger({ tags: ['test'] });
+    const testLogger = new Logger({ tags: ['test'], transports });
     expect(testLogger).toHaveProperty(method);
     expect(testLogger[method]).toBeTypeOf('function');
   });
@@ -31,7 +28,7 @@ describe('Logger', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const tags = ['test'];
-      const testLogger = new Logger({ tags });
+      const testLogger = new Logger({ tags, transports });
       testLogger[method]('foo');
       expect(methodSpy).toHaveBeenCalledWith(tags, 'foo');
     },
@@ -42,7 +39,7 @@ describe('Logger', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const tags = ['test'];
-      const testLogger = new Logger({ tags });
+      const testLogger = new Logger({ tags, transports });
       testLogger[method]('foo', { bar: 'bar' });
       expect(methodSpy).toHaveBeenCalledWith(tags, 'foo', { bar: 'bar' });
     },
@@ -53,7 +50,7 @@ describe('Logger', () => {
     (method) => {
       const methodSpy = vi.spyOn(console, method);
       const tags = ['test'];
-      const testLogger = new Logger({ tags });
+      const testLogger = new Logger({ tags, transports });
       testLogger[method]();
       expect(methodSpy).toHaveBeenCalledWith(tags);
     },
@@ -62,7 +59,7 @@ describe('Logger', () => {
   it('can be nested', () => {
     const consoleSpy = vi.spyOn(console, 'log');
     const vatLogger = new Logger({ tags: ['vat 0x01'] });
-    const subLogger = vatLogger.subLogger({ tags: ['(process)'] });
+    const subLogger = vatLogger.subLogger({ tags: ['(process)'], transports });
     subLogger.log('foo');
     expect(consoleSpy).toHaveBeenCalledWith(['vat 0x01', '(process)'], 'foo');
   });
@@ -76,7 +73,7 @@ describe('Logger', () => {
 
   it('passes objects directly in the data field', () => {
     const consoleSpy = vi.spyOn(console, 'log');
-    const logger = new Logger({ tags: ['test'] });
+    const logger = new Logger({ tags: ['test'], transports });
     const message = 'foo';
     const data = { bar: 'bar' };
     logger.log(message, data);
@@ -86,7 +83,7 @@ describe('Logger', () => {
   describe('subLogger', () => {
     it('creates a new logger with the merged options', () => {
       const consoleSpy = vi.spyOn(console, 'log');
-      const logger = new Logger({ tags: ['test'] });
+      const logger = new Logger({ tags: ['test'], transports });
       const subLogger = logger.subLogger({ tags: ['sub'] });
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
@@ -95,7 +92,7 @@ describe('Logger', () => {
 
     it('works with no options', () => {
       const consoleSpy = vi.spyOn(console, 'log');
-      const logger = new Logger({ tags: ['test'] });
+      const logger = new Logger({ tags: ['test'], transports });
       const subLogger = logger.subLogger();
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
@@ -104,7 +101,7 @@ describe('Logger', () => {
 
     it('works with a string', () => {
       const consoleSpy = vi.spyOn(console, 'log');
-      const logger = new Logger({ tags: ['test'] });
+      const logger = new Logger({ tags: ['test'], transports });
       const subLogger = logger.subLogger('sub');
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
@@ -116,7 +113,7 @@ describe('Logger', () => {
 describe('consoleTransport', () => {
   it.each(consoleMethod)('logs to the console with method %j', (method) => {
     const consoleSpy = vi.spyOn(console, method);
-    const logger = new Logger({ tags: ['test'] });
+    const logger = new Logger({ tags: ['test'], transports });
     logger[method]('foo');
     expect(consoleSpy).toHaveBeenCalledWith(['test'], 'foo');
   });
@@ -134,87 +131,5 @@ describe('consoleTransport', () => {
     );
     consoleTransport({ tags: ['test'], level: 'silent', message: 'foo' });
     consoleMethodSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
-  });
-});
-
-describe('mergeOptions', () => {
-  it.each([
-    { left: ['test'], right: ['sub'], result: ['test', 'sub'] },
-    { left: ['test', 'test'], right: ['sub'], result: ['test', 'sub'] },
-    {
-      left: ['test', 'fizz'],
-      right: ['test', 'buzz'],
-      result: ['test', 'fizz', 'buzz'],
-    },
-  ])('merges tags as expected: $left and $right', ({ left, right, result }) => {
-    const options = mergeOptions({ tags: left }, { tags: right });
-    expect(options.tags).toStrictEqual(result);
-  });
-
-  it('defaults to the default options', () => {
-    const options = mergeOptions();
-    expect(options).toStrictEqual(DEFAULT_OPTIONS);
-  });
-
-  const transportA = vi.fn();
-  const transportB = vi.fn();
-
-  it.each([
-    { left: { transports: [] }, right: { transports: [] }, result: [] },
-    {
-      left: { transports: [transportA] },
-      right: { transports: [] },
-      result: [transportA],
-    },
-    {
-      left: { transports: [transportA] },
-      right: { transports: [transportA] },
-      result: [transportA],
-    },
-    {
-      left: { transports: [transportA] },
-      right: { transports: [transportB] },
-      result: [transportA, transportB],
-    },
-  ])(
-    'merges transports as expected: $left and $right',
-    ({ left, right, result }) => {
-      const options = mergeOptions(left, right);
-      expect(options.transports).toStrictEqual([
-        ...DEFAULT_OPTIONS.transports,
-        ...result,
-      ]);
-    },
-  );
-
-  it.each([
-    { left: { level: 'warn' }, right: { level: 'error' }, result: 'error' },
-    { left: { level: undefined }, right: { level: 'warn' }, result: 'warn' },
-    { left: { level: 'info' }, right: {}, result: 'info' },
-  ] as { left: LoggerOptions; right: LoggerOptions; result: LogLevel }[])(
-    'merges levels as expected: $left and $right',
-    ({ left, right, result }) => {
-      const options = mergeOptions(
-        { ...left, transports: [] },
-        { ...right, transports: [] },
-      );
-      expect(options.level).toBe(result);
-    },
-  );
-});
-
-describe('makeLogger', () => {
-  it('creates a new logger from a label and a parent logger', () => {
-    const logger = new Logger({ tags: ['test'] });
-    const subLogger = makeLogger('sub', logger);
-    expect(subLogger).toBeInstanceOf(Logger);
-  });
-
-  it('creates a new logger from a label', () => {
-    const logSpy = vi.spyOn(console, 'log');
-    const logger = makeLogger('test');
-    expect(logger).toBeInstanceOf(Logger);
-    logger.log('foo');
-    expect(logSpy).toHaveBeenCalledWith(['test'], 'foo');
   });
 });

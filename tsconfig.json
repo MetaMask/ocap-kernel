@@ -19,6 +19,7 @@
     { "path": "./packages/extension" },
     { "path": "./packages/kernel" },
     { "path": "./packages/kernel-test" },
+    { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
     { "path": "./packages/rpc-methods" },
     { "path": "./packages/shims" },

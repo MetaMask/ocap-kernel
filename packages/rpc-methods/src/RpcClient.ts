@@ -2,8 +2,9 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
 import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
-import { makeCounter, makeLogger, stringify } from '@ocap/utils';
-import type { Logger, PromiseCallbacks } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
+import { makeCounter, stringify } from '@ocap/utils';
+import type { PromiseCallbacks } from '@ocap/utils';
 
 import type {
   MethodSpec,
@@ -37,7 +38,7 @@ export class RpcClient<
     methods: Methods,
     sendMessage: SendMessage,
     prefix: string,
-    logger: Logger = makeLogger('[rpc client]'),
+    logger: Logger = new Logger('rpc-client'),
   ) {
     this.#methods = methods;
     this.#sendMessage = sendMessage;

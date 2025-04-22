@@ -5,6 +5,7 @@
   },
   "references": [
     { "path": "../errors" },
+    { "path": "../logger" },
     { "path": "../rpc-methods" },
     { "path": "../store" },
     { "path": "../streams" },

@@ -50,6 +50,7 @@
     "@metamask/rpc-errors": "^7.0.2",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
+    "@ocap/logger": "workspace:^",
     "@ocap/utils": "workspace:^"
   },
   "devDependencies": {

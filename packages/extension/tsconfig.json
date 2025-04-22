@@ -21,6 +21,7 @@
   },
   "references": [
     { "path": "../kernel" },
+    { "path": "../logger" },
     { "path": "../rpc-methods" },
     { "path": "../shims" },
     { "path": "../store" },

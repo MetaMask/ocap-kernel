@@ -10,14 +10,13 @@ import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { VatId, VatConfig } from '@ocap/kernel';
 import type { VatWorkerServiceMethod } from '@ocap/kernel/rpc';
 import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
+import { Logger } from '@ocap/logger';
 import type { ExtractParams } from '@ocap/rpc-methods';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { Logger } from '@ocap/utils';
-import { makeLogger } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -67,7 +66,7 @@ export class ExtensionVatWorkerService {
   ) {
     this.#stream = stream;
     this.#makeWorker = makeWorker;
-    this.#logger = logger ?? makeLogger('[vat worker server]');
+    this.#logger = logger ?? new Logger('vat-worker-server');
   }
 
   /**

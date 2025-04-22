@@ -3,7 +3,7 @@ import {
   JsonRpcEngine,
 } from '@metamask/json-rpc-engine';
 import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
-import { Logger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeLoggingMiddleware } from './logging.ts';

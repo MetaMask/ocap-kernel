@@ -1,4 +1,4 @@
-import { makeLogger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 import type { Database } from 'better-sqlite3';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import Sqlite from 'better-sqlite3';
@@ -20,7 +20,7 @@ import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
  */
 async function initDB(
   dbFilename: string,
-  logger: ReturnType<typeof makeLogger>,
+  logger: Logger,
   verbose: boolean,
 ): Promise<Database> {
   const dbPath = await getDBFilename(dbFilename);
@@ -126,10 +126,11 @@ export async function makeSQLKernelDatabase({
   verbose = false,
 }: {
   dbFilename?: string | undefined;
+  // XXX TODO:grypez use a logger argument instead
   label?: string | undefined;
   verbose?: boolean | undefined;
 }): Promise<KernelDatabase> {
-  const logger = makeLogger(label ?? '[sqlite]');
+  const logger = new Logger(label ?? 'sqlite');
   const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger, verbose);
 
   const kvStore = makeKVStore(db);

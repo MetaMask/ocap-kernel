@@ -1,6 +1,6 @@
 import '@endo/init';
 import endoBundleSource from '@endo/bundle-source';
-import { Logger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';

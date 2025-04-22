@@ -9,6 +9,7 @@
     "types": ["ses", "node"]
   },
   "references": [
+    { "path": "../logger/tsconfig.build.json" },
     { "path": "../utils/tsconfig.build.json" },
     { "path": "../shims/tsconfig.build.json" }
   ],

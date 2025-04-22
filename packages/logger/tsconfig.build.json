@@ -5,12 +5,9 @@
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": []
+    "types": ["ses"]
   },
-  "references": [
-    { "path": "../logger/tsconfig.build.json" },
-    { "path": "../utils/tsconfig.build.json" }
-  ],
+  "references": [{ "path": "../streams/tsconfig.build.json" }],
   "files": [],
   "include": ["./src"]
 }

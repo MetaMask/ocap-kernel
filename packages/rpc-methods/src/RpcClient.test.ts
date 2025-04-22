@@ -1,5 +1,5 @@
 import { jsonrpc2 } from '@metamask/utils';
-import { makeLogger } from '@ocap/utils';
+import type { Logger } from '@ocap/logger';
 import { describe, it, vi, expect } from 'vitest';
 
 import { RpcClient } from './RpcClient.ts';
@@ -86,11 +86,10 @@ describe('RpcClient', () => {
 
   describe('handleResponse', () => {
     it('calls logger.debug if the message id is not found', () => {
-      const logger = makeLogger('[test]');
+      const logger = { debug: vi.fn() } as unknown as Logger;
       const client = new RpcClient(getMethods(), vi.fn(), 'test', logger);
-      const logDebug = vi.spyOn(logger, 'debug');
       client.handleResponse('test1', 'test');
-      expect(logDebug).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         'Received response with unexpected id "test1".',
       );
     });

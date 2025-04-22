@@ -6,6 +6,7 @@ import type {
 } from '@metamask/utils';
 import type { VatWorkerManager, VatId, VatConfig } from '@ocap/kernel';
 import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
+import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import type { DuplexStream } from '@ocap/streams';
 import {
@@ -16,8 +17,8 @@ import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { JsonRpcMessage, Logger } from '@ocap/utils';
-import { isJsonRpcMessage, makeLogger, stringify } from '@ocap/utils';
+import type { JsonRpcMessage } from '@ocap/utils';
+import { isJsonRpcMessage, stringify } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -57,7 +58,7 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
   constructor(stream: VatWorkerClientStream, logger?: Logger) {
     this.#stream = stream;
     this.#portMap = new Map();
-    this.#logger = logger ?? makeLogger('[vat worker client]');
+    this.#logger = logger ?? new Logger('vat-worker-client');
     this.#rpcClient = new RpcClient(
       vatWorkerServiceMethodSpecs,
       async (request) => {

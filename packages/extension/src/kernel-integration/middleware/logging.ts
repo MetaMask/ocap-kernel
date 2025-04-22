@@ -1,7 +1,7 @@
 import { createAsyncMiddleware } from '@metamask/json-rpc-engine';
 import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine';
 import type { Json, JsonRpcParams } from '@metamask/utils';
-import { Logger } from '@ocap/utils';
+import { Logger } from '@ocap/logger';
 
 export const makeLoggingMiddleware = (
   logger: Logger,

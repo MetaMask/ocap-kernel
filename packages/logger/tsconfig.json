@@ -3,17 +3,12 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["ES2022"],
-    "types": ["vitest"]
+    "types": ["ses", "vitest"]
   },
-  "references": [
-    { "path": "../logger" },
-    { "path": "../test-utils" },
-    { "path": "../utils" }
-  ],
+  "references": [{ "path": "../test-utils" }, { "path": "../streams" }],
   "include": [
     "../../vitest.config.ts",
     "./src",
-    "./test",
     "./vite.config.ts",
     "./vitest.config.ts"
   ]

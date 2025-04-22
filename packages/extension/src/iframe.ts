@@ -1,10 +1,11 @@
 import { VatSupervisor } from '@ocap/kernel';
+import { Logger } from '@ocap/logger';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@ocap/streams/browser';
 import type { JsonRpcMessage } from '@ocap/utils';
-import { isJsonRpcMessage, Logger } from '@ocap/utils';
+import { isJsonRpcMessage } from '@ocap/utils';
 
 const logger = new Logger('iframe');
 

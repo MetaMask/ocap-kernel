@@ -41,6 +41,7 @@
     "@endo/promise-kit": "^1.1.10",
     "@metamask/utils": "^11.4.0",
     "@ocap/kernel": "workspace:^",
+    "@ocap/logger": "workspace:^",
     "@ocap/shims": "workspace:^",
     "@ocap/store": "workspace:^",
     "@ocap/streams": "workspace:^",

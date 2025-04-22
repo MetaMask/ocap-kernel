@@ -8,10 +8,11 @@
     "types": ["node", "ses"]
   },
   "references": [
+    { "path": "../kernel/tsconfig.build.json" },
+    { "path": "../logger/tsconfig.build.json" },
     { "path": "../utils/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" },
-    { "path": "../store/tsconfig.build.json" },
-    { "path": "../kernel/tsconfig.build.json" }
+    { "path": "../store/tsconfig.build.json" }
   ],
   "include": ["./src"]
 }

@@ -1,4 +1,4 @@
-import { Logger } from '@ocap/utils';
+import type { Logger } from '@ocap/logger';
 import { readFile, rm } from 'fs/promises';
 import { basename } from 'path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
@@ -13,11 +13,14 @@ import { fileExists } from '../file.ts';
 const mocks = vi.hoisted(() => {
   return {
     endoBundleSource: vi.fn(),
-    Logger: vi.fn(() => ({
-      info: vi.fn(),
-      error: vi.fn(),
-      subLogger: vi.fn(),
-    })),
+    Logger: vi.fn(
+      () =>
+        ({
+          info: vi.fn(),
+          error: vi.fn(),
+          subLogger: vi.fn(),
+        }) as unknown as Logger,
+    ),
     isDirectory: vi.fn(),
   };
 });
@@ -28,7 +31,7 @@ vi.mock('@endo/bundle-source', () => ({
 
 vi.mock('@endo/init', () => ({}));
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@ocap/logger', () => ({
   Logger: mocks.Logger,
 }));
 
@@ -54,7 +57,7 @@ describe('bundle', async () => {
   beforeEach(async () => {
     await deleteTestBundles();
     vi.resetModules();
-    logger = new Logger();
+    logger = mocks.Logger();
     vi.resetAllMocks();
   });
 

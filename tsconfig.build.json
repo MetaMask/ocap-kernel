@@ -6,6 +6,7 @@
     { "path": "./packages/errors/tsconfig.build.json" },
     { "path": "./packages/kernel-test/tsconfig.build.json" },
     { "path": "./packages/kernel/tsconfig.build.json" },
+    { "path": "./packages/logger/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
     { "path": "./packages/rpc-methods/tsconfig.build.json" },
     { "path": "./packages/store/tsconfig.build.json" },

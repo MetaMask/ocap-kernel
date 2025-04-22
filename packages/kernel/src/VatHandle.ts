@@ -5,12 +5,12 @@ import type {
 import { serializeError } from '@metamask/rpc-errors';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
+import { Logger } from '@ocap/logger';
 import { RpcClient, RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 import type { VatStore, VatCheckpoint } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
 import type { JsonRpcMessage } from '@ocap/utils';
-import { Logger } from '@ocap/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
