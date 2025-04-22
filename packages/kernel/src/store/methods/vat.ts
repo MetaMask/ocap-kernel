@@ -240,7 +240,7 @@ export function getVatMethods(ctx: StoreContext) {
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
       ctx.kv.delete(getSlotKey(vatID, kref));
       ctx.kv.delete(getSlotKey(vatID, vatSlot));
-      // Drop the credit that belonged to the terminating vat
+      // Decrease refcounts that belonged to the terminating vat
       decrementRefCount(kref, 'cleanup|export|baseline');
       ctx.maybeFreeKrefs.add(kref);
       work.exports += 1;
