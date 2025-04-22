@@ -49,14 +49,14 @@ export function getObjectMethods(ctx: StoreContext) {
   }
 
   /**
-   * True iff `kref` is *that* vat’s root object (`o+0`).
+   * True if `kref` is the root object for `vatId`.
    *
    * Every vat exports its root as slot `o+0`, which gives a c‑list entry
    *     `<vatId>.c.o+0  →  <kref>`
    *
    * @param kref - The KRef of the object of interest.
    * @param vatId - The ID of the vat of interest.
-   * @returns True iff `kref` is *that* vat’s root object (`o+0`).
+   * @returns True if `kref` is the root object for `vatId`.
    */
   function isRootObject(kref: KRef, vatId: VatId): boolean {
     const rootKref = ctx.kv.get(`${vatId}.c.o+0`);
