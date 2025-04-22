@@ -217,11 +217,7 @@ export class KernelRouter {
           message,
         );
         await vat.deliverMessage(vatTarget, vatMessage);
-        // decrement refcount for processed 'send' items except for the root object
-        const vatKref = this.#kernelStore.erefToKref(vatId, 'o+0');
-        if (vatKref !== target) {
-          this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
-        }
+        this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
         for (const slot of message.methargs.slots) {
           this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
         }

@@ -95,7 +95,7 @@ describe('Garbage Collection', () => {
     // Check that the object is reachable as a promise from the importer vat
     const importerKref = kernelStore.erefToKref(importerVatId, 'p-1') as KRef;
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
-    expect(kernelStore.getRefCount(importerKref)).toBe(2);
+    expect(kernelStore.getRefCount(importerKref)).toBe(1);
     // Use the object
     const useResult = await kernel.queueMessageFromKernel(
       importerKRef,

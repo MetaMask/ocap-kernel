@@ -31,9 +31,11 @@ export function getVatMethods(ctx: StoreContext) {
   const { getPrefixedKeys, getSlotKey } = getBaseMethods(ctx.kv);
   const { deleteCListEntry } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
-  const { initKernelPromise, setPromiseDecider } = getPromiseMethods(ctx);
+  const { initKernelPromise, setPromiseDecider, getKernelPromise } =
+    getPromiseMethods(ctx);
   const { initKernelObject } = getObjectMethods(ctx);
-  const { addCListEntry, incrementRefCount } = getCListMethods(ctx);
+  const { addCListEntry, incrementRefCount, decrementRefCount } =
+    getCListMethods(ctx);
 
   /**
    * Delete all persistent state associated with an endpoint.
@@ -238,6 +240,8 @@ export function getVatMethods(ctx: StoreContext) {
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
       ctx.kv.delete(getSlotKey(vatID, kref));
       ctx.kv.delete(getSlotKey(vatID, vatSlot));
+      // Drop the credit that belonged to the terminating vat
+      decrementRefCount(kref, 'cleanup|export|baseline');
       ctx.maybeFreeKrefs.add(kref);
       work.exports += 1;
     }
@@ -261,8 +265,13 @@ export function getVatMethods(ctx: StoreContext) {
       const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
+      // the following will also delete both db keys
       deleteCListEntry(vatID, kref, vref);
-      // that will also delete both db keys
+      // If the dead vat was still the decider, drop the decider’s credit, too.
+      const kp = getKernelPromise(kref);
+      if (kp.decider === vatID) {
+        decrementRefCount(kref, 'cleanup|promise|decider');
+      }
       work.promises += 1;
     }
 
@@ -279,7 +288,7 @@ export function getVatMethods(ctx: StoreContext) {
     forgetTerminatedVat(vatID);
 
     // Log the cleanup work done
-    console.log(`Cleaned up terminated vat ${vatID}:`, work);
+    console.debug(`Cleaned up terminated vat ${vatID}:`, work);
 
     return work;
   }

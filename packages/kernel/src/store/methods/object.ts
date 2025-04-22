@@ -2,7 +2,7 @@ import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
 import { getRefCountMethods } from './refcount.ts';
-import type { EndpointId, KRef } from '../../types.ts';
+import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
 
@@ -37,14 +37,30 @@ export function getObjectMethods(ctx: StoreContext) {
    * Get a kernel object's owner.
    *
    * @param koId - The KRef of the kernel object of interest.
+   * @param throwIfUnknown - Whether to throw an error if the owner is unknown.
    * @returns The identity of the vat or remote that owns the object.
    */
-  function getOwner(koId: KRef): EndpointId {
+  function getOwner(koId: KRef, throwIfUnknown = true): EndpointId | undefined {
     const owner = ctx.kv.get(`${koId}.owner`);
-    if (owner === undefined) {
+    if (throwIfUnknown && owner === undefined) {
       throw Error(`unknown kernel object ${koId}`);
     }
     return owner;
+  }
+
+  /**
+   * True iff `kref` is *that* vat’s root object (`o+0`).
+   *
+   * Every vat exports its root as slot `o+0`, which gives a c‑list entry
+   *     `<vatId>.c.o+0  →  <kref>`
+   *
+   * @param kref - The KRef of the object of interest.
+   * @param vatId - The ID of the vat of interest.
+   * @returns True iff `kref` is *that* vat’s root object (`o+0`).
+   */
+  function isRootObject(kref: KRef, vatId: VatId): boolean {
+    const rootKref = ctx.kv.get(`${vatId}.c.o+0`);
+    return rootKref === kref;
   }
 
   /**
@@ -111,6 +127,7 @@ export function getObjectMethods(ctx: StoreContext) {
   return {
     initKernelObject,
     getOwner,
+    isRootObject,
     deleteKernelObject,
     getNextObjectId,
     getObjectRefCount,

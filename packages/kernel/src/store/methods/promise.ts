@@ -33,7 +33,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   );
   const { enqueueRun } = getQueueMethods(ctx);
   const { refCountKey } = getRefCountMethods(ctx);
-  const { incrementRefCount } = getCListMethods(ctx);
+  const { incrementRefCount, decrementRefCount } = getCListMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with
@@ -175,6 +175,7 @@ export function getPromiseMethods(ctx: StoreContext) {
     ctx.kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
     ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
     ctx.kv.delete(`${kpid}.decider`);
+    decrementRefCount(kpid, 'resolve|decider');
     ctx.kv.delete(`${kpid}.subscribers`);
     queue.delete();
   }

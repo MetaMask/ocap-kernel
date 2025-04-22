@@ -19,7 +19,7 @@ describe('VatSyscall', () => {
 
   beforeEach(() => {
     kernelQueue = {
-      enqueueRun: vi.fn(),
+      enqueueSend: vi.fn(),
       resolvePromises: vi.fn(),
       enqueueNotify: vi.fn(),
     } as unknown as KernelQueue;
@@ -40,11 +40,7 @@ describe('VatSyscall', () => {
     const message = {} as unknown as Message;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     await vatSys.handleSyscall(vso);
-    expect(kernelQueue.enqueueRun).toHaveBeenCalledWith({
-      type: 'send',
-      target,
-      message,
-    });
+    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message);
   });
 
   it('calls resolvePromises for resolve syscall', async () => {

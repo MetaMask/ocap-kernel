@@ -104,6 +104,7 @@ describe('kernel store', () => {
         'initEndpoint',
         'initKernelObject',
         'initKernelPromise',
+        'isRootObject',
         'isVatTerminated',
         'kernelRefExists',
         'krefToEref',

@@ -189,7 +189,6 @@ export class Kernel {
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.#kernelStore.exportFromVat(vatId, ROOT_OBJECT_VREF);
-    this.#kernelStore.incrementRefCount(rootRef, 'root');
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     return rootRef;
   }
@@ -314,30 +313,6 @@ export class Kernel {
   }
 
   /**
-   * Terminate all vats.
-   */
-  async terminateAllVats(): Promise<void> {
-    await Promise.all(
-      this.getVatIds().map(async (id) => {
-        await this.terminateVat(id);
-      }),
-    );
-  }
-
-  /**
-   * Terminate all running vats and reload the default subcluster.
-   * This is for debugging purposes only.
-   */
-  async reload(): Promise<void> {
-    if (!this.#mostRecentSubcluster) {
-      throw Error('no subcluster to reload');
-    }
-    await this.terminateAllVats();
-    this.collectGarbage();
-    await this.launchSubcluster(this.#mostRecentSubcluster);
-  }
-
-  /**
    * Clear the database.
    */
   async clearStorage(): Promise<void> {
@@ -365,22 +340,6 @@ export class Kernel {
   ): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
     const vat = this.#getVat(id);
     return vat.sendVatCommand({ method, params });
-  }
-
-  /**
-   * Stop all running vats and reset the kernel state.
-   */
-  async reset(): Promise<void> {
-    await this.terminateAllVats();
-    this.#resetKernelState();
-  }
-
-  /**
-   * Reset the kernel state.
-   */
-  #resetKernelState(): void {
-    this.#kernelStore.clear();
-    this.#kernelStore.reset();
   }
 
   /**
@@ -453,6 +412,47 @@ export class Kernel {
         this.#kernelStore.scheduleReap(vatID);
       }
     }
+  }
+
+  /**
+   * Reset the kernel state.
+   * This is for debugging purposes only.
+   */
+  #resetKernelState(): void {
+    this.#kernelStore.clear();
+    this.#kernelStore.reset();
+  }
+
+  /**
+   * Stop all running vats and reset the kernel state.
+   * This is for debugging purposes only.
+   */
+  async reset(): Promise<void> {
+    await this.terminateAllVats();
+    this.#resetKernelState();
+  }
+
+  /**
+   * Terminate all vats and collect garbage.
+   * This is for debugging purposes only.
+   */
+  async terminateAllVats(): Promise<void> {
+    for (const id of this.getVatIds().reverse()) {
+      await this.terminateVat(id);
+      this.collectGarbage();
+    }
+  }
+
+  /**
+   * Terminate all running vats and reload the default subcluster.
+   * This is for debugging purposes only.
+   */
+  async reload(): Promise<void> {
+    if (!this.#mostRecentSubcluster) {
+      throw Error('no subcluster to reload');
+    }
+    await this.terminateAllVats();
+    await this.launchSubcluster(this.#mostRecentSubcluster);
   }
 
   /**

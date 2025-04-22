@@ -59,6 +59,7 @@ export function extensionDev({
     // Launch Chrome with the extension loaded
     const browserContext = await chromium.launchPersistentContext('', {
       headless: false,
+      viewport: null, // Let the OS window control the size
       ignoreDefaultArgs: ['--enable-automation'],
       args: [
         `--disable-extensions-except=${extensionPath}`,
@@ -87,6 +88,7 @@ export function extensionDev({
 
     // Open the extensions page for our extension
     const extensionsPage = await browserContext.newPage();
+    await extensionsPage.setViewportSize({ width: 1300, height: 700 });
     await extensionsPage.goto(`chrome://extensions/?id=${extensionId}`);
 
     // Update state after all checks

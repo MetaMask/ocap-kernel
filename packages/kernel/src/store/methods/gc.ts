@@ -145,9 +145,6 @@ export function getGCMethods(ctx: StoreContext) {
       if (type === 'object') {
         const { reachable, recognizable } = getObjectRefCount(kref);
         if (reachable === 0) {
-          // We avoid ownerOfKernelObject(), which will report
-          // 'undefined' if the owner is dead (and being slowly
-          // deleted). Message delivery should use that, but not us.
           const ownerKey = `${kref}.owner`;
           let ownerVatID = ctx.kv.get(ownerKey);
           const terminated = isVatTerminated(ownerVatID as VatId);

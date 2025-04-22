@@ -132,12 +132,47 @@ test.describe('Vat Manager', () => {
     await popupPage.click('button:text("Terminate All Vats")');
     await expect(messageOutput).toContainText('All vats terminated');
     await expect(popupPage.locator('table')).not.toBeVisible();
+    // ensure all references were garbage collected
+    await popupPage.locator('[data-testid="clear-logs-button"]').click();
+    await expect(messageOutput).toContainText('');
+    await popupPage.click('button:text("Database Inspector")');
+    const expectedValues = JSON.stringify([
+      { key: 'queue.run.head', value: '6' },
+      { key: 'queue.run.tail', value: '6' },
+      { key: 'gcActions', value: '[]' },
+      { key: 'reapQueue', value: '[]' },
+      { key: 'vats.terminated', value: '[]' },
+      { key: 'nextObjectId', value: '4' },
+      { key: 'nextPromiseId', value: '4' },
+      { key: 'nextVatId', value: '4' },
+      { key: 'nextRemoteId', value: '1' },
+      { key: 'initialized', value: 'true' },
+    ]);
+    await expect(messageOutput).toContainText(expectedValues);
   });
 
   test('should clear kernel state', async () => {
     await popupPage.click('button:text("Clear All State")');
     await expect(messageOutput).toContainText('State cleared');
     await expect(popupPage.locator('table')).not.toBeVisible();
+    // ensure kernel state was cleared
+    await popupPage.locator('[data-testid="clear-logs-button"]').click();
+    await expect(messageOutput).toContainText('');
+    await popupPage.click('button:text("Database Inspector")');
+    const expectedValues = JSON.stringify([
+      { key: 'queue.run.head', value: '1' },
+      { key: 'queue.run.tail', value: '1' },
+      { key: 'gcActions', value: '[]' },
+      { key: 'reapQueue', value: '[]' },
+      { key: 'vats.terminated', value: '[]' },
+      { key: 'nextObjectId', value: '1' },
+      { key: 'nextPromiseId', value: '1' },
+      { key: 'nextVatId', value: '1' },
+      { key: 'nextRemoteId', value: '1' },
+    ]);
+    await expect(messageOutput).toContainText(expectedValues);
+    await expect(messageOutput).not.toContainText('"initialized":true');
+    await popupPage.click('button:text("Vat Manager")');
     await launchVat('test-vat-new');
     await expect(popupPage.locator('table tr')).toHaveCount(2);
   });
@@ -277,11 +312,11 @@ test.describe('Vat Manager', () => {
       '{"key":"v3.c.o+0","value":"ko3"}',
       '{"key":"v3.c.kp3","value":"R p-1"}',
       '{"key":"v3.c.p-1","value":"kp3"}',
+      '{"key":"ko3.refCount","value":"1,1"}',
     ];
     const v1ko3Values = [
       '{"key":"v1.c.ko3","value":"R o-2"}',
       '{"key":"v1.c.o-2","value":"ko3"}',
-      '{"key":"ko3.refCount","value":"2,2"}',
       '{"key":"kp3.state","value":"fulfilled"}',
       '{"key":"kp3.value","value"',
     ];

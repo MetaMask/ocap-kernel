@@ -91,6 +91,20 @@ export class KernelQueue {
   }
 
   /**
+   * Add an item to the tail of the kernel's run queue.
+   *
+   * @param item - The item to add.
+   */
+  #enqueueRun(item: RunQueueItem): void {
+    this.#kernelStore.enqueueRun(item);
+    if (this.#kernelStore.runQueueLength() === 1 && this.#wakeUpTheRunQueue) {
+      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
+      this.#wakeUpTheRunQueue = null;
+      wakeUpTheRunQueue();
+    }
+  }
+
+  /**
    * Queue a message to be delivered from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -105,40 +119,35 @@ export class KernelQueue {
     args: unknown[],
   ): Promise<CapData<KRef>> {
     const result = this.#kernelStore.initKernelPromise()[0];
-    const message: Message = {
+    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
+    this.subscriptions.set(result, resolve);
+    this.enqueueSend(target, {
       methargs: kser([method, args]),
       result,
-    };
+    });
+    return promise;
+  }
 
+  /**
+   * Enqueue a send message to be delivered to a vat.
+   *
+   * @param target - The object to which the message is directed.
+   * @param message - The message to be delivered.
+   */
+  enqueueSend(target: KRef, message: Message): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
-    this.#kernelStore.incrementRefCount(result, 'queue|result');
+    if (message.result) {
+      this.#kernelStore.incrementRefCount(message.result, 'queue|result');
+    }
     for (const slot of message.methargs.slots || []) {
       this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
-
     const queueItem: RunQueueItemSend = {
       type: 'send',
       target,
       message,
     };
-    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
-    this.subscriptions.set(result, resolve);
-    this.enqueueRun(queueItem);
-    return promise;
-  }
-
-  /**
-   * Add an item to the tail of the kernel's run queue.
-   *
-   * @param item - The item to add.
-   */
-  enqueueRun(item: RunQueueItem): void {
-    this.#kernelStore.enqueueRun(item);
-    if (this.#kernelStore.runQueueLength() === 1 && this.#wakeUpTheRunQueue) {
-      const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUpTheRunQueue();
-    }
+    this.#enqueueRun(queueItem);
   }
 
   /**
@@ -150,7 +159,7 @@ export class KernelQueue {
    */
   enqueueNotify(vatId: VatId, kpid: KRef): void {
     const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
-    this.enqueueRun(notifyItem);
+    this.#enqueueRun(notifyItem);
     // Increment reference count for the promise being notified about
     this.#kernelStore.incrementRefCount(kpid, 'notify');
   }

@@ -11,7 +11,6 @@ import type {
   Message,
   RunQueueItem,
   RunQueueItemNotify,
-  RunQueueItemSend,
 } from './types.ts';
 
 vi.mock('./services/garbage-collection.ts', () => ({
@@ -118,18 +117,54 @@ describe('KernelQueue', () => {
     });
   });
 
-  describe('enqueueRun', () => {
-    it('adds an item to the run queue', () => {
-      const item: RunQueueItemSend = {
-        type: 'send',
-        target: 'ko123',
-        message: {} as Message,
+  describe('enqueueSend', () => {
+    it('enqueues a send message and increments reference counts', () => {
+      const target = 'ko123';
+      const message: Message = {
+        methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
+        result: 'kp456',
       };
-      (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValue(
-        0,
+      kernelQueue.enqueueSend(target, message);
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        target,
+        'queue|target',
       );
-      kernelQueue.enqueueRun(item);
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith(item);
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        message.result,
+        'queue|result',
+      );
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        'slot1',
+        'queue|slot',
+      );
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        'slot2',
+        'queue|slot',
+      );
+      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+        type: 'send',
+        target,
+        message,
+      });
+    });
+
+    it('handles messages without result or slots', () => {
+      const target = 'ko123';
+      const message: Message = {
+        methargs: { body: 'method args', slots: [] },
+        result: null,
+      };
+      kernelQueue.enqueueSend(target, message);
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledTimes(1);
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        target,
+        'queue|target',
+      );
+      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+        type: 'send',
+        target,
+        message,
+      });
     });
   });
 

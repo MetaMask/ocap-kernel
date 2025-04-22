@@ -8,6 +8,7 @@ import { getQueueMethods } from './queue.ts';
 import { getRefCountMethods } from './refcount.ts';
 import type { KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
+import { getCListMethods } from './clist.ts';
 
 vi.mock('./base.ts', () => ({
   getBaseMethods: vi.fn(),
@@ -19,6 +20,13 @@ vi.mock('./queue.ts', () => ({
 
 vi.mock('./refcount.ts', () => ({
   getRefCountMethods: vi.fn(),
+}));
+
+vi.mock('./clist.ts', () => ({
+  getCListMethods: vi.fn(() => ({
+    incrementRefCount: vi.fn(),
+    decrementRefCount: vi.fn(),
+  })),
 }));
 
 vi.mock('../utils/kernel-slots.ts', () => ({
@@ -50,6 +58,8 @@ describe('promise store methods', () => {
   };
   let context: StoreContext;
   let promiseMethods: ReturnType<typeof getPromiseMethods>;
+  const mockIncrementRefCount = vi.fn();
+  const mockDecrementRefCount = vi.fn();
 
   beforeEach(() => {
     mockKV = new Map();
@@ -76,6 +86,11 @@ describe('promise store methods', () => {
 
     (getRefCountMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       refCountKey: mockRefCountKey,
+    });
+
+    (getCListMethods as ReturnType<typeof vi.fn>).mockReturnValue({
+      incrementRefCount: mockIncrementRefCount,
+      decrementRefCount: mockDecrementRefCount,
     });
 
     context = {
@@ -284,7 +299,10 @@ describe('promise store methods', () => {
   describe('resolveKernelPromise', () => {
     it('fulfills a promise and enqueues pending messages', () => {
       const kpid = 'kp123';
-      const value: CapData<KRef> = { body: 'someValue', slots: [] };
+      const value: CapData<KRef> = {
+        body: 'someValue',
+        slots: ['o+1', 'o+2'],
+      };
       const message1: Message = { method: 'method1' } as unknown as Message;
       const message2: Message = { method: 'method2' } as unknown as Message;
 
@@ -317,6 +335,8 @@ describe('promise store methods', () => {
       expect(mockKV.has(`${kpid}.decider`)).toBe(false);
       expect(mockKV.has(`${kpid}.subscribers`)).toBe(false);
       expect(mockQueue.delete).toHaveBeenCalled();
+      expect(mockIncrementRefCount).toHaveBeenCalledTimes(2);
+      expect(mockDecrementRefCount).toHaveBeenCalledTimes(1);
     });
 
     it('rejects a promise and enqueues pending messages', () => {

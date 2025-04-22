@@ -8,7 +8,7 @@ import type { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import { coerceMessage } from './types.ts';
-import type { Message, VatId, KRef, RunQueueItemSend } from './types.ts';
+import type { Message, VatId, KRef } from './types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -60,12 +60,7 @@ export class VatSyscall {
    * @param message - The message that was sent.
    */
   #handleSyscallSend(target: KRef, message: Message): void {
-    const messageItem: RunQueueItemSend = {
-      type: 'send',
-      target,
-      message,
-    };
-    this.#kernelQueue.enqueueRun(messageItem);
+    this.#kernelQueue.enqueueSend(target, message);
   }
 
   /**
