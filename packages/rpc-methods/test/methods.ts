@@ -7,6 +7,7 @@ export const getHooks = () =>
     hook1: () => undefined,
     hook2: () => undefined,
     hook3: () => undefined,
+    hook4: (value: string) => value,
   }) as const;
 
 export type Hooks = ReturnType<typeof getHooks>;
@@ -23,6 +24,10 @@ export const getMethods = () =>
       params: tuple([number()]),
       result: number(),
     } as MethodSpec<'method2', [number], number>,
+    method3: {
+      method: 'method3',
+      params: tuple([string()]),
+    } as MethodSpec<'method3', [string], void>,
   }) as const;
 
 export const getHandlers = () => {
@@ -49,6 +54,13 @@ export const getHandlers = () => {
         return value * 2;
       },
     } as Handler<'method2', [number], number, Pick<Hooks, 'hook3'>>,
+    method3: {
+      ...methods.method3,
+      hooks: { hook4: true } as const,
+      implementation: (hooks, [value]) => {
+        hooks.hook4(value);
+      },
+    } as Handler<'method3', [string], void, Pick<Hooks, 'hook4'>>,
   };
 };
 

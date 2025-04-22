@@ -69,6 +69,33 @@ describe('RpcClient', () => {
     });
   });
 
+  describe('notify', () => {
+    it('should call a notification method', async () => {
+      const sendMessage = vi.fn(async () => Promise.resolve());
+      const client = new RpcClient(getMethods(), sendMessage, 'test');
+      await client.notify('method3', ['test']);
+      expect(sendMessage).toHaveBeenCalledWith({
+        jsonrpc: jsonrpc2,
+        method: 'method3',
+        params: ['test'],
+      });
+    });
+
+    it('should log an error if the message fails to send', async () => {
+      const logger = makeLogger('[test]');
+      const sendMessage = vi.fn(async () =>
+        Promise.reject(new Error('test error')),
+      );
+      const client = new RpcClient(getMethods(), sendMessage, 'test', logger);
+      const logError = vi.spyOn(logger, 'error');
+      await client.notify('method3', ['test']);
+      expect(logError).toHaveBeenCalledWith(
+        'Failed to send notification',
+        new Error('test error'),
+      );
+    });
+  });
+
   describe('callAndGetId', () => {
     it('should call a method and return the id', async () => {
       const client = new RpcClient(getMethods(), vi.fn(), 'test');

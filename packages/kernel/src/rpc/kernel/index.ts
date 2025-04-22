@@ -1,14 +1,18 @@
-import type { MethodRequest } from '@ocap/rpc-methods';
+import type {
+  HandlerRecord,
+  MethodRequest,
+  MethodSpecRecord,
+} from '@ocap/rpc-methods';
 
 import { pingHandler, pingSpec } from '../vat/ping.ts';
 
 export const kernelHandlers = {
   ping: pingHandler,
-} as const;
+} as HandlerRecord<typeof pingHandler>;
 
 export const kernelMethodSpecs = {
   ping: pingSpec,
-} as const;
+} as MethodSpecRecord<typeof pingSpec>;
 
 type Handlers = (typeof kernelHandlers)[keyof typeof kernelHandlers];
 

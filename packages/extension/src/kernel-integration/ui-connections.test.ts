@@ -1,8 +1,8 @@
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import type { Logger } from '@ocap/utils';
+import type { JsonRpcCall, Logger } from '@ocap/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -161,7 +161,7 @@ describe('ui-connections', () => {
     const logger = makeMockLogger();
 
     const mockHandleMessage = vi.fn(
-      async (_request: JsonRpcRequest): Promise<JsonRpcResponse> => ({
+      async (_request: JsonRpcCall): Promise<JsonRpcResponse> => ({
         id: 'foo',
         jsonrpc: '2.0' as const,
         result: { vats: [], clusterConfig },

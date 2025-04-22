@@ -1,6 +1,5 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { isJsonRpcRequest } from '@metamask/utils';
 import type { ClusterConfig } from '@ocap/kernel';
 import { ClusterConfigStruct, Kernel } from '@ocap/kernel';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/wasm';
@@ -9,7 +8,8 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@ocap/streams/browser';
-import { fetchValidatedJson, Logger } from '@ocap/utils';
+import { fetchValidatedJson, isJsonRpcCall, Logger } from '@ocap/utils';
+import type { JsonRpcCall } from '@ocap/utils';
 
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
@@ -39,9 +39,9 @@ async function main(): Promise<void> {
   );
 
   const kernelStream = await MessagePortDuplexStream.make<
-    JsonRpcRequest,
+    JsonRpcCall,
     JsonRpcResponse
-  >(port, isJsonRpcRequest);
+  >(port, isJsonRpcCall);
 
   // Initialize kernel dependencies
   const vatWorkerClient = ExtensionVatWorkerClient.make(
@@ -63,7 +63,11 @@ async function main(): Promise<void> {
   const kernelEngine = new JsonRpcEngine();
   kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
   kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
-  receiveUiConnections(async (request) => kernelEngine.handle(request), logger);
+  // JsonRpcEngine type error: does not handle JSON-RPC notifications
+  receiveUiConnections(
+    async (request) => kernelEngine.handle(request as JsonRpcRequest),
+    logger,
+  );
   const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
 
   const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(

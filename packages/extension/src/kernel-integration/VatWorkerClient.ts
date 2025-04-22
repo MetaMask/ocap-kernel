@@ -1,9 +1,5 @@
 import { isJsonRpcResponse } from '@metamask/utils';
-import type {
-  JsonRpcId,
-  JsonRpcRequest,
-  JsonRpcResponse,
-} from '@metamask/utils';
+import type { JsonRpcId, JsonRpcResponse } from '@metamask/utils';
 import type { VatWorkerManager, VatId, VatConfig } from '@ocap/kernel';
 import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
 import { RpcClient } from '@ocap/rpc-methods';
@@ -16,7 +12,7 @@ import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { JsonRpcMessage, Logger } from '@ocap/utils';
+import type { JsonRpcCall, JsonRpcMessage, Logger } from '@ocap/utils';
 import { isJsonRpcMessage, makeLogger, stringify } from '@ocap/utils';
 
 // Appears in the docs.
@@ -25,7 +21,7 @@ import type { ExtensionVatWorkerService } from './VatWorkerServer.ts';
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<JsonRpcResponse>,
-  PostMessageEnvelope<JsonRpcRequest>
+  PostMessageEnvelope<JsonRpcCall>
 >;
 
 export class ExtensionVatWorkerClient implements VatWorkerManager {
@@ -61,8 +57,10 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
     this.#rpcClient = new RpcClient(
       vatWorkerServiceMethodSpecs,
       async (request) => {
-        if (request.method === 'launch') {
-          this.#portMap.set(request.id, undefined);
+        if ('id' in request) {
+          if (request.method === 'launch') {
+            this.#portMap.set(request.id, undefined);
+          }
         }
         await this.#stream.write({ payload: request, transfer: [] });
       },

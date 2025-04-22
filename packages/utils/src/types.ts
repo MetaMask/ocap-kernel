@@ -7,8 +7,13 @@ import {
   UnsafeJsonStruct,
   JsonRpcRequestStruct,
   JsonRpcResponseStruct,
+  JsonRpcNotificationStruct,
 } from '@metamask/utils';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type {
+  JsonRpcNotification,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from '@metamask/utils';
 
 export type TypeGuard<Type> = (value: unknown) => value is Type;
 
@@ -54,9 +59,23 @@ export const EmptyJsonArray = empty(array(UnsafeJsonStruct));
 
 export type EmptyJsonArray = Infer<typeof EmptyJsonArray>;
 
-export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse;
+export type JsonRpcCall = JsonRpcRequest | JsonRpcNotification;
+
+export const JsonRpcCallStruct: Struct<JsonRpcCall> = union([
+  JsonRpcRequestStruct,
+  JsonRpcNotificationStruct,
+]);
+
+export const isJsonRpcCall = (value: unknown): value is JsonRpcCall =>
+  is(value, JsonRpcCallStruct);
+
+export type JsonRpcMessage =
+  | JsonRpcNotification
+  | JsonRpcRequest
+  | JsonRpcResponse;
 
 export const JsonRpcMessageStruct: Struct<JsonRpcMessage> = union([
+  JsonRpcNotificationStruct,
   JsonRpcRequestStruct,
   JsonRpcResponseStruct,
 ]);
