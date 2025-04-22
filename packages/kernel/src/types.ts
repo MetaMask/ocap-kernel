@@ -50,7 +50,7 @@ export const VatOneResolutionStruct = tuple([
 
 export const MessageStruct = object({
   methargs: CapDataStruct,
-  result: union([string(), literal(null)]),
+  result: exactOptional(union([string(), literal(null)])),
 });
 
 /**
@@ -66,7 +66,7 @@ export type Message = Infer<typeof MessageStruct>;
  */
 export function coerceMessage(message: SwingsetMessage): Message {
   if (message.result === undefined) {
-    message.result = null;
+    delete (message as Message).result;
   }
   return message as Message;
 }

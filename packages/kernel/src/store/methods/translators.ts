@@ -85,7 +85,7 @@ export function getTranslators(ctx: StoreContext) {
     const result = message.result
       ? translateRefKtoV(vatId, message.result, true)
       : message.result;
-    const vatMessage = { ...message, methargs, result };
+    const vatMessage = coerceMessage({ ...message, methargs, result });
     return vatMessage;
   }
 
@@ -162,6 +162,8 @@ export function getTranslators(ctx: StoreContext) {
         kso = [
           op,
           translateRefVtoK(vatId, target),
+          // @ts-expect-error: Agoric's Message type has the property `result: string | undefined | null`.
+          // Ours is `result?: string | null`. We can safely ignore the `undefined` case.
           translateMessageVtoK(vatId, coerceMessage(message)),
         ];
         break;

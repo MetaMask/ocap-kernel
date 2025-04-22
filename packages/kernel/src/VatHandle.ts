@@ -1,4 +1,7 @@
-import type { VatOneResolution } from '@agoric/swingset-liveslots';
+import type {
+  VatOneResolution,
+  VatSyscallObject,
+} from '@agoric/swingset-liveslots';
 import { serializeError } from '@metamask/rpc-errors';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
@@ -98,7 +101,7 @@ export class VatHandle {
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
       handleSyscall: async (params) => {
-        await this.#vatSyscall.handleSyscall(params);
+        await this.#vatSyscall.handleSyscall(params as VatSyscallObject);
         return ['ok', null]; // XXX TODO: Return actual results from syscalls
       },
     });
