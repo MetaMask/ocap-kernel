@@ -267,7 +267,7 @@ export function getVatMethods(ctx: StoreContext) {
       const vref = key.slice(clistPrefix.length);
       // the following will also delete both db keys
       deleteCListEntry(vatID, kref, vref);
-      // If the dead vat was still the decider, drop the decider’s credit, too.
+      // If the dead vat was still the decider, drop the decider’s refcount, too.
       const kp = getKernelPromise(kref);
       if (kp.decider === vatID) {
         decrementRefCount(kref, 'cleanup|promise|decider');

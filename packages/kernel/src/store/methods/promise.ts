@@ -176,7 +176,7 @@ export function getPromiseMethods(ctx: StoreContext) {
     ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
     ctx.kv.delete(`${kpid}.decider`);
     ctx.kv.delete(`${kpid}.subscribers`);
-    // Drop the baseline “decider” credit now that the promise is settled.
+    // Drop the baseline “decider” refcount now that the promise is settled.
     decrementRefCount(kpid, 'resolve|decider');
     queue.delete();
   }
