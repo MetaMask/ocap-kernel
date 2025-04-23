@@ -1,4 +1,5 @@
 export { delay } from './delay.ts';
+export { flaky } from './flaky.ts';
 export { makeErrorMatcherFactory } from './errors.ts';
 export { makePromiseKitMock } from './promise-kit.ts';
 export { fetchMock } from './env/fetch-mock.ts';
