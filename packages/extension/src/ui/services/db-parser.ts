@@ -1,7 +1,12 @@
 /**
  * A snapshot of the entire running cluster, keyed by Vat ID
  */
-export type ClusterSnapshot = Record<string, VatSnapshot>;
+export type ClusterSnapshot = {
+  gcActions: string;
+  reapQueue: string;
+  terminatedVats: string;
+  vats: Record<string, VatSnapshot>;
+};
 
 /**
  * The full state and bindings for a single Vat
@@ -68,8 +73,24 @@ export function parseKernelDB(
   const objCList: { vat: string; kref: string; eref: string }[] = [];
   const prmCList: { vat: string; kref: string; eref: string }[] = [];
 
+  let gcActions = '';
+  let reapQueue = '';
+  let terminatedVats = '';
+
   // 1) Collect
   for (const { key, value } of entries) {
+    if (key === 'gcActions') {
+      gcActions = value;
+      continue;
+    }
+    if (key === 'reapQueue') {
+      reapQueue = value;
+      continue;
+    }
+    if (key === 'vats.terminated') {
+      terminatedVats = value;
+      continue;
+    }
     if (key.startsWith('vatConfig.')) {
       const vat = key.split('.')[1] as string;
       const config = JSON.parse(value);
@@ -205,5 +226,10 @@ export function parseKernelDB(
     }
   }
 
-  return vats;
+  return {
+    gcActions,
+    reapQueue,
+    terminatedVats,
+    vats,
+  };
 }

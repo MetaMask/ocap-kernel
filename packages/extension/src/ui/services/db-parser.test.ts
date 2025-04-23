@@ -99,152 +99,157 @@ describe('parseKernelDB', () => {
     const result = parseKernelDB(entries);
 
     const expectedResult: ClusterSnapshot = {
-      v1: {
-        exportedPromises: [
-          {
-            eref: 'p+5',
-            kref: 'kp2',
-            state: 'fulfilled',
-            toVats: [],
-            value: {
-              body: '#"vat Bob got "hello" from Alice"',
-              slots: [],
+      gcActions: '[]',
+      reapQueue: '[]',
+      terminatedVats: '[]',
+      vats: {
+        v1: {
+          exportedPromises: [
+            {
+              eref: 'p+5',
+              kref: 'kp2',
+              state: 'fulfilled',
+              toVats: [],
+              value: {
+                body: '#"vat Bob got "hello" from Alice"',
+                slots: [],
+              },
             },
-          },
-          {
-            eref: 'p+6',
-            kref: 'kp3',
-            state: 'fulfilled',
-            toVats: [],
-            value: {
-              body: '#"vat Carol got "hello" from Alice"',
-              slots: [],
+            {
+              eref: 'p+6',
+              kref: 'kp3',
+              state: 'fulfilled',
+              toVats: [],
+              value: {
+                body: '#"vat Carol got "hello" from Alice"',
+                slots: [],
+              },
             },
-          },
-        ],
-        importedObjects: [
-          {
-            eref: 'o-1',
-            fromVat: 'v2',
-            kref: 'ko2',
-            refCount: '1,1',
-          },
-          {
-            eref: 'o-2',
-            fromVat: 'v3',
-            kref: 'ko3',
-            refCount: '1,1',
-          },
-        ],
-        importedPromises: [
-          {
-            eref: 'p-1',
-            fromVat: null,
-            kref: 'kp1',
-            state: 'fulfilled',
-            value: {
-              body: '#"#undefined"',
-              slots: [],
+          ],
+          importedObjects: [
+            {
+              eref: 'o-1',
+              fromVat: 'v2',
+              kref: 'ko2',
+              refCount: '1,1',
             },
-          },
-          {
-            eref: 'p-2',
-            fromVat: null,
-            kref: 'kp4',
-            state: 'fulfilled',
-            value: {
-              body: '#"$0.Alleged: SharedObject"',
-              slots: [
-                {
-                  eref: 'o+10',
-                  kref: 'ko4',
-                  vat: 'v1',
-                },
-              ],
+            {
+              eref: 'o-2',
+              fromVat: 'v3',
+              kref: 'ko3',
+              refCount: '1,1',
             },
+          ],
+          importedPromises: [
+            {
+              eref: 'p-1',
+              fromVat: null,
+              kref: 'kp1',
+              state: 'fulfilled',
+              value: {
+                body: '#"#undefined"',
+                slots: [],
+              },
+            },
+            {
+              eref: 'p-2',
+              fromVat: null,
+              kref: 'kp4',
+              state: 'fulfilled',
+              value: {
+                body: '#"$0.Alleged: SharedObject"',
+                slots: [
+                  {
+                    eref: 'o+10',
+                    kref: 'ko4',
+                    vat: 'v1',
+                  },
+                ],
+              },
+            },
+          ],
+          overview: {
+            bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+            name: 'Alice',
           },
-        ],
-        overview: {
-          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-          name: 'Alice',
+          ownedObjects: [
+            {
+              eref: 'o+0',
+              kref: 'ko1',
+              refCount: '1,1',
+              toVats: [],
+            },
+            {
+              eref: 'o+10',
+              kref: 'ko4',
+              refCount: '3,3',
+              toVats: ['v2'],
+            },
+          ],
         },
-        ownedObjects: [
-          {
-            eref: 'o+0',
-            kref: 'ko1',
-            refCount: '1,1',
-            toVats: [],
-          },
-          {
-            eref: 'o+10',
-            kref: 'ko4',
-            refCount: '3,3',
-            toVats: ['v2'],
-          },
-        ],
-      },
-      v2: {
-        exportedPromises: [],
-        importedObjects: [
-          {
-            eref: 'o-1',
-            fromVat: 'v1',
-            kref: 'ko4',
-            refCount: '3,3',
-          },
-        ],
-        importedPromises: [
-          {
-            eref: 'p-1',
-            fromVat: null,
-            kref: 'kp2',
-            state: 'fulfilled',
-            value: {
-              body: '#"vat Bob got "hello" from Alice"',
-              slots: [],
+        v2: {
+          exportedPromises: [],
+          importedObjects: [
+            {
+              eref: 'o-1',
+              fromVat: 'v1',
+              kref: 'ko4',
+              refCount: '3,3',
             },
-          },
-        ],
-        overview: {
-          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-          name: 'Bob',
-        },
-        ownedObjects: [
-          {
-            eref: 'o+0',
-            kref: 'ko2',
-            refCount: '1,1',
-            toVats: ['v1'],
-          },
-        ],
-      },
-      v3: {
-        exportedPromises: [],
-        importedObjects: [],
-        importedPromises: [
-          {
-            eref: 'p-1',
-            fromVat: null,
-            kref: 'kp3',
-            state: 'fulfilled',
-            value: {
-              body: '#"vat Carol got "hello" from Alice"',
-              slots: [],
+          ],
+          importedPromises: [
+            {
+              eref: 'p-1',
+              fromVat: null,
+              kref: 'kp2',
+              state: 'fulfilled',
+              value: {
+                body: '#"vat Bob got "hello" from Alice"',
+                slots: [],
+              },
             },
+          ],
+          overview: {
+            bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+            name: 'Bob',
           },
-        ],
-        overview: {
-          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-          name: 'Carol',
+          ownedObjects: [
+            {
+              eref: 'o+0',
+              kref: 'ko2',
+              refCount: '1,1',
+              toVats: ['v1'],
+            },
+          ],
         },
-        ownedObjects: [
-          {
-            eref: 'o+0',
-            kref: 'ko3',
-            refCount: '1,1',
-            toVats: ['v1'],
+        v3: {
+          exportedPromises: [],
+          importedObjects: [],
+          importedPromises: [
+            {
+              eref: 'p-1',
+              fromVat: null,
+              kref: 'kp3',
+              state: 'fulfilled',
+              value: {
+                body: '#"vat Carol got "hello" from Alice"',
+                slots: [],
+              },
+            },
+          ],
+          overview: {
+            bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+            name: 'Carol',
           },
-        ],
+          ownedObjects: [
+            {
+              eref: 'o+0',
+              kref: 'ko3',
+              refCount: '1,1',
+              toVats: ['v1'],
+            },
+          ],
+        },
       },
     };
     expect(result).toStrictEqual(expectedResult);
