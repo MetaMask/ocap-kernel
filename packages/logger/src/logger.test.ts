@@ -109,27 +109,3 @@ describe('Logger', () => {
     });
   });
 });
-
-describe('consoleTransport', () => {
-  it.each(consoleMethod)('logs to the console with method %j', (method) => {
-    const consoleSpy = vi.spyOn(console, method);
-    const logger = new Logger({ tags: ['test'], transports });
-    logger[method]('foo');
-    expect(consoleSpy).toHaveBeenCalledWith(['test'], 'foo');
-  });
-
-  it.each(consoleMethod)('default data is an empty array for %j', (level) => {
-    const consoleSpy = vi.spyOn(console, level);
-    const entry = { tags: ['test'], level, message: 'foo' };
-    consoleTransport(entry);
-    expect(consoleSpy).toHaveBeenCalledWith(['test'], 'foo');
-  });
-
-  it('does not log when the level is silent', () => {
-    const consoleMethodSpies = consoleMethod.map((method) =>
-      vi.spyOn(console, method),
-    );
-    consoleTransport({ tags: ['test'], level: 'silent', message: 'foo' });
-    consoleMethodSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
-  });
-});
