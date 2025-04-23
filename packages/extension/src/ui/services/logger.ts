@@ -1,3 +1,3 @@
-import { makeLogger } from '@ocap/logger';
+import { Logger } from '@ocap/logger';
 
-export const logger = makeLogger('kernel-panel');
+export const logger = new Logger('kernel-panel');
