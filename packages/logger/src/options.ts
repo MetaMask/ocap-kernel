@@ -34,7 +34,7 @@ export const parseOptions = (
 };
 
 /**
- * A slow (O(n^2)) way to uniquify an array.
+ * Returns a copy of an array containing only its unique values.
  *
  * @param array - The array to filter.
  * @returns The array, without duplicate values.
