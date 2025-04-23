@@ -1,7 +1,13 @@
 import { isObject } from '@metamask/utils';
 import { describe, it, expect } from 'vitest';
 
-import { isPrimitive, isTypedArray, isTypedObject } from './types.ts';
+import {
+  isJsonRpcCall,
+  isJsonRpcMessage,
+  isPrimitive,
+  isTypedArray,
+  isTypedObject,
+} from './types.ts';
 
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 const alwaysFalse = (): boolean => false;
@@ -83,5 +89,67 @@ describe('isTypedObject', () => {
     ${[{}, { foo: 'bar ' }]} | ${isObject}
   `('returns false for invalid values: $value', ({ value, guard }) => {
     expect(isTypedObject(value, guard)).toBe(false);
+  });
+});
+
+describe('isJsonRpcCall', () => {
+  it.each`
+    value
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: {} }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: {} }}
+  `('returns true for valid JSON-RPC call $value', ({ value }) => {
+    expect(isJsonRpcCall(value)).toBe(true);
+  });
+
+  it.each`
+    value
+    ${null}
+    ${undefined}
+    ${'foo'}
+    ${[]}
+    ${{}}
+    ${{ jsonrpc: '2.0', id: '1', result: { foo: 'bar' } }}
+    ${{ jsonrpc: '2.0', id: '1', error: { code: 1, message: 'foo' } }}
+    ${{ id: '1', method: 'foo', params: [1, 2, 3] }}
+    ${{ jsonrpc: '2.0', id: '1', params: { foo: 'bar' } }}
+    ${{ jsonrpc: '2.0', result: 'foo', params: [1, 2, 3] }}
+    ${{ jsonrpc: '2.0', error: 'foo', params: { foo: 'bar' } }}
+  `('returns false for invalid values: $value', ({ value }) => {
+    expect(isJsonRpcCall(value)).toBe(false);
+  });
+});
+
+describe('isJsonRpcMessage', () => {
+  it.each`
+    value
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: {} }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: {} }}
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', id: '1', method: 'foo', params: {} }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: [] }}
+    ${{ jsonrpc: '2.0', method: 'foo', params: {} }}
+    ${{ jsonrpc: '2.0', id: '1', result: { foo: 'bar' } }}
+    ${{ jsonrpc: '2.0', id: '1', error: { code: 1, message: 'foo' } }}
+  `('returns true for valid JSON-RPC message $value', ({ value }) => {
+    expect(isJsonRpcMessage(value)).toBe(true);
+  });
+
+  it.each`
+    value
+    ${null}
+    ${undefined}
+    ${'foo'}
+    ${[]}
+    ${{}}
+    ${{ id: '1', method: 'foo', params: [1, 2, 3] }}
+    ${{ jsonrpc: '2.0', id: '1', params: { foo: 'bar' } }}
+    ${{ jsonrpc: '2.0', result: 'foo', params: [1, 2, 3] }}
+    ${{ jsonrpc: '2.0', error: 'foo', params: { foo: 'bar' } }}
+  `('returns false for invalid values: $value', ({ value }) => {
+    expect(isJsonRpcMessage(value)).toBe(false);
   });
 });

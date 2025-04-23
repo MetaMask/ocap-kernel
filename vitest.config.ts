@@ -124,10 +124,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/utils/**': {
-          statements: 98.79,
-          functions: 96.29,
+          statements: 100,
+          functions: 100,
           branches: 100,
-          lines: 98.7,
+          lines: 100,
         },
       },
     },
