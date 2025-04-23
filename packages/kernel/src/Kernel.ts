@@ -1,6 +1,7 @@
 import type { CapData } from '@endo/marshal';
 import { serializeError } from '@metamask/rpc-errors';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import { hasProperty } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 import {
   StreamReadError,
   VatAlreadyExistsError,
@@ -11,6 +12,7 @@ import { RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 import type { KernelDatabase } from '@ocap/store';
 import type { DuplexStream } from '@ocap/streams';
+import type { JsonRpcCall } from '@ocap/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
@@ -33,7 +35,7 @@ import { VatHandle } from './VatHandle.ts';
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
-  readonly #commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+  readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
 
   readonly #rpcService: RpcService<typeof kernelHandlers>;
 
@@ -70,7 +72,7 @@ export class Kernel {
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
-    commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>,
+    commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
     vatWorkerService: VatWorkerManager,
     kernelDatabase: KernelDatabase,
     options: {
@@ -108,7 +110,7 @@ export class Kernel {
    * @returns A promise for the new kernel instance.
    */
   static async make(
-    commandStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>,
+    commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
     vatWorkerService: VatWorkerManager,
     kernelDatabase: KernelDatabase,
     options: {
@@ -155,25 +157,29 @@ export class Kernel {
    *
    * @param message - The message to handle.
    */
-  async #handleCommandMessage(message: JsonRpcRequest): Promise<void> {
+  async #handleCommandMessage(message: JsonRpcCall): Promise<void> {
     try {
       this.#rpcService.assertHasMethod(message.method);
       const result = await this.#rpcService.execute(
         message.method,
         message.params,
       );
-      await this.#commandStream.write({
-        id: message.id,
-        jsonrpc: '2.0',
-        result,
-      });
+      if (hasProperty(message, 'id') && typeof message.id === 'string') {
+        await this.#commandStream.write({
+          id: message.id,
+          jsonrpc: '2.0',
+          result,
+        });
+      }
     } catch (error) {
       this.#logger.error('Error executing command', error);
-      await this.#commandStream.write({
-        id: message.id,
-        jsonrpc: '2.0',
-        error: serializeError(error),
-      });
+      if (hasProperty(message, 'id') && typeof message.id === 'string') {
+        await this.#commandStream.write({
+          id: message.id,
+          jsonrpc: '2.0',
+          error: serializeError(error),
+        });
+      }
     }
   }
 

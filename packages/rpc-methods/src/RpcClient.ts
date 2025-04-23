@@ -1,7 +1,11 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
-import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
+import type {
+  JsonRpcNotification,
+  JsonRpcRequest,
+  JsonRpcSuccess,
+} from '@metamask/utils';
 import { Logger } from '@ocap/logger';
 import { makeCounter, stringify } from '@ocap/utils';
 import type { PromiseCallbacks } from '@ocap/utils';
@@ -10,11 +14,14 @@ import type {
   MethodSpec,
   ExtractParams,
   ExtractResult,
-  ExtractMethod,
   MethodSpecRecord,
+  ExtractNotification,
+  ExtractRequest,
 } from './types.ts';
 
-export type SendMessage = (payload: JsonRpcRequest) => Promise<void>;
+export type SendMessage = (
+  payload: JsonRpcRequest | JsonRpcNotification,
+) => Promise<void>;
 
 export class RpcClient<
   // The class picks up its type from the `methods` argument,
@@ -46,7 +53,7 @@ export class RpcClient<
     this.#logger = logger;
   }
 
-  async #call<Method extends ExtractMethod<Methods>>(
+  async #call<Method extends ExtractRequest<Methods>>(
     method: Method,
     params: ExtractParams<Method, Methods>,
     id: string,
@@ -69,11 +76,31 @@ export class RpcClient<
    * @param params - The parameters to pass to the method.
    * @returns A promise that resolves to the result.
    */
-  async call<Method extends ExtractMethod<Methods>>(
+  async call<Method extends ExtractRequest<Methods>>(
     method: Method,
     params: ExtractParams<Method, Methods>,
   ): Promise<ExtractResult<Method, Methods>> {
     return await this.#call(method, params, this.#nextMessageId());
+  }
+
+  /**
+   * Sends a JSON-RPC notification. Recall that we do not receive responses to notifications
+   * for any reason.
+   *
+   * @param method - The method to notify.
+   * @param params - The parameters to pass to the method.
+   */
+  async notify<Method extends ExtractNotification<Methods>>(
+    method: Method,
+    params: ExtractParams<Method, Methods>,
+  ): Promise<void> {
+    await this.#sendMessage({
+      jsonrpc: '2.0',
+      method,
+      params,
+    }).catch((error) =>
+      this.#logger.error(`Failed to send notification`, error),
+    );
   }
 
   /**
@@ -83,7 +110,7 @@ export class RpcClient<
    * @param params - The parameters to pass to the method.
    * @returns A promise that resolves to a tuple of the message id and the result.
    */
-  async callAndGetId<Method extends ExtractMethod<Methods>>(
+  async callAndGetId<Method extends ExtractRequest<Methods>>(
     method: Method,
     params: ExtractParams<Method, Methods>,
   ): Promise<[string, ExtractResult<Method, Methods>]> {
@@ -91,7 +118,7 @@ export class RpcClient<
     return [id, await this.#call(method, params, id)];
   }
 
-  #assertResult<Method extends ExtractMethod<Methods>>(
+  #assertResult<Method extends ExtractRequest<Methods>>(
     method: Method,
     result: unknown,
   ): asserts result is ExtractResult<Method, Methods> {

@@ -56,8 +56,11 @@ export const makeWatchEvents = (
   error: (error: Error) => throwError(error),
 });
 
-export const filterOnlyJsFiles: MatchFunction = (file, stats) =>
-  (stats?.isFile() ?? false) && file.endsWith('.js');
+export const shouldIgnore: MatchFunction = (file, stats): boolean =>
+  // Ignore files and directories in `node_modules`.
+  file.includes('node_modules') ||
+  // Watch non-files, but ignore files that are not JavaScript.
+  ((stats?.isFile() ?? false) && !file.endsWith('.js'));
 
 /**
  * Start a watcher that bundles `.js` files in the target dir.
@@ -77,14 +80,8 @@ export function watchDir(dir: string, logger: Logger): WatchDirReturn {
   const { reject: throwError, promise: errorPromise } = makePromiseKit<never>();
 
   let watcher = watch(resolvedDir, {
-    ignoreInitial: true,
-    ignored: [
-      '**/node_modules/**',
-      '**/*.test.js',
-      '**/*.test.ts',
-      '**/*.bundle',
-      filterOnlyJsFiles,
-    ],
+    ignoreInitial: false,
+    ignored: shouldIgnore,
   });
 
   const events = makeWatchEvents(watcher, readyResolve, throwError, logger);

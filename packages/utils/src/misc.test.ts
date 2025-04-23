@@ -32,4 +32,10 @@ describe('delay', () => {
     vi.advanceTimersByTime(delayTime);
     expect(await delayP).toBeUndefined();
   });
+
+  it('delays execution by the default number of milliseconds', async () => {
+    const delayP = delay();
+    vi.advanceTimersByTime(1);
+    expect(await delayP).toBeUndefined();
+  });
 });

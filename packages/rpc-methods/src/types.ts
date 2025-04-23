@@ -12,12 +12,14 @@ export type MethodSignature<
 export type MethodSpec<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json>,
-> = {
-  method: Method;
-  params: Struct<Params>;
-  result: Struct<UnwrapPromise<Result>>;
-};
+  Result extends Json | Promise<Json> | void,
+> = Result extends void
+  ? { method: Method; params: Struct<Params>; result?: undefined }
+  : {
+      method: Method;
+      params: Struct<Params>;
+      result: Struct<UnwrapPromise<Result>>;
+    };
 
 // `any` can safely be used in constraints.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +47,16 @@ export type ExtractMethodSpec<
 export type ExtractMethod<Specs extends SpecRecordConstraint> =
   ExtractMethodSpec<Specs>['method'];
 
+export type ExtractRequest<Specs extends SpecRecordConstraint> =
+  // Safe to use `any` in constraints.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Extract<ExtractMethodSpec<Specs>, { result: Struct<any> }>['method'];
+
+export type ExtractNotification<Specs extends SpecRecordConstraint> = Extract<
+  ExtractMethodSpec<Specs>,
+  { result?: undefined }
+>['method'];
+
 export type ExtractParams<
   Method extends string,
   Specs extends SpecRecordConstraint,
@@ -53,11 +65,16 @@ export type ExtractParams<
 export type ExtractResult<
   Method extends string,
   Specs extends SpecRecordConstraint,
-> = UnwrapPromise<Infer<ExtractMethodSpec<Specs, Method>['result']>>;
+> =
+  // Safe to use `any` in constraints.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ExtractMethodSpec<Specs, Method> extends MethodSpec<any, any, infer Result>
+    ? UnwrapPromise<Result>
+    : never;
 
 export type HandlerFunction<
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json>,
+  Result extends Json | Promise<Json> | void,
   Hooks extends Record<string, unknown>,
 > = (hooks: Hooks, params: Params) => Result;
 
@@ -66,7 +83,7 @@ export type HandlerFunction<
 export type Handler<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json>,
+  Result extends Json | Promise<Json> | void,
   Hooks extends Record<string, unknown>,
 > = MethodSpec<Method, Params, Result> & {
   hooks: { [Key in keyof Hooks]: true };

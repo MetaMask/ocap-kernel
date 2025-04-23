@@ -2,6 +2,7 @@ export { delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export type {
   ExtractGuardType,
+  JsonRpcCall,
   JsonRpcMessage,
   PromiseCallbacks,
   TypeGuard,
@@ -11,6 +12,7 @@ export {
   isPrimitive,
   isTypedArray,
   isTypedObject,
+  isJsonRpcCall,
   isJsonRpcMessage,
 } from './types.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';

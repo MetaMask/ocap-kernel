@@ -1,8 +1,9 @@
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 import type { Logger } from '@ocap/logger';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { stringify } from '@ocap/utils';
+import type { JsonRpcCall } from '@ocap/utils';
 import { nanoid } from 'nanoid';
 
 import { isUiControlCommand } from './ui-control-command.ts';
@@ -11,18 +12,16 @@ import type { UiControlCommand } from './ui-control-command.ts';
 export const UI_CONTROL_CHANNEL_NAME = 'ui-control';
 
 export type KernelControlStream = PostMessageDuplexStream<
-  JsonRpcRequest,
+  JsonRpcCall,
   JsonRpcResponse
 >;
 
 export type KernelControlReplyStream = PostMessageDuplexStream<
   JsonRpcResponse,
-  JsonRpcRequest
+  JsonRpcCall
 >;
 
-type HandleInstanceMessage = (
-  request: JsonRpcRequest,
-) => Promise<JsonRpcResponse>;
+type HandleInstanceMessage = (request: JsonRpcCall) => Promise<JsonRpcResponse>;
 
 /**
  * Establishes a connection between a UI instance and the kernel. Should be called
@@ -45,7 +44,7 @@ export const establishKernelConnection = async (
 
   const kernelStream = await PostMessageDuplexStream.make<
     JsonRpcResponse,
-    JsonRpcRequest
+    JsonRpcCall
   >({
     validateInput: isJsonRpcResponse,
     messageTarget: instanceChannel,

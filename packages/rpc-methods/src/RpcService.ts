@@ -21,7 +21,7 @@ type HandlerRecord<
   Handlers extends Handler<
     string,
     JsonRpcParams,
-    Json,
+    Json | void,
     Record<string, unknown>
   >,
 > = Record<Handlers['method'], Handlers>;
@@ -83,11 +83,8 @@ export class RpcService<
     const handler = this.#getHandler(method);
     assertParams(params, handler.params);
 
-    // Select only the hooks that the handler needs
-    const selectedHooks = selectHooks(this.#hooks, handler.hooks);
-
-    // Execute the handler with the selected hooks
-    return await handler.implementation(selectedHooks, params);
+    const expectedHooks = selectHooks(this.#hooks, handler.hooks);
+    return await handler.implementation(expectedHooks, params);
   }
 
   /**

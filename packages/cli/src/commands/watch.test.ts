@@ -8,7 +8,7 @@ import { unlink } from 'fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { bundleFile } from './bundle.ts';
-import { watchDir, makeWatchEvents, filterOnlyJsFiles } from './watch.ts';
+import { watchDir, makeWatchEvents, shouldIgnore } from './watch.ts';
 
 vi.mock('fs/promises', () => ({
   unlink: vi.fn(async () => new Promise<void>(() => undefined)),
@@ -46,21 +46,22 @@ describe('watchDir', () => {
   });
 });
 
-describe('filterOnlyJsFiles', () => {
+describe('shouldIgnore', () => {
   const missingStats = undefined as unknown as Stats;
   const fileStats = { isFile: () => true } as unknown as Stats;
   const nonFileStats = { isFile: () => false } as unknown as Stats;
 
   it.each`
-    description                    | file             | stats           | expectation
-    ${'a file with missing stats'} | ${'test.js'}     | ${missingStats} | ${false}
-    ${'a non-file'}                | ${'test.js'}     | ${nonFileStats} | ${false}
-    ${'a .ts file'}                | ${'test.ts'}     | ${fileStats}    | ${false}
-    ${'a .bundle file'}            | ${'test.bundle'} | ${fileStats}    | ${false}
-    ${'a .txt file'}               | ${'test.txt'}    | ${nonFileStats} | ${false}
-    ${'a .js file'}                | ${'test.js'}     | ${fileStats}    | ${true}
+    description                     | file                      | stats           | expectation
+    ${'a file with missing stats'}  | ${'test.js'}              | ${missingStats} | ${false}
+    ${'a non-file'}                 | ${'test.js'}              | ${nonFileStats} | ${false}
+    ${'a .js file'}                 | ${'test.js'}              | ${fileStats}    | ${false}
+    ${'a .ts file'}                 | ${'test.ts'}              | ${fileStats}    | ${true}
+    ${'a .bundle file'}             | ${'test.bundle'}          | ${fileStats}    | ${true}
+    ${'a .txt file'}                | ${'test.txt'}             | ${fileStats}    | ${true}
+    ${'a .js file in node_modules'} | ${'node_modules/test.js'} | ${fileStats}    | ${true}
   `('returns $expectation for $description', ({ file, expectation, stats }) => {
-    expect(filterOnlyJsFiles(file, stats)).toBe(expectation);
+    expect(shouldIgnore(file, stats)).toBe(expectation);
   });
 });
 
