@@ -2,6 +2,7 @@ import '@ocap/shims/endoify';
 import type { ClusterConfig } from '@ocap/kernel';
 import type { VatStore, VatCheckpoint } from '@ocap/store';
 import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
+import { flaky } from '@ocap/test-utils';
 import { describe, vi, expect, it } from 'vitest';
 
 import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';
@@ -106,44 +107,50 @@ const referenceKVUpdates: VatCheckpoint[] = [
 ];
 
 describe('exercise vatstore', async () => {
-  it('exercise vatstore', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const origMakeVatStore = kernelDatabase.makeVatStore;
-    const kvUpdates: VatCheckpoint[] = [];
-    vi.spyOn(kernelDatabase, 'makeVatStore').mockImplementation(
-      (vatID: string): VatStore => {
-        const result = origMakeVatStore(vatID);
-        if (vatID === 'v1') {
-          const origUpdateKVData = result.updateKVData;
-          vi.spyOn(result, 'updateKVData').mockImplementation(
-            (sets: [string, string][], deletes: string[]): void => {
-              kvUpdates.push([sets, deletes]);
-              origUpdateKVData(sets, deletes);
-            },
-          );
-        }
-        return result;
-      },
-    );
-    const kernel = await makeKernel(kernelDatabase, true);
-    await runTestVats(kernel, makeTestSubcluster());
-    type VSRecord = { key: string; value: string };
-    const vsContents = kernelDatabase.executeQuery(
-      `SELECT key, value from kv_vatStore where vatID = 'v1'`,
-    ) as VSRecord[];
-    const vsKv = new Map<string, string>();
-    for (const entry of vsContents) {
-      vsKv.set(entry.key, entry.value);
-    }
-    expect(vsKv.get('idCounters')).toBe(
-      '{"exportID":10,"collectionID":5,"promiseID":8}',
-    );
-    expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
-    expect(vsKv.get('vc.1.|entryCount')).toBe('1');
-    expect(normalize(kvUpdates)).toStrictEqual(normalize(referenceKVUpdates));
-  }, 30000);
+  it(
+    'exercise vatstore',
+    flaky({
+      timeout: 10_000,
+    }),
+    async () => {
+      const kernelDatabase = await makeSQLKernelDatabase({
+        dbFilename: ':memory:',
+      });
+      const origMakeVatStore = kernelDatabase.makeVatStore;
+      const kvUpdates: VatCheckpoint[] = [];
+      vi.spyOn(kernelDatabase, 'makeVatStore').mockImplementation(
+        (vatID: string): VatStore => {
+          const result = origMakeVatStore(vatID);
+          if (vatID === 'v1') {
+            const origUpdateKVData = result.updateKVData;
+            vi.spyOn(result, 'updateKVData').mockImplementation(
+              (sets: [string, string][], deletes: string[]): void => {
+                kvUpdates.push([sets, deletes]);
+                origUpdateKVData(sets, deletes);
+              },
+            );
+          }
+          return result;
+        },
+      );
+      const kernel = await makeKernel(kernelDatabase, true);
+      await runTestVats(kernel, makeTestSubcluster());
+      type VSRecord = { key: string; value: string };
+      const vsContents = kernelDatabase.executeQuery(
+        `SELECT key, value from kv_vatStore where vatID = 'v1'`,
+      ) as VSRecord[];
+      const vsKv = new Map<string, string>();
+      for (const entry of vsContents) {
+        vsKv.set(entry.key, entry.value);
+      }
+      expect(vsKv.get('idCounters')).toBe(
+        '{"exportID":10,"collectionID":5,"promiseID":8}',
+      );
+      expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
+      expect(vsKv.get('vc.1.|entryCount')).toBe('1');
+      expect(normalize(kvUpdates)).toStrictEqual(normalize(referenceKVUpdates));
+    },
+  );
 });
 
 /**
