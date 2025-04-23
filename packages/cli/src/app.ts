@@ -116,8 +116,6 @@ await yargs(hideBin(process.argv))
       const closeHandlers: (() => Promise<void>)[] = [];
       const resolvedDir = path.resolve(args.dir);
 
-      await bundleSource(resolvedDir, logger);
-
       const handleClose = async (): Promise<void> => {
         await Promise.all(
           closeHandlers.map(async (close) => withTimeout(close(), 400)),
