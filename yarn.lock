@@ -2040,6 +2040,7 @@ __metadata:
     "@ocap/shims": "workspace:^"
     "@ocap/store": "workspace:^"
     "@ocap/streams": "workspace:^"
+    "@ocap/test-utils": "workspace:^"
     "@ocap/utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
