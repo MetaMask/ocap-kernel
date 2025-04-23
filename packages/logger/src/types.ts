@@ -1,7 +1,9 @@
+import type { logLevels } from './constants.ts';
+
 /**
  * The log level for the logger.
  */
-export type LogLevel = 'debug' | 'info' | 'log' | 'warn' | 'error' | 'silent';
+export type LogLevel = (typeof logLevels)[number];
 
 /**
  * The log entry for the logger.
@@ -30,5 +32,3 @@ export type LoggerOptions = {
 export type LogArgs = [string, ...unknown[]] | [];
 
 export type LogMethod = (...args: LogArgs) => void;
-
-export type LogAlias = 'debug' | 'info' | 'log' | 'warn' | 'error';

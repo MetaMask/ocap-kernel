@@ -8,9 +8,6 @@ import type { Transport, LogEntry } from './types.ts';
  * @param entry - The log entry to transport.
  */
 export const consoleTransport: Transport = (entry) => {
-  if (entry.level === 'silent') {
-    return;
-  }
   const args = [
     ...(entry.tags.length > 0 ? [entry.tags] : []),
     ...(entry.message ? [entry.message] : []),
@@ -30,9 +27,6 @@ export const makeStreamTransport = (
   stream: DuplexStream<LogEntry>,
 ): Transport => {
   return (entry) => {
-    if (entry.level === 'silent') {
-      return;
-    }
     stream.write(entry).catch(console.debug);
   };
 };

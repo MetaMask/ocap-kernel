@@ -55,7 +55,6 @@ import type {
   LoggerOptions,
   LogMethod,
   LogArgs,
-  LogAlias,
 } from './types.ts';
 
 /**
@@ -93,10 +92,10 @@ export class Logger {
 
     // Create aliases for the log methods, allowing them to be used in a
     // manner similar to the console object.
-    const bind = (alias: LogAlias): LogMethod =>
+    const bind = (level: LogLevel): LogMethod =>
       this.#dispatch.bind(this, {
         ...this.#options,
-        level: alias as LogLevel,
+        level,
       }) as LogMethod;
     this.log = bind('log');
     this.debug = bind('debug');
