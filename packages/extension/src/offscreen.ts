@@ -1,4 +1,3 @@
-
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { Logger } from '@ocap/logger';
