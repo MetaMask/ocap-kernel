@@ -192,6 +192,9 @@ const config = createConfig([
           ignores: ['fetch'],
         },
       ],
+
+      // e.g. (0 < x && x < 47) is OK.
+      yoda: ['error', 'never', { exceptRange: true }],
     },
   },
 
