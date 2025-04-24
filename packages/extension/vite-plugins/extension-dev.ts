@@ -42,8 +42,8 @@ export function extensionDev({
     // This is called when the bundle is written
     async writeBundle() {
       if (state.browserContext) {
-        await reloadExtension();
-        return;
+        console.log('Reloading extension');
+        await state.browserContext.close();
       }
       await launchBrowserContext();
       await openPopup();
@@ -113,33 +113,6 @@ export function extensionDev({
     const newPage = await state.browserContext.newPage();
     await newPage.goto(`chrome-extension://${state.extensionId}/popup.html`);
     state.popupPage = newPage;
-  }
-
-  /**
-   * Reload the extension.
-   *
-   * @returns Promise that resolves when the extension is reloaded
-   */
-  async function reloadExtension(): Promise<void> {
-    if (!state.browserContext || !state.extensionId) {
-      return;
-    }
-
-    await delay(1000);
-
-    const serviceWorkers = state.browserContext.serviceWorkers();
-    if (!serviceWorkers?.[0]) {
-      console.error('No background page available to reload the extension.');
-      return;
-    }
-
-    // Reload the extension
-    await serviceWorkers[0].evaluate(() => {
-      chrome.runtime.reload();
-    });
-
-    await delay(500);
-    await openPopup();
   }
 
   /**

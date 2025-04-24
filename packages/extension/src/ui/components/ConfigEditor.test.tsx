@@ -46,8 +46,14 @@ vi.mock('../context/PanelContext.tsx', () => ({
 // Mock the CSS module
 vi.mock('../App.module.css', () => ({
   default: {
-    configEditor: 'config-editor',
+    accordion: 'accordion',
+    accordionHeader: 'accordion-header',
+    accordionTitle: 'accordion-title',
+    accordionIndicator: 'accordion-indicator',
+    accordionContent: 'accordion-content',
     configTextarea: 'config-textarea',
+    configControls: 'config-controls',
+    select: 'select',
     configEditorButtons: 'config-editor-buttons',
     buttonPrimary: 'button-primary',
     buttonBlack: 'button-black',
@@ -68,6 +74,7 @@ describe('ConfigEditor Component', () => {
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
       launchVat: vi.fn(),
+      collectGarbage: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue(mockUsePanelContext);
   });
@@ -81,10 +88,11 @@ describe('ConfigEditor Component', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders the config editor with initial config', () => {
+  it('renders the config editor with initial config', async () => {
     render(<ConfigEditor />);
     expect(screen.getByText('Cluster Config')).toBeInTheDocument();
-    const textarea = screen.getByRole('textbox');
+    await userEvent.click(screen.getByTestId('config-title'));
+    const textarea = screen.getByTestId('config-textarea');
     expect(textarea).toHaveValue(
       JSON.stringify(mockStatus.clusterConfig, null, 2),
     );
@@ -98,7 +106,8 @@ describe('ConfigEditor Component', () => {
 
   it('updates textarea value when user types', async () => {
     render(<ConfigEditor />);
-    const textarea = screen.getByRole('textbox');
+    await userEvent.click(screen.getByTestId('config-title'));
+    const textarea = screen.getByTestId('config-textarea');
     fireEvent.change(textarea, { target: { value: 'test' } });
     expect(textarea).toHaveValue('test');
   });
@@ -106,6 +115,7 @@ describe('ConfigEditor Component', () => {
   it('updates config when "Update Config" is clicked', async () => {
     mockUpdateClusterConfig.mockResolvedValue(undefined);
     render(<ConfigEditor />);
+    await userEvent.click(screen.getByTestId('config-title'));
     const updateButton = screen.getByTestId('update-config');
     await userEvent.click(updateButton);
     expect(mockUpdateClusterConfig).toHaveBeenCalledWith(
@@ -117,6 +127,7 @@ describe('ConfigEditor Component', () => {
   it('updates config and reloads when "Update and Reload" is clicked', async () => {
     mockUpdateClusterConfig.mockResolvedValue(undefined);
     render(<ConfigEditor />);
+    await userEvent.click(screen.getByTestId('config-title'));
     const updateButton = screen.getByTestId('update-and-restart');
     await userEvent.click(updateButton);
     expect(mockUpdateClusterConfig).toHaveBeenCalledWith(
@@ -128,7 +139,8 @@ describe('ConfigEditor Component', () => {
   it('logs error when invalid JSON is submitted', async () => {
     mockUpdateClusterConfig.mockRejectedValueOnce(new Error('Invalid JSON'));
     render(<ConfigEditor />);
-    const textarea = screen.getByRole('textbox');
+    await userEvent.click(screen.getByTestId('config-title'));
+    const textarea = screen.getByTestId('config-textarea');
     fireEvent.change(textarea, { target: { value: 'test' } });
     const updateButton = screen.getByTestId('update-config');
     await userEvent.click(updateButton);
@@ -143,6 +155,7 @@ describe('ConfigEditor Component', () => {
     const error = new Error('Update failed');
     mockUpdateClusterConfig.mockRejectedValueOnce(error);
     render(<ConfigEditor />);
+    await userEvent.click(screen.getByTestId('config-title'));
     await userEvent.click(screen.getByTestId('update-config'));
 
     await waitFor(() => {
@@ -152,7 +165,8 @@ describe('ConfigEditor Component', () => {
 
   it('updates textarea when status changes', async () => {
     const { rerender } = render(<ConfigEditor />);
-    const textarea = screen.getByRole('textbox');
+    await userEvent.click(screen.getByTestId('config-title'));
+    const textarea = screen.getByTestId('config-textarea');
     expect(textarea).toHaveValue(
       JSON.stringify(mockStatus.clusterConfig, null, 2),
     );
@@ -179,8 +193,9 @@ describe('ConfigEditor Component', () => {
     });
   });
 
-  it('renders the config template selector with default option selected', () => {
+  it('renders the config template selector with default option selected', async () => {
     render(<ConfigEditor />);
+    await userEvent.click(screen.getByTestId('config-title'));
     const selector = screen.getByTestId('config-select');
     expect(selector).toBeInTheDocument();
     expect(selector).toHaveValue('Default');
@@ -188,6 +203,7 @@ describe('ConfigEditor Component', () => {
 
   it('updates textarea when selecting a different template', async () => {
     render(<ConfigEditor />);
+    await userEvent.click(screen.getByTestId('config-title'));
     const selector = screen.getByTestId('config-select');
     const textarea = screen.getByTestId('config-textarea');
     expect(textarea).toHaveValue(JSON.stringify(defaultClusterConfig, null, 2));

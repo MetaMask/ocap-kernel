@@ -20,7 +20,7 @@ export const LaunchVat: React.FC = () => {
 
   return (
     <div className={styles.newVatWrapper}>
-      <h4>Add New Vat</h4>
+      <h4 className={styles.noMargin}>Add New Vat</h4>
       <div className={styles.newVatForm}>
         <input
           className={styles.vatNameInput}

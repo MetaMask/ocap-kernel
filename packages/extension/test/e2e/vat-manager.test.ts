@@ -246,6 +246,9 @@ test.describe('Vat Manager', () => {
   });
 
   test('should handle cluster configuration updates', async () => {
+    const configTitle = popupPage.locator('[data-testid="config-title"]');
+    await expect(configTitle).toBeVisible();
+    await configTitle.click();
     // Check initial config is visible and matches clusterConfig
     const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
     await expect(configTextarea).toBeVisible();
@@ -277,6 +280,9 @@ test.describe('Vat Manager', () => {
   });
 
   test('should handle config template selection', async () => {
+    const configTitle = popupPage.locator('[data-testid="config-title"]');
+    await expect(configTitle).toBeVisible();
+    await configTitle.click();
     // Get initial config textarea content
     const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
     await expect(configTextarea).toBeVisible();

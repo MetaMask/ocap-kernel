@@ -1,12 +1,18 @@
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { DatabaseInspector } from './DatabaseInspector.tsx';
-import { useDatabaseInspector } from '../hooks/useDatabaseInspector.ts';
+import { usePanelContext } from '../context/PanelContext.tsx';
+import type { PanelContextType } from '../context/PanelContext.tsx';
+import { useDatabase } from '../hooks/useDatabase.ts';
 
-vi.mock('../hooks/useDatabaseInspector.ts', () => ({
-  useDatabaseInspector: vi.fn(),
+vi.mock('../context/PanelContext.tsx', () => ({
+  usePanelContext: vi.fn(),
+}));
+
+vi.mock('../hooks/useDatabase.ts', () => ({
+  useDatabase: vi.fn(),
 }));
 
 vi.mock('../App.module.css', () => ({
@@ -16,149 +22,166 @@ vi.mock('../App.module.css', () => ({
     tableControls: 'table-controls',
     select: 'select',
     button: 'button',
-    buttonPrimary: 'button-primary',
     querySection: 'query-section',
     input: 'input',
+    buttonPrimary: 'button-primary',
     table: 'table',
   },
 }));
 
-describe('DatabaseInspector Component', () => {
-  const mockTables = ['table1', 'table2', 'table3'];
-  const mockTableData = [
-    { id: '1', name: 'Item 1' },
-    { id: '2', name: 'Item 2' },
-  ];
+const mockUsePanelContext: PanelContextType = {
+  callKernelMethod: vi.fn(),
+  status: undefined,
+  logMessage: vi.fn(),
+  messageContent: '',
+  setMessageContent: vi.fn(),
+  panelLogs: [],
+  clearLogs: vi.fn(),
+  isLoading: false,
+};
 
-  const mockHookReturn = {
-    tables: mockTables,
-    selectedTable: 'table1',
-    setSelectedTable: vi.fn(),
-    tableData: mockTableData,
-    refreshData: vi.fn(),
-    executeQuery: vi.fn(),
-  };
+describe('DatabaseInspector Component', () => {
+  const mockLogMessage = vi.fn();
+  const mockFetchTables = vi.fn();
+  const mockFetchTableData = vi.fn();
+  const mockExecuteQuery = vi.fn();
 
   beforeEach(() => {
     cleanup();
-    vi.mocked(useDatabaseInspector).mockReturnValue(mockHookReturn);
-  });
-
-  it('renders table selector with all available tables', () => {
-    render(<DatabaseInspector />);
-    const selector = screen.getByRole('combobox');
-    expect(selector).toBeInTheDocument();
-    mockTables.forEach((table) => {
-      expect(screen.getByRole('option', { name: table })).toBeInTheDocument();
+    vi.clearAllMocks();
+    mockUsePanelContext.logMessage = mockLogMessage;
+    vi.mocked(usePanelContext).mockReturnValue(mockUsePanelContext);
+    vi.mocked(useDatabase).mockReturnValue({
+      fetchTables: mockFetchTables,
+      fetchTableData: mockFetchTableData,
+      executeQuery: mockExecuteQuery,
     });
   });
 
-  it('calls setSelectedTable when table selection changes', async () => {
+  it('loads and displays tables and data on mount', async () => {
+    mockFetchTables.mockResolvedValue(['table1', 'table2']);
+    mockFetchTableData.mockResolvedValue([{ col1: 'val1', col2: 'val2' }]);
     render(<DatabaseInspector />);
-    const selector = screen.getByRole('combobox');
-    await userEvent.selectOptions(selector, 'table2');
-    expect(mockHookReturn.setSelectedTable).toHaveBeenCalledWith('table2');
+    await screen.findByRole('combobox');
+    const select = screen.getByRole('combobox');
+    expect(select).toHaveValue('table1');
+    expect(screen.getByRole('option', { name: 'table1' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'table2' })).toBeInTheDocument();
+    expect(mockFetchTableData).toHaveBeenCalledWith('table1');
+    await waitFor(() => {
+      expect(screen.getByText('col1')).toBeInTheDocument();
+      expect(screen.getByText('col2')).toBeInTheDocument();
+      expect(screen.getByText('val1')).toBeInTheDocument();
+      expect(screen.getByText('val2')).toBeInTheDocument();
+    });
   });
 
-  it('renders refresh button and handles click', async () => {
+  it('allows table selection and refreshes data', async () => {
+    mockFetchTables.mockResolvedValue(['tableA', 'tableB']);
+    mockFetchTableData
+      .mockResolvedValueOnce([{ a: '1' }])
+      .mockResolvedValueOnce([{ b: '2' }])
+      .mockResolvedValueOnce([{ b: '3' }]);
+
     render(<DatabaseInspector />);
+    await screen.findByRole('combobox');
+    expect(mockFetchTableData).toHaveBeenCalledWith('tableA');
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'tableB');
+    await waitFor(() => {
+      expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
+    });
     const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    expect(refreshButton).toBeInTheDocument();
     await userEvent.click(refreshButton);
-    expect(mockHookReturn.refreshData).toHaveBeenCalled();
+    expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
+    expect(await screen.findByText('3')).toBeInTheDocument();
   });
 
-  it('disables refresh button when no table is selected', () => {
-    vi.mocked(useDatabaseInspector).mockReturnValue({
-      ...mockHookReturn,
-      selectedTable: '',
-      tables: [],
-      tableData: [],
-      setSelectedTable: vi.fn(),
-      refreshData: vi.fn(),
-      executeQuery: vi.fn(),
-    });
-    render(<DatabaseInspector />);
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    expect(refreshButton).toBeDisabled();
-  });
-
-  it('renders SQL query input and execute button', () => {
-    render(<DatabaseInspector />);
-    expect(
-      screen.getByPlaceholderText('Enter SQL query...'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Execute Query' }),
-    ).toBeInTheDocument();
-  });
-
-  it('handles SQL query input changes', async () => {
+  it('executes query and displays results', async () => {
+    mockFetchTables.mockResolvedValue([]);
+    mockExecuteQuery.mockResolvedValue([{ x: '100' }]);
     render(<DatabaseInspector />);
     const input = screen.getByPlaceholderText('Enter SQL query...');
-    await userEvent.type(input, 'SELECT * FROM table1');
-    expect(input).toHaveValue('SELECT * FROM table1');
-  });
-
-  it('executes query on button click', async () => {
-    render(<DatabaseInspector />);
-    const input = screen.getByPlaceholderText('Enter SQL query...');
-    const executeButton = screen.getByRole('button', { name: 'Execute Query' });
-
-    await userEvent.type(input, 'SELECT * FROM table1');
-    await userEvent.click(executeButton);
-
-    expect(mockHookReturn.executeQuery).toHaveBeenCalledWith(
-      'SELECT * FROM table1',
-    );
+    await userEvent.type(input, 'SELECT x');
+    const execButton = screen.getByRole('button', { name: 'Execute Query' });
+    await userEvent.click(execButton);
+    expect(mockExecuteQuery).toHaveBeenCalledWith('SELECT x');
+    expect(await screen.findByText('x')).toBeInTheDocument();
+    expect(await screen.findByText('100')).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toHaveValue('');
   });
 
   it('executes query on Enter key press', async () => {
+    mockFetchTables.mockResolvedValue([]);
+    mockExecuteQuery.mockResolvedValue([{ y: '200' }]);
     render(<DatabaseInspector />);
     const input = screen.getByPlaceholderText('Enter SQL query...');
+    input.focus();
+    await userEvent.type(input, 'SELECT y{Enter}');
+    expect(mockExecuteQuery).toHaveBeenCalledWith('SELECT y');
+    expect(await screen.findByText('200')).toBeInTheDocument();
+  });
 
-    await userEvent.type(input, 'SELECT * FROM table1{enter}');
+  it('logs error when fetchTables fails', async () => {
+    mockFetchTables.mockRejectedValue(new Error('fetch tables error'));
+    render(<DatabaseInspector />);
+    await waitFor(() => {
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Failed to fetch tables: fetch tables error',
+        'error',
+      );
+    });
+    expect(screen.getByRole('combobox')).toHaveValue('');
+  });
 
-    expect(mockHookReturn.executeQuery).toHaveBeenCalledWith(
-      'SELECT * FROM table1',
+  it('logs error when refreshData fails', async () => {
+    mockFetchTables.mockResolvedValue(['t1']);
+    mockFetchTableData.mockRejectedValue(new Error('data error'));
+    render(<DatabaseInspector />);
+    await waitFor(() => expect(mockFetchTableData).toHaveBeenCalled());
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      'Failed to fetch data for table t1: data error',
+      'error',
+    );
+    mockLogMessage.mockClear();
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    await userEvent.click(refreshButton);
+    expect(mockLogMessage).toHaveBeenCalledWith(
+      'Failed to fetch data for table t1: data error',
+      'error',
     );
   });
 
-  it('disables execute button when query is empty', () => {
+  it('logs error when executeQuery fails', async () => {
+    mockFetchTables.mockResolvedValue([]);
+    mockExecuteQuery.mockRejectedValue(new Error('exec error'));
     render(<DatabaseInspector />);
-    const executeButton = screen.getByRole('button', { name: 'Execute Query' });
-    expect(executeButton).toBeDisabled();
-  });
-
-  it('renders table data with correct headers and content', () => {
-    render(<DatabaseInspector />);
-
-    // Check headers
-    expect(
-      screen.getByRole('columnheader', { name: 'id' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'name' }),
-    ).toBeInTheDocument();
-
-    // Check data cells
-    mockTableData.forEach((row) => {
-      expect(
-        screen.getByRole('cell', { name: String(row.id) }),
-      ).toBeInTheDocument();
-      expect(screen.getByRole('cell', { name: row.name })).toBeInTheDocument();
+    const input = screen.getByPlaceholderText('Enter SQL query...');
+    await userEvent.type(input, 'SELECT z');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Execute Query' }),
+    );
+    await waitFor(() => {
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Failed to execute query: exec error',
+        'error',
+      );
     });
   });
 
-  it('handles empty table data gracefully', () => {
-    vi.mocked(useDatabaseInspector).mockReturnValue({
-      ...mockHookReturn,
-      tableData: [],
-    });
+  it('applies correct CSS classes', async () => {
+    mockFetchTables.mockResolvedValue(['table1']);
+    mockFetchTableData.mockResolvedValue([]);
     render(<DatabaseInspector />);
-
-    const table = screen.getByRole('table');
-    expect(table).toBeInTheDocument();
-    expect(table.querySelector('thead tr')).toBeEmptyDOMElement();
+    await screen.findByRole('combobox');
+    const select = screen.getByRole('combobox');
+    expect(select).toHaveClass('select');
+    expect(select.parentElement).toHaveClass('table-controls');
+    const refreshBtn = screen.getByRole('button', { name: 'Refresh' });
+    expect(refreshBtn).toHaveClass('button');
+    const input = screen.getByPlaceholderText('Enter SQL query...');
+    expect(input).toHaveClass('input');
+    const execBtn = screen.getByRole('button', { name: 'Execute Query' });
+    expect(execBtn).toHaveClass('button-primary');
+    expect(screen.getByRole('table').parentElement).toHaveClass('table');
   });
 });

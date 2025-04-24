@@ -35,10 +35,17 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
     [status],
   );
   const [config, setConfig] = useState<string>(clusterConfig);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
   // Update the config when the status changes
   useEffect(() => {
     setConfig(clusterConfig);
+    setSelectedTemplate(
+      availableConfigs.find(
+        (item) => JSON.stringify(item.config, null, 2) === clusterConfig,
+      )?.name ?? '',
+    );
   }, [clusterConfig]);
 
   const handleUpdate = useCallback(
@@ -54,7 +61,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
         logMessage(String(error), 'error');
       }
     },
-    [config, updateClusterConfig],
+    [config, updateClusterConfig, reload, logMessage],
   );
 
   const handleSelectConfig = useCallback((configName: string) => {
@@ -63,52 +70,71 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
     )?.config;
     if (selectedConfig) {
       setConfig(JSON.stringify(selectedConfig, null, 2));
+      setSelectedTemplate(configName);
     }
   }, []);
 
+  const toggleExpanded = (): void => {
+    setIsExpanded((prev) => !prev);
+  };
+
   return (
-    <div className={styles.configEditor}>
-      <h4>Cluster Config</h4>
-      <textarea
-        value={config}
-        onChange={(event) => setConfig(event.target.value)}
-        rows={10}
-        className={styles.configTextarea}
-        data-testid="config-textarea"
-      />
-      <div className={styles.configControls}>
-        <select
-          className={styles.select}
-          onChange={(event) => handleSelectConfig(event.target.value)}
-          defaultValue={availableConfigs[0]?.name}
-          data-testid="config-select"
-        >
-          <option value="" disabled>
-            Select template...
-          </option>
-          {availableConfigs.map(({ name }) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <div className={styles.configEditorButtons}>
-          <button
-            onClick={() => handleUpdate(false)}
-            className={styles.buttonPrimary}
-            data-testid="update-config"
-          >
-            Update Config
-          </button>
-          <button
-            onClick={() => handleUpdate(true)}
-            className={styles.buttonBlack}
-            data-testid="update-and-restart"
-          >
-            Update and Reload
-          </button>
+    <div className={styles.accordion}>
+      <div
+        className={styles.accordionHeader}
+        data-testid="config-title"
+        onClick={toggleExpanded}
+      >
+        <div className={styles.accordionTitle}>Cluster Config</div>
+        <div className={styles.accordionIndicator}>
+          {isExpanded ? '−' : '+'}
         </div>
       </div>
+
+      {isExpanded && (
+        <div className={styles.accordionContent}>
+          <textarea
+            value={config}
+            onChange={(event) => setConfig(event.target.value)}
+            rows={10}
+            className={styles.configTextarea}
+            data-testid="config-textarea"
+          />
+          <div className={styles.configControls}>
+            <select
+              className={styles.select}
+              onChange={(event) => handleSelectConfig(event.target.value)}
+              value={selectedTemplate}
+              data-testid="config-select"
+            >
+              <option value="" disabled>
+                Select template...
+              </option>
+              {availableConfigs.map(({ name }) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <div className={styles.configEditorButtons}>
+              <button
+                onClick={() => handleUpdate(false)}
+                className={styles.buttonPrimary}
+                data-testid="update-config"
+              >
+                Update Config
+              </button>
+              <button
+                onClick={() => handleUpdate(true)}
+                className={styles.buttonBlack}
+                data-testid="update-and-restart"
+              >
+                Update and Reload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

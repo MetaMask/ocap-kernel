@@ -60,7 +60,7 @@ describe('App', () => {
     } as unknown as StreamState);
     const { App } = await import('./App.tsx');
     render(<App />);
-    expect(screen.getByText('Kernel Vats')).toBeInTheDocument();
+    expect(screen.getByText('Kernel')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Launch Vat' }),
     ).toBeInTheDocument();
