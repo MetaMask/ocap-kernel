@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { useDatabase } from './useDatabase.ts';
@@ -45,11 +45,13 @@ describe('useDatabase', () => {
         method: 'executeDBQuery',
         params: { sql: "SELECT name FROM sqlite_master WHERE type='table'" },
       });
-      expect(tables).toStrictEqual(['table1', 'table2']);
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        JSON.stringify(mockTables),
-        'received',
-      );
+      await waitFor(() => {
+        expect(tables).toStrictEqual(['table1', 'table2']);
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          JSON.stringify(mockTables),
+          'received',
+        );
+      });
     });
 
     it('should handle errors when fetching tables', async () => {

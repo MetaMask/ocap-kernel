@@ -64,11 +64,15 @@ describe('DatabaseInspector Component', () => {
     render(<DatabaseInspector />);
     await screen.findByRole('combobox');
     const select = screen.getByRole('combobox');
-    expect(select).toHaveValue('table1');
-    expect(screen.getByRole('option', { name: 'table1' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'table2' })).toBeInTheDocument();
-    expect(mockFetchTableData).toHaveBeenCalledWith('table1');
     await waitFor(() => {
+      expect(select).toHaveValue('table1');
+      expect(
+        screen.getByRole('option', { name: 'table1' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'table2' }),
+      ).toBeInTheDocument();
+      expect(mockFetchTableData).toHaveBeenCalledWith('table1');
       expect(screen.getByText('col1')).toBeInTheDocument();
       expect(screen.getByText('col2')).toBeInTheDocument();
       expect(screen.getByText('val1')).toBeInTheDocument();

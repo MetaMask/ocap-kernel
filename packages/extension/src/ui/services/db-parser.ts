@@ -205,7 +205,7 @@ export function parseKernelDB(
       const origin =
         prmCList.find(
           (entry) =>
-            entry.eref.replace('+', '-') === eref &&
+            entry.kref === kref &&
             entry.vat !== vat &&
             entry.eref.startsWith('p+'),
         )?.vat ?? null;

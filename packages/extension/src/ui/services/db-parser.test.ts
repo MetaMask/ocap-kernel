@@ -200,7 +200,7 @@ describe('parseKernelDB', () => {
           importedPromises: [
             {
               eref: 'p-1',
-              fromVat: null,
+              fromVat: 'v1',
               kref: 'kp2',
               state: 'fulfilled',
               value: {
@@ -228,7 +228,7 @@ describe('parseKernelDB', () => {
           importedPromises: [
             {
               eref: 'p-1',
-              fromVat: null,
+              fromVat: 'v1',
               kref: 'kp3',
               state: 'fulfilled',
               value: {
