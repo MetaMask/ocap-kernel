@@ -42,7 +42,6 @@ export function extensionDev({
     // This is called when the bundle is written
     async writeBundle() {
       if (state.browserContext) {
-        console.log('Reloading extension');
         await state.browserContext.close();
       }
       await launchBrowserContext();
