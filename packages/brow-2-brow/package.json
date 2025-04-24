@@ -1,0 +1,88 @@
+{
+  "name": "@ocap/brow-2-brow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-to-browser libp2p communications proof of concept",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetaMask/ocap-kernel.git"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build:dev": "mkdir -p dist && ln -fs ../src/index.html dist/index.html",
+    "build:docs": "typedoc",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/brow-2-brow",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
+    "lint:dependencies": "depcheck",
+    "lint:eslint": "eslint . --cache",
+    "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
+    "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+    "test": "vitest run --config vitest.config.ts",
+    "test:clean": "yarn test --no-cache --coverage.clean",
+    "test:dev": "yarn test --mode development",
+    "test:verbose": "yarn test --reporter verbose",
+    "test:watch": "vitest --config vitest.config.ts",
+    "start": "npm run build:dev && esbuild src/index.js --serve --sourcemap --bundle --outdir=dist --servedir=dist --external:@types/web",
+    "start:relay": "node dist/src/relay.mjs"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-noise": "^15.1.0",
+    "@chainsafe/libp2p-yamux": "^6.0.2",
+    "@libp2p/autonat": "^1.1.1",
+    "@libp2p/bootstrap": "^10.1.1",
+    "@libp2p/circuit-relay-v2": "^1.1.1",
+    "@libp2p/crypto": "^5.1.1",
+    "@libp2p/identify": "^2.1.1",
+    "@libp2p/interface": "^2.9.0",
+    "@libp2p/peer-id": "^5.1.2",
+    "@libp2p/tcp": "^9.1.1",
+    "@libp2p/webrtc": "^4.1.1",
+    "@libp2p/websockets": "^8.1.1",
+    "@libp2p/webtransport": "^4.1.1",
+    "@multiformats/multiaddr": "^12.3.0",
+    "@multiformats/multiaddr-matcher": "^1.2.4",
+    "@ts-bridge/cli": "^0.6.3",
+    "@ts-bridge/shims": "^0.1.1",
+    "@types/web": "^0",
+    "it-byte-stream": "^2.0.1",
+    "libp2p": "^1.8.0",
+    "uint8arrays": "^5.1.0"
+  },
+  "devDependencies": {
+    "@ocap/test-utils": "workspace:^",
+    "@types/node": "^22.13.1",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "@typescript-eslint/utils": "^8.29.0",
+    "depcheck": "^1.4.7",
+    "esbuild": "^0.25.3",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-import-resolver-typescript": "^4.3.1",
+    "eslint-plugin-import-x": "^4.10.0",
+    "eslint-plugin-jsdoc": "^50.6.9",
+    "eslint-plugin-n": "^17.17.0",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-promise": "^7.2.1",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "ses": "^1.12.0",
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.29.0",
+    "vitest": "^3.1.1"
+  },
+  "eslintConfig": {
+    "extends": "ipfs",
+    "parserOptions": {
+      "sourceType": "module"
+    }
+  },
+  "engines": {
+    "node": "^20 || >=22"
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  }
+}

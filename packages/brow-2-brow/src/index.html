@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browser-to-browser comm test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" defer src="./index.js"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-900 font-sans leading-relaxed">
+    <main class="container mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+      <h1 class="font-bold text-2xl text-blue-600 mb-4">
+        Browser-to-browser comm test
+      </h1>
+
+      <section class="my-4">
+        <h2 class="font-bold text-xl text-blue-600 mb-2">Node</h2>
+        <ul class="list-disc list-inside ml-4">
+          <li>
+            Peer ID:
+            <span class="font-bold" id="output-node-peer-id">Unknown</span>
+          </li>
+          <li>Status: <span id="output-node-status">Initialising</span></li>
+          <li>
+            Connections: <span id="output-peer-count">0</span>
+            <ul class="list-disc list-inside ml-6" id="output-peer-types"></ul>
+          </li>
+          <li>
+            My addresses: <span id="output-address-count">0</span>
+            <ul class="list-disc list-inside ml-6" id="output-addresses"></ul>
+          </li>
+        </ul>
+      </section>
+
+      <section class="my-6">
+        <h2 class="font-bold text-xl text-blue-600 mb-2">Peers</h2>
+        <p class="flex flex-row items-center gap-2">
+          <label
+            class="block text-gray-700 text-sm font-bold"
+            for="input-multiaddr"
+            >Multiaddr</label
+          >
+          <input
+            class="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="input-multiaddr"
+            type="text"
+            placeholder="/ip4/..."
+          />
+          <button
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            id="button-connect"
+            type="button"
+          >
+            Connect
+          </button>
+        </p>
+        <ul class="list-disc list-inside ml-4" id="output-peer-details"></ul>
+      </section>
+
+      <section class="my-6">
+        <h2 class="font-bold text-xl text-blue-600 mb-2">Message</h2>
+        <p class="flex flex-row items-center gap-2">
+          <label
+            class="block text-gray-700 text-sm font-bold"
+            for="input-target"
+            >Target</label
+          >
+          <input
+            class="shadow appearance-none border rounded w-20 py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="input-target"
+            type="text"
+            placeholder="target id"
+          />
+          <label
+            class="block text-gray-700 text-sm font-bold"
+            for="input-message"
+            >Message</label
+          >
+          <input
+            class="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            id="input-message"
+            type="text"
+            placeholder="your message here..."
+          />
+          <button
+            class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            id="button-send"
+            type="button"
+          >
+            Send
+          </button>
+        </p>
+      </section>
+
+      <h2 class="font-bold text-xl text-blue-600 mb-2">Output</h2>
+      <pre
+        class="bg-gray-100 p-4 rounded shadow-inner"
+        id="output-messages"
+      ></pre>
+
+      <hr class="my-6 border-gray-300" />
+    </main>
+  </body>
+</html>
