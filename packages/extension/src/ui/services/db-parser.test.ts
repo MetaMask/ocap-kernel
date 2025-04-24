@@ -109,7 +109,7 @@ describe('parseKernelDB', () => {
               eref: 'p+5',
               kref: 'kp2',
               state: 'fulfilled',
-              toVats: [],
+              toVats: ['v2'],
               value: {
                 body: '#"vat Bob got "hello" from Alice"',
                 slots: [],
@@ -119,7 +119,7 @@ describe('parseKernelDB', () => {
               eref: 'p+6',
               kref: 'kp3',
               state: 'fulfilled',
-              toVats: [],
+              toVats: ['v3'],
               value: {
                 body: '#"vat Carol got "hello" from Alice"',
                 slots: [],

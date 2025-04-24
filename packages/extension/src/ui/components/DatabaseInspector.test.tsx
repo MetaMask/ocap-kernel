@@ -89,7 +89,9 @@ describe('DatabaseInspector Component', () => {
 
     render(<DatabaseInspector />);
     await screen.findByRole('combobox');
-    expect(mockFetchTableData).toHaveBeenCalledWith('tableA');
+    await waitFor(() => {
+      expect(mockFetchTableData).toHaveBeenCalledWith('tableA');
+    });
     await userEvent.selectOptions(screen.getByRole('combobox'), 'tableB');
     await waitFor(() => {
       expect(mockFetchTableData).toHaveBeenCalledWith('tableB');

@@ -218,7 +218,7 @@ export function parseKernelDB(
       prm.toVats = prmCList
         .filter(
           (entry) =>
-            entry.eref === prm.eref &&
+            entry.kref === prm.kref &&
             entry.vat !== vat &&
             entry.eref.startsWith('p-'),
         )
