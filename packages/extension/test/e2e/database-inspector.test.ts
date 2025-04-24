@@ -11,7 +11,7 @@ test.describe('Database Inspector', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await popupPage.waitForSelector('h2:text("Kernel Vats")');
+    await popupPage.waitForSelector('h2:text("Kernel")');
     await popupPage.click('button:text("Clear All State")');
     await expect(popupPage.locator('#root')).toContainText('State cleared');
   });

@@ -8,7 +8,7 @@ import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Vat Manager', () => {
+test.describe('Control Panel', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
   let extensionId: string;
@@ -59,7 +59,7 @@ test.describe('Vat Manager', () => {
   }
 
   test('should load popup with kernel panel', async () => {
-    await expect(popupPage.locator('h2')).toHaveText('Kernel Vats');
+    await expect(popupPage.locator('h2')).toHaveText('Kernel');
     await expect(
       popupPage.locator('button:text("Clear All State")'),
     ).toBeVisible();
@@ -172,7 +172,7 @@ test.describe('Vat Manager', () => {
     ]);
     await expect(messageOutput).toContainText(expectedValues);
     await expect(messageOutput).not.toContainText('"initialized":true');
-    await popupPage.click('button:text("Vat Manager")');
+    await popupPage.click('button:text("Control Panel")');
     await launchVat('test-vat-new');
     await expect(popupPage.locator('table tr')).toHaveCount(2);
   });
@@ -306,6 +306,11 @@ test.describe('Vat Manager', () => {
   });
 
   test('should collect garbage', async () => {
+    const configTitle = popupPage.locator('[data-testid="config-title"]');
+    await expect(configTitle).toBeVisible();
+    await expect(
+      popupPage.locator('button:text("Database Inspector")'),
+    ).toBeVisible();
     await popupPage.click('button:text("Database Inspector")');
     await expect(messageOutput).toContainText(
       '{"key":"vats.terminated","value":"[]"}',
@@ -336,7 +341,7 @@ test.describe('Vat Manager', () => {
     for (const value of v1ko3Values) {
       await expect(messageOutput).toContainText(value);
     }
-    await popupPage.click('button:text("Vat Manager")');
+    await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('td button:text("Terminate")').last().click();
     await expect(messageOutput).toContainText('Terminated vat "v3"');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
@@ -351,7 +356,8 @@ test.describe('Vat Manager', () => {
     for (const value of v3Values) {
       await expect(messageOutput).toContainText(value);
     }
-    await popupPage.click('button:text("Vat Manager")');
+    await popupPage.click('button:text("Control Panel")');
+
     await popupPage.click('button:text("Collect Garbage")');
     await expect(messageOutput).toContainText('Garbage collected');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
@@ -369,7 +375,7 @@ test.describe('Vat Manager', () => {
     await expect(messageOutput).toContainText(
       '{"key":"kp3.refCount","value":"1"}',
     );
-    await popupPage.click('button:text("Vat Manager")');
+    await popupPage.click('button:text("Control Panel")');
     // delete v1
     await popupPage.locator('td button:text("Terminate")').first().click();
     await expect(messageOutput).toContainText('Terminated vat "v1"');
