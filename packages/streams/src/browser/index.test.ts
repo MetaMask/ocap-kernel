@@ -16,6 +16,7 @@ describe('index', () => {
       'PostMessageWriter',
       'initializeMessageChannel',
       'receiveMessagePort',
+      'splice',
     ]);
   });
 });

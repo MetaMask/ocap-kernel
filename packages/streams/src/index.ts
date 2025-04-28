@@ -5,3 +5,4 @@ export {
   NodeWorkerWriter,
   NodeWorkerDuplexStream,
 } from './node/NodeWorkerStream.ts';
+export { splice } from './splice.ts';
