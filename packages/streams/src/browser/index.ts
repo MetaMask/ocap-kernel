@@ -23,4 +23,4 @@ export type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from './PostMessageStream.ts';
-export { splice } from '../splice.ts';
+export { split } from '../split.ts';

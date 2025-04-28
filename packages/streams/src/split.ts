@@ -4,7 +4,7 @@ import type { DuplexStream } from './BaseDuplexStream.ts';
 import { BaseReader } from './BaseStream.ts';
 import type { BaseReaderArgs, ReceiveInput } from './BaseStream.ts';
 
-class SplicedReader<Read> extends BaseReader<Read> {
+class SplitReader<Read> extends BaseReader<Read> {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(args: BaseReaderArgs<Read>) {
     super(args);
@@ -12,27 +12,27 @@ class SplicedReader<Read> extends BaseReader<Read> {
 
   static make<Read>(
     args: BaseReaderArgs<Read>,
-  ): [SplicedReader<Read>, ReceiveInput] {
-    const reader = new SplicedReader<Read>(args);
+  ): [SplitReader<Read>, ReceiveInput] {
+    const reader = new SplitReader<Read>(args);
     return [reader, reader.getReceiveInput()] as const;
   }
 }
 
 /**
- * A {@link DuplexStream} for use within {@link splice} that reads from a reader and forwards
+ * A {@link DuplexStream} for use within {@link split} that reads from a reader and forwards
  * writes to a parent. The reader should output a subset of the parent stream's values based
  * on some predicate.
  */
-class SplicedStream<ParentRead, Read extends ParentRead, Write>
+class SplitStream<ParentRead, Read extends ParentRead, Write>
   implements DuplexStream<Read, Write>
 {
   readonly #parent: DuplexStream<ParentRead, Write>;
 
-  readonly #reader: SplicedReader<Read>;
+  readonly #reader: SplitReader<Read>;
 
   constructor(
     parent: DuplexStream<ParentRead, Write>,
-    reader: SplicedReader<Read>,
+    reader: SplitReader<Read>,
   ) {
     this.#parent = parent;
     this.#reader = reader;
@@ -41,13 +41,13 @@ class SplicedStream<ParentRead, Read extends ParentRead, Write>
   static make<ParentRead, Read extends ParentRead, Write>(
     parent: DuplexStream<ParentRead, Write>,
   ): {
-    stream: SplicedStream<ParentRead, Read, Write>;
+    stream: SplitStream<ParentRead, Read, Write>;
     receiveInput: ReceiveInput;
   } {
-    const [reader, receiveInput] = SplicedReader.make<Read>({
+    const [reader, receiveInput] = SplitReader.make<Read>({
       name: this.constructor.name,
     });
-    const stream = new SplicedStream(parent, reader);
+    const stream = new SplitStream(parent, reader);
     return { stream, receiveInput };
   }
 
@@ -91,7 +91,7 @@ class SplicedStream<ParentRead, Read extends ParentRead, Write>
   }
 }
 
-export function splice<
+export function split<
   Read,
   Write,
   ReadA extends Read,
@@ -104,7 +104,7 @@ export function splice<
   predicateB: (value: Read) => value is ReadB,
 ): [DuplexStream<ReadA, WriteA>, DuplexStream<ReadB, WriteB>];
 
-export function splice<
+export function split<
   Read,
   Write,
   ReadA extends Read,
@@ -124,7 +124,7 @@ export function splice<
   DuplexStream<ReadC, WriteC>,
 ];
 
-export function splice<
+export function split<
   Read,
   Write,
   ReadA extends Read,
@@ -149,19 +149,19 @@ export function splice<
 ];
 
 /**
- * Splices a stream into multiple streams based on a list of predicates.
+ * Splits a stream into multiple streams based on a list of predicates.
  * Supports up to 4 predicates with type checking, and any number without!
  *
- * @param parentStream - The stream to splice.
+ * @param parentStream - The stream to split.
  * @param predicates - The predicates to use to split the stream.
- * @returns An array of splices.
+ * @returns An array of "splits" of the parent stream.
  */
-export function splice<Read, Write>(
+export function split<Read, Write>(
   parentStream: DuplexStream<Read, Write>,
   ...predicates: ((value: unknown) => boolean)[]
 ): DuplexStream<Read, Write>[] {
-  const splices = predicates.map(
-    (predicate) => [predicate, SplicedStream.make(parentStream)] as const,
+  const splits = predicates.map(
+    (predicate) => [predicate, SplitStream.make(parentStream)] as const,
   );
 
   // eslint-disable-next-line no-void
@@ -170,7 +170,7 @@ export function splice<Read, Write>(
     try {
       for await (const value of parentStream) {
         let matched = false;
-        for (const [predicate, { receiveInput }] of splices) {
+        for (const [predicate, { receiveInput }] of splits) {
           if ((matched = predicate(value))) {
             await receiveInput(value);
             break;
@@ -187,10 +187,10 @@ export function splice<Read, Write>(
       error = caughtError as Error;
     }
 
-    for (const [, { stream }] of splices) {
+    for (const [, { stream }] of splits) {
       await stream.end(error);
     }
   })();
 
-  return splices.map(([, { stream }]) => stream);
+  return splits.map(([, { stream }]) => stream);
 }

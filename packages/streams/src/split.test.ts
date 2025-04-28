@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { splice } from './splice.ts';
+import { split } from './split.ts';
 import { TestDuplexStream } from '../test/stream-mocks.ts';
 
-describe('splice', () => {
+describe('split', () => {
   it('should forward values to the correct sub-stream', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -30,7 +30,7 @@ describe('splice', () => {
 
   it('should end the sub-streams when the parent stream ends', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -50,7 +50,7 @@ describe('splice', () => {
 
   it('should end all streams when a sub-stream ends', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -70,7 +70,7 @@ describe('splice', () => {
 
   it('should forward errors', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -86,7 +86,7 @@ describe('splice', () => {
 
   it('should end all streams when a sub-stream errors', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -96,7 +96,7 @@ describe('splice', () => {
     await streamA.throw(new Error('test'));
 
     // We can't observe the error from the parent stream because it's being read
-    // in the body of splice().
+    // in the body of split().
     expect(await stream.next()).toStrictEqual({ done: true, value: undefined });
     await expect(nextA).rejects.toThrow('test');
     await expect(nextB).rejects.toThrow('test');
@@ -104,7 +104,7 @@ describe('splice', () => {
 
   it('should error if no predicates match', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -125,7 +125,7 @@ describe('splice', () => {
   it('should allow writing to the sub-streams', async () => {
     const dispatch = vi.fn();
     const stream = await TestDuplexStream.make<string>(dispatch);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -141,7 +141,7 @@ describe('splice', () => {
 
   it('should allow draining sub-streams', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -160,7 +160,7 @@ describe('splice', () => {
 
   it('should allow iterating over the sub-streams', async () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
@@ -181,7 +181,7 @@ describe('splice', () => {
     const stream = await TestDuplexStream.make<string>(() => undefined);
     const sinkDispatch = vi.fn();
     const sink = await TestDuplexStream.make<string>(sinkDispatch);
-    const [streamA, streamB] = splice(
+    const [streamA, streamB] = split(
       stream,
       (value) => value === 'a',
       (value) => value === 'b',
