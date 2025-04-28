@@ -150,7 +150,7 @@ export function splice<
 
 /**
  * Splices a stream into multiple streams based on a list of predicates.
- * Supports up to 4 predicates.
+ * Supports up to 4 predicates with type checking, and any number without!
  *
  * @param parentStream - The stream to splice.
  * @param predicates - The predicates to use to split the stream.
