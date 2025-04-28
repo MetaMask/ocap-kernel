@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getObjectMethods } from './object.ts';
 import { makeMapKVStore } from '../../../test/storage.ts';
-import type { EndpointId } from '../../types.ts';
+import type { EndpointId, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
 describe('object-methods', () => {
@@ -73,6 +73,63 @@ describe('object-methods', () => {
       expect(() => objectStore.getOwner('ko99')).toThrow(
         'unknown kernel object ko99',
       );
+    });
+  });
+
+  describe('getRootObject', () => {
+    it('returns the root object KRef for a vat', () => {
+      const vatId: VatId = 'v1';
+      const rootKref = 'ko42';
+
+      // Set up a root object entry in the KV store
+      kv.set(`${vatId}.c.o+0`, rootKref);
+
+      // Should return the root object KRef
+      expect(objectStore.getRootObject(vatId)).toBe(rootKref);
+    });
+
+    it('returns undefined when no root object exists', () => {
+      const vatId: VatId = 'v2';
+
+      // No setup needed - the root object doesn't exist
+
+      // Should return undefined
+      expect(objectStore.getRootObject(vatId)).toBeUndefined();
+    });
+  });
+
+  describe('isRootObject', () => {
+    it('returns true when the KRef is the root object for the vat', () => {
+      const vatId: VatId = 'v1';
+      const rootKref = 'ko42';
+
+      // Set up a root object entry in the KV store
+      kv.set(`${vatId}.c.o+0`, rootKref);
+
+      // Should return true for the matching KRef
+      expect(objectStore.isRootObject(rootKref, vatId)).toBe(true);
+    });
+
+    it('returns false when the KRef is not the root object for the vat', () => {
+      const vatId: VatId = 'v1';
+      const rootKref = 'ko42';
+      const nonRootKref = 'ko99';
+
+      // Set up a root object entry in the KV store
+      kv.set(`${vatId}.c.o+0`, rootKref);
+
+      // Should return false for a different KRef
+      expect(objectStore.isRootObject(nonRootKref, vatId)).toBe(false);
+    });
+
+    it('returns false when no root object exists for the vat', () => {
+      const vatId: VatId = 'v2';
+      const kref = 'ko42';
+
+      // No setup needed - the root object doesn't exist
+
+      // Should return false since there's no root object
+      expect(objectStore.isRootObject(kref, vatId)).toBe(false);
     });
   });
 

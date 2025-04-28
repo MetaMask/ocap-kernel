@@ -23,6 +23,26 @@ export function getBaseMethods(kv: KVStore) {
   }
 
   /**
+   * Generate the storage key for a kernel entity's reference count.
+   *
+   * @param kref - The KRef of interest.
+   * @returns the key to store the indicated reference count at.
+   */
+  function refCountKey(kref: KRef): string {
+    return `${kref}.refCount`;
+  }
+
+  /**
+   * Generate the storage key for a kernel entity's owner.
+   *
+   * @param kref - The KRef of interest.
+   * @returns the key to store the indicated owner at.
+   */
+  function getOwnerKey(kref: KRef): string {
+    return `${kref}.owner`;
+  }
+
+  /**
    * Increment the value of a persistently stored counter.
    *
    * Note that the while the value is interpreted as an integer (in order to
@@ -176,6 +196,8 @@ export function getBaseMethods(kv: KVStore) {
 
   return {
     getSlotKey,
+    refCountKey,
+    getOwnerKey,
     incCounter,
     provideCachedStoredValue,
     provideRawStoredValue,

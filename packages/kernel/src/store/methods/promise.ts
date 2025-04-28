@@ -2,9 +2,7 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
-import { getCListMethods } from './clist.ts';
 import { getQueueMethods } from './queue.ts';
-import { getRefCountMethods } from './refcount.ts';
 import type {
   KRef,
   KernelPromise,
@@ -15,6 +13,7 @@ import type {
 } from '../../types.ts';
 import { insistVatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
+import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { isPromiseRef } from '../utils/promise-ref.ts';
@@ -28,12 +27,10 @@ import { isPromiseRef } from '../utils/promise-ref.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getPromiseMethods(ctx: StoreContext) {
-  const { incCounter, provideStoredQueue, getPrefixedKeys } = getBaseMethods(
-    ctx.kv,
-  );
+  const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
+    getBaseMethods(ctx.kv);
   const { enqueueRun } = getQueueMethods(ctx);
-  const { refCountKey } = getRefCountMethods(ctx);
-  const { incrementRefCount, decrementRefCount } = getCListMethods(ctx);
+  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with

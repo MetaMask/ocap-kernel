@@ -421,6 +421,34 @@ export class Kernel {
   }
 
   /**
+   * Pin a vat root.
+   *
+   * @param vatId - The ID of the vat.
+   * @returns The KRef of the vat root.
+   */
+  pinVatRoot(vatId: VatId): KRef {
+    const kref = this.#kernelStore.getRootObject(vatId);
+    if (!kref) {
+      throw new VatNotFoundError(vatId);
+    }
+    this.#kernelStore.pinObject(kref);
+    return kref;
+  }
+
+  /**
+   * Unpin a vat root.
+   *
+   * @param vatId - The ID of the vat.
+   */
+  unpinVatRoot(vatId: VatId): void {
+    const kref = this.#kernelStore.getRootObject(vatId);
+    if (!kref) {
+      throw new VatNotFoundError(vatId);
+    }
+    this.#kernelStore.unpinObject(kref);
+  }
+
+  /**
    * Reset the kernel state.
    * This is for debugging purposes only.
    */

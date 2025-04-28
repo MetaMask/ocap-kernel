@@ -5,6 +5,7 @@ import { getCListMethods } from './clist.ts';
 import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
+import { getRefCountMethods } from './refcount.ts';
 import { insistVatId } from '../../types.ts';
 import type { EndpointId, KRef, VatConfig, VatId, VRef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
@@ -28,14 +29,14 @@ const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
-  const { getPrefixedKeys, getSlotKey } = getBaseMethods(ctx.kv);
+  const { getPrefixedKeys, getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
   const { deleteCListEntry } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
   const { initKernelPromise, setPromiseDecider, getKernelPromise } =
     getPromiseMethods(ctx);
   const { initKernelObject } = getObjectMethods(ctx);
-  const { addCListEntry, incrementRefCount, decrementRefCount } =
-    getCListMethods(ctx);
+  const { addCListEntry } = getCListMethods(ctx);
+  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Delete all persistent state associated with an endpoint.
@@ -233,7 +234,7 @@ export function getVatMethods(ctx: StoreContext) {
       const kref = ctx.kv.get(key);
       assert(kref, key);
       // deletes c-list and .owner, adds to maybeFreeKrefs
-      const ownerKey = `${kref}.owner`;
+      const ownerKey = getOwnerKey(kref);
       const ownerVat = ctx.kv.get(ownerKey);
       ownerVat === vatID || Fail`export ${kref} not owned by old vat`;
       ctx.kv.delete(ownerKey);

@@ -63,8 +63,8 @@ describe('Garbage Collection', () => {
     importerVatId = vats.find(
       (rows) => rows.config.parameters?.name === 'Importer',
     )?.id as VatId;
-    exporterKRef = kernelStore.erefToKref(exporterVatId, 'o+0') as KRef;
-    importerKRef = kernelStore.erefToKref(importerVatId, 'o+0') as KRef;
+    exporterKRef = kernelStore.getRootObject(exporterVatId) as KRef;
+    importerKRef = kernelStore.getRootObject(importerVatId) as KRef;
   });
 
   it('objects are tracked with reference counts', async () => {

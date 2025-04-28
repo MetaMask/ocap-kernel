@@ -20,6 +20,22 @@ describe('base-methods', () => {
     });
   });
 
+  describe('refCountKey', () => {
+    it('generates correct reference count keys', () => {
+      expect(baseStore.refCountKey('ko1')).toBe('ko1.refCount');
+      expect(baseStore.refCountKey('kp42')).toBe('kp42.refCount');
+      expect(baseStore.refCountKey('v7')).toBe('v7.refCount');
+    });
+  });
+
+  describe('getOwnerKey', () => {
+    it('generates correct owner keys', () => {
+      expect(baseStore.getOwnerKey('ko1')).toBe('ko1.owner');
+      expect(baseStore.getOwnerKey('kp42')).toBe('kp42.owner');
+      expect(baseStore.getOwnerKey('v7')).toBe('v7.owner');
+    });
+  });
+
   describe('incCounter', () => {
     it('increments a stored counter value', () => {
       // Create a stored value to increment
@@ -159,6 +175,43 @@ describe('base-methods', () => {
   });
 
   describe('provideStoredQueue', () => {
+    it('creates a queue with cache when cached=true', () => {
+      const cachedQueue = baseStore.provideStoredQueue('cached-queue', true);
+      cachedQueue.enqueue({ id: 1 });
+      expect(kv.get('queue.cached-queue.head')).toBe('2');
+      cachedQueue.delete();
+      expect(kv.get('queue.cached-queue.head')).toBeUndefined();
+    });
+
+    it('creates a queue without cache when cached=false', () => {
+      const rawQueue = baseStore.provideStoredQueue('raw-queue', false);
+      rawQueue.enqueue({ id: 1 });
+      expect(kv.get('queue.raw-queue.head')).toBe('2');
+      rawQueue.delete();
+      expect(kv.get('queue.raw-queue.head')).toBeUndefined();
+    });
+
+    it('throws if queue is not initialized properly', () => {
+      kv.set('queue.broken-queue.head', '1');
+      const originalSet = kv.set;
+      vi.spyOn(kv, 'set').mockImplementation((key, value) => {
+        if (key !== 'queue.broken-queue.tail') {
+          return originalSet.call(kv, key, value);
+        }
+        return undefined;
+      });
+      expect(() => baseStore.provideStoredQueue('broken-queue')).toThrow(
+        'queue broken-queue not initialized',
+      );
+    });
+
+    it('returns undefined when dequeueing from a deleted queue', () => {
+      const queue = baseStore.provideStoredQueue('test-dequeue-deleted');
+      queue.enqueue({ id: 'test' });
+      kv.delete('queue.test-dequeue-deleted.head');
+      expect(queue.dequeue()).toBeUndefined();
+    });
+
     it('throws when enqueueing into a deleted queue', () => {
       // Create a queue properly
       const queue = baseStore.provideStoredQueue('test', false);

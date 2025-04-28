@@ -1,5 +1,5 @@
 import type { KVStore } from '@ocap/store';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getCListMethods } from './clist.ts';
 import { makeMapKVStore } from '../../../test/storage.ts';
@@ -9,16 +9,9 @@ import type { StoreContext } from '../types.ts';
 describe('clist-methods', () => {
   let kv: KVStore;
   let clistMethods: ReturnType<typeof getCListMethods>;
-  let maybeFreeKrefs: Set<KRef>;
-
-  // Mock dependencies
-  const mockGetObjectRefCount = vi.fn();
-  const mockSetObjectRefCount = vi.fn();
-  const mockClearReachableFlag = vi.fn();
 
   beforeEach(() => {
     kv = makeMapKVStore();
-    maybeFreeKrefs = new Set<KRef>();
 
     // Initialize endpoint counters
     kv.set('e.nextPromiseId.v1', '1');
@@ -26,21 +19,10 @@ describe('clist-methods', () => {
     kv.set('e.nextPromiseId.r1', '1');
     kv.set('e.nextObjectId.r1', '1');
 
-    // Reset mocks
-    mockGetObjectRefCount.mockReset();
-    mockSetObjectRefCount.mockReset();
-    mockClearReachableFlag.mockReset();
-
-    // Default mock implementations
-    mockGetObjectRefCount.mockImplementation(() => ({
-      reachable: 1,
-      recognizable: 1,
-    }));
-
     // Create the store with mocked dependencies
     clistMethods = getCListMethods({
       kv,
-      maybeFreeKrefs,
+      maybeFreeKrefs: new Set(),
     } as StoreContext);
   });
 
@@ -203,93 +185,49 @@ describe('clist-methods', () => {
     });
   });
 
-  describe('incrementRefCount', () => {
-    it('increments promise reference counts', () => {
-      const kref: KRef = 'kp1';
-
-      // Set up initial refCount
-      kv.set(`${kref}.refCount`, '1');
-
-      clistMethods.incrementRefCount(kref, 'test');
-
-      // Check that the refCount was incremented
-      expect(kv.get(`${kref}.refCount`)).toBe('2');
-    });
-
-    it('does not increment object counts for exports', () => {
+  describe('forgetEref', () => {
+    it('removes a c-list entry when ERef exists', () => {
+      const endpointId: EndpointId = 'v1';
       const kref: KRef = 'ko1';
-
-      clistMethods.incrementRefCount(kref, 'test', { isExport: true });
-
-      // Should not call getObjectRefCount or setObjectRefCount
-      expect(mockGetObjectRefCount).not.toHaveBeenCalled();
-      expect(mockSetObjectRefCount).not.toHaveBeenCalled();
+      const eref: ERef = 'o-1';
+      clistMethods.addCListEntry(endpointId, kref, eref);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
+      clistMethods.forgetEref(endpointId, eref);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBeUndefined();
+      expect(kv.get(`${endpointId}.c.${eref}`)).toBeUndefined();
     });
 
-    it('throws for empty kref', () => {
-      expect(() =>
-        clistMethods.incrementRefCount('' as KRef, 'test', {}),
-      ).toThrow('incrementRefCount called with empty kref');
+    it('does nothing when ERef does not exist', () => {
+      const endpointId: EndpointId = 'v1';
+      const nonExistentEref: ERef = 'o-99';
+      expect(() => {
+        clistMethods.forgetEref(endpointId, nonExistentEref);
+      }).not.toThrow();
+      expect(kv.get(`${endpointId}.c.${nonExistentEref}`)).toBeUndefined();
     });
   });
 
-  describe('decrementRefCount', () => {
-    it('decrements promise reference counts', () => {
-      const kref: KRef = 'kp1';
-
-      // Set up initial refCount
-      kv.set(`${kref}.refCount`, '2');
-
-      const result = clistMethods.decrementRefCount(kref, 'test');
-
-      // Check that the refCount was decremented
-      expect(kv.get(`${kref}.refCount`)).toBe('1');
-
-      expect(result).toBe(false); // Not zero yet
-    });
-
-    it('adds promise to maybeFreeKrefs when count reaches zero', () => {
-      const kref: KRef = 'kp1';
-
-      // Set up initial refCount
-      kv.set(`${kref}.refCount`, '1');
-
-      const result = clistMethods.decrementRefCount(kref, 'test');
-
-      // Check that the refCount was decremented to zero
-      expect(kv.get(`${kref}.refCount`)).toBe('0');
-      expect(result).toBe(true); // Now zero
-      expect(maybeFreeKrefs.has(kref)).toBe(true);
-    });
-
-    it('does not decrement object counts for exports', () => {
+  describe('forgetKref', () => {
+    it('removes a c-list entry when KRef exists', () => {
+      const endpointId: EndpointId = 'v1';
       const kref: KRef = 'ko1';
-
-      const result = clistMethods.decrementRefCount(kref, 'test', {
-        isExport: true,
-      });
-
-      // Should not call getObjectRefCount or setObjectRefCount
-      expect(mockGetObjectRefCount).not.toHaveBeenCalled();
-      expect(mockSetObjectRefCount).not.toHaveBeenCalled();
-      expect(result).toBe(false);
+      const eref: ERef = 'o-1';
+      clistMethods.addCListEntry(endpointId, kref, eref);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
+      clistMethods.forgetKref(endpointId, kref);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBeUndefined();
+      expect(kv.get(`${endpointId}.c.${eref}`)).toBeUndefined();
     });
 
-    it('throws for empty kref', () => {
-      expect(() =>
-        clistMethods.decrementRefCount('' as KRef, 'test', {}),
-      ).toThrow('decrementRefCount called with empty kref');
-    });
-
-    it('throws for underflow on promise refCount', () => {
-      const kref: KRef = 'kp1';
-
-      // Set up initial refCount at 0
-      kv.set(`${kref}.refCount`, '0');
-
-      expect(() => clistMethods.decrementRefCount(kref, 'test')).toThrow(
-        /refCount underflow/u,
-      );
+    it('does nothing when KRef does not exist', () => {
+      const endpointId: EndpointId = 'v1';
+      const nonExistentKref: KRef = 'ko99';
+      expect(() => {
+        clistMethods.forgetKref(endpointId, nonExistentKref);
+      }).not.toThrow();
+      expect(kv.get(`${endpointId}.c.${nonExistentKref}`)).toBeUndefined();
     });
   });
 });

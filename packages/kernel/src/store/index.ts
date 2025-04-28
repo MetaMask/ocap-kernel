@@ -63,6 +63,7 @@ import { getCListMethods } from './methods/clist.ts';
 import { getGCMethods } from './methods/gc.ts';
 import { getIdMethods } from './methods/id.ts';
 import { getObjectMethods } from './methods/object.ts';
+import { getPinMethods } from './methods/pinned.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
@@ -135,6 +136,8 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const vat = getVatMethods(context);
   const reachable = getReachableMethods(context);
   const translators = getTranslators(context);
+  const pinned = getPinMethods(context);
+
   /**
    * Create a new VatStore for a vat.
    *
@@ -190,6 +193,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...cList,
     ...vat,
     ...translators,
+    ...pinned,
     makeVatStore,
     deleteVat,
     clear,

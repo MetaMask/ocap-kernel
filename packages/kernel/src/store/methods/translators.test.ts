@@ -133,6 +133,7 @@ describe('getTranslators', () => {
         result: resultEref,
       };
       const { translateMessageKtoV } = getTranslators(mockCtx);
+      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoV(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
@@ -162,6 +163,7 @@ describe('getTranslators', () => {
         result: null,
       };
       const { translateMessageKtoV } = getTranslators(mockCtx);
+      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoV(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
@@ -191,25 +193,51 @@ describe('getTranslators', () => {
     it('translates "send" syscall', () => {
       const vref: VRef = 'v1';
       const kref: KRef = 'k1';
-      const vMessage: Message = {
-        methargs: {
-          body: 'test method',
-          slots: ['v2'],
-        } as unknown as CapData<VRef>,
-        result: 'v3',
-      };
-      const kMessage: Message = {
-        methargs: {
-          body: 'test method',
-          slots: ['k2'],
+      const vso: VatSyscallObject = [
+        'send',
+        vref,
+        {
+          methargs: {
+            body: 'test method',
+            slots: ['v2'],
+          },
+          result: 'v3',
         },
-        result: 'k3',
-      };
-      const vso: VatSyscallObject = ['send', vref, vMessage];
-      const expectedKso: VatSyscallObject = ['send', kref, kMessage];
+      ] as VatSyscallObject;
+      const expectedKso: VatSyscallObject = [
+        'send',
+        kref,
+        {
+          methargs: {
+            body: 'test method',
+            slots: ['k2'],
+          },
+          result: 'k3',
+        },
+      ] as VatSyscallObject;
       const { translateSyscallVtoK } = getTranslators(mockCtx);
       const result = translateSyscallVtoK(vatId, vso);
       expect(result).toStrictEqual(expectedKso);
+    });
+
+    it('throws TypeError when message.result in "send" syscall is not a string', () => {
+      const vref: VRef = 'v1';
+      const vso: VatSyscallObject = [
+        'send',
+        vref,
+        {
+          methargs: {
+            body: 'test method',
+            slots: ['v2'],
+          },
+          result: null,
+        },
+      ] as VatSyscallObject;
+
+      const { translateSyscallVtoK } = getTranslators(mockCtx);
+      expect(() => translateSyscallVtoK(vatId, vso)).toThrow(
+        TypeError('message result must be a string'),
+      );
     });
 
     it('translates "subscribe" syscall', () => {

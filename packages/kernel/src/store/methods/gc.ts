@@ -1,7 +1,6 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { getCListMethods } from './clist.ts';
 import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
@@ -25,11 +24,10 @@ import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getGCMethods(ctx: StoreContext) {
-  const { getSlotKey } = getBaseMethods(ctx.kv);
-  const { getRefCount } = getRefCountMethods(ctx);
+  const { getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
+  const { getRefCount, decrementRefCount } = getRefCountMethods(ctx);
   const { getObjectRefCount, deleteKernelObject } = getObjectMethods(ctx);
   const { getKernelPromise, deleteKernelPromise } = getPromiseMethods(ctx);
-  const { decrementRefCount } = getCListMethods(ctx);
   const { getImporters, isVatTerminated } = getVatMethods(ctx);
   const { getReachableFlag, getReachableAndVatSlot } = getReachableMethods(ctx);
   /**
@@ -145,7 +143,7 @@ export function getGCMethods(ctx: StoreContext) {
       if (type === 'object') {
         const { reachable, recognizable } = getObjectRefCount(kref);
         if (reachable === 0) {
-          const ownerKey = `${kref}.owner`;
+          const ownerKey = getOwnerKey(kref);
           let ownerVatID = ctx.kv.get(ownerKey);
           const terminated = isVatTerminated(ownerVatID as VatId);
 

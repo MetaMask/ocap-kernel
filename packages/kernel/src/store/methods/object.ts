@@ -1,7 +1,6 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { getRefCountMethods } from './refcount.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -15,8 +14,9 @@ import { makeKernelSlot } from '../utils/kernel-slots.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getObjectMethods(ctx: StoreContext) {
-  const { incCounter } = getBaseMethods(ctx.kv);
-  const { refCountKey } = getRefCountMethods(ctx);
+  const { getSlotKey, incCounter, refCountKey, getOwnerKey } = getBaseMethods(
+    ctx.kv,
+  );
 
   /**
    * Create a new kernel object.  The new object will be born with reference and
@@ -28,7 +28,7 @@ export function getObjectMethods(ctx: StoreContext) {
    */
   function initKernelObject(owner: EndpointId): KRef {
     const koId = getNextObjectId();
-    ctx.kv.set(`${koId}.owner`, owner);
+    ctx.kv.set(getOwnerKey(koId), owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
     return koId;
   }
@@ -41,7 +41,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The identity of the vat or remote that owns the object.
    */
   function getOwner(koId: KRef, throwIfUnknown = true): EndpointId | undefined {
-    const owner = ctx.kv.get(`${koId}.owner`);
+    const owner = ctx.kv.get(getOwnerKey(koId));
     if (throwIfUnknown && owner === undefined) {
       throw Error(`unknown kernel object ${koId}`);
     }
@@ -49,18 +49,26 @@ export function getObjectMethods(ctx: StoreContext) {
   }
 
   /**
+   * Get the root object for a vat.
+   *
+   * @param vatId - The ID of the vat of interest.
+   * @returns The root object for the vat.
+   */
+  function getRootObject(vatId: VatId): KRef | undefined {
+    return ctx.kv.get(getSlotKey(vatId, 'o+0'));
+  }
+
+  /**
    * True if `kref` is the root object for `vatId`.
    *
    * Every vat exports its root as slot `o+0`, which gives a c‑list entry
-   *     `<vatId>.c.o+0  →  <kref>`
    *
    * @param kref - The KRef of the object of interest.
    * @param vatId - The ID of the vat of interest.
    * @returns True if `kref` is the root object for `vatId`.
    */
   function isRootObject(kref: KRef, vatId: VatId): boolean {
-    const rootKref = ctx.kv.get(`${vatId}.c.o+0`);
-    return rootKref === kref;
+    return getRootObject(vatId) === kref;
   }
 
   /**
@@ -69,7 +77,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @param koId - The KRef of the kernel object to delete.
    */
   function deleteKernelObject(koId: KRef): void {
-    ctx.kv.delete(`${koId}.owner`);
+    ctx.kv.delete(getOwnerKey(koId));
     ctx.kv.delete(refCountKey(koId));
   }
 
@@ -127,6 +135,7 @@ export function getObjectMethods(ctx: StoreContext) {
   return {
     initKernelObject,
     getOwner,
+    getRootObject,
     isRootObject,
     deleteKernelObject,
     getNextObjectId,

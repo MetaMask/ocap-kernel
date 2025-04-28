@@ -8,7 +8,7 @@ import { getQueueMethods } from './queue.ts';
 import { getRefCountMethods } from './refcount.ts';
 import type { KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
-import { getCListMethods } from './clist.ts';
+import * as promiseRefModule from '../utils/promise-ref.ts';
 
 vi.mock('./base.ts', () => ({
   getBaseMethods: vi.fn(),
@@ -19,11 +19,7 @@ vi.mock('./queue.ts', () => ({
 }));
 
 vi.mock('./refcount.ts', () => ({
-  getRefCountMethods: vi.fn(),
-}));
-
-vi.mock('./clist.ts', () => ({
-  getCListMethods: vi.fn(() => ({
+  getRefCountMethods: vi.fn(() => ({
     incrementRefCount: vi.fn(),
     decrementRefCount: vi.fn(),
   })),
@@ -42,6 +38,11 @@ vi.mock('../utils/parse-ref.ts', () => ({
     }
     return { context: 'vat', isPromise: false };
   }),
+}));
+
+// Mock the isPromiseRef function
+vi.mock('../utils/promise-ref.ts', () => ({
+  isPromiseRef: vi.fn((kref) => kref.startsWith('kp')),
 }));
 
 describe('promise store methods', () => {
@@ -75,6 +76,7 @@ describe('promise store methods', () => {
     mockProvideStoredQueue = vi.fn(() => mockQueue);
 
     (getBaseMethods as ReturnType<typeof vi.fn>).mockReturnValue({
+      refCountKey: mockRefCountKey,
       incCounter: mockIncCounter,
       provideStoredQueue: mockProvideStoredQueue,
       getPrefixedKeys: mockGetPrefixedKeys,
@@ -85,13 +87,14 @@ describe('promise store methods', () => {
     });
 
     (getRefCountMethods as ReturnType<typeof vi.fn>).mockReturnValue({
-      refCountKey: mockRefCountKey,
-    });
-
-    (getCListMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       incrementRefCount: mockIncrementRefCount,
       decrementRefCount: mockDecrementRefCount,
     });
+
+    // Reset the isPromiseRef mock
+    vi.mocked(promiseRefModule.isPromiseRef).mockImplementation(
+      (kref) => typeof kref === 'string' && kref.startsWith('kp'),
+    );
 
     context = {
       kv: {
@@ -362,10 +365,11 @@ describe('promise store methods', () => {
   describe('enqueuePromiseMessage', () => {
     it('adds a message to the promise queue', () => {
       const kpid = 'kp123';
-      const message: Message = { method: 'someMethod' } as unknown as Message;
-
+      const message = {
+        methargs: { body: 'test', slots: [] },
+        result: null as string | null,
+      };
       promiseMethods.enqueuePromiseMessage(kpid, message);
-
       expect(mockProvideStoredQueue).toHaveBeenCalledWith(kpid, false);
       expect(mockQueue.enqueue).toHaveBeenCalledWith(message);
     });
@@ -476,6 +480,185 @@ describe('promise store methods', () => {
       const result = Array.from(promiseMethods.getPromisesByDecider(vatId));
 
       expect(result).toStrictEqual([]);
+    });
+  });
+
+  describe('getKpidsToRetire', () => {
+    it('returns the original promise kpid when there are no promises in the resolution value', () => {
+      const origKpid = 'kp123';
+      const origValue: CapData<KRef> = {
+        body: 'someValue',
+        slots: ['ko1', 'ko2'], // non-promise slots
+      };
+
+      const result = promiseMethods.getKpidsToRetire(origKpid, origValue);
+
+      expect(result).toStrictEqual([origKpid]);
+    });
+
+    it('returns kpids of resolved promises found in the resolution value', () => {
+      const origKpid = 'kp123';
+      const resolvedPromise1 = 'kp456';
+      const resolvedPromise2 = 'kp789';
+
+      // Set up a resolution value with promise references
+      const origValue: CapData<KRef> = {
+        body: 'value with promises',
+        slots: ['ko1', resolvedPromise1, resolvedPromise2],
+      };
+
+      // Set up the promises in the KV store
+      mockKV.set(`${resolvedPromise1}.state`, 'fulfilled');
+      mockKV.set(
+        `${resolvedPromise1}.value`,
+        JSON.stringify({
+          body: 'fulfilled value 1',
+          slots: [],
+        }),
+      );
+
+      mockKV.set(`${resolvedPromise2}.state`, 'rejected');
+      mockKV.set(
+        `${resolvedPromise2}.value`,
+        JSON.stringify({
+          body: 'rejected value',
+          slots: [],
+        }),
+      );
+
+      const result = promiseMethods.getKpidsToRetire(origKpid, origValue);
+
+      // Should include the original promise and the two resolved promises
+      expect(result).toContain(origKpid);
+      expect(result).toContain(resolvedPromise1);
+      expect(result).toContain(resolvedPromise2);
+      expect(result).toHaveLength(3);
+    });
+
+    it('handles promises with nested promise references', () => {
+      const origKpid = 'kp100';
+      const promise1 = 'kp101';
+      const promise2 = 'kp102';
+      const promise3 = 'kp103';
+
+      // Original promise resolves to promise1
+      const origValue: CapData<KRef> = {
+        body: 'value with promise',
+        slots: [promise1],
+      };
+
+      // promise1 resolves to promise2
+      mockKV.set(`${promise1}.state`, 'fulfilled');
+      mockKV.set(
+        `${promise1}.value`,
+        JSON.stringify({
+          body: 'nested promise',
+          slots: [promise2],
+        }),
+      );
+
+      // promise2 resolves to promise3
+      mockKV.set(`${promise2}.state`, 'fulfilled');
+      mockKV.set(
+        `${promise2}.value`,
+        JSON.stringify({
+          body: 'deeper nested promise',
+          slots: [promise3],
+        }),
+      );
+
+      // promise3 resolves to a simple value
+      mockKV.set(`${promise3}.state`, 'fulfilled');
+      mockKV.set(
+        `${promise3}.value`,
+        JSON.stringify({
+          body: 'final value',
+          slots: [],
+        }),
+      );
+
+      const result = promiseMethods.getKpidsToRetire(origKpid, origValue);
+
+      // Should include all promises in the chain
+      expect(result).toContain(origKpid);
+      expect(result).toContain(promise1);
+      expect(result).toContain(promise2);
+      expect(result).toContain(promise3);
+      expect(result).toHaveLength(4);
+    });
+
+    it('handles cyclic promise references', () => {
+      const origKpid = 'kp200';
+      const promise1 = 'kp201';
+      const promise2 = 'kp202';
+
+      // Original promise resolves to promise1
+      const origValue: CapData<KRef> = {
+        body: 'cyclic promises',
+        slots: [promise1],
+      };
+
+      // promise1 resolves to promise2
+      mockKV.set(`${promise1}.state`, 'fulfilled');
+      mockKV.set(
+        `${promise1}.value`,
+        JSON.stringify({
+          body: 'points to promise2',
+          slots: [promise2],
+        }),
+      );
+
+      // promise2 resolves back to promise1 (creates a cycle)
+      mockKV.set(`${promise2}.state`, 'fulfilled');
+      mockKV.set(
+        `${promise2}.value`,
+        JSON.stringify({
+          body: 'points back to promise1',
+          slots: [promise1],
+        }),
+      );
+
+      const result = promiseMethods.getKpidsToRetire(origKpid, origValue);
+
+      // Should handle the cycle without infinite recursion
+      expect(result).toContain(origKpid);
+      expect(result).toContain(promise1);
+      expect(result).toContain(promise2);
+      expect(result).toHaveLength(3);
+    });
+
+    it('only includes resolved promises', () => {
+      const origKpid = 'kp300';
+      const resolvedPromise = 'kp301';
+      const unresolvedPromise = 'kp302';
+
+      // Original promise has both resolved and unresolved promises
+      const origValue: CapData<KRef> = {
+        body: 'mixed promises',
+        slots: [resolvedPromise, unresolvedPromise],
+      };
+
+      // resolvedPromise is fulfilled
+      mockKV.set(`${resolvedPromise}.state`, 'fulfilled');
+      mockKV.set(
+        `${resolvedPromise}.value`,
+        JSON.stringify({
+          body: 'resolved value',
+          slots: [],
+        }),
+      );
+
+      // unresolvedPromise is unresolved
+      mockKV.set(`${unresolvedPromise}.state`, 'unresolved');
+      mockKV.set(`${unresolvedPromise}.subscribers`, '[]');
+
+      const result = promiseMethods.getKpidsToRetire(origKpid, origValue);
+
+      // Should include original and resolved promise, but not unresolved one
+      expect(result).toContain(origKpid);
+      expect(result).toContain(resolvedPromise);
+      expect(result).not.toContain(unresolvedPromise);
+      expect(result).toHaveLength(2);
     });
   });
 });

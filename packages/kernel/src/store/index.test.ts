@@ -1,22 +1,9 @@
-import type { Message } from '@agoric/swingset-liveslots';
 import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeKernelStore } from './index.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { RunQueueItem } from '../types.ts';
-
-/**
- * Mock Message: A stupid TS hack to allow trivial use of plain strings as if they
- * were Messages, since, for testing purposes here, all that's necessary to be a
- * "message" is to be stringifiable.
- *
- * @param str - A string.
- * @returns The same string coerced to type Message.
- */
-function mm(str: string): Message {
-  return str as unknown as Message;
-}
 
 /**
  * Mock RunQueueItem: A stupid TS hack to allow trivial use of plain strings
@@ -89,11 +76,13 @@ describe('kernel store', () => {
         'getNextVatId',
         'getObjectRefCount',
         'getOwner',
+        'getPinnedObjects',
         'getPromisesByDecider',
         'getQueueLength',
         'getReachableAndVatSlot',
         'getReachableFlag',
         'getRefCount',
+        'getRootObject',
         'getTerminatedVats',
         'getVatConfig',
         'getVatIDs',
@@ -104,6 +93,7 @@ describe('kernel store', () => {
         'initEndpoint',
         'initKernelObject',
         'initKernelPromise',
+        'isObjectPinned',
         'isRootObject',
         'isVatTerminated',
         'kernelRefExists',
@@ -114,7 +104,7 @@ describe('kernel store', () => {
         'markVatAsTerminated',
         'nextReapAction',
         'nextTerminatedVatCleanup',
-        'refCountKey',
+        'pinObject',
         'reset',
         'resolveKernelPromise',
         'retireKernelObjects',
@@ -128,6 +118,7 @@ describe('kernel store', () => {
         'translateMessageKtoV',
         'translateRefKtoV',
         'translateSyscallVtoK',
+        'unpinObject',
       ]);
     });
   });
@@ -208,14 +199,34 @@ describe('kernel store', () => {
       expect(ks.initKernelPromise()).toStrictEqual(['kp2', kp2]);
       expect(ks.getKernelPromise('kp1')).toStrictEqual(kp1);
       expect(ks.getKernelPromise('kp2')).toStrictEqual(kp2);
-      ks.enqueuePromiseMessage('kp1', mm('first message to kp1'));
-      ks.enqueuePromiseMessage('kp1', mm('second message to kp1'));
+      const msg1 = {
+        methargs: {
+          body: 'first message to kp1',
+          slots: [],
+        },
+        result: null,
+      };
+      ks.enqueuePromiseMessage('kp1', msg1);
+      const msg2 = {
+        methargs: {
+          body: 'second message to kp1',
+          slots: [],
+        },
+        result: null,
+      };
+      ks.enqueuePromiseMessage('kp1', msg2);
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([
-        'first message to kp1',
-        'second message to kp1',
+        msg1,
+        msg2,
       ]);
       expect(ks.getKernelPromiseMessageQueue('kp1')).toStrictEqual([]);
-      ks.enqueuePromiseMessage('kp1', mm('sacrificial message'));
+      ks.enqueuePromiseMessage('kp1', {
+        methargs: {
+          body: 'sacrificial message',
+          slots: [],
+        },
+        result: null,
+      });
       ks.deleteKernelPromise('kp1');
       expect(() => ks.getKernelPromise('kp1')).toThrow(
         'unknown kernel promise kp1',
