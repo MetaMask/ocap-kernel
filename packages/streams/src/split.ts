@@ -91,6 +91,12 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
   }
 }
 
+// There's no reason to do this but we leave it in for the sake of completeness.
+export function split<Read, Write, ReadA extends Read, WriteA extends Write>(
+  stream: DuplexStream<Read, Write>,
+  predicateA: (value: Read) => value is ReadA,
+): [DuplexStream<ReadA, WriteA>];
+
 export function split<
   Read,
   Write,
