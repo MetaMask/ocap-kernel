@@ -1,10 +1,11 @@
 import { isJsonRpcResponse } from '@metamask/utils';
-import type { Json } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 import { kernelMethodSpecs } from '@ocap/kernel/rpc';
 import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
 import { delay } from '@ocap/utils';
+import type { JsonRpcCall } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 
@@ -25,11 +26,10 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
-  const offscreenStream = await ChromeRuntimeDuplexStream.make(
-    chrome.runtime,
-    'background',
-    'offscreen',
-  );
+  const offscreenStream = await ChromeRuntimeDuplexStream.make<
+    JsonRpcResponse,
+    JsonRpcCall
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
 
   const rpcClient = new RpcClient(
     kernelMethodSpecs,
@@ -50,7 +50,8 @@ async function main(): Promise<void> {
       value: ping,
     },
     sendMessage: {
-      value: async (message: Json) => await offscreenStream.write(message),
+      value: async (message: JsonRpcCall) =>
+        await offscreenStream.write(message),
     },
   });
   harden(globalThis.kernel);
@@ -60,14 +61,8 @@ async function main(): Promise<void> {
     ping().catch(logger.error);
   });
 
-  // Handle replies from the offscreen document
-  for await (const message of offscreenStream) {
-    if (!isJsonRpcResponse(message)) {
-      logger.error('Background received unexpected message', message);
-      continue;
-    }
-    rpcClient.handleResponse(message.id as string, message);
-  }
-
+  await offscreenStream.drain(async (message) =>
+    rpcClient.handleResponse(message.id as string, message),
+  );
   throw new Error('Offscreen connection closed unexpectedly');
 }
