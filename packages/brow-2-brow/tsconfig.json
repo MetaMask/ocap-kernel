@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022"],
+    "types": ["ses", "vitest", "node"],
+    "noEmit": true
+  },
+  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
+  "include": [
+    "../../vitest.config.ts",
+    "./src/**/*.ts",
+    "./test",
+    "./vitest.config.ts",
+    "./vitest.integration.config.ts"
+  ]
+}

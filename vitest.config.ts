@@ -60,6 +60,7 @@ export default defineConfig({
           __dirname,
           './packages/create-package/src/package-template/**',
         ),
+        path.join(__dirname, './packages/brow-2-brow/**'),
       ],
       thresholds: {
         autoUpdate: true,
