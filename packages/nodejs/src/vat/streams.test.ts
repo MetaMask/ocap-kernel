@@ -1,45 +1,60 @@
 import '@ocap/test-utils/mock-endoify';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => {
+  const synchronize = vi.fn().mockResolvedValue(true);
+
+  return {
+    synchronize,
+    NodeWorkerDuplexStream: vi.fn(() => ({ synchronize })),
+    split: vi.fn((a) => [a, a]),
+    parentPort: {},
+  };
+});
 
 const doMockParentPort = (value: unknown): void => {
   vi.doMock('node:worker_threads', () => ({
     parentPort: value,
   }));
-  vi.resetModules();
 };
 
 vi.mock('@metamask/streams', () => ({
-  NodeWorkerDuplexStream: vi.fn(),
+  NodeWorkerDuplexStream: mocks.NodeWorkerDuplexStream,
+  split: mocks.split,
 }));
 
-describe('getPort', () => {
-  it('returns a port', async () => {
-    const mockParentPort = {};
-    doMockParentPort(mockParentPort);
+describe('vat/streams', () => {
+  beforeEach(vi.resetModules);
 
-    const { getPort } = await import('./streams.ts');
-    const port = getPort();
+  describe('getPort', () => {
+    it('returns a port', async () => {
+      doMockParentPort(mocks.parentPort);
 
-    expect(port).toStrictEqual(mockParentPort);
-  }, 4000); // Extra time is needed when running yarn test from monorepo root.
+      const { getPort } = await import('./streams.ts');
+      const port = getPort();
 
-  it('throws if parentPort is not defined', async () => {
-    doMockParentPort(undefined);
+      expect(port).toStrictEqual(mocks.parentPort);
+    }, 4000); // Extra time is needed when running yarn test from monorepo root.
 
-    const { getPort } = await import('./streams.ts');
+    it('throws if parentPort is not defined', async () => {
+      doMockParentPort(undefined);
 
-    expect(getPort).toThrow(/parentPort/u);
+      const { getPort } = await import('./streams.ts');
+
+      expect(getPort).toThrow(/parentPort/u);
+    });
   });
-});
 
-describe('makeKernelStream', () => {
-  it('returns a NodeWorkerDuplexStream', async () => {
-    doMockParentPort(new MessageChannel().port1);
+  describe('makeStreams', () => {
+    it('returns two NodeWorkerDuplexStreams', async () => {
+      doMockParentPort(mocks.parentPort);
 
-    const { NodeWorkerDuplexStream } = await import('@metamask/streams');
-    const { makeKernelStream } = await import('./streams.ts');
-    const kernelStream = makeKernelStream();
-    expect(kernelStream).toBeInstanceOf(NodeWorkerDuplexStream);
+      const { makeStreams } = await import('./streams.ts');
+      const { kernelStream, loggerStream } = await makeStreams();
+
+      expect(kernelStream).toHaveProperty('synchronize', mocks.synchronize);
+      expect(loggerStream).toHaveProperty('synchronize', mocks.synchronize);
+    });
   });
 });

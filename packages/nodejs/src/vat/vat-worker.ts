@@ -1,24 +1,18 @@
 import '@metamask/kernel-shims/endoify';
 
-import { Logger } from '@metamask/logger';
+import { Logger, makeStreamTransport } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { VatSupervisor } from '@metamask/ocap-kernel';
 import fs from 'node:fs/promises';
 import url from 'node:url';
 
-import { makeKernelStream } from './streams.ts';
+import { makeStreams } from './streams.ts';
 
-const vatId = process.env.NODE_VAT_ID as VatId;
 const processLogger = new Logger('nodejs-vat-worker');
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
-if (vatId) {
-  const vatLogger = processLogger.subLogger(vatId);
-  main(vatLogger).catch(vatLogger.error);
-} else {
-  processLogger.error('no vatId set for env variable NODE_VAT_ID');
-}
+main().catch(processLogger.error);
 
 /**
  * Fetch a blob of bytes from a URL
@@ -40,16 +34,23 @@ async function fetchBlob(blobURL: string): Promise<Response> {
 
 /**
  * The main function for the vat worker.
- *
- * @param _logger - The logger to use for logging. (currently unused)
  */
-async function main(_logger: Logger): Promise<void> {
-  const kernelStream = makeKernelStream();
-  await kernelStream.synchronize();
+async function main(): Promise<void> {
+  const vatId = process.env.NODE_VAT_ID as VatId;
+  if (!vatId) {
+    throw new Error('no vatId set for env variable NODE_VAT_ID');
+  }
+  const { kernelStream, loggerStream } = await makeStreams();
+  const logger = processLogger.subLogger({
+    tags: [vatId],
+    transports: [makeStreamTransport(loggerStream)],
+  });
   // eslint-disable-next-line no-void
   void new VatSupervisor({
     id: vatId,
     kernelStream,
     fetchBlob,
+    // TODO: supervisor should accept a logger argument
+    vatPowers: { logger },
   });
 }
