@@ -17,6 +17,7 @@ class SplitReader<Read> extends BaseReader<Read> {
     return [reader, reader.getReceiveInput()] as const;
   }
 }
+harden(SplitReader);
 
 /**
  * A {@link DuplexStream} for use within {@link split} that reads from a reader and forwards
@@ -36,6 +37,7 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
   ) {
     this.#parent = parent;
     this.#reader = reader;
+    harden(this);
   }
 
   static make<ParentRead, Read extends ParentRead, Write>(
@@ -90,57 +92,44 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
     return this;
   }
 }
+harden(SplitStream);
 
 // There's no reason to do this but we leave it in for the sake of completeness.
-export function split<Read, Write, ReadA extends Read, WriteA extends Write>(
+export function split<Read, Write, ReadA extends Read>(
   stream: DuplexStream<Read, Write>,
   predicateA: (value: Read) => value is ReadA,
-): [DuplexStream<ReadA, WriteA>];
+): [DuplexStream<ReadA, Write>];
 
-export function split<
-  Read,
-  Write,
-  ReadA extends Read,
-  WriteA extends Write,
-  ReadB extends Read,
-  WriteB extends Write,
->(
+export function split<Read, Write, ReadA extends Read, ReadB extends Read>(
   stream: DuplexStream<Read, Write>,
   predicateA: (value: Read) => value is ReadA,
   predicateB: (value: Read) => value is ReadB,
-): [DuplexStream<ReadA, WriteA>, DuplexStream<ReadB, WriteB>];
+): [DuplexStream<ReadA, Write>, DuplexStream<ReadB, Write>];
 
 export function split<
   Read,
   Write,
   ReadA extends Read,
-  WriteA extends Write,
   ReadB extends Read,
-  WriteB extends Write,
   ReadC extends Read,
-  WriteC extends Write,
 >(
   stream: DuplexStream<Read, Write>,
   predicateA: (value: Read) => value is ReadA,
   predicateB: (value: Read) => value is ReadB,
   predicateC: (value: Read) => value is ReadC,
 ): [
-  DuplexStream<ReadA, WriteA>,
-  DuplexStream<ReadB, WriteB>,
-  DuplexStream<ReadC, WriteC>,
+  DuplexStream<ReadA, Write>,
+  DuplexStream<ReadB, Write>,
+  DuplexStream<ReadC, Write>,
 ];
 
 export function split<
   Read,
   Write,
   ReadA extends Read,
-  WriteA extends Write,
   ReadB extends Read,
-  WriteB extends Write,
   ReadC extends Read,
-  WriteC extends Write,
   ReadD extends Read,
-  WriteD extends Write,
 >(
   stream: DuplexStream<Read, Write>,
   predicateA: (value: Read) => value is ReadA,
@@ -148,10 +137,10 @@ export function split<
   predicateC: (value: Read) => value is ReadC,
   predicateD: (value: Read) => value is ReadD,
 ): [
-  DuplexStream<ReadA, WriteA>,
-  DuplexStream<ReadB, WriteB>,
-  DuplexStream<ReadC, WriteC>,
-  DuplexStream<ReadD, WriteD>,
+  DuplexStream<ReadA, Write>,
+  DuplexStream<ReadB, Write>,
+  DuplexStream<ReadC, Write>,
+  DuplexStream<ReadD, Write>,
 ];
 
 /**
@@ -164,7 +153,7 @@ export function split<
  */
 export function split<Read, Write>(
   parentStream: DuplexStream<Read, Write>,
-  ...predicates: ((value: unknown) => boolean)[]
+  ...predicates: ((value: Read) => boolean)[]
 ): DuplexStream<Read, Write>[] {
   const splits = predicates.map(
     (predicate) => [predicate, SplitStream.make(parentStream)] as const,
@@ -177,7 +166,8 @@ export function split<Read, Write>(
       for await (const value of parentStream) {
         let matched = false;
         for (const [predicate, { receiveInput }] of splits) {
-          if ((matched = predicate(value))) {
+          if (predicate(value)) {
+            matched = true;
             await receiveInput(value);
             break;
           }
