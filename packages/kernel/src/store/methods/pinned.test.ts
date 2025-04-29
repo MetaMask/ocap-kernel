@@ -47,10 +47,13 @@ describe('getPinMethods', () => {
       );
     });
 
-    it('should not pin an already pinned object', () => {
+    it('should always pin and increment even if object is already pinned', () => {
       methods.pinObject('ko2');
-      expect(mockIncrementRefCount).not.toHaveBeenCalled();
-      expect(mockKv.set).not.toHaveBeenCalled();
+      expect(mockIncrementRefCount).toHaveBeenCalledWith('ko2', 'pin');
+      expect(mockKv.set).toHaveBeenCalledWith(
+        'pinnedObjects',
+        'ko1,ko2,ko2,ko3',
+      );
     });
   });
 
@@ -61,7 +64,7 @@ describe('getPinMethods', () => {
       expect(mockKv.set).toHaveBeenCalledWith('pinnedObjects', 'ko1,ko3');
     });
 
-    it('should not unpin an object that is not pinned', () => {
+    it('should not modify the list or decrement refCount if object is not in the list', () => {
       methods.unpinObject('ko4');
       expect(mockDecrementRefCount).not.toHaveBeenCalled();
       expect(mockKv.set).not.toHaveBeenCalled();

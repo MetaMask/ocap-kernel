@@ -8,7 +8,7 @@ import type { StoreContext } from '../types.ts';
  * @param str - The string to split.
  * @returns An array of strings.
  */
-function commaSplit(str: string): string[] {
+function commaSplit(str: string = ''): string[] {
   return str ? str.split(',') : [];
 }
 
@@ -24,31 +24,30 @@ export function getPinMethods(ctx: StoreContext) {
 
   /**
    * Pin a kernel object to prevent it from being garbage collected.
+   * Multiple calls will increment the pin count for the object.
    *
    * @param kref - The KRef of the object to pin.
    */
   function pinObject(kref: KRef): void {
-    const pinList = getPinnedObjects();
-    const pinned = new Set(pinList);
-    if (!pinned.has(kref)) {
-      incrementRefCount(kref, 'pin');
-      pinned.add(kref);
-      ctx.kv.set('pinnedObjects', [...pinned].sort().join(','));
-    }
+    const pinList = commaSplit(ctx.kv.get('pinnedObjects'));
+    pinList.push(kref);
+    incrementRefCount(kref, 'pin');
+    ctx.kv.set('pinnedObjects', pinList.sort().join(','));
   }
 
   /**
    * Unpin a kernel object, allowing it to be garbage collected if no other references exist.
+   * Each call decrements the pin count for the object. The object is only fully unpinned
+   * when all pins are removed.
    *
    * @param kref - The KRef of the object to unpin.
    */
   function unpinObject(kref: KRef): void {
-    const pinList = getPinnedObjects();
-    const pinned = new Set(pinList);
-    if (pinned.has(kref)) {
+    const pinList = commaSplit(ctx.kv.get('pinnedObjects'));
+    if (pinList.includes(kref)) {
       decrementRefCount(kref, 'unpin');
-      pinned.delete(kref);
-      ctx.kv.set('pinnedObjects', [...pinned].sort().join(','));
+      pinList.splice(pinList.indexOf(kref), 1);
+      ctx.kv.set('pinnedObjects', pinList.sort().join(','));
     }
   }
 
@@ -58,8 +57,7 @@ export function getPinMethods(ctx: StoreContext) {
    * @returns An array of KRefs for all pinned objects.
    */
   function getPinnedObjects(): KRef[] {
-    const pinList = ctx.kv.get('pinnedObjects') ?? '';
-    return commaSplit(pinList);
+    return commaSplit(ctx.kv.get('pinnedObjects'));
   }
 
   /**
@@ -69,8 +67,7 @@ export function getPinMethods(ctx: StoreContext) {
    * @returns True if the object is pinned, false otherwise.
    */
   function isObjectPinned(kref: KRef): boolean {
-    const pinned = new Set(getPinnedObjects());
-    return pinned.has(kref);
+    return getPinnedObjects().includes(kref);
   }
 
   return {
