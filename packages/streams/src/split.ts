@@ -193,9 +193,7 @@ export function split<Read, Write>(
       error = caughtError as Error;
     }
 
-    for (const [, { stream }] of splits) {
-      await stream.end(error);
-    }
+    await Promise.all(splits.map(async ([, { stream }]) => stream.end(error)));
   })();
 
   return splits.map(([, { stream }]) => stream);
