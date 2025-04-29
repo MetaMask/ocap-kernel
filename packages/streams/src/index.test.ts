@@ -8,6 +8,7 @@ describe('index', () => {
       'NodeWorkerDuplexStream',
       'NodeWorkerReader',
       'NodeWorkerWriter',
+      'split',
     ]);
   });
 });
