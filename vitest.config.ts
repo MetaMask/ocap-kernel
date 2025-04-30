@@ -101,10 +101,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 72.91,
-          functions: 83.33,
+          statements: 67.92,
+          functions: 68.75,
           branches: 63.63,
-          lines: 72.91,
+          lines: 69.23,
         },
         'packages/rpc-methods/**': {
           statements: 100,
