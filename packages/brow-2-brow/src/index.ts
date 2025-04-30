@@ -3,10 +3,15 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { identify } from '@libp2p/identify';
-import type { PeerId, Connection, Libp2pEvents } from '@libp2p/interface';
+import type {
+  PeerId,
+  Connection,
+  Libp2p,
+  Libp2pEvents,
+} from '@libp2p/interface';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
-import * as filters from '@libp2p/websockets/filters';
 import { webTransport } from '@libp2p/webtransport';
 import { multiaddr } from '@multiformats/multiaddr';
 import '@types/web';
@@ -15,7 +20,7 @@ import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import { generatePeerId } from './key-manglage.ts';
+import { generateKeyPair } from './key-manglage.ts';
 import { update, getPeerTypes, getAddresses, getPeerDetails } from './utils.ts';
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
@@ -29,7 +34,9 @@ type Channel = {
 };
 
 declare global {
-  let libp2p: unknown;
+  // TypeScript requires you to use `var` here for this to work.
+  // eslint-disable-next-line no-var
+  var libp2p: Libp2p;
 }
 
 const App = async (): Promise<void> => {
@@ -37,7 +44,8 @@ const App = async (): Promise<void> => {
   const idMap = new Map<string, number>(); // peerID string -> id
   peerIdList[0] = undefined;
   for (let i = 1; i < 256; ++i) {
-    const peerId = await generatePeerId(i);
+    const keyPair = await generateKeyPair(i);
+    const peerId = peerIdFromPrivateKey(keyPair);
     peerIdList[i] = peerId;
     idMap.set(peerId.toString(), i);
   }
@@ -57,11 +65,15 @@ const App = async (): Promise<void> => {
   console.log(`I am id:${localId} peerId:${peerId.toString()}`);
 
   const relayPeerId = peerIdList[RELAY_ID];
+  if (!relayPeerId) {
+    throw Error(`relay peer ID is undefined`);
+  }
+  const privateKey = await generateKeyPair(RELAY_ID);
   const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId.toString()}`;
   // const relayAddr = `${RELAY_HOST}/tcp/9001`;
 
   const libp2p = await createLibp2p({
-    peerId,
+    privateKey,
     addresses: {
       listen: [
         // 👇 Listen for webRTC connection
@@ -69,18 +81,13 @@ const App = async (): Promise<void> => {
       ],
     },
     transports: [
-      webSockets({
-        // Allow all WebSocket connections inclusing without TLS
-        filter: filters.all,
-      }),
+      webSockets(),
       webTransport(),
       webRTC(),
       // 👇 Required to create circuit relay reservations in order to hole punch browser-to-browser WebRTC connections
-      circuitRelayTransport({
-        discoverRelays: 1,
-      }),
+      circuitRelayTransport(),
     ],
-    connectionEncryption: [noise()],
+    connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     connectionGater: {
       // Allow private addresses for local testing
@@ -292,7 +299,7 @@ const App = async (): Promise<void> => {
       await libp2p.dial(maddr);
     } catch (problem) {
       outputLine(
-        `error connecting to ${maddr.toString()}: ${problem.toString()}`,
+        `error connecting to ${maddr.toString()}: ${(problem as Error).toString()}`,
       );
     }
   };

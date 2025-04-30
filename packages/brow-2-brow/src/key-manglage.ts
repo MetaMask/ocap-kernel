@@ -1,10 +1,5 @@
-import {
-  generateKeyPairFromSeed,
-  marshalPrivateKey,
-  marshalPublicKey,
-} from '@libp2p/crypto/keys';
-import type { PeerId } from '@libp2p/interface';
-import { peerIdFromKeys } from '@libp2p/peer-id';
+import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
+import type { PrivateKey } from '@libp2p/interface';
 
 /**
  * Convert a Uint8Array into a hex string.
@@ -51,13 +46,13 @@ export function fromHex(str: string): Uint8Array {
 // seed: 5 peerId: 12D3KooWSHj3RRbBjD15g6wekV8y3mm57Pobmps2g2WJm6F67Lay
 
 /**
- * Generate the peerID for a given localID.
+ * Generate the private key for a given localID.
  *
  * @param localId - The localID whose peerID is sought.
  *
- * @returns the peerID for `localID`.
+ * @returns the private key for `localID`.
  */
-export async function generatePeerId(localId: number): Promise<PeerId> {
+export async function generateKeyPair(localId: number): Promise<PrivateKey> {
   let seed;
   if (localId > 0 && localId < 256) {
     seed = new Uint8Array(32);
@@ -66,10 +61,7 @@ export async function generatePeerId(localId: number): Promise<PeerId> {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins
     seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
   }
-  const keyPair = await generateKeyPairFromSeed('Ed25519', seed);
-  const peerId = peerIdFromKeys(
-    marshalPublicKey(keyPair.public),
-    marshalPrivateKey(keyPair),
-  );
-  return peerId;
+  return await generateKeyPairFromSeed('Ed25519', seed);
+  // const peerId = peerIdFromPrivateKey(keyPair);
+  // return peerId;
 }
