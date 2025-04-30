@@ -62,6 +62,4 @@ export async function generateKeyPair(localId: number): Promise<PrivateKey> {
     seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
   }
   return await generateKeyPairFromSeed('Ed25519', seed);
-  // const peerId = peerIdFromPrivateKey(keyPair);
-  // return peerId;
 }
