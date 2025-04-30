@@ -1,6 +1,10 @@
+import type { DuplexStream } from '@metamask/streams';
+import { delay } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { Logger } from './logger.ts';
+import { lser } from './stream.ts';
+import type { LogMessage } from './stream.ts';
 import { consoleTransport } from './transports.ts';
 
 const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;
@@ -106,6 +110,47 @@ describe('Logger', () => {
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
       expect(consoleSpy).toHaveBeenCalledWith(['test', 'sub'], 'foo');
+    });
+  });
+
+  describe('injectStream', () => {
+    it('calls drain on the provided stream', () => {
+      const logger = new Logger();
+      const stream = { drain: vi.fn().mockResolvedValue(undefined) };
+      logger.injectStream(stream as unknown as DuplexStream<LogMessage>);
+      expect(stream.drain).toHaveBeenCalled();
+    });
+
+    it.each`
+      description              | logEntry
+      ${'message and data'}    | ${{ level: 'log', tags: ['test'], message: 'foo', data: ['bar'] }}
+      ${'message but no data'} | ${{ level: 'log', tags: ['test'], message: 'foo' }}
+      ${'no message or data'}  | ${{ level: 'log', tags: ['test'] }}
+    `(
+      'delivers a logEntry to the logger transport: $description',
+      ({ logEntry }) => {
+        const testTransport = vi.fn();
+        const logger = new Logger({ transports: [testTransport] });
+        const stream = {
+          drain: vi.fn(async (handler) => handler({ params: lser(logEntry) })),
+        } as unknown as DuplexStream<LogMessage>;
+        logger.injectStream(stream);
+        expect(testTransport).toHaveBeenCalledWith(
+          expect.objectContaining(logEntry),
+        );
+      },
+    );
+
+    it('calls the provided onError if drain fails', async () => {
+      const testError = new Error('test');
+      const onError = vi.fn();
+      const stream = {
+        drain: vi.fn().mockRejectedValue(testError),
+      } as unknown as DuplexStream<LogMessage>;
+      const logger = new Logger();
+      logger.injectStream(stream, onError);
+      await delay(10);
+      expect(onError).toHaveBeenCalledWith(testError);
     });
   });
 });

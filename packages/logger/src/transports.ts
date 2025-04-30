@@ -1,6 +1,8 @@
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 
-import type { Transport, LogEntry } from './types.ts';
+import { lser } from './stream.ts';
+import type { Transport } from './types.ts';
 
 /**
  * The console transport for the logger.
@@ -24,9 +26,11 @@ export const consoleTransport: Transport = (entry) => {
  * @returns A transport function that writes to the stream.
  */
 export const makeStreamTransport = (
-  stream: DuplexStream<LogEntry>,
+  stream: DuplexStream<JsonRpcMessage>,
 ): Transport => {
   return (entry) => {
-    stream.write(entry).catch(console.debug);
+    stream
+      .write({ method: 'log', params: lser(entry), jsonrpc: '2.0' })
+      .catch(console.debug);
   };
 };

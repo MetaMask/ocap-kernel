@@ -48,7 +48,11 @@
  * ```
  */
 
+import type { DuplexStream } from '@metamask/streams';
+
 import { parseOptions, mergeOptions } from './options.ts';
+import { lunser } from './stream.ts';
+import type { LogMessage } from './stream.ts';
 import type {
   LogLevel,
   LogEntry,
@@ -121,6 +125,27 @@ export class Logger {
         typeof options === 'string' ? { tags: [options] } : options,
       ),
     );
+  }
+
+  /**
+   * Injects a stream of log messages into the logger.
+   *
+   * @param stream - The stream of log messages to inject.
+   * @param onError - The function to call if an error occurs while draining
+   *   the stream. If not provided, the error will be lost to the void.
+   */
+  injectStream(
+    stream: DuplexStream<LogMessage>,
+    onError?: (error: Error) => void,
+  ): void {
+    // eslint-disable-next-line no-void
+    void stream
+      .drain(({ params }) => {
+        const { level, tags, message, data } = lunser(params);
+        const args: LogArgs = message ? [message, ...(data ?? [])] : [];
+        this.#dispatch({ level, tags }, ...args);
+      })
+      .catch(onError);
   }
 
   #dispatch(options: LoggerOptions, ...args: LogArgs): void {

@@ -1,3 +1,4 @@
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -31,9 +32,15 @@ describe('makeStreamTransport', () => {
     const logEntry = makeLogEntry('info');
     const mockStream = {
       write: vi.fn().mockResolvedValue(undefined),
-    } as unknown as DuplexStream<LogEntry>;
+    } as unknown as DuplexStream<JsonRpcMessage>;
     const streamTransport = makeStreamTransport(mockStream);
     streamTransport(logEntry);
-    expect(mockStream.write).toHaveBeenCalledWith(logEntry);
+    expect(mockStream.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'log',
+        params: expect.any(Array),
+        jsonrpc: '2.0',
+      }),
+    );
   });
 });
