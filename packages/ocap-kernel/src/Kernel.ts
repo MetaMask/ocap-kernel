@@ -83,7 +83,7 @@ export class Kernel {
     this.#rpcService = new RpcService(kernelHandlers, {});
     this.#vats = new Map();
     this.#vatWorkerService = vatWorkerService;
-    this.#logger = options.logger ?? new Logger('[ocap kernel]');
+    this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase);
     if (options.resetStorage) {
       this.#resetKernelState();
@@ -214,6 +214,7 @@ export class Kernel {
       vatStream,
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
+      logger: this.#logger.subLogger(vatId),
     });
     this.#vats.set(vatId, vat);
   }

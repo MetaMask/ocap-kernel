@@ -1,4 +1,5 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
@@ -14,6 +15,7 @@ import { NodejsVatWorkerManager } from './VatWorkerManager.ts';
  * @param options.workerFilePath - The path to a file defining each vat worker's routine.
  * @param options.resetStorage - If true, clear kernel storage as part of setting up the kernel.
  * @param options.dbFilename - The filename of the SQLite database file.
+ * @param options.logger - The logger to use for the kernel.
  * @returns The kernel, initialized.
  */
 export async function makeKernel({
@@ -21,11 +23,13 @@ export async function makeKernel({
   workerFilePath,
   resetStorage = false,
   dbFilename,
+  logger,
 }: {
   port: NodeMessagePort;
   workerFilePath?: string;
   resetStorage?: boolean;
   dbFilename?: string;
+  logger?: Logger;
 }): Promise<Kernel> {
   const nodeStream = new NodeWorkerDuplexStream<
     JsonRpcRequest,
@@ -43,6 +47,7 @@ export async function makeKernel({
     kernelDatabase,
     {
       resetStorage,
+      logger: logger ?? new Logger('ocap-kernel'),
     },
   );
 

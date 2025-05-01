@@ -3,7 +3,8 @@
 
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import { Logger, makeArrayTransport, type LogEntry } from '@metamask/logger';
+import { Logger, makeArrayTransport } from '@metamask/logger';
+import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
