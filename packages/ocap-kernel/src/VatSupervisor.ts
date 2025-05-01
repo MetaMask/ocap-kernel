@@ -12,6 +12,7 @@ import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore, VatCheckpoint } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import type { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
@@ -34,6 +35,7 @@ export type FetchBlob = (bundleURL: string) => Promise<Response>;
 type SupervisorConstructorProps = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
+  logger: Logger;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
 };
@@ -48,6 +50,9 @@ export class VatSupervisor {
 
   /** Communications channel between this vat and the kernel */
   readonly #kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
+
+  /** The logger for this vat */
+  readonly #logger: Logger;
 
   /** RPC client for sending syscall requests to the kernel */
   readonly #rpcClient: RpcClient<typeof vatSyscallMethodSpecs>;
@@ -79,17 +84,20 @@ export class VatSupervisor {
    * @param params - Named constructor parameters.
    * @param params.id - The id of the vat being supervised.
    * @param params.kernelStream - Communications channel connected to the kernel.
+   * @param params.logger - The logger for this vat.
    * @param params.vatPowers - The external capabilities for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    */
   constructor({
     id,
     kernelStream,
+    logger,
     vatPowers,
     fetchBlob,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#kernelStream = kernelStream;
+    this.#logger = logger;
     this.#vatPowers = vatPowers ?? {};
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
@@ -102,6 +110,7 @@ export class VatSupervisor {
         await this.#kernelStream.write(request);
       },
       `${this.id}:`,
+      this.#logger.subLogger({ tags: ['rpc-client'] }),
     );
 
     this.#rpcService = new RpcService(vatHandlers, {
@@ -112,7 +121,7 @@ export class VatSupervisor {
     Promise.all([
       this.#kernelStream.drain(this.#handleMessage.bind(this)),
     ]).catch(async (error) => {
-      console.error(
+      this.#logger.error(
         `Unexpected read error from VatSupervisor "${this.id}"`,
         error,
       );
@@ -231,7 +240,7 @@ export class VatSupervisor {
     });
 
     const workerEndowments = {
-      console,
+      console: this.#logger.subLogger({ tags: ['vat-worker'] }),
       assert: globalThis.assert,
     };
 
@@ -260,7 +269,7 @@ export class VatSupervisor {
       this.#vatPowers,
       liveSlotsOptions,
       gcTools,
-      console,
+      this.#logger.subLogger({ tags: ['liveslots'] }),
       buildVatNamespace,
     );
 

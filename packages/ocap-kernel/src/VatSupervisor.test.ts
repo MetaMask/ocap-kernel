@@ -1,5 +1,6 @@
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import { rpcErrors } from '@metamask/rpc-errors';
 import '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
@@ -21,10 +22,15 @@ vi.mock('@agoric/swingset-liveslots', () => ({
   })),
 }));
 
-const makeVatSupervisor = async (
-  dispatch?: (input: unknown) => void | Promise<void>,
-  vatPowers?: Record<string, unknown>,
-): Promise<{
+const makeVatSupervisor = async ({
+  dispatch,
+  logger,
+  vatPowers,
+}: {
+  dispatch?: (input: unknown) => void | Promise<void>;
+  logger?: Logger;
+  vatPowers?: Record<string, unknown>;
+} = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
 }> => {
@@ -36,6 +42,7 @@ const makeVatSupervisor = async (
     supervisor: new VatSupervisor({
       id: 'test-id',
       kernelStream,
+      logger: logger ?? new Logger(),
       vatPowers: vatPowers ?? {},
     }),
     stream: kernelStream,
@@ -51,11 +58,14 @@ describe('VatSupervisor', () => {
     });
 
     it('throws if the stream throws', async () => {
-      const { supervisor, stream } = await makeVatSupervisor();
-      const consoleErrorSpy = vi.spyOn(console, 'error');
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      const { supervisor, stream } = await makeVatSupervisor({ logger });
       await stream.receiveInput(NaN);
       await delay(10);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         `Unexpected read error from VatSupervisor "${supervisor.id}"`,
         expect.any(Error),
       );
@@ -65,7 +75,7 @@ describe('VatSupervisor', () => {
   describe('handleMessage', () => {
     it('responds with an error for unknown methods', async () => {
       const dispatch = vi.fn();
-      const { stream } = await makeVatSupervisor(dispatch);
+      const { stream } = await makeVatSupervisor({ dispatch });
 
       await stream.receiveInput({
         id: 'v0:0',
@@ -87,7 +97,7 @@ describe('VatSupervisor', () => {
 
     it('handles "ping" requests', async () => {
       const dispatch = vi.fn();
-      const { stream } = await makeVatSupervisor(dispatch);
+      const { stream } = await makeVatSupervisor({ dispatch });
 
       await stream.receiveInput({
         id: 'v0:0',

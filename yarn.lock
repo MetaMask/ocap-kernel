@@ -3029,6 +3029,7 @@ __metadata:
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
+    "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.0"
