@@ -9,15 +9,8 @@ import {
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { extractVatLogs, getBundleSpec } from './utils.ts';
-
-const origStdoutWrite = process.stdout.write.bind(process.stdout);
-let buffered: string = '';
-// @ts-expect-error Some type def used by lint is just wrong (compiler likes it ok, but lint whines)
-process.stdout.write = (buffer: string, encoding, callback): void => {
-  buffered += buffer;
-  origStdoutWrite(buffer, encoding, callback);
-};
+import { getBundleSpec, makeTestLogger } from './utils.ts';
+import type { TestLogger } from './utils.ts';
 
 const makeTestSubcluster = (
   testName: string,
@@ -49,14 +42,17 @@ const makeTestSubcluster = (
 });
 
 describe('liveslots promise handling', () => {
+  let logger: TestLogger;
   let kernel: Kernel;
 
   beforeEach(async () => {
     const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
+    logger = makeTestLogger();
     kernel = await makeKernel({
       port: kernelPort,
       resetStorage: true,
       dbFilename: ':memory:',
+      logger,
     });
   });
 
@@ -72,17 +68,22 @@ describe('liveslots promise handling', () => {
     bundleName: string,
     testName: string,
   ): Promise<[unknown, string[]]> {
-    buffered = '';
     const bundleSpec = getBundleSpec(bundleName);
     const bootstrapResultRaw = await kernel.launchSubcluster(
       makeTestSubcluster(testName, bundleSpec),
     );
     await waitUntilQuiescent(1000);
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = logger.entries.filter((entry) =>
+      entry.message?.includes('::> '),
+    );
+    throw new Error(`vatLogs: ${vatLogs.length}`);
     if (bootstrapResultRaw === undefined) {
       throw Error(`this can't happen but eslint is stupid`);
     }
-    return [kunser(bootstrapResultRaw), vatLogs];
+    return [
+      kunser(bootstrapResultRaw),
+      vatLogs.map((entry) => entry.message ?? ''),
+    ];
   }
 
   it('promiseArg1: send promise parameter, resolve after send', async () => {

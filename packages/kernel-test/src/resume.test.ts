@@ -7,6 +7,7 @@ import {
   extractVatLogs,
   getBundleSpec,
   makeKernel,
+  makeTestLogger,
   runResume,
   runTestVats,
   sortLogs,
@@ -112,7 +113,8 @@ describe('restarting vats', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    const kernel = await makeKernel(kernelDatabase, true);
+    const logger = makeTestLogger();
+    const kernel = await makeKernel(kernelDatabase, true, logger);
     buffered = '';
     const bootstrapResult = await runTestVats(kernel, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
@@ -135,12 +137,14 @@ describe('restarting vats', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    const kernel1 = await makeKernel(kernelDatabase, true);
+    const logger1 = makeTestLogger();
+    const kernel1 = await makeKernel(kernelDatabase, true, logger1);
     buffered = '';
     const bootstrapResult = await runTestVats(kernel1, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
     await waitUntilQuiescent();
-    const kernel2 = await makeKernel(kernelDatabase, false);
+    const logger2 = makeTestLogger();
+    const kernel2 = await makeKernel(kernelDatabase, false, logger2);
     const resumeResultA = await runResume(kernel2, 'ko1');
     expect(resumeResultA).toBe('resume Alice');
     const resumeResultB = await runResume(kernel2, 'ko2');

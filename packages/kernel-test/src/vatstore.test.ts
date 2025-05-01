@@ -4,7 +4,12 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { describe, vi, expect, it } from 'vitest';
 
-import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';
+import {
+  getBundleSpec,
+  makeKernel,
+  makeTestLogger,
+  runTestVats,
+} from './utils.ts';
 
 const makeTestSubcluster = (): ClusterConfig => ({
   bootstrap: 'alice',
@@ -128,7 +133,8 @@ describe('exercise vatstore', async () => {
         return result;
       },
     );
-    const kernel = await makeKernel(kernelDatabase, true);
+    const logger = makeTestLogger();
+    const kernel = await makeKernel(kernelDatabase, true, logger);
     await runTestVats(kernel, makeTestSubcluster());
     type VSRecord = { key: string; value: string };
     const vsContents = kernelDatabase.executeQuery(

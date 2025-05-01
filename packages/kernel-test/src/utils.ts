@@ -3,6 +3,7 @@
 
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { Logger, makeArrayTransport, type LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
@@ -65,12 +66,14 @@ export async function runResume(
  *
  * @param kernelDatabase - The database that will hold the persistent state.
  * @param resetStorage - If true, reset the database as part of setting up.
+ * @param logger - The logger to use for the kernel.
  *
  * @returns the new kernel instance.
  */
 export async function makeKernel(
   kernelDatabase: KernelDatabase,
   resetStorage: boolean,
+  logger: Logger,
 ): Promise<Kernel> {
   const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
   const nodeStream = new NodeWorkerDuplexStream<
@@ -84,6 +87,7 @@ export async function makeKernel(
     kernelDatabase,
     {
       resetStorage,
+      logger,
     },
   );
   return kernel;
@@ -153,3 +157,19 @@ export function logDatabase(kernelDatabase: KernelDatabase): void {
   const result = kernelDatabase.executeQuery('SELECT * FROM kv');
   console.log(result);
 }
+
+export type TestLogger = Logger & { entries: LogEntry[] };
+
+/**
+ * Create a logger that records log entries in an array.
+ *
+ * @returns A logger that records log entries in an array.
+ */
+export const makeTestLogger = (): TestLogger => {
+  const logEntries: LogEntry[] = [];
+  const logger = new Logger({ transports: [makeArrayTransport(logEntries)] });
+  Object.defineProperty(logger, 'entries', {
+    get: () => logEntries,
+  });
+  return logger as TestLogger;
+};
