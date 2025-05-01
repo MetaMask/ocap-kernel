@@ -3,7 +3,11 @@ import type { DuplexStream } from '@metamask/streams';
 import { describe, expect, it, vi } from 'vitest';
 
 import { logLevels } from './constants.ts';
-import { consoleTransport, makeStreamTransport } from './transports.ts';
+import {
+  consoleTransport,
+  makeArrayTransport,
+  makeStreamTransport,
+} from './transports.ts';
 import type { LogEntry, LogLevel } from './types.ts';
 
 const makeLogEntry = (level: LogLevel): LogEntry => ({
@@ -42,5 +46,15 @@ describe('makeStreamTransport', () => {
         jsonrpc: '2.0',
       }),
     );
+  });
+});
+
+describe('makeArrayTransport', () => {
+  it('writes to the array', () => {
+    const target: LogEntry[] = [];
+    const arrayTransport = makeArrayTransport(target);
+    const logEntry = makeLogEntry('info');
+    arrayTransport(logEntry);
+    expect(target).toStrictEqual([logEntry]);
   });
 });

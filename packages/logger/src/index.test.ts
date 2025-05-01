@@ -8,6 +8,7 @@ describe('index', () => {
       expect.arrayContaining([
         'Logger',
         'consoleTransport',
+        'makeArrayTransport',
         'makeStreamTransport',
         'splitLoggerStream',
       ]),

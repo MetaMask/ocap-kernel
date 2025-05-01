@@ -34,3 +34,11 @@ export const makeStreamTransport = (
       .catch(console.debug);
   };
 };
+
+export const makeArrayTransport = (
+  target: Parameters<Transport>[0][],
+): Transport => {
+  return (entry) => {
+    target.push(entry);
+  };
+};
