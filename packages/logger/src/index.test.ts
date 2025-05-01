@@ -9,6 +9,7 @@ describe('index', () => {
         'Logger',
         'consoleTransport',
         'makeStreamTransport',
+        'splitLoggerStream',
       ]),
     );
   });
