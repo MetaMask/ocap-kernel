@@ -1,4 +1,4 @@
-import { stringify } from '@ocap/utils';
+import { stringify } from '@metamask/kernel-utils';
 
 import type { DuplexStream } from './BaseDuplexStream.ts';
 import { BaseReader } from './BaseStream.ts';

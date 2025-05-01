@@ -1,4 +1,4 @@
-import type { VatId } from '@ocap/kernel';
+import type { VatId } from '@metamask/ocap-kernel';
 
 export type VatRecord = {
   id: VatId;

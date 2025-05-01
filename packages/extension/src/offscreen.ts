@@ -1,3 +1,5 @@
+import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
+import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { Logger } from '@ocap/logger';
@@ -8,8 +10,6 @@ import {
   MessagePortDuplexStream,
 } from '@ocap/streams/browser';
 import type { PostMessageTarget } from '@ocap/streams/browser';
-import { delay, isJsonRpcCall } from '@ocap/utils';
-import type { JsonRpcCall } from '@ocap/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
 import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerServer.ts';

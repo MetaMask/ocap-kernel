@@ -14,8 +14,8 @@
  * @module ChromeRuntime streams
  */
 
+import { stringify } from '@metamask/kernel-utils';
 import type { Json } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 
 import type { ChromeRuntime, ChromeMessageSender } from './chrome.d.ts';
 import {

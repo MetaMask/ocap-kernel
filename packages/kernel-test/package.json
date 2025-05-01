@@ -53,13 +53,13 @@
     "@endo/marshal": "^1.6.4",
     "@endo/patterns": "^1.5.0",
     "@endo/promise-kit": "^1.1.10",
+    "@metamask/kernel-store": "workspace:^",
+    "@metamask/kernel-utils": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
     "@metamask/utils": "^11.4.0",
-    "@ocap/kernel": "workspace:^",
     "@ocap/nodejs": "workspace:^",
     "@ocap/shims": "workspace:^",
-    "@ocap/store": "workspace:^",
-    "@ocap/streams": "workspace:^",
-    "@ocap/utils": "workspace:^"
+    "@ocap/streams": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

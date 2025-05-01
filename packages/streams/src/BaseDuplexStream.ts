@@ -1,9 +1,9 @@
 import type { PromiseKit } from '@endo/promise-kit';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader } from '@endo/stream';
+import { stringify } from '@metamask/kernel-utils';
 import { is, literal, object } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import { stringify } from '@ocap/utils';
 
 import type { BaseReader, BaseWriter, ValidateInput } from './BaseStream.ts';
 import { makeDoneResult } from './utils.ts';

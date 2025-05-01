@@ -1,6 +1,6 @@
+import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { isJsonRpcMessage } from '@ocap/utils';
-import type { JsonRpcMessage } from '@ocap/utils';
 import { parentPort } from 'node:worker_threads';
 import type { MessagePort as NodePort } from 'node:worker_threads';
 

@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
 
-import type { VatId } from '@ocap/kernel';
+import { makeCounter } from '@metamask/kernel-utils';
+import type { VatId } from '@metamask/ocap-kernel';
 import { makePromiseKitMock } from '@ocap/test-utils';
-import { makeCounter } from '@ocap/utils';
 import { describe, expect, it } from 'vitest';
 import { Worker as NodeWorker } from 'worker_threads';
 

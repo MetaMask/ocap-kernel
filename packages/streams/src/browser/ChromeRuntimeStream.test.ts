@@ -1,4 +1,4 @@
-import { delay, stringify } from '@ocap/utils';
+import { delay, stringify } from '@metamask/kernel-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ChromeRuntime } from './chrome.d.ts';

@@ -8,7 +8,7 @@
   "references": [
     { "path": "../logger" },
     { "path": "../test-utils" },
-    { "path": "../utils" }
+    { "path": "../kernel-utils" }
   ],
   "include": [
     "../../vitest.config.ts",

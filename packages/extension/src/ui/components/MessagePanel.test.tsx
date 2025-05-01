@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import { setupOcapKernelMock } from '@ocap/test-utils';
-import { stringify } from '@ocap/utils';
 import { render, screen, cleanup } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -18,7 +18,7 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@metamask/kernel-utils', () => ({
   stringify: vi.fn(),
 }));
 

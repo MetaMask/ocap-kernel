@@ -9,7 +9,7 @@
   },
   "references": [
     { "path": "../logger/tsconfig.build.json" },
-    { "path": "../utils/tsconfig.build.json" }
+    { "path": "../kernel-utils/tsconfig.build.json" }
   ],
   "files": [],
   "include": ["./src"]

@@ -1,9 +1,9 @@
 import '@ocap/shims/endoify';
-import { Kernel, kunser } from '@ocap/kernel';
-import type { KRef } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
-import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@ocap/utils';
+import type { KernelDatabase } from '@metamask/kernel-store';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { Kernel, kunser } from '@metamask/ocap-kernel';
+import type { KRef } from '@metamask/ocap-kernel';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {

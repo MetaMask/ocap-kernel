@@ -1,4 +1,4 @@
-import type { VatId, Kernel } from '@ocap/kernel';
+import type { VatId, Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { sendVatCommandHandler } from './send-vat-command.ts';

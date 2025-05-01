@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 
-import { Kernel } from '@ocap/kernel';
-import type { VatConfig, VatId } from '@ocap/kernel';
+import { Kernel } from '@metamask/ocap-kernel';
+import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import {
   MessageChannel as NodeMessageChannel,
   MessagePort as NodePort,

@@ -1,7 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
-import { stringify } from '@ocap/utils';
-import type { PromiseCallbacks } from '@ocap/utils';
+import { stringify } from '@metamask/kernel-utils';
+import type { PromiseCallbacks } from '@metamask/kernel-utils';
 
 import type { Dispatchable, Writable } from './utils.ts';
 import {

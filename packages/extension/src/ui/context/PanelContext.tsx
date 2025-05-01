@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import { isJsonRpcFailure } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 import {
   createContext,
   useCallback,

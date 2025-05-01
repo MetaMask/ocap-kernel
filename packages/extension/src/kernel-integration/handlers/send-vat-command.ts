@@ -1,11 +1,11 @@
+import { VatIdStruct } from '@metamask/ocap-kernel';
+import type { Kernel, VatId } from '@metamask/ocap-kernel';
+import { UiMethodRequestStruct } from '@metamask/ocap-kernel/rpc';
+import type { UiMethodRequest } from '@metamask/ocap-kernel/rpc';
 import { object } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
-import { VatIdStruct } from '@ocap/kernel';
-import type { Kernel, VatId } from '@ocap/kernel';
-import { UiMethodRequestStruct } from '@ocap/kernel/rpc';
-import type { UiMethodRequest } from '@ocap/kernel/rpc';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export const sendVatCommandSpec: MethodSpec<

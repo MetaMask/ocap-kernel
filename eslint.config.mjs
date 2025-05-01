@@ -93,7 +93,6 @@ const config = createConfig([
 
   {
     files: ['*.tsx', '**/ui/**/*.ts'],
-    // @ts-expect-error - The createConfig types are wrong
     plugins: { react, 'react-hooks': reactHooks },
     rules: {
       ...react.configs.flat?.['jsx-runtime']?.rules,

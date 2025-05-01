@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import { hasProperty } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.ts';

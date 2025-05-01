@@ -1,6 +1,6 @@
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { Kernel } from '@metamask/ocap-kernel';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { Kernel } from '@ocap/kernel';
-import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 

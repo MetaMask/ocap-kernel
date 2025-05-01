@@ -1,5 +1,5 @@
-import type { VatConfig, VatId } from '@ocap/kernel';
-import { stringify } from '@ocap/utils';
+import { stringify } from '@metamask/kernel-utils';
+import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { useCallback, useMemo } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';

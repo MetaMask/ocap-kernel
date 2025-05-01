@@ -8,7 +8,7 @@
     "types": ["ses"]
   },
   "references": [
-    { "path": "../utils/tsconfig.build.json" },
+    { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../errors/tsconfig.build.json" }
   ],
   "include": ["./src"]

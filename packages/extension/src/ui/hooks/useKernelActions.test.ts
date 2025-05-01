@@ -11,7 +11,7 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('@ocap/utils', async (importOriginal) => ({
+vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
   ...(await importOriginal()),
   stringify: JSON.stringify,
 }));

@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
-import type { VatConfig } from '@ocap/kernel';
-import { VatSupervisor, kser } from '@ocap/kernel';
-import { delay } from '@ocap/utils';
-import type { JsonRpcMessage } from '@ocap/utils';
+import { delay } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import type { VatConfig } from '@metamask/ocap-kernel';
+import { VatSupervisor, kser } from '@metamask/ocap-kernel';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';

@@ -1,10 +1,10 @@
+import { delay, stringify } from '@metamask/kernel-utils';
+import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcResponse } from '@metamask/utils';
-import type { VatId, VatConfig } from '@ocap/kernel';
 import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import { delay, stringify } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';

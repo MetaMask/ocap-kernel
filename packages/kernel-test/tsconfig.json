@@ -9,10 +9,10 @@
   "references": [
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../utils" },
+    { "path": "../kernel-utils" },
     { "path": "../nodejs" },
-    { "path": "../kernel" },
-    { "path": "../store" }
+    { "path": "../ocap-kernel" },
+    { "path": "../kernel-store" }
   ],
   "include": [
     "../../vitest.config.ts",

@@ -13,13 +13,13 @@
     "plugins": [{ "name": "typescript-plugin-css-modules" }]
   },
   "references": [
-    { "path": "../kernel/tsconfig.build.json" },
+    { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
     { "path": "../rpc-methods/tsconfig.build.json" },
     { "path": "../shims/tsconfig.build.json" },
-    { "path": "../store/tsconfig.build.json" },
+    { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" },
-    { "path": "../utils/tsconfig.build.json" }
+    { "path": "../kernel-utils/tsconfig.build.json" }
   ],
   "include": [
     "./src/**/*.ts",

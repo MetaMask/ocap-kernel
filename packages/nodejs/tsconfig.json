@@ -8,12 +8,12 @@
     "types": ["node", "ses", "vitest"]
   },
   "references": [
-    { "path": "../kernel" },
+    { "path": "../ocap-kernel" },
     { "path": "../logger" },
     { "path": "../streams" },
-    { "path": "../utils" },
+    { "path": "../kernel-utils" },
     { "path": "../test-utils" },
-    { "path": "../store" }
+    { "path": "../kernel-store" }
   ],
   "include": [
     "../../vitest.config.packages.ts",

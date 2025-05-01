@@ -1,18 +1,18 @@
+import { delay } from '@metamask/kernel-utils';
+import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcRequest } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import type { VatConfig, VatId } from '@ocap/kernel';
 import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
-import { delay } from '@ocap/utils';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { ExtensionVatWorkerService } from './VatWorkerServer.ts';
 import type { VatWorker, VatWorkerServiceStream } from './VatWorkerServer.ts';
 
-vi.mock('@ocap/kernel', () => ({
+vi.mock('@metamask/ocap-kernel', () => ({
   VatWorkerServiceCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',

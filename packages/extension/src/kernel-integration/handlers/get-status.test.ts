@@ -1,4 +1,4 @@
-import type { Kernel } from '@ocap/kernel';
+import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getStatusHandler } from './get-status.ts';

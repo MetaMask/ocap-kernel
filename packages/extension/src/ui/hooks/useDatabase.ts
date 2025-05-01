@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import { hasProperty } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';

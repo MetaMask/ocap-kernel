@@ -1,13 +1,13 @@
-import { nullable, type, array, object } from '@metamask/superstruct';
-import type { Infer } from '@metamask/superstruct';
+import { EmptyJsonArray } from '@metamask/kernel-utils';
 import {
   ClusterConfigStruct,
   VatConfigStruct,
   VatIdStruct,
-} from '@ocap/kernel';
-import type { Kernel } from '@ocap/kernel';
+} from '@metamask/ocap-kernel';
+import type { Kernel } from '@metamask/ocap-kernel';
+import { nullable, type, array, object } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
-import { EmptyJsonArray } from '@ocap/utils';
 
 const KernelStatusStruct = type({
   clusterConfig: nullable(ClusterConfigStruct),

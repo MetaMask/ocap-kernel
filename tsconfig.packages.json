@@ -8,8 +8,13 @@
      * uncompiled source code for packages that live in this repo.
      */
     "paths": {
-      "@ocap/store/sqlite/nodejs": ["../store/src/sqlite/nodejs.ts"],
-      "@ocap/store/sqlite/wasm": ["../store/src/sqlite/wasm.ts"],
+      "@metamask/*": ["../*/src"],
+      "@metamask/kernel-store/sqlite/nodejs": [
+        "../kernel-store/src/sqlite/nodejs.ts"
+      ],
+      "@metamask/kernel-store/sqlite/wasm": [
+        "../kernel-store/src/sqlite/wasm.ts"
+      ],
       "@ocap/*": ["../*/src"]
     }
   }

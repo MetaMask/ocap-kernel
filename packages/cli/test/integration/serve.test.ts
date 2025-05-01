@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 import type { BundleSourceResult } from '@endo/bundle-source';
+import { makeCounter, stringify } from '@metamask/kernel-utils';
 import { isObject, hasProperty } from '@metamask/utils';
-import { makeCounter, stringify } from '@ocap/utils';
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';

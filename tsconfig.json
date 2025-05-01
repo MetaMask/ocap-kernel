@@ -17,15 +17,15 @@
     { "path": "./packages/create-package" },
     { "path": "./packages/errors" },
     { "path": "./packages/extension" },
-    { "path": "./packages/kernel" },
+    { "path": "./packages/ocap-kernel" },
     { "path": "./packages/kernel-test" },
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
     { "path": "./packages/rpc-methods" },
     { "path": "./packages/shims" },
-    { "path": "./packages/store" },
+    { "path": "./packages/kernel-store" },
     { "path": "./packages/streams" },
     { "path": "./packages/test-utils" },
-    { "path": "./packages/utils" }
+    { "path": "./packages/kernel-utils" }
   ]
 }

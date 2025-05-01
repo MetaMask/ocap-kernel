@@ -38,7 +38,7 @@ File and directory structure:
 
 - Maintain a monorepo structure using Yarn workspaces.
 - Place package source files under `<package-root>/src/`.
-- Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `kernel/src/kernel-worker.ts` should be tested in `kernel/src/kernel-worker.test.ts`).
+- Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `ocap-kernel/src/kernel-worker.ts` should be tested in `ocap-kernel/src/kernel-worker.test.ts`).
 - Test utilities used by a single package should be separated into that package's `<package-root>/test/` directory.
   - If the utility is small, it can be in-lined in the test file.
 - Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package.

@@ -1,4 +1,4 @@
-import type { VatConfig } from '@ocap/kernel';
+import type { VatConfig } from '@metamask/ocap-kernel';
 import { setupOcapKernelMock } from '@ocap/test-utils';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +11,7 @@ vi.mock('../context/PanelContext.tsx', () => ({
 
 setupOcapKernelMock();
 
-vi.mock('@ocap/utils', async (importOriginal) => ({
+vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
   ...(await importOriginal()),
   stringify: JSON.stringify,
 }));

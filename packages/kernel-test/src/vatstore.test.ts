@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
-import type { ClusterConfig } from '@ocap/kernel';
-import type { VatStore, VatCheckpoint } from '@ocap/store';
-import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
+import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { describe, vi, expect, it } from 'vitest';
 
 import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';

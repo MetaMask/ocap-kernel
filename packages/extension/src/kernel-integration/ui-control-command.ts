@@ -1,6 +1,6 @@
+import type { TypeGuard } from '@metamask/kernel-utils';
 import { object, literal, is, string } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { TypeGuard } from '@ocap/utils';
 
 export const UiControlMethod = {
   init: 'init',

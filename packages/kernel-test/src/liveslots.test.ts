@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
-import { Kernel, kunser } from '@ocap/kernel';
-import type { ClusterConfig } from '@ocap/kernel';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { Kernel, kunser } from '@metamask/ocap-kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { makeKernel } from '@ocap/nodejs';
-import { waitUntilQuiescent } from '@ocap/utils';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,

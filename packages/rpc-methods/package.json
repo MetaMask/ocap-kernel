@@ -47,11 +47,11 @@
   },
   "dependencies": {
     "@endo/promise-kit": "^1.1.10",
+    "@metamask/kernel-utils": "workspace:^",
     "@metamask/rpc-errors": "^7.0.2",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
-    "@ocap/logger": "workspace:^",
-    "@ocap/utils": "workspace:^"
+    "@ocap/logger": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

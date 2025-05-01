@@ -22,7 +22,7 @@ export const setupOcapKernelMock = (): {
   let isVatConfigMock = true;
   let isVatIdMock = true;
   // Mock implementation
-  vi.doMock('@ocap/kernel', () => {
+  vi.doMock('@metamask/ocap-kernel', () => {
     const VatIdStruct = define<unknown>('VatId', () => isVatIdMock);
     const VatConfigStruct = define<unknown>('VatConfig', () => isVatConfigMock);
 

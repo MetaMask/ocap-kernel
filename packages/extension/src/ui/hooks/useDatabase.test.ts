@@ -8,7 +8,7 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@metamask/kernel-utils', () => ({
   stringify: JSON.stringify,
 }));
 

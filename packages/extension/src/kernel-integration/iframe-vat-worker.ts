@@ -1,5 +1,5 @@
+import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { createWindow } from '@metamask/snaps-utils';
-import type { VatId, VatConfig } from '@ocap/kernel';
 import { Logger } from '@ocap/logger';
 import type { initializeMessageChannel } from '@ocap/streams/browser';
 

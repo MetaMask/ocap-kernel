@@ -1,6 +1,6 @@
+import { stringify } from '@metamask/kernel-utils';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { hasProperty, isObject } from '@metamask/utils';
-import type { ClusterConfig } from '@ocap/kernel';
-import { stringify } from '@ocap/utils';
 import { useCallback } from 'react';
 
 import { assertVatCommandParams } from '../../kernel-integration/handlers/send-vat-command.ts';

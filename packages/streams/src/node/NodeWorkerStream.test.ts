@@ -1,4 +1,4 @@
-import { delay } from '@ocap/utils';
+import { delay } from '@metamask/kernel-utils';
 import { describe, it, expect, vi } from 'vitest';
 import type { Mocked } from 'vitest';
 

@@ -5,7 +5,7 @@
     "noEmit": true,
     "types": ["node", "vitest"]
   },
-  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
+  "references": [{ "path": "../test-utils" }, { "path": "../kernel-utils" }],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"],
   "exclude": ["./src/package-template"]
 }

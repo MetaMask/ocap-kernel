@@ -1,7 +1,7 @@
+import { EmptyJsonArray } from '@metamask/kernel-utils';
+import type { Kernel } from '@metamask/ocap-kernel';
 import { literal } from '@metamask/superstruct';
-import type { Kernel } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
-import { EmptyJsonArray } from '@ocap/utils';
 
 export const reloadConfigSpec: MethodSpec<
   'reload',

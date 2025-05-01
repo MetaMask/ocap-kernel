@@ -5,7 +5,7 @@
     "lib": ["ES2022"],
     "types": ["ses", "vitest"]
   },
-  "references": [{ "path": "../test-utils" }, { "path": "../utils" }],
+  "references": [{ "path": "../test-utils" }, { "path": "../kernel-utils" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

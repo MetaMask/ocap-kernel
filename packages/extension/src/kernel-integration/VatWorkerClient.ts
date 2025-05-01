@@ -1,7 +1,9 @@
+import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
+import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import type { VatWorkerManager, VatId, VatConfig } from '@metamask/ocap-kernel';
+import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcId, JsonRpcResponse } from '@metamask/utils';
-import type { VatWorkerManager, VatId, VatConfig } from '@ocap/kernel';
-import { vatWorkerServiceMethodSpecs } from '@ocap/kernel/rpc';
 import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import type { DuplexStream } from '@ocap/streams';
@@ -13,8 +15,6 @@ import type {
   PostMessageEnvelope,
   PostMessageTarget,
 } from '@ocap/streams/browser';
-import type { JsonRpcCall, JsonRpcMessage } from '@ocap/utils';
-import { isJsonRpcMessage, stringify } from '@ocap/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

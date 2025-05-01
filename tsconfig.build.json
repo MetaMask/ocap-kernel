@@ -5,12 +5,12 @@
     { "path": "./packages/cli/tsconfig.build.json" },
     { "path": "./packages/errors/tsconfig.build.json" },
     { "path": "./packages/kernel-test/tsconfig.build.json" },
-    { "path": "./packages/kernel/tsconfig.build.json" },
+    { "path": "./packages/ocap-kernel/tsconfig.build.json" },
     { "path": "./packages/logger/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
     { "path": "./packages/rpc-methods/tsconfig.build.json" },
-    { "path": "./packages/store/tsconfig.build.json" },
+    { "path": "./packages/kernel-store/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" },
-    { "path": "./packages/utils/tsconfig.build.json" }
+    { "path": "./packages/kernel-utils/tsconfig.build.json" }
   ]
 }

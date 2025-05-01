@@ -1,4 +1,4 @@
-import type { ClusterConfig } from '@ocap/kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';

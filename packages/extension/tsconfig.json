@@ -20,14 +20,14 @@
     ]
   },
   "references": [
-    { "path": "../kernel" },
+    { "path": "../ocap-kernel" },
     { "path": "../logger" },
     { "path": "../rpc-methods" },
     { "path": "../shims" },
-    { "path": "../store" },
+    { "path": "../kernel-store" },
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../utils" }
+    { "path": "../kernel-utils" }
   ],
   "include": [
     "../../vitest.config.ts",

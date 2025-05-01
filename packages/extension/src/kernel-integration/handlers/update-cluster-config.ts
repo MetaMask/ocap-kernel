@@ -1,6 +1,6 @@
+import type { ClusterConfig } from '@metamask/ocap-kernel';
+import { ClusterConfigStruct } from '@metamask/ocap-kernel';
 import { object, literal } from '@metamask/superstruct';
-import type { ClusterConfig } from '@ocap/kernel';
-import { ClusterConfigStruct } from '@ocap/kernel';
 import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export const updateClusterConfigSpec: MethodSpec<

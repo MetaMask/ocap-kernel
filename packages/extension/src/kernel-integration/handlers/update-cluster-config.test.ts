@@ -1,4 +1,4 @@
-import type { ClusterConfig } from '@ocap/kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi } from 'vitest';
 
 import { updateClusterConfigHandler } from './update-cluster-config.ts';

@@ -1,13 +1,13 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vite/client" />
 
+import type { KernelDatabase } from '@metamask/kernel-store';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { Kernel, kunser } from '@metamask/ocap-kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { Kernel, kunser } from '@ocap/kernel';
-import type { ClusterConfig } from '@ocap/kernel';
 import { NodejsVatWorkerManager } from '@ocap/nodejs';
-import type { KernelDatabase } from '@ocap/store';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { waitUntilQuiescent } from '@ocap/utils';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,

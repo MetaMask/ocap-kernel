@@ -1,11 +1,11 @@
+import { delay } from '@metamask/kernel-utils';
+import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { kernelMethodSpecs } from '@ocap/kernel/rpc';
 import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
-import { delay } from '@ocap/utils';
-import type { JsonRpcCall } from '@ocap/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 

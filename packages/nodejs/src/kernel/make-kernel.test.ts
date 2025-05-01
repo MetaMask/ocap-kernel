@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
 
-import { Kernel } from '@ocap/kernel';
+import { Kernel } from '@metamask/ocap-kernel';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
@@ -9,9 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeKernel } from './make-kernel.ts';
 
-vi.mock('@ocap/store/sqlite/nodejs', async () => {
+vi.mock('@metamask/kernel-store/sqlite/nodejs', async () => {
   const { makeMapKernelDatabase } = await import(
-    '../../../kernel/test/storage.ts'
+    '../../../ocap-kernel/test/storage.ts'
   );
   return {
     makeSQLKernelDatabase: makeMapKernelDatabase,

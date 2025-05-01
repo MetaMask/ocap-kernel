@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
 
-import type { VatId } from '@ocap/kernel';
+import { makeCounter } from '@metamask/kernel-utils';
+import type { VatId } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
-import { makeCounter } from '@ocap/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NodejsVatWorkerManager } from '../../src/kernel/VatWorkerManager.ts';

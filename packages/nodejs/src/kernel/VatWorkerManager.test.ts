@@ -1,7 +1,7 @@
 import '@ocap/shims/endoify';
 
-import type { VatId } from '@ocap/kernel';
-import { makeCounter } from '@ocap/utils';
+import { makeCounter } from '@metamask/kernel-utils';
+import type { VatId } from '@metamask/ocap-kernel';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NodejsVatWorkerManager } from './VatWorkerManager.ts';

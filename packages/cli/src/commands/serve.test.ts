@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
 
-import { makeCounter } from '@ocap/utils';
+import { makeCounter } from '@metamask/kernel-utils';
 import { createServer } from 'http';
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 import serveMiddleware from 'serve-handler';

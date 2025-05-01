@@ -14,8 +14,8 @@
  */
 
 import { makePromiseKit } from '@endo/promise-kit';
+import { stringify } from '@metamask/kernel-utils';
 import { isObject } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 
 export const MessageType = {
   Initialize: 'INIT_MESSAGE_CHANNEL',

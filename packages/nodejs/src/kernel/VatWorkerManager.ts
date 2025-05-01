@@ -1,10 +1,10 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { VatWorkerManager, VatId } from '@ocap/kernel';
+import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import type { VatWorkerManager, VatId } from '@metamask/ocap-kernel';
 import { Logger } from '@ocap/logger';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
-import { isJsonRpcMessage } from '@ocap/utils';
-import type { JsonRpcMessage } from '@ocap/utils';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change

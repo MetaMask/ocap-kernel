@@ -1,4 +1,4 @@
-import { makeCounter } from '@ocap/utils';
+import { makeCounter } from '@metamask/kernel-utils';
 
 /**
  * Validates a bundle URL.

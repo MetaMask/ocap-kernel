@@ -73,7 +73,11 @@ module.exports = defineConfig({
 
         if (!isPrivate) {
           // All non-root packages must have the same set of NPM keywords.
-          expectWorkspaceField(workspace, 'keywords', ['MetaMask', 'Ethereum']);
+          expectWorkspaceField(workspace, 'keywords', [
+            'MetaMask',
+            'object capabilities',
+            'ocap',
+          ]);
 
           // All non-root packages must have a homepage URL that includes its name.
           expectWorkspaceField(
@@ -104,20 +108,15 @@ module.exports = defineConfig({
           // Non-published packages should not have a license.
           workspace.unset('license');
         } else {
-          // All published packages must be MIT else they must be private
-          expectWorkspaceField(workspace, 'license', 'MIT');
+          // Published packages must have a license.
+          expectWorkspaceLicense(workspace);
         }
 
         if (!isPrivate) {
-          // The entrypoint for all published packages must be the same.
+          // The entrypoints for all published packages must be the same.
           expectWorkspaceField(workspace, 'module', './dist/index.mjs');
           expectWorkspaceField(workspace, 'main', './dist/index.cjs');
-          // The type definitions entrypoint for all publishable packages must be the same.
-          expectWorkspaceField(
-            workspace,
-            'exports["."].types',
-            './dist/types/index.d.cts',
-          );
+          expectWorkspaceField(workspace, 'types', './dist/index.d.cts');
 
           // The exports for all published packages must be the same.
           // CommonJS
@@ -152,9 +151,6 @@ module.exports = defineConfig({
             'scripts.publish:preview',
             'yarn npm publish --tag preview',
           );
-
-          // All published packages must not have a "prepack" script.
-          expectWorkspaceField(workspace, 'scripts.prepack', null);
 
           // All non-root package must have valid "changelog:update" and
           // "changelog:validate" scripts.
@@ -432,6 +428,28 @@ async function getWorkspaceFile(workspace, path) {
 }
 
 /**
+ * Attempts to access the given file to know whether the file exists.
+ *
+ * @param {Workspace} workspace - The workspace.
+ * @param {string} path - The path to the file, relative to the workspace root.
+ * @returns {Promise<boolean>} True if the file exists, false otherwise.
+ */
+async function workspaceFileExists(workspace, path) {
+  try {
+    await getWorkspaceFile(workspace, path);
+  } catch (error) {
+    // No hasProperty() in here.
+    // eslint-disable-next-line no-restricted-syntax
+    if ('code' in error && error.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+
+  return true;
+}
+
+/**
  * Expect that the workspace has the given field, and that it is a non-null
  * value. If the field is not present, or is null, this will log an error, and
  * cause the constraint to fail.
@@ -482,6 +500,19 @@ function expectWorkspaceDescription(workspace) {
   if (description.endsWith('.')) {
     workspace.set('description', description.slice(0, -1));
   }
+}
+
+/**
+ * Expect that the workspace has a license file, and that the `license` field is
+ * set.
+ *
+ * @param {Workspace} workspace - The workspace to check.
+ */
+async function expectWorkspaceLicense(workspace) {
+  if (!(await workspaceFileExists(workspace, 'LICENSE'))) {
+    workspace.error('Could not find LICENSE file');
+  }
+  expectWorkspaceField(workspace, 'license');
 }
 
 /**

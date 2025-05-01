@@ -1,7 +1,7 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
+import type { KernelDatabase } from '@metamask/kernel-store';
+import type { Kernel } from '@metamask/ocap-kernel';
 import type { JsonRpcRequest } from '@metamask/utils';
-import type { Kernel } from '@ocap/kernel';
-import type { KernelDatabase } from '@ocap/store';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { createPanelMessageMiddleware } from './panel-message.ts';

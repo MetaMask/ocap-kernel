@@ -88,7 +88,7 @@ export default defineConfig({
           branches: 77.4,
           lines: 82.5,
         },
-        'packages/kernel/**': {
+        'packages/ocap-kernel/**': {
           statements: 90.43,
           functions: 92.18,
           branches: 79.89,
@@ -118,7 +118,7 @@ export default defineConfig({
           branches: 0,
           lines: 0,
         },
-        'packages/store/**': {
+        'packages/kernel-store/**': {
           statements: 92.44,
           functions: 91.17,
           branches: 84.78,
@@ -130,7 +130,7 @@ export default defineConfig({
           branches: 100,
           lines: 100,
         },
-        'packages/utils/**': {
+        'packages/kernel-utils/**': {
           statements: 100,
           functions: 100,
           branches: 100,

@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
-import { makeSQLKernelDatabase } from '@ocap/store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@ocap/utils';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { describe, expect, it } from 'vitest';
 
 import {

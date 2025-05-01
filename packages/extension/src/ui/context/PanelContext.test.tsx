@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@metamask/kernel-utils', () => ({
   stringify: JSON.stringify,
 }));
 
