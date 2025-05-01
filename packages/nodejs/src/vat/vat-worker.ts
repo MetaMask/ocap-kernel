@@ -49,8 +49,7 @@ async function main(): Promise<void> {
   void new VatSupervisor({
     id: vatId,
     kernelStream,
+    logger,
     fetchBlob,
-    // TODO: supervisor should accept a logger argument
-    vatPowers: { logger },
   });
 }

@@ -32,6 +32,7 @@ async function main(): Promise<void> {
   new VatSupervisor({
     id: vatId,
     kernelStream,
+    logger: logger.subLogger(vatId),
   });
 
   logger.info('VatSupervisor initialized with vatId:', vatId);
