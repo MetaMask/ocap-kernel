@@ -1,6 +1,7 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { makeCounter, stringify } from '@metamask/kernel-utils';
 import type { PromiseCallbacks } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import { assert as assertStruct } from '@metamask/superstruct';
 import { isJsonRpcFailure, isJsonRpcSuccess } from '@metamask/utils';
 import type {
@@ -8,7 +9,6 @@ import type {
   JsonRpcRequest,
   JsonRpcSuccess,
 } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 
 import type {
   MethodSpec,

@@ -1,9 +1,9 @@
 import { delay } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import { ChromeRuntimeDuplexStream } from '@ocap/streams/browser';
 

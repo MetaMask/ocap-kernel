@@ -57,6 +57,9 @@ import type {
   LogArgs,
 } from './types.ts';
 
+// We make use of harden() if it exists, but we don't want to fail if it doesn't.
+const harden = globalThis.harden ?? ((value: unknown) => value);
+
 /**
  * The logger class.
  */

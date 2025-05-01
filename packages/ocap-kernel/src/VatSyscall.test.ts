@@ -3,7 +3,7 @@ import type {
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
-import type { Logger } from '@ocap/logger';
+import type { Logger } from '@metamask/logger';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

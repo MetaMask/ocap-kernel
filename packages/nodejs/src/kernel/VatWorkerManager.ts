@@ -1,8 +1,8 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { VatWorkerManager, VatId } from '@metamask/ocap-kernel';
-import { Logger } from '@ocap/logger';
 import { NodeWorkerDuplexStream } from '@ocap/streams';
 import type { DuplexStream } from '@ocap/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';

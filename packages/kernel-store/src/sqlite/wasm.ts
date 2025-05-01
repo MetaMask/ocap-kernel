@@ -1,4 +1,4 @@
-import { Logger } from '@ocap/logger';
+import { Logger } from '@metamask/logger';
 import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 

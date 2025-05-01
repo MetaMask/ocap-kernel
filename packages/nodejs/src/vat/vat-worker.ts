@@ -1,8 +1,8 @@
 import '@ocap/shims/endoify';
 
+import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { VatSupervisor } from '@metamask/ocap-kernel';
-import { Logger } from '@ocap/logger';
 import fs from 'node:fs/promises';
 import url from 'node:url';
 

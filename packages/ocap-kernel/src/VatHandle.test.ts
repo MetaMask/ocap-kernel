@@ -1,7 +1,7 @@
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { Logger } from '@metamask/logger';
 import type { Json } from '@metamask/utils';
-import type { Logger } from '@ocap/logger';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';

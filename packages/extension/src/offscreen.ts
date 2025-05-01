@@ -1,8 +1,8 @@
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import type { DuplexStream } from '@ocap/streams';
 import {
   initializeMessageChannel,

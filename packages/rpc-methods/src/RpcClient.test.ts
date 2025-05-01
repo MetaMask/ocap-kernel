@@ -1,5 +1,5 @@
+import type { Logger } from '@metamask/logger';
 import { jsonrpc2 } from '@metamask/utils';
-import type { Logger } from '@ocap/logger';
 import { describe, it, vi, expect } from 'vitest';
 
 import { RpcClient } from './RpcClient.ts';

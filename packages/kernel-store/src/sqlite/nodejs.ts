@@ -1,4 +1,4 @@
-import { Logger } from '@ocap/logger';
+import { Logger } from '@metamask/logger';
 import type { Database } from 'better-sqlite3';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import Sqlite from 'better-sqlite3';

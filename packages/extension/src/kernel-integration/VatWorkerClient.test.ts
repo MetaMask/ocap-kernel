@@ -1,8 +1,8 @@
 import { delay, stringify } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';

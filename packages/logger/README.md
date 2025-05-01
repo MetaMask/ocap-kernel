@@ -1,14 +1,14 @@
-# `@ocap/logger`
+# `@metamask/logger`
 
-A lightweight logging package using ocap streams
+A lightweight logging package using `@metamask/streams`.
 
 ## Installation
 
-`yarn add @ocap/logger`
+`yarn add @metamask/logger`
 
 or
 
-`npm install @ocap/logger`
+`npm install @metamask/logger`
 
 ## Contributing
 

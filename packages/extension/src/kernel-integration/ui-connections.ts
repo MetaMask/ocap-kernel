@@ -1,8 +1,8 @@
 import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
+import type { Logger } from '@metamask/logger';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import type { Logger } from '@ocap/logger';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { nanoid } from 'nanoid';
 

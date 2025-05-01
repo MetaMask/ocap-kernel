@@ -1,10 +1,10 @@
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { VatWorkerManager, VatId, VatConfig } from '@metamask/ocap-kernel';
 import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcId, JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import { RpcClient } from '@ocap/rpc-methods';
 import type { DuplexStream } from '@ocap/streams';
 import {

@@ -1,6 +1,6 @@
 import '@ocap/shims/endoify';
 
-import { Logger } from '@ocap/logger';
+import { Logger } from '@metamask/logger';
 import { watch } from 'chokidar';
 import type { FSWatcher } from 'chokidar';
 import type { Stats } from 'fs';

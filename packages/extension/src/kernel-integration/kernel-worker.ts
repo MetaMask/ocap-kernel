@@ -2,10 +2,10 @@ import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { fetchValidatedJson, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ClusterConfigStruct, Kernel } from '@metamask/ocap-kernel';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import {
   MessagePortDuplexStream,

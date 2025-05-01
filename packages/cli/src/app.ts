@@ -1,6 +1,6 @@
 import '@endo/init';
 
-import { Logger } from '@ocap/logger';
+import { Logger } from '@metamask/logger';
 import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';

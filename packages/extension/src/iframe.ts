@@ -1,7 +1,7 @@
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import { VatSupervisor } from '@metamask/ocap-kernel';
-import { Logger } from '@ocap/logger';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,

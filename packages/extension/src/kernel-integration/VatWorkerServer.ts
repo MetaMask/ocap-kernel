@@ -1,3 +1,4 @@
+import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import type { VatWorkerServiceMethod } from '@metamask/ocap-kernel/rpc';
 import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
@@ -10,7 +11,6 @@ import type {
   JsonRpcResponse,
 } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import { Logger } from '@ocap/logger';
 import type { ExtractParams } from '@ocap/rpc-methods';
 import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import type {

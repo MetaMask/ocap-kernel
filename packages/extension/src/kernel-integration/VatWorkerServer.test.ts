@@ -1,9 +1,9 @@
 import { delay } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcRequest } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
-import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';

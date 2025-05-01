@@ -1,4 +1,4 @@
-import type { Logger } from '@ocap/logger';
+import type { Logger } from '@metamask/logger';
 import { readFile, rm } from 'fs/promises';
 import { basename } from 'path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
@@ -31,7 +31,7 @@ vi.mock('@endo/bundle-source', () => ({
 
 vi.mock('@endo/init', () => ({}));
 
-vi.mock('@ocap/logger', () => ({
+vi.mock('@metamask/logger', () => ({
   Logger: mocks.Logger,
 }));
 

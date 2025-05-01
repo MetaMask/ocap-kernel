@@ -1,6 +1,6 @@
 import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { Logger } from '@ocap/logger';
 import type { PostMessageTarget } from '@ocap/streams/browser';
 import { delay } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';

@@ -76,7 +76,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@ocap/logger": "workspace:^",
+    "@metamask/logger": "workspace:^",
     "@sqlite.org/sqlite-wasm": "^3.49.1-build3",
     "better-sqlite3": "^11.9.1",
     "ses": "^1.12.0"

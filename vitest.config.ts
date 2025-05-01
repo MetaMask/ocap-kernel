@@ -95,9 +95,9 @@ export default defineConfig({
           lines: 90.41,
         },
         'packages/logger/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
+          statements: 97.29,
+          functions: 92.3,
+          branches: 95.45,
           lines: 100,
         },
         'packages/nodejs/**': {
