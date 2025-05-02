@@ -116,7 +116,8 @@ test.describe('Control Panel', () => {
     await expect(popupPage.locator('table tr')).toHaveCount(3);
   });
 
-  test('should send a message to a vat', async () => {
+  // TODO: Implement this test once the ping method is implemented
+  test.skip('should ping a vat', async () => {
     await expect(
       popupPage.locator('td button:text("Ping")').first(),
     ).toBeVisible();
@@ -204,33 +205,44 @@ test.describe('Control Panel', () => {
       .toBeTruthy();
   });
 
-  test('should send a message from the message panel', async () => {
+  test('should send a message to a vat', async () => {
     const clearLogsButton = popupPage.locator(
       '[data-testid="clear-logs-button"]',
     );
     await clearLogsButton.click();
-    const input = popupPage.locator('[data-testid="send-command-input"]');
-    await input.fill(
-      `{
-        "id": "v1",
-        "payload": {
-          "method": "ping",
-          "params": []
-        }
-      }`,
+    await popupPage.click('button:text("Object Registry")');
+    await expect(popupPage.locator('#root')).toContainText(
+      'Alice (v1) - 3 objects, 3 promises',
     );
-    await popupPage.click('button:text("Send")');
-    await expect(messageOutput).toContainText('"method": "ping",');
-    await expect(messageOutput).toContainText('{"result":"pong"}');
-    // Test deliver command
+    const targetSelect = popupPage.locator('[data-testid="message-target"]');
+    await expect(targetSelect).toBeVisible();
+    const options = targetSelect.locator('option:not([value=""])');
+    await expect(options).toHaveCount(await options.count());
+    expect(await options.count()).toBeGreaterThan(0);
+    await targetSelect.selectOption({ index: 1 });
+    await expect(targetSelect).not.toHaveValue('');
+    const methodInput = popupPage.locator('[data-testid="message-method"]');
+    await expect(methodInput).toHaveValue('__getMethodNames__');
+    const paramsInput = popupPage.locator('[data-testid="message-params"]');
+    await expect(paramsInput).toHaveValue('[]');
+    await popupPage.click('[data-testid="message-send-button"]');
+    const messageResponse = popupPage.locator(
+      '[data-testid="message-response"]',
+    );
+    await expect(messageResponse).toBeVisible();
+    await expect(messageResponse).toContainText(
+      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
+    );
+    await expect(messageResponse).toContainText('"slots":[]');
     await clearLogsButton.click();
-    await input.fill(
-      `{ "id": "v1", "payload": { "method": "deliver", "params": ["bringOutYourDead"] } }`,
+    await methodInput.fill('hello');
+    await paramsInput.fill('[]');
+    await popupPage.click('[data-testid="message-send-button"]');
+    await expect(messageResponse).toContainText('"body":"#\\"vat Alice got');
+    await expect(messageResponse).toContainText('"slots":[');
+    await expect(popupPage.locator('#root')).toContainText(
+      'Alice (v1) - 3 objects, 5 promises',
     );
-    await popupPage.click('button:text("Send")');
-    await expect(messageOutput).toContainText('"method": "deliver",');
-    await expect(messageOutput).toContainText('"bringOutYourDead"');
-    await expect(messageOutput).toContainText('"result":[[],[]]}');
   });
 
   test('should reload kernel state and load default vats', async () => {

@@ -136,7 +136,7 @@ export const SendMessageForm: React.FC = () => {
         </div>
       </div>
       {result && (
-        <div className={styles.messageResponse}>
+        <div className={styles.messageResponse} data-testid="message-response">
           <h4>Response:</h4>
           <pre>{stringify(result, 0)}</pre>
         </div>
