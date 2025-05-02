@@ -6,8 +6,9 @@ import {
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
-import { Logger } from '@metamask/logger';
+import { Logger, splitLoggerStream } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { hasProperty } from '@metamask/utils';
@@ -207,14 +208,20 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const vatStream = await this.#vatWorkerService.launch(vatId, vatConfig);
+    const stream = await this.#vatWorkerService.launch(vatId, vatConfig);
+    const { kernelStream: vatStream, loggerStream } = splitLoggerStream(stream);
+    const vatLogger = this.#logger.subLogger(vatId);
+    vatLogger.injectStream(
+      loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
+      (error) => console.error(stringify(error)),
+    );
     const vat = await VatHandle.make({
       vatId,
       vatConfig,
       vatStream,
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
-      logger: this.#logger.subLogger(vatId),
+      logger: vatLogger,
     });
     this.#vats.set(vatId, vat);
   }
