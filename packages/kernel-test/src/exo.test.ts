@@ -10,16 +10,10 @@ import {
   extractVatLogs,
   getBundleSpec,
   makeKernel,
+  makeTestLogger,
   runTestVats,
 } from './utils.ts';
-
-const origStdoutWrite = process.stdout.write.bind(process.stdout);
-let buffered: string = '';
-// @ts-expect-error Some type def used by lint is just wrong (compiler likes it ok, but lint whines)
-process.stdout.write = (buffer: string, encoding, callback): void => {
-  buffered += buffer;
-  origStdoutWrite(buffer, encoding, callback);
-};
+import type { TestLogger } from './utils.ts';
 
 const testSubcluster = {
   bootstrap: 'exoTest',
@@ -38,20 +32,21 @@ describe('virtual objects functionality', async () => {
   let kernel: Kernel;
   let kernelDatabase: KernelDatabase;
   let bootstrapResult: unknown;
+  let logger: TestLogger;
 
   beforeEach(async () => {
     kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    kernel = await makeKernel(kernelDatabase, true);
-    buffered = '';
+    logger = makeTestLogger();
+    kernel = await makeKernel(kernelDatabase, true, logger);
     bootstrapResult = await runTestVats(kernel, testSubcluster);
     await waitUntilQuiescent(100);
   });
 
   it('successfully creates and uses exo objects and scalar stores', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toStrictEqual([
       'ExoTest: initializing state',
       'ExoTest: counter value from baggage: 0',
@@ -72,11 +67,10 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('tests scalar store functionality', async () => {
-    buffered = '';
     const storeResult = await kernel.queueMessage('ko1', 'testScalarStore', []);
     await waitUntilQuiescent(100);
     expect(kunser(storeResult)).toBe('scalar-store-tests-complete');
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toStrictEqual([
       'ExoTest: Map store size: 3',
       'ExoTest: Map store keys: alice, bob, charlie',
@@ -87,7 +81,6 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('can create and use objects through messaging', async () => {
-    buffered = '';
     const counterResult = await kernel.queueMessage('ko1', 'createCounter', [
       42,
     ]);
@@ -123,7 +116,7 @@ describe('virtual objects functionality', async () => {
       personRef,
     ]);
     await waitUntilQuiescent(100);
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     // Verify counter was created and used
     expect(vatLogs).toStrictEqual([
       'ExoTest: Created new counter with value: 42',
@@ -135,11 +128,10 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('tests exoClass type validation and behavior', async () => {
-    buffered = '';
     const exoClassResult = await kernel.queueMessage('ko1', 'testExoClass', []);
     await waitUntilQuiescent(100);
     expect(kunser(exoClassResult)).toBe('exoClass-tests-complete');
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toStrictEqual([
       'ExoTest: Counter: 3 + 5 = 8',
       'ExoTest: Counter: 8 - 2 = 6',
@@ -148,7 +140,6 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('tests exoClassKit with multiple facets', async () => {
-    buffered = '';
     const exoClassKitResult = await kernel.queueMessage(
       'ko1',
       'testExoClassKit',
@@ -156,7 +147,7 @@ describe('virtual objects functionality', async () => {
     );
     await waitUntilQuiescent(100);
     expect(kunser(exoClassKitResult)).toBe('exoClassKit-tests-complete');
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toStrictEqual([
       'ExoTest: 20°C = 68°F',
       'ExoTest: 32°F = 0°C',
@@ -165,7 +156,6 @@ describe('virtual objects functionality', async () => {
   }, 30000);
 
   it('tests temperature converter through messaging', async () => {
-    buffered = '';
     // Create a temperature converter starting at 100°C
     const tempResult = await kernel.queueMessage('ko1', 'createTemperature', [
       100,
@@ -204,7 +194,7 @@ describe('virtual objects functionality', async () => {
     );
     expect(kunser(newCelsiusResult)).toBe(0);
     await waitUntilQuiescent(100);
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toContain(
       'ExoTest: Created temperature converter starting at 100°C',
     );

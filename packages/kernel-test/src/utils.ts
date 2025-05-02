@@ -120,18 +120,20 @@ export function sortLogs(logs: string[]): string[] {
 }
 
 /**
- * Convert a raw output buffer into a list of lines suitable for examination.
+ * Convert a list of log entries into a list of lines suitable for examination.
  *
- * @param buffer - The raw buffer to convert.
+ * @param entries - The list of log entries to convert.
  *
- * @returns the relevant contents of `buffer`, massaged for use.
+ * @returns the relevant contents of `entries`, massaged for use.
  */
-export function extractVatLogs(buffer: string): string[] {
-  const result = buffer
-    .split('\n')
-    .filter((line: string) => line.startsWith('::> '))
-    .map((line: string) => line.slice(4));
-  return sortLogs(result);
+export function extractVatLogs(entries: LogEntry[]): string[] {
+  if (entries.length === 0) {
+    throw new Error('No log entries found');
+  }
+  return entries
+    .filter((entry) => entry.tags.includes('vat-worker'))
+    .map((entry) => entry.message ?? '')
+    .filter(Boolean);
 }
 
 /**
@@ -167,10 +169,9 @@ export type TestLogger = Logger & { entries: LogEntry[] };
  * @returns A logger that records log entries in an array.
  */
 export const makeTestLogger = (): TestLogger => {
-  const logEntries: LogEntry[] = [];
-  const logger = new Logger({ transports: [makeArrayTransport(logEntries)] });
-  Object.defineProperty(logger, 'entries', {
-    get: () => logEntries,
+  const entries: LogEntry[] = [];
+  const logger = new Logger({
+    transports: [makeArrayTransport(entries)],
   });
-  return logger as TestLogger;
+  return Object.assign(logger, { entries });
 };

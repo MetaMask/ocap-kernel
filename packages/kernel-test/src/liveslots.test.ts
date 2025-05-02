@@ -9,7 +9,7 @@ import {
 } from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { getBundleSpec, makeTestLogger } from './utils.ts';
+import { extractVatLogs, getBundleSpec, makeTestLogger } from './utils.ts';
 import type { TestLogger } from './utils.ts';
 
 const makeTestSubcluster = (
@@ -73,17 +73,11 @@ describe('liveslots promise handling', () => {
       makeTestSubcluster(testName, bundleSpec),
     );
     await waitUntilQuiescent(1000);
-    const vatLogs = logger.entries.filter((entry) =>
-      entry.message?.includes('::> '),
-    );
-    throw new Error(`vatLogs: ${vatLogs.length}`);
+    const vatLogs = extractVatLogs(logger.entries);
     if (bootstrapResultRaw === undefined) {
       throw Error(`this can't happen but eslint is stupid`);
     }
-    return [
-      kunser(bootstrapResultRaw),
-      vatLogs.map((entry) => entry.message ?? ''),
-    ];
+    return [kunser(bootstrapResultRaw), vatLogs];
   }
 
   it('promiseArg1: send promise parameter, resolve after send', async () => {

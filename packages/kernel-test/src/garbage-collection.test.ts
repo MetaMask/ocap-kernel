@@ -14,9 +14,11 @@ import { expect, beforeEach, describe, it } from 'vitest';
 import {
   getBundleSpec,
   makeKernel,
+  makeTestLogger,
   parseReplyBody,
   runTestVats,
 } from './utils.ts';
+import type { TestLogger } from './utils.ts';
 
 /**
  * Make a test subcluster with vats for GC testing
@@ -52,13 +54,15 @@ describe('Garbage Collection', () => {
   let importerKRef: KRef;
   let exporterVatId: VatId;
   let importerVatId: VatId;
+  let logger: TestLogger;
 
   beforeEach(async () => {
+    logger = makeTestLogger();
     kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
     kernelStore = makeKernelStore(kernelDatabase);
-    kernel = await makeKernel(kernelDatabase, true);
+    kernel = await makeKernel(kernelDatabase, true, logger);
     await runTestVats(kernel, makeTestSubcluster());
 
     const vats = kernel.getVats();

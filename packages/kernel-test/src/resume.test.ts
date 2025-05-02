@@ -13,14 +13,6 @@ import {
   sortLogs,
 } from './utils.ts';
 
-const origStdoutWrite = process.stdout.write.bind(process.stdout);
-let buffered: string = '';
-// @ts-expect-error Some type def used by lint is just wrong (compiler likes it ok, but lint whines)
-process.stdout.write = (buffer: string, encoding, callback): void => {
-  buffered += buffer;
-  origStdoutWrite(buffer, encoding, callback);
-};
-
 const testSubcluster = {
   bootstrap: 'alice',
   forceReset: true,
@@ -115,7 +107,6 @@ describe('restarting vats', async () => {
     });
     const logger = makeTestLogger();
     const kernel = await makeKernel(kernelDatabase, true, logger);
-    buffered = '';
     const bootstrapResult = await runTestVats(kernel, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
     await waitUntilQuiescent();
@@ -129,7 +120,7 @@ describe('restarting vats', async () => {
     const resumeResultC = await runResume(kernel, 'ko3');
     expect(resumeResultC).toBe('resume Carol');
     await waitUntilQuiescent(1000);
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs = extractVatLogs(logger.entries);
     expect(vatLogs).toStrictEqual(reference);
   }, 30000);
 
@@ -139,7 +130,6 @@ describe('restarting vats', async () => {
     });
     const logger1 = makeTestLogger();
     const kernel1 = await makeKernel(kernelDatabase, true, logger1);
-    buffered = '';
     const bootstrapResult = await runTestVats(kernel1, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
     await waitUntilQuiescent();
@@ -152,7 +142,9 @@ describe('restarting vats', async () => {
     const resumeResultC = await runResume(kernel2, 'ko3');
     expect(resumeResultC).toBe('resume Carol');
     await waitUntilQuiescent(1000);
-    const vatLogs = extractVatLogs(buffered);
+    const vatLogs1 = extractVatLogs(logger1.entries);
+    const vatLogs2 = extractVatLogs(logger2.entries);
+    const vatLogs = sortLogs([...vatLogs1, ...vatLogs2]);
     expect(vatLogs).toStrictEqual(reference);
   }, 30000);
 });
