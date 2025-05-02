@@ -116,7 +116,7 @@ test.describe('Control Panel', () => {
     await expect(popupPage.locator('table tr')).toHaveCount(3);
   });
 
-  // TODO: Implement this test once the ping method is implemented
+  // TODO: Fix this test once the ping method is implemented
   test.skip('should ping a vat', async () => {
     await expect(
       popupPage.locator('td button:text("Ping")').first(),
