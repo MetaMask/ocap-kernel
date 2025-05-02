@@ -80,10 +80,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/errors/**': {
-          statements: 98.63,
-          functions: 95.23,
-          branches: 92,
-          lines: 98.63,
+          statements: 0,
+          functions: 0,
+          branches: 0,
+          lines: 0,
         },
         'packages/extension/**': {
           statements: 83.61,
@@ -92,10 +92,10 @@ export default defineConfig({
           lines: 83.59,
         },
         'packages/ocap-kernel/**': {
-          statements: 90.43,
-          functions: 92.18,
-          branches: 79.89,
-          lines: 90.41,
+          statements: 90.47,
+          functions: 92.51,
+          branches: 80.45,
+          lines: 90.45,
         },
         'packages/logger/**': {
           statements: 97.29,

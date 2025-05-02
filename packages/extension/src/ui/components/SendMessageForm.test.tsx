@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import { setupOcapKernelMock } from '@ocap/test-utils';
-import { stringify } from '@ocap/utils';
 import {
   render,
   screen,
@@ -27,7 +27,7 @@ vi.mock('../hooks/useDatabase.ts', () => ({
   useDatabase: vi.fn(),
 }));
 
-vi.mock('@ocap/utils', () => ({
+vi.mock('@metamask/kernel-utils', () => ({
   stringify: vi.fn(),
 }));
 

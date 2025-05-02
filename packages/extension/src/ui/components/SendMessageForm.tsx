@@ -1,5 +1,5 @@
+import { stringify } from '@metamask/kernel-utils';
 import type { Json } from '@metamask/utils';
-import { stringify } from '@ocap/utils';
 import { useState, useMemo } from 'react';
 
 import styles from '../App.module.css';
