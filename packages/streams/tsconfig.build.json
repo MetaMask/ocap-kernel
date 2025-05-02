@@ -9,7 +9,7 @@
   },
   "references": [
     { "path": "../kernel-utils/tsconfig.build.json" },
-    { "path": "../errors/tsconfig.build.json" }
+    { "path": "../kernel-errors/tsconfig.build.json" }
   ],
   "include": ["./src"]
 }

@@ -15,7 +15,7 @@
   "references": [
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
-    { "path": "./packages/errors" },
+    { "path": "./packages/kernel-errors" },
     { "path": "./packages/extension" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/kernel-test" },

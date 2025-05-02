@@ -1,3 +1,7 @@
+import {
+  VatAlreadyExistsError,
+  VatNotFoundError,
+} from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import type { VatWorkerServiceMethod } from '@metamask/ocap-kernel/rpc';
@@ -15,7 +19,6 @@ import type {
   JsonRpcRequest,
   JsonRpcResponse,
 } from '@metamask/utils';
-import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { ExtractParams } from '@ocap/rpc-methods';
 
 // Appears in the docs.

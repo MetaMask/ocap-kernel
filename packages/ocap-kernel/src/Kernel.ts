@@ -1,4 +1,9 @@
 import type { CapData } from '@endo/marshal';
+import {
+  StreamReadError,
+  VatAlreadyExistsError,
+  VatNotFoundError,
+} from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -6,11 +11,6 @@ import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { hasProperty } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import {
-  StreamReadError,
-  VatAlreadyExistsError,
-  VatNotFoundError,
-} from '@ocap/errors';
 import { RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 

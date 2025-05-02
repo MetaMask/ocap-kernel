@@ -3,7 +3,7 @@
   "include": [],
   "references": [
     { "path": "./packages/cli/tsconfig.build.json" },
-    { "path": "./packages/errors/tsconfig.build.json" },
+    { "path": "./packages/kernel-errors/tsconfig.build.json" },
     { "path": "./packages/kernel-test/tsconfig.build.json" },
     { "path": "./packages/ocap-kernel/tsconfig.build.json" },
     { "path": "./packages/logger/tsconfig.build.json" },

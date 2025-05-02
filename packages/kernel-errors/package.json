@@ -1,12 +1,22 @@
 {
-  "name": "@ocap/errors",
+  "name": "@metamask/kernel-errors",
   "version": "0.0.0",
-  "private": true,
   "description": "Ocap Kernel errors",
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-errors#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -21,13 +31,17 @@
     },
     "./package.json": "./package.json"
   },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/errors",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-errors",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-errors",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -80,5 +94,9 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

@@ -8,7 +8,7 @@
     "types": ["ses"]
   },
   "references": [
-    { "path": "../errors/tsconfig.build.json" },
+    { "path": "../kernel-errors/tsconfig.build.json" },
     { "path": "../rpc-methods/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },

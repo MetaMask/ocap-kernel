@@ -1,4 +1,4 @@
-import { VatNotFoundError } from '@ocap/errors';
+import { VatNotFoundError } from '@metamask/kernel-errors';
 import { describe, it, expect } from 'vitest';
 
 import { stringify } from './stringify.ts';

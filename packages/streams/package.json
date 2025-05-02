@@ -69,10 +69,10 @@
   "dependencies": {
     "@endo/promise-kit": "^1.1.10",
     "@endo/stream": "^1.2.10",
+    "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0",
-    "@ocap/errors": "workspace:^"
+    "@metamask/utils": "^11.4.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

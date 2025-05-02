@@ -1,8 +1,8 @@
+import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import type { JsonRpcResponse, JsonRpcRequest } from '@metamask/utils';
-import { VatNotFoundError } from '@ocap/errors';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';

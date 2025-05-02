@@ -4,7 +4,7 @@
     "baseUrl": "./"
   },
   "references": [
-    { "path": "../errors" },
+    { "path": "../kernel-errors" },
     { "path": "../logger" },
     { "path": "../rpc-methods" },
     { "path": "../kernel-store" },

@@ -6,7 +6,7 @@
     "types": ["ses", "vitest", "@vitest/browser/providers/playwright"]
   },
   "references": [
-    { "path": "../errors" },
+    { "path": "../kernel-errors" },
     { "path": "../test-utils" },
     { "path": "../kernel-utils" }
   ],
