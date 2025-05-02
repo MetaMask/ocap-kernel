@@ -8,13 +8,13 @@ import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@metamask/kernel-errors';
+import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore, VatCheckpoint } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
-import { RpcClient, RpcService } from '@ocap/rpc-methods';
 
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import type { InitVat } from './rpc/vat/initVat.ts';

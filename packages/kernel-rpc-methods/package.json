@@ -1,9 +1,13 @@
 {
-  "name": "@ocap/rpc-methods",
+  "name": "@metamask/kernel-rpc-methods",
   "version": "0.0.0",
-  "private": true,
-  "description": "Utilities for implementing JSON-RPC methods",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/rpc-methods#readme",
+  "description": "Utilities for implementing Ocap Kernel JSON-RPC methods",
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-rpc-methods#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -11,6 +15,8 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -25,13 +31,17 @@
     },
     "./package.json": "./package.json"
   },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/rpc-methods",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-rpc-methods",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-rpc-methods",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -85,5 +95,9 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

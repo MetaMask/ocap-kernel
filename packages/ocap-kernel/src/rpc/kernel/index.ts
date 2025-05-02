@@ -2,7 +2,7 @@ import type {
   HandlerRecord,
   MethodRequest,
   MethodSpecRecord,
-} from '@ocap/rpc-methods';
+} from '@metamask/kernel-rpc-methods';
 
 import { pingHandler, pingSpec } from '../vat/ping.ts';
 

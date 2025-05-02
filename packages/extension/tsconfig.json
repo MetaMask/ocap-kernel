@@ -22,7 +22,7 @@
   "references": [
     { "path": "../ocap-kernel" },
     { "path": "../logger" },
-    { "path": "../rpc-methods" },
+    { "path": "../kernel-rpc-methods" },
     { "path": "../shims" },
     { "path": "../kernel-store" },
     { "path": "../streams" },

@@ -1,4 +1,5 @@
 import type { VatSyscallResult } from '@agoric/swingset-liveslots';
+import type { Handler, MethodSpec } from '@metamask/kernel-rpc-methods';
 import {
   tuple,
   literal,
@@ -9,7 +10,6 @@ import {
   Struct,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { Handler, MethodSpec } from '@ocap/rpc-methods';
 
 import {
   CapDataStruct,

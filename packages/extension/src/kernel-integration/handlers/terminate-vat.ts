@@ -1,7 +1,7 @@
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import type { Kernel, VatId } from '@metamask/ocap-kernel';
 import { VatIdStruct } from '@metamask/ocap-kernel';
 import { object, literal } from '@metamask/superstruct';
-import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export const terminateVatSpec: MethodSpec<
   'terminateVat',

@@ -6,7 +6,7 @@
   "references": [
     { "path": "../kernel-errors" },
     { "path": "../logger" },
-    { "path": "../rpc-methods" },
+    { "path": "../kernel-rpc-methods" },
     { "path": "../kernel-store" },
     { "path": "../streams" },
     { "path": "../kernel-utils" },

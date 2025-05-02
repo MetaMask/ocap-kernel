@@ -1,4 +1,4 @@
-import type { MethodSpecRecord } from '@ocap/rpc-methods';
+import type { MethodSpecRecord } from '@metamask/kernel-rpc-methods';
 
 import { launchSpec } from './launch.ts';
 import { terminateSpec } from './terminate.ts';

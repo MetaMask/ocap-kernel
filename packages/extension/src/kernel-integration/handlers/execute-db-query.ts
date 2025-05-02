@@ -1,5 +1,5 @@
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { array, object, record, string } from '@metamask/superstruct';
-import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export const executeDBQuerySpec: MethodSpec<
   'executeDBQuery',

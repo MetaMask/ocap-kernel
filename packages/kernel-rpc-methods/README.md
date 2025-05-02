@@ -1,14 +1,14 @@
-# `@ocap/rpc-methods`
+# `@metamask/kernel-rpc-methods`
 
-Utilities for implementing JSON-RPC methods
+Utilities for implementing Ocap Kernel JSON-RPC methods.
 
 ## Installation
 
-`yarn add @ocap/rpc-methods`
+`yarn add @metamask/kernel-rpc-methods`
 
 or
 
-`npm install @ocap/rpc-methods`
+`npm install @metamask/kernel-rpc-methods`
 
 ## Contributing
 

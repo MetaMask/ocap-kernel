@@ -74,6 +74,7 @@
     "@endo/pass-style": "^1.5.0",
     "@endo/promise-kit": "^1.1.10",
     "@metamask/kernel-errors": "workspace:^",
+    "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
@@ -81,7 +82,6 @@
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
-    "@ocap/rpc-methods": "workspace:^",
     "ses": "^1.12.0",
     "setimmediate": "^1.0.5"
   },

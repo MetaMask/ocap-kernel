@@ -1,6 +1,6 @@
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { EmptyJsonArray } from '@metamask/kernel-utils';
 import { string } from '@metamask/superstruct';
-import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export type PingSpec = MethodSpec<'ping', EmptyJsonArray, string>;
 

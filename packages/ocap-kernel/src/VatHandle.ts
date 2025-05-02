@@ -3,14 +3,17 @@ import type {
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
 import { VatDeletedError, StreamReadError } from '@metamask/kernel-errors';
+import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
+import type {
+  ExtractParams,
+  ExtractResult,
+} from '@metamask/kernel-rpc-methods';
 import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
-import { RpcClient, RpcService } from '@ocap/rpc-methods';
-import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';

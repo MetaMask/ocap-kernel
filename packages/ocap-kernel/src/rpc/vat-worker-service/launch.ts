@@ -1,5 +1,5 @@
+import type { MethodSpec } from '@metamask/kernel-rpc-methods';
 import { literal, object } from '@metamask/superstruct';
-import type { MethodSpec } from '@ocap/rpc-methods';
 
 import { VatIdStruct, VatConfigStruct } from '../../types.ts';
 import type { VatId, VatConfig } from '../../types.ts';

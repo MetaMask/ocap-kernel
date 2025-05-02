@@ -1,3 +1,4 @@
+import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -14,7 +15,6 @@ import type {
 } from '@metamask/streams/browser';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcId, JsonRpcResponse } from '@metamask/utils';
-import { RpcClient } from '@ocap/rpc-methods';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

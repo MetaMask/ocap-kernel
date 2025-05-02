@@ -1,4 +1,7 @@
-import type { MethodSpecRecord, HandlerRecord } from '@ocap/rpc-methods';
+import type {
+  MethodSpecRecord,
+  HandlerRecord,
+} from '@metamask/kernel-rpc-methods';
 
 import { vatSyscallSpec, vatSyscallHandler } from './vat-syscall.ts';
 

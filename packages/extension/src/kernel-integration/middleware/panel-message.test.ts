@@ -11,7 +11,7 @@ const { mockAssertHasMethod, mockExecute } = vi.hoisted(() => ({
   mockExecute: vi.fn(),
 }));
 
-vi.mock('@ocap/rpc-methods', () => ({
+vi.mock('@metamask/kernel-rpc-methods', () => ({
   RpcService: class MockRpcService {
     assertHasMethod = mockAssertHasMethod;
 

@@ -1,3 +1,4 @@
+import type { Handler, MethodSpec } from '@metamask/kernel-rpc-methods';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import {
   tuple,
@@ -9,7 +10,6 @@ import {
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { Handler, MethodSpec } from '@ocap/rpc-methods';
 
 import { VatCheckpointStruct } from './shared.ts';
 import {

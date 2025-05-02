@@ -1,6 +1,6 @@
+import type { MethodRequest } from '@metamask/kernel-rpc-methods';
 import { is, refine, Struct } from '@metamask/superstruct';
 import { JsonRpcRequestStruct } from '@metamask/utils';
-import type { MethodRequest } from '@ocap/rpc-methods';
 
 import { deliverSpec, deliverHandler } from './deliver.ts';
 import type { DeliverSpec, DeliverHandler } from './deliver.ts';

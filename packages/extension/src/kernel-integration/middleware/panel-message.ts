@@ -1,9 +1,9 @@
 import { createAsyncMiddleware } from '@metamask/json-rpc-engine';
 import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine';
+import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
 import type { Json, JsonRpcParams } from '@metamask/utils';
-import { RpcService } from '@ocap/rpc-methods';
 
 import { handlers } from '../handlers/index.ts';
 

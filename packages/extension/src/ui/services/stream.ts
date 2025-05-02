@@ -1,5 +1,8 @@
-import { RpcClient } from '@ocap/rpc-methods';
-import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
+import { RpcClient } from '@metamask/kernel-rpc-methods';
+import type {
+  ExtractParams,
+  ExtractResult,
+} from '@metamask/kernel-rpc-methods';
 
 import { logger } from './logger.ts';
 import { methodSpecs } from '../../kernel-integration/handlers/index.ts';

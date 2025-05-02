@@ -8,7 +8,7 @@
     { "path": "./packages/ocap-kernel/tsconfig.build.json" },
     { "path": "./packages/logger/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
-    { "path": "./packages/rpc-methods/tsconfig.build.json" },
+    { "path": "./packages/kernel-rpc-methods/tsconfig.build.json" },
     { "path": "./packages/kernel-store/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" },
     { "path": "./packages/kernel-utils/tsconfig.build.json" }

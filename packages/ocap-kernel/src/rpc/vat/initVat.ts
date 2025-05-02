@@ -1,7 +1,7 @@
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import { array, object, string, tuple } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 import { VatCheckpointStruct } from './shared.ts';
 import { VatConfigStruct } from '../../types.ts';

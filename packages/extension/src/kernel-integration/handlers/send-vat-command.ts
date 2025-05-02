@@ -1,3 +1,4 @@
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { VatIdStruct } from '@metamask/ocap-kernel';
 import type { Kernel, VatId } from '@metamask/ocap-kernel';
 import { UiMethodRequestStruct } from '@metamask/ocap-kernel/rpc';
@@ -6,7 +7,6 @@ import { object } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
-import type { MethodSpec, Handler } from '@ocap/rpc-methods';
 
 export const sendVatCommandSpec: MethodSpec<
   'sendVatCommand',
