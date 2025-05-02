@@ -56,10 +56,10 @@
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
+    "@metamask/streams": "workspace:^",
     "@metamask/utils": "^11.4.0",
     "@ocap/nodejs": "workspace:^",
-    "@ocap/shims": "workspace:^",
-    "@ocap/streams": "workspace:^"
+    "@ocap/shims": "workspace:^"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

@@ -1,9 +1,9 @@
 import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { PostMessageDuplexStream } from '@metamask/streams/browser';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { PostMessageDuplexStream } from '@ocap/streams/browser';
 import { nanoid } from 'nanoid';
 
 import { isUiControlCommand } from './ui-control-command.ts';

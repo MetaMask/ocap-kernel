@@ -5,6 +5,7 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import type { DuplexStream } from '@metamask/streams';
 import {
   define,
   is,
@@ -21,7 +22,6 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { DuplexStream } from '@ocap/streams';
 
 import { Fail } from './utils/assert.ts';
 

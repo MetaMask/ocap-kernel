@@ -5,9 +5,9 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
+import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { NodejsVatWorkerManager } from '@ocap/nodejs';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,

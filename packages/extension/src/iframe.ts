@@ -5,7 +5,7 @@ import { VatSupervisor } from '@metamask/ocap-kernel';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
-} from '@ocap/streams/browser';
+} from '@metamask/streams/browser';
 
 const logger = new Logger('iframe');
 

@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@ocap/streams', () => ({
+vi.mock('@metamask/streams', () => ({
   NodeWorkerDuplexStream: vi.fn(() => mocks.stream),
 }));
 

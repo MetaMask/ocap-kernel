@@ -11,10 +11,10 @@ import type { VatKVStore, VatCheckpoint } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { serializeError } from '@metamask/rpc-errors';
+import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { StreamReadError } from '@ocap/errors';
 import { RpcClient, RpcService } from '@ocap/rpc-methods';
-import type { DuplexStream } from '@ocap/streams';
 
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import type { InitVat } from './rpc/vat/initVat.ts';

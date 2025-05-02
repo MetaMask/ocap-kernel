@@ -1,15 +1,15 @@
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
-import type { DuplexStream } from '@ocap/streams';
+import type { DuplexStream } from '@metamask/streams';
 import {
   initializeMessageChannel,
   ChromeRuntimeDuplexStream,
   MessagePortDuplexStream,
-} from '@ocap/streams/browser';
-import type { PostMessageTarget } from '@ocap/streams/browser';
+} from '@metamask/streams/browser';
+import type { PostMessageTarget } from '@metamask/streams/browser';
+import type { JsonRpcResponse } from '@metamask/utils';
+import { isJsonRpcResponse } from '@metamask/utils';
 
 import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
 import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerServer.ts';

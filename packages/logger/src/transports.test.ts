@@ -1,4 +1,4 @@
-import type { DuplexStream } from '@ocap/streams';
+import type { DuplexStream } from '@metamask/streams';
 import { describe, expect, it, vi } from 'vitest';
 
 import { logLevels } from './constants.ts';

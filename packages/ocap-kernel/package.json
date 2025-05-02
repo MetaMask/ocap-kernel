@@ -77,11 +77,11 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/rpc-errors": "^7.0.2",
+    "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
     "@ocap/errors": "workspace:^",
     "@ocap/rpc-methods": "workspace:^",
-    "@ocap/streams": "workspace:^",
     "ses": "^1.12.0",
     "setimmediate": "^1.0.5"
   },

@@ -3,6 +3,11 @@ import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import type { VatWorkerServiceMethod } from '@metamask/ocap-kernel/rpc';
 import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { rpcErrors, serializeError } from '@metamask/rpc-errors';
+import { PostMessageDuplexStream } from '@metamask/streams/browser';
+import type {
+  PostMessageEnvelope,
+  PostMessageTarget,
+} from '@metamask/streams/browser';
 import { hasProperty, isJsonRpcRequest } from '@metamask/utils';
 import type {
   JsonRpcId,
@@ -12,11 +17,6 @@ import type {
 } from '@metamask/utils';
 import { VatAlreadyExistsError, VatNotFoundError } from '@ocap/errors';
 import type { ExtractParams } from '@ocap/rpc-methods';
-import { PostMessageDuplexStream } from '@ocap/streams/browser';
-import type {
-  PostMessageEnvelope,
-  PostMessageTarget,
-} from '@ocap/streams/browser';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

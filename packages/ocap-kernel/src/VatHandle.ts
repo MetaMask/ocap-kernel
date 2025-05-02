@@ -6,11 +6,11 @@ import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
+import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import { VatDeletedError, StreamReadError } from '@ocap/errors';
 import { RpcClient, RpcService } from '@ocap/rpc-methods';
 import type { ExtractParams, ExtractResult } from '@ocap/rpc-methods';
-import type { DuplexStream } from '@ocap/streams';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';

@@ -1,7 +1,7 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
+import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
 import { NodejsVatWorkerManager } from './VatWorkerManager.ts';

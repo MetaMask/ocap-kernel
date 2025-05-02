@@ -3,8 +3,8 @@ import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatWorkerManager, VatId } from '@metamask/ocap-kernel';
-import { NodeWorkerDuplexStream } from '@ocap/streams';
-import type { DuplexStream } from '@ocap/streams';
+import { NodeWorkerDuplexStream } from '@metamask/streams';
+import type { DuplexStream } from '@metamask/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change

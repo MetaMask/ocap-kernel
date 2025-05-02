@@ -1,6 +1,14 @@
 # `streams`
 
-Ocap Kernel streams, compatible with `@endo/stream`, and therefore assumed to run under SES.
+SES-compatible streams, in the lineage of [gtor](https://github.com/kriskowal/gtor) and `@endo/stream`.
+
+## Installation
+
+`yarn add @metamask/streams`
+
+or
+
+`npm install @metamask/streams`
 
 ## Contributing
 

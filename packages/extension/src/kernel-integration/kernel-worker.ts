@@ -5,12 +5,12 @@ import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ClusterConfigStruct, Kernel } from '@metamask/ocap-kernel';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import type { PostMessageTarget } from '@ocap/streams/browser';
+import type { PostMessageTarget } from '@metamask/streams/browser';
 import {
   MessagePortDuplexStream,
   receiveMessagePort,
-} from '@ocap/streams/browser';
+} from '@metamask/streams/browser';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';

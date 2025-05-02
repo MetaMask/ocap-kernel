@@ -1,12 +1,21 @@
 {
-  "name": "@ocap/streams",
+  "name": "@metamask/streams",
   "version": "0.0.0",
-  "private": true,
-  "description": "Ocap Kernel streams",
+  "description": "SES-compatible streams, in the lineage of `@endo/stream`",
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/streams#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "license": "SEE LICENSE IN LICENSE",
   "sideEffects": false,
   "type": "module",
   "exports": {
@@ -41,7 +50,8 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/streams",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/streams",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/streams",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -102,5 +112,9 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

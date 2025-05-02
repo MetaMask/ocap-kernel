@@ -1,4 +1,4 @@
-import type { DuplexStream } from '@ocap/streams';
+import type { DuplexStream } from '@metamask/streams';
 
 import type { Transport, LogEntry } from './types.ts';
 

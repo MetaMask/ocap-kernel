@@ -2,15 +2,15 @@ import { delay, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
+import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
-import type { PostMessageTarget } from '@ocap/streams/browser';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';
 import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
-vi.mock('@ocap/streams/browser', async (importOriginal) => {
+vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
   const { TestDuplexStream } = await import('@ocap/test-utils/streams');
 
@@ -122,7 +122,7 @@ describe('ExtensionVatWorkerClient', () => {
         await delay(10);
         await stream.receiveInput(makeLaunchReply('m1'));
 
-        // @ocap/streams is mocked
+        // @metamask/streams is mocked
         expect(await result).toBeInstanceOf(TestDuplexStream);
       });
 
