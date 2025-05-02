@@ -1,1 +1,1 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';

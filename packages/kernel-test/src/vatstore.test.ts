@@ -1,4 +1,4 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';
 import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import type { ClusterConfig } from '@metamask/ocap-kernel';

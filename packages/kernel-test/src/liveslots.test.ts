@@ -1,4 +1,4 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';

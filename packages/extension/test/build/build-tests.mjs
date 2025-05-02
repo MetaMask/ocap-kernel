@@ -9,7 +9,7 @@ import {
 
 const untransformedFiles = [
   {
-    sourcePath: path.resolve('../shims/dist/endoify.js'),
+    sourcePath: path.resolve('../kernel-shims/dist/endoify.js'),
     builtPath: path.resolve(buildDir, 'endoify.js'),
   },
   {

@@ -22,7 +22,7 @@
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
     { "path": "./packages/kernel-rpc-methods" },
-    { "path": "./packages/shims" },
+    { "path": "./packages/kernel-shims" },
     { "path": "./packages/kernel-store" },
     { "path": "./packages/streams" },
     { "path": "./packages/test-utils" },

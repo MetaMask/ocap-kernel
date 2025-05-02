@@ -1,4 +1,4 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';
 
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';

@@ -11,7 +11,7 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'store',
-        setupFiles: path.resolve(__dirname, '../shims/src/endoify.js'),
+        setupFiles: path.resolve(__dirname, '../kernel-shims/src/endoify.js'),
       },
     }),
   );

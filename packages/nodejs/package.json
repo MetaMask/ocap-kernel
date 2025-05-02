@@ -39,13 +39,13 @@
   },
   "dependencies": {
     "@endo/promise-kit": "^1.1.10",
+    "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
     "@metamask/utils": "^11.4.0",
-    "@ocap/shims": "workspace:^",
     "ses": "^1.12.0"
   },
   "devDependencies": {

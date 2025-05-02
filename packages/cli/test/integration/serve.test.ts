@@ -1,4 +1,4 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';
 import type { BundleSourceResult } from '@endo/bundle-source';
 import { makeCounter, stringify } from '@metamask/kernel-utils';
 import { isObject, hasProperty } from '@metamask/utils';

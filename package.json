@@ -16,7 +16,7 @@
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",
     "build:source": "ts-bridge --project tsconfig.build.json --verbose && yarn build:special",
-    "build:special": "yarn workspace @ocap/shims run build && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build:vats",
+    "build:special": "yarn workspace @metamask/kernel-shims run build && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build:vats",
     "bundle": "node ./scripts/bundle-vat.js",
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
     "changelog:validate": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:validate",

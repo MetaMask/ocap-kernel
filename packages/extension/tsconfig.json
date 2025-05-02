@@ -23,7 +23,7 @@
     { "path": "../ocap-kernel" },
     { "path": "../logger" },
     { "path": "../kernel-rpc-methods" },
-    { "path": "../shims" },
+    { "path": "../kernel-shims" },
     { "path": "../kernel-store" },
     { "path": "../streams" },
     { "path": "../test-utils" },

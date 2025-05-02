@@ -11,7 +11,7 @@
   "references": [
     { "path": "../logger/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
-    { "path": "../shims/tsconfig.build.json" }
+    { "path": "../kernel-shims/tsconfig.build.json" }
   ],
   "files": [],
   "include": ["./src"]

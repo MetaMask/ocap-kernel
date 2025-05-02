@@ -18,7 +18,7 @@ export default defineConfig((args) => {
               setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
             }
           : {
-              setupFiles: '../shims/src/endoify.js',
+              setupFiles: '../kernel-shims/src/endoify.js',
               browser: {
                 enabled: true,
                 provider: 'playwright',

@@ -1,4 +1,4 @@
-import '@ocap/shims/endoify';
+import '@metamask/kernel-shims/endoify';
 
 import { Kernel } from '@metamask/ocap-kernel';
 import {

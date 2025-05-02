@@ -166,7 +166,7 @@ const config = createConfig([
       // We have been hoisted by our own petard in the past.
       'import-x/no-cycle': ['error', { ignoreExternal: true, maxDepth: 3 }],
 
-      // We use unassigned imports for e.g. `import '@ocap/shims/endoify'`.
+      // We use unassigned imports for e.g. `import '@metamask/kernel-shims/endoify'`.
       'import-x/no-unassigned-import': 'off',
 
       'import-x/no-useless-path-segments': [
@@ -198,7 +198,7 @@ const config = createConfig([
   },
 
   {
-    files: ['packages/shims/**/*'],
+    files: ['packages/kernel-shims/**/*'],
     languageOptions: {
       globals: { lockdown: 'readonly' },
     },

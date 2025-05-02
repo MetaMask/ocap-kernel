@@ -27,7 +27,7 @@ const staticCopyTargets: readonly string[] = [
   'manifest.json',
   // External modules
   'env/dev-console.js',
-  '../../shims/dist/endoify.js',
+  '../../kernel-shims/dist/endoify.js',
   // Trusted preludes
   ...new Set(Object.values(trustedPreludes)),
 ];

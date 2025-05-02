@@ -24,6 +24,8 @@ const noBuild = ['create-package', 'test-utils'];
 const noTests = ['test-utils'];
 // Packages that do not export a `package.json` file
 const noPackageJson = ['extension'];
+// Packages that have weird exports
+const exportsExceptions = ['kernel-shims'];
 
 /**
  * Aliases for the Yarn type definitions, to make the code more readable.
@@ -112,7 +114,7 @@ module.exports = defineConfig({
           expectWorkspaceLicense(workspace);
         }
 
-        if (!isPrivate) {
+        if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
           // The entrypoints for all published packages must be the same.
           expectWorkspaceField(workspace, 'module', './dist/index.mjs');
           expectWorkspaceField(workspace, 'main', './dist/index.cjs');

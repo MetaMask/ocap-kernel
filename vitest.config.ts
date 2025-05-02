@@ -39,8 +39,11 @@ export default defineConfig({
     ],
     alias: [
       {
-        find: '@ocap/shims/endoify',
-        replacement: path.join(__dirname, './packages/shims/src/endoify.js'),
+        find: '@metamask/kernel-shims/endoify',
+        replacement: path.join(
+          __dirname,
+          './packages/kernel-shims/src/endoify.js',
+        ),
         customResolver: (id) => ({ external: true, id }),
       },
     ],
@@ -112,7 +115,7 @@ export default defineConfig({
           branches: 100,
           lines: 100,
         },
-        'packages/shims/**': {
+        'packages/kernel-shims/**': {
           statements: 0,
           functions: 0,
           branches: 0,
