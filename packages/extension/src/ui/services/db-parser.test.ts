@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import type { ClusterSnapshot } from './db-parser.ts';
-import { parseKernelDB } from './db-parser.ts';
+import type { ObjectRegistry } from '../types.ts';
+import { parseObjectRegistry } from './db-parser.ts';
 
-describe('parseKernelDB', () => {
+describe('parseObjectRegistry', () => {
   it('should parse kernel DB entries into structured vat data', () => {
     const entries = [
       { key: 'queue.run.head', value: '6' },
@@ -96,9 +96,9 @@ describe('parseKernelDB', () => {
       { key: 'v2.c.o-1', value: 'ko4' },
     ];
 
-    const result = parseKernelDB(entries);
+    const result = parseObjectRegistry(entries);
 
-    const expectedResult: ClusterSnapshot = {
+    const expectedResult: ObjectRegistry = {
       gcActions: '[]',
       reapQueue: '[]',
       terminatedVats: '[]',

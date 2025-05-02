@@ -9,12 +9,9 @@ import {
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
+import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
-import {
-  sendVatCommandHandler,
-  sendVatCommandSpec,
-} from './send-vat-command.ts';
 import {
   terminateAllVatsHandler,
   terminateAllVatsSpec,
@@ -35,7 +32,7 @@ export const handlers = {
   launchVat: launchVatHandler,
   reload: reloadConfigHandler,
   restartVat: restartVatHandler,
-  sendVatCommand: sendVatCommandHandler,
+  queueMessage: queueMessageHandler,
   terminateAllVats: terminateAllVatsHandler,
   collectGarbage: collectGarbageHandler,
   terminateVat: terminateVatHandler,
@@ -52,7 +49,7 @@ export const methodSpecs = {
   launchVat: launchVatSpec,
   reload: reloadConfigSpec,
   restartVat: restartVatSpec,
-  sendVatCommand: sendVatCommandSpec,
+  queueMessage: queueMessageSpec,
   terminateAllVats: terminateAllVatsSpec,
   collectGarbage: collectGarbageSpec,
   terminateVat: terminateVatSpec,

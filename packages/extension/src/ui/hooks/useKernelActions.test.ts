@@ -32,53 +32,8 @@ describe('useKernelActions', () => {
       panelLogs: [],
       clearLogs: vi.fn(),
       isLoading: false,
-    });
-  });
-
-  describe('sendKernelCommand', () => {
-    it('sends message with payload', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-      result.current.sendKernelCommand();
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendVatCommand',
-          params: expect.objectContaining({
-            id: 'v0',
-            payload: expect.any(Object),
-          }),
-        });
-      });
-    });
-
-    it('logs success response', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      const response = { success: true };
-
-      mockSendMessage.mockResolvedValueOnce(response);
-
-      result.current.sendKernelCommand();
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(
-          JSON.stringify(response),
-          'received',
-        );
-      });
-    });
-
-    it('logs error message on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      const error = new Error('Test error');
-
-      mockSendMessage.mockRejectedValueOnce(error);
-
-      result.current.sendKernelCommand();
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(error.message, 'error');
-      });
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     });
   });
 
@@ -112,6 +67,42 @@ describe('useKernelActions', () => {
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
           'Failed to terminate all vats',
+          'error',
+        );
+      });
+    });
+  });
+
+  describe('collectGarbage', () => {
+    it('sends collect garbage command', async () => {
+      const { useKernelActions } = await import('./useKernelActions.ts');
+      const { result } = renderHook(() => useKernelActions());
+
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      result.current.collectGarbage();
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'collectGarbage',
+          params: [],
+        });
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Garbage collected',
+        'success',
+      );
+    });
+
+    it('logs error on failure', async () => {
+      const { useKernelActions } = await import('./useKernelActions.ts');
+      const { result } = renderHook(() => useKernelActions());
+
+      mockSendMessage.mockRejectedValueOnce(new Error());
+
+      result.current.collectGarbage();
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          'Failed to collect garbage',
           'error',
         );
       });

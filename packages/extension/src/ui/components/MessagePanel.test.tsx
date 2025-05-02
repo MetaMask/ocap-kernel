@@ -22,15 +22,18 @@ vi.mock('@metamask/kernel-utils', () => ({
   stringify: vi.fn(),
 }));
 
+// Mock the LoadingDots component
+vi.mock('./LoadingDots.tsx', () => ({
+  LoadingDots: () => <div data-testid="loading-dots">Loading...</div>,
+}));
+
 describe('MessagePanel Component', () => {
   const clearLogs = vi.fn();
-  const sendKernelCommand = vi.fn();
   const setMessageContent = vi.fn();
 
   beforeEach(() => {
     cleanup();
     vi.mocked(useKernelActions).mockReturnValue({
-      sendKernelCommand,
       terminateAllVats: vi.fn(),
       collectGarbage: vi.fn(),
       clearState: vi.fn(),
@@ -43,6 +46,7 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [],
       clearLogs,
+      isLoading: false,
     } as unknown as PanelContextType);
     vi.mocked(stringify).mockImplementation((message) =>
       JSON.stringify(message),
@@ -54,10 +58,6 @@ describe('MessagePanel Component', () => {
     render(<MessagePanel />);
     expect(screen.getByText('Message History')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText('Enter sendVatCommand params (as JSON)'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
   it('calls clearLogs when the "Clear" button is clicked', async () => {
@@ -66,37 +66,6 @@ describe('MessagePanel Component', () => {
     const clearButton = screen.getByRole('button', { name: 'Clear' });
     await userEvent.click(clearButton);
     expect(clearLogs).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls sendKernelCommand when "Send" button is clicked', async () => {
-    vi.mocked(usePanelContext).mockReturnValue({
-      messageContent: '{"key": "value"}',
-      setMessageContent,
-      panelLogs: [],
-      clearLogs,
-    } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
-    render(<MessagePanel />);
-    const sendButton = screen.getByRole('button', { name: 'Send' });
-    await userEvent.click(sendButton);
-    expect(sendKernelCommand).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls sendKernelCommand when enter key is pressed', async () => {
-    vi.mocked(usePanelContext).mockReturnValue({
-      messageContent: '{"key": "value"}',
-      setMessageContent,
-      panelLogs: [],
-      clearLogs,
-    } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
-    render(<MessagePanel />);
-    const inputField = screen.getByPlaceholderText(
-      'Enter sendVatCommand params (as JSON)',
-    );
-    await userEvent.click(inputField);
-    await userEvent.keyboard('{Enter}');
-    expect(sendKernelCommand).toHaveBeenCalledTimes(1);
   });
 
   it('renders panel logs with correct icons and messages', async () => {
@@ -110,6 +79,7 @@ describe('MessagePanel Component', () => {
         { type: 'success', message: 'Operation successful' },
       ],
       clearLogs,
+      isLoading: false,
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
@@ -123,22 +93,13 @@ describe('MessagePanel Component', () => {
     expect(screen.getByText('Operation successful')).toBeInTheDocument();
   });
 
-  it('updates messageContent state when typing in the input field', async () => {
-    const { MessagePanel } = await import('./MessagePanel.tsx');
-    render(<MessagePanel />);
-    const inputField = screen.getByPlaceholderText(
-      'Enter sendVatCommand params (as JSON)',
-    );
-    await userEvent.type(inputField, 'T');
-    expect(setMessageContent).toHaveBeenLastCalledWith('T');
-  });
-
   it('scrolls to bottom when panel logs change', async () => {
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
       setMessageContent,
       panelLogs: [],
       clearLogs,
+      isLoading: false,
     } as unknown as PanelContextType);
     const { MessagePanel } = await import('./MessagePanel.tsx');
     const { rerender } = render(<MessagePanel />);
@@ -157,8 +118,35 @@ describe('MessagePanel Component', () => {
       setMessageContent,
       panelLogs: [{ type: 'sent', message: 'New message' }],
       clearLogs,
+      isLoading: false,
     } as unknown as PanelContextType);
     rerender(<MessagePanel />);
     expect(scrollWrapper.scrollTop).toBe(scrollWrapper.scrollHeight);
+  });
+
+  it('displays loading dots when isLoading is true', async () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [],
+      clearLogs,
+      isLoading: true,
+    } as unknown as PanelContextType);
+    const { MessagePanel } = await import('./MessagePanel.tsx');
+    render(<MessagePanel />);
+    expect(screen.getByTestId('loading-dots')).toBeInTheDocument();
+  });
+
+  it('does not display loading dots when isLoading is false', async () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [],
+      clearLogs,
+      isLoading: false,
+    } as unknown as PanelContextType);
+    const { MessagePanel } = await import('./MessagePanel.tsx');
+    render(<MessagePanel />);
+    expect(screen.queryByTestId('loading-dots')).not.toBeInTheDocument();
   });
 });

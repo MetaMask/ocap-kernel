@@ -75,7 +75,7 @@ describe('Garbage Collection', () => {
   it('objects are tracked with reference counts', async () => {
     const objectId = 'test-object';
     // Create an object in the exporter vat
-    const createObjectData = await kernel.queueMessageFromKernel(
+    const createObjectData = await kernel.queueMessage(
       exporterKRef,
       'createObject',
       [objectId],
@@ -87,9 +87,7 @@ describe('Garbage Collection', () => {
     expect(initialRefCounts.recognizable).toBe(3);
     // Send the object to the importer vat
     const objectRef = kunser(createObjectData);
-    await kernel.queueMessageFromKernel(importerKRef, 'storeImport', [
-      objectRef,
-    ]);
+    await kernel.queueMessage(importerKRef, 'storeImport', [objectRef]);
     await waitUntilQuiescent();
     // Check that the object is reachable from the exporter vat
     const exporterReachable = kernelStore.getReachableFlag(
@@ -102,11 +100,7 @@ describe('Garbage Collection', () => {
     expect(kernelStore.hasCListEntry(importerVatId, importerKref)).toBe(true);
     expect(kernelStore.getRefCount(importerKref)).toBe(1);
     // Use the object
-    const useResult = await kernel.queueMessageFromKernel(
-      importerKRef,
-      'useImport',
-      [],
-    );
+    const useResult = await kernel.queueMessage(importerKRef, 'useImport', []);
     await waitUntilQuiescent();
     expect(parseReplyBody(useResult.body)).toBe(objectId);
   });
@@ -114,7 +108,7 @@ describe('Garbage Collection', () => {
   it('should trigger GC syscalls through bringOutYourDead', async () => {
     // Create an object in the exporter vat with a known ID
     const objectId = 'test-object';
-    const createObjectData = await kernel.queueMessageFromKernel(
+    const createObjectData = await kernel.queueMessage(
       exporterKRef,
       'createObject',
       [objectId],
@@ -128,21 +122,21 @@ describe('Garbage Collection', () => {
 
     // Store the reference in the importer vat
     const objectRef = kunser(createObjectData);
-    await kernel.queueMessageFromKernel(importerKRef, 'storeImport', [
+    await kernel.queueMessage(importerKRef, 'storeImport', [
       objectRef,
       objectId,
     ]);
     await waitUntilQuiescent();
 
     // Verify object is tracked in both vats
-    const importerHasObject = await kernel.queueMessageFromKernel(
+    const importerHasObject = await kernel.queueMessage(
       importerKRef,
       'listImportedObjects',
       [],
     );
     expect(parseReplyBody(importerHasObject.body)).toContain(objectId);
 
-    const exporterHasObject = await kernel.queueMessageFromKernel(
+    const exporterHasObject = await kernel.queueMessage(
       exporterKRef,
       'isObjectPresent',
       [objectId],
@@ -151,7 +145,7 @@ describe('Garbage Collection', () => {
 
     // Make a weak reference to the object in the importer vat
     // This should eventually trigger dropImports when GC runs
-    await kernel.queueMessageFromKernel(importerKRef, 'makeWeak', [objectId]);
+    await kernel.queueMessage(importerKRef, 'makeWeak', [objectId]);
     await waitUntilQuiescent();
 
     // Schedule reap to trigger bringOutYourDead on next crank
@@ -159,7 +153,7 @@ describe('Garbage Collection', () => {
 
     // Run 3 cranks to allow bringOutYourDead to be processed
     for (let i = 0; i < 3; i++) {
-      await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
+      await kernel.queueMessage(importerKRef, 'noop', []);
       await waitUntilQuiescent(500);
     }
 
@@ -170,14 +164,14 @@ describe('Garbage Collection', () => {
 
     // Now completely forget the import in the importer vat
     // This should trigger retireImports when GC runs
-    await kernel.queueMessageFromKernel(importerKRef, 'forgetImport', []);
+    await kernel.queueMessage(importerKRef, 'forgetImport', []);
     await waitUntilQuiescent();
 
     // Schedule another reap
     kernel.reapVats((vatId) => vatId === importerVatId);
 
     for (let i = 0; i < 3; i++) {
-      await kernel.queueMessageFromKernel(importerKRef, 'noop', []);
+      await kernel.queueMessage(importerKRef, 'noop', []);
       await waitUntilQuiescent(500);
     }
 
@@ -188,20 +182,18 @@ describe('Garbage Collection', () => {
 
     // Now forget the object in the exporter vat
     // This should trigger retireExports when GC runs
-    await kernel.queueMessageFromKernel(exporterKRef, 'forgetObject', [
-      objectId,
-    ]);
+    await kernel.queueMessage(exporterKRef, 'forgetObject', [objectId]);
     await waitUntilQuiescent();
 
     // Schedule a final reap
     kernel.reapVats((vatId) => vatId === exporterVatId);
 
     // Run a crank to ensure GC completes
-    await kernel.queueMessageFromKernel(exporterKRef, 'noop', []);
+    await kernel.queueMessage(exporterKRef, 'noop', []);
     await waitUntilQuiescent(50);
 
     // Verify the object has been completely removed
-    const exporterFinalCheck = await kernel.queueMessageFromKernel(
+    const exporterFinalCheck = await kernel.queueMessage(
       exporterKRef,
       'isObjectPresent',
       [objectId],

@@ -38,6 +38,8 @@ const mockUsePanelContext: PanelContextType = {
   panelLogs: [],
   clearLogs: vi.fn(),
   isLoading: false,
+  objectRegistry: null,
+  setObjectRegistry: vi.fn(),
 };
 
 describe('DatabaseInspector Component', () => {
@@ -55,6 +57,7 @@ describe('DatabaseInspector Component', () => {
       fetchTables: mockFetchTables,
       fetchTableData: mockFetchTableData,
       executeQuery: mockExecuteQuery,
+      fetchObjectRegistry: vi.fn(),
     });
   });
 
@@ -172,22 +175,5 @@ describe('DatabaseInspector Component', () => {
         'error',
       );
     });
-  });
-
-  it('applies correct CSS classes', async () => {
-    mockFetchTables.mockResolvedValue(['table1']);
-    mockFetchTableData.mockResolvedValue([]);
-    render(<DatabaseInspector />);
-    await screen.findByRole('combobox');
-    const select = screen.getByRole('combobox');
-    expect(select).toHaveClass('select');
-    expect(select.parentElement).toHaveClass('table-controls');
-    const refreshBtn = screen.getByRole('button', { name: 'Refresh' });
-    expect(refreshBtn).toHaveClass('button');
-    const input = screen.getByPlaceholderText('Enter SQL query...');
-    expect(input).toHaveClass('input');
-    const execBtn = screen.getByRole('button', { name: 'Execute Query' });
-    expect(execBtn).toHaveClass('button-primary');
-    expect(screen.getByRole('table').parentElement).toHaveClass('table');
   });
 });

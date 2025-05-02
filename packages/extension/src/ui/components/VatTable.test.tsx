@@ -48,7 +48,6 @@ describe('VatTable Component', () => {
   it('renders nothing when no vats are present', () => {
     vi.mocked(useVats).mockReturnValue({
       vats: [],
-      selectedVatId: undefined,
       ...mockActions,
     });
     const { container } = render(<VatTable />);
@@ -58,7 +57,6 @@ describe('VatTable Component', () => {
   it('renders table with correct headers when vats are present', () => {
     vi.mocked(useVats).mockReturnValue({
       vats: mockVats,
-      selectedVatId: undefined,
       ...mockActions,
     });
     render(<VatTable />);
@@ -71,7 +69,6 @@ describe('VatTable Component', () => {
   it('renders correct vat data in table rows', () => {
     vi.mocked(useVats).mockReturnValue({
       vats: mockVats,
-      selectedVatId: undefined,
       ...mockActions,
     });
     render(<VatTable />);
@@ -85,7 +82,6 @@ describe('VatTable Component', () => {
   it('renders action buttons for each vat', () => {
     vi.mocked(useVats).mockReturnValue({
       vats: [mockVats[0] as VatRecord],
-      selectedVatId: undefined,
       ...mockActions,
     });
     render(<VatTable />);
@@ -99,7 +95,6 @@ describe('VatTable Component', () => {
   it('calls correct action handlers when buttons are clicked', async () => {
     vi.mocked(useVats).mockReturnValue({
       vats: [mockVats[0] as VatRecord],
-      selectedVatId: undefined,
       ...mockActions,
     });
     render(<VatTable />);
@@ -114,7 +109,6 @@ describe('VatTable Component', () => {
   it('applies correct CSS classes', () => {
     vi.mocked(useVats).mockReturnValue({
       vats: [mockVats[0] as VatRecord],
-      selectedVatId: undefined,
       ...mockActions,
     });
     render(<VatTable />);

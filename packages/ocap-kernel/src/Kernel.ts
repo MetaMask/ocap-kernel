@@ -5,10 +5,6 @@ import {
   VatNotFoundError,
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
-import type {
-  ExtractParams,
-  ExtractResult,
-} from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -20,7 +16,6 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { kernelHandlers } from './rpc/index.ts';
-import type { VatMethod, vatMethodSpecs } from './rpc/index.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { kslot } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
@@ -232,7 +227,7 @@ export class Kernel {
    *
    * @returns a promise for the (CapData encoded) result of the message invocation.
    */
-  async queueMessageFromKernel(
+  async queueMessage(
     target: KRef,
     method: string,
     args: unknown[],
@@ -264,7 +259,7 @@ export class Kernel {
     if (config.bootstrap) {
       const bootstrapRoot = rootIds[config.bootstrap];
       if (bootstrapRoot) {
-        return this.queueMessageFromKernel(bootstrapRoot, 'bootstrap', [roots]);
+        return this.queueMessage(bootstrapRoot, 'bootstrap', [roots]);
       }
     }
     return undefined;
@@ -326,29 +321,6 @@ export class Kernel {
    */
   async clearStorage(): Promise<void> {
     this.#kernelStore.clear();
-  }
-
-  /**
-   * Send a command to a vat.
-   *
-   * @param id - The id of the vat to send the command to.
-   * @param command - The command to send.
-   * @param command.method - The method to call.
-   * @param command.params - The parameters to pass to the method.
-   * @returns A promise that resolves the response to the command.
-   */
-  async sendVatCommand<Method extends VatMethod>(
-    id: VatId,
-    {
-      method,
-      params,
-    }: {
-      method: Method;
-      params: ExtractParams<Method, typeof vatMethodSpecs>;
-    },
-  ): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
-    const vat = this.#getVat(id);
-    return vat.sendVatCommand({ method, params });
   }
 
   /**

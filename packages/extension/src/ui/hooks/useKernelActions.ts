@@ -1,12 +1,7 @@
-import { stringify } from '@metamask/kernel-utils';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
-import { hasProperty, isObject } from '@metamask/utils';
 import { useCallback } from 'react';
 
-import { assertVatCommandParams } from '../../kernel-integration/handlers/send-vat-command.ts';
-import type { SendVatCommandParams } from '../../kernel-integration/handlers/send-vat-command.ts';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { nextMessageId } from '../utils.ts';
 
 /**
  * Hook for handling kernel actions.
@@ -14,7 +9,6 @@ import { nextMessageId } from '../utils.ts';
  * @returns Kernel actions.
  */
 export function useKernelActions(): {
-  sendKernelCommand: () => void;
   terminateAllVats: () => void;
   collectGarbage: () => void;
   clearState: () => void;
@@ -22,19 +16,7 @@ export function useKernelActions(): {
   launchVat: (bundleUrl: string, vatName: string) => void;
   updateClusterConfig: (config: ClusterConfig) => Promise<void>;
 } {
-  const { callKernelMethod, logMessage, messageContent } = usePanelContext();
-
-  /**
-   * Sends a kernel command.
-   */
-  const sendKernelCommand = useCallback(() => {
-    callKernelMethod({
-      method: 'sendVatCommand',
-      params: parseCommandParams(messageContent),
-    })
-      .then((result) => logMessage(stringify(result, 0), 'received'))
-      .catch((error) => logMessage(error.message, 'error'));
-  }, [messageContent, callKernelMethod, logMessage]);
+  const { callKernelMethod, logMessage } = usePanelContext();
 
   /**
    * Terminates all vats.
@@ -120,7 +102,6 @@ export function useKernelActions(): {
   );
 
   return {
-    sendKernelCommand,
     terminateAllVats,
     collectGarbage,
     clearState,
@@ -128,32 +109,4 @@ export function useKernelActions(): {
     launchVat,
     updateClusterConfig,
   };
-}
-
-/**
- * Parses sendVatCommand params to the expected format. Basically, turns the payload
- * into a JSON-RPC request.
- *
- * @param rawParams - The raw, stringified params to parse.
- * @returns The parsed params.
- */
-function parseCommandParams(rawParams: string): SendVatCommandParams {
-  const params = JSON.parse(rawParams);
-  if (
-    isObject(params) &&
-    isObject(params.payload) &&
-    hasProperty(params.payload, 'method')
-  ) {
-    const parsed = {
-      ...params,
-      payload: {
-        ...params.payload,
-        id: nextMessageId(),
-        jsonrpc: '2.0',
-      },
-    };
-    assertVatCommandParams(parsed);
-    return parsed;
-  }
-  throw new Error('Invalid command params');
 }

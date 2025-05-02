@@ -290,54 +290,6 @@ describe('Kernel', () => {
     });
   });
 
-  describe('sendVatCommand()', () => {
-    it('sends a message to the vat without errors when the vat exists', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      vatHandles[0]?.sendVatCommand.mockResolvedValueOnce('test');
-      const result = await kernel.sendVatCommand('v1', {
-        method: 'ping',
-        params: [],
-      });
-      expect(result).toBe('test');
-    });
-
-    it('throws an error when sending a message to the vat that does not exist in the kernel', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const nonExistentVatId: VatId = 'v9';
-      await expect(async () =>
-        kernel.sendVatCommand(nonExistentVatId, {
-          method: 'ping',
-          params: [],
-        }),
-      ).rejects.toThrow(VatNotFoundError);
-    });
-
-    it('throws an error when sending a message to the vat throws', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      vatHandles[0]?.sendVatCommand.mockRejectedValueOnce('error');
-      await expect(async () =>
-        kernel.sendVatCommand('v1', {
-          method: 'ping',
-          params: [],
-        }),
-      ).rejects.toThrow('error');
-    });
-  });
-
   describe('constructor()', () => {
     it('initializes the kernel without errors', async () => {
       expect(

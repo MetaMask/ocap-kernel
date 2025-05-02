@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { VatRecord } from '../types.ts';
-import { nextMessageId } from '../utils.ts';
 
 /**
  * Hook to manage the vats state.
@@ -48,22 +47,14 @@ export const useVats = (): {
    */
   const pingVat = useCallback(
     (id: VatId) => {
-      callKernelMethod({
-        method: 'sendVatCommand',
-        params: {
-          id,
-          payload: {
-            id: nextMessageId(),
-            jsonrpc: '2.0',
-            method: 'ping',
-            params: [],
-          },
-        },
+      // TODO: Implement ping
+      new Promise((_resolve, reject) => {
+        reject(new Error(`Cannot ping vat ${id}: Ping is not implemented`));
       })
         .then((result) => logMessage(stringify(result, 0), 'received'))
         .catch((error) => logMessage(error.message, 'error'));
     },
-    [callKernelMethod, logMessage],
+    [logMessage],
   );
 
   /**

@@ -1,3 +1,4 @@
+import { stringify } from '@metamask/kernel-utils';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -31,7 +32,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
   const { updateClusterConfig, reload } = useKernelActions();
   const { logMessage } = usePanelContext();
   const clusterConfig = useMemo(
-    () => JSON.stringify(status.clusterConfig, null, 2),
+    () => stringify(status.clusterConfig, 2),
     [status],
   );
   const [config, setConfig] = useState<string>(clusterConfig);
@@ -43,7 +44,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
     setConfig(clusterConfig);
     setSelectedTemplate(
       availableConfigs.find(
-        (item) => JSON.stringify(item.config, null, 2) === clusterConfig,
+        (item) => stringify(item.config, 2) === clusterConfig,
       )?.name ?? '',
     );
   }, [clusterConfig]);
@@ -69,7 +70,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
       (item) => item.name === configName,
     )?.config;
     if (selectedConfig) {
-      setConfig(JSON.stringify(selectedConfig, null, 2));
+      setConfig(stringify(selectedConfig, 2));
       setSelectedTemplate(configName);
     }
   }, []);

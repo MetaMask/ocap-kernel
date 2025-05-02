@@ -13,6 +13,7 @@ import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import { useStatusPolling } from '../hooks/useStatusPolling.ts';
 import { logger } from '../services/logger.ts';
 import type { CallKernelMethod } from '../services/stream.ts';
+import type { ObjectRegistry } from '../types.ts';
 
 export type OutputType = 'sent' | 'received' | 'error' | 'success';
 
@@ -30,6 +31,8 @@ export type PanelContextType = {
   panelLogs: PanelLog[];
   clearLogs: () => void;
   isLoading: boolean;
+  objectRegistry: ObjectRegistry | null;
+  setObjectRegistry: (objectRegistry: ObjectRegistry | null) => void;
 };
 
 const PanelContext = createContext<PanelContextType | undefined>(undefined);
@@ -38,10 +41,13 @@ export const PanelProvider: React.FC<{
   children: ReactNode;
   callKernelMethod: CallKernelMethod;
 }> = ({ children, callKernelMethod }) => {
+  const isRequestInProgress = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const isRequestInProgress = useRef(false);
+  const [objectRegistry, setObjectRegistry] = useState<ObjectRegistry | null>(
+    null,
+  );
 
   const logMessage = useCallback(
     (message: string, type: OutputType = 'received'): void => {
@@ -98,6 +104,8 @@ export const PanelProvider: React.FC<{
         panelLogs,
         clearLogs,
         isLoading,
+        objectRegistry,
+        setObjectRegistry,
       }}
     >
       {children}

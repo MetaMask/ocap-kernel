@@ -1,216 +1,365 @@
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  within,
+} from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { ObjectRegistry } from './ObjectRegistry.tsx';
+import type { PanelContextType } from '../context/PanelContext.tsx';
+import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
-import type { ClusterSnapshot } from '../services/db-parser.ts';
-import * as dbParser from '../services/db-parser.ts';
+import type { ObjectRegistry as ObjectRegistryType } from '../types.ts';
+import { ObjectRegistry } from './ObjectRegistry.tsx';
 
-// Mock the hooks and services
+vi.mock('../context/PanelContext.tsx', () => ({
+  usePanelContext: vi.fn(),
+}));
+
 vi.mock('../hooks/useDatabase.ts', () => ({
   useDatabase: vi.fn(),
 }));
 
-vi.mock('../services/db-parser.ts', () => ({
-  parseKernelDB: vi.fn(),
-}));
-
-// Mock the CSS module
-vi.mock('../App.module.css', () => ({
-  default: {
-    container: 'container',
-    error: 'error',
-    headerSection: 'header-section',
-    noMargin: 'no-margin',
-    button: 'button',
-    noBorder: 'no-border',
-    table: 'table',
-    accordion: 'accordion',
-    accordionHeader: 'accordion-header',
-    accordionTitle: 'accordion-title',
-    accordionIndicator: 'accordion-indicator',
-    accordionContent: 'accordion-content',
-    tableContainer: 'table-container',
-    vatDetailsHeader: 'vat-details-header',
-  },
+vi.mock('./SendMessageForm.tsx', () => ({
+  SendMessageForm: () => (
+    <div data-testid="send-message-form">SendMessageForm</div>
+  ),
 }));
 
 describe('ObjectRegistry Component', () => {
-  // Set up mock data
-  const mockData = {
-    gcActions: 'mockGcActions',
-    reapQueue: 'mockReapQueue',
-    terminatedVats: 'mockTerminatedVats',
+  const fetchObjectRegistry = vi.fn();
+
+  const mockRegistry: ObjectRegistryType = {
+    gcActions: 'test gc actions',
+    reapQueue: 'test reap queue',
+    terminatedVats: 'test terminated vats',
     vats: {
       vat1: {
-        overview: {
-          name: 'Test Vat 1',
-        },
+        overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
-          {
-            kref: 'ko1',
-            eref: 'o+1',
-            refCount: 2,
-            toVats: ['vat2', 'vat3'],
-          },
+          { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: ['vat2'] },
+          { kref: 'kref2', eref: 'eref2', refCount: '2', toVats: [] },
         ],
         importedObjects: [
-          {
-            kref: 'ko2',
-            eref: 'o-2',
-            refCount: 1,
-            fromVat: 'vat2',
-          },
+          { kref: 'kref3', eref: 'eref3', refCount: '1', fromVat: 'vat2' },
         ],
         importedPromises: [
           {
-            kref: 'kp1',
-            eref: 'p-1',
-            state: 'fulfilled',
+            kref: 'promise1',
+            eref: 'eref-promise1',
+            state: 'pending',
             value: {
-              body: 'value1',
-              slots: [{ kref: 'ko3', eref: 'o+3' }],
+              body: '',
+              slots: [
+                { kref: 'slot1', eref: 'eref-slot1', vat: 'vat2' },
+                { kref: 'slot2', eref: '', vat: 'vat2' },
+                { kref: 'slot3', eref: null, vat: 'vat2' },
+              ],
             },
             fromVat: 'vat2',
           },
         ],
         exportedPromises: [
           {
-            kref: 'kp2',
-            eref: 'p+2',
-            state: 'pending',
-            value: { body: '', slots: [] },
-            toVats: ['vat3'],
+            kref: 'promise2',
+            eref: 'eref-promise2',
+            state: 'fulfilled',
+            value: {
+              body: 'value',
+              slots: [
+                { kref: 'exported-slot1', eref: 'exported-eref1', vat: null },
+                { kref: 'exported-slot2', eref: null, vat: null },
+              ],
+            },
+            toVats: ['vat2'],
           },
         ],
+      },
+      vat2: {
+        overview: { name: 'TestVat2', bundleSpec: '' },
+        ownedObjects: [],
+        importedObjects: [],
+        importedPromises: [],
+        exportedPromises: [],
       },
     },
   };
 
-  const mockExecuteQuery = vi.fn();
-
   beforeEach(() => {
-    cleanup();
-    vi.clearAllMocks();
-
     vi.mocked(useDatabase).mockReturnValue({
-      executeQuery: mockExecuteQuery,
       fetchTables: vi.fn(),
       fetchTableData: vi.fn(),
+      executeQuery: vi.fn(),
+      fetchObjectRegistry,
     });
+    vi.mocked(usePanelContext).mockReturnValue({
+      objectRegistry: mockRegistry,
+    } as unknown as PanelContextType);
+  });
 
-    vi.mocked(dbParser.parseKernelDB).mockReturnValue(
-      mockData as unknown as ClusterSnapshot,
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('fetches the object registry on mount', () => {
+    render(<ObjectRegistry />);
+    expect(fetchObjectRegistry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows loading state when objectRegistry is null', () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      objectRegistry: null,
+    } as unknown as PanelContextType);
+
+    render(<ObjectRegistry />);
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
+
+  it('renders kernel registry information correctly', () => {
+    render(<ObjectRegistry />);
+    expect(screen.getByText('Kernel Registry')).toBeInTheDocument();
+    expect(screen.getByText('GC Actions')).toBeInTheDocument();
+    expect(screen.getByText('test gc actions')).toBeInTheDocument();
+    expect(screen.getByText('Reap Queue')).toBeInTheDocument();
+    expect(screen.getByText('test reap queue')).toBeInTheDocument();
+    expect(screen.getByText('Terminated Vats')).toBeInTheDocument();
+    expect(screen.getByText('test terminated vats')).toBeInTheDocument();
+  });
+
+  it('renders vat list with correct number of vats', () => {
+    const { container } = render(<ObjectRegistry />);
+    expect(screen.getByText('Vats')).toBeInTheDocument();
+    const vatTitles = container.querySelectorAll('.accordion-title');
+    expect(vatTitles.length).toBeGreaterThan(0);
+    const vat1Title = Array.from(vatTitles).find(
+      (el) =>
+        el.textContent?.includes('TestVat1') &&
+        el.textContent?.includes('vat1'),
     );
-  });
-
-  it('renders loading state initially', () => {
-    // Set executeQuery to not resolve immediately to keep component in loading state
-    mockExecuteQuery.mockReturnValue(
-      new Promise(() => {
-        // do nothing
-      }),
+    expect(vat1Title).toBeDefined();
+    const vat2Title = Array.from(vatTitles).find(
+      (el) =>
+        el.textContent?.includes('TestVat2') &&
+        el.textContent?.includes('vat2'),
     );
-
-    render(<ObjectRegistry />);
-
-    expect(screen.getByText('Loading cluster data...')).toBeInTheDocument();
+    expect(vat2Title).toBeDefined();
   });
 
-  it('renders error state when database query fails', async () => {
-    const errorMessage = 'Failed to fetch data';
-    mockExecuteQuery.mockRejectedValue(new Error(errorMessage));
-
-    render(<ObjectRegistry />);
-
-    await waitFor(() => {
-      expect(screen.getByText(`Error: ${errorMessage}`)).toBeInTheDocument();
-    });
-  });
-
-  it('renders error message when no data is returned', async () => {
-    mockExecuteQuery.mockResolvedValue([]);
-    vi.mocked(dbParser.parseKernelDB).mockReturnValue(
-      null as unknown as ClusterSnapshot,
+  it('displays correct vat details header', () => {
+    const { container } = render(<ObjectRegistry />);
+    const vatDetailsHeaders = container.querySelectorAll('.vat-details-header');
+    expect(vatDetailsHeaders.length).toBeGreaterThan(0);
+    const vat1Header = Array.from(vatDetailsHeaders).find(
+      (el) =>
+        el.textContent?.includes('3 objects') &&
+        el.textContent?.includes('2 promises'),
     );
-
-    render(<ObjectRegistry />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Error: No cluster data available'),
-      ).toBeInTheDocument();
-    });
+    expect(vat1Header).toBeDefined();
+    const vat2Header = Array.from(vatDetailsHeaders).find(
+      (el) =>
+        el.textContent?.includes('0 objects') &&
+        el.textContent?.includes('0 promises'),
+    );
+    expect(vat2Header).toBeDefined();
   });
 
-  it('renders cluster data when successfully fetched', async () => {
-    const mockDbResult = [{ key: 'key1', value: 'value1' }];
-    mockExecuteQuery.mockResolvedValue(mockDbResult);
-
-    render(<ObjectRegistry />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Kernel Registry')).toBeInTheDocument();
-      expect(screen.getByText('mockGcActions')).toBeInTheDocument();
-      expect(screen.getByText('mockReapQueue')).toBeInTheDocument();
-      expect(screen.getByText('mockTerminatedVats')).toBeInTheDocument();
-      expect(screen.getByText(/Test Vat 1/u)).toBeInTheDocument();
-    });
-
-    // Verify that executeQuery and parseKernelDB were called correctly
-    expect(mockExecuteQuery).toHaveBeenCalledWith('SELECT key, value FROM kv');
-    expect(dbParser.parseKernelDB).toHaveBeenCalledWith(mockDbResult);
-  });
-
-  it('expands vat details when clicked', async () => {
-    mockExecuteQuery.mockResolvedValue([{ key: 'key1', value: 'value1' }]);
-
-    render(<ObjectRegistry />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Test Vat 1/u)).toBeInTheDocument();
-    });
-
-    // Initially, vat details should not be visible
+  it('toggles vat details when clicked', () => {
+    const { container } = render(<ObjectRegistry />);
+    // Initially, vat details should be collapsed
     expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
-
-    // Click on vat header to expand it
-    await userEvent.click(screen.getByText(/Test Vat 1/u));
-
-    // After expanding, details should be visible
+    const accordionHeaders = container.querySelectorAll('.accordion-header');
+    const vat1Header = Array.from(accordionHeaders).find(
+      (el) =>
+        el.textContent?.includes('TestVat1') &&
+        el.textContent?.includes('vat1'),
+    );
+    expect(vat1Header).toBeDefined();
+    // Ensure vat1Header is not undefined before clicking
+    expect(vat1Header).toBeInstanceOf(Element);
+    fireEvent.click(vat1Header as Element);
+    // Now details should be visible
     expect(screen.getByText('Owned Objects')).toBeInTheDocument();
     expect(screen.getByText('Imported Objects')).toBeInTheDocument();
     expect(screen.getByText('Imported Promises')).toBeInTheDocument();
     expect(screen.getByText('Exported Promises')).toBeInTheDocument();
-
-    // Object details should be displayed
-    expect(screen.getByText('ko1')).toBeInTheDocument();
-    expect(screen.getByText('o+1')).toBeInTheDocument();
-
     // Click again to collapse
-    await userEvent.click(screen.getByText(/Test Vat 1/u));
-
-    // After collapsing, details should not be visible
+    fireEvent.click(vat1Header as Element);
+    // Details should be hidden again
     expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
   });
 
-  it('refreshes data when refresh button is clicked', async () => {
-    mockExecuteQuery.mockResolvedValue([{ key: 'key1', value: 'value1' }]);
+  it('renders empty state indicators for empty arrays', () => {
+    const { container } = render(<ObjectRegistry />);
+    // Find and click the Vat2 accordion header
+    const accordionHeaders = container.querySelectorAll('.accordion-header');
+    const vat2Header = Array.from(accordionHeaders).find(
+      (el) =>
+        el.textContent?.includes('TestVat2') &&
+        el.textContent?.includes('vat2'),
+    );
+    expect(vat2Header).toBeDefined();
+    // Ensure vat2Header is not undefined before clicking
+    expect(vat2Header).toBeInstanceOf(Element);
+    fireEvent.click(vat2Header as Element);
+    // TestVat2 should not have any tables
+    expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
+    expect(screen.queryByText('Imported Objects')).not.toBeInTheDocument();
+    expect(screen.queryByText('Imported Promises')).not.toBeInTheDocument();
+    expect(screen.queryByText('Exported Promises')).not.toBeInTheDocument();
+  });
 
+  it('renders object tables with correct data', () => {
+    const { container } = render(<ObjectRegistry />);
+    // Find and click the Vat1 accordion header
+    const accordionHeaders = container.querySelectorAll('.accordion-header');
+    const vat1Header = Array.from(accordionHeaders).find(
+      (el) =>
+        el.textContent?.includes('TestVat1') &&
+        el.textContent?.includes('vat1'),
+    );
+    expect(vat1Header).toBeDefined();
+    // Ensure vat1Header is not undefined before clicking
+    expect(vat1Header).toBeInstanceOf(Element);
+    fireEvent.click(vat1Header as Element);
+    // Get tables by their headers
+    const ownedObjectsTable = getTableByHeading(container, 'Owned Objects');
+    const importedObjectsTable = getTableByHeading(
+      container,
+      'Imported Objects',
+    );
+    const importedPromisesTable = getTableByHeading(
+      container,
+      'Imported Promises',
+    );
+    const exportedPromisesTable = getTableByHeading(
+      container,
+      'Exported Promises',
+    );
+    // Check owned objects table
+    within(ownedObjectsTable).getByText('kref1');
+    within(ownedObjectsTable).getByText('eref1');
+    within(ownedObjectsTable).getByText('vat2');
+    within(ownedObjectsTable).getByText('kref2');
+    within(ownedObjectsTable).getByText('eref2');
+    // Check imported objects table
+    within(importedObjectsTable).getByText('kref3');
+    within(importedObjectsTable).getByText('eref3');
+    within(importedObjectsTable).getByText('vat2');
+
+    // Check imported promises table
+    within(importedPromisesTable).getByText('promise1');
+    within(importedPromisesTable).getByText('eref-promise1');
+    within(importedPromisesTable).getByText('pending');
+    within(importedPromisesTable).getByText('vat2');
+
+    // Check exported promises table
+    within(exportedPromisesTable).getByText('promise2');
+    within(exportedPromisesTable).getByText('eref-promise2');
+    within(exportedPromisesTable).getByText('fulfilled');
+    within(exportedPromisesTable).getByText('value');
+    within(exportedPromisesTable).getByText('vat2');
+  });
+
+  it('properly formats slots with and without eref', () => {
+    const { container } = render(<ObjectRegistry />);
+
+    // Find and click the Vat1 accordion header to expand details
+    const accordionHeaders = container.querySelectorAll('.accordion-header');
+    const vat1Header = Array.from(accordionHeaders).find(
+      (el) =>
+        el.textContent?.includes('TestVat1') &&
+        el.textContent?.includes('vat1'),
+    );
+    expect(vat1Header).toBeDefined();
+    expect(vat1Header).toBeInstanceOf(Element);
+    fireEvent.click(vat1Header as Element);
+
+    // Get the tables from the expanded content
+    const importedPromisesTable = getTableByHeading(
+      container,
+      'Imported Promises',
+    );
+    const exportedPromisesTable = getTableByHeading(
+      container,
+      'Exported Promises',
+    );
+
+    // Get the cells containing slot information (5th column, index 4)
+    const importedSlotsText = getCellTextByIndex(importedPromisesTable, 4);
+    const exportedSlotsText = getCellTextByIndex(exportedPromisesTable, 4);
+
+    // Test imported promise slots formatting
+    expect(importedSlotsText).toContain('slot1 (eref-slot1)'); // With eref
+    expect(importedSlotsText).toContain('slot2'); // With empty eref
+    expect(importedSlotsText).toContain('slot3'); // With null eref
+    expect(importedSlotsText).not.toContain('slot2 ()'); // Empty eref shouldn't show parentheses
+    expect(importedSlotsText).not.toContain('slot3 ()'); // Null eref shouldn't show parentheses
+
+    // Test exported promise slots formatting
+    expect(exportedSlotsText).toContain('exported-slot1 (exported-eref1)'); // With eref
+    expect(exportedSlotsText).toContain('exported-slot2'); // With null eref
+    expect(exportedSlotsText).not.toContain('exported-slot2 ()'); // Null eref shouldn't show parentheses
+  });
+
+  it('refreshes registry when Refresh button is clicked', () => {
     render(<ObjectRegistry />);
+    // fetchObjectRegistry should be called once on mount
+    expect(fetchObjectRegistry).toHaveBeenCalledTimes(1);
+    // Find and click the refresh button
+    const refreshButton = screen.getByTestId('refresh-registry-button');
+    expect(refreshButton).toBeDefined();
+    expect(refreshButton?.textContent).toBe('Refresh');
+    // Ensure refreshButton is not null before clicking
+    expect(refreshButton).toBeInstanceOf(Element);
+    fireEvent.click(refreshButton as Element);
+    // fetchObjectRegistry should be called again
+    expect(fetchObjectRegistry).toHaveBeenCalledTimes(2);
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText('Kernel Registry')).toBeInTheDocument();
-    });
-
-    // Clear mocks to verify the second call
-    mockExecuteQuery.mockClear();
-
-    // Click refresh button
-    await userEvent.click(screen.getByText('Refresh'));
-
-    // Verify that executeQuery was called again
-    expect(mockExecuteQuery).toHaveBeenCalledWith('SELECT key, value FROM kv');
+  it('displays the SendMessageForm component', () => {
+    render(<ObjectRegistry />);
+    const sendMessageForm = screen.queryByTestId('send-message-form');
+    expect(sendMessageForm).toBeInTheDocument();
   });
 });
+
+/**
+ * Helper function to find a table by its heading text
+ *
+ * @param container - The container element to search within
+ * @param heading - The heading text to find
+ * @returns The table element associated with the heading
+ */
+function getTableByHeading(
+  container: HTMLElement,
+  heading: string,
+): HTMLElement {
+  const headings = Array.from(container.querySelectorAll('h4'));
+  const targetHeading = headings.find(
+    (element) => element.textContent === heading,
+  );
+  expect(targetHeading).toBeDefined();
+  // The table is in the tableContainer which is the parent element's only child
+  const tableContainer = targetHeading?.parentElement;
+  expect(tableContainer).toBeDefined();
+  const table = tableContainer?.querySelector('table');
+  expect(table).toBeDefined();
+  return table as HTMLElement;
+}
+
+/**
+ * Helper function to get the text content of a table cell by index
+ *
+ * @param table - The table element
+ * @param columnIndex - The index of the column to extract
+ * @returns The text content of the cell
+ */
+function getCellTextByIndex(table: HTMLElement, columnIndex: number): string {
+  const cells = within(table).getAllByRole('cell');
+  const columnCells = Array.from(cells).filter(
+    (_, index) => index % 6 === columnIndex,
+  );
+  expect(columnCells.length).toBeGreaterThan(0);
+  return columnCells[0]?.textContent ?? '';
+}

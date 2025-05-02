@@ -77,7 +77,7 @@ export const DatabaseInspector: React.FC = () => {
               ))}
             </select>
             <button
-              className={styles.button}
+              className={styles.buttonBlack}
               onClick={refreshData}
               disabled={!selectedTable}
             >
@@ -126,7 +126,7 @@ export const DatabaseInspector: React.FC = () => {
                         key={key}
                         className={value?.length > 100 ? styles.long : ''}
                       >
-                        <div className={styles.cellContent}>{value ?? ''}</div>
+                        <div>{value ?? ''}</div>
                       </td>
                     ))}
                   </tr>

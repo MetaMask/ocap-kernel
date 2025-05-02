@@ -1,7 +1,3 @@
-import type { MethodRequest } from '@metamask/kernel-rpc-methods';
-import { is, refine, Struct } from '@metamask/superstruct';
-import { JsonRpcRequestStruct } from '@metamask/utils';
-
 import { deliverSpec, deliverHandler } from './deliver.ts';
 import type { DeliverSpec, DeliverHandler } from './deliver.ts';
 import { initVatSpec, initVatHandler } from './initVat.ts';
@@ -35,20 +31,3 @@ export const vatMethodSpecs = {
 type Handlers = (typeof vatHandlers)[keyof typeof vatHandlers];
 
 export type VatMethod = Handlers['method'];
-
-export type VatUiMethod =
-  | (typeof vatMethodSpecs)['deliver']
-  | (typeof vatMethodSpecs)['ping'];
-
-export type UiMethodRequest = MethodRequest<VatUiMethod>;
-
-export const UiMethodRequestStruct = refine(
-  JsonRpcRequestStruct,
-  'UiMethodRequest',
-  (value) => {
-    return (
-      (value.method === 'ping' && is(value.params, pingSpec.params)) ||
-      (value.method === 'deliver' && is(value.params, deliverSpec.params))
-    );
-  },
-) as Struct<UiMethodRequest>;

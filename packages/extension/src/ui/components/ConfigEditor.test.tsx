@@ -33,6 +33,8 @@ const mockUsePanelContext = {
   setMessageContent: vi.fn(),
   setSelectedVatId: vi.fn(),
   status: mockStatus,
+  objectRegistry: null,
+  setObjectRegistry: vi.fn(),
 };
 
 vi.mock('../hooks/useKernelActions.ts', () => ({
@@ -70,7 +72,6 @@ describe('ConfigEditor Component', () => {
     vi.mocked(useKernelActions).mockReturnValue({
       updateClusterConfig: mockUpdateClusterConfig,
       reload: mockReload,
-      sendKernelCommand: vi.fn(),
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
       launchVat: vi.fn(),

@@ -1,58 +1,4 @@
-/**
- * A snapshot of the entire running cluster, keyed by Vat ID
- */
-export type ClusterSnapshot = {
-  gcActions: string;
-  reapQueue: string;
-  terminatedVats: string;
-  vats: Record<string, VatSnapshot>;
-};
-
-/**
- * The full state and bindings for a single Vat
- */
-export type VatSnapshot = {
-  overview: { name: string; bundleSpec: string };
-  ownedObjects: ObjectBindingWithTargets[];
-  importedObjects: ObjectBindingWithSource[];
-  importedPromises: PromiseBindingWithSource[];
-  exportedPromises: PromiseBindingWithTargets[];
-};
-
-export type ObjectBinding = {
-  kref: string;
-  eref: string;
-  refCount: string;
-};
-
-export type ObjectBindingWithSource = {
-  fromVat: string | null;
-} & ObjectBinding;
-
-export type ObjectBindingWithTargets = {
-  toVats: string[];
-} & ObjectBinding;
-
-export type PromiseBinding = {
-  kref: string;
-  eref: string;
-  state: string;
-  value: { body: string; slots: SlotInfo[] };
-};
-
-export type PromiseBindingWithSource = {
-  fromVat: string | null;
-} & PromiseBinding;
-
-export type PromiseBindingWithTargets = {
-  toVats: string[];
-} & PromiseBinding;
-
-export type SlotInfo = {
-  kref: string;
-  eref: string | null;
-  vat: string | null;
-};
+import type { ObjectRegistry, VatSnapshot, SlotInfo } from '../types.ts';
 
 /**
  * Parse a flat kernel DB dump into per-vat grouped info
@@ -60,9 +6,9 @@ export type SlotInfo = {
  * @param entries - The flat kernel DB dump.
  * @returns A record of vat names to their KernelGroupedVat info.
  */
-export function parseKernelDB(
+export function parseObjectRegistry(
   entries: { key: string; value: string }[],
-): ClusterSnapshot {
+): ObjectRegistry {
   // Raw metadata
   const koOwner: Record<string, string> = {};
   const koRefCount: Record<string, string> = {};

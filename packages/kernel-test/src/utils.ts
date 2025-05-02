@@ -56,11 +56,7 @@ export async function runResume(
   kernel: Kernel,
   rootRef: string,
 ): Promise<unknown> {
-  const resumeResultRaw = await kernel.queueMessageFromKernel(
-    rootRef,
-    'resume',
-    [],
-  );
+  const resumeResultRaw = await kernel.queueMessage(rootRef, 'resume', []);
   return kunser(resumeResultRaw);
 }
 

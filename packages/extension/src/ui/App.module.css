@@ -49,6 +49,24 @@ body > div {
   box-sizing: border-box;
 }
 
+.container {
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+pre {
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.5;
+}
+
 /* Panel container */
 .panel {
   padding: var(--spacing-xl);
@@ -65,8 +83,10 @@ body > div {
 }
 
 /* Common form elements */
+input,
 .input,
 .button,
+select,
 .select {
   height: var(--input-height);
   padding: 0 var(--spacing-lg);
@@ -156,6 +176,11 @@ select,
   color: var(--color-white);
 }
 
+.buttonBlack:hover:not(:disabled) {
+  background-color: var(--color-gray-600);
+  color: var(--color-white);
+}
+
 .textButton {
   padding: 0;
   border: 0;
@@ -195,12 +220,6 @@ select,
 }
 
 .messageTemplates {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
-}
-
-.messageInputRow {
   display: flex;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
@@ -338,14 +357,43 @@ div + .sent {
 }
 
 .messageInputSection {
-  border-top: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-gray-300);
   padding: var(--spacing-md);
   background: var(--color-gray-200);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-xl);
 }
 
-.messageInputRow {
+.messageInputSection h3 {
+  margin: 0 0 var(--spacing-md);
+}
+
+.horizontalForm {
   display: flex;
   gap: var(--spacing-sm);
+}
+
+.horizontalForm > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.horizontalForm > div > label {
+  margin-bottom: var(--spacing-xs);
+}
+
+.messageResponse {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+}
+
+.messageResponse h4 {
+  margin: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+.messageResponse pre {
+  margin: 0;
 }
 
 .table {

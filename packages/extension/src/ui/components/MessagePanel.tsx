@@ -4,7 +4,6 @@ import { LoadingDots } from './LoadingDots.tsx';
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { OutputType } from '../context/PanelContext.tsx';
-import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
@@ -24,9 +23,7 @@ const getLogTypeIcon = (type: OutputType): string => {
  * @returns A panel for sending messages to the kernel.
  */
 export const MessagePanel: React.FC = () => {
-  const { messageContent, setMessageContent, panelLogs, clearLogs, isLoading } =
-    usePanelContext();
-  const { sendKernelCommand } = useKernelActions();
+  const { panelLogs, clearLogs, isLoading } = usePanelContext();
   const messageScrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to the bottom of the message output when the panel logs change
@@ -63,30 +60,6 @@ export const MessagePanel: React.FC = () => {
             </div>
           ))}
           {isLoading && <LoadingDots />}
-        </div>
-      </div>
-      <div className={styles.messageInputSection}>
-        <div className={styles.messageInputRow}>
-          <input
-            className={styles.messageContent}
-            type="text"
-            value={messageContent}
-            onChange={(event) => setMessageContent(event.target.value)}
-            data-testid="send-command-input"
-            placeholder="Enter sendVatCommand params (as JSON)"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && messageContent.trim()) {
-                sendKernelCommand();
-              }
-            }}
-          />
-          <button
-            className={styles.sendButton}
-            onClick={sendKernelCommand}
-            disabled={!messageContent.trim()}
-          >
-            Send
-          </button>
         </div>
       </div>
     </div>

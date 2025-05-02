@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 import styles from '../App.module.css';
+import { SendMessageForm } from './SendMessageForm.tsx';
+import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
-import type { ClusterSnapshot, VatSnapshot } from '../services/db-parser.ts';
-import { parseKernelDB } from '../services/db-parser.ts';
+import type { VatSnapshot } from '../types.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;
@@ -17,36 +18,9 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
 };
 
 export const ObjectRegistry: React.FC = () => {
-  const [clusterData, setClusterData] = useState<ClusterSnapshot | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { objectRegistry } = usePanelContext();
+  const { fetchObjectRegistry } = useDatabase();
   const [expandedVats, setExpandedVats] = useState<Record<string, boolean>>({});
-  const { executeQuery } = useDatabase();
-
-  // Fetch the kernel data
-  const fetchKernelData = useCallback(async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      const result = await executeQuery('SELECT key, value FROM kv');
-      const parsedData = parseKernelDB(
-        result as { key: string; value: string }[],
-      );
-      setClusterData(parsedData);
-    } catch (fetchError: unknown) {
-      setError(
-        fetchError instanceof Error ? fetchError.message : String(fetchError),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [executeQuery]);
-
-  // On mount, fetch the kernel data
-  useEffect(() => {
-    fetchKernelData().catch(() => {
-      // already handled
-    });
-  }, [fetchKernelData]);
 
   const toggleVat = (vatId: string): void => {
     setExpandedVats((prev) => ({
@@ -55,31 +29,25 @@ export const ObjectRegistry: React.FC = () => {
     }));
   };
 
-  if (isLoading) {
-    return <div className={styles.container}>Loading cluster data...</div>;
-  }
+  // Fetch the object registry when the component mounts
+  useEffect(() => {
+    fetchObjectRegistry();
+  }, [fetchObjectRegistry]);
 
-  if (error || !clusterData) {
-    return (
-      <div className={styles.container}>
-        <p className={styles.error}>
-          Error: {error ?? 'No cluster data available'}
-        </p>
-      </div>
-    );
+  if (!objectRegistry) {
+    return <p className={styles.error}>Loading...</p>;
   }
 
   return (
-    <div className={styles.container}>
+    <div className="vat-details-header">
+      <SendMessageForm />
+
       <div className={styles.headerSection}>
         <h2 className={styles.noMargin}>Kernel Registry</h2>
         <button
-          className={styles.button}
-          onClick={() => {
-            fetchKernelData().catch(() => {
-              // already handled
-            });
-          }}
+          className={styles.buttonBlack}
+          data-testid="refresh-registry-button"
+          onClick={fetchObjectRegistry}
         >
           Refresh
         </button>
@@ -89,28 +57,28 @@ export const ObjectRegistry: React.FC = () => {
         <tbody>
           <tr>
             <td width="160">GC Actions</td>
-            <td>{clusterData.gcActions ?? 'None'}</td>
+            <td>{objectRegistry.gcActions ?? 'None'}</td>
           </tr>
           <tr>
             <td width="160">Reap Queue</td>
-            <td>{clusterData.reapQueue ?? 'Empty'}</td>
+            <td>{objectRegistry.reapQueue ?? 'Empty'}</td>
           </tr>
           <tr>
             <td width="160">Terminated Vats</td>
-            <td>{clusterData.terminatedVats ?? 'None'}</td>
+            <td>{objectRegistry.terminatedVats ?? 'None'}</td>
           </tr>
         </tbody>
       </table>
 
       <h3>Vats</h3>
 
-      {Object.entries(clusterData.vats).map(([vatId, vatData]) => (
+      {Object.entries(objectRegistry.vats).map(([vatId, vatData]) => (
         <div key={vatId} className={styles.accordion}>
           <div
-            className={styles.accordionHeader}
+            className={`accordion-header ${styles.accordionHeader}`}
             onClick={() => toggleVat(vatId)}
           >
-            <div className={styles.accordionTitle}>
+            <div className={`accordion-title ${styles.accordionTitle}`}>
               {vatData.overview.name} ({vatId}) -{' '}
               <VatDetailsHeader data={vatData} />
             </div>

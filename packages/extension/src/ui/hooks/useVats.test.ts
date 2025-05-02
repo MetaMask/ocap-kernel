@@ -83,46 +83,6 @@ describe('useVats', () => {
     ]);
   });
 
-  describe('pingVat', () => {
-    it('should send ping message and log success', async () => {
-      const { useVats } = await import('./useVats.ts');
-      const { result } = renderHook(() => useVats());
-
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-      result.current.pingVat(mockVatId);
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'sendVatCommand',
-          params: {
-            id: mockVatId,
-            payload: {
-              id: expect.any(String),
-              jsonrpc: '2.0',
-              method: 'ping',
-              params: [],
-            },
-          },
-        });
-      });
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        '{"success":true}',
-        'received',
-      );
-    });
-
-    it('should handle ping error', async () => {
-      const { useVats } = await import('./useVats.ts');
-      const { result } = renderHook(() => useVats());
-
-      const error = new Error('Ping failed');
-      mockSendMessage.mockRejectedValueOnce(error);
-      result.current.pingVat(mockVatId);
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith('Ping failed', 'error');
-      });
-    });
-  });
-
   describe('restartVat', () => {
     it('should send restart message and log success', async () => {
       const { useVats } = await import('./useVats.ts');

@@ -21,11 +21,11 @@ describe('LaunchVat Component', () => {
     cleanup();
     vi.mocked(useKernelActions).mockReturnValue({
       launchVat: mockLaunchVat,
-      sendKernelCommand: vi.fn(),
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
       reload: vi.fn(),
       updateClusterConfig: vi.fn(),
+      collectGarbage: vi.fn(),
     });
   });
 

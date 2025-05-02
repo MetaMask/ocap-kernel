@@ -15,6 +15,7 @@ export {
   isVatConfig,
   VatConfigStruct,
   ClusterConfigStruct,
+  CapDataStruct,
 } from './types.ts';
 export { kunser, kser } from './services/kernel-marshal.ts';
 export { makeKernelStore } from './store/index.ts';
