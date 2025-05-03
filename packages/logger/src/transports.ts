@@ -30,7 +30,11 @@ export const makeStreamTransport = (
 ): Transport => {
   return (entry) => {
     stream
-      .write({ method: 'log', params: lser(entry), jsonrpc: '2.0' })
+      .write({
+        method: 'notify',
+        params: ['logger', ...lser(entry)],
+        jsonrpc: '2.0',
+      })
       .catch(console.debug);
   };
 };

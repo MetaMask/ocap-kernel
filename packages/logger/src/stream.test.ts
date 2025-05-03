@@ -4,7 +4,6 @@ import { vi, describe, it, expect } from 'vitest';
 
 import {
   isKernelMessage,
-  isLogMessage,
   isLoggerMessage,
   lser,
   lunser,
@@ -44,38 +43,41 @@ describe('serialization', () => {
   });
 });
 
-const validParams = ['info', ['test']];
+const validParams = ['logger', 'info', ['test']];
+const invalidParams = ['log', 'test'];
 const unserializableParams = [() => undefined];
 
-describe('isLogMessage', () => {
+const asJsonRpcMethod = (method: string, params: unknown) => ({
+  method,
+  params,
+  jsonrpc: '2.0',
+});
+
+describe('isLoggerMessage', () => {
   it.each`
-    description                | value                                                              | expectation
-    ${'valid params'}          | ${{ method: 'log', params: validParams, jsonrpc: '2.0' }}          | ${true}
-    ${'unserializable params'} | ${{ method: 'log', params: unserializableParams, jsonrpc: '2.0' }} | ${false}
-    ${'invalid method'}        | ${{ method: 'ping', params: null, jsonrpc: '2.0' }}                | ${false}
+    description                | value                                              | expectation
+    ${'valid params'}          | ${asJsonRpcMethod('notify', validParams)}          | ${true}
+    ${'invalid params'}        | ${asJsonRpcMethod('notify', invalidParams)}        | ${false}
+    ${'unserializable params'} | ${asJsonRpcMethod('notify', unserializableParams)} | ${false}
+    ${'invalid method'}        | ${asJsonRpcMethod('ping', null)}                   | ${false}
   `('returns $expectation for $description', ({ value, expectation }) => {
-    expect(isLogMessage(value)).toBe(expectation);
+    expect({ result: isLoggerMessage(value), value }).toStrictEqual({
+      result: expectation,
+      value,
+    });
   });
 });
 
 describe('isKernelMessage', () => {
   it.each`
-    description        | value                                                               | expectation
-    ${'kernel method'} | ${{ method: 'ping', params: null, id: null, jsonrpc: '2.0' }}       | ${true}
-    ${'logger method'} | ${{ method: 'log', params: validParams, id: null, jsonrpc: '2.0' }} | ${false}
+    description        | value                                     | expectation
+    ${'kernel method'} | ${asJsonRpcMethod('ping', null)}          | ${true}
+    ${'logger method'} | ${asJsonRpcMethod('notify', validParams)} | ${false}
   `('returns $expectation for $description', ({ value, expectation }) => {
-    expect(isKernelMessage(value)).toBe(expectation);
-  });
-});
-
-describe('isLoggerMessage', () => {
-  it.each`
-    description                | value                                                                        | expectation
-    ${'valid params'}          | ${{ method: 'log', params: validParams, id: null, jsonrpc: '2.0' }}          | ${true}
-    ${'unserializable params'} | ${{ method: 'log', params: unserializableParams, id: null, jsonrpc: '2.0' }} | ${false}
-    ${'invalid method'}        | ${{ method: 'ping', params: null, id: null, jsonrpc: '2.0' }}                | ${false}
-  `('returns $expectation for $description', ({ value, expectation }) => {
-    expect(isLoggerMessage(value)).toBe(expectation);
+    expect({ result: isKernelMessage(value), value }).toStrictEqual({
+      result: expectation,
+      value,
+    });
   });
 });
 

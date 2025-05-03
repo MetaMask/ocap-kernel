@@ -33,7 +33,8 @@ describe('consoleTransport', () => {
 
 describe('makeStreamTransport', () => {
   it('writes to the stream', () => {
-    const logEntry = makeLogEntry('info');
+    const logLevel = 'info';
+    const logEntry = makeLogEntry(logLevel);
     const mockStream = {
       write: vi.fn().mockResolvedValue(undefined),
     } as unknown as DuplexStream<JsonRpcMessage>;
@@ -41,8 +42,14 @@ describe('makeStreamTransport', () => {
     streamTransport(logEntry);
     expect(mockStream.write).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'log',
-        params: expect.any(Array),
+        method: 'notify',
+        params: expect.arrayContaining([
+          'logger',
+          logLevel,
+          logEntry.tags,
+          logEntry.message,
+          null,
+        ]),
         jsonrpc: '2.0',
       }),
     );

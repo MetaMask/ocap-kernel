@@ -1,13 +1,13 @@
-import { isJsonRpcCall, stringify } from '@metamask/kernel-utils';
+import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { split } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
-import { isJsonRpcRequest } from '@metamask/utils';
+import { isJsonRpcNotification } from '@metamask/utils';
 import type { JsonRpcRequest } from '@metamask/utils';
 
 import type { LogEntry, LogLevel } from './types.ts';
 
-type SerializedLogEntry = [
+export type SerializedLogEntry = [
   /* level   */ LogLevel,
   /* tags    */ string[],
   /* message */ string | null,
@@ -15,8 +15,8 @@ type SerializedLogEntry = [
 ];
 
 export type LogMessage = JsonRpcCall & {
-  method: 'log';
-  params: SerializedLogEntry;
+  method: 'notify';
+  params: ['logger', ...SerializedLogEntry];
 };
 
 export const lser = ({
@@ -43,13 +43,12 @@ export const lunser = (params: SerializedLogEntry): LogEntry => {
   return entry;
 };
 
-export const isLogMessage = (message: JsonRpcMessage): message is LogMessage =>
-  isJsonRpcCall(message) && message.method === 'log';
-
 export const isLoggerMessage = (
   message: JsonRpcMessage,
-): message is JsonRpcRequest & { method: 'log' } =>
-  isJsonRpcRequest(message) && message.method === 'log';
+): message is LogMessage =>
+  isJsonRpcNotification(message) &&
+  (message as { params: { length: number } }).params.length > 0 &&
+  (message as { params: unknown[] }).params[0] === 'logger';
 
 export const isKernelMessage = (
   message: JsonRpcMessage,
