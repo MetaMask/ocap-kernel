@@ -216,9 +216,12 @@ const config = createConfig([
   },
 
   {
-    files: ['packages/nodejs/test/workers/**/*'],
+    files: [
+      'packages/nodejs/test/workers/**/*',
+      'packages/logger/test/workers/**/*',
+    ],
     rules: {
-      // Test node worker files can resolve these imports, even if eslint cannot.
+      // Test worker files can resolve these imports, even if eslint cannot.
       'import-x/no-unresolved': 'off',
     },
   },

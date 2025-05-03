@@ -2230,6 +2230,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.0"

@@ -5,11 +5,17 @@
     "lib": ["ES2022"],
     "types": ["ses", "vitest"]
   },
-  "references": [{ "path": "../test-utils" }, { "path": "../streams" }],
+  "references": [
+    { "path": "../test-utils" },
+    { "path": "../streams" },
+    { "path": "../kernel-shims" }
+  ],
   "include": [
     "../../vitest.config.ts",
     "./src",
+    "./test",
     "./vite.config.ts",
     "./vitest.config.ts"
-  ]
+  ],
+  "exclude": ["./test/workers/*.js"]
 }
