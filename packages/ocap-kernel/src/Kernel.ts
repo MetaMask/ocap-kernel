@@ -210,7 +210,7 @@ export class Kernel {
     }
     const stream = await this.#vatWorkerService.launch(vatId, vatConfig);
     const { kernelStream: vatStream, loggerStream } = splitLoggerStream(stream);
-    const vatLogger = this.#logger.subLogger(vatId);
+    const vatLogger = this.#logger.subLogger({ tags: [vatId] });
     vatLogger.injectStream(
       loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
       (error) => console.error(stringify(error)),

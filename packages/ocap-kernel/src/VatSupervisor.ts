@@ -240,7 +240,7 @@ export class VatSupervisor {
     });
 
     const workerEndowments = {
-      console: this.#logger.subLogger({ tags: ['vat-worker'] }),
+      console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
     };
 

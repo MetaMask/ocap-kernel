@@ -56,9 +56,10 @@ describe('Kernel', () => {
 
     launchWorkerMock = vi
       .spyOn(mockWorkerService, 'launch')
-      .mockResolvedValue(
-        {} as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
-      );
+      .mockResolvedValue({ end: vi.fn() } as unknown as DuplexStream<
+        JsonRpcMessage,
+        JsonRpcMessage
+      >);
     terminateWorkerMock = vi
       .spyOn(mockWorkerService, 'terminate')
       .mockResolvedValue(undefined);
