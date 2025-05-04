@@ -8,11 +8,13 @@ import url from 'node:url';
 
 import { makeStreams } from './streams.ts';
 
-const processLogger = new Logger('nodejs-vat-worker');
+const LOG_TAG = 'nodejs-vat-worker';
+
+let logger = new Logger(LOG_TAG);
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
-main().catch(processLogger.error);
+main().catch((reason) => logger.error('main exited with error', reason));
 
 /**
  * Fetch a blob of bytes from a URL
@@ -41,8 +43,8 @@ async function main(): Promise<void> {
     throw new Error('no vatId set for env variable NODE_VAT_ID');
   }
   const { kernelStream, loggerStream } = await makeStreams();
-  const logger = processLogger.subLogger({
-    tags: [vatId],
+  logger = new Logger({
+    tags: [LOG_TAG, vatId],
     transports: [makeStreamTransport(loggerStream)],
   });
   // eslint-disable-next-line no-void
@@ -51,5 +53,7 @@ async function main(): Promise<void> {
     kernelStream,
     logger,
     fetchBlob,
+    vatPowers: { logger },
   });
+  logger.debug('vat-worker main');
 }

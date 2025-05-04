@@ -35,7 +35,11 @@ export async function makeKernel({
     JsonRpcRequest,
     JsonRpcResponse
   >(port);
-  const vatWorkerClient = new NodejsVatWorkerManager({ workerFilePath });
+  const rootLogger = logger ?? new Logger('kernel-worker');
+  const vatWorkerClient = new NodejsVatWorkerManager({
+    workerFilePath,
+    logger: rootLogger.subLogger({ tags: ['vwm'] }),
+  });
 
   // Initialize kernel store.
   const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
@@ -47,7 +51,7 @@ export async function makeKernel({
     kernelDatabase,
     {
       resetStorage,
-      logger: logger ?? new Logger('ocap-kernel'),
+      logger: rootLogger.subLogger({ tags: ['kernel'] }),
     },
   );
 
