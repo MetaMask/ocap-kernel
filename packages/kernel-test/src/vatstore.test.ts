@@ -133,7 +133,7 @@ describe('exercise vatstore', async () => {
         return result;
       },
     );
-    const logger = makeTestLogger();
+    const { logger } = makeTestLogger();
     const kernel = await makeKernel(kernelDatabase, true, logger);
     await runTestVats(kernel, makeTestSubcluster());
     type VSRecord = { key: string; value: string };

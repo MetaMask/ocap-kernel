@@ -4,13 +4,13 @@ import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { describe, expect, it } from 'vitest';
 
 import {
-  extractVatLogs,
   getBundleSpec,
   makeKernel,
   makeTestLogger,
   runResume,
   runTestVats,
   sortLogs,
+  extractTestLogs,
 } from './utils.ts';
 
 const testSubcluster = {
@@ -100,12 +100,12 @@ const reference = sortLogs([
   ...carolResumeReference,
 ]);
 
-describe('restarting vats', async () => {
+describe('restarting vats', { timeout: 30_000 }, async () => {
   it('exercise restart vats individually', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    const logger = makeTestLogger();
+    const { logger, entries } = makeTestLogger();
     const kernel = await makeKernel(kernelDatabase, true, logger);
     const bootstrapResult = await runTestVats(kernel, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
@@ -119,21 +119,22 @@ describe('restarting vats', async () => {
     expect(resumeResultB).toBe('resume Bob');
     const resumeResultC = await runResume(kernel, 'ko3');
     expect(resumeResultC).toBe('resume Carol');
-    await waitUntilQuiescent(1000);
-    const vatLogs = extractVatLogs(logger.entries);
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
 
-  it('exercise restart kernel', async () => {
+    await waitUntilQuiescent(1000);
+    const vatLogs = extractTestLogs(entries, 'v1', 'v2', 'v3');
+    expect(sortLogs(vatLogs)).toStrictEqual(reference);
+  });
+
+  it('exercise restart kernel', { timeout: 30_000 }, async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
-    const logger1 = makeTestLogger();
+    const { logger: logger1, entries: entries1 } = makeTestLogger();
     const kernel1 = await makeKernel(kernelDatabase, true, logger1);
     const bootstrapResult = await runTestVats(kernel1, testSubcluster);
     expect(bootstrapResult).toBe('bootstrap Alice');
     await waitUntilQuiescent();
-    const logger2 = makeTestLogger();
+    const { logger: logger2, entries: entries2 } = makeTestLogger();
     const kernel2 = await makeKernel(kernelDatabase, false, logger2);
     const resumeResultA = await runResume(kernel2, 'ko1');
     expect(resumeResultA).toBe('resume Alice');
@@ -142,9 +143,12 @@ describe('restarting vats', async () => {
     const resumeResultC = await runResume(kernel2, 'ko3');
     expect(resumeResultC).toBe('resume Carol');
     await waitUntilQuiescent(1000);
-    const vatLogs1 = extractVatLogs(logger1.entries);
-    const vatLogs2 = extractVatLogs(logger2.entries);
-    const vatLogs = sortLogs([...vatLogs1, ...vatLogs2]);
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+    const vatLogs = extractTestLogs(
+      [...entries1, ...entries2],
+      'v1',
+      'v2',
+      'v3',
+    );
+    expect(sortLogs(vatLogs)).toStrictEqual(reference);
+  });
 });

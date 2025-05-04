@@ -6,13 +6,16 @@ import { M } from '@endo/patterns';
 /**
  * Build function for testing exo objects and liveslots virtual object functionality.
  *
- * @param {unknown} _vatPowers - Special powers granted to this vat (not used here).
+ * @param {unknown} vatPowers - Special powers granted to this vat (not used here).
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
  * @param {unknown} baggage - Root of vat's persistent state (not used here).
  * @returns {unknown} The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, baggage) {
+export function buildRootObject(vatPowers, parameters, baggage) {
   const vatName = parameters?.name ?? 'anonymous';
+  const { logger } = vatPowers;
+  const testLogger = logger.subLogger({ tags: ['test', vatName] });
+  const tlog = (...args) => testLogger.log(...args);
 
   /**
    * Print a message to the log.
@@ -21,20 +24,6 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
    */
   function log(message) {
     console.log(`${vatName}: ${message}`);
-  }
-
-  /**
-   * Print a message to the log, tagged as part of the test output.
-   *
-   * @param {string} message - The message to print.
-   * @param {...any} args - Additional arguments to print.
-   */
-  function tlog(message, ...args) {
-    if (args.length > 0) {
-      console.log(`::> ${vatName}: ${message}`, ...args);
-    } else {
-      console.log(`::> ${vatName}: ${message}`);
-    }
   }
 
   log(`buildRootObject`);

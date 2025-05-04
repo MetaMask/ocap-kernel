@@ -5,14 +5,16 @@ import { makePromiseKit } from '@endo/promise-kit';
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} _vatPowers - Special powers granted to this vat (not used here).
+ * @param {*} vatPowers - Special powers granted to this vat (not used here).
  * @param {*} parameters - Initialization parameters from the vat's config object.
  * @param {*} _baggage - Root of vat's persistent state (not used here).
  * @returns {*} The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, _baggage) {
+export function buildRootObject(vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
+  const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
+  const tlog = (...args) => logger.log(...args);
 
   /**
    * Print a message to the log.
@@ -21,15 +23,6 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
    */
   function log(message) {
     console.log(`${name}: ${message}`);
-  }
-
-  /**
-   * Print a message to the log, tagged as part of the test output.
-   *
-   * @param {string} message - The message to print.
-   */
-  function tlog(message) {
-    console.log(`::> ${name}: ${message}`);
   }
 
   /**

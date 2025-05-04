@@ -5,13 +5,15 @@ import { Far } from '@endo/marshal';
 /**
  * Build function for generic test vat.
  *
- * @param {unknown} _vatPowers - Special powers granted to this vat (not used here).
+ * @param {unknown} vatPowers - Special powers granted to this vat (not used here).
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
  * @param {unknown} baggage - Root of vat's persistent state (not used here).
  * @returns {unknown} The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, baggage) {
+export function buildRootObject(vatPowers, parameters, baggage) {
   const name = parameters?.name ?? 'anonymous';
+  const logger = vatPowers.logger.subLogger({ tags: ['test'] });
+  const tlog = (message) => logger.log(`${name}: ${message}`);
 
   /**
    * Print a message to the log.
@@ -20,15 +22,6 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
    */
   function log(message) {
     console.log(`${name}: ${message}`);
-  }
-
-  /**
-   * Print a message to the log, tagged as part of the test output.
-   *
-   * @param {string} message - The message to print.
-   */
-  function tlog(message) {
-    console.log(`::> ${name}: ${message}`);
   }
 
   log(`buildRootObject`);

@@ -1,16 +1,17 @@
 import '@metamask/kernel-shims/endoify';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
-import { makeKernel } from '@ocap/nodejs';
-import {
-  MessagePort as NodeMessagePort,
-  MessageChannel as NodeMessageChannel,
-} from 'node:worker_threads';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { extractVatLogs, getBundleSpec, makeTestLogger } from './utils.ts';
-import type { TestLogger } from './utils.ts';
+import {
+  getBundleSpec,
+  makeTestLogger,
+  makeKernel,
+  extractTestLogs,
+} from './utils.ts';
 
 const makeTestSubcluster = (
   testName: string,
@@ -42,18 +43,16 @@ const makeTestSubcluster = (
 });
 
 describe('liveslots promise handling', () => {
-  let logger: TestLogger;
   let kernel: Kernel;
+  let entries: LogEntry[];
 
   beforeEach(async () => {
-    const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
-    logger = makeTestLogger();
-    kernel = await makeKernel({
-      port: kernelPort,
-      resetStorage: true,
+    const { logger, entries: testEntries } = makeTestLogger();
+    const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
-      logger,
     });
+    kernel = await makeKernel(kernelDatabase, true, logger);
+    entries = testEntries;
   });
 
   /**
@@ -62,234 +61,331 @@ describe('liveslots promise handling', () => {
    * @param bundleName - The name of the bundle for the test implementation vat(s).
    * @param testName - The name of the test to run.
    *
-   * @returns a tuple of the bootstrap result and the execution log output.
+   * @returns the bootstrap result.
    */
   async function runTestVats(
     bundleName: string,
     testName: string,
-  ): Promise<[unknown, string[]]> {
+  ): Promise<unknown> {
     const bundleSpec = getBundleSpec(bundleName);
     const bootstrapResultRaw = await kernel.launchSubcluster(
       makeTestSubcluster(testName, bundleSpec),
     );
     await waitUntilQuiescent(1000);
-    const vatLogs = extractVatLogs(logger.entries);
     if (bootstrapResultRaw === undefined) {
       throw Error(`this can't happen but eslint is stupid`);
     }
-    return [kunser(bootstrapResultRaw), vatLogs];
+    return kunser(bootstrapResultRaw);
   }
 
-  it('promiseArg1: send promise parameter, resolve after send', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-arg-vat',
-      'promiseArg1',
-    );
-    expect(bootstrapResult).toBe('bobPSucc');
-    const reference = [
-      `Alice: running test promiseArg1`,
-      `Alice: sending the promise to Bob`,
-      `Alice: resolving the promise that was sent to Bob`,
-      `Alice: awaiting Bob's response`,
-      `Alice: Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
-      `Bob: the promise parameter resolved to 'Alice said hi after send'`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseArg1: send promise parameter, resolve after send',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-arg-vat',
+        'promiseArg1',
+      );
+      expect(bootstrapResult).toBe('bobPSucc');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseArg1`,
+        `sending the promise to Bob`,
+        `resolving the promise that was sent to Bob`,
+        `awaiting Bob's response`,
+        `Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `the promise parameter resolved to 'Alice said hi after send'`,
+      ]);
+    },
+  );
 
-  it('promiseArg2: send promise parameter, resolved before send', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-arg-vat',
-      'promiseArg2',
-    );
-    expect(bootstrapResult).toBe('bobPSucc');
-    const reference = [
-      `Alice: running test promiseArg2`,
-      `Alice: resolving the promise that will be sent to Bob`,
-      `Alice: sending the promise to Bob`,
-      `Alice: awaiting Bob's response`,
-      `Alice: Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
-      `Bob: the promise parameter resolved to 'Alice said hi before send'`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseArg2: send promise parameter, resolved before send',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-arg-vat',
+        'promiseArg2',
+      );
+      expect(bootstrapResult).toBe('bobPSucc');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseArg2`,
+        `resolving the promise that will be sent to Bob`,
+        `sending the promise to Bob`,
+        `awaiting Bob's response`,
+        `Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `the promise parameter resolved to 'Alice said hi before send'`,
+      ]);
+    },
+  );
 
-  it('promiseArg3: send promise parameter, resolve after reply to send', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-arg-vat',
-      'promiseArg3',
-    );
-    expect(bootstrapResult).toBe('bobPSucc');
-    const reference = [
-      `Alice: running test promiseArg3`,
-      `Alice: sending the promise to Bob`,
-      `Alice: awaiting Bob's response`,
-      `Alice: Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
-      `Alice: resolving the promise that was sent to Bob`,
-      `Bob: the promise parameter resolved to 'Alice said hi after Bob's reply'`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseArg3: send promise parameter, resolve after reply to send',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-arg-vat',
+        'promiseArg3',
+      );
+      expect(bootstrapResult).toBe('bobPSucc');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseArg3`,
+        `sending the promise to Bob`,
+        `awaiting Bob's response`,
+        `Bob's response to hereIsAPromise: 'Bob.hereIsAPromise done'`,
+        `resolving the promise that was sent to Bob`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `the promise parameter resolved to 'Alice said hi after Bob's reply'`,
+      ]);
+    },
+  );
 
-  it('promiseChain: resolve a chain of promises', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-chain-vat',
-      'promiseChain',
-    );
-    expect(bootstrapResult).toBe('end of chain');
-    const reference = [
-      `Alice: running test promiseChain`,
-      `Alice: waitFor start`,
-      `Alice: count 0 < 3, recurring...`,
-      `Alice: waitFor start`,
-      `Alice: count 1 < 3, recurring...`,
-      `Alice: waitFor start`,
-      `Alice: count 2 < 3, recurring...`,
-      `Alice: waitFor start`,
-      `Alice: finishing chain`,
-      `Bob: bobGen set value to 1`,
-      `Bob: bobGen set value to 2`,
-      `Bob: bobGen set value to 3`,
-      `Bob: bobGen set value to 4`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseChain: resolve a chain of promises',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-chain-vat',
+        'promiseChain',
+      );
+      expect(bootstrapResult).toBe('end of chain');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseChain`,
+        `waitFor start`,
+        `count 0 < 3, recurring...`,
+        `waitFor start`,
+        `count 1 < 3, recurring...`,
+        `waitFor start`,
+        `count 2 < 3, recurring...`,
+        `waitFor start`,
+        `finishing chain`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `bobGen set value to 1`,
+        `bobGen set value to 2`,
+        `bobGen set value to 3`,
+        `bobGen set value to 4`,
+      ]);
+    },
+  );
 
-  it('promiseCycle: mutually referential promise resolutions', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-cycle-vat',
-      'promiseCycle',
-    );
-    expect(bootstrapResult).toBe('done');
-    const reference = [
-      `Alice: running test promiseCycle`,
-      `Alice: isPromise(resolutionX[0]): true`,
-      `Alice: isPromise(resolutionY[0]): true`,
-      `Bob: genPromise1`,
-      `Bob: genPromise2`,
-      `Bob: resolveBoth`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseCycle: mutually referential promise resolutions',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-cycle-vat',
+        'promiseCycle',
+      );
+      expect(bootstrapResult).toBe('done');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseCycle`,
+        `isPromise(resolutionX[0]): true`,
+        `isPromise(resolutionY[0]): true`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `genPromise1`,
+        `genPromise2`,
+        `resolveBoth`,
+      ]);
+    },
+  );
 
-  it('promiseCycleMultiCrank: mutually referential promise resolutions across cranks', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-cycle-vat',
-      'promiseCycleMultiCrank',
-    );
-    expect(bootstrapResult).toBe('done');
-    const reference = [
-      `Alice: running test promiseCycleMultiCrank`,
-      `Alice: isPromise(resolutionX[0]): true`,
-      `Alice: isPromise(resolutionY[0]): true`,
-      `Bob: genPromise1`,
-      `Bob: genPromise2`,
-      `Bob: resolve1`,
-      `Bob: resolve2`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseCycleMultiCrank: mutually referential promise resolutions across cranks',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-cycle-vat',
+        'promiseCycleMultiCrank',
+      );
+      expect(bootstrapResult).toBe('done');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseCycleMultiCrank`,
+        `isPromise(resolutionX[0]): true`,
+        `isPromise(resolutionY[0]): true`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `genPromise1`,
+        `genPromise2`,
+        `resolve1`,
+        `resolve2`,
+      ]);
+    },
+  );
 
-  it('promiseCrosswise: mutually referential promise resolutions across cranks', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-crosswise-vat',
-      'promiseCrosswise',
-    );
-    expect(bootstrapResult).toBe('done');
-    const reference = [
-      `Alice: running test promiseCrosswise`,
-      `Alice: isPromise(resolutionX[0]): true`,
-      `Alice: isPromise(resolutionY[0]): true`,
-      `Bob: genPromise`,
-      `Bob: resolve`,
-      `Carol: genPromise`,
-      `Carol: resolve`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseCrosswise: mutually referential promise resolutions across cranks',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-crosswise-vat',
+        'promiseCrosswise',
+      );
+      expect(bootstrapResult).toBe('done');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseCrosswise`,
+        `isPromise(resolutionX[0]): true`,
+        `isPromise(resolutionY[0]): true`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([`genPromise`, `resolve`]);
+      const carolLogs = extractTestLogs(entries, 'Carol');
+      expect(carolLogs).toStrictEqual([`genPromise`, `resolve`]);
+    },
+  );
 
-  it('promiseIndirect: resolution of a resolution of a promise', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'promise-indirect-vat',
-      'promiseIndirect',
-    );
-    expect(bootstrapResult).toBe('done');
-    const reference = [
-      `Alice: running test promiseIndirect`,
-      `Alice: resolution == hello`,
-      `Bob: genPromise1`,
-      `Bob: genPromise2`,
-      `Bob: resolve`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'promiseIndirect: resolution of a resolution of a promise',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'promise-indirect-vat',
+        'promiseIndirect',
+      );
+      expect(bootstrapResult).toBe('done');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test promiseIndirect`,
+        `resolution == hello`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([`genPromise1`, `genPromise2`, `resolve`]);
+    },
+  );
 
-  it('passResult: pass a method result as a parameter', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'pass-result-vat',
-      'passResult',
-    );
-    expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
-    const reference = [
-      `Alice: running test passResult`,
-      `Alice: first result resolved to Bob's first answer`,
-      `Alice: second result resolved to Bob's second answer`,
-      `Bob: first`,
-      `Bob: second`,
-      `Bob: parameter to second resolved to Bob's first answer`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'passResult: pass a method result as a parameter',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'pass-result-vat',
+        'passResult',
+      );
+      expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test passResult`,
+        `first result resolved to Bob's first answer`,
+        `second result resolved to Bob's second answer`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `first`,
+        `second`,
+        `parameter to second resolved to Bob's first answer`,
+      ]);
+    },
+  );
 
-  it('passResultPromise: pass a method promise as a parameter', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'pass-result-promise-vat',
-      'passResultPromise',
-    );
-    expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
-    const reference = [
-      `Alice: running test passResultPromise`,
-      `Alice: first result resolved to Bob answers first in second`,
-      `Alice: second result resolved to Bob's second answer`,
-      `Bob: first`,
-      `Bob: second`,
-      `Bob: parameter to second resolved to Bob answers first in second`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'passResultPromise: pass a method promise as a parameter',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'pass-result-promise-vat',
+        'passResultPromise',
+      );
+      expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test passResultPromise`,
+        `first result resolved to Bob answers first in second`,
+        `second result resolved to Bob's second answer`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `first`,
+        `second`,
+        `parameter to second resolved to Bob answers first in second`,
+      ]);
+    },
+  );
 
-  it('resolvePipeline: send to promise resolution', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'resolve-pipelined-vat',
-      'resolvePipelined',
-    );
-    expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
-    const reference = [
-      `Alice: running test resolvePipelined`,
-      `Alice: first result resolved to [object Alleged: thing]`,
-      `Alice: second result resolved to Bob's second answer`,
-      `Bob: first`,
-      `Bob: thing.second`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'resolvePipeline: send to promise resolution',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'resolve-pipelined-vat',
+        'resolvePipelined',
+      );
+      expect(bootstrapResult).toStrictEqual(['p1succ', 'p2succ']);
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test resolvePipelined`,
+        `first result resolved to [object Alleged: thing]`,
+        `second result resolved to Bob's second answer`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([`first`, `thing.second`]);
+    },
+  );
 
-  it('messageToPromise: send to promise before resolution', async () => {
-    const [bootstrapResult, vatLogs] = await runTestVats(
-      'message-to-promise-vat',
-      'messageToPromise',
-    );
-    expect(bootstrapResult).toBe('p2succ');
-    const reference = [
-      `Alice: running test messageToPromise`,
-      `Alice: invoking loopback`,
-      `Alice: second result resolved to 'deferred something'`,
-      `Alice: loopback done`,
-      `Bob: setup`,
-      `Bob: doResolve`,
-      `Bob: thing.doSomething`,
-      `Bob: loopback`,
-    ];
-    expect(vatLogs).toStrictEqual(reference);
-  }, 30000);
+  it(
+    'messageToPromise: send to promise before resolution',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      const bootstrapResult = await runTestVats(
+        'message-to-promise-vat',
+        'messageToPromise',
+      );
+      expect(bootstrapResult).toBe('p2succ');
+      const aliceLogs = extractTestLogs(entries, 'Alice');
+      expect(aliceLogs).toStrictEqual([
+        `running test messageToPromise`,
+        `invoking loopback`,
+        `second result resolved to 'deferred something'`,
+        `loopback done`,
+      ]);
+      const bobLogs = extractTestLogs(entries, 'Bob');
+      expect(bobLogs).toStrictEqual([
+        `setup`,
+        `doResolve`,
+        `thing.doSomething`,
+        `loopback`,
+      ]);
+    },
+  );
 });
