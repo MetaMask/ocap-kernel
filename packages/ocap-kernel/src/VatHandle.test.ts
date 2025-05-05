@@ -1,3 +1,5 @@
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
+import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
@@ -10,6 +12,7 @@ import type { MockInstance } from 'vitest';
 import type { KernelQueue } from './KernelQueue.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
+import type { VRef, Message } from './types.ts';
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
@@ -90,6 +93,130 @@ describe('VatHandle', () => {
         'Unexpected read error',
         expect.any(Error),
       );
+    });
+  });
+
+  describe('ping', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      sendVatCommandMock.mockResolvedValueOnce('pong');
+      const result = await vat.ping();
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'ping',
+        params: [],
+      });
+      expect(result).toBe('pong');
+    });
+
+    it('propagates errors from sendVatCommand', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const error = new Error('Ping failed');
+      sendVatCommandMock.mockRejectedValueOnce(error);
+      await expect(vat.ping()).rejects.toThrow('Ping failed');
+    });
+  });
+
+  describe('deliverMessage', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      const target = 'kp1' as VRef;
+      const message: Message = {
+        methargs: { body: '["arg1","arg2"]', slots: [] },
+        result: 'kp123',
+      };
+      await vat.deliverMessage(target, message);
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['message', target, message],
+      });
+    });
+  });
+
+  describe('deliverNotify', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      const resolutions: VatOneResolution[] = [
+        ['vp123', false, { body: '"resolved value"', slots: [] }],
+      ];
+      await vat.deliverNotify(resolutions);
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['notify', resolutions],
+      });
+    });
+  });
+
+  describe('deliverDropExports', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      const vrefs: VRef[] = ['kp123', 'kp456'];
+      await vat.deliverDropExports(vrefs);
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['dropExports', vrefs],
+      });
+    });
+  });
+
+  describe('deliverRetireExports', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      const vrefs: VRef[] = ['kp123', 'kp456'];
+      await vat.deliverRetireExports(vrefs);
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['retireExports', vrefs],
+      });
+    });
+  });
+
+  describe('deliverRetireImports', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      const vrefs: VRef[] = ['kp123', 'kp456'];
+      await vat.deliverRetireImports(vrefs);
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['retireImports', vrefs],
+      });
+    });
+  });
+
+  describe('deliverBringOutYourDead', () => {
+    it('calls sendVatCommand with the correct method and params', async () => {
+      const { vat } = await makeVat();
+      sendVatCommandMock.mockReset();
+      const mockCheckpoint: VatCheckpoint = [[], []];
+      sendVatCommandMock.mockResolvedValueOnce(mockCheckpoint);
+      await vat.deliverBringOutYourDead();
+      expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
+      expect(sendVatCommandMock).toHaveBeenCalledWith({
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
     });
   });
 

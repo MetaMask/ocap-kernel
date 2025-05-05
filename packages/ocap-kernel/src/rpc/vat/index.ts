@@ -1,3 +1,5 @@
+import type { Infer } from '@metamask/superstruct';
+
 import { deliverSpec, deliverHandler } from './deliver.ts';
 import type { DeliverSpec, DeliverHandler } from './deliver.ts';
 import { initVatSpec, initVatHandler } from './initVat.ts';
@@ -31,3 +33,5 @@ export const vatMethodSpecs = {
 type Handlers = (typeof vatHandlers)[keyof typeof vatHandlers];
 
 export type VatMethod = Handlers['method'];
+
+export type PingVatResult = Infer<PingSpec['result']>;

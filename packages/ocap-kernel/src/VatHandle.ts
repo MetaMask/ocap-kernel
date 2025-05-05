@@ -17,7 +17,7 @@ import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
-import type { VatMethod } from './rpc/index.ts';
+import type { PingVatResult, VatMethod } from './rpc/index.ts';
 import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type { Message, VatId, VatConfig, VRef } from './types.ts';
@@ -150,6 +150,18 @@ export class VatHandle {
         vatConfig: this.config,
         state: this.#vatStore.getKVData(),
       },
+    });
+  }
+
+  /**
+   * Ping the vat.
+   *
+   * @returns A promise that resolves to the result of the ping.
+   */
+  async ping(): Promise<PingVatResult> {
+    return await this.sendVatCommand({
+      method: 'ping',
+      params: [],
     });
   }
 

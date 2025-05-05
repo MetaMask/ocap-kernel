@@ -10,6 +10,7 @@ import {
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
+import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import {
@@ -30,6 +31,7 @@ export const handlers = {
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
   launchVat: launchVatHandler,
+  pingVat: pingVatHandler,
   reload: reloadConfigHandler,
   restartVat: restartVatHandler,
   queueMessage: queueMessageHandler,
@@ -47,6 +49,7 @@ export const methodSpecs = {
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
   launchVat: launchVatSpec,
+  pingVat: pingVatSpec,
   reload: reloadConfigSpec,
   restartVat: restartVatSpec,
   queueMessage: queueMessageSpec,

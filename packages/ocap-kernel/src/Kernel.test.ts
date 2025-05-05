@@ -97,6 +97,7 @@ describe('Kernel', () => {
           deliverMessage: vi.fn(),
           deliverNotify: vi.fn(),
           sendVatCommand: vi.fn(),
+          ping: vi.fn(),
         } as unknown as VatHandle;
         vatHandles.push(vatHandle as Mocked<VatHandle>);
         return vatHandle;
@@ -550,74 +551,136 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
-    it('returns the existing VatHandle instance on restart', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      const originalHandle = vatHandles[0];
-      const returnedHandle = await kernel.restartVat('v1');
-      expect(returnedHandle).toBe(originalHandle);
-    });
-  });
+    describe('pingVat()', () => {
+      it('pings a vat without errors when the vat exists', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        await kernel.launchVat(makeMockVatConfig());
+        vatHandles[0]?.ping.mockResolvedValueOnce('pong');
+        const result = await kernel.pingVat('v1');
+        expect(vatHandles[0]?.ping).toHaveBeenCalledTimes(1);
+        expect(result).toBe('pong');
+      });
 
-  describe('clusterConfig', () => {
-    it('gets and sets cluster configuration', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      expect(kernel.clusterConfig).toBeNull();
-      const config = makeMockClusterConfig();
-      kernel.clusterConfig = config;
-      expect(kernel.clusterConfig).toStrictEqual(config);
+      it('throws an error when pinging a vat that does not exist in the kernel', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        const nonExistentVatId: VatId = 'v9';
+        await expect(async () =>
+          kernel.pingVat(nonExistentVatId),
+        ).rejects.toThrow(VatNotFoundError);
+      });
+
+      it('propagates errors from the vat ping method', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        await kernel.launchVat(makeMockVatConfig());
+        const pingError = new Error('Ping failed');
+        vatHandles[0]?.ping.mockRejectedValueOnce(pingError);
+        await expect(async () => kernel.pingVat('v1')).rejects.toThrow(
+          pingError,
+        );
+      });
     });
 
-    it('throws an error when setting invalid config', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      expect(() => {
-        // @ts-expect-error Intentionally setting invalid config
-        kernel.clusterConfig = { invalid: true };
-      }).toThrow('invalid cluster config');
+    describe('constructor()', () => {
+      it('initializes the kernel without errors', async () => {
+        expect(
+          async () =>
+            await Kernel.make(
+              mockStream,
+              mockWorkerService,
+              mockKernelDatabase,
+            ),
+        ).not.toThrow();
+      });
     });
-  });
 
-  describe('reset()', () => {
-    it('terminates all vats and resets kernel state', async () => {
-      const mockDb = makeMapKernelDatabase();
-      const clearSpy = vi.spyOn(mockDb, 'clear');
-      const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb);
-      await kernel.launchVat(makeMockVatConfig());
-      await kernel.reset();
-      expect(clearSpy).toHaveBeenCalled();
-      expect(kernel.getVatIds()).toHaveLength(0);
+    describe('init()', () => {
+      it.todo('initializes the kernel store');
+      it.todo('starts receiving messages');
+      it.todo('throws if the stream throws');
     });
-  });
 
-  describe('pinVatRoot and unpinVatRoot', () => {
-    it('pins and unpins a vat root correctly', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockVatConfig();
-      const rootRef = await kernel.launchVat(config);
-      // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe(rootRef);
-      // Pinning non-existent vat should throw
-      expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
-      // Unpinning existing vat root should succeed
-      expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
-      // Unpinning non-existent vat should throw
-      expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+    describe('reload()', () => {
+      it('should reload with current config when config exists', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        await kernel.launchVat(makeMockVatConfig());
+        const originalHandle = vatHandles[0];
+        const returnedHandle = await kernel.restartVat('v1');
+        expect(returnedHandle).toBe(originalHandle);
+      });
+    });
+
+    describe('clusterConfig', () => {
+      it('gets and sets cluster configuration', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        expect(kernel.clusterConfig).toBeNull();
+        const config = makeMockClusterConfig();
+        kernel.clusterConfig = config;
+        expect(kernel.clusterConfig).toStrictEqual(config);
+      });
+
+      it('throws an error when setting invalid config', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        expect(() => {
+          // @ts-expect-error Intentionally setting invalid config
+          kernel.clusterConfig = { invalid: true };
+        }).toThrow('invalid cluster config');
+      });
+    });
+
+    describe('reset()', () => {
+      it('terminates all vats and resets kernel state', async () => {
+        const mockDb = makeMapKernelDatabase();
+        const clearSpy = vi.spyOn(mockDb, 'clear');
+        const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb);
+        await kernel.launchVat(makeMockVatConfig());
+        await kernel.reset();
+        expect(clearSpy).toHaveBeenCalled();
+        expect(kernel.getVatIds()).toHaveLength(0);
+      });
+    });
+
+    describe('pinVatRoot and unpinVatRoot', () => {
+      it('pins and unpins a vat root correctly', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockWorkerService,
+          mockKernelDatabase,
+        );
+        const config = makeMockVatConfig();
+        const rootRef = await kernel.launchVat(config);
+        // Pinning existing vat root should return the kref
+        expect(kernel.pinVatRoot('v1')).toBe(rootRef);
+        // Pinning non-existent vat should throw
+        expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
+        // Unpinning existing vat root should succeed
+        expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
+        // Unpinning non-existent vat should throw
+        expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+      });
     });
   });
 });

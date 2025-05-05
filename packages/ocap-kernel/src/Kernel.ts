@@ -17,6 +17,7 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { kernelHandlers } from './rpc/index.ts';
+import type { PingVatResult } from './rpc/index.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { kslot } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
@@ -428,6 +429,17 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     this.#kernelStore.unpinObject(kref);
+  }
+
+  /**
+   * Ping a vat.
+   *
+   * @param vatId - The ID of the vat.
+   * @returns A promise that resolves to the result of the ping.
+   */
+  async pingVat(vatId: VatId): Promise<PingVatResult> {
+    const vat = this.#getVat(vatId);
+    return vat.ping();
   }
 
   /**
