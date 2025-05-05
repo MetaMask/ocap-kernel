@@ -83,7 +83,7 @@ export const SendMessageForm: React.FC = () => {
     <div className={styles.messageInputSection}>
       <h3>Send Message</h3>
       <div className={styles.horizontalForm}>
-        <div style={{ width: 150, flex: 'none' }}>
+        <div className={styles.formFieldTarget}>
           <label htmlFor="message-target">Target:</label>
           <select
             id="message-target"

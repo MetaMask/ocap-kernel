@@ -49,9 +49,6 @@ body > div {
   box-sizing: border-box;
 }
 
-.container {
-}
-
 h1,
 h2,
 h3,
@@ -645,4 +642,11 @@ table.table {
   color: var(--color-gray-600);
   font-weight: 400;
   margin-left: var(--spacing-xs);
+}
+
+@media (min-width: 1200px) {
+  .horizontalForm .formFieldTarget {
+    width: 150px;
+    flex: none;
+  }
 }

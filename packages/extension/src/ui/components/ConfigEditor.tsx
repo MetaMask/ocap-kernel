@@ -32,7 +32,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
   const { updateClusterConfig, reload } = useKernelActions();
   const { logMessage } = usePanelContext();
   const clusterConfig = useMemo(
-    () => stringify(status.clusterConfig, 2),
+    () => stringify(status.clusterConfig),
     [status],
   );
   const [config, setConfig] = useState<string>(clusterConfig);
