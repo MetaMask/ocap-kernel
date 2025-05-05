@@ -7,7 +7,7 @@ import { describe, vi, expect, it } from 'vitest';
 import {
   getBundleSpec,
   makeKernel,
-  makeTestLogger,
+  makeMockLogger,
   runTestVats,
 } from './utils.ts';
 
@@ -133,8 +133,7 @@ describe('exercise vatstore', async () => {
         return result;
       },
     );
-    const { logger } = makeTestLogger();
-    const kernel = await makeKernel(kernelDatabase, true, logger);
+    const kernel = await makeKernel(kernelDatabase, true, makeMockLogger());
     await runTestVats(kernel, makeTestSubcluster());
     type VSRecord = { key: string; value: string };
     const vsContents = kernelDatabase.executeQuery(

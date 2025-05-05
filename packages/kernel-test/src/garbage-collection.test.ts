@@ -2,7 +2,6 @@ import '@metamask/kernel-shims/endoify';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import { Logger } from '@metamask/logger';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type {
   ClusterConfig,
@@ -15,7 +14,7 @@ import { expect, beforeEach, describe, it } from 'vitest';
 import {
   getBundleSpec,
   makeKernel,
-  makeTestLogger,
+  makeMockLogger,
   parseReplyBody,
   runTestVats,
 } from './utils.ts';
@@ -54,15 +53,13 @@ describe('Garbage Collection', () => {
   let importerKRef: KRef;
   let exporterVatId: VatId;
   let importerVatId: VatId;
-  let logger: Logger;
 
   beforeEach(async () => {
-    logger = makeTestLogger().logger;
     kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
     kernelStore = makeKernelStore(kernelDatabase);
-    kernel = await makeKernel(kernelDatabase, true, logger);
+    kernel = await makeKernel(kernelDatabase, true, makeMockLogger());
     await runTestVats(kernel, makeTestSubcluster());
 
     const vats = kernel.getVats();

@@ -14,6 +14,7 @@ import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
 } from 'node:worker_threads';
+import { vi } from 'vitest';
 
 /**
  * Construct a bundle path URL from a bundle name.
@@ -177,4 +178,24 @@ export const makeTestLogger = (): { logger: Logger; entries: LogEntry[] } => {
   const entries: LogEntry[] = [];
   const logger = new Logger({ transports: [makeArrayTransport(entries)] });
   return { logger, entries };
+};
+
+/**
+ * Create a mock logger that can be used to spy on the logger methods.
+ * Derived sub-loggers will invoke the parent logger methods directly.
+ * The injectStream method is a no-op.
+ *
+ * @returns A mock logger.
+ */
+export const makeMockLogger = (): Logger => {
+  const mockLogger = {
+    log: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    subLogger: vi.fn(() => mockLogger),
+    injectStream: vi.fn(),
+  } as unknown as Logger;
+  return mockLogger;
 };
