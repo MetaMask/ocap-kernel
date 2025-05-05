@@ -100,10 +100,12 @@ export class Logger {
     // Create aliases for the log methods, allowing them to be used in a
     // manner similar to the console object.
     const bind = (level: LogLevel): LogMethod =>
-      this.#dispatch.bind(this, {
-        ...this.#options,
-        level,
-      }) as LogMethod;
+      harden(
+        this.#dispatch.bind(this, {
+          ...this.#options,
+          level,
+        }),
+      ) as LogMethod;
     this.log = bind('log');
     this.debug = bind('debug');
     this.info = bind('info');
