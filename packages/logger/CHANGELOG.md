@@ -7,4 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- refactor: Prepare for publishing packages to npm ([#507](https://github.com/MetaMask/ocap-kernel/pull/507))
+- refactor: promote logger to its own package ([#493](https://github.com/MetaMask/ocap-kernel/pull/493))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
