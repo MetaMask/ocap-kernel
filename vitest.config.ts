@@ -116,7 +116,7 @@ export default defineConfig({
           lines: 100,
         },
         'packages/logger/**': {
-          statements: 98.43,
+          statements: 98.55,
           functions: 95.83,
           branches: 97.29,
           lines: 100,

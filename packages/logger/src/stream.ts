@@ -19,6 +19,16 @@ export type LogMessage = JsonRpcCall & {
   params: ['logger', ...SerializedLogEntry];
 };
 
+/**
+ * Serializes a log entry.
+ *
+ * @param entry - The log entry to serialize.
+ * @param entry.level - The log level.
+ * @param entry.tags - The log tags.
+ * @param entry.message - The log message.
+ * @param entry.data - The log data.
+ * @returns The serialized log entry.
+ */
 export const lser = ({
   level,
   tags,
@@ -30,7 +40,14 @@ export const lser = ({
   message ?? null,
   data?.map(stringify) ?? null,
 ];
+harden(lser);
 
+/**
+ * Deserializes a log entry.
+ *
+ * @param params - The serialized log entry to deserialize.
+ * @returns The deserialized log entry.
+ */
 export const lunser = (params: SerializedLogEntry): LogEntry => {
   const [level, tags, message, data] = params;
   const entry: LogEntry = { level, tags };
@@ -42,17 +59,33 @@ export const lunser = (params: SerializedLogEntry): LogEntry => {
   }
   return entry;
 };
+harden(lunser);
 
+/**
+ * Checks if a message is a logger message.
+ *
+ * @param message - The message to check.
+ * @returns Whether the message is a logger message.
+ */
 export const isLoggerMessage = (
   message: JsonRpcMessage,
 ): message is LogMessage =>
   isJsonRpcNotification(message) &&
   (message as { params: { length: number } }).params.length > 0 &&
   (message as { params: unknown[] }).params[0] === 'logger';
+harden(isLoggerMessage);
 
+/**
+ * Checks if a message is a kernel message. A kernel message is any message
+ * which is not a logger message.
+ *
+ * @param message - The message to check.
+ * @returns Whether the message is a kernel message.
+ */
 export const isKernelMessage = (
   message: JsonRpcMessage,
 ): message is JsonRpcRequest => !isLoggerMessage(message);
+harden(isKernelMessage);
 
 /**
  * Splits a stream into a kernel stream and a logger stream.
@@ -60,7 +93,6 @@ export const isKernelMessage = (
  * @param stream - The stream to split.
  * @returns An object containing the kernel stream and the logger stream.
  */
-
 export const splitLoggerStream = <Write>(
   stream: DuplexStream<JsonRpcMessage, Write>,
 ): {
@@ -77,3 +109,4 @@ export const splitLoggerStream = <Write>(
   ];
   return { kernelStream, loggerStream };
 };
+harden(splitLoggerStream);
