@@ -16,6 +16,8 @@ jobs:
         with:
           is-high-risk-environment: false
           cache-node-modules: ${{ matrix.node-version == '22.x' }}
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 'true'
 
   lint:
     name: Lint
@@ -29,6 +31,8 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 'true'
       - run: yarn lint
       - name: Require clean working directory
         shell: bash
@@ -50,6 +54,8 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 'true'
       - run: yarn changelog:validate
       - name: Require clean working directory
         shell: bash
@@ -71,6 +77,8 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 'true'
       - run: yarn build
       - name: Require clean working directory
         shell: bash
@@ -92,6 +100,14 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 'true'
+      - name: Rebuild SQLite3
+        run: |
+          cd node_modules/better-sqlite3
+          yarn build-release
+          cd -
+      - run: yarn build
       - run: yarn test:ci
       - name: Require clean working directory
         shell: bash
