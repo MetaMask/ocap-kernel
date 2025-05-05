@@ -38,7 +38,7 @@ export async function makeKernel({
   const rootLogger = logger ?? new Logger('kernel-worker');
   const vatWorkerClient = new NodejsVatWorkerManager({
     workerFilePath,
-    logger: rootLogger.subLogger({ tags: ['vwm'] }),
+    logger: rootLogger.subLogger({ tags: ['vat-worker-manager'] }),
   });
 
   // Initialize kernel store.
