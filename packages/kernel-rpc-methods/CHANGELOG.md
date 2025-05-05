@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0]
 
-### Uncategorized
+### Added
 
-- refactor: Prepare for publishing packages to npm ([#507](https://github.com/MetaMask/ocap-kernel/pull/507))
+- Initial release.
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-rpc-methods@0.1.0...HEAD
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-rpc-methods@0.1.0
