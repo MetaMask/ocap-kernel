@@ -13,9 +13,8 @@ import { M } from '@endo/patterns';
  */
 export function buildRootObject(vatPowers, parameters, baggage) {
   const vatName = parameters?.name ?? 'anonymous';
-  const { logger } = vatPowers;
-  const testLogger = logger.subLogger({ tags: ['test', vatName] });
-  const tlog = (...args) => testLogger.log(...args);
+  const logger = vatPowers.logger.subLogger({ tags: ['test', vatName] });
+  const tlog = (...args) => logger.log(...args);
 
   /**
    * Print a message to the log.

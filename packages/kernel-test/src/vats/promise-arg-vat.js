@@ -12,8 +12,8 @@ import { Far } from '@endo/marshal';
 export function buildRootObject(vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
-  const testLogger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args) => testLogger.log(...args);
+  const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
+  const tlog = (...args) => logger.log(...args);
 
   /**
    * Print a message to the log.
