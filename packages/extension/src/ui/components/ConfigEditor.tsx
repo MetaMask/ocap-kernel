@@ -43,9 +43,8 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
   useEffect(() => {
     setConfig(clusterConfig);
     setSelectedTemplate(
-      availableConfigs.find(
-        (item) => stringify(item.config, 2) === clusterConfig,
-      )?.name ?? '',
+      availableConfigs.find((item) => stringify(item.config) === clusterConfig)
+        ?.name ?? '',
     );
   }, [clusterConfig]);
 
@@ -70,7 +69,7 @@ export const ConfigEditorInner: React.FC<{ status: KernelStatus }> = ({
       (item) => item.name === configName,
     )?.config;
     if (selectedConfig) {
-      setConfig(stringify(selectedConfig, 2));
+      setConfig(stringify(selectedConfig));
       setSelectedTemplate(configName);
     }
   }, []);

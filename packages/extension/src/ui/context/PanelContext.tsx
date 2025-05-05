@@ -74,7 +74,7 @@ export const PanelProvider: React.FC<{
       try {
         isRequestInProgress.current = true;
         setIsLoading(true);
-        logMessage(stringify(payload, 2), 'sent');
+        logMessage(stringify(payload), 'sent');
 
         const response = await callKernelMethod(payload);
         if (isJsonRpcFailure(response)) {
