@@ -3,7 +3,7 @@ import { Far } from '@endo/marshal';
 /**
  * Build function for running a test of the vatstore.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat (not used here).
+ * @param {unknown} vatPowers - Special powers granted to this vat.
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
  * @param {unknown} _baggage - Root of vat's persistent state.
  * @returns {unknown} The root object for the new vat.

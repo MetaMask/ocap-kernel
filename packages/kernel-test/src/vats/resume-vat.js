@@ -5,7 +5,7 @@ import { Far } from '@endo/marshal';
 /**
  * Build function for generic test vat.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat (not used here).
+ * @param {unknown} vatPowers - Special powers granted to this vat.
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
  * @param {unknown} baggage - Root of vat's persistent state (not used here).
  * @returns {unknown} The root object for the new vat.

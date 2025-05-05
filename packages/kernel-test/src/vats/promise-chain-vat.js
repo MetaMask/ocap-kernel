@@ -5,7 +5,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} vatPowers - Special powers granted to this vat (not used here).
+ * @param {*} vatPowers - Special powers granted to this vat.
  * @param {*} parameters - Initialization parameters from the vat's config object.
  * @param {*} _baggage - Root of vat's persistent state (not used here).
  * @returns {*} The root object for the new vat.
