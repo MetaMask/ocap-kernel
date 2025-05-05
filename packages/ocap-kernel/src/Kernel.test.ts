@@ -17,6 +17,20 @@ import type {
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
+const mocks = vi.hoisted(() => {
+  class KernelQueue {
+    enqueueMessage = vi
+      .fn()
+      .mockResolvedValue({ body: '{"result":"ok"}', slots: [] });
+
+    run = vi.fn().mockResolvedValue(undefined);
+  }
+  return { KernelQueue };
+});
+vi.mock('./KernelQueue.ts', () => {
+  return { KernelQueue: mocks.KernelQueue };
+});
+
 const makeMockVatConfig = (): VatConfig => ({
   sourceSpec: 'not-really-there.js',
 });
@@ -301,9 +315,67 @@ describe('Kernel', () => {
   });
 
   describe('init()', () => {
-    it.todo('initializes the kernel store');
-    it.todo('starts receiving messages');
-    it.todo('throws if the stream throws');
+    it('initializes the kernel store', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+    });
+
+    it('starts receiving messages', async () => {
+      let drainHandler: ((message: JsonRpcRequest) => Promise<void>) | null =
+        null;
+      const customMockStream = {
+        drain: async (handler: (message: JsonRpcRequest) => Promise<void>) => {
+          drainHandler = handler;
+          return Promise.resolve();
+        },
+        write: vi.fn().mockResolvedValue(undefined),
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+      await Kernel.make(
+        customMockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(drainHandler).toBeInstanceOf(Function);
+    });
+
+    it('initializes and starts the kernel queue', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      expect(vatHandles.length).toBeGreaterThan(0);
+      const firstVatHandle = vatHandles[0] as Mocked<VatHandle>;
+      firstVatHandle.sendVatCommand.mockResolvedValueOnce('test-response');
+      const result = await kernel.sendVatCommand('v1', {
+        method: 'ping',
+        params: [],
+      });
+      expect(result).toBe('test-response');
+      expect(firstVatHandle.sendVatCommand).toHaveBeenCalledWith({
+        method: 'ping',
+        params: [],
+      });
+    });
+
+    it('throws if the stream throws', async () => {
+      const streamError = new Error('Stream error');
+      const throwingMockStream = {
+        drain: () => {
+          throw streamError;
+        },
+        write: vi.fn().mockResolvedValue(undefined),
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+      await expect(
+        Kernel.make(throwingMockStream, mockWorkerService, mockKernelDatabase),
+      ).rejects.toThrow('Stream error');
+    });
   });
 
   describe('reload()', () => {
@@ -315,12 +387,12 @@ describe('Kernel', () => {
       );
       kernel.clusterConfig = makeMockClusterConfig();
       await kernel.launchVat(makeMockVatConfig());
-      const launchSubclusterMock = vi
-        .spyOn(kernel, 'launchSubcluster')
-        .mockResolvedValueOnce(undefined);
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.reload();
+      // Verify the old vat was terminated
       expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
-      expect(launchSubclusterMock).toHaveBeenCalledOnce();
+      // Initial + reload
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
     });
 
     it('should throw if no config exists', async () => {
@@ -339,9 +411,152 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       kernel.clusterConfig = makeMockClusterConfig();
-      const error = new Error('Termination failed');
-      vi.spyOn(kernel, 'terminateAllVats').mockRejectedValueOnce(error);
-      await expect(kernel.reload()).rejects.toThrow(error);
+      // Set up a vat that will throw during termination
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.terminate.mockRejectedValueOnce(
+        new Error('Termination failed'),
+      );
+      await expect(kernel.reload()).rejects.toThrow('Termination failed');
+    });
+  });
+
+  describe('queueMessageFromKernel()', () => {
+    it('enqueues a message and returns the result', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      const result = await kernel.queueMessageFromKernel('v1', 'ping', []);
+      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+    });
+  });
+
+  describe('launchSubcluster()', () => {
+    it('launches a subcluster according to config', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockClusterConfig();
+      await kernel.launchSubcluster(config);
+      expect(launchWorkerMock).toHaveBeenCalled();
+      expect(makeVatHandleMock).toHaveBeenCalled();
+      expect(kernel.clusterConfig).toStrictEqual(config);
+    });
+
+    it('throws an error for invalid configs', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      // @ts-expect-error Intentionally passing invalid config
+      await expect(kernel.launchSubcluster({})).rejects.toThrow(
+        'invalid cluster config',
+      );
+    });
+
+    it('throws an error when bootstrap vat name is invalid', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const invalidConfig = {
+        bootstrap: 'nonexistent',
+        vats: {
+          alice: {
+            sourceSpec: 'test.js',
+          },
+        },
+      };
+      await expect(kernel.launchSubcluster(invalidConfig)).rejects.toThrow(
+        'invalid bootstrap vat name',
+      );
+    });
+  });
+
+  describe('clearStorage()', () => {
+    it('clears the kernel storage', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const clearSpy = vi.spyOn(mockKernelDatabase, 'clear');
+      await kernel.clearStorage();
+      expect(clearSpy).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('getVats()', () => {
+    it('returns an empty array when no vats are added', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(kernel.getVats()).toStrictEqual([]);
+    });
+
+    it('returns vat information after adding vats', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockVatConfig();
+      await kernel.launchVat(config);
+      const vats = kernel.getVats();
+      expect(vats).toHaveLength(1);
+      console.log(vats);
+      expect(vats).toStrictEqual([
+        {
+          id: undefined,
+          config,
+        },
+      ]);
+    });
+  });
+
+  describe('clusterConfig', () => {
+    it('gets and sets cluster configuration', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(kernel.clusterConfig).toBeNull();
+      const config = makeMockClusterConfig();
+      kernel.clusterConfig = config;
+      expect(kernel.clusterConfig).toStrictEqual(config);
+    });
+
+    it('throws an error when setting invalid config', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(() => {
+        // @ts-expect-error Intentionally setting invalid config
+        kernel.clusterConfig = { invalid: true };
+      }).toThrow('invalid cluster config');
+    });
+  });
+
+  describe('reset()', () => {
+    it('terminates all vats and resets kernel state', async () => {
+      const mockDb = makeMapKernelDatabase();
+      const clearSpy = vi.spyOn(mockDb, 'clear');
+      const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb);
+      await kernel.launchVat(makeMockVatConfig());
+      await kernel.reset();
+      expect(clearSpy).toHaveBeenCalled();
+      expect(kernel.getVatIds()).toHaveLength(0);
     });
   });
 });

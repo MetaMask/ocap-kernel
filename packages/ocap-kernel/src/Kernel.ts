@@ -95,6 +95,7 @@ export class Kernel {
       this.#kernelQueue,
       this.#getVat.bind(this),
     );
+    harden(this);
   }
 
   /**
@@ -483,4 +484,4 @@ export class Kernel {
     this.#kernelStore.collectGarbage();
   }
 }
-// harden(Kernel); // XXX restore this once vitest is able to cope
+harden(Kernel);
