@@ -213,7 +213,7 @@ export class Kernel {
     const vatLogger = this.#logger.subLogger({ tags: [vatId] });
     vatLogger.injectStream(
       loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
-      (error) => console.error(stringify(error)),
+      (error) => this.#logger.error(`Vat ${vatId} error: ${stringify(error)}`),
     );
     const vat = await VatHandle.make({
       vatId,
@@ -308,7 +308,7 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
     await vat.terminate(terminating);
-    await this.#vatWorkerService.terminate(vatId).catch(console.error);
+    await this.#vatWorkerService.terminate(vatId).catch(this.#logger.error);
     this.#vats.delete(vatId);
   }
 
