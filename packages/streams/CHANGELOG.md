@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Uncategorized
 
 - refactor: Prepare for publishing packages to npm ([#507](https://github.com/MetaMask/ocap-kernel/pull/507))
@@ -101,4 +103,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - chore: Re-bump TypeScript versions per #27 undoing #16 ([#35](https://github.com/MetaMask/ocap-kernel/pull/35))
 - feat: Add `streams` package ([#16](https://github.com/MetaMask/ocap-kernel/pull/16))
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/streams@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/streams@0.1.0

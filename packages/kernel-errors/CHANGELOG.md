@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Uncategorized
 
 - refactor: Prepare for publishing packages to npm ([#507](https://github.com/MetaMask/ocap-kernel/pull/507))
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-errors@0.1.0

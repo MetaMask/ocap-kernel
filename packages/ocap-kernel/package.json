@@ -1,6 +1,6 @@
 {
   "name": "@metamask/ocap-kernel",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "OCap kernel core components",
   "keywords": [
     "MetaMask",

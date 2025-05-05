@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-store",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Ocap Kernel storage abstractions and implementations",
   "keywords": [
     "MetaMask",
