@@ -79,35 +79,17 @@ export default defineConfig({
           branches: 100,
           lines: 100,
         },
-        'packages/errors/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
-        },
         'packages/extension/**': {
           statements: 83.61,
           functions: 82.96,
           branches: 79.12,
           lines: 83.59,
         },
-        'packages/ocap-kernel/**': {
-          statements: 90.47,
-          functions: 92.51,
-          branches: 80.45,
-          lines: 90.45,
-        },
-        'packages/logger/**': {
-          statements: 97.29,
-          functions: 92.3,
-          branches: 95.45,
-          lines: 100,
-        },
-        'packages/nodejs/**': {
-          statements: 72.91,
-          functions: 83.33,
-          branches: 63.63,
-          lines: 72.91,
+        'packages/kernel-errors/**': {
+          statements: 98.63,
+          functions: 95.23,
+          branches: 92,
+          lines: 98.63,
         },
         'packages/kernel-rpc-methods/**': {
           statements: 100,
@@ -127,13 +109,31 @@ export default defineConfig({
           branches: 84.78,
           lines: 92.39,
         },
-        'packages/streams/**': {
+        'packages/kernel-utils/**': {
           statements: 100,
           functions: 100,
           branches: 100,
           lines: 100,
         },
-        'packages/kernel-utils/**': {
+        'packages/logger/**': {
+          statements: 97.29,
+          functions: 92.3,
+          branches: 95.45,
+          lines: 100,
+        },
+        'packages/nodejs/**': {
+          statements: 72.91,
+          functions: 83.33,
+          branches: 63.63,
+          lines: 72.91,
+        },
+        'packages/ocap-kernel/**': {
+          statements: 90.47,
+          functions: 92.51,
+          branches: 80.45,
+          lines: 90.45,
+        },
+        'packages/streams/**': {
           statements: 100,
           functions: 100,
           branches: 100,
