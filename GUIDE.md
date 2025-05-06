@@ -4,7 +4,6 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
 
 ## Table of Contents
 
-- [Architecture](#architecture)
 - [Setting Up the Kernel](#setting-up-the-kernel)
   - [Browser Environment](#browser-environment)
   - [Node.js Environment](#nodejs-environment)
@@ -22,15 +21,6 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
   - [Testing](#testing)
   - [Debugging](#debugging)
 - [End-to-End Testing](#end-to-end-testing)
-
-## Architecture
-
-The OCAP Kernel consists of several key components:
-
-- **Kernel**: The core component that manages vats, messages, and state persistence
-- **Vats**: Isolated execution environments for running JavaScript code
-- **VatWorkerClient**: Interface for creating and communicating with vat workers
-- **KernelDatabase**: Storage system for persisting kernel state
 
 ## Setting Up the Kernel
 
