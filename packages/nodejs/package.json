@@ -62,7 +62,7 @@
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
-    "@vitest/eslint-plugin": "^1.1.39",
+    "@vitest/eslint-plugin": "^1.1.44",
     "depcheck": "^1.4.7",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
