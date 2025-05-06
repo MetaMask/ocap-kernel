@@ -19,11 +19,17 @@ import { makeMapKernelDatabase } from '../test/storage.ts';
 
 const mocks = vi.hoisted(() => {
   class KernelQueue {
+    static lastInstance: KernelQueue;
+
     enqueueMessage = vi
       .fn()
       .mockResolvedValue({ body: '{"result":"ok"}', slots: [] });
 
     run = vi.fn().mockResolvedValue(undefined);
+
+    constructor() {
+      (this.constructor as typeof KernelQueue).lastInstance = this;
+    }
   }
   return { KernelQueue };
 });
@@ -81,15 +87,16 @@ describe('Kernel', () => {
     vatHandles = [];
     makeVatHandleMock = vi
       .spyOn(VatHandle, 'make')
-      .mockImplementation(async () => {
+      .mockImplementation(async ({ vatId, vatConfig }) => {
         const vatHandle = {
+          vatId,
+          config: vatConfig,
           init: vi.fn(),
           terminate: vi.fn(),
           handleMessage: vi.fn(),
           deliverMessage: vi.fn(),
           deliverNotify: vi.fn(),
           sendVatCommand: vi.fn(),
-          config: makeMockVatConfig(),
         } as unknown as VatHandle;
         vatHandles.push(vatHandle as Mocked<VatHandle>);
         return vatHandle;
@@ -344,24 +351,9 @@ describe('Kernel', () => {
     });
 
     it('initializes and starts the kernel queue', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      expect(vatHandles.length).toBeGreaterThan(0);
-      const firstVatHandle = vatHandles[0] as Mocked<VatHandle>;
-      firstVatHandle.sendVatCommand.mockResolvedValueOnce('test-response');
-      const result = await kernel.sendVatCommand('v1', {
-        method: 'ping',
-        params: [],
-      });
-      expect(result).toBe('test-response');
-      expect(firstVatHandle.sendVatCommand).toHaveBeenCalledWith({
-        method: 'ping',
-        params: [],
-      });
+      await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase);
+      const queueInstance = mocks.KernelQueue.lastInstance;
+      expect(queueInstance.run).toHaveBeenCalledTimes(1);
     });
 
     it('throws if the stream throws', async () => {
@@ -420,7 +412,7 @@ describe('Kernel', () => {
     });
   });
 
-  describe('queueMessageFromKernel()', () => {
+  describe('queueMessage()', () => {
     it('enqueues a message and returns the result', async () => {
       const kernel = await Kernel.make(
         mockStream,
@@ -428,7 +420,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchVat(makeMockVatConfig());
-      const result = await kernel.queueMessageFromKernel('v1', 'ping', []);
+      const result = await kernel.queueMessage('ko1', 'hello', []);
       expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
     });
   });
@@ -477,6 +469,17 @@ describe('Kernel', () => {
         'invalid bootstrap vat name',
       );
     });
+
+    it('returns the bootstrap message result when bootstrap vat is specified', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockClusterConfig();
+      const result = await kernel.launchSubcluster(config);
+      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+    });
   });
 
   describe('clearStorage()', () => {
@@ -515,7 +518,7 @@ describe('Kernel', () => {
       console.log(vats);
       expect(vats).toStrictEqual([
         {
-          id: undefined,
+          id: 'v1',
           config,
         },
       ]);
@@ -557,6 +560,26 @@ describe('Kernel', () => {
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
       expect(kernel.getVatIds()).toHaveLength(0);
+    });
+  });
+
+  describe('pinVatRoot and unpinVatRoot', () => {
+    it('pins and unpins a vat root correctly', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockVatConfig();
+      const rootRef = await kernel.launchVat(config);
+      // Pinning existing vat root should return the kref
+      expect(kernel.pinVatRoot('v1')).toBe(rootRef);
+      // Pinning non-existent vat should throw
+      expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
+      // Unpinning existing vat root should succeed
+      expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
+      // Unpinning non-existent vat should throw
+      expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
     });
   });
 });
