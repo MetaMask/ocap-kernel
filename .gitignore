@@ -1,9 +1,9 @@
 .DS_Store
 dist/
 coverage/
-/packages/**/docs/
 docs/
 !docs/*.md
+
 # Logs
 logs
 *.log
