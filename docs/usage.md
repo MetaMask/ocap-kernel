@@ -1,4 +1,4 @@
-# OCAP Kernel Guide
+# OCAP Kernel Usage Guide
 
 The OCAP Kernel is a powerful object capability-based system that enables secure, isolated execution of JavaScript code in vats (similar to secure sandboxes). This guide will help you understand how to set up, configure, and use the OCAP Kernel.
 
@@ -597,4 +597,4 @@ This pattern of initializing the kernel and then using it to launch clusters and
 
 ---
 
-By following this guide, you should now have a good understanding of how to set up, configure, and use the OCAP Kernel in both browser and Node.js environments. For more details, refer to the API documentation or the example implementations in the codebase.
+By following this guide, you should have a good understanding of how to set up, configure, and use the OCAP Kernel in both browser and Node.js environments. For more details, refer to the API documentation or the example implementations in the codebase.
