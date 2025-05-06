@@ -21,6 +21,7 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
   - [CLI Tools](#cli-tools)
   - [Testing](#testing)
   - [Debugging](#debugging)
+- [End-to-End Testing](#end-to-end-testing)
 
 ## Architecture
 
@@ -131,21 +132,29 @@ Vats execute JavaScript code bundled into a specific format. To create a vat bun
 
 Example vat code:
 
-```typescript
-export function buildRootObject(vatPowers, vatParameters) {
-  const { name } = vatParameters;
+```javascript
+import { Far } from '@endo/marshal';
 
-  return {
+/**
+ * Build function for a vat.
+ *
+ * @param {object} vatPowers - Special powers granted to this vat.
+ * @param {object} parameters - Initialization parameters from the vat's config.
+ * @param {object} _baggage - Root of vat's persistent state.
+ * @returns {object} The root object for the new vat.
+ */
+export function buildRootObject(vatPowers, parameters, _baggage) {
+  const { name } = parameters;
+
+  return Far('root', {
     greet() {
-      vatPowers.stdout(`Hello from ${name}!`);
       return `Greeting from ${name}`;
     },
 
     async processMessage(message) {
-      vatPowers.stdout(`${name} received: ${message}`);
       return `${name} processed: ${message}`;
     },
-  };
+  });
 }
 ```
 
@@ -223,37 +232,57 @@ const parsedResult = kunser(result);
 
 ### Vat Management
 
+Standard API methods:
+
 ```typescript
 // Ping a vat
 await kernel.pingVat(vatId);
 
-// Terminate a vat
+// Terminate a specific vat
 await kernel.terminateVat(vatId);
 
-// Restart a vat
+// Restart a specific vat
 await kernel.restartVat(vatId);
-
-// Terminate all vats
-await kernel.terminateAllVats();
-
-// Collect garbage
-await kernel.collectGarbage();
 ```
 
-### State Management
+### State and Configuration
 
 ```typescript
-// Clear kernel state
-await kernel.clearState();
-
-// Get kernel status
+// Get current status
 const status = await kernel.getStatus();
 
 // Update cluster configuration
-await kernel.updateClusterConfig(newClusterConfig);
+kernel.clusterConfig = newClusterConfig;
 
-// Reload configuration
-await kernel.reloadConfig();
+// Get current cluster configuration
+const config = kernel.clusterConfig;
+```
+
+### Testing and Debugging Methods
+
+The following methods are intended for testing and debugging purposes only:
+
+```typescript
+// Pin an object to prevent garbage collection
+await kernel.pinVatRoot(vatId);
+
+// Unpin an object to allow garbage collection
+await kernel.unpinVatRoot(vatId);
+
+// Clear kernel state
+await kernel.clearState();
+
+// Reset the kernel (stops all vats and resets state)
+await kernel.reset();
+
+// Terminate all running vats
+await kernel.terminateAllVats();
+
+// Reload the last launched subcluster configuration
+await kernel.reload();
+
+// Run garbage collection
+kernel.collectGarbage();
 ```
 
 ## Common Use Cases
@@ -284,31 +313,68 @@ The OCAP Kernel builds on the [Endo project](https://github.com/endojs/endo), wh
 
 ### Object Capability Model
 
-Vats use Endo's implementation of the object capability security model:
+Vats use Endo's implementation of the object capability security model through the `Far` function to create shareable objects:
 
-```typescript
+```javascript
 import { Far } from '@endo/marshal';
-import { harden } from '@endo/ses';
 
-// Creating a capability-based object with Far
-const service = Far('service', {
-  performAction() {
-    return 'result';
-  },
-});
+/**
+ * Build function for a vat.
+ *
+ * @param {object} vatPowers - Special powers granted to this vat.
+ * @param {object} parameters - Initialization parameters from the vat's config.
+ * @param {object} _baggage - Root of vat's persistent state.
+ * @returns {object} The root object for the new vat.
+ */
+export function buildRootObject(vatPowers, parameters, _baggage) {
+  const { name } = parameters;
 
-// Hardening objects to prevent tampering
-const config = harden({ key: 'value' });
+  // Helper function for logging
+  function log(message) {
+    console.log(`${name}: ${message}`);
+  }
+
+  // Creating a capability-based service object
+  const service = Far('service', {
+    getData() {
+      log('getData called');
+      return { value: 'some data' };
+    },
+  });
+
+  // The root object must be created with Far
+  return Far('root', {
+    getService() {
+      return service;
+    },
+
+    bootstrap() {
+      log('bootstrap called');
+      return 'bootstrap complete';
+    },
+  });
+}
 ```
 
 ### Eventual Sends
 
-Vats communicate using eventual sends for asynchronous message passing:
+Vats communicate asynchronously using the E() notation for eventual sends:
 
-```typescript
-// E(target).method() is an "eventual send"
-// The message goes into the kernel message queue for delivery
-const resultPromise = E(otherVat).fetchData();
+```javascript
+// In another vat that wants to use the service
+export function buildRootObject(vatPowers, parameters, _baggage) {
+  return Far('root', {
+    async useRemoteService(serviceProvider) {
+      // Get a reference to the service
+      const service = await E(serviceProvider).getService();
+
+      // Call a method on the remote service
+      const data = await E(service).getData();
+
+      return data;
+    },
+  });
+}
 ```
 
 ### Further Resources
@@ -317,6 +383,7 @@ For more detailed information about the technology underlying the OCAP Kernel:
 
 - [Endo Documentation](https://github.com/endojs/endo/blob/master/README.md)
 - [SES (Secure ECMAScript)](https://github.com/endojs/endo/tree/master/packages/ses)
+- [Endo Marshal](https://github.com/endojs/endo/tree/master/packages/marshal)
 - [Object Capability Model](https://en.wikipedia.org/wiki/Object-capability_model)
 - [Agoric Documentation](https://docs.agoric.com/) (Endo is based on technology developed for Agoric)
 
@@ -432,18 +499,6 @@ This will generate documentation in the `docs` directory of each package. To vie
 1. Navigate to the `docs` directory of the desired package
 2. Open `index.html` in your browser
 
-Each package has its own TypeDoc configuration in a `typedoc.json` file that specifies:
-
-```json
-{
-  "entryPoints": ["./src/index.ts"],
-  "excludePrivate": true,
-  "hideGenerator": true,
-  "out": "docs",
-  "tsconfig": "./tsconfig.build.json"
-}
-```
-
 For a comprehensive overview of the API:
 
 1. Look at the entry point files in each package (usually `src/index.ts`)
@@ -506,6 +561,54 @@ For debugging issues with vats or message passing:
 1. Enable verbose logging in your vats using `vatPowers.stdout()`
 2. Use the kernel's status API to check the state: `const status = await kernel.getStatus()`
 3. For persistent data issues, examine the database directly: `const result = kernelDatabase.executeQuery('SELECT * FROM kv')`
+
+## End-to-End Testing
+
+The project includes end-to-end tests using Playwright to test the extension and kernel integration in a real browser environment:
+
+```bash
+# Navigate to extension package
+cd packages/extension
+
+# 1. Bundle vats first (required for all test commands)
+yarn ocap bundle ./src/vats
+
+# 2. For yarn test:e2e, you must also serve the vats in a separate terminal
+yarn ocap serve ./src/vats
+
+# 3. Then run E2E tests
+yarn test:e2e
+
+# Run E2E tests with UI (also requires the vats to be served)
+yarn test:e2e:ui
+
+# Run E2E tests with debugging (also requires the vats to be served)
+DEBUG=pw:api yarn test:e2e
+
+# ALTERNATIVELY: Use the CI command which bundles vats, serves them, and runs tests in one step
+yarn test:e2e:ci
+```
+
+When running tests with the UI mode (`test:e2e:ui`), you can:
+
+1. Watch tests execute in real-time in a browser window
+2. See test steps and assertions as they happen
+3. Explore the DOM and application state at each step
+4. Debug test failures visually
+
+The E2E tests demonstrate complete kernel workflows including:
+
+- Extension initialization
+- Launching vats
+- Message passing between vats
+- UI interaction with the kernel control panel
+
+To view test reports after execution:
+
+```bash
+# Open the HTML test report
+open playwright-report/index.html
+```
 
 ---
 
