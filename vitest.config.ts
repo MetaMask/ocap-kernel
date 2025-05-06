@@ -79,15 +79,6 @@ export default defineConfig({
           branches: 100,
           lines: 100,
         },
-<<<<<<< HEAD
-=======
-        'packages/kernel-errors/**': {
-          statements: 98.63,
-          functions: 95.23,
-          branches: 92,
-          lines: 98.63,
-        },
->>>>>>> 38a8b288 (fix thresholds)
         'packages/extension/**': {
           statements: 83.61,
           functions: 82.96,
