@@ -582,9 +582,6 @@ yarn test:e2e
 # Run E2E tests with UI (also requires the vats to be served)
 yarn test:e2e:ui
 
-# Run E2E tests with debugging (also requires the vats to be served)
-DEBUG=pw:api yarn test:e2e
-
 # ALTERNATIVELY: Use the CI command which bundles vats, serves them, and runs tests in one step
 yarn test:e2e:ci
 ```
