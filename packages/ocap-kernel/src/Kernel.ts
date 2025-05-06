@@ -265,11 +265,9 @@ export class Kernel {
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
-    if (config.bootstrap) {
-      const bootstrapRoot = rootIds[config.bootstrap];
-      if (bootstrapRoot) {
-        return this.queueMessage(bootstrapRoot, 'bootstrap', [roots]);
-      }
+    const bootstrapRoot = rootIds[config.bootstrap];
+    if (bootstrapRoot) {
+      return this.queueMessage(bootstrapRoot, 'bootstrap', [roots]);
     }
     return undefined;
   }

@@ -582,4 +582,48 @@ describe('Kernel', () => {
       expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
     });
   });
+
+  describe('resetStorage option', () => {
+    it('honors resetStorage option and clears persistent state', async () => {
+      const db = makeMapKernelDatabase();
+      db.kernelKVStore.set('foo', 'bar');
+      // Create with resetStorage should clear existing keys
+      await Kernel.make(mockStream, mockWorkerService, db, {
+        resetStorage: true,
+      });
+      expect(db.kernelKVStore.get('foo')).toBeUndefined();
+    });
+  });
+
+  describe('persistent recovery on startup', () => {
+    it('recovers vats from persistent storage on startup', async () => {
+      const db = makeMapKernelDatabase();
+      // Launch initial kernel and vat
+      const kernel1 = await Kernel.make(mockStream, mockWorkerService, db);
+      await kernel1.launchVat(makeMockVatConfig());
+      expect(kernel1.getVatIds()).toStrictEqual(['v1']);
+      // Clear spies
+      launchWorkerMock.mockClear();
+      makeVatHandleMock.mockClear();
+      // New kernel should recover existing vat
+      const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
+      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
+      expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
+      expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+    });
+  });
+
+  describe('restartVat return value', () => {
+    it('returns the existing VatHandle instance on restart', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      const originalHandle = vatHandles[0];
+      const returnedHandle = await kernel.restartVat('v1');
+      expect(returnedHandle).toBe(originalHandle);
+    });
+  });
 });
