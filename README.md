@@ -4,7 +4,8 @@ Welcome to the Ocap Kernel team's monorepo! It is a work in progress.
 
 ## Documentation
 
-For detailed information on how to use the OCAP Kernel, please refer to the [GUIDE.md](GUIDE.md) file, which provides comprehensive documentation on setting up, configuring, and using the kernel in both browser and Node.js environments.
+For detailed information on how to use the OCAP Kernel, please refer to the [GUIDE.md](GUIDE.md) file, which provides
+comprehensive documentation on setting up, configuring, and using the kernel in both browser and Node.js environments.
 
 ### Kernel Control Panel
 
@@ -28,7 +29,13 @@ yarn start
    - Serve sample vat bundles
    - Provide a UI for managing and interacting with the kernel and vats
 
-The control panel allows you to launch vats, send messages, view vat status, and test kernel functionality.
+The control panel allows you to:
+
+- Launch vats
+- View vat status
+- Test kernel functionality
+- Send messages to objects in vats
+- **Inspect the database**: The control panel includes a built-in SQLite database inspector powered by SQLite WASM, allowing you to directly view and query the kernel's database through the browser interface. This is especially valuable since the kernel uses SQLite for persistence and would otherwise be difficult to inspect.
 
 ## Contributing
 
@@ -43,7 +50,7 @@ To get started:
 Lint using `yarn lint` or `yarn lint:fix` from the root.
 
 Note that the root package `test` script, as well as those of many packages, require
-`yarn build && yarn build:vats` to be run first.
+`yarn build` to be run first.
 
 ### Writing tests
 
