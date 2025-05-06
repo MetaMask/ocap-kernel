@@ -9,8 +9,8 @@ import {
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
-import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
+import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import {

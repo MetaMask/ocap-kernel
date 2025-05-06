@@ -1,6 +1,6 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import type { Kernel } from '@metamask/ocap-kernel';
+import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
 import type { JsonRpcRequest } from '@metamask/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -13,9 +13,42 @@ const { mockAssertHasMethod, mockExecute } = vi.hoisted(() => ({
 
 vi.mock('@metamask/kernel-rpc-methods', () => ({
   RpcService: class MockRpcService {
+    readonly #dependencies: Record<string, unknown>;
+
+    constructor(
+      _handlers: Record<string, unknown>,
+      dependencies: Record<string, unknown>,
+    ) {
+      this.#dependencies = dependencies;
+    }
+
     assertHasMethod = mockAssertHasMethod;
 
-    execute = mockExecute;
+    execute = (method: string, params: unknown) => {
+      // For updateClusterConfig test, call the actual implementation
+      if (method === 'updateClusterConfig' && params) {
+        const updateFn = this.#dependencies.updateClusterConfig as (
+          config: unknown,
+        ) => void;
+        updateFn(params);
+        return Promise.resolve();
+      }
+
+      // For executeDBQuery test, call the actual implementation
+      if (
+        method === 'executeDBQuery' &&
+        typeof params === 'object' &&
+        params !== null
+      ) {
+        const { sql } = params as { sql: string };
+        const executeQueryFn = this.#dependencies.executeDBQuery as (
+          sql: string,
+        ) => Promise<unknown>;
+        return executeQueryFn(sql);
+      }
+
+      return mockExecute(method, params);
+    };
   },
 }));
 
@@ -23,6 +56,8 @@ vi.mock('../handlers/index.ts', () => ({
   handlers: {
     testMethod1: { method: 'testMethod1' },
     testMethod2: { method: 'testMethod2' },
+    updateClusterConfig: { method: 'updateClusterConfig' },
+    executeDBQuery: { method: 'executeDBQuery' },
   },
 }));
 
@@ -33,8 +68,12 @@ describe('createPanelMessageMiddleware', () => {
 
   beforeEach(() => {
     // Set up mocks
-    mockKernel = {} as Kernel;
-    mockKernelDatabase = {} as KernelDatabase;
+    mockKernel = {
+      clusterConfig: {} as ClusterConfig,
+    } as Kernel;
+    mockKernelDatabase = {
+      executeQuery: vi.fn(),
+    } as unknown as KernelDatabase;
 
     // Create a new JSON-RPC engine with our middleware
     engine = new JsonRpcEngine();
@@ -207,6 +246,65 @@ describe('createPanelMessageMiddleware', () => {
           }),
         }),
       }),
+    });
+  });
+
+  it('should update kernel.clusterConfig when updateClusterConfig is called', async () => {
+    // Create a test cluster config that matches the expected structure
+    const testConfig = {
+      bootstrap: 'test-bootstrap',
+      vats: {
+        test: {
+          bundleSpec: 'test-bundle',
+        },
+      },
+      forceReset: true,
+    } as ClusterConfig;
+
+    // Create a request to update cluster config
+    const request = {
+      id: 7,
+      jsonrpc: '2.0',
+      method: 'updateClusterConfig',
+      params: testConfig,
+    } as JsonRpcRequest;
+
+    // Process the request
+    await engine.handle(request);
+
+    // Verify that kernel.clusterConfig was updated with the provided config
+    expect(mockKernel.clusterConfig).toStrictEqual(testConfig);
+  });
+
+  it('should call kernelDatabase.executeQuery when executeDBQuery is called', async () => {
+    // Set up mock database response
+    const mockQueryResult = [{ id: '1', name: 'test' }];
+    vi.mocked(mockKernelDatabase.executeQuery).mockResolvedValueOnce(
+      mockQueryResult,
+    );
+
+    // Test SQL query
+    const testSql = 'SELECT * FROM test_table';
+
+    // Create a request to execute DB query
+    const request = {
+      id: 8,
+      jsonrpc: '2.0',
+      method: 'executeDBQuery',
+      params: { sql: testSql },
+    } as JsonRpcRequest;
+
+    // Process the request
+    const response = await engine.handle(request);
+
+    // Verify that kernelDatabase.executeQuery was called with the correct SQL
+    expect(mockKernelDatabase.executeQuery).toHaveBeenCalledWith(testSql);
+
+    // Verify the response contains the query result
+    expect(response).toStrictEqual({
+      id: 8,
+      jsonrpc: '2.0',
+      result: mockQueryResult,
     });
   });
 });

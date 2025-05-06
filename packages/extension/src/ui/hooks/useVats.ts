@@ -47,14 +47,14 @@ export const useVats = (): {
    */
   const pingVat = useCallback(
     (id: VatId) => {
-      // TODO: Implement ping
-      new Promise((_resolve, reject) => {
-        reject(new Error(`Cannot ping vat ${id}: Ping is not implemented`));
+      callKernelMethod({
+        method: 'pingVat',
+        params: { id },
       })
-        .then((result) => logMessage(stringify(result, 0), 'received'))
+        .then((result) => logMessage(result, 'success'))
         .catch((error) => logMessage(error.message, 'error'));
     },
-    [logMessage],
+    [callKernelMethod, logMessage],
   );
 
   /**

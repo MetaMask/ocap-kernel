@@ -83,6 +83,100 @@ describe('useVats', () => {
     ]);
   });
 
+  it('should use sourceSpec when bundleSpec is not available', async () => {
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
+    const sourceSpecValue = 'source-test';
+    vi.mocked(usePanelContext).mockReturnValue({
+      callKernelMethod: mockSendMessage,
+      status: {
+        vats: [
+          {
+            id: mockVatId,
+            config: {
+              sourceSpec: sourceSpecValue,
+              parameters: { foo: 'bar' },
+              creationOptions: { test: true },
+            } as VatConfig,
+          },
+        ],
+      },
+      selectedVatId: mockVatId,
+      setSelectedVatId: mockSetSelectedVatId,
+      logMessage: mockLogMessage,
+    } as unknown as PanelContextType);
+    const { useVats } = await import('./useVats.ts');
+    const { result } = renderHook(() => useVats());
+    expect(result.current.vats).toStrictEqual([
+      {
+        id: mockVatId,
+        source: sourceSpecValue,
+        parameters: '{"foo":"bar"}',
+        creationOptions: '{"test":true}',
+      },
+    ]);
+  });
+
+  it('should use bundleName when bundleSpec and sourceSpec are not available', async () => {
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
+    const bundleNameValue = 'bundle-name-test';
+    vi.mocked(usePanelContext).mockReturnValue({
+      callKernelMethod: mockSendMessage,
+      status: {
+        vats: [
+          {
+            id: mockVatId,
+            config: {
+              bundleName: bundleNameValue,
+              parameters: { foo: 'bar' },
+              creationOptions: { test: true },
+            } as VatConfig,
+          },
+        ],
+      },
+      selectedVatId: mockVatId,
+      setSelectedVatId: mockSetSelectedVatId,
+      logMessage: mockLogMessage,
+    } as unknown as PanelContextType);
+    const { useVats } = await import('./useVats.ts');
+    const { result } = renderHook(() => useVats());
+    expect(result.current.vats).toStrictEqual([
+      {
+        id: mockVatId,
+        source: bundleNameValue,
+        parameters: '{"foo":"bar"}',
+        creationOptions: '{"test":true}',
+      },
+    ]);
+  });
+
+  describe('pingVat', () => {
+    it('should send ping message and log success', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+      const pingResult = 'pong';
+      mockSendMessage.mockResolvedValueOnce(pingResult);
+      result.current.pingVat(mockVatId);
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'pingVat',
+          params: { id: mockVatId },
+        });
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith(pingResult, 'success');
+    });
+
+    it('should handle ping error', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+      const errorMessage = 'Vat not responding';
+      mockSendMessage.mockRejectedValueOnce(new Error(errorMessage));
+      result.current.pingVat(mockVatId);
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(errorMessage, 'error');
+      });
+    });
+  });
+
   describe('restartVat', () => {
     it('should send restart message and log success', async () => {
       const { useVats } = await import('./useVats.ts');
