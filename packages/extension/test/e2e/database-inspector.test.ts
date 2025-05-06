@@ -7,24 +7,20 @@ test.describe('Database Inspector', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 
-  test.beforeAll(async () => {
+  test.beforeEach(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await popupPage.waitForSelector('h2:text("Kernel")');
-    await popupPage.click('button:text("Clear All State")');
-    await expect(popupPage.locator('#root')).toContainText('State cleared');
-  });
-
-  test.afterAll(async () => {
-    await extensionContext.close();
-  });
-
-  test.beforeEach(async () => {
+    await expect(popupPage.locator('[data-testid="vat-table"]')).toBeVisible();
+    await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
     await popupPage.click('button:text("Database Inspector")');
     await expect(popupPage.locator('#root')).toContainText(
       'SELECT name FROM sqlite_master',
     );
+  });
+
+  test.afterEach(async () => {
+    await extensionContext.close();
   });
 
   test('should display database inspector with kv table', async () => {
@@ -54,7 +50,7 @@ test.describe('Database Inspector', () => {
     const queryResults = popupPage.locator('table');
     await expect(queryResults).toBeVisible();
     const resultCell = queryResults.locator('td').first();
-    await expect(resultCell).toHaveText('1');
+    await expect(resultCell).toHaveText('4');
   });
 
   test('should handle invalid SQL queries', async () => {
