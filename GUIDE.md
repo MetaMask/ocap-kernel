@@ -12,15 +12,13 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
 - [Kernel API](#kernel-api)
 - [Common Use Cases](#common-use-cases)
 - [Endo Integration](#endo-integration)
-- [Example Implementation](#example-implementation)
-  - [Browser Example](#browser-example)
-  - [Node.js Example](#nodejs-example)
 - [Development Tools](#development-tools)
   - [API Documentation](#api-documentation)
   - [CLI Tools](#cli-tools)
   - [Testing](#testing)
   - [Debugging](#debugging)
 - [End-to-End Testing](#end-to-end-testing)
+- [Implementation Example](#implementation-example)
 
 ## Setting Up the Kernel
 
@@ -377,97 +375,6 @@ For more detailed information about the technology underlying the OCAP Kernel:
 - [Object Capability Model](https://en.wikipedia.org/wiki/Object-capability_model)
 - [Agoric Documentation](https://docs.agoric.com/) (Endo is based on technology developed for Agoric)
 
-## Example Implementation
-
-### Browser Example
-
-Here's a complete example of setting up a kernel in a browser environment:
-
-```typescript
-import { Kernel, ClusterConfigStruct } from '@metamask/ocap-kernel';
-import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { fetchValidatedJson } from '@metamask/kernel-utils';
-import { ExtensionVatWorkerClient } from './VatWorkerClient';
-import { MessagePortDuplexStream } from '@metamask/streams/browser';
-
-async function main() {
-  // Create a message port for communication
-  const port = await receiveMessagePort(
-    (listener) => globalThis.addEventListener('message', listener),
-    (listener) => globalThis.removeEventListener('message', listener),
-  );
-
-  // Create a message stream
-  const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
-
-  // Initialize kernel dependencies
-  const vatWorkerClient = ExtensionVatWorkerClient.make(
-    globalThis as PostMessageTarget,
-  );
-
-  const kernelDatabase = await makeSQLKernelDatabase({
-    dbFilename: 'store.db',
-  });
-
-  const resetStorage = true; // For development purposes
-
-  // Initialize the kernel
-  const kernel = await Kernel.make(
-    kernelStream,
-    vatWorkerClient,
-    kernelDatabase,
-    {
-      resetStorage,
-    },
-  );
-
-  // Fetch and validate cluster configuration
-  const clusterConfig = await fetchValidatedJson(
-    'path/to/cluster-config.json',
-    ClusterConfigStruct,
-  );
-
-  // Launch the cluster
-  const result = await kernel.launchSubcluster(clusterConfig);
-  console.log(`Subcluster launched: ${JSON.stringify(result)}`);
-}
-```
-
-### Node.js Example
-
-Here's how to set up the kernel in a Node.js application:
-
-```typescript
-import { makeKernel } from '@ocap/nodejs';
-import { Kernel, ClusterConfigStruct } from '@metamask/ocap-kernel';
-import { fetchValidatedJson } from '@metamask/kernel-utils';
-import { MessageChannel } from 'node:worker_threads';
-import fs from 'node:fs/promises';
-
-async function main() {
-  // Create a message channel for kernel communication
-  const { port1: kernelPort } = new MessageChannel();
-
-  // Initialize the kernel
-  const kernel = await makeKernel({
-    port: kernelPort,
-    workerFilePath: './path/to/vat-worker.js',
-    resetStorage: true, // For development purposes
-    dbFilename: ':memory:', // Use in-memory database for testing
-  });
-
-  // Load cluster configuration
-  const configRaw = await fs.readFile('./path/to/cluster-config.json', 'utf8');
-  const clusterConfig = ClusterConfigStruct.check(JSON.parse(configRaw));
-
-  // Launch the cluster
-  const result = await kernel.launchSubcluster(clusterConfig);
-  console.log(`Subcluster launched: ${JSON.stringify(result)}`);
-}
-
-main().catch(console.error);
-```
-
 ## Development Tools
 
 The OCAP Kernel project includes several useful tools for development:
@@ -596,6 +503,97 @@ To view test reports after execution:
 # Open the HTML test report
 open playwright-report/index.html
 ```
+
+## Implementation Example
+
+Here's a complete example of implementing the OCAP Kernel in both browser and Node.js environments:
+
+### Browser Implementation
+
+```typescript
+import { Kernel, ClusterConfigStruct } from '@metamask/ocap-kernel';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
+import { fetchValidatedJson } from '@metamask/kernel-utils';
+import { MessagePortDuplexStream } from '@metamask/streams/browser';
+
+async function initBrowserKernel() {
+  // Create a message port for communication
+  const port = await receiveMessagePort(
+    (listener) => globalThis.addEventListener('message', listener),
+    (listener) => globalThis.removeEventListener('message', listener),
+  );
+
+  // Create a message stream
+  const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
+
+  // Initialize kernel dependencies
+  const vatWorkerClient = YourBrowserVatWorkerClient.make(
+    globalThis as PostMessageTarget,
+  );
+
+  const kernelDatabase = await makeSQLKernelDatabase({
+    dbFilename: 'store.db',
+  });
+
+  // Initialize the kernel
+  return await Kernel.make(kernelStream, vatWorkerClient, kernelDatabase, {
+    resetStorage: true, // For development purposes
+  });
+}
+
+// Usage:
+async function run() {
+  const kernel = await initBrowserKernel();
+
+  // Launch a cluster
+  const clusterConfig = await fetchValidatedJson(
+    'path/to/cluster-config.json',
+    ClusterConfigStruct,
+  );
+
+  const result = await kernel.launchSubcluster(clusterConfig);
+  console.log(`Subcluster launched: ${JSON.stringify(result)}`);
+}
+```
+
+### Node.js Implementation
+
+```typescript
+import { makeKernel } from '@ocap/nodejs';
+import { ClusterConfigStruct } from '@metamask/ocap-kernel';
+import { MessageChannel } from 'node:worker_threads';
+import fs from 'node:fs/promises';
+
+async function initNodeKernel() {
+  // Create a message channel for kernel communication
+  const { port1: kernelPort } = new MessageChannel();
+
+  // Initialize the kernel with Node.js-specific components
+  return await makeKernel({
+    port: kernelPort,
+    workerFilePath: './path/to/vat-worker.js',
+    resetStorage: true, // For development purposes
+    dbFilename: ':memory:', // Use in-memory database for testing
+  });
+}
+
+// Usage:
+async function run() {
+  const kernel = await initNodeKernel();
+
+  // Load cluster configuration
+  const configRaw = await fs.readFile('./path/to/cluster-config.json', 'utf8');
+  const clusterConfig = ClusterConfigStruct.check(JSON.parse(configRaw));
+
+  // Launch the cluster
+  const result = await kernel.launchSubcluster(clusterConfig);
+  console.log(`Subcluster launched: ${JSON.stringify(result)}`);
+}
+
+run().catch(console.error);
+```
+
+This pattern of initializing the kernel and then using it to launch clusters and send messages is consistent across both environments. The main differences are in the initialization steps and dependencies used.
 
 ---
 
