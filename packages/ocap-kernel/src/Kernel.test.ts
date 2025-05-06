@@ -105,6 +105,245 @@ describe('Kernel', () => {
     mockKernelDatabase = makeMapKernelDatabase();
   });
 
+  describe('constructor()', () => {
+    it('initializes the kernel without errors', async () => {
+      expect(
+        async () =>
+          await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase),
+      ).not.toThrow();
+    });
+
+    it('honors resetStorage option and clears persistent state', async () => {
+      const db = makeMapKernelDatabase();
+      db.kernelKVStore.set('foo', 'bar');
+      // Create with resetStorage should clear existing keys
+      await Kernel.make(mockStream, mockWorkerService, db, {
+        resetStorage: true,
+      });
+      expect(db.kernelKVStore.get('foo')).toBeUndefined();
+    });
+  });
+
+  describe('init()', () => {
+    it('initializes the kernel store', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+    });
+
+    it('starts receiving messages', async () => {
+      let drainHandler: ((message: JsonRpcRequest) => Promise<void>) | null =
+        null;
+      const customMockStream = {
+        drain: async (handler: (message: JsonRpcRequest) => Promise<void>) => {
+          drainHandler = handler;
+          return Promise.resolve();
+        },
+        write: vi.fn().mockResolvedValue(undefined),
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+      await Kernel.make(
+        customMockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(drainHandler).toBeInstanceOf(Function);
+    });
+
+    it('initializes and starts the kernel queue', async () => {
+      await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase);
+      const queueInstance = mocks.KernelQueue.lastInstance;
+      expect(queueInstance.run).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws if the stream throws', async () => {
+      const streamError = new Error('Stream error');
+      const throwingMockStream = {
+        drain: () => {
+          throw streamError;
+        },
+        write: vi.fn().mockResolvedValue(undefined),
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+      await expect(
+        Kernel.make(throwingMockStream, mockWorkerService, mockKernelDatabase),
+      ).rejects.toThrow('Stream error');
+    });
+
+    it('recovers vats from persistent storage on startup', async () => {
+      const db = makeMapKernelDatabase();
+      // Launch initial kernel and vat
+      const kernel1 = await Kernel.make(mockStream, mockWorkerService, db);
+      await kernel1.launchVat(makeMockVatConfig());
+      expect(kernel1.getVatIds()).toStrictEqual(['v1']);
+      // Clear spies
+      launchWorkerMock.mockClear();
+      makeVatHandleMock.mockClear();
+      // New kernel should recover existing vat
+      const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
+      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
+      expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
+      expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+    });
+  });
+
+  describe('reload()', () => {
+    it('should reload with current config when config exists', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      kernel.clusterConfig = makeMockClusterConfig();
+      await kernel.launchVat(makeMockVatConfig());
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      await kernel.reload();
+      // Verify the old vat was terminated
+      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
+      // Initial + reload
+      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw if no config exists', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');
+    });
+
+    it('should propagate errors from terminateAllVats', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      kernel.clusterConfig = makeMockClusterConfig();
+      // Set up a vat that will throw during termination
+      await kernel.launchVat(makeMockVatConfig());
+      vatHandles[0]?.terminate.mockRejectedValueOnce(
+        new Error('Termination failed'),
+      );
+      await expect(kernel.reload()).rejects.toThrow('Termination failed');
+    });
+  });
+
+  describe('queueMessage()', () => {
+    it('enqueues a message and returns the result', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchVat(makeMockVatConfig());
+      const result = await kernel.queueMessage('ko1', 'hello', []);
+      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+    });
+  });
+
+  describe('launchSubcluster()', () => {
+    it('launches a subcluster according to config', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockClusterConfig();
+      await kernel.launchSubcluster(config);
+      expect(launchWorkerMock).toHaveBeenCalled();
+      expect(makeVatHandleMock).toHaveBeenCalled();
+      expect(kernel.clusterConfig).toStrictEqual(config);
+    });
+
+    it('throws an error for invalid configs', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      // @ts-expect-error Intentionally passing invalid config
+      await expect(kernel.launchSubcluster({})).rejects.toThrow(
+        'invalid cluster config',
+      );
+    });
+
+    it('throws an error when bootstrap vat name is invalid', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const invalidConfig = {
+        bootstrap: 'nonexistent',
+        vats: {
+          alice: {
+            sourceSpec: 'test.js',
+          },
+        },
+      };
+      await expect(kernel.launchSubcluster(invalidConfig)).rejects.toThrow(
+        'invalid bootstrap vat name',
+      );
+    });
+
+    it('returns the bootstrap message result when bootstrap vat is specified', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockClusterConfig();
+      const result = await kernel.launchSubcluster(config);
+      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+    });
+  });
+
+  describe('clearStorage()', () => {
+    it('clears the kernel storage', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const clearSpy = vi.spyOn(mockKernelDatabase, 'clear');
+      await kernel.clearStorage();
+      expect(clearSpy).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('getVats()', () => {
+    it('returns an empty array when no vats are added', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(kernel.getVats()).toStrictEqual([]);
+    });
+
+    it('returns vat information after adding vats', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const config = makeMockVatConfig();
+      await kernel.launchVat(config);
+      const vats = kernel.getVats();
+      expect(vats).toHaveLength(1);
+      console.log(vats);
+      expect(vats).toStrictEqual([
+        {
+          id: 'v1',
+          config,
+        },
+      ]);
+    });
+  });
+
   describe('getVatIds()', () => {
     it('returns an empty array when no vats are added', async () => {
       const kernel = await Kernel.make(
@@ -310,218 +549,17 @@ describe('Kernel', () => {
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
-  });
 
-  describe('constructor()', () => {
-    it('initializes the kernel without errors', async () => {
-      expect(
-        async () =>
-          await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase),
-      ).not.toThrow();
-    });
-  });
-
-  describe('init()', () => {
-    it('initializes the kernel store', async () => {
+    it('returns the existing VatHandle instance on restart', async () => {
       const kernel = await Kernel.make(
         mockStream,
         mockWorkerService,
         mockKernelDatabase,
       );
       await kernel.launchVat(makeMockVatConfig());
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
-    });
-
-    it('starts receiving messages', async () => {
-      let drainHandler: ((message: JsonRpcRequest) => Promise<void>) | null =
-        null;
-      const customMockStream = {
-        drain: async (handler: (message: JsonRpcRequest) => Promise<void>) => {
-          drainHandler = handler;
-          return Promise.resolve();
-        },
-        write: vi.fn().mockResolvedValue(undefined),
-      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
-      await Kernel.make(
-        customMockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      expect(drainHandler).toBeInstanceOf(Function);
-    });
-
-    it('initializes and starts the kernel queue', async () => {
-      await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase);
-      const queueInstance = mocks.KernelQueue.lastInstance;
-      expect(queueInstance.run).toHaveBeenCalledTimes(1);
-    });
-
-    it('throws if the stream throws', async () => {
-      const streamError = new Error('Stream error');
-      const throwingMockStream = {
-        drain: () => {
-          throw streamError;
-        },
-        write: vi.fn().mockResolvedValue(undefined),
-      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
-      await expect(
-        Kernel.make(throwingMockStream, mockWorkerService, mockKernelDatabase),
-      ).rejects.toThrow('Stream error');
-    });
-  });
-
-  describe('reload()', () => {
-    it('should reload with current config when config exists', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      kernel.clusterConfig = makeMockClusterConfig();
-      await kernel.launchVat(makeMockVatConfig());
-      expect(kernel.getVatIds()).toStrictEqual(['v1']);
-      await kernel.reload();
-      // Verify the old vat was terminated
-      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
-      // Initial + reload
-      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
-    });
-
-    it('should throw if no config exists', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await expect(kernel.reload()).rejects.toThrow('no subcluster to reload');
-    });
-
-    it('should propagate errors from terminateAllVats', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      kernel.clusterConfig = makeMockClusterConfig();
-      // Set up a vat that will throw during termination
-      await kernel.launchVat(makeMockVatConfig());
-      vatHandles[0]?.terminate.mockRejectedValueOnce(
-        new Error('Termination failed'),
-      );
-      await expect(kernel.reload()).rejects.toThrow('Termination failed');
-    });
-  });
-
-  describe('queueMessage()', () => {
-    it('enqueues a message and returns the result', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      const result = await kernel.queueMessage('ko1', 'hello', []);
-      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
-    });
-  });
-
-  describe('launchSubcluster()', () => {
-    it('launches a subcluster according to config', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      expect(launchWorkerMock).toHaveBeenCalled();
-      expect(makeVatHandleMock).toHaveBeenCalled();
-      expect(kernel.clusterConfig).toStrictEqual(config);
-    });
-
-    it('throws an error for invalid configs', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      // @ts-expect-error Intentionally passing invalid config
-      await expect(kernel.launchSubcluster({})).rejects.toThrow(
-        'invalid cluster config',
-      );
-    });
-
-    it('throws an error when bootstrap vat name is invalid', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const invalidConfig = {
-        bootstrap: 'nonexistent',
-        vats: {
-          alice: {
-            sourceSpec: 'test.js',
-          },
-        },
-      };
-      await expect(kernel.launchSubcluster(invalidConfig)).rejects.toThrow(
-        'invalid bootstrap vat name',
-      );
-    });
-
-    it('returns the bootstrap message result when bootstrap vat is specified', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      const result = await kernel.launchSubcluster(config);
-      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
-    });
-  });
-
-  describe('clearStorage()', () => {
-    it('clears the kernel storage', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const clearSpy = vi.spyOn(mockKernelDatabase, 'clear');
-      await kernel.clearStorage();
-      expect(clearSpy).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('getVats()', () => {
-    it('returns an empty array when no vats are added', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      expect(kernel.getVats()).toStrictEqual([]);
-    });
-
-    it('returns vat information after adding vats', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockVatConfig();
-      await kernel.launchVat(config);
-      const vats = kernel.getVats();
-      expect(vats).toHaveLength(1);
-      console.log(vats);
-      expect(vats).toStrictEqual([
-        {
-          id: 'v1',
-          config,
-        },
-      ]);
+      const originalHandle = vatHandles[0];
+      const returnedHandle = await kernel.restartVat('v1');
+      expect(returnedHandle).toBe(originalHandle);
     });
   });
 
@@ -580,50 +618,6 @@ describe('Kernel', () => {
       expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
       // Unpinning non-existent vat should throw
       expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
-    });
-  });
-
-  describe('resetStorage option', () => {
-    it('honors resetStorage option and clears persistent state', async () => {
-      const db = makeMapKernelDatabase();
-      db.kernelKVStore.set('foo', 'bar');
-      // Create with resetStorage should clear existing keys
-      await Kernel.make(mockStream, mockWorkerService, db, {
-        resetStorage: true,
-      });
-      expect(db.kernelKVStore.get('foo')).toBeUndefined();
-    });
-  });
-
-  describe('persistent recovery on startup', () => {
-    it('recovers vats from persistent storage on startup', async () => {
-      const db = makeMapKernelDatabase();
-      // Launch initial kernel and vat
-      const kernel1 = await Kernel.make(mockStream, mockWorkerService, db);
-      await kernel1.launchVat(makeMockVatConfig());
-      expect(kernel1.getVatIds()).toStrictEqual(['v1']);
-      // Clear spies
-      launchWorkerMock.mockClear();
-      makeVatHandleMock.mockClear();
-      // New kernel should recover existing vat
-      const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
-      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
-      expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
-      expect(kernel2.getVatIds()).toStrictEqual(['v1']);
-    });
-  });
-
-  describe('restartVat return value', () => {
-    it('returns the existing VatHandle instance on restart', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      await kernel.launchVat(makeMockVatConfig());
-      const originalHandle = vatHandles[0];
-      const returnedHandle = await kernel.restartVat('v1');
-      expect(returnedHandle).toBe(originalHandle);
     });
   });
 });
