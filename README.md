@@ -2,6 +2,10 @@
 
 Welcome to the Ocap Kernel team's monorepo! It is a work in progress.
 
+## Documentation
+
+For detailed information on how to use the OCAP Kernel, please refer to the [GUIDE.md](GUIDE.md) file, which provides comprehensive documentation on setting up, configuring, and using the kernel in both browser and Node.js environments.
+
 ## Contributing
 
 To get started:
