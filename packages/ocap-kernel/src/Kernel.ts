@@ -254,7 +254,7 @@ export class Kernel {
     config: ClusterConfig,
   ): Promise<CapData<KRef> | undefined> {
     isClusterConfig(config) || Fail`invalid cluster config`;
-    if (config.bootstrap && !config.vats[config.bootstrap]) {
+    if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
     this.#mostRecentSubcluster = config;
