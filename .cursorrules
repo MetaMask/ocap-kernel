@@ -81,6 +81,7 @@ Error handling:
 
 Documentation:
 
+- Check the [glossary](./GLOSSARY.md) for definitions of unclear terms.
 - Use JSDoc and TypeDoc for public APIs.
 - Include examples and document error cases.
 
