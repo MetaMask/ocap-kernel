@@ -25,7 +25,7 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
 To initialize the OCAP Kernel, you need the following components:
 
 1. A message stream for communication with the kernel
-2. A vat worker client to manage vat instances
+2. A vat worker service to manage vat instances
 3. A kernel database for state persistence
 
 ### Browser Environment
@@ -38,7 +38,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { MessagePortDuplexStream } from '@metamask/streams/browser';
 
 // Initialize kernel dependencies
-const vatWorkerClient = YourVatWorkerClient.make();
+const vatWorkerService = YourVatWorkerService.make();
 const kernelDatabase = await makeSQLKernelDatabase({
   dbFilename: 'store.db',
 });
@@ -52,7 +52,7 @@ const kernelStream = await MessagePortDuplexStream.make(
 // Initialize the kernel
 const kernel = await Kernel.make(
   kernelStream,
-  vatWorkerClient,
+  vatWorkerService,
   kernelDatabase,
   {
     resetStorage: false, // Set to true to reset storage on startup
@@ -96,7 +96,7 @@ const { port1: kernelPort } = new MessageChannel();
 const nodeStream = new NodeWorkerDuplexStream(kernelPort);
 
 // Initialize vat worker manager for Node.js
-const vatWorkerClient = new NodejsVatWorkerManager({
+const vatWorkerService = new NodejsVatWorkerManager({
   workerFilePath: './path/to/vat-worker.js',
 });
 
@@ -106,7 +106,7 @@ const kernelDatabase = await makeSQLKernelDatabase({
 });
 
 // Create and start the kernel
-const kernel = await Kernel.make(nodeStream, vatWorkerClient, kernelDatabase, {
+const kernel = await Kernel.make(nodeStream, vatWorkerService, kernelDatabase, {
   resetStorage: false,
 });
 ```
@@ -346,7 +346,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 
 ### Eventual Sends
 
-Vats communicate asynchronously using the E() notation for eventual sends:
+Vats communicate asynchronously using the `E()` notation for eventual sends:
 
 ```javascript
 // In another vat that wants to use the service
@@ -369,6 +369,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 
 For more detailed information about the technology underlying the OCAP Kernel:
 
+- [Notes On The Design Of An Ocap Kernel](https://github.com/MetaMask/ocap-kernel/wiki/Notes-On-The-Design-Of-An-Ocap-Kernel)
 - [Endo Documentation](https://github.com/endojs/endo/blob/master/README.md)
 - [SES (Secure ECMAScript)](https://github.com/endojs/endo/tree/master/packages/ses)
 - [Endo Marshal](https://github.com/endojs/endo/tree/master/packages/marshal)
@@ -398,8 +399,8 @@ This will generate documentation in the `docs` directory of each package. To vie
 
 For a comprehensive overview of the API:
 
-1. Look at the entry point files in each package (usually `src/index.ts`)
 2. Review the TypeDoc-generated documentation for detailed API references
+   - This currently has to be built locally using `yarn build:docs`.
 3. Check the test files (e.g., `*.test.ts`) for usage examples
 
 ### CLI Tools
@@ -527,7 +528,7 @@ async function initBrowserKernel() {
   const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
 
   // Initialize kernel dependencies
-  const vatWorkerClient = YourBrowserVatWorkerClient.make(
+  const vatWorkerService = YourBrowserVatWorkerService.make(
     globalThis as PostMessageTarget,
   );
 
@@ -536,7 +537,7 @@ async function initBrowserKernel() {
   });
 
   // Initialize the kernel
-  return await Kernel.make(kernelStream, vatWorkerClient, kernelDatabase, {
+  return await Kernel.make(kernelStream, vatWorkerService, kernelDatabase, {
     resetStorage: true, // For development purposes
   });
 }
@@ -594,7 +595,3 @@ run().catch(console.error);
 ```
 
 This pattern of initializing the kernel and then using it to launch clusters and send messages is consistent across both environments. The main differences are in the initialization steps and dependencies used.
-
----
-
-By following this guide, you should have a good understanding of how to set up, configure, and use the OCAP Kernel in both browser and Node.js environments. For more details, refer to the API documentation or the example implementations in the codebase.
