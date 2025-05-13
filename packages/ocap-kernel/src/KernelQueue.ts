@@ -46,6 +46,7 @@ export class KernelQueue {
   async run(deliver: (item: RunQueueItem) => Promise<void>): Promise<void> {
     for await (const item of this.#runQueueItems()) {
       this.#kernelStore.nextTerminatedVatCleanup();
+      this.#kernelStore.createCrankSavepoint('deliver');
       await deliver(item);
       this.#kernelStore.collectGarbage();
     }
