@@ -76,7 +76,6 @@ export class KernelRouter {
    * @param item - The message/notification to deliver.
    */
   async deliver(item: RunQueueItem): Promise<void> {
-    this.#kernelStore.createCrankSavepoint('deliver');
     switch (item.type) {
       case 'send':
         await this.#deliverSend(item);
