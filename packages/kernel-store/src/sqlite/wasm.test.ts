@@ -28,6 +28,10 @@ const mockStatement = {
 const mockDb = {
   exec: vi.fn(),
   prepare: vi.fn(() => mockStatement),
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _inTx: false,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _spStack: [] as string[],
 };
 const OpfsDbMock = vi.fn(() => mockDb);
 const DBMock = vi.fn(() => mockDb);
@@ -398,6 +402,7 @@ describe('makeSQLKernelDatabase', () => {
 
     it('rolls back to a savepoint', async () => {
       const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('test_point');
       db.rollbackSavepoint('test_point');
       expect(mockDb.exec).toHaveBeenCalledWith(
         'ROLLBACK TO SAVEPOINT test_point',
@@ -406,6 +411,7 @@ describe('makeSQLKernelDatabase', () => {
 
     it('releases a savepoint', async () => {
       const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('test_point');
       db.releaseSavepoint('test_point');
       expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT test_point');
     });
@@ -474,5 +480,129 @@ describe('makeSQLKernelDatabase', () => {
     const data = vatStore2.getKVData();
     expect(mockStatement.bind).toHaveBeenCalledWith(['vat2']);
     expect(data).toStrictEqual([['testKey', 'testValue']]);
+  });
+});
+
+describe('transaction management', () => {
+  beforeEach(() => {
+    Object.values(mockStatement).forEach((mock) => {
+      if (typeof mock === 'function' && mock.mockReset) {
+        mock.mockReset();
+      }
+    });
+    mockDb.exec.mockReset();
+    mockDb._inTx = false;
+    mockDb._spStack = [];
+  });
+
+  it('safeMutate rollbacks transaction on error', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = false;
+    mockDb._spStack = [];
+    mockStatement.step.mockImplementationOnce(() => {
+      throw new Error('Database error');
+    });
+    const vatStore = db.makeVatStore('test-vat');
+    expect(() => vatStore.updateKVData([['key', 'value']], [])).toThrow(
+      'Database error',
+    );
+    expect(mockStatement.step).toHaveBeenCalled();
+  });
+
+  it('safeMutate does not commit if already in transaction', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = [];
+    const vatStore = db.makeVatStore('test-vat');
+    vatStore.updateKVData([['key', 'value']], []);
+    expect(mockStatement.step).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sql: 'BEGIN TRANSACTION' }),
+    );
+    expect(mockStatement.step).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sql: 'COMMIT TRANSACTION' }),
+    );
+  });
+});
+
+describe('savepoint functionality with transaction management', () => {
+  beforeEach(() => {
+    mockDb.exec.mockReset();
+    mockDb._inTx = false;
+    mockDb._spStack = [];
+  });
+
+  it('createSavepoint begins transaction if needed', async () => {
+    const db = await makeSQLKernelDatabase({});
+    db.createSavepoint('test_point');
+    expect(mockDb._inTx).toBe(true);
+    expect(mockDb._spStack).toContain('test_point');
+    expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT test_point');
+  });
+
+  it('rollbackSavepoint validates savepoint exists', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['existing_point'];
+    expect(() => db.rollbackSavepoint('nonexistent_point')).toThrow(
+      'No such savepoint: nonexistent_point',
+    );
+  });
+
+  it('rollbackSavepoint removes all points after target', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['point1', 'point2', 'point3'];
+    db.rollbackSavepoint('point2');
+    expect(mockDb._spStack).toStrictEqual(['point1']);
+    expect(mockDb.exec).toHaveBeenCalledWith('ROLLBACK TO SAVEPOINT point2');
+  });
+
+  it('rollbackSavepoint closes transaction if no savepoints remain', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['point1'];
+    db.rollbackSavepoint('point1');
+    expect(mockDb._spStack).toStrictEqual([]);
+    expect(mockDb._inTx).toBe(false);
+  });
+
+  it('releaseSavepoint validates savepoint exists', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['existing_point'];
+    expect(() => db.releaseSavepoint('nonexistent_point')).toThrow(
+      'No such savepoint: nonexistent_point',
+    );
+  });
+
+  it('releaseSavepoint removes all points after target', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['point1', 'point2', 'point3'];
+    db.releaseSavepoint('point2');
+    expect(mockDb._spStack).toStrictEqual(['point1']);
+    expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT point2');
+  });
+
+  it('releaseSavepoint commits transaction if no savepoints remain', async () => {
+    const db = await makeSQLKernelDatabase({});
+    mockDb._inTx = true;
+    mockDb._spStack = ['point1'];
+    db.releaseSavepoint('point1');
+    expect(mockDb._spStack).toStrictEqual([]);
+    expect(mockDb._inTx).toBe(false);
+  });
+
+  it('supports nested savepoints', async () => {
+    const db = await makeSQLKernelDatabase({});
+    db.createSavepoint('outer');
+    db.createSavepoint('inner');
+    expect(mockDb._spStack).toStrictEqual(['outer', 'inner']);
+    db.rollbackSavepoint('inner');
+    expect(mockDb._spStack).toStrictEqual(['outer']);
+    expect(mockDb._inTx).toBe(true);
+    db.releaseSavepoint('outer');
+    expect(mockDb._spStack).toStrictEqual([]);
+    expect(mockDb._inTx).toBe(false);
   });
 });

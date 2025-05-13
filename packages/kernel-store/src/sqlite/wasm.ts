@@ -1,10 +1,16 @@
 import { Logger } from '@metamask/logger';
-import type { Database } from '@sqlite.org/sqlite-wasm';
+import type { Database as SqliteDatabase } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
 import { DEFAULT_DB_FILENAME, safeIdentifier, SQL_QUERIES } from './common.ts';
 import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
+
+export type Database = SqliteDatabase & {
+  _inTx: boolean;
+  // stack of active savepoint names
+  _spStack: string[];
+};
 
 /**
  * Ensure that SQLite is initialized.
@@ -14,7 +20,7 @@ import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
  */
 export async function initDB(dbFilename: string): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
-  let db: Database;
+  let db: SqliteDatabase;
 
   if (sqlite3.oo1.OpfsDb) {
     const dbName = dbFilename.startsWith(':')
@@ -26,7 +32,11 @@ export async function initDB(dbFilename: string): Promise<Database> {
     db = new sqlite3.oo1.DB(`:memory:`, 'cw');
   }
 
-  return db;
+  const dbWithTx = db as Database;
+  dbWithTx._inTx = false;
+  dbWithTx._spStack = [];
+
+  return dbWithTx;
 }
 
 /**
@@ -161,6 +171,71 @@ export async function makeSQLKernelDatabase({
 
   const sqlKVClear = db.prepare(SQL_QUERIES.CLEAR);
   const sqlKVClearVS = db.prepare(SQL_QUERIES.CLEAR_VS);
+  const sqlVatstoreGetAll = db.prepare(SQL_QUERIES.GET_ALL_VS);
+  const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
+  const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
+  const sqlVatstoreDeleteAll = db.prepare(SQL_QUERIES.DELETE_VS_ALL);
+  const sqlBeginTransaction = db.prepare(SQL_QUERIES.BEGIN_TRANSACTION);
+  const sqlCommitTransaction = db.prepare(SQL_QUERIES.COMMIT_TRANSACTION);
+  const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
+
+  /**
+   * Issue BEGIN IMMEDIATE if we're not already inside one.
+   */
+  function beginIfNeeded(): void {
+    if (!db._inTx) {
+      sqlBeginTransaction.step();
+      sqlBeginTransaction.reset();
+      db._inTx = true;
+    }
+  }
+
+  /**
+   * COMMIT only if we ourselves opened the tx.
+   */
+  function commitIfNeeded(): void {
+    if (db._inTx && db._spStack.length === 0) {
+      sqlCommitTransaction.step();
+      sqlCommitTransaction.reset();
+      db._inTx = false;
+    }
+  }
+
+  /**
+   * ROLLBACK only if we ourselves opened the tx.
+   */
+  function rollbackIfNeeded(): void {
+    if (db._inTx) {
+      sqlAbortTransaction.step();
+      sqlAbortTransaction.reset();
+      db._inTx = false;
+      db._spStack.length = 0;
+    }
+  }
+
+  /**
+   * Wrap any helper that mutates data so that it only
+   * calls BEGIN/COMMIT if it wasn’t already inside one.
+   *
+   * @param fn - The function to wrap.
+   */
+  function safeMutate(fn: () => void): void {
+    const opened = !db._inTx;
+    if (opened) {
+      beginIfNeeded();
+    }
+    try {
+      fn();
+      if (opened) {
+        commitIfNeeded();
+      }
+    } catch (error) {
+      if (opened) {
+        rollbackIfNeeded();
+      }
+      throw error;
+    }
+  }
 
   /**
    * Delete everything from the database.
@@ -202,14 +277,6 @@ export async function makeSQLKernelDatabase({
     return results;
   }
 
-  const sqlVatstoreGetAll = db.prepare(SQL_QUERIES.GET_ALL_VS);
-  const sqlVatstoreSet = db.prepare(SQL_QUERIES.SET_VS);
-  const sqlVatstoreDelete = db.prepare(SQL_QUERIES.DELETE_VS);
-  const sqlVatstoreDeleteAll = db.prepare(SQL_QUERIES.DELETE_VS_ALL);
-  const sqlBeginTransaction = db.prepare(SQL_QUERIES.BEGIN_TRANSACTION);
-  const sqlCommitTransaction = db.prepare(SQL_QUERIES.COMMIT_TRANSACTION);
-  const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
-
   /**
    * Create a new VatStore for a vat.
    *
@@ -245,9 +312,7 @@ export async function makeSQLKernelDatabase({
      * @param deletes - A set of keys that have been deleted.
      */
     function updateKVData(sets: [string, string][], deletes: string[]): void {
-      try {
-        sqlBeginTransaction.step();
-        sqlBeginTransaction.reset();
+      safeMutate(() => {
         for (const [key, value] of sets) {
           sqlVatstoreSet.bind([vatID, key, value]);
           sqlVatstoreSet.step();
@@ -258,13 +323,7 @@ export async function makeSQLKernelDatabase({
           sqlVatstoreDelete.step();
           sqlVatstoreDelete.reset();
         }
-        sqlCommitTransaction.step();
-        sqlCommitTransaction.reset();
-      } catch (problem) {
-        sqlAbortTransaction.step();
-        sqlAbortTransaction.reset();
-        throw problem;
-      }
+      });
     }
 
     return {
@@ -290,9 +349,11 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function createSavepoint(name: string): void {
+    beginIfNeeded();
     const point = safeIdentifier(name);
     const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
     db.exec(query);
+    db._spStack.push(point);
   }
 
   /**
@@ -302,8 +363,16 @@ export async function makeSQLKernelDatabase({
    */
   function rollbackSavepoint(name: string): void {
     const point = safeIdentifier(name);
+    const idx = db._spStack.lastIndexOf(point);
+    if (idx < 0) {
+      throw new Error(`No such savepoint: ${point}`);
+    }
     const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', point);
     db.exec(query);
+    db._spStack.splice(idx);
+    if (db._spStack.length === 0) {
+      rollbackIfNeeded();
+    }
   }
 
   /**
@@ -313,8 +382,16 @@ export async function makeSQLKernelDatabase({
    */
   function releaseSavepoint(name: string): void {
     const point = safeIdentifier(name);
+    const idx = db._spStack.lastIndexOf(point);
+    if (idx < 0) {
+      throw new Error(`No such savepoint: ${point}`);
+    }
     const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', point);
     db.exec(query);
+    db._spStack.splice(idx);
+    if (db._spStack.length === 0) {
+      commitIfNeeded();
+    }
   }
 
   return {

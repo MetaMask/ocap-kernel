@@ -40,6 +40,7 @@ describe('SQL_QUERIES', () => {
   it('has all expected query properties', () => {
     expect(Object.keys(SQL_QUERIES).sort()).toStrictEqual([
       'ABORT_TRANSACTION',
+      'BEGIN_IMMEDIATE_TRANSACTION',
       'BEGIN_TRANSACTION',
       'CLEAR',
       'CLEAR_VS',
