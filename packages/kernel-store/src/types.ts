@@ -30,4 +30,7 @@ export type KernelDatabase = {
   clear(): void;
   makeVatStore(vatID: string): VatStore;
   deleteVatStore(vatID: string): void;
+  createSavepoint(name: string): void;
+  rollbackSavepoint(name: string): void;
+  releaseSavepoint(name: string): void;
 };

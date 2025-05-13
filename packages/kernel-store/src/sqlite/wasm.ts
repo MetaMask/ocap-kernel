@@ -1,8 +1,8 @@
 import { Logger } from '@metamask/logger';
-import type { Database, PreparedStatement } from '@sqlite.org/sqlite-wasm';
+import type { Database } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import { DEFAULT_DB_FILENAME, SQL_QUERIES } from './common.ts';
+import { DEFAULT_DB_FILENAME, safeIdentifier, SQL_QUERIES } from './common.ts';
 import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
@@ -27,22 +27,6 @@ export async function initDB(dbFilename: string): Promise<Database> {
   }
 
   return db;
-}
-
-/**
- * Helper function to paper over SQLite-wasm awfulness.  Runs a prepared
- * statement as it would be run in a more sensible API.
- *
- * @param stmt - A prepared statement to run.
- * @param bindings - Optional parameters to bind for execution.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function run(stmt: PreparedStatement, ...bindings: string[]): void {
-  if (bindings && bindings.length > 0) {
-    stmt.bind(bindings);
-  }
-  stmt.step();
-  stmt.reset();
 }
 
 /**
@@ -300,11 +284,47 @@ export async function makeSQLKernelDatabase({
     sqlVatstoreDeleteAll.reset();
   }
 
+  /**
+   * Create a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function createSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
+  /**
+   * Rollback to a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function rollbackSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
+  /**
+   * Release a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function releaseSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
   return {
     kernelKVStore: kvStore,
     clear: kvClear,
     executeQuery,
     makeVatStore,
     deleteVatStore,
+    createSavepoint,
+    rollbackSavepoint,
+    releaseSavepoint,
   };
 }

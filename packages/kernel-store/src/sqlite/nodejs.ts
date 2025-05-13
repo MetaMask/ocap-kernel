@@ -6,7 +6,7 @@ import { mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SQL_QUERIES, DEFAULT_DB_FILENAME } from './common.ts';
+import { SQL_QUERIES, DEFAULT_DB_FILENAME, safeIdentifier } from './common.ts';
 import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
@@ -223,12 +223,48 @@ export async function makeSQLKernelDatabase({
     sqlVatstoreDeleteAll.run(vatId);
   }
 
+  /**
+   * Create a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function createSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
+  /**
+   * Rollback to a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function rollbackSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
+  /**
+   * Release a savepoint in the database.
+   *
+   * @param name - The name of the savepoint.
+   */
+  function releaseSavepoint(name: string): void {
+    const point = safeIdentifier(name);
+    const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', point);
+    db.exec(query);
+  }
+
   return {
     kernelKVStore: kvStore,
     executeQuery: kvExecuteQuery,
     clear: db.transaction(kvClear),
     makeVatStore,
     deleteVatStore,
+    createSavepoint,
+    rollbackSavepoint,
+    releaseSavepoint,
   };
 }
 

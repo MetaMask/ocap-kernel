@@ -65,6 +65,7 @@ describe('KernelRouter', () => {
       krefsToExistingErefs: vi.fn((_vatId: string, krefs: string[]) =>
         krefs.map((kref: string) => `translated-${kref}`),
       ) as unknown as MockInstance,
+      createCrankSavepoint: vi.fn(),
     } as unknown as KernelStore;
 
     // Mock KernelQueue
@@ -77,6 +78,28 @@ describe('KernelRouter', () => {
   });
 
   describe('deliver', () => {
+    it('creates a savepoint at the start of delivery', async () => {
+      // Minimal send item for this test
+      const sendItem: RunQueueItemSend = {
+        type: 'send',
+        target: 'ko123',
+        message: {
+          methargs: { body: 'test', slots: [] },
+          result: null,
+        } as unknown as SwingsetMessage,
+      };
+
+      // Return a valid vat owner so the delivery proceeds
+      (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
+        'v1',
+      );
+
+      await kernelRouter.deliver(sendItem);
+
+      // Verify savepoint was created
+      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('deliver');
+    });
+
     describe('send', () => {
       it('delivers a send message to a vat with an object target', async () => {
         // Setup the kernel store to return an owner for the target
@@ -99,6 +122,10 @@ describe('KernelRouter', () => {
           message: message as unknown as SwingsetMessage,
         };
         await kernelRouter.deliver(sendItem);
+        // Verify savepoint was created
+        expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith(
+          'deliver',
+        );
         // Verify the message was delivered to the vat
         expect(getVat).toHaveBeenCalledWith(vatId);
         expect(vatHandle.deliverMessage).toHaveBeenCalledWith(
@@ -232,6 +259,10 @@ describe('KernelRouter', () => {
         });
         // Deliver the notify
         await kernelRouter.deliver(notifyItem);
+        // Verify savepoint was created
+        expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith(
+          'deliver',
+        );
         // Verify the notification was delivered to the vat
         expect(getVat).toHaveBeenCalledWith(vatId);
         expect(vatHandle.deliverNotify).toHaveBeenCalledWith(expect.any(Array));
@@ -282,6 +313,10 @@ describe('KernelRouter', () => {
         };
         // Deliver the GC action
         await kernelRouter.deliver(gcAction);
+        // Verify savepoint was created
+        expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith(
+          'deliver',
+        );
         // Verify the action was delivered to the vat
         expect(getVat).toHaveBeenCalledWith(vatId);
         expect(
@@ -299,6 +334,10 @@ describe('KernelRouter', () => {
         };
         // Deliver the bringOutYourDead action
         await kernelRouter.deliver(bringOutYourDeadItem);
+        // Verify savepoint was created
+        expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith(
+          'deliver',
+        );
         // Verify the action was delivered to the vat
         expect(getVat).toHaveBeenCalledWith(vatId);
         expect(vatHandle.deliverBringOutYourDead).toHaveBeenCalled();

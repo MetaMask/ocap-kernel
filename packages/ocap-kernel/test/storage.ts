@@ -127,5 +127,14 @@ export function makeMapKernelDatabase(): KernelDatabase {
     deleteVatStore: (vatID: string) => {
       vatStores.delete(vatID);
     },
+    createSavepoint: () => {
+      // noop
+    },
+    rollbackSavepoint: () => {
+      // noop
+    },
+    releaseSavepoint: () => {
+      // noop
+    },
   };
 }
