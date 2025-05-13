@@ -25,6 +25,7 @@ const mockStatement = {
 const mockDb = {
   prepare: vi.fn(() => mockStatement),
   transaction: vi.fn((fn) => fn),
+  exec: vi.fn(),
 };
 
 vi.mock('better-sqlite3', () => ({
@@ -137,6 +138,49 @@ describe('makeSQLKernelDatabase', () => {
     expect(mockStatement.run).toHaveBeenCalled(); // commit transaction
   });
 
+  describe('deleteVatStore functionality', () => {
+    beforeEach(() => {
+      Object.values(mockStatement).forEach((mock) => mock.mockReset());
+    });
+
+    it('deleteVatStore removes all data for a given vat', async () => {
+      const db = await makeSQLKernelDatabase({});
+      const vatId = 'test-vat';
+      db.deleteVatStore(vatId);
+      expect(mockDb.prepare).toHaveBeenCalledWith(SQL_QUERIES.DELETE_VS_ALL);
+      expect(mockStatement.run).toHaveBeenCalledWith(vatId);
+    });
+
+    it('deleteVatStore handles empty vatId correctly', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.deleteVatStore('');
+      expect(mockStatement.run).toHaveBeenCalledWith('');
+    });
+
+    it("deleteVatStore doesn't affect other vat stores", async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.makeVatStore('vat1');
+      const vatStore2 = db.makeVatStore('vat2');
+      db.deleteVatStore('vat1');
+      mockStatement.iterate.mockReturnValueOnce([
+        { key: 'testKey', value: 'testValue' },
+      ]);
+      const data = vatStore2.getKVData();
+      expect(data).toStrictEqual([['testKey', 'testValue']]);
+      expect(mockStatement.iterate).toHaveBeenCalledWith('vat2');
+    });
+
+    it('deleteVatStore handles errors correctly', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockStatement.run.mockImplementationOnce(() => {
+        throw new Error('Database error during delete');
+      });
+      expect(() => db.deleteVatStore('test-vat')).toThrow(
+        'Database error during delete',
+      );
+    });
+  });
+
   describe('getDBFilename', () => {
     it('returns in-memory database path when label starts with ":"', async () => {
       const result = await getDBFilename(':memory:');
@@ -149,6 +193,55 @@ describe('makeSQLKernelDatabase', () => {
       expect(mockMkdir).toHaveBeenCalledWith('/mock-tmpdir/ocap-sqlite', {
         recursive: true,
       });
+    });
+  });
+
+  describe('savepoint functionality', () => {
+    let execSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+      execSpy = vi.fn();
+      (mockDb.exec as unknown) = execSpy;
+    });
+
+    it('creates a savepoint using sanitized name', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('valid_name');
+      expect(execSpy).toHaveBeenCalledWith(
+        expect.stringContaining('SAVEPOINT valid_name'),
+      );
+    });
+
+    it('rejects invalid savepoint names', async () => {
+      const db = await makeSQLKernelDatabase({});
+      expect(() => db.createSavepoint('invalid-name')).toThrow(
+        'Invalid identifier',
+      );
+      expect(() => db.createSavepoint('123numeric')).toThrow(
+        'Invalid identifier',
+      );
+      expect(() => db.createSavepoint('spaces not allowed')).toThrow(
+        'Invalid identifier',
+      );
+      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrow(
+        'Invalid identifier',
+      );
+    });
+
+    it('rolls back to a savepoint', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.rollbackSavepoint('test_point');
+      expect(execSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ROLLBACK TO SAVEPOINT test_point'),
+      );
+    });
+
+    it('releases a savepoint', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.releaseSavepoint('test_point');
+      expect(execSpy).toHaveBeenCalledWith(
+        expect.stringContaining('RELEASE SAVEPOINT test_point'),
+      );
     });
   });
 });

@@ -1,4 +1,3 @@
-import '@metamask/kernel-shims/endoify';
 import { delay } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { VatConfig } from '@metamask/ocap-kernel';

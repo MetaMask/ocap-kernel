@@ -58,34 +58,40 @@ export class KernelQueue {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
-      const gcAction = processGCActionSet(this.#kernelStore);
-      if (gcAction) {
-        yield gcAction;
-        continue;
-      }
-
-      const reapAction = this.#kernelStore.nextReapAction();
-      if (reapAction) {
-        yield reapAction;
-        continue;
-      }
-
-      while (this.#kernelStore.runQueueLength() > 0) {
-        const item = this.#kernelStore.dequeueRun();
-        if (item) {
-          yield item;
-        } else {
-          break;
+      this.#kernelStore.startCrank();
+      try {
+        this.#kernelStore.createCrankSavepoint('start');
+        const gcAction = processGCActionSet(this.#kernelStore);
+        if (gcAction) {
+          yield gcAction;
+          continue;
         }
-      }
 
-      if (this.#kernelStore.runQueueLength() === 0) {
-        const { promise, resolve } = makePromiseKit<void>();
-        if (this.#wakeUpTheRunQueue !== null) {
-          Fail`wakeUpTheRunQueue function already set`;
+        const reapAction = this.#kernelStore.nextReapAction();
+        if (reapAction) {
+          yield reapAction;
+          continue;
         }
-        this.#wakeUpTheRunQueue = resolve;
-        await promise;
+
+        while (this.#kernelStore.runQueueLength() > 0) {
+          const item = this.#kernelStore.dequeueRun();
+          if (item) {
+            yield item;
+          } else {
+            break;
+          }
+        }
+
+        if (this.#kernelStore.runQueueLength() === 0) {
+          const { promise, resolve } = makePromiseKit<void>();
+          if (this.#wakeUpTheRunQueue !== null) {
+            Fail`wakeUpTheRunQueue function already set`;
+          }
+          this.#wakeUpTheRunQueue = resolve;
+          await promise;
+        }
+      } finally {
+        this.#kernelStore.endCrank();
       }
     }
   }

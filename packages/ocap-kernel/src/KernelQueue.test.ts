@@ -45,6 +45,9 @@ describe('KernelQueue', () => {
       resolveKernelPromise: vi.fn(),
       nextReapAction: vi.fn().mockReturnValue(null),
       getGCActions: vi.fn().mockReturnValue([]),
+      startCrank: vi.fn(),
+      endCrank: vi.fn(),
+      createCrankSavepoint: vi.fn(),
     } as unknown as KernelStore;
 
     kernelQueue = new KernelQueue(kernelStore);
@@ -67,7 +70,10 @@ describe('KernelQueue', () => {
       const deliver = vi.fn().mockRejectedValue(deliverError);
       await expect(kernelQueue.run(deliver)).rejects.toBe(deliverError);
       expect(kernelStore.nextTerminatedVatCleanup).toHaveBeenCalled();
+      expect(kernelStore.startCrank).toHaveBeenCalled();
+      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('start');
       expect(deliver).toHaveBeenCalledWith(mockItem);
+      expect(kernelStore.endCrank).toHaveBeenCalled();
     });
   });
 
