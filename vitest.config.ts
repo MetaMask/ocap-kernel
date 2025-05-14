@@ -110,10 +110,10 @@ export default defineConfig({
           lines: 0,
         },
         'packages/kernel-store/**': {
-          statements: 97.74,
+          statements: 98,
           functions: 100,
-          branches: 89.39,
-          lines: 97.73,
+          branches: 91.25,
+          lines: 97.99,
         },
         'packages/kernel-utils/**': {
           statements: 100,

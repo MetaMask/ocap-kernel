@@ -180,18 +180,22 @@ export async function makeSQLKernelDatabase({
   const sqlAbortTransaction = db.prepare(SQL_QUERIES.ABORT_TRANSACTION);
 
   /**
-   * Issue BEGIN IMMEDIATE if we're not already inside one.
+   * Begin a transaction if not already in one
+   *
+   * @returns True if a new transaction was started, false if already in one
    */
-  function beginIfNeeded(): void {
-    if (!db._inTx) {
-      sqlBeginTransaction.step();
-      sqlBeginTransaction.reset();
-      db._inTx = true;
+  function beginIfNeeded(): boolean {
+    if (db._inTx) {
+      return false;
     }
+    sqlBeginTransaction.step();
+    sqlBeginTransaction.reset();
+    db._inTx = true;
+    return true;
   }
 
   /**
-   * COMMIT only if we ourselves opened the tx.
+   * Commit a transaction if one is active and no savepoints remain
    */
   function commitIfNeeded(): void {
     if (db._inTx && db._spStack.length === 0) {
@@ -202,7 +206,7 @@ export async function makeSQLKernelDatabase({
   }
 
   /**
-   * ROLLBACK only if we ourselves opened the tx.
+   * Rollback a transaction
    */
   function rollbackIfNeeded(): void {
     if (db._inTx) {
@@ -214,23 +218,19 @@ export async function makeSQLKernelDatabase({
   }
 
   /**
-   * Wrap any helper that mutates data so that it only
-   * calls BEGIN/COMMIT if it wasn’t already inside one.
+   * Safely mutate the database with proper transaction management
    *
-   * @param fn - The function to wrap.
+   * @param mutator - Function that performs the database mutations
    */
-  function safeMutate(fn: () => void): void {
-    const opened = !db._inTx;
-    if (opened) {
-      beginIfNeeded();
-    }
+  function safeMutate(mutator: () => void): void {
+    const startedTx = beginIfNeeded();
     try {
-      fn();
-      if (opened) {
+      mutator();
+      if (startedTx) {
         commitIfNeeded();
       }
     } catch (error) {
-      if (opened) {
+      if (startedTx) {
         rollbackIfNeeded();
       }
       throw error;
