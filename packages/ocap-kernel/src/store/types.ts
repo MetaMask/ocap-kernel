@@ -14,6 +14,8 @@ export type StoreContext = {
   gcActions: StoredValue;
   reapQueue: StoredValue;
   terminatedVats: StoredValue;
+  inCrank: boolean;
+  savepoints: string[];
 };
 
 export type StoredValue = {

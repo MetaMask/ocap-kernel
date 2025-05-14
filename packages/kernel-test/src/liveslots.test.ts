@@ -1,4 +1,3 @@
-import '@metamask/kernel-shims/endoify';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { LogEntry } from '@metamask/logger';

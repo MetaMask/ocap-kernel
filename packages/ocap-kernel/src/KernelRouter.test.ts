@@ -65,6 +65,7 @@ describe('KernelRouter', () => {
       krefsToExistingErefs: vi.fn((_vatId: string, krefs: string[]) =>
         krefs.map((kref: string) => `translated-${kref}`),
       ) as unknown as MockInstance,
+      createCrankSavepoint: vi.fn(),
     } as unknown as KernelStore;
 
     // Mock KernelQueue
