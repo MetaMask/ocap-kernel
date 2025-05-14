@@ -26,6 +26,9 @@ const mockDb = {
   prepare: vi.fn(() => mockStatement),
   transaction: vi.fn((fn) => fn),
   exec: vi.fn(),
+  inTransaction: false,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _spStack: [] as string[],
 };
 
 vi.mock('better-sqlite3', () => ({
@@ -197,19 +200,17 @@ describe('makeSQLKernelDatabase', () => {
   });
 
   describe('savepoint functionality', () => {
-    let execSpy: ReturnType<typeof vi.fn>;
-
-    beforeEach(async () => {
-      execSpy = vi.fn();
-      (mockDb.exec as unknown) = execSpy;
+    beforeEach(() => {
+      mockDb.exec.mockClear();
+      mockDb.inTransaction = false;
+      mockDb._spStack = [];
     });
 
     it('creates a savepoint using sanitized name', async () => {
       const db = await makeSQLKernelDatabase({});
       db.createSavepoint('valid_name');
-      expect(execSpy).toHaveBeenCalledWith(
-        expect.stringContaining('SAVEPOINT valid_name'),
-      );
+
+      expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT valid_name');
     });
 
     it('rejects invalid savepoint names', async () => {
@@ -226,22 +227,95 @@ describe('makeSQLKernelDatabase', () => {
       expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrow(
         'Invalid identifier',
       );
+      expect(mockDb.exec).not.toHaveBeenCalledWith(
+        expect.stringContaining('DROP TABLE'),
+      );
     });
 
     it('rolls back to a savepoint', async () => {
       const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('test_point');
       db.rollbackSavepoint('test_point');
-      expect(execSpy).toHaveBeenCalledWith(
-        expect.stringContaining('ROLLBACK TO SAVEPOINT test_point'),
+      expect(mockDb.exec).toHaveBeenCalledWith(
+        'ROLLBACK TO SAVEPOINT test_point',
       );
     });
 
     it('releases a savepoint', async () => {
       const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('test_point');
       db.releaseSavepoint('test_point');
-      expect(execSpy).toHaveBeenCalledWith(
-        expect.stringContaining('RELEASE SAVEPOINT test_point'),
+      expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT test_point');
+    });
+
+    it('createSavepoint begins transaction if needed', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('test_point');
+      expect(mockDb._spStack).toContain('test_point');
+      expect(mockDb.exec).toHaveBeenCalledWith('SAVEPOINT test_point');
+    });
+
+    it('rollbackSavepoint validates savepoint exists', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['existing_point'];
+      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrow(
+        'No such savepoint: nonexistent_point',
       );
+    });
+
+    it('rollbackSavepoint removes all points after target', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['point1', 'point2', 'point3'];
+      db.rollbackSavepoint('point2');
+      expect(mockDb._spStack).toStrictEqual(['point1']);
+      expect(mockDb.exec).toHaveBeenCalledWith('ROLLBACK TO SAVEPOINT point2');
+    });
+
+    it('rollbackSavepoint closes transaction if no savepoints remain', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['point1'];
+      db.rollbackSavepoint('point1');
+      expect(mockDb._spStack).toStrictEqual([]);
+    });
+
+    it('releaseSavepoint validates savepoint exists', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['existing_point'];
+      expect(() => db.releaseSavepoint('nonexistent_point')).toThrow(
+        'No such savepoint: nonexistent_point',
+      );
+    });
+
+    it('releaseSavepoint removes all points after target', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['point1', 'point2', 'point3'];
+      db.releaseSavepoint('point2');
+      expect(mockDb._spStack).toStrictEqual(['point1']);
+      expect(mockDb.exec).toHaveBeenCalledWith('RELEASE SAVEPOINT point2');
+    });
+
+    it('releaseSavepoint commits transaction if no savepoints remain', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb.inTransaction = true;
+      mockDb._spStack = ['point1'];
+      db.releaseSavepoint('point1');
+      expect(mockDb._spStack).toStrictEqual([]);
+    });
+
+    it('supports nested savepoints', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.createSavepoint('outer');
+      db.createSavepoint('inner');
+      expect(mockDb._spStack).toStrictEqual(['outer', 'inner']);
+      db.rollbackSavepoint('inner');
+      expect(mockDb._spStack).toStrictEqual(['outer']);
+      db.releaseSavepoint('outer');
+      expect(mockDb._spStack).toStrictEqual([]);
     });
   });
 });
