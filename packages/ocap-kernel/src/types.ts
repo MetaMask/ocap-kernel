@@ -18,6 +18,8 @@ import {
   literal,
   boolean,
   exactOptional,
+  type,
+  nullable,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
@@ -310,6 +312,18 @@ export type ClusterConfig = Infer<typeof ClusterConfigStruct>;
 
 export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
+
+export const KernelStatusStruct = type({
+  clusterConfig: nullable(ClusterConfigStruct),
+  vats: array(
+    object({
+      id: VatIdStruct,
+      config: VatConfigStruct,
+    }),
+  ),
+});
+
+export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
 

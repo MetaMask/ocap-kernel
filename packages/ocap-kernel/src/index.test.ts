@@ -8,6 +8,7 @@ describe('index', () => {
       'CapDataStruct',
       'ClusterConfigStruct',
       'Kernel',
+      'KernelStatusStruct',
       'VatConfigStruct',
       'VatHandle',
       'VatIdStruct',

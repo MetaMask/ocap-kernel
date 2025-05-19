@@ -62,5 +62,3 @@ export const methodSpecs = {
 type Handlers = (typeof handlers)[keyof typeof handlers];
 
 export type KernelControlMethod = Handlers['method'];
-
-export type { KernelStatus } from './get-status.ts';

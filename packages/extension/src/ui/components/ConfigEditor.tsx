@@ -1,8 +1,7 @@
 import { stringify } from '@metamask/kernel-utils';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type { ClusterConfig, KernelStatus } from '@metamask/ocap-kernel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import defaultConfig from '../../vats/default-cluster.json';
 import minimalConfig from '../../vats/minimal-cluster.json';
 import styles from '../App.module.css';

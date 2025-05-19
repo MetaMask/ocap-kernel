@@ -28,6 +28,7 @@ import type {
   VatWorkerManager,
   ClusterConfig,
   VatConfig,
+  KernelStatus,
 } from './types.ts';
 import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
 import { Fail } from './utils/assert.ts';
@@ -388,6 +389,19 @@ export class Kernel {
    */
   get clusterConfig(): ClusterConfig | null {
     return this.#mostRecentSubcluster;
+  }
+
+  /**
+   * Get the current kernel status, defined as the current cluster configuration
+   * and a list of all running vats.
+   *
+   * @returns The current kernel status.
+   */
+  getStatus(): KernelStatus {
+    return {
+      clusterConfig: this.#mostRecentSubcluster,
+      vats: this.getVats(),
+    };
   }
 
   /**

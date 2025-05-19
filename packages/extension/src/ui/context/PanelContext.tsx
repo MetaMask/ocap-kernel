@@ -1,4 +1,5 @@
 import { stringify } from '@metamask/kernel-utils';
+import type { KernelStatus } from '@metamask/ocap-kernel';
 import { isJsonRpcFailure } from '@metamask/utils';
 import {
   createContext,
@@ -9,7 +10,6 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
-import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import { useStatusPolling } from '../hooks/useStatusPolling.ts';
 import { logger } from '../services/logger.ts';
 import type { CallKernelMethod } from '../services/stream.ts';

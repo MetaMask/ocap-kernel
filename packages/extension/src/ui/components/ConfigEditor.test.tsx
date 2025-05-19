@@ -7,9 +7,9 @@ import {
 } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { KernelStatus } from '@metamask/ocap-kernel';
 
 import { ConfigEditor } from './ConfigEditor.tsx';
-import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import defaultClusterConfig from '../../vats/default-cluster.json';
 import minimalClusterConfig from '../../vats/minimal-cluster.json';
 import { usePanelContext } from '../context/PanelContext.tsx';

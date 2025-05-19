@@ -8,6 +8,7 @@ export type {
   VatId,
   VatWorkerManager,
   VatConfig,
+  KernelStatus,
 } from './types.ts';
 export {
   isVatId,
@@ -16,6 +17,7 @@ export {
   VatConfigStruct,
   ClusterConfigStruct,
   CapDataStruct,
+  KernelStatusStruct,
 } from './types.ts';
 export { kunser, kser } from './services/kernel-marshal.ts';
 export { makeKernelStore } from './store/index.ts';

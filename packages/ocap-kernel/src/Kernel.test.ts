@@ -377,6 +377,21 @@ describe('Kernel', () => {
     });
   });
 
+  describe('getStatus()', () => {
+    it('returns the current kernel status', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const status = kernel.getStatus();
+      expect(status).toStrictEqual({
+        clusterConfig: null,
+        vats: [],
+      });
+    });
+  });
+
   describe('launchVat()', () => {
     it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
       const kernel = await Kernel.make(
