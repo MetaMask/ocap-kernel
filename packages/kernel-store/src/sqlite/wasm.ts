@@ -349,6 +349,9 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function createSavepoint(name: string): void {
+    // We must be in a transaction when creating the savepoint or releasing it
+    // later will cause an autocommit.
+    // See https://github.com/Agoric/agoric-sdk/issues/8423
     beginIfNeeded();
     const point = safeIdentifier(name);
     const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
