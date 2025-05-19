@@ -257,6 +257,44 @@ describe('ui-connections', () => {
       );
     });
 
+    it('should forget ids of closed channels', async () => {
+      receiveUiConnections(mockHandleMessage, logger);
+      const controlChannel = MockBroadcastChannel.channels.get(
+        UI_CONTROL_CHANNEL_NAME,
+      );
+
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: 'test-instance-channel',
+          },
+        }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(2);
+
+      const instanceChannel = MockBroadcastChannel.channels.get(
+        'test-instance-channel',
+      );
+      instanceChannel?.onmessageerror?.(
+        new MessageEvent('messageerror', { data: new Error('Test error') }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(1);
+
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: 'test-instance-channel',
+          },
+        }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(2);
+    });
+
     it('should reject duplicate connections', () => {
       receiveUiConnections(mockHandleMessage, logger);
       const controlChannel = MockBroadcastChannel.channels.get(

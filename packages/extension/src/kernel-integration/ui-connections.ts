@@ -134,6 +134,7 @@ export const receiveUiConnections = (
       })
       .finally(() => {
         logger.debug(`Closed connection to UI instance "${channelName}"`);
+        seenChannels.delete(channelName);
       });
   };
 };
