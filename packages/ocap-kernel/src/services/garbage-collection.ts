@@ -172,7 +172,7 @@ export function processGCActionSet(
           const queueType = queueTypeFromActionType.get(type);
           assert(queueType !== undefined, `Unknown action type: ${type}`);
 
-          return harden({ type: queueType, vatId, krefs });
+          return harden({ type: queueType, endpointId: vatId, krefs });
         }
       }
     }
