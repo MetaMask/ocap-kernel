@@ -98,7 +98,7 @@ describe('useKernelActions', () => {
       result.current.collectGarbage();
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
-          'Failed to collect garbage',
+          'Failed to collect garbage Error',
           'error',
         );
       });

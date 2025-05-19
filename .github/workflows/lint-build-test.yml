@@ -107,6 +107,7 @@ jobs:
           cd node_modules/better-sqlite3
           yarn build-release
           cd -
+      - run: npm rebuild @ipshipyard/node-datachannel
       - run: yarn build
       - run: yarn test:ci
       - name: Require clean working directory
@@ -157,6 +158,7 @@ jobs:
           cd node_modules/better-sqlite3
           yarn build-release
           cd -
+      - run: npm rebuild @ipshipyard/node-datachannel
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e

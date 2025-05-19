@@ -5,7 +5,7 @@ import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
-import { NodejsVatWorkerService } from './VatWorkerService.ts';
+import { NodejsPlatformServices } from './PlatformServices.ts';
 
 /**
  * The main function for the kernel worker.
@@ -36,9 +36,9 @@ export async function makeKernel({
     JsonRpcResponse
   >(port);
   const rootLogger = logger ?? new Logger('kernel-worker');
-  const vatWorkerClient = new NodejsVatWorkerService({
+  const platformServicesClient = new NodejsPlatformServices({
     workerFilePath,
-    logger: rootLogger.subLogger({ tags: ['vat-worker-manager'] }),
+    logger: rootLogger.subLogger({ tags: ['platform-services-manager'] }),
   });
 
   // Initialize kernel store.
@@ -47,7 +47,7 @@ export async function makeKernel({
   // Create and start kernel.
   const kernel = await Kernel.make(
     nodeStream,
-    vatWorkerClient,
+    platformServicesClient,
     kernelDatabase,
     {
       resetStorage,

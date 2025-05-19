@@ -1,3 +1,4 @@
+import { Far } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import {
   VatAlreadyExistsError,
@@ -17,23 +18,34 @@ import type { JsonRpcResponse } from '@metamask/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
+import { initRemoteComms, parseOcapURL } from './remote-comms.ts';
+import { RemoteHandle } from './RemoteHandle.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
-import { kslot, kser, kunser } from './services/kernel-marshal.ts';
+import { kslot, kser, kunser, krefOf } from './services/kernel-marshal.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
+  RemoteId,
+  EndpointId,
   KRef,
-  VatWorkerService,
+  PlatformServices,
   ClusterConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
   Message,
+  EndpointHandle,
+  RemoteComms,
 } from './types.ts';
-import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
+import {
+  ROOT_OBJECT_VREF,
+  isClusterConfig,
+  isVatId,
+  isRemoteId,
+} from './types.ts';
 import { Fail, assert } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
 
@@ -42,6 +54,9 @@ type KernelService = {
   kref: string;
   service: object;
 };
+
+// XXX See #egregiousDebugHack below
+let foolTheCompiler: string = 'start';
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
@@ -52,8 +67,17 @@ export class Kernel {
   /** Currently running vats, by ID */
   readonly #vats: Map<VatId, VatHandle>;
 
-  /** Service to spawn workers (in iframes) for vats to run in */
-  readonly #vatWorkerService: VatWorkerService;
+  /** Currently active remote kernel connections, by ID */
+  readonly #remotes: Map<RemoteId, RemoteHandle>;
+
+  /** Currently active remote kernel connections, by remote Peer ID */
+  readonly #remotesByPeer: Map<string, RemoteHandle>;
+
+  /**
+   * Service to to things the kernel worker can't do: network communications
+   * and spawning workers (in iframes) for vats to run in
+   */
+  readonly #platformServices: PlatformServices;
 
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
@@ -72,11 +96,14 @@ export class Kernel {
 
   readonly #kernelServicesByObject: Map<string, KernelService> = new Map();
 
+  /** My network access */
+  #remoteComms: RemoteComms | undefined;
+
   /**
    * Construct a new kernel instance.
    *
    * @param commandStream - Command channel from whatever external software is driving the kernel.
-   * @param vatWorkerService - Service to create a worker in which a new vat can run.
+   * @param platformServices - Service to do things the kernel worker can't.
    * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
    * @param options.resetStorage - If true, the storage will be cleared.
@@ -85,17 +112,22 @@ export class Kernel {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
     commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
-    vatWorkerService: VatWorkerService,
+    platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
       logger?: Logger;
     } = {},
   ) {
+    // XXX See #egregiousDebugHack below
+    foolTheCompiler = 'nope';
+
     this.#commandStream = commandStream;
     this.#rpcService = new RpcService(kernelHandlers, {});
     this.#vats = new Map();
-    this.#vatWorkerService = vatWorkerService;
+    this.#remotes = new Map();
+    this.#remotesByPeer = new Map();
+    this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase);
     if (options.resetStorage) {
@@ -108,9 +140,37 @@ export class Kernel {
     this.#kernelRouter = new KernelRouter(
       this.#kernelStore,
       this.#kernelQueue,
-      this.#getVat.bind(this),
+      this.#getEndpoint.bind(this),
       this.#invokeKernelService.bind(this),
+      this.#logger,
     );
+
+    const ocapURLIssuerService = Far('serviceObject', {
+      issue: async (obj: SlotValue): Promise<string> => {
+        let kref: string;
+        try {
+          kref = krefOf(obj);
+        } catch {
+          throw Error(`argument must be a remotable`);
+        }
+        return await this.#issueOcapURL(kref);
+      },
+    });
+    this.registerKernelServiceObject(
+      'ocapURLIssuerService',
+      ocapURLIssuerService,
+    );
+
+    const ocapURLRedemptionService = Far('serviceObject', {
+      redeem: async (url: string): Promise<SlotValue> => {
+        return kslot(await this.#redeemOcapURL(url));
+      },
+    });
+    this.registerKernelServiceObject(
+      'ocapURLRedemptionService',
+      ocapURLRedemptionService,
+    );
+
     harden(this);
   }
 
@@ -118,7 +178,7 @@ export class Kernel {
    * Create a new kernel instance.
    *
    * @param commandStream - Command channel from whatever external software is driving the kernel.
-   * @param vatWorkerService - Service to create a worker in which a new vat can run.
+   * @param platformServices - Service to do things the kernel worker can't.
    * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
    * @param options.resetStorage - If true, the storage will be cleared.
@@ -127,7 +187,7 @@ export class Kernel {
    */
   static async make(
     commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
-    vatWorkerService: VatWorkerService,
+    platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
@@ -136,12 +196,17 @@ export class Kernel {
   ): Promise<Kernel> {
     const kernel = new Kernel(
       commandStream,
-      vatWorkerService,
+      platformServices,
       kernelDatabase,
       options,
     );
     await kernel.#init();
     return kernel;
+  }
+
+  async #handleRemoteMessage(from: string, message: string): Promise<string> {
+    const remote = this.#remoteFor(from);
+    return await remote.handleRemoteMessage(message);
   }
 
   /**
@@ -182,6 +247,39 @@ export class Kernel {
       });
   }
 
+  #getRemoteComms(): RemoteComms {
+    if (this.#remoteComms) {
+      return this.#remoteComms;
+    }
+    throw Error(`remote comms not initialized`);
+  }
+
+  async initRemoteComms(): Promise<void> {
+    this.#remoteComms = await initRemoteComms(
+      this.#kernelStore,
+      this.#platformServices,
+      this.#handleRemoteMessage.bind(this),
+    );
+  }
+
+  async sendRemoteMessage(peerId: string, message: string): Promise<void> {
+    await this.#getRemoteComms().sendRemoteMessage(peerId, message);
+  }
+
+  async #redeemOcapURL(url: string): Promise<string> {
+    const { host } = parseOcapURL(url);
+    if (host === this.#getRemoteComms().getPeerId()) {
+      return this.#getRemoteComms().redeemLocalOcapURL(url);
+    }
+    // XXX TODO ignoring hints for now, just use known relay
+    const remote = this.#remoteFor(host);
+    return remote.redeemOcapURL(url);
+  }
+
+  async #issueOcapURL(kref: KRef): Promise<string> {
+    return this.#getRemoteComms().issueOcapURL(kref);
+  }
+
   /**
    * Handle messages received over the command channel.
    *
@@ -214,7 +312,7 @@ export class Kernel {
   }
 
   /**
-   * Launches a new vat.
+   * Launch a new vat.
    *
    * @param vatConfig - Configuration for the new vat.
    * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
@@ -224,12 +322,51 @@ export class Kernel {
     const vatId = this.#kernelStore.getNextVatId();
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
-    const rootRef = this.#kernelStore.exportFromVat(vatId, ROOT_OBJECT_VREF);
+    const rootRef = this.#kernelStore.exportFromEndpoint(
+      vatId,
+      ROOT_OBJECT_VREF,
+    );
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     if (subclusterId) {
       this.#kernelStore.addSubclusterVat(subclusterId, vatId);
     }
     return rootRef;
+  }
+
+  /**
+   * Set up bookkeeping for a newly established remote connection.
+   *
+   * @param peerId - Peer ID of the kernel at the other end of the connection.
+   *
+   * @returns the RemoteHandle that was set up.
+   */
+  #establishRemote(peerId: string): RemoteHandle {
+    const remoteComms = this.#getRemoteComms();
+    const remoteId = this.#kernelStore.getNextRemoteId();
+    this.#kernelStore.initEndpoint(remoteId);
+    const remote = RemoteHandle.make({
+      remoteId,
+      peerId,
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      remoteComms,
+    });
+    this.#remotes.set(remoteId, remote);
+    this.#remotesByPeer.set(peerId, remote);
+    return remote;
+  }
+
+  /**
+   * Get or create a RemoteHandle for a given peer ID.
+   *
+   * @param peerId - The libp2p peer for which a handle is sought.
+   *
+   * @returns an existing or new RemoteHandle to communicate with `peerId`.
+   */
+  #remoteFor(peerId: string): RemoteHandle {
+    const remote =
+      this.#remotesByPeer.get(peerId) ?? this.#establishRemote(peerId);
+    return remote;
   }
 
   /**
@@ -242,7 +379,7 @@ export class Kernel {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const stream = await this.#vatWorkerService.launch(vatId, vatConfig);
+    const stream = await this.#platformServices.launch(vatId, vatConfig);
     const { kernelStream: vatStream, loggerStream } = splitLoggerStream(stream);
     const vatLogger = this.#logger.subLogger({ tags: [vatId] });
     vatLogger.injectStream(
@@ -474,7 +611,7 @@ export class Kernel {
       terminationError = new VatDeletedError(vatId);
     }
 
-    await this.#vatWorkerService
+    await this.#platformServices
       .terminate(vatId, terminationError)
       .catch(this.#logger.error);
     await vat.terminate(terminating, terminationError);
@@ -500,6 +637,31 @@ export class Kernel {
   async clearStorage(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     this.#kernelStore.clear();
+  }
+
+  #getEndpoint(endpointId: EndpointId): EndpointHandle {
+    if (isVatId(endpointId)) {
+      return this.#getVat(endpointId);
+    }
+    if (isRemoteId(endpointId)) {
+      return this.#getRemote(endpointId);
+    }
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    throw Error(`invalid endpoint ID ${endpointId}`);
+  }
+
+  /**
+   * Get a remote.
+   *
+   * @param remoteId - The ID of the remote.
+   * @returns the remote's RemoteHandle.
+   */
+  #getRemote(remoteId: RemoteId): RemoteHandle {
+    const remote = this.#remotes.get(remoteId);
+    if (remote === undefined) {
+      throw Error(`remote not found ${remoteId}`);
+    }
+    return remote;
   }
 
   /**
@@ -636,8 +798,17 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   #resetKernelState(): void {
+    // XXX special case hack so that network address survives restart when testing
+    const keySeed = this.#kernelStore.kv.get('keySeed');
+    const peerId = this.#kernelStore.kv.get('peerId');
+    const ocapURLKey = this.#kernelStore.kv.get('ocapURLKey');
     this.#kernelStore.clear();
     this.#kernelStore.reset();
+    if (keySeed && peerId && ocapURLKey) {
+      this.#kernelStore.kv.set('keySeed', keySeed);
+      this.#kernelStore.kv.set('peerId', peerId);
+      this.#kernelStore.kv.set('ocapURLKey', ocapURLKey);
+    }
   }
 
   /**
@@ -682,6 +853,29 @@ export class Kernel {
     }
   }
 
+  async #egregiousDebugHack(): Promise<void> {
+    if (this.#remoteComms) {
+      // We deliberately use `let` rather than `const` for the URL string. It is
+      // stored in a variable specifically to enable it to be modified in the
+      // debugger.  Unfortunately, we have to jump through some hoops to prevent
+      // the compiler's control flow analysis from removing it -- and the entire
+      // subsequent `if` block that tests it! -- from the generated code. To
+      // this end, the variable `foolTheCompiler` is defined as a global
+      // initialized with one value and then deliberately and gratuitously
+      // modified in the constructor to a different value, because TypeScript
+      // lacks anything like a `volatile` declaration.
+
+      // eslint-disable-next-line prefer-const
+      let url: string = 'nope';
+      // eslint-disable-next-line no-debugger
+      debugger;
+
+      if (url !== foolTheCompiler) {
+        await this.queueMessage('ko3', 'doRunRun', [url]);
+      }
+    }
+  }
+
   /**
    * Gracefully stop the kernel without deleting vats.
    */
@@ -689,7 +883,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     this.#logger.info('Stopping kernel gracefully...');
     await this.#commandStream.end();
-    await this.#vatWorkerService.terminateAll();
+    await this.#platformServices.terminateAll();
     this.#logger.info('Kernel stopped gracefully');
   }
 
@@ -702,10 +896,19 @@ export class Kernel {
       // wait for all vats to be cleaned up
     }
     this.#kernelStore.collectGarbage();
+
+    // XXX REMOVE THIS Stupid debug trick: In order to exercise the remote
+    // connection machinery (in service of attempting to get said machinery to
+    // actually work), we need a way during debugging to trigger the kernel to
+    // try to set up and use a remote connection.  The control panel's 'Collect
+    // Garbage' button turns out to be a super convenient one-click "hey kernel
+    // please do something" hook to parasitize for this purpose.
+    this.#egregiousDebugHack().catch(() => undefined);
   }
 
   registerKernelServiceObject(name: string, service: object): void {
     const kref = this.#kernelStore.initKernelObject('kernel');
+    this.#kernelStore.pinObject(kref);
     const kernelService = { name, kref, service };
     this.#kernelServicesByName.set(name, kernelService);
     this.#kernelServicesByObject.set(kref, kernelService);

@@ -1,7 +1,7 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { makeDefaultExo, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, krefOf } from '@metamask/ocap-kernel';
-import type { SlotValue } from '@metamask/ocap-kernel';
+import type { KRef, SlotValue } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -45,14 +45,15 @@ describe('Kernel service object invocation', () => {
 
     await runTestVats(kernel, testSubcluster);
 
-    // ko1 ::= the (test) service object
-    // ko2 ::= test vat root object
-    // ko3 ::= internal object generated inside test vat to have its kref extracted
+    // ko3 ::= the (test) service object
+    // ko4 ::= test vat root object
+    // ko5 ::= internal object generated inside test vat to have its kref extracted
 
-    await kernel.queueMessage('ko2', 'go', []);
+    const testVatRootObject: KRef = 'ko4';
+    await kernel.queueMessage(testVatRootObject, 'go', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toContain('kernel service returns hello -- ko3');
+    expect(testLogs).toContain('kernel service returns hello -- ko5');
   });
 
   it('configure subcluster with unknown service throws', async () => {
@@ -77,11 +78,12 @@ describe('Kernel service object invocation', () => {
 
     await runTestVats(kernel, testSubcluster);
 
-    // ko1 ::= the (test) service object
-    // ko2 ::= test vat root object
-    // ko3 ::= internal object generated inside test vat to have its kref extracted
+    // ko3 ::= the (test) service object
+    // ko4 ::= test vat root object
+    // ko5 ::= internal object generated inside test vat to have its kref extracted
+    const testVatRootObject: KRef = 'ko4';
 
-    await kernel.queueMessage('ko2', 'goBadly', []);
+    await kernel.queueMessage(testVatRootObject, 'goBadly', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
     expect(testLogs).toContain(

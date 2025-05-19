@@ -38,7 +38,9 @@ export function useKernelActions(): {
       params: [],
     })
       .then(() => logMessage('Garbage collected', 'success'))
-      .catch(() => logMessage('Failed to collect garbage', 'error'));
+      .catch((problem) =>
+        logMessage(`Failed to collect garbage ${problem}`, 'error'),
+      );
   }, [callKernelMethod, logMessage]);
 
   /**

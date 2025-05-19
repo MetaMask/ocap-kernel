@@ -1,5 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import type { KRef } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -99,6 +100,11 @@ const reference = sortLogs([
   ...carolResumeReference,
 ]);
 
+// Vat root objects start with ko3 due to kernel service objects being created before any vats.
+const v1Root: KRef = 'ko3';
+const v2Root: KRef = 'ko4';
+const v3Root: KRef = 'ko5';
+
 describe('restarting vats', async () => {
   it('exercise restart vats individually', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
@@ -112,11 +118,11 @@ describe('restarting vats', async () => {
     await kernel.restartVat('v1');
     await kernel.restartVat('v2');
     await kernel.restartVat('v3');
-    const resumeResultA = await runResume(kernel, 'ko1');
+    const resumeResultA = await runResume(kernel, v1Root);
     expect(resumeResultA).toBe('resume Alice');
-    const resumeResultB = await runResume(kernel, 'ko2');
+    const resumeResultB = await runResume(kernel, v2Root);
     expect(resumeResultB).toBe('resume Bob');
-    const resumeResultC = await runResume(kernel, 'ko3');
+    const resumeResultC = await runResume(kernel, v3Root);
     expect(resumeResultC).toBe('resume Carol');
 
     await waitUntilQuiescent(1000);
@@ -136,11 +142,11 @@ describe('restarting vats', async () => {
     const { logger: logger2, entries: entries2 } = makeTestLogger();
     const kernel2 = await makeKernel(kernelDatabase, false, logger2);
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const resumeResultA = await runResume(kernel2, 'ko1');
+    const resumeResultA = await runResume(kernel2, v1Root);
     expect(resumeResultA).toBe('resume Alice');
-    const resumeResultB = await runResume(kernel2, 'ko2');
+    const resumeResultB = await runResume(kernel2, v2Root);
     expect(resumeResultB).toBe('resume Bob');
-    const resumeResultC = await runResume(kernel2, 'ko3');
+    const resumeResultC = await runResume(kernel2, v3Root);
     expect(resumeResultC).toBe('resume Carol');
     await waitUntilQuiescent(1000);
     const vatLogs = extractTestLogs(

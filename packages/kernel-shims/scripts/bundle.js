@@ -11,7 +11,7 @@ import { rimraf } from 'rimraf';
 
 console.log('Bundling shims...');
 
-const shims = ['endoify.js', 'eventual-send.js'];
+const shims = ['endoify.js', 'endoify-repair.js', 'eventual-send.js'];
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const srcDir = path.resolve(rootDir, 'src');

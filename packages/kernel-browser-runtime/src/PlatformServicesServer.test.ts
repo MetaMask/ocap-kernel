@@ -6,17 +6,20 @@ import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
+import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcRequest } from '@metamask/utils';
-import { makeMockMessageTarget } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { VatWorkerServer } from './VatWorkerServer.ts';
-import type { VatWorker, VatWorkerServiceStream } from './VatWorkerServer.ts';
+import { PlatformServicesServer } from './PlatformServicesServer.ts';
+import type {
+  VatWorker,
+  PlatformServicesStream,
+} from './PlatformServicesServer.ts';
 
 vi.mock('@metamask/ocap-kernel', () => ({
-  VatWorkerServiceCommandMethod: {
+  PlatformServicesCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',
     terminateAll: 'terminateAll',
@@ -60,7 +63,7 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
     params: [],
   });
 
-describe('VatWorkerServer', () => {
+describe('PlatformServicesServer', () => {
   let cleanup: (() => Promise<void>)[] = [];
 
   beforeEach(() => {
@@ -81,16 +84,20 @@ describe('VatWorkerServer', () => {
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     await stream.synchronize();
-    const server = new VatWorkerServer(
-      stream as unknown as VatWorkerServiceStream,
+    const server = new PlatformServicesServer(
+      stream as unknown as PlatformServicesStream,
       () => ({}) as unknown as VatWorker,
     );
     expect(server).toBeDefined();
   });
 
   it('constructs using static factory method', async () => {
-    const server = await VatWorkerServer.make(
-      makeMockMessageTarget(),
+    const server = await PlatformServicesServer.make(
+      {
+        postMessage: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      } as unknown as PostMessageTarget,
       () => ({}) as unknown as VatWorker,
     );
     expect(server).toBeDefined();
@@ -100,6 +107,7 @@ describe('VatWorkerServer', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
+    //let server: PlatformServicesServer;
 
     const makeMockVatWorker = (
       _id: string,
@@ -126,8 +134,8 @@ describe('VatWorkerServer', () => {
       stream = await TestDuplexStream.make(() => undefined);
       await stream.synchronize();
       // eslint-disable-next-line no-new
-      new VatWorkerServer(
-        stream as unknown as VatWorkerServiceStream,
+      new PlatformServicesServer(
+        stream as unknown as PlatformServicesStream,
         makeMockVatWorker,
         logger,
       );

@@ -78,6 +78,7 @@ test.describe('Object Registry', () => {
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
+    console.log('options', options);
     await expect(options).toHaveCount(await options.count());
     expect(await options.count()).toBeGreaterThan(0);
     await targetSelect.selectOption({ index: 1 });
@@ -92,7 +93,7 @@ test.describe('Object Registry', () => {
     );
     await expect(messageResponse).toBeVisible();
     await expect(messageResponse).toContainText(
-      '"body":"#[\\"__getInterfaceGuard__\\",\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
+      '"body":"#[\\"__getInterfaceGuard__\\",\\"__getMethodNames__\\",\\"bootstrap\\",\\"doRunRun\\",\\"hello\\"]"',
     );
     await expect(messageResponse).toContainText('"slots":[]');
     await clearLogsButton.click();
@@ -108,7 +109,8 @@ test.describe('Object Registry', () => {
 
   test('should revoke an object', async () => {
     const owner = 'v1';
-    const [target, method, params] = ['ko1', 'hello', '["Bob"]'];
+    const v1Root = 'ko3';
+    const [target, method, params] = [v1Root, 'hello', '["Bob"]'];
 
     // Before revoking, we should be able to send a message to the object
     let response = await sendMessage(popupPage, target, method, params);

@@ -1,4 +1,4 @@
-import '@metamask/kernel-shims/endoify';
+import '../env/endoify.ts';
 
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
@@ -10,7 +10,7 @@ import { getTestWorkerFile } from '../../test/get-test-worker.ts';
 
 const { makePromiseKit } = makePromiseKitMock();
 
-describe('NodejsVatWorkerService', () => {
+describe('NodejsPlatformServices', () => {
   let testWorkerFile: string;
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;

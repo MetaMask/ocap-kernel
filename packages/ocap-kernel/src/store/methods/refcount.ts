@@ -158,7 +158,6 @@ export function getRefCountMethods(ctx: StoreContext) {
     }
     ctx.logger?.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
-    ctx.kv.set('initialized', 'true');
     return false;
   }
 

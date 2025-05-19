@@ -1,14 +1,18 @@
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './VatHandle.ts';
 export { VatSupervisor } from './VatSupervisor.ts';
+export { initNetwork } from './network.ts';
 export type {
   ClusterConfig,
   KRef,
   Message,
   VatId,
-  VatWorkerService,
+  RemoteMessageHandler,
+  PlatformServices,
   VatConfig,
   KernelStatus,
+  SendRemoteMessage,
+  RemoteComms,
   Subcluster,
   SubclusterId,
 } from './types.ts';
