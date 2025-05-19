@@ -1,3 +1,4 @@
+export * from './rpc-handlers/index.ts';
 export {
   establishKernelConnection,
   receiveUiConnections,

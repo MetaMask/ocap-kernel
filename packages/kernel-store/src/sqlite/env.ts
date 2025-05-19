@@ -7,5 +7,5 @@
  * @returns The configured DB folder or an empty string
  */
 export function getDBFolder(): string {
-  return import.meta.env.VITE_DB_FOLDER ?? '';
+  return import.meta.env?.VITE_DB_FOLDER ?? '';
 }

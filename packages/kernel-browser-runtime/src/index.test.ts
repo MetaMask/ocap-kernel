@@ -10,6 +10,8 @@ describe('index', () => {
       'establishKernelConnection',
       'makeIframeVatWorker',
       'receiveUiConnections',
+      'rpcHandlers',
+      'rpcMethodSpecs',
     ]);
   });
 });

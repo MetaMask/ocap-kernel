@@ -17,7 +17,7 @@
     { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" }
   ],
-  "files": [],
+  "files": ["./src/default-cluster.json"],
   "include": ["./src"],
   "exclude": [
     "**/vite.config.ts",

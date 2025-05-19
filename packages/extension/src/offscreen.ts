@@ -1,3 +1,7 @@
+import {
+  makeIframeVatWorker,
+  VatWorkerServer,
+} from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -10,9 +14,6 @@ import {
 import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { isJsonRpcResponse } from '@metamask/utils';
-
-import { makeIframeVatWorker } from './kernel-integration/iframe-vat-worker.ts';
-import { ExtensionVatWorkerService } from './kernel-integration/VatWorkerServer.ts';
 
 const logger = new Logger('offscreen');
 
@@ -48,9 +49,9 @@ async function main(): Promise<void> {
  */
 async function makeKernelWorker(): Promise<{
   kernelStream: DuplexStream<JsonRpcResponse, JsonRpcCall>;
-  vatWorkerService: ExtensionVatWorkerService;
+  vatWorkerService: VatWorkerServer;
 }> {
-  const worker = new Worker('kernel-worker.js', { type: 'module' });
+  const worker = new Worker('kernel-worker/index.mjs', { type: 'module' });
 
   const port = await initializeMessageChannel((message, transfer) =>
     worker.postMessage(message, transfer),
@@ -61,16 +62,16 @@ async function makeKernelWorker(): Promise<{
     JsonRpcCall
   >(port, isJsonRpcResponse);
 
-  const vatWorkerService = ExtensionVatWorkerService.make(
+  const vatWorkerService = VatWorkerServer.make(
     worker as PostMessageTarget,
     (vatId) =>
-      makeIframeVatWorker(
-        vatId,
-        initializeMessageChannel,
-        logger.subLogger({
+      makeIframeVatWorker({
+        id: vatId,
+        getPort: initializeMessageChannel,
+        logger: logger.subLogger({
           tags: ['iframe-vat-worker', vatId],
         }),
-      ),
+      }),
   );
 
   return {

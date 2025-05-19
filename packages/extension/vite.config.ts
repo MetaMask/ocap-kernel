@@ -8,6 +8,7 @@ import { defineConfig } from 'vite';
 import type { Plugin as VitePlugin } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import type { Target } from 'vite-plugin-static-copy';
 
 import {
   sourceDir,
@@ -22,12 +23,17 @@ import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.ts';
  * Files that need to be statically copied to the destination directory.
  * Paths are relative from the project root directory.
  */
-const staticCopyTargets: readonly string[] = [
+const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
   'manifest.json',
   // External modules
   'env/dev-console.js',
   '../../kernel-shims/dist/endoify.js',
+  {
+    src: '../../kernel-browser-runtime/dist/kernel-worker/*',
+    dest: './kernel-worker',
+    // rename: 'kernel-worker.js',
+  },
   // Trusted preludes
   ...new Set(Object.values(trustedPreludes)),
 ];
@@ -49,10 +55,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
-          'kernel-worker': path.resolve(
-            sourceDir,
-            'kernel-integration/kernel-worker.ts',
-          ),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
           iframe: path.resolve(sourceDir, 'iframe.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
@@ -76,7 +78,9 @@ export default defineConfig(({ mode }) => {
       htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
-        targets: staticCopyTargets.map((src) => ({ src, dest: './' })),
+        targets: staticCopyTargets.map((src) =>
+          typeof src === 'string' ? { src, dest: './' } : src,
+        ),
         watch: { reloadPageOnChange: true },
         silent: isDev,
       }),

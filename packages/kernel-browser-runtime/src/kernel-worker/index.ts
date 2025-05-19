@@ -1,10 +1,9 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { fetchValidatedJson, isJsonRpcCall } from '@metamask/kernel-utils';
+import { isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
-import { ClusterConfigStruct, Kernel } from '@metamask/ocap-kernel';
+import { Kernel } from '@metamask/ocap-kernel';
 import type { PostMessageTarget } from '@metamask/streams/browser';
 import {
   MessagePortDuplexStream,
@@ -12,6 +11,7 @@ import {
 } from '@metamask/streams/browser';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
+import defaultSubcluster from '../default-cluster.json';
 import { receiveUiConnections } from '../ui-connections.ts';
 import { VatWorkerClient } from '../VatWorkerClient.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
@@ -69,11 +69,6 @@ async function main(): Promise<void> {
     logger,
   });
   const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
-
-  const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
-    new URL('../vats/default-cluster.json', import.meta.url).href,
-    ClusterConfigStruct,
-  );
 
   await Promise.all([
     vatWorkerClient.start(),

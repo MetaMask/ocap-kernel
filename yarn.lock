@@ -2007,7 +2007,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/kernel-browser-runtime@workspace:packages/kernel-browser-runtime":
+"@metamask/kernel-browser-runtime@workspace:^, @metamask/kernel-browser-runtime@workspace:packages/kernel-browser-runtime":
   version: 0.0.0-use.local
   resolution: "@metamask/kernel-browser-runtime@workspace:packages/kernel-browser-runtime"
   dependencies:
@@ -3004,18 +3004,13 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
-    "@metamask/json-rpc-engine": "npm:^10.0.3"
-    "@metamask/kernel-errors": "workspace:^"
+    "@metamask/kernel-browser-runtime": "workspace:^"
     "@metamask/kernel-rpc-methods": "workspace:^"
     "@metamask/kernel-shims": "workspace:^"
-    "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
-    "@metamask/rpc-errors": "npm:^7.0.2"
-    "@metamask/snaps-utils": "npm:^9.1.0"
     "@metamask/streams": "workspace:^"
-    "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.4.0"
     "@ocap/cli": "workspace:^"
     "@ocap/test-utils": "workspace:^"
@@ -3043,7 +3038,6 @@ __metadata:
     eslint-plugin-prettier: "npm:^5.2.6"
     eslint-plugin-promise: "npm:^7.2.1"
     jsdom: "npm:^26.0.0"
-    nanoid: "npm:^5.1.5"
     playwright: "npm:^1.51.1"
     prettier: "npm:^3.5.3"
     react: "npm:^18.3.1"

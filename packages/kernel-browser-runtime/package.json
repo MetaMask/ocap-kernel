@@ -30,12 +30,7 @@
       }
     },
     "./package.json": "./package.json",
-    "./kernel-worker": {
-      "import": {
-        "types": "./dist/kernel-worker/index.d.mts",
-        "default": "./dist/kernel-worker/index.mjs"
-      }
-    }
+    "./default-cluster": "./dist/default-cluster.json"
   },
   "module": "./dist/index.mjs",
   "main": "./dist/index.cjs",

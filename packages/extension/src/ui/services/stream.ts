@@ -1,3 +1,8 @@
+import {
+  rpcMethodSpecs,
+  establishKernelConnection,
+} from '@metamask/kernel-browser-runtime';
+import type { KernelControlMethod } from '@metamask/kernel-browser-runtime';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type {
   ExtractParams,
@@ -5,14 +10,11 @@ import type {
 } from '@metamask/kernel-rpc-methods';
 
 import { logger } from './logger.ts';
-import { methodSpecs } from '../../kernel-integration/handlers/index.ts';
-import type { KernelControlMethod } from '../../kernel-integration/handlers/index.ts';
-import { establishKernelConnection } from '../../kernel-integration/ui-connections.ts';
 
 export type CallKernelMethod = <Method extends KernelControlMethod>(command: {
   method: Method;
-  params: ExtractParams<Method, typeof methodSpecs>;
-}) => Promise<ExtractResult<Method, typeof methodSpecs>>;
+  params: ExtractParams<Method, typeof rpcMethodSpecs>;
+}) => Promise<ExtractResult<Method, typeof rpcMethodSpecs>>;
 
 /**
  * Setup the stream for sending and receiving messages.
@@ -22,10 +24,10 @@ export type CallKernelMethod = <Method extends KernelControlMethod>(command: {
 export async function setupStream(): Promise<{
   callKernelMethod: CallKernelMethod;
 }> {
-  const kernelStream = await establishKernelConnection(logger);
+  const kernelStream = await establishKernelConnection({ logger });
 
   const rpcClient = new RpcClient(
-    methodSpecs,
+    rpcMethodSpecs,
     async (request) => {
       await kernelStream.write(request);
     },

@@ -20,14 +20,15 @@
     ]
   },
   "references": [
-    { "path": "../ocap-kernel" },
-    { "path": "../logger" },
+    { "path": "../kernel-browser-runtime" },
     { "path": "../kernel-rpc-methods" },
     { "path": "../kernel-shims" },
     { "path": "../kernel-store" },
+    { "path": "../kernel-utils" },
+    { "path": "../logger" },
+    { "path": "../ocap-kernel" },
     { "path": "../streams" },
-    { "path": "../test-utils" },
-    { "path": "../kernel-utils" }
+    { "path": "../test-utils" }
   ],
   "include": [
     "../../vitest.config.ts",
