@@ -67,7 +67,7 @@ describe('kernel store', () => {
         'enqueuePromiseMessage',
         'enqueueRun',
         'erefToKref',
-        'exportFromVat',
+        'exportFromEndpoint',
         'forgetEref',
         'forgetKref',
         'forgetTerminatedVat',

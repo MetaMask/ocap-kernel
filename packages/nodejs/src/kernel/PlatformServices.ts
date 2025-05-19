@@ -2,7 +2,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatWorkerService, VatId } from '@metamask/ocap-kernel';
+import type { PlatformServices, VatId } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -14,7 +14,7 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
-export class NodejsVatWorkerService implements VatWorkerService {
+export class NodejsPlatformServices implements PlatformServices {
   readonly #logger: Logger;
 
   readonly #workerFilePath: string;
@@ -86,5 +86,16 @@ export class NodejsVatWorkerService implements VatWorkerService {
       await this.terminate(vatId);
     }
   }
+
+  async sendRemoteMessage(_from: string, _message: string): Promise<void> {
+    // XXX TODO
+  }
+
+  async initializeRemoteComms(
+    _keySeed: string,
+    _knownRelays: string[],
+  ): Promise<void> {
+    // XXX TODO
+  }
 }
-harden(NodejsVatWorkerService);
+harden(NodejsPlatformServices);

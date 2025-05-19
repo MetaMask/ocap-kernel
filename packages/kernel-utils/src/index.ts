@@ -17,3 +17,4 @@ export {
 } from './types.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { waitUntilQuiescent } from './wait-quiescent.ts';
+export { fromHex, toHex } from './hex.ts';

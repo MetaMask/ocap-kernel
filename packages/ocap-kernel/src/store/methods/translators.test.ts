@@ -16,7 +16,7 @@ describe('getTranslators', () => {
   const mockKrefToEref = vi.fn();
   const mockErefToKref = vi.fn();
   const mockAllocateErefForKref = vi.fn();
-  const mockExportFromVat = vi.fn();
+  const mockExportFromEndpoint = vi.fn();
   const mockCtx = {} as StoreContext;
 
   beforeEach(() => {
@@ -29,7 +29,7 @@ describe('getTranslators', () => {
     } as unknown as ReturnType<typeof clistModule.getCListMethods>);
 
     vi.spyOn(vatModule, 'getVatMethods').mockReturnValue({
-      exportFromVat: mockExportFromVat,
+      exportFromEndpoint: mockExportFromEndpoint,
     } as unknown as ReturnType<typeof vatModule.getVatMethods>);
   });
 
@@ -185,7 +185,7 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      mockExportFromVat.mockImplementation((_vId, vr) => {
+      mockExportFromEndpoint.mockImplementation((_vId, vr) => {
         return `exported-${vr}`;
       });
     });

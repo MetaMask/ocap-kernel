@@ -92,9 +92,9 @@ export function getGCMethods(ctx: StoreContext) {
   function nextReapAction(): RunQueueItemBringOutYourDead | undefined {
     const queue = JSON.parse(ctx.reapQueue.get() ?? '[]');
     if (queue.length > 0) {
-      const vatId = queue.shift();
+      const endpointId = queue.shift();
       ctx.reapQueue.set(JSON.stringify(queue));
-      return harden({ type: 'bringOutYourDead', vatId });
+      return harden({ type: 'bringOutYourDead', endpointId });
     }
     return undefined;
   }

@@ -12,7 +12,7 @@ import { Kernel } from './Kernel.ts';
 import type {
   VatId,
   VatConfig,
-  VatWorkerService,
+  PlatformServices,
   ClusterConfig,
 } from './types.ts';
 import { VatHandle } from './VatHandle.ts';
@@ -63,7 +63,7 @@ const makeMockClusterConfig = (): ClusterConfig => ({
 
 describe('Kernel', () => {
   let mockStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>;
-  let mockWorkerService: VatWorkerService;
+  let mockPlatformServices: PlatformServices;
   let launchWorkerMock: MockInstance;
   let terminateWorkerMock: MockInstance;
   let makeVatHandleMock: MockInstance;
@@ -76,21 +76,21 @@ describe('Kernel', () => {
       dummyDispatch,
     );
 
-    mockWorkerService = {
+    mockPlatformServices = {
       launch: async () =>
         ({}) as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
-    } as unknown as VatWorkerService;
+    } as unknown as PlatformServices;
 
     launchWorkerMock = vi
-      .spyOn(mockWorkerService, 'launch')
+      .spyOn(mockPlatformServices, 'launch')
       .mockResolvedValue({ end: vi.fn() } as unknown as DuplexStream<
         JsonRpcMessage,
         JsonRpcMessage
       >);
     terminateWorkerMock = vi
-      .spyOn(mockWorkerService, 'terminate')
+      .spyOn(mockPlatformServices, 'terminate')
       .mockResolvedValue(undefined);
 
     vatHandles = [];
@@ -119,7 +119,11 @@ describe('Kernel', () => {
     it('initializes the kernel without errors', async () => {
       expect(
         async () =>
-          await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase),
+          await Kernel.make(
+            mockStream,
+            mockPlatformServices,
+            mockKernelDatabase,
+          ),
       ).not.toThrow();
     });
 
@@ -127,7 +131,7 @@ describe('Kernel', () => {
       const db = makeMapKernelDatabase();
       db.kernelKVStore.set('foo', 'bar');
       // Create with resetStorage should clear existing keys
-      await Kernel.make(mockStream, mockWorkerService, db, {
+      await Kernel.make(mockStream, mockPlatformServices, db, {
         resetStorage: true,
       });
       expect(db.kernelKVStore.get('foo')).toBeUndefined();
@@ -138,7 +142,7 @@ describe('Kernel', () => {
     it('initializes the kernel store', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -157,14 +161,14 @@ describe('Kernel', () => {
       } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
       await Kernel.make(
         customMockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       expect(drainHandler).toBeInstanceOf(Function);
     });
 
     it('initializes and starts the kernel queue', async () => {
-      await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase);
+      await Kernel.make(mockStream, mockPlatformServices, mockKernelDatabase);
       const queueInstance = mocks.KernelQueue.lastInstance;
       expect(queueInstance.run).toHaveBeenCalledTimes(1);
     });
@@ -178,21 +182,25 @@ describe('Kernel', () => {
         write: vi.fn().mockResolvedValue(undefined),
       } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
       await expect(
-        Kernel.make(throwingMockStream, mockWorkerService, mockKernelDatabase),
+        Kernel.make(
+          throwingMockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        ),
       ).rejects.toThrow('Stream error');
     });
 
     it('recovers vats from persistent storage on startup', async () => {
       const db = makeMapKernelDatabase();
       // Launch initial kernel and vat
-      const kernel1 = await Kernel.make(mockStream, mockWorkerService, db);
+      const kernel1 = await Kernel.make(mockStream, mockPlatformServices, db);
       await kernel1.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel1.getVatIds()).toStrictEqual(['v1']);
       // Clear spies
       launchWorkerMock.mockClear();
       makeVatHandleMock.mockClear();
       // New kernel should recover existing vat
-      const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
+      const kernel2 = await Kernel.make(mockStream, mockPlatformServices, db);
       expect(launchWorkerMock).toHaveBeenCalledTimes(1);
       expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
       expect(kernel2.getVatIds()).toStrictEqual(['v1']);
@@ -203,7 +211,7 @@ describe('Kernel', () => {
     it('should reload all subclusters', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -222,7 +230,7 @@ describe('Kernel', () => {
     it('should handle empty subclusters gracefully', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const result = await kernel.reload();
@@ -234,7 +242,7 @@ describe('Kernel', () => {
     it('enqueues a message and returns the result', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -247,7 +255,7 @@ describe('Kernel', () => {
     it('launches a subcluster according to config', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -262,7 +270,7 @@ describe('Kernel', () => {
     it('throws an error for invalid configs', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       // @ts-expect-error Intentionally passing invalid config
@@ -274,7 +282,7 @@ describe('Kernel', () => {
     it('throws an error when bootstrap vat name is invalid', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const invalidConfig = {
@@ -293,7 +301,7 @@ describe('Kernel', () => {
     it('returns the bootstrap message result when bootstrap vat is specified', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -306,7 +314,7 @@ describe('Kernel', () => {
     it('terminates all vats in a subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = {
@@ -331,7 +339,7 @@ describe('Kernel', () => {
     it('throws when terminating non-existent subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await expect(kernel.terminateSubcluster('non-existent')).rejects.toThrow(
@@ -344,7 +352,7 @@ describe('Kernel', () => {
     it('returns subcluster by id', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -362,7 +370,7 @@ describe('Kernel', () => {
     it('returns undefined for non-existent subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       expect(kernel.getSubcluster('non-existent')).toBeUndefined();
@@ -373,7 +381,7 @@ describe('Kernel', () => {
     it('correctly identifies vat membership in subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -392,7 +400,7 @@ describe('Kernel', () => {
     it('returns all vat IDs in a subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = {
@@ -417,7 +425,7 @@ describe('Kernel', () => {
     it('reloads a specific subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -435,7 +443,7 @@ describe('Kernel', () => {
     it('throws when reloading non-existent subcluster', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await expect(kernel.reloadSubcluster('non-existent')).rejects.toThrow(
@@ -448,7 +456,7 @@ describe('Kernel', () => {
     it('clears the kernel storage', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const clearSpy = vi.spyOn(mockKernelDatabase, 'clear');
@@ -461,7 +469,7 @@ describe('Kernel', () => {
     it('returns an empty array when no vats are added', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       expect(kernel.getVats()).toStrictEqual([]);
@@ -470,7 +478,7 @@ describe('Kernel', () => {
     it('returns vat information after adding vats', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeSingleVatClusterConfig();
@@ -489,7 +497,7 @@ describe('Kernel', () => {
     it('includes subcluster information for vats in subclusters', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -508,7 +516,7 @@ describe('Kernel', () => {
     it('returns an empty array when no vats are added', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       expect(kernel.getVatIds()).toStrictEqual([]);
@@ -517,7 +525,7 @@ describe('Kernel', () => {
     it('returns the vat IDs after adding a vat', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -527,7 +535,7 @@ describe('Kernel', () => {
     it('returns multiple vat IDs after adding multiple vats', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -540,7 +548,7 @@ describe('Kernel', () => {
     it('returns the current kernel status', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const status = kernel.getStatus();
@@ -553,7 +561,7 @@ describe('Kernel', () => {
     it('includes vats and subclusters in status', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeMockClusterConfig();
@@ -569,7 +577,7 @@ describe('Kernel', () => {
     it('adds a vat to the kernel without errors when no vat with the same ID exists', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -581,7 +589,7 @@ describe('Kernel', () => {
     it('adds multiple vats to the kernel without errors when no vat with the same ID exists', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -596,7 +604,7 @@ describe('Kernel', () => {
     it('deletes a vat from the kernel without errors when the vat exists', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -610,7 +618,7 @@ describe('Kernel', () => {
     it('throws an error when deleting a vat that does not exist in the kernel', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const nonExistentVatId: VatId = 'v9';
@@ -623,7 +631,7 @@ describe('Kernel', () => {
     it('throws an error when a vat terminate method throws', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -637,11 +645,11 @@ describe('Kernel', () => {
   describe('terminateAllVats()', () => {
     it('deletes all vats from the kernel without errors', async () => {
       const workerTerminateMock = vi
-        .spyOn(mockWorkerService, 'terminate')
+        .spyOn(mockPlatformServices, 'terminate')
         .mockResolvedValue(undefined);
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -660,7 +668,7 @@ describe('Kernel', () => {
     it('preserves vat state across multiple restarts', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -682,7 +690,7 @@ describe('Kernel', () => {
     it('restarts a vat', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -702,7 +710,7 @@ describe('Kernel', () => {
     it('throws error when restarting non-existent vat', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await expect(kernel.restartVat('v999')).rejects.toThrow(VatNotFoundError);
@@ -713,7 +721,7 @@ describe('Kernel', () => {
     it('handles restart failure during termination', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -729,7 +737,7 @@ describe('Kernel', () => {
     it('handles restart failure during launch', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -742,7 +750,7 @@ describe('Kernel', () => {
     it('returns the original vat handle', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -756,7 +764,7 @@ describe('Kernel', () => {
     it('pings a vat without errors when the vat exists', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -769,7 +777,7 @@ describe('Kernel', () => {
     it('throws an error when pinging a vat that does not exist in the kernel', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const nonExistentVatId: VatId = 'v9';
@@ -781,7 +789,7 @@ describe('Kernel', () => {
     it('propagates errors from the vat ping method', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -795,7 +803,11 @@ describe('Kernel', () => {
     it('terminates all vats and resets kernel state', async () => {
       const mockDb = makeMapKernelDatabase();
       const clearSpy = vi.spyOn(mockDb, 'clear');
-      const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockPlatformServices,
+        mockDb,
+      );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
@@ -806,9 +818,12 @@ describe('Kernel', () => {
       const mockDb = makeMapKernelDatabase();
       const logger = new Logger('test');
       const logErrorSpy = vi.spyOn(logger, 'error');
-      const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb, {
-        logger,
-      });
+      const kernel = await Kernel.make(
+        mockStream,
+        mockPlatformServices,
+        mockDb,
+        { logger },
+      );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
 
       vi.spyOn(mockDb, 'clear').mockImplementationOnce(() => {
@@ -826,7 +841,7 @@ describe('Kernel', () => {
     it('reflect when an object is revoked', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -838,7 +853,7 @@ describe('Kernel', () => {
     it('throws when revoking a promise', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
@@ -850,7 +865,7 @@ describe('Kernel', () => {
     it('pins and unpins a vat root correctly', async () => {
       const kernel = await Kernel.make(
         mockStream,
-        mockWorkerService,
+        mockPlatformServices,
         mockKernelDatabase,
       );
       const config = makeSingleVatClusterConfig();

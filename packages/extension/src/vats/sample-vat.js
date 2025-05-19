@@ -12,10 +12,20 @@ import { Far } from '@endo/marshal';
 export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   console.log(`buildRootObject "${name}"`);
+  let redeemer;
 
   return Far('root', {
-    async bootstrap(vats) {
+    async bootstrap(vats, services) {
       console.log(`vat ${name} is bootstrap`);
+      const issuer = services.ocapURLIssuerService;
+      redeemer = services.ocapURLRedemptionService;
+      console.log(`in bootstrap redeemer=${redeemer}`);
+      if (issuer) {
+        const url = await E(issuer).issue(vats.bob);
+        console.log(`url for bob: ${url}`);
+      } else {
+        console.log(`no ocapURLIssuerService found`);
+      }
       const pb = E(vats.bob).hello(name);
       const pc = E(vats.carol).hello(name);
       console.log(`vat ${name} got "hello" answer from Bob: '${await pb}'`);
@@ -25,6 +35,16 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       const message = `vat ${name} got "hello" from ${from}`;
       console.log(message);
       return message;
+    },
+    async doRunRun(url) {
+      console.log(`in doRunRun redeemer=${redeemer}`);
+      if (redeemer) {
+        const remote = await E(redeemer).redeem(url);
+        console.log(`redeemed ${url} successfully (?)`);
+        await E(remote).hello(`remote ${name}`);
+      } else {
+        console.log('no ocapURLRedemptionService found');
+      }
     },
   });
 }

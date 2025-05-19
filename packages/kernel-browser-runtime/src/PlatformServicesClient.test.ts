@@ -7,8 +7,8 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { VatWorkerClientStream } from './VatWorkerClient.ts';
-import { VatWorkerClient } from './VatWorkerClient.ts';
+import type { PlatformServicesClientStream } from './PlatformServicesClient.ts';
+import { PlatformServicesClient } from './PlatformServicesClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -54,14 +54,16 @@ const makeNullReply = (messageId: `m${number}`): MessageEvent =>
     result: null,
   });
 
-describe('VatWorkerClient', () => {
+describe('PlatformServicesClient', () => {
   it('constructs with default logger', () => {
-    const client = new VatWorkerClient({} as unknown as VatWorkerClientStream);
+    const client = new PlatformServicesClient(
+      {} as unknown as PlatformServicesClientStream,
+    );
     expect(client).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
-    const client = VatWorkerClient.make({
+    const client = PlatformServicesClient.make({
       postMessage: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -72,13 +74,13 @@ describe('VatWorkerClient', () => {
   describe('message handling', () => {
     let stream: TestDuplexStream;
     let clientLogger: Logger;
-    let client: VatWorkerClient;
+    let client: PlatformServicesClient;
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
       clientLogger = new Logger('test-client');
-      client = new VatWorkerClient(
-        stream as unknown as VatWorkerClientStream,
+      client = new PlatformServicesClient(
+        stream as unknown as PlatformServicesClientStream,
         clientLogger,
       );
       client.start().catch((error) => {

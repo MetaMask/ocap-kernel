@@ -12,11 +12,14 @@ import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { VatWorkerServer } from './VatWorkerServer.ts';
-import type { VatWorker, VatWorkerServiceStream } from './VatWorkerServer.ts';
+import { PlatformServicesServer } from './PlatformServicesServer.ts';
+import type {
+  VatWorker,
+  PlatformServicesStream,
+} from './PlatformServicesServer.ts';
 
 vi.mock('@metamask/ocap-kernel', () => ({
-  VatWorkerServiceCommandMethod: {
+  PlatformServicesCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',
     terminateAll: 'terminateAll',
@@ -60,7 +63,7 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
     params: [],
   });
 
-describe('VatWorkerServer', () => {
+describe('PlatformServicesServer', () => {
   let cleanup: (() => Promise<void>)[] = [];
 
   beforeEach(() => {
@@ -81,15 +84,15 @@ describe('VatWorkerServer', () => {
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     expect(
-      new VatWorkerServer(
-        stream as unknown as VatWorkerServiceStream,
+      new PlatformServicesServer(
+        stream as unknown as PlatformServicesStream,
         () => ({}) as unknown as VatWorker,
       ),
     ).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
-    const server = VatWorkerServer.make(
+    const server = PlatformServicesServer.make(
       {
         postMessage: vi.fn(),
         addEventListener: vi.fn(),
@@ -104,7 +107,7 @@ describe('VatWorkerServer', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
-    let server: VatWorkerServer;
+    let server: PlatformServicesServer;
 
     const makeMockVatWorker = (
       _id: string,
@@ -129,8 +132,8 @@ describe('VatWorkerServer', () => {
       workers = [];
       logger = new Logger('test-server');
       stream = await TestDuplexStream.make(() => undefined);
-      server = new VatWorkerServer(
-        stream as unknown as VatWorkerServiceStream,
+      server = new PlatformServicesServer(
+        stream as unknown as PlatformServicesStream,
         makeMockVatWorker,
         logger,
       );

@@ -6,8 +6,8 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
-import { insistVatId } from '../../types.ts';
-import type { EndpointId, KRef, VatConfig, VatId, VRef } from '../../types.ts';
+import { insistEndpointId } from '../../types.ts';
+import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { parseReachableAndVatSlot } from '../utils/reachable.ts';
@@ -32,8 +32,12 @@ export function getVatMethods(ctx: StoreContext) {
   const { getPrefixedKeys, getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
   const { deleteCListEntry } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
-  const { initKernelPromise, setPromiseDecider, getKernelPromise } =
-    getPromiseMethods(ctx);
+  const {
+    initKernelPromise,
+    setPromiseDecider,
+    getKernelPromise,
+    addPromiseSubscriber,
+  } = getPromiseMethods(ctx);
   const { initKernelObject } = getObjectMethods(ctx);
   const { addCListEntry } = getCListMethods(ctx);
   const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
@@ -316,31 +320,34 @@ export function getVatMethods(ctx: StoreContext) {
   }
 
   /**
-   * Create the kernel's representation of an export from a vat.
+   * Create the kernel's representation of an export from an endpoint.
    *
-   * @param vatId - The vat doing the exporting.
-   * @param vref - The vat's ref for the entity in question.
+   * @param endpointId - The endpoint doing the exporting.
+   * @param eref - The endpoint's ref for the entity in question.
    *
-   * @returns the kref corresponding to the export of `vref` from `vatId`.
+   * @returns the kref corresponding to the export of `eref` from `endpointId`.
    */
-  function exportFromVat(vatId: VatId, vref: VRef): KRef {
-    insistVatId(vatId);
-    const { isPromise, context, direction } = parseRef(vref);
-    assert(context === 'vat', `${vref} is not a VRef`);
-    assert(direction === 'export', `${vref} is not an export reference`);
+  function exportFromEndpoint(endpointId: EndpointId, eref: ERef): KRef {
+    insistEndpointId(endpointId);
+    const { isPromise, context, direction } = parseRef(eref);
+    assert(context === 'vat' || context === 'remote', `${eref} is not an ERef`);
+    assert(direction === 'export', `${eref} is not an export reference`);
     let kref;
     if (isPromise) {
       kref = initKernelPromise()[0];
-      setPromiseDecider(kref, vatId);
+      setPromiseDecider(kref, endpointId);
     } else {
-      kref = initKernelObject(vatId);
+      kref = initKernelObject(endpointId);
     }
-    addCListEntry(vatId, kref, vref);
+    addCListEntry(endpointId, kref, eref);
     incrementRefCount(kref, 'export', {
       isExport: true,
       onlyRecognizable: true,
     });
-    ctx.logger?.debug('exportFromVat', vatId, vref, kref);
+    ctx.logger?.debug('exportFromEndpoint', endpointId, eref, kref);
+    if (context === 'remote' && isPromise) {
+      addPromiseSubscriber(endpointId, kref);
+    }
     return kref;
   }
 
@@ -359,7 +366,7 @@ export function getVatMethods(ctx: StoreContext) {
     isVatTerminated,
     cleanupTerminatedVat,
     nextTerminatedVatCleanup,
-    exportFromVat,
     isVatActive,
+    exportFromEndpoint,
   };
 }

@@ -1,6 +1,6 @@
 import {
   makeIframeVatWorker,
-  VatWorkerServer,
+  PlatformServicesServer,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
@@ -32,11 +32,11 @@ async function main(): Promise<void> {
     JsonRpcResponse
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcCall);
 
-  const { kernelStream, vatWorkerService } = await makeKernelWorker();
+  const { kernelStream, platformServices } = await makeKernelWorker();
 
   // Handle messages from the background script / kernel
   await Promise.all([
-    vatWorkerService.start(),
+    platformServices.start(),
     kernelStream.pipe(backgroundStream),
     backgroundStream.pipe(kernelStream),
   ]);
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
  */
 async function makeKernelWorker(): Promise<{
   kernelStream: DuplexStream<JsonRpcResponse, JsonRpcCall>;
-  vatWorkerService: VatWorkerServer;
+  platformServices: PlatformServicesServer;
 }> {
   const worker = new Worker('kernel-worker.js', {
     type: 'module',
@@ -64,7 +64,7 @@ async function makeKernelWorker(): Promise<{
     JsonRpcCall
   >(port, isJsonRpcResponse);
 
-  const vatWorkerService = VatWorkerServer.make(
+  const platformServices = PlatformServicesServer.make(
     worker as PostMessageTarget,
     (vatId) =>
       makeIframeVatWorker({
@@ -79,6 +79,6 @@ async function makeKernelWorker(): Promise<{
 
   return {
     kernelStream,
-    vatWorkerService,
+    platformServices,
   };
 }

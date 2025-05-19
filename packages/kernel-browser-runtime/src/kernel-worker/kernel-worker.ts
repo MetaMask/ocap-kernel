@@ -12,8 +12,8 @@ import {
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
 import defaultSubcluster from '../default-cluster.json';
+import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { receiveUiConnections } from '../ui-connections.ts';
-import { VatWorkerClient } from '../VatWorkerClient.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 
@@ -45,7 +45,9 @@ async function main(): Promise<void> {
   >(port, isJsonRpcCall);
 
   // Initialize kernel dependencies
-  const vatWorkerClient = VatWorkerClient.make(globalThis as PostMessageTarget);
+  const platformServicesClient = PlatformServicesClient.make(
+    globalThis as PostMessageTarget,
+  );
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: DB_FILENAME,
   });
@@ -53,7 +55,7 @@ async function main(): Promise<void> {
 
   const kernel = await Kernel.make(
     kernelStream,
-    vatWorkerClient,
+    platformServicesClient,
     kernelDatabase,
     {
       resetStorage: ALWAYS_RESET_STORAGE,
@@ -71,7 +73,8 @@ async function main(): Promise<void> {
   const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
 
   await Promise.all([
-    vatWorkerClient.start(),
+    platformServicesClient.start(),
+    kernel.initRemoteComms(),
     // XXX We are mildly concerned that there's a small chance that a race here
     // could cause startup to flake non-deterministically. If the invocation
     // here of `launchSubcluster` turns out to depend on aspects of the IPC

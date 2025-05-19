@@ -450,12 +450,12 @@ describe('vat store methods', () => {
     });
   });
 
-  describe('exportFromVat', () => {
+  describe('exportFromEndpoint', () => {
     it('creates a kernel promise for an exported promise', () => {
       const vatId = 'v1' as VatId;
       const vref = 'p+42'; // Promise export reference
 
-      const result = vatMethods.exportFromVat(vatId, vref);
+      const result = vatMethods.exportFromEndpoint(vatId, vref);
 
       expect(result).toBe('kp123');
       expect(mockInitKernelPromise).toHaveBeenCalled();
@@ -471,7 +471,7 @@ describe('vat store methods', () => {
       const vatId = 'v1' as VatId;
       const vref = 'o+42'; // Object export reference
 
-      const result = vatMethods.exportFromVat(vatId, vref);
+      const result = vatMethods.exportFromEndpoint(vatId, vref);
 
       expect(result).toBe('ko456');
       expect(mockInitKernelObject).toHaveBeenCalledWith(vatId);
@@ -486,7 +486,7 @@ describe('vat store methods', () => {
       const vatId = 'invalid' as VatId;
       const vref = 'o+42';
 
-      expect(() => vatMethods.exportFromVat(vatId, vref)).toThrow(
+      expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
         'not a valid VatId',
       );
     });
@@ -495,7 +495,7 @@ describe('vat store methods', () => {
       const vatId = 'v1' as VatId;
       const vref = 'o-42'; // Import reference, not export
 
-      expect(() => vatMethods.exportFromVat(vatId, vref)).toThrow(
+      expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
         'is not an export reference',
       );
     });
@@ -504,7 +504,7 @@ describe('vat store methods', () => {
       const vatId = 'v1' as VatId;
       const vref = 'ko42'; // Kernel reference, not vat reference
 
-      expect(() => vatMethods.exportFromVat(vatId, vref)).toThrow(
+      expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
         'is not a VRef',
       );
     });

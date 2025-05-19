@@ -9,7 +9,8 @@ import { extractSingleRef } from './store/utils/extract-ref.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
-  VatId,
+  EndpointId,
+  EndpointHandle,
   KRef,
   Message,
   RunQueueItem,
@@ -19,19 +20,18 @@ import type {
   RunQueueItemGCAction,
   CrankResults,
 } from './types.ts';
-import { insistVatId, insistMessage } from './types.ts';
+import { insistEndpointId, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
-import { VatHandle } from './VatHandle.ts';
 
 type MessageRoute = {
-  vatId?: VatId;
+  endpointId?: EndpointId;
   target: KRef;
 } | null;
 
 /**
- * The KernelRouter is responsible for routing messages to the correct vat.
+ * The KernelRouter is responsible for routing messages to the correct endpoint.
  *
- * This class is responsible for routing messages to the correct vat, including
+ * This class is responsible for routing messages to the correct endpoint, including
  * sending messages, resolving promises, and dropping imports.
  */
 export class KernelRouter {
@@ -41,8 +41,8 @@ export class KernelRouter {
   /** The kernel's queue. */
   readonly #kernelQueue: KernelQueue;
 
-  /** A function that returns a vat handle for a given vat id. */
-  readonly #getVat: (vatId: VatId) => VatHandle;
+  /** A function that returns an endpoint handle for a given endpoint id. */
+  readonly #getEndpoint: (endpointId: EndpointId) => EndpointHandle;
 
   /** A function that invokes a method on a kernel service. */
   readonly #invokeKernelService: (
@@ -58,20 +58,20 @@ export class KernelRouter {
    *
    * @param kernelStore - The kernel's store.
    * @param kernelQueue - The kernel's queue.
-   * @param getVat - A function that returns a vat handle for a given vat id.
+   * @param getEndpoint - A function that returns an endpoint handle for a given endpoint id.
    * @param invokeKernelService - A function that calls a method on a kernel service object.
    * @param logger - The logger. If not provided, no logging will be done.
    */
   constructor(
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
-    getVat: (vatId: VatId) => VatHandle,
+    getEndpoint: (endpointId: EndpointId) => EndpointHandle,
     invokeKernelService: (target: KRef, message: Message) => Promise<void>,
     logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
-    this.#getVat = getVat;
+    this.#getEndpoint = getEndpoint;
     this.#invokeKernelService = invokeKernelService;
     this.#logger = logger;
   }
@@ -115,15 +115,15 @@ export class KernelRouter {
 
   /**
    * Determine a message's destination route based on the target type and
-   * state. In the most general case, this route consists of a vatId and a
+   * state. In the most general case, this route consists of an endpointId and a
    * destination object reference.
    *
    * There are three possible outcomes:
    * - splat: message should be dropped (with optional error resolution),
    *   indicated by a null return value
-   * - send: message should be delivered to a specific object in a specific vat
+   * - send: message should be delivered to a specific object at a specific endpoint
    * - requeue: message should be put back on the run queue for later delivery
-   *   (for unresolved promises), indicated by absence of a target vat in the
+   *   (for unresolved promises), indicated by absence of a target endpoint in the
    *   return value
    *
    * @param item - The message to route.
@@ -145,11 +145,11 @@ export class KernelRouter {
       if (this.#kernelStore.isRevoked(targetObject)) {
         return routeAsSplat(kser('revoked object'));
       }
-      const vatId = this.#kernelStore.getOwner(targetObject);
-      if (!vatId) {
-        return routeAsSplat(kser('no vat'));
+      const endpointId = this.#kernelStore.getOwner(targetObject);
+      if (!endpointId) {
+        return routeAsSplat(kser('no endpoint'));
       }
-      return { vatId, target: targetObject };
+      return { endpointId, target: targetObject };
     };
     const routeAsRequeue = (targetObject: KRef): MessageRoute => {
       return { target: targetObject };
@@ -212,37 +212,42 @@ export class KernelRouter {
       return crankResults;
     }
 
-    const { vatId, target } = route;
+    const { endpointId, target } = route;
     const { message } = item;
     this.#logger?.log(
-      `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
+      `@@@@ deliver ${endpointId} send ${target}<-${JSON.stringify(message)}`,
     );
-    if (vatId) {
-      const isKernelServiceMessage = vatId === 'kernel';
-      const vat = isKernelServiceMessage ? null : this.#getVat(vatId);
-      if (vat || isKernelServiceMessage) {
+    if (endpointId) {
+      const isKernelServiceMessage = endpointId === 'kernel';
+      const endpoint = isKernelServiceMessage
+        ? null
+        : this.#getEndpoint(endpointId);
+      if (endpoint || isKernelServiceMessage) {
         if (message.result) {
           if (typeof message.result !== 'string') {
             throw TypeError('message result must be a string');
           }
-          this.#kernelStore.setPromiseDecider(message.result, vatId);
+          this.#kernelStore.setPromiseDecider(message.result, endpointId);
           this.#kernelStore.decrementRefCount(
             message.result,
             'deliver|send|result',
           );
         }
       }
-      if (vat) {
-        const vatTarget = this.#kernelStore.translateRefKtoV(
-          vatId,
+      if (endpoint) {
+        const endpointTarget = this.#kernelStore.translateRefKtoE(
+          endpointId,
           target,
           false,
         );
-        const vatMessage = this.#kernelStore.translateMessageKtoV(
-          vatId,
+        const endpointMessage = this.#kernelStore.translateMessageKtoE(
+          endpointId,
           message,
         );
-        crankResults = await vat.deliverMessage(vatTarget, vatMessage);
+        crankResults = await endpoint.deliverMessage(
+          endpointTarget,
+          endpointMessage,
+        );
       } else if (isKernelServiceMessage) {
         crankResults = await this.#deliverKernelServiceMessage(target, message);
       } else {
@@ -255,9 +260,6 @@ export class KernelRouter {
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
     }
-    this.#logger?.log(
-      `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
-    );
 
     return crankResults;
   }
@@ -277,28 +279,30 @@ export class KernelRouter {
    * @returns The crank outcome.
    */
   async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResults> {
-    const { vatId, kpid } = item;
-    insistVatId(vatId);
+    const { endpointId, kpid } = item;
+    insistEndpointId(endpointId);
     const { context, isPromise } = parseRef(kpid);
     assert(
       context === 'kernel' && isPromise,
       `${kpid} is not a kernel promise`,
     );
-    this.#logger?.log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
+    this.#logger?.log(
+      `@@@@ deliver ${endpointId} notify ${endpointId} ${kpid}`,
+    );
     const promise = this.#kernelStore.getKernelPromise(kpid);
     const { state, value } = promise;
     assert(value, `no value for promise ${kpid}`);
     if (state === 'unresolved') {
       Fail`notification on unresolved promise ${kpid}`;
     }
-    if (!this.#kernelStore.krefToEref(vatId, kpid)) {
+    if (!this.#kernelStore.krefToEref(endpointId, kpid)) {
       // no c-list entry, already done
-      return { didDelivery: vatId };
+      return { didDelivery: endpointId };
     }
     const targets = this.#kernelStore.getKpidsToRetire(kpid, value);
     if (targets.length === 0) {
       // no kpids to retire, already done
-      return { didDelivery: vatId };
+      return { didDelivery: endpointId };
     }
     const resolutions: VatOneResolution[] = [];
     for (const toResolve of targets) {
@@ -310,20 +314,19 @@ export class KernelRouter {
         throw Fail`target promise ${toResolve} has no value`;
       }
       resolutions.push([
-        this.#kernelStore.translateRefKtoV(vatId, toResolve, true),
+        this.#kernelStore.translateRefKtoE(endpointId, toResolve, true),
         tPromise.state === 'rejected',
-        this.#kernelStore.translateCapDataKtoV(vatId, tPromise.value),
+        this.#kernelStore.translateCapDataKtoE(endpointId, tPromise.value),
       ]);
       // decrement refcount for the promise being notified
       if (toResolve !== kpid) {
         this.#kernelStore.decrementRefCount(toResolve, 'deliver|notify|slot');
       }
     }
-    const vat = this.#getVat(vatId);
-    const crankResults = await vat.deliverNotify(resolutions);
+    const endpoint = this.#getEndpoint(endpointId);
+    const crankResults = await endpoint.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    this.#logger?.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
     return crankResults;
   }
 
@@ -334,17 +337,18 @@ export class KernelRouter {
    * @returns The crank outcome.
    */
   async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
-    const { type, vatId, krefs } = item;
-    this.#logger?.log(`@@@@ deliver ${vatId} ${type}`, krefs);
-    const vat = this.#getVat(vatId);
-    const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
+    const { type, endpointId, krefs } = item;
+    this.#logger?.log(
+      `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
+    );
+    const endpoint = this.#getEndpoint(endpointId);
+    const erefs = this.#kernelStore.krefsToExistingErefs(endpointId, krefs);
     const method =
       `deliver${(type[0] as string).toUpperCase()}${type.slice(1)}` as
         | 'deliverDropExports'
         | 'deliverRetireExports'
         | 'deliverRetireImports';
-    const crankResults = await vat[method](vrefs);
-    this.#logger?.log(`@@@@ done ${vatId} ${type}`, krefs);
+    const crankResults = await endpoint[method](erefs);
     return crankResults;
   }
 
@@ -357,11 +361,10 @@ export class KernelRouter {
   async #deliverBringOutYourDead(
     item: RunQueueItemBringOutYourDead,
   ): Promise<CrankResults | undefined> {
-    const { vatId } = item;
-    this.#logger?.log(`@@@@ deliver ${vatId} bringOutYourDead`);
-    const vat = this.#getVat(vatId);
-    const crankResults = await vat.deliverBringOutYourDead();
-    this.#logger?.log(`@@@@ done ${vatId} bringOutYourDead`);
+    const { endpointId } = item;
+    this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
+    const endpoint = this.#getEndpoint(endpointId);
+    const crankResults = await endpoint.deliverBringOutYourDead();
     return crankResults;
   }
 }
