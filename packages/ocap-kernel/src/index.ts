@@ -6,7 +6,7 @@ export type {
   KRef,
   Message,
   VatId,
-  VatWorkerManager,
+  VatWorkerService,
   VatConfig,
   KernelStatus,
 } from './types.ts';

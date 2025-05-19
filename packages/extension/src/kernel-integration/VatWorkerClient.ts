@@ -2,7 +2,7 @@ import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatWorkerManager, VatId, VatConfig } from '@metamask/ocap-kernel';
+import type { VatWorkerService, VatId, VatConfig } from '@metamask/ocap-kernel';
 import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -25,7 +25,7 @@ export type VatWorkerClientStream = PostMessageDuplexStream<
   PostMessageEnvelope<JsonRpcCall>
 >;
 
-export class ExtensionVatWorkerClient implements VatWorkerManager {
+export class ExtensionVatWorkerClient implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #stream: VatWorkerClientStream;

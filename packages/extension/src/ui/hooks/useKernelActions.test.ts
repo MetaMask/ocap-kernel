@@ -3,10 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import clusterConfig from '../../vats/default-cluster.json';
 
-vi.mock('../../kernel-integration/handlers/send-vat-command.ts', () => ({
-  assertVatCommandParams: vi.fn(),
-}));
-
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));

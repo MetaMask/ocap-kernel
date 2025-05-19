@@ -228,7 +228,11 @@ export const VatMessageIdStruct = define<VatMessageId>(
   isVatMessageId,
 );
 
-export type VatWorkerManager = {
+/**
+ * A "service" for managing vat workers. Abstracts platform-specific details of
+ * how vat workers are launched, terminated, and connected to the kernel.
+ */
+export type VatWorkerService = {
   /**
    * Launch a new worker with a specific vat id.
    *

@@ -1,3 +1,4 @@
+import type { KernelStatus } from '@metamask/ocap-kernel';
 import {
   render,
   screen,
@@ -7,7 +8,6 @@ import {
 } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { KernelStatus } from '@metamask/ocap-kernel';
 
 import { ConfigEditor } from './ConfigEditor.tsx';
 import defaultClusterConfig from '../../vats/default-cluster.json';

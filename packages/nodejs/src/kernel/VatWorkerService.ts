@@ -2,7 +2,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatWorkerManager, VatId } from '@metamask/ocap-kernel';
+import type { VatWorkerService, VatId } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -14,7 +14,7 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
-export class NodejsVatWorkerManager implements VatWorkerManager {
+export class NodejsVatWorkerService implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #workerFilePath: string;
@@ -87,4 +87,4 @@ export class NodejsVatWorkerManager implements VatWorkerManager {
     }
   }
 }
-harden(NodejsVatWorkerManager);
+harden(NodejsVatWorkerService);
