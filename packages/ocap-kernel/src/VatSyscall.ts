@@ -1,9 +1,9 @@
 import type {
+  SwingSetCapData,
   VatOneResolution,
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
-import type { CapData } from '@endo/marshal';
 import { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
@@ -40,11 +40,11 @@ export class VatSyscall {
   readonly #logger: Logger;
 
   /** The illegal syscall that was received */
-  illegalSyscall: { vatId: VatId; info: CapData<string> } | undefined;
+  illegalSyscall: { vatId: VatId; info: SwingSetCapData } | undefined;
 
   /** The termination request that was received from the vat with syscall.exit() */
   vatRequestedTermination:
-    | { reject: boolean; info: CapData<string> }
+    | { reject: boolean; info: SwingSetCapData }
     | undefined;
 
   /**

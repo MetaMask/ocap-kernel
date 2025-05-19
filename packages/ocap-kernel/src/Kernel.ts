@@ -2,6 +2,7 @@ import type { CapData } from '@endo/marshal';
 import {
   StreamReadError,
   VatAlreadyExistsError,
+  VatDeletedError,
   VatNotFoundError,
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
@@ -91,7 +92,10 @@ export class Kernel {
     if (options.resetStorage) {
       this.#resetKernelState();
     }
-    this.#kernelQueue = new KernelQueue(this.#kernelStore);
+    this.#kernelQueue = new KernelQueue(
+      this.#kernelStore,
+      this.terminateVat.bind(this),
+    );
     this.#kernelRouter = new KernelRouter(
       this.#kernelStore,
       this.#kernelQueue,
@@ -302,14 +306,31 @@ export class Kernel {
    * @param vatId - The ID of the vat.
    * @param terminating - If true, the vat is being killed, if false, it's being
    *   restarted.
+   * @param reason - If the vat is being terminated, the reason for the termination.
    */
-  async #stopVat(vatId: VatId, terminating: boolean): Promise<void> {
+  async #stopVat(
+    vatId: VatId,
+    terminating: boolean,
+    reason?: CapData<KRef>,
+  ): Promise<void> {
     const vat = this.#getVat(vatId);
     if (!vat) {
       throw new VatNotFoundError(vatId);
     }
-    await vat.terminate(terminating);
-    await this.#vatWorkerService.terminate(vatId).catch(this.#logger.error);
+
+    // Construct an error object for vat.terminate and vatWorkerService.terminate
+    let terminationError: Error | undefined;
+    if (reason) {
+      // You might want a more sophisticated way to turn CapData<KRef> into an Error
+      terminationError = new Error(`Vat termination: ${reason.body}`);
+    } else if (terminating) {
+      terminationError = new VatDeletedError(vatId);
+    }
+
+    await vat.terminate(terminating, terminationError);
+    await this.#vatWorkerService
+      .terminate(vatId, terminationError)
+      .catch(this.#logger.error);
     this.#vats.delete(vatId);
   }
 
@@ -317,9 +338,10 @@ export class Kernel {
    * Terminate a vat with extreme prejudice.
    *
    * @param vatId - The ID of the vat.
+   * @param reason - If the vat is being terminated, the reason for the termination.
    */
-  async terminateVat(vatId: VatId): Promise<void> {
-    await this.#stopVat(vatId, true);
+  async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
+    await this.#stopVat(vatId, true, reason);
     this.#kernelStore.deleteVatConfig(vatId);
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);

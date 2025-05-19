@@ -15,6 +15,7 @@ import type {
   RunQueueItemBringOutYourDead,
   RunQueueItemNotify,
   RunQueueItemGCAction,
+  CrankResults,
 } from './types.ts';
 import { insistVatId, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
@@ -74,27 +75,25 @@ export class KernelRouter {
    * is also forwarded to all of the promise's registered subscribers.
    *
    * @param item - The message/notification to deliver.
+   * @returns The crank outcome.
    */
-  async deliver(item: RunQueueItem): Promise<void> {
+  async deliver(item: RunQueueItem): Promise<CrankResults | undefined> {
     switch (item.type) {
       case 'send':
-        await this.#deliverSend(item);
-        break;
+        return await this.#deliverSend(item);
       case 'notify':
-        await this.#deliverNotify(item);
-        break;
+        return await this.#deliverNotify(item);
       case 'dropExports':
       case 'retireExports':
       case 'retireImports':
-        await this.#deliverGCAction(item);
-        break;
+        return await this.#deliverGCAction(item);
       case 'bringOutYourDead':
-        await this.#deliverBringOutYourDead(item);
-        break;
+        return await this.#deliverBringOutYourDead(item);
       default:
         // @ts-expect-error Runtime does not respect "never".
         Fail`unsupported or unknown run queue item type ${item.type}`;
     }
+    return undefined;
   }
 
   /**
@@ -167,11 +166,14 @@ export class KernelRouter {
    * Deliver a 'send' run queue item.
    *
    * @param item - The send item to deliver.
+   * @returns The crank outcome.
    */
-  async #deliverSend(item: RunQueueItemSend): Promise<void> {
+  async #deliverSend(
+    item: RunQueueItemSend,
+  ): Promise<CrankResults | undefined> {
     const route = this.#routeMessage(item);
 
-    // Message went splat
+    // Message went splat, no longer the kernel's responsibility
     if (!route) {
       this.#kernelStore.decrementRefCount(item.target, 'deliver|splat|target');
       if (item.message.result) {
@@ -186,7 +188,7 @@ export class KernelRouter {
       console.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
-      return;
+      return undefined;
     }
 
     const { vatId, target } = route;
@@ -194,50 +196,51 @@ export class KernelRouter {
     console.log(
       `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
-    if (vatId) {
-      const vat = this.#getVat(vatId);
-      if (vat) {
-        if (message.result) {
-          if (typeof message.result !== 'string') {
-            throw TypeError('message result must be a string');
-          }
-          this.#kernelStore.setPromiseDecider(message.result, vatId);
-          this.#kernelStore.decrementRefCount(
-            message.result,
-            'deliver|send|result',
-          );
-        }
-        const vatTarget = this.#kernelStore.translateRefKtoV(
-          vatId,
-          target,
-          false,
-        );
-        const vatMessage = this.#kernelStore.translateMessageKtoV(
-          vatId,
-          message,
-        );
-        await vat.deliverMessage(vatTarget, vatMessage);
-        this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
-        for (const slot of message.methargs.slots) {
-          this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
-        }
-      } else {
-        Fail`no owner for kernel object ${target}`;
-      }
-    } else {
-      this.#kernelStore.enqueuePromiseMessage(target, message);
+    if (!vatId) {
+      throw Fail`no owner for kernel object ${target}`;
     }
+
+    const vat = this.#getVat(vatId);
+
+    if (!vat) {
+      // Requeue the message for later delivery.
+      this.#kernelStore.enqueuePromiseMessage(target, message);
+      // For requeued messages, there's no immediate crank outcome from a vat.
+      return undefined;
+    }
+
+    if (message.result) {
+      if (typeof message.result !== 'string') {
+        throw TypeError('message result must be a string');
+      }
+      this.#kernelStore.setPromiseDecider(message.result, vatId);
+      this.#kernelStore.decrementRefCount(
+        message.result,
+        'deliver|send|result',
+      );
+    }
+    const vatTarget = this.#kernelStore.translateRefKtoV(vatId, target, false);
+    const vatMessage = this.#kernelStore.translateMessageKtoV(vatId, message);
+    const crankResults = await vat.deliverMessage(vatTarget, vatMessage);
+    this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
+    for (const slot of message.methargs.slots) {
+      this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
+    }
+
     console.log(
       `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
+
+    return crankResults;
   }
 
   /**
    * Deliver a 'notify' run queue item.
    *
    * @param item - The notify item to deliver.
+   * @returns The crank outcome.
    */
-  async #deliverNotify(item: RunQueueItemNotify): Promise<void> {
+  async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResults> {
     const { vatId, kpid } = item;
     insistVatId(vatId);
     const { context, isPromise } = parseRef(kpid);
@@ -254,12 +257,12 @@ export class KernelRouter {
     }
     if (!this.#kernelStore.krefToEref(vatId, kpid)) {
       // no c-list entry, already done
-      return;
+      return { didDelivery: vatId };
     }
     const targets = this.#kernelStore.getKpidsToRetire(kpid, value);
     if (targets.length === 0) {
       // no kpids to retire, already done
-      return;
+      return { didDelivery: vatId };
     }
     const resolutions: VatOneResolution[] = [];
     for (const toResolve of targets) {
@@ -281,18 +284,20 @@ export class KernelRouter {
       }
     }
     const vat = this.#getVat(vatId);
-    await vat.deliverNotify(resolutions);
+    const crankResults = await vat.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
     console.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
+    return crankResults;
   }
 
   /**
    * Deliver a Garbage Collection action run queue item.
    *
    * @param item - The dropExports | retireExports | retireImports item to deliver.
+   * @returns The crank outcome.
    */
-  async #deliverGCAction(item: RunQueueItemGCAction): Promise<void> {
+  async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
     const { type, vatId, krefs } = item;
     console.log(`@@@@ deliver ${vatId} ${type}`, krefs);
     const vat = this.#getVat(vatId);
@@ -302,22 +307,25 @@ export class KernelRouter {
         | 'deliverDropExports'
         | 'deliverRetireExports'
         | 'deliverRetireImports';
-    await vat[method](vrefs);
+    const crankResults = await vat[method](vrefs);
     console.log(`@@@@ done ${vatId} ${type}`, krefs);
+    return crankResults;
   }
 
   /**
    * Deliver a 'bringOutYourDead' run queue item.
    *
    * @param item - The bringOutYourDead item to deliver.
+   * @returns The crank outcome.
    */
   async #deliverBringOutYourDead(
     item: RunQueueItemBringOutYourDead,
-  ): Promise<void> {
+  ): Promise<CrankResults | undefined> {
     const { vatId } = item;
     console.log(`@@@@ deliver ${vatId} bringOutYourDead`);
     const vat = this.#getVat(vatId);
-    await vat.deliverBringOutYourDead();
+    const crankResults = await vat.deliverBringOutYourDead();
     console.log(`@@@@ done ${vatId} bringOutYourDead`);
+    return crankResults;
   }
 }

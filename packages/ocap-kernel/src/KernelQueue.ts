@@ -7,6 +7,7 @@ import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistVatId } from './types.ts';
 import type {
+  CrankResults,
   KRef,
   Message,
   RunQueueItem,
@@ -26,14 +27,24 @@ export class KernelQueue {
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
 
+  /** A function that terminates a vat. */
+  readonly #terminateVat: (
+    vatId: VatId,
+    reason?: CapData<KRef>,
+  ) => Promise<void>;
+
   /** Message results that the kernel itself has subscribed to */
   readonly subscriptions: Map<KRef, (value: CapData<KRef>) => void> = new Map();
 
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
-  constructor(kernelStore: KernelStore) {
+  constructor(
+    kernelStore: KernelStore,
+    terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
+  ) {
     this.#kernelStore = kernelStore;
+    this.#terminateVat = terminateVat;
     this.#wakeUpTheRunQueue = null;
   }
 
@@ -43,11 +54,31 @@ export class KernelQueue {
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
-  async run(deliver: (item: RunQueueItem) => Promise<void>): Promise<void> {
+  async run(
+    deliver: (item: RunQueueItem) => Promise<CrankResults | undefined>,
+  ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
       this.#kernelStore.nextTerminatedVatCleanup();
       this.#kernelStore.createCrankSavepoint('deliver');
-      await deliver(item);
+      const crankResults = await deliver(item);
+      if (crankResults?.abort) {
+        // Errors unwind any changes the vat made, by rolling back to the
+        // "deliver" savepoint In addition, the crankResults will either ask for
+        // the message to be consumed (without redelivery), or they'll ask for it
+        // to be attempted again (so it can go "splat" against a terminated vat,
+        // and give the sender the right error). In the latter case, we roll back
+        // to the "start" savepoint before the delivery was pulled off the run-queue,
+        // undoing the dequeueing.
+        this.#kernelStore.rollbackCrank(
+          crankResults.consumeMessage ? 'deliver' : 'start',
+        );
+      }
+      // Vat termination during delivery is triggered by
+      // an illegal syscall or by syscall.exit()
+      if (crankResults?.terminate) {
+        const { vatId, info } = crankResults.terminate;
+        await this.#terminateVat(vatId, info);
+      }
       this.#kernelStore.collectGarbage();
     }
   }
