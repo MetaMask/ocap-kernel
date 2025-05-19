@@ -1,4 +1,4 @@
-import '@metamask/kernel-shims/endoify';
+import '../../src/env/endoify.ts';
 
 import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
@@ -86,11 +86,11 @@ describe('Kernel Worker', () => {
     await launchTestVats();
     await kernel.terminateAllVats();
     expect(kernel.getVatIds()).toHaveLength(0);
-  });
+  }, 5000);
 
   it('pings vats', async () => {
     await launchTestVats();
     const result = await kernel.pingVat('v1');
     expect(result).toBe('pong');
-  });
+  }, 5000);
 });

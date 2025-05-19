@@ -2,13 +2,13 @@ import { delay, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
+import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { makeMockMessageTarget } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { VatWorkerClientStream } from './VatWorkerClient.ts';
-import { VatWorkerClient } from './VatWorkerClient.ts';
+import type { PlatformServicesClientStream } from './PlatformServicesClient.ts';
+import { PlatformServicesClient } from './PlatformServicesClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -54,34 +54,37 @@ const makeNullReply = (messageId: `m${number}`): MessageEvent =>
     result: null,
   });
 
-describe('VatWorkerClient', () => {
+describe('PlatformServicesClient', () => {
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     await stream.synchronize();
-    const client = new VatWorkerClient(
-      stream as unknown as VatWorkerClientStream,
+    const client = new PlatformServicesClient(
+      stream as unknown as PlatformServicesClientStream,
     );
     expect(client).toBeDefined();
   });
 
   it('constructs using static factory method', async () => {
-    const mockMessageTarget = makeMockMessageTarget();
-    const client = await VatWorkerClient.make(mockMessageTarget);
+    const client = PlatformServicesClient.make({
+      postMessage: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as PostMessageTarget);
     expect(client).toBeDefined();
-    expect(client).toBeInstanceOf(VatWorkerClient);
+    expect(client).toBeInstanceOf(PlatformServicesClient);
   });
 
   describe('message handling', () => {
     let stream: TestDuplexStream;
     let clientLogger: Logger;
-    let client: VatWorkerClient;
+    let client: PlatformServicesClient;
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
       await stream.synchronize();
       clientLogger = new Logger('test-client');
-      client = new VatWorkerClient(
-        stream as unknown as VatWorkerClientStream,
+      client = new PlatformServicesClient(
+        stream as unknown as PlatformServicesClientStream,
         clientLogger,
       );
     });
@@ -139,8 +142,8 @@ describe('VatWorkerClient', () => {
       it('can be called before client is started', async () => {
         const newStream = await TestDuplexStream.make(() => undefined);
         await newStream.synchronize();
-        const newClient = new VatWorkerClient(
-          newStream as unknown as VatWorkerClientStream,
+        const newClient = new PlatformServicesClient(
+          newStream as unknown as PlatformServicesClientStream,
         );
 
         // Call launch before starting the client

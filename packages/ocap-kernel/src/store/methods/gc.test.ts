@@ -13,14 +13,14 @@ describe('GC methods', () => {
 
   describe('GC actions', () => {
     it('manages all valid GC action types', () => {
-      const ko1 = kernelStore.initKernelObject('v1');
-      const ko2 = kernelStore.initKernelObject('v1');
-      const ko3 = kernelStore.initKernelObject('v2');
+      const v1Object = kernelStore.initKernelObject('v1');
+      const v2Object = kernelStore.initKernelObject('v1');
+      const v3Object = kernelStore.initKernelObject('v2');
 
       const validActions: GCAction[] = [
-        `v1 dropExport ${ko1}`,
-        `v1 retireExport ${ko2}`,
-        `v2 retireImport ${ko3}`,
+        `v1 dropExport ${v1Object}`,
+        `v1 retireExport ${v2Object}`,
+        `v2 retireImport ${v3Object}`,
       ];
 
       kernelStore.addGCActions(validActions);
@@ -31,16 +31,18 @@ describe('GC methods', () => {
     });
 
     it('rejects invalid GC actions', () => {
-      const ko1 = kernelStore.initKernelObject('v1');
+      const v1Object = kernelStore.initKernelObject('v1');
 
       // Invalid vat ID
       expect(() => {
-        kernelStore.addGCActions(['x1 dropExport ko1']);
+        kernelStore.addGCActions([`x1 dropExport ${v1Object}`]);
       }).toThrow('not a valid VatId');
 
       // Invalid action type
       expect(() => {
-        kernelStore.addGCActions([`v1 invalidAction ${ko1}`] as GCAction[]);
+        kernelStore.addGCActions([
+          `v1 invalidAction ${v1Object}`,
+        ] as GCAction[]);
       }).toThrow('not a valid GCActionType "invalidAction"');
 
       // Invalid kref (must be kernel object, not promise)
@@ -55,14 +57,14 @@ describe('GC methods', () => {
     });
 
     it('maintains action order when storing', () => {
-      const ko1 = kernelStore.initKernelObject('v1');
-      const ko2 = kernelStore.initKernelObject('v2');
-      const ko3 = kernelStore.initKernelObject('v3');
+      const v1Object = kernelStore.initKernelObject('v1');
+      const v2Object = kernelStore.initKernelObject('v2');
+      const v3Object = kernelStore.initKernelObject('v3');
 
       const actions = [
-        `v3 retireImport ${ko3}`,
-        `v1 dropExport ${ko1}`,
-        `v2 retireExport ${ko2}`,
+        `v3 retireImport ${v3Object}`,
+        `v1 dropExport ${v1Object}`,
+        `v2 retireExport ${v2Object}`,
       ];
 
       kernelStore.setGCActions(new Set(actions) as Set<GCAction>);
@@ -70,24 +72,24 @@ describe('GC methods', () => {
       // Actions should be sorted when retrieved
       const sortedActions = Array.from(kernelStore.getGCActions());
       expect(sortedActions).toStrictEqual([
-        `v1 dropExport ${ko1}`,
-        `v2 retireExport ${ko2}`,
-        `v3 retireImport ${ko3}`,
+        `v1 dropExport ${v1Object}`,
+        `v2 retireExport ${v2Object}`,
+        `v3 retireImport ${v3Object}`,
       ]);
     });
   });
 
   describe('reachability tracking', () => {
     it('manages reachable flags', () => {
-      const ko1 = kernelStore.initKernelObject('v1');
-      kernelStore.addCListEntry('v1', ko1, 'o-1');
+      const v1Object = kernelStore.initKernelObject('v1');
+      kernelStore.addCListEntry('v1', v1Object, 'o-1');
 
-      expect(kernelStore.getReachableFlag('v1', ko1)).toBe(true);
+      expect(kernelStore.getReachableFlag('v1', v1Object)).toBe(true);
 
-      kernelStore.clearReachableFlag('v1', ko1);
-      expect(kernelStore.getReachableFlag('v1', ko1)).toBe(false);
+      kernelStore.clearReachableFlag('v1', v1Object);
+      expect(kernelStore.getReachableFlag('v1', v1Object)).toBe(false);
 
-      const refCounts = kernelStore.getObjectRefCount(ko1);
+      const refCounts = kernelStore.getObjectRefCount(v1Object);
       expect(refCounts.reachable).toBe(0);
     });
   });
@@ -100,10 +102,10 @@ describe('GC methods', () => {
       vatIds.forEach((vatId) => kernelStore.scheduleReap(vatId));
 
       // Verify they are processed in order
-      vatIds.forEach((vatId) => {
+      vatIds.forEach((endpointId) => {
         expect(kernelStore.nextReapAction()).toStrictEqual({
           type: 'bringOutYourDead',
-          vatId,
+          endpointId,
         });
       });
 
@@ -119,12 +121,12 @@ describe('GC methods', () => {
       // Should only process v1 once
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
-        vatId: 'v1',
+        endpointId: 'v1',
       });
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
-        vatId: 'v2',
+        endpointId: 'v2',
       });
 
       expect(kernelStore.nextReapAction()).toBeUndefined();

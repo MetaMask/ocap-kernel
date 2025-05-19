@@ -245,12 +245,12 @@ describe('KernelQueue', () => {
 
   describe('enqueueNotify', () => {
     it('creates a notify item and adds it to the run queue', () => {
-      const vatId = 'v1';
+      const endpointId = 'v1';
       const kpid = 'kp123';
-      kernelQueue.enqueueNotify(vatId, kpid);
+      kernelQueue.enqueueNotify(endpointId, kpid);
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'notify',
-        vatId,
+        endpointId,
         kpid,
       });
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
@@ -262,7 +262,7 @@ describe('KernelQueue', () => {
 
   describe('resolvePromises', () => {
     it('resolves kernel promises and notifies subscribers', () => {
-      const vatId = 'v1';
+      const endpointId = 'v1';
       const kpid = 'kp123';
       const resolution: VatOneResolution = [
         kpid,
@@ -272,13 +272,13 @@ describe('KernelQueue', () => {
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
           state: 'unresolved',
-          decider: vatId,
+          decider: endpointId,
           subscribers: ['v2', 'v3'],
         },
       );
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
-      kernelQueue.resolvePromises(vatId, [resolution]);
+      kernelQueue.resolvePromises(endpointId, [resolution]);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
         'resolve|kpid',
@@ -289,12 +289,12 @@ describe('KernelQueue', () => {
       );
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'notify',
-        vatId: 'v2',
+        endpointId: 'v2',
         kpid,
       });
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'notify',
-        vatId: 'v3',
+        endpointId: 'v3',
         kpid,
       });
       expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
@@ -325,9 +325,9 @@ describe('KernelQueue', () => {
       );
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
-      const insistVatIdSpy = vi.spyOn(types, 'insistVatId');
+      const insistEndpointIdSpy = vi.spyOn(types, 'insistEndpointId');
       kernelQueue.resolvePromises(undefined, [resolution]);
-      expect(insistVatIdSpy).not.toHaveBeenCalled();
+      expect(insistEndpointIdSpy).not.toHaveBeenCalled();
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
         'resolve|kpid',
@@ -338,7 +338,7 @@ describe('KernelQueue', () => {
       );
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'notify',
-        vatId: 'v2',
+        endpointId: 'v2',
         kpid,
       });
       expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
@@ -348,11 +348,11 @@ describe('KernelQueue', () => {
       );
       expect(resolveHandler).toHaveBeenCalledWith(resolution[2]);
       expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
-      insistVatIdSpy.mockRestore();
+      insistEndpointIdSpy.mockRestore();
     });
 
     it('handles promises with no subscribers', () => {
-      const vatId = 'v1';
+      const endpointId = 'v1';
       const kpid = 'kpNoSubscribers';
       const resolution: VatOneResolution = [
         kpid,
@@ -362,13 +362,13 @@ describe('KernelQueue', () => {
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
           state: 'unresolved',
-          decider: vatId,
+          decider: endpointId,
           subscribers: [],
         },
       );
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
-      kernelQueue.resolvePromises(vatId, [resolution]);
+      kernelQueue.resolvePromises(endpointId, [resolution]);
       expect(kernelStore.enqueueRun).not.toHaveBeenCalledWith(
         expect.objectContaining({ type: 'notify' }),
       );
@@ -382,7 +382,7 @@ describe('KernelQueue', () => {
     });
 
     it('throws error if a promise is already resolved', () => {
-      const vatId = 'v1';
+      const endpointId = 'v1';
       const kpid = 'kp123';
       const resolution: VatOneResolution = [
         kpid,
@@ -392,17 +392,17 @@ describe('KernelQueue', () => {
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
           state: 'fulfilled',
-          decider: vatId,
+          decider: endpointId,
         },
       );
-      expect(() => kernelQueue.resolvePromises(vatId, [resolution])).toThrow(
-        '"kp123" was already resolved',
-      );
+      expect(() =>
+        kernelQueue.resolvePromises(endpointId, [resolution]),
+      ).toThrow('"kp123" was already resolved');
     });
 
     it('throws error if the resolver is not the decider', () => {
-      const vatId = 'v1';
-      const wrongVatId = 'v2';
+      const endpointId = 'v1';
+      const wrongEndpointId = 'v2';
       const kpid = 'kp123';
       const resolution: VatOneResolution = [
         kpid,
@@ -412,10 +412,12 @@ describe('KernelQueue', () => {
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
           state: 'unresolved',
-          decider: wrongVatId,
+          decider: wrongEndpointId,
         },
       );
-      expect(() => kernelQueue.resolvePromises(vatId, [resolution])).toThrow(
+      expect(() =>
+        kernelQueue.resolvePromises(endpointId, [resolution]),
+      ).toThrow(
         '"v1" not permitted to resolve "kp123" because "its decider is v2"',
       );
     });

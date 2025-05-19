@@ -11,11 +11,11 @@ import type {
   RunQueueItemNotify,
   RunQueueItemGCAction,
   RunQueueItemBringOutYourDead,
-  VatId,
+  EndpointId,
   GCRunQueueType,
   CrankResults,
+  EndpointHandle,
 } from './types.ts';
-import type { VatHandle } from './VatHandle.ts';
 
 // Define Message type for tests that matches the required structure
 type Message = {
@@ -27,25 +27,25 @@ describe('KernelRouter', () => {
   // Mock dependencies
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
-  let getVat: (vatId: VatId) => VatHandle;
-  let vatHandle: VatHandle;
+  let getEndpoint: (endpointId: EndpointId) => EndpointHandle;
+  let endpointHandle: EndpointHandle;
   let kernelRouter: KernelRouter;
 
   beforeEach(() => {
-    // Mock VatHandle with more detailed return values
+    // Mock EndpointHandle with more detailed return values
     const mockCrankResults: CrankResults = { didDelivery: 'v1' };
 
-    vatHandle = {
+    endpointHandle = {
       deliverMessage: vi.fn().mockResolvedValue(mockCrankResults),
       deliverNotify: vi.fn().mockResolvedValue(mockCrankResults),
       deliverDropExports: vi.fn().mockResolvedValue(mockCrankResults),
       deliverRetireExports: vi.fn().mockResolvedValue(mockCrankResults),
       deliverRetireImports: vi.fn().mockResolvedValue(mockCrankResults),
       deliverBringOutYourDead: vi.fn().mockResolvedValue(mockCrankResults),
-    } as unknown as VatHandle;
+    } as unknown as EndpointHandle;
 
-    // Mock getVat function
-    getVat = vi.fn().mockReturnValue(vatHandle);
+    // Mock getEndpoint function
+    getEndpoint = vi.fn().mockReturnValue(endpointHandle);
 
     // Mock KernelStore
     kernelStore = {
@@ -54,19 +54,19 @@ describe('KernelRouter', () => {
       getKernelPromise: vi.fn(),
       decrementRefCount: vi.fn(),
       setPromiseDecider: vi.fn(),
-      translateRefKtoV: vi.fn(
-        (_vatId: string, kref: string) => `translated-${kref}`,
+      translateRefKtoE: vi.fn(
+        (_endpointId: string, kref: string) => `translated-${kref}`,
       ) as unknown as MockInstance,
-      translateMessageKtoV: vi.fn(
-        (_vatId: string, message: SwingsetMessage) =>
+      translateMessageKtoE: vi.fn(
+        (_endpointId: string, message: SwingsetMessage) =>
           message as unknown as SwingsetMessage,
       ) as unknown as MockInstance,
       enqueuePromiseMessage: vi.fn(),
       erefToKref: vi.fn() as unknown as MockInstance,
       krefToEref: vi.fn() as unknown as MockInstance,
       getKpidsToRetire: vi.fn().mockReturnValue([]),
-      translateCapDataKtoV: vi.fn(),
-      krefsToExistingErefs: vi.fn((_vatId: string, krefs: string[]) =>
+      translateCapDataKtoE: vi.fn(),
+      krefsToExistingErefs: vi.fn((_endpointId: string, krefs: string[]) =>
         krefs.map((kref: string) => `translated-${kref}`),
       ) as unknown as MockInstance,
       createCrankSavepoint: vi.fn(),
@@ -77,27 +77,34 @@ describe('KernelRouter', () => {
       resolvePromises: vi.fn(),
     } as unknown as KernelQueue;
 
+    const mockInvokeKernelService = vi.fn();
+
     // Create the router to test
-    kernelRouter = new KernelRouter(kernelStore, kernelQueue, getVat);
+    kernelRouter = new KernelRouter(
+      kernelStore,
+      kernelQueue,
+      getEndpoint,
+      mockInvokeKernelService,
+    );
   });
 
   describe('deliver', () => {
     describe('send', () => {
       it('delivers a send message to a vat with an object target and returns crank results', async () => {
         // Setup the kernel store to return an owner for the target
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const target = 'ko123';
         (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
-          vatId,
+          endpointId,
         );
 
         // Create a mock crank result that the vat will return
         const mockCrankResults: CrankResults = {
-          didDelivery: vatId,
+          didDelivery: endpointId,
           abort: false,
         };
         (
-          vatHandle.deliverMessage as unknown as MockInstance
+          endpointHandle.deliverMessage as unknown as MockInstance
         ).mockResolvedValueOnce(mockCrankResults);
 
         // Create a send message
@@ -114,8 +121,8 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(sendItem);
 
         // Verify the message was delivered to the vat and results returned
-        expect(getVat).toHaveBeenCalledWith(vatId);
-        expect(vatHandle.deliverMessage).toHaveBeenCalledWith(
+        expect(getEndpoint).toHaveBeenCalledWith(endpointId);
+        expect(endpointHandle.deliverMessage).toHaveBeenCalledWith(
           `translated-${target}`,
           message,
         );
@@ -158,8 +165,8 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(sendItem);
 
         // Verify the message was not delivered to any vat and resources were cleaned up
-        expect(getVat).not.toHaveBeenCalled();
-        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(getEndpoint).not.toHaveBeenCalled();
+        expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
         // Verify refcounts were decremented
@@ -215,8 +222,8 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(sendItem);
 
         // Verify the message was not delivered to any vat and resources were cleaned up
-        expect(getVat).not.toHaveBeenCalled();
-        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(getEndpoint).not.toHaveBeenCalled();
+        expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
         // Verify refcounts were decremented
@@ -272,8 +279,8 @@ describe('KernelRouter', () => {
           message,
         );
         // Verify no vat interaction occurred
-        expect(getVat).not.toHaveBeenCalled();
-        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(getEndpoint).not.toHaveBeenCalled();
+        expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
         // Verify that no refcount decrementation happened since we're requeuing
@@ -308,8 +315,8 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(sendItem);
 
         // Message should be splatted, not delivered
-        expect(getVat).not.toHaveBeenCalled();
-        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(getEndpoint).not.toHaveBeenCalled();
+        expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
         // Verify the result promise was rejected
@@ -350,8 +357,8 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(sendItem);
 
         // Message should be splatted, not delivered
-        expect(getVat).not.toHaveBeenCalled();
-        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(getEndpoint).not.toHaveBeenCalled();
+        expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
         // Verify the result promise was rejected with the same reason
@@ -366,11 +373,11 @@ describe('KernelRouter', () => {
 
     describe('notify', () => {
       it('delivers a notify to a vat and returns crank results', async () => {
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const kpid = 'kp123';
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
-          vatId,
+          endpointId,
           kpid,
         };
 
@@ -407,17 +414,19 @@ describe('KernelRouter', () => {
         });
 
         // Mock crank results
-        const mockCrankResults: CrankResults = { didDelivery: vatId };
+        const mockCrankResults: CrankResults = { didDelivery: endpointId };
         (
-          vatHandle.deliverNotify as unknown as MockInstance
+          endpointHandle.deliverNotify as unknown as MockInstance
         ).mockResolvedValueOnce(mockCrankResults);
 
         // Deliver the notify
         const result = await kernelRouter.deliver(notifyItem);
 
         // Verify the notification was delivered to the vat
-        expect(getVat).toHaveBeenCalledWith(vatId);
-        expect(vatHandle.deliverNotify).toHaveBeenCalledWith(expect.any(Array));
+        expect(getEndpoint).toHaveBeenCalledWith(endpointId);
+        expect(endpointHandle.deliverNotify).toHaveBeenCalledWith(
+          expect.any(Array),
+        );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
           kpid,
           'deliver|notify',
@@ -426,11 +435,11 @@ describe('KernelRouter', () => {
       });
 
       it('returns didDelivery when promise is not in vat clist', async () => {
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const kpid = 'kp123';
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
-          vatId,
+          endpointId,
           kpid,
         };
 
@@ -454,16 +463,16 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(notifyItem);
 
         // Verify no notification was delivered to the vat
-        expect(vatHandle.deliverNotify).not.toHaveBeenCalled();
-        expect(result).toStrictEqual({ didDelivery: vatId });
+        expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
+        expect(result).toStrictEqual({ didDelivery: endpointId });
       });
 
       it('returns didDelivery when no kpids to retire', async () => {
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const kpid = 'kp123';
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
-          vatId,
+          endpointId,
           kpid,
         };
 
@@ -492,16 +501,16 @@ describe('KernelRouter', () => {
         const result = await kernelRouter.deliver(notifyItem);
 
         // Verify no notification was delivered to the vat
-        expect(vatHandle.deliverNotify).not.toHaveBeenCalled();
-        expect(result).toStrictEqual({ didDelivery: vatId });
+        expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
+        expect(result).toStrictEqual({ didDelivery: endpointId });
       });
 
       it('throws if notification is for an unresolved promise', async () => {
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const kpid = 'kp123';
         const notifyItem: RunQueueItemNotify = {
           type: 'notify',
-          vatId,
+          endpointId,
           kpid,
         };
 
@@ -528,19 +537,19 @@ describe('KernelRouter', () => {
       ])(
         'delivers %s to a vat and returns crank results',
         async (actionType, deliverMethod) => {
-          const vatId = 'v1';
+          const endpointId = 'v1';
           const krefs = ['ko1', 'ko2'];
           const gcAction: RunQueueItemGCAction = {
             type: actionType as GCRunQueueType,
-            vatId,
+            endpointId,
             krefs,
           };
 
           // Mock crank results
-          const mockCrankResults: CrankResults = { didDelivery: vatId };
+          const mockCrankResults: CrankResults = { didDelivery: endpointId };
           (
-            vatHandle[
-              deliverMethod as keyof VatHandle
+            endpointHandle[
+              deliverMethod as keyof EndpointHandle
             ] as unknown as MockInstance
           ).mockResolvedValueOnce(mockCrankResults);
 
@@ -548,9 +557,9 @@ describe('KernelRouter', () => {
           const result = await kernelRouter.deliver(gcAction);
 
           // Verify the action was delivered to the vat
-          expect(getVat).toHaveBeenCalledWith(vatId);
+          expect(getEndpoint).toHaveBeenCalledWith(endpointId);
           expect(
-            vatHandle[deliverMethod as keyof VatHandle],
+            endpointHandle[deliverMethod as keyof EndpointHandle],
           ).toHaveBeenCalledWith(krefs.map((kref) => `translated-${kref}`));
           expect(result).toStrictEqual(mockCrankResults);
         },
@@ -559,24 +568,24 @@ describe('KernelRouter', () => {
 
     describe('bringOutYourDead', () => {
       it('delivers bringOutYourDead to a vat and returns crank results', async () => {
-        const vatId = 'v1';
+        const endpointId = 'v1';
         const bringOutYourDeadItem: RunQueueItemBringOutYourDead = {
           type: 'bringOutYourDead',
-          vatId,
+          endpointId,
         };
 
         // Mock crank results
-        const mockCrankResults: CrankResults = { didDelivery: vatId };
+        const mockCrankResults: CrankResults = { didDelivery: endpointId };
         (
-          vatHandle.deliverBringOutYourDead as unknown as MockInstance
+          endpointHandle.deliverBringOutYourDead as unknown as MockInstance
         ).mockResolvedValueOnce(mockCrankResults);
 
         // Deliver the bringOutYourDead action
         const result = await kernelRouter.deliver(bringOutYourDeadItem);
 
-        // Verify the action was delivered to the vat
-        expect(getVat).toHaveBeenCalledWith(vatId);
-        expect(vatHandle.deliverBringOutYourDead).toHaveBeenCalled();
+        // Verify the action was delivered to the endpoint
+        expect(getEndpoint).toHaveBeenCalledWith(endpointId);
+        expect(endpointHandle.deliverBringOutYourDead).toHaveBeenCalled();
         expect(result).toStrictEqual(mockCrankResults);
       });
     });

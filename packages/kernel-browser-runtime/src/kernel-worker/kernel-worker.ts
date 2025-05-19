@@ -12,8 +12,8 @@ import {
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
 import defaultSubcluster from '../default-cluster.json';
+import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { receiveUiConnections } from '../ui-connections.ts';
-import { VatWorkerClient } from '../VatWorkerClient.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 
@@ -32,19 +32,19 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel dependencies
-  const [kernelStream, vatWorkerClient, kernelDatabase] = await Promise.all([
+  const [kernelStream, platformServicesClient, kernelDatabase] = await Promise.all([
     MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
       port,
       isJsonRpcCall,
     ),
-    VatWorkerClient.make(globalThis as PostMessageTarget),
+    PlatformServicesClient.make(globalThis as PostMessageTarget),
     makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
   ]);
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
 
   const kernel = await Kernel.make(
     kernelStream,
-    vatWorkerClient,
+    platformServicesClient,
     kernelDatabase,
   );
 
@@ -58,9 +58,14 @@ async function main(): Promise<void> {
     logger,
   });
 
-  // Launch the default subcluster if this is the first time
-  if (firstTime) {
-    const result = await kernel.launchSubcluster(defaultSubcluster);
-    logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
-  }
+  await Promise.all([
+    kernel.initRemoteComms(),
+    (async () => {
+      // Launch the default subcluster if this is the first time
+      if (firstTime) {
+        const result = await kernel.launchSubcluster(defaultSubcluster);
+        logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
+      }
+    })(),
+  ]);
 }
