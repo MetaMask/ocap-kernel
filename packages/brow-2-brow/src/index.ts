@@ -8,13 +8,13 @@ import type {
   Connection,
   Libp2p,
   Libp2pEvents,
+  PrivateKey,
 } from '@libp2p/interface';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
 import { multiaddr } from '@multiformats/multiaddr';
-import '@types/web';
 import type { ByteStream } from 'it-byte-stream';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
@@ -23,6 +23,7 @@ import { toString as bufToString, fromString } from 'uint8arrays';
 import { generateKeyPair } from './key-manglage.ts';
 import { update, getPeerTypes, getAddresses, getPeerDetails } from './utils.ts';
 
+// Our eslint rules have a hard time understanding that this is not Node code
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
 const RELAY_ID = 200;
@@ -34,17 +35,23 @@ type Channel = {
 };
 
 declare global {
-  // TypeScript requires you to use `var` here for this to work.
+  // TypeScript requires you to use `var` here for these declarations to work.
   // eslint-disable-next-line no-var
   var libp2p: Libp2p;
+  // eslint-disable-next-line no-var
+  var location: Location;
+  // eslint-disable-next-line no-var
+  var document: Document;
 }
 
 const App = async (): Promise<void> => {
   const peerIdList: (PeerId | undefined)[] = []; // id -> peerID
+  const keyList: (PrivateKey | undefined)[] = []; // id -> private key
   const idMap = new Map<string, number>(); // peerID string -> id
   peerIdList[0] = undefined;
   for (let i = 1; i < 256; ++i) {
     const keyPair = await generateKeyPair(i);
+    keyList[i] = keyPair;
     const peerId = peerIdFromPrivateKey(keyPair);
     peerIdList[i] = peerId;
     idMap.set(peerId.toString(), i);
@@ -53,6 +60,7 @@ const App = async (): Promise<void> => {
   const activeChannels = new Map(); // peerID -> channel info
   const queryParams = new URLSearchParams(location.search);
   const idParam = queryParams.get('id');
+  // Nullish coalescing does the wrong thing here; the eslint rule is bad
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   let localId = (idParam && Number.parseInt(idParam, 10)) || 0;
   if (localId < 1 || localId > 255) {
@@ -62,29 +70,30 @@ const App = async (): Promise<void> => {
   const showPeerTypes = queryParams.get('peertypes');
   const showAddresses = queryParams.get('addresses');
   const peerId = peerIdList[localId] as unknown as PeerId;
+  const privateKey = keyList[localId] as unknown as PrivateKey;
   console.log(`I am id:${localId} peerId:${peerId.toString()}`);
 
   const relayPeerId = peerIdList[RELAY_ID];
   if (!relayPeerId) {
     throw Error(`relay peer ID is undefined`);
   }
-  const privateKey = await generateKeyPair(RELAY_ID);
   const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId.toString()}`;
-  // const relayAddr = `${RELAY_HOST}/tcp/9001`;
 
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
       listen: [
-        // 👇 Listen for webRTC connection
+        // Both webRTC and p2p-circuit are needed for inbound hole punching to actually work
         '/webrtc',
+        '/p2p-circuit',
       ],
+      announce: ['/webrtc'],
     },
     transports: [
       webSockets(),
       webTransport(),
       webRTC(),
-      // 👇 Required to create circuit relay reservations in order to hole punch browser-to-browser WebRTC connections
+      // Required to create circuit relay reservations in order to hole punch browser-to-browser WebRTC connections
       circuitRelayTransport(),
     ],
     connectionEncrypters: [noise()],
@@ -106,32 +115,20 @@ const App = async (): Promise<void> => {
   globalThis.libp2p = libp2p;
 
   const DOM = {
-    nodePeerId: () =>
-      document.getElementById('output-node-peer-id') as HTMLDataElement,
-    nodeStatus: () =>
-      document.getElementById('output-node-status') as HTMLDataElement,
-    nodePeerCount: () =>
-      document.getElementById('output-peer-count') as HTMLDataElement,
-    nodePeerTypes: () =>
-      document.getElementById('output-peer-types') as HTMLDataElement,
-    nodeAddressCount: () =>
-      document.getElementById('output-address-count') as HTMLDataElement,
-    nodeAddresses: () =>
-      document.getElementById('output-addresses') as HTMLDataElement,
-    nodePeerDetails: () =>
-      document.getElementById('output-peer-details') as HTMLDataElement,
+    nodePeerId: () => document.getElementById('output-node-peer-id'),
+    nodeStatus: () => document.getElementById('output-node-status'),
+    nodePeerCount: () => document.getElementById('output-peer-count'),
+    nodePeerTypes: () => document.getElementById('output-peer-types'),
+    nodeAddressCount: () => document.getElementById('output-address-count'),
+    nodeAddresses: () => document.getElementById('output-addresses'),
+    nodePeerDetails: () => document.getElementById('output-peer-details'),
 
-    inputMultiaddr: () =>
-      document.getElementById('input-multiaddr') as HTMLDataElement,
-    inputTarget: () =>
-      document.getElementById('input-target') as HTMLDataElement,
-    inputMessage: () =>
-      document.getElementById('input-message') as HTMLDataElement,
-    connectButton: () =>
-      document.getElementById('button-connect') as HTMLDataElement,
-    sendButton: () => document.getElementById('button-send') as HTMLDataElement,
-    outputMessages: () =>
-      document.getElementById('output-messages') as HTMLDataElement,
+    inputMultiaddr: () => document.getElementById('input-multiaddr'),
+    inputTarget: () => document.getElementById('input-target'),
+    inputMessage: () => document.getElementById('input-message'),
+    connectButton: () => document.getElementById('button-connect'),
+    sendButton: () => document.getElementById('button-send'),
+    outputMessages: () => document.getElementById('output-messages'),
   };
 
   outputLine(`I am id:${localId} peerId:${peerId.toString()}`);
@@ -290,7 +287,8 @@ const App = async (): Promise<void> => {
     update(DOM.nodePeerDetails(), getPeerDetails(libp2p));
   }, 1000);
 
-  DOM.connectButton().onclick = async (event) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  DOM.connectButton().onclick = async (event: any) => {
     event.preventDefault();
     const maddr = multiaddr(DOM.inputMultiaddr().value);
 
@@ -304,7 +302,8 @@ const App = async (): Promise<void> => {
     }
   };
 
-  DOM.sendButton().onclick = async (event) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  DOM.sendButton().onclick = async (event: any) => {
     event.preventDefault();
     const target = DOM.inputTarget().value;
     const message = DOM.inputMessage().value;
@@ -335,6 +334,7 @@ const App = async (): Promise<void> => {
         channel = await openChannel(id);
       } catch (problem) {
         outputError(id, 'opening connection', problem);
+        return;
       }
       readChannel(channel).catch((problem) => {
         outputError(id, 'reading channel', problem);
@@ -390,10 +390,10 @@ const App = async (): Promise<void> => {
       throw Error(`no peer ID for id = ${id}`);
     }
     outputLine(`connecting to id:${id} peerId:${targetPeerId.toString()}`);
-    const signal = AbortSignal.timeout(5000);
-    const connectToAddr = multiaddr(
-      `${relayAddr}/p2p-circuit/webrtc/p2p/${targetPeerId.toString()}`,
-    );
+    const signal = AbortSignal.timeout(500000);
+    const addressString = `${relayAddr}/p2p-circuit/webrtc/p2p/${targetPeerId.toString()}`;
+    outputLine(`dial address ${addressString}`);
+    const connectToAddr = multiaddr(addressString);
 
     let stream;
     try {
