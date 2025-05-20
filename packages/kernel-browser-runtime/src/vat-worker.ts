@@ -9,7 +9,7 @@ type Options = {
   id: VatId;
   getPort: typeof initializeMessageChannel;
   logger: Logger;
-  iframeUri?: string;
+  iframeUri: string;
   testId?: string;
 };
 
@@ -28,7 +28,7 @@ export const makeIframeVatWorker = ({
   id,
   getPort,
   logger,
-  iframeUri = 'iframe.html',
+  iframeUri,
   testId = 'ocap-iframe',
 }: Options): VatWorker => {
   const vatHtmlId = `ocap-iframe-${id}`;
