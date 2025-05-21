@@ -2873,7 +2873,6 @@ __metadata:
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/node": "npm:^22.13.1"
-    "@types/web": "npm:^0"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
@@ -4268,13 +4267,6 @@ __metadata:
   version: 3.0.3
   resolution: "@types/unist@npm:3.0.3"
   checksum: 10/96e6453da9e075aaef1dc22482463898198acdc1eeb99b465e65e34303e2ec1e3b1ed4469a9118275ec284dc98019f63c3f5d49422f0e4ac707e5ab90fb3b71a
-  languageName: node
-  linkType: hard
-
-"@types/web@npm:^0":
-  version: 0.0.225
-  resolution: "@types/web@npm:0.0.225"
-  checksum: 10/e3531cf8195494f8d4086708c2f456bb018f811bcc6419c42a5f45a5db350faf52813c891958fbcadb65eaa99945cf9284fd05493b7745f25118fce9992670a3
   languageName: node
   linkType: hard
 
