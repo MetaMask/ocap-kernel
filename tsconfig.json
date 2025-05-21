@@ -15,17 +15,18 @@
   "references": [
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
-    { "path": "./packages/kernel-errors" },
     { "path": "./packages/extension" },
-    { "path": "./packages/ocap-kernel" },
-    { "path": "./packages/kernel-test" },
-    { "path": "./packages/logger" },
-    { "path": "./packages/nodejs" },
+    { "path": "./packages/kernel-browser-runtime" },
+    { "path": "./packages/kernel-errors" },
     { "path": "./packages/kernel-rpc-methods" },
     { "path": "./packages/kernel-shims" },
     { "path": "./packages/kernel-store" },
+    { "path": "./packages/kernel-test" },
+    { "path": "./packages/kernel-utils" },
+    { "path": "./packages/logger" },
+    { "path": "./packages/nodejs" },
+    { "path": "./packages/ocap-kernel" },
     { "path": "./packages/streams" },
-    { "path": "./packages/test-utils" },
-    { "path": "./packages/kernel-utils" }
+    { "path": "./packages/test-utils" }
   ]
 }

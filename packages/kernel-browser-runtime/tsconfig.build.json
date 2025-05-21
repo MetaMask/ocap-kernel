@@ -1,19 +1,14 @@
 {
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
-    "allowJs": true,
     "baseUrl": "./",
-    "emitDeclarationOnly": false,
     "lib": ["DOM", "ES2022"],
-    "noEmit": true,
+    "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["chrome", "ses", "react", "react-dom"],
-    "plugins": [{ "name": "typescript-plugin-css-modules" }]
+    "types": ["ses"]
   },
   "references": [
-    { "path": "../kernel-browser-runtime/tsconfig.build.json" },
+    { "path": "../kernel-errors/tsconfig.build.json" },
     { "path": "../kernel-rpc-methods/tsconfig.build.json" },
     { "path": "../kernel-shims/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },
@@ -22,11 +17,14 @@
     { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" }
   ],
-  "include": [
-    "./src/**/*.ts",
-    "./src/**/*.tsx",
-    "./src/**/*.module.css",
-    "./src/**/*-trusted-prelude.js",
-    "./src/env/dev-console.js"
+  "files": ["./src/default-cluster.json"],
+  "include": ["./src"],
+  "exclude": [
+    "**/vite.config.ts",
+    "vitest.workspace.ts",
+    "**/vitest.config.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "./src/kernel-worker"
   ]
 }

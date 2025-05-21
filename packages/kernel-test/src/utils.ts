@@ -9,7 +9,7 @@ import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { NodejsVatWorkerManager } from '@ocap/nodejs';
+import { NodejsVatWorkerService } from '@ocap/nodejs';
 import {
   MessagePort as NodeMessagePort,
   MessageChannel as NodeMessageChannel,
@@ -82,7 +82,7 @@ export async function makeKernel(
     JsonRpcRequest,
     JsonRpcResponse
   >(kernelPort);
-  const vatWorkerClient = new NodejsVatWorkerManager({
+  const vatWorkerClient = new NodejsVatWorkerService({
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
   });
   const kernel = await Kernel.make(

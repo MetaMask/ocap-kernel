@@ -2,7 +2,7 @@ import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatWorkerManager, VatId, VatConfig } from '@metamask/ocap-kernel';
+import type { VatWorkerService, VatId, VatConfig } from '@metamask/ocap-kernel';
 import { vatWorkerServiceMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -18,14 +18,14 @@ import type { JsonRpcId, JsonRpcResponse } from '@metamask/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerService } from './VatWorkerServer.ts';
+import type { VatWorkerServer } from './VatWorkerServer.ts';
 
 export type VatWorkerClientStream = PostMessageDuplexStream<
   MessageEvent<JsonRpcResponse>,
   PostMessageEnvelope<JsonRpcCall>
 >;
 
-export class ExtensionVatWorkerClient implements VatWorkerManager {
+export class VatWorkerClient implements VatWorkerService {
   readonly #logger: Logger;
 
   readonly #stream: VatWorkerClientStream;
@@ -35,7 +35,7 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
   readonly #portMap: Map<JsonRpcId, MessagePort | undefined>;
 
   /**
-   * **ATTN:** Prefer {@link ExtensionVatWorkerClient.make} over constructing
+   * **ATTN:** Prefer {@link VatWorkerClient.make} over constructing
    * this class directly.
    *
    * The client end of the vat worker service, intended to be constructed in
@@ -43,10 +43,10 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
    * server and wraps the launch response in a DuplexStream for consumption
    * by the kernel.
    *
-   * Note that {@link ExtensionVatWorkerClient.start} must be called to start
+   * Note that {@link VatWorkerClient.start} must be called to start
    * the client.
    *
-   * @see {@link ExtensionVatWorkerService} for the other end of the service.
+   * @see {@link VatWorkerServer} for the other end of the service.
    *
    * @param stream - The stream to use for communication with the server.
    * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
@@ -71,23 +71,23 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
   }
 
   /**
-   * Create a new {@link ExtensionVatWorkerClient}. Does not start the client.
+   * Create a new {@link VatWorkerClient}. Does not start the client.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param logger - An optional {@link Logger}.
-   * @returns A new {@link ExtensionVatWorkerClient}.
+   * @returns A new {@link VatWorkerClient}.
    */
   static make(
     messageTarget: PostMessageTarget,
     logger?: Logger,
-  ): ExtensionVatWorkerClient {
+  ): VatWorkerClient {
     const stream: VatWorkerClientStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
       validateInput: (message): message is MessageEvent<JsonRpcResponse> =>
         message instanceof MessageEvent && isJsonRpcResponse(message.data),
     });
-    return new ExtensionVatWorkerClient(stream, logger);
+    return new VatWorkerClient(stream, logger);
   }
 
   /**
@@ -153,4 +153,4 @@ export class ExtensionVatWorkerClient implements VatWorkerManager {
     this.#rpcClient.handleResponse(id, event.data);
   }
 }
-harden(ExtensionVatWorkerClient);
+harden(VatWorkerClient);

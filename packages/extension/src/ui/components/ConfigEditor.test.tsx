@@ -1,3 +1,5 @@
+import defaultClusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
+import type { KernelStatus } from '@metamask/ocap-kernel';
 import {
   render,
   screen,
@@ -9,8 +11,6 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ConfigEditor } from './ConfigEditor.tsx';
-import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
-import defaultClusterConfig from '../../vats/default-cluster.json';
 import minimalClusterConfig from '../../vats/minimal-cluster.json';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';

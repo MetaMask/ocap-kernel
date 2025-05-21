@@ -1,11 +1,6 @@
+import clusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-import clusterConfig from '../../vats/default-cluster.json';
-
-vi.mock('../../kernel-integration/handlers/send-vat-command.ts', () => ({
-  assertVatCommandParams: vi.fn(),
-}));
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),

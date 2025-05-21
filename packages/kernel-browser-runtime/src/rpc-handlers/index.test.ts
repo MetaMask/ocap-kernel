@@ -10,7 +10,7 @@ import {
   executeDBQuerySpec,
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
-import { handlers, methodSpecs } from './index.ts';
+import { rpcHandlers, rpcMethodSpecs } from './index.ts';
 import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
@@ -28,7 +28,7 @@ import {
 
 describe('handlers/index', () => {
   it('should export all handler functions', () => {
-    expect(handlers).toStrictEqual({
+    expect(rpcHandlers).toStrictEqual({
       clearState: clearStateHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
@@ -45,7 +45,7 @@ describe('handlers/index', () => {
   });
 
   it('should have all handlers with the correct method property', () => {
-    const handlerEntries = Object.entries(handlers);
+    const handlerEntries = Object.entries(rpcHandlers);
 
     handlerEntries.forEach(([key, handler]) => {
       expect(handler).toHaveProperty('method');
@@ -54,7 +54,7 @@ describe('handlers/index', () => {
   });
 
   it('should export all method specs', () => {
-    expect(methodSpecs).toStrictEqual({
+    expect(rpcMethodSpecs).toStrictEqual({
       clearState: clearStateSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
@@ -71,8 +71,8 @@ describe('handlers/index', () => {
   });
 
   it('should have the same keys as handlers', () => {
-    expect(Object.keys(methodSpecs).sort()).toStrictEqual(
-      Object.keys(handlers).sort(),
+    expect(Object.keys(rpcMethodSpecs).sort()).toStrictEqual(
+      Object.keys(rpcHandlers).sort(),
     );
   });
 });

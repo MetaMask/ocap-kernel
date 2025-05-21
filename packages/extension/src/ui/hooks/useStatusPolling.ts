@@ -1,9 +1,9 @@
 import { stringify } from '@metamask/kernel-utils';
+import type { KernelStatus } from '@metamask/ocap-kernel';
 import { hasProperty } from '@metamask/utils';
 import { useEffect, useRef, useState } from 'react';
 
 import type { StreamState } from './useStream.ts';
-import type { KernelStatus } from '../../kernel-integration/handlers/index.ts';
 import { logger } from '../services/logger.ts';
 
 /**

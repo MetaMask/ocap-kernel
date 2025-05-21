@@ -11,7 +11,7 @@ import { Kernel } from './Kernel.ts';
 import type {
   VatId,
   VatConfig,
-  VatWorkerManager,
+  VatWorkerService,
   ClusterConfig,
 } from './types.ts';
 import { VatHandle } from './VatHandle.ts';
@@ -54,7 +54,7 @@ const makeMockClusterConfig = (): ClusterConfig => ({
 
 describe('Kernel', () => {
   let mockStream: DuplexStream<JsonRpcRequest, JsonRpcResponse>;
-  let mockWorkerService: VatWorkerManager;
+  let mockWorkerService: VatWorkerService;
   let launchWorkerMock: MockInstance;
   let terminateWorkerMock: MockInstance;
   let makeVatHandleMock: MockInstance;
@@ -72,7 +72,7 @@ describe('Kernel', () => {
         ({}) as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
-    } as unknown as VatWorkerManager;
+    } as unknown as VatWorkerService;
 
     launchWorkerMock = vi
       .spyOn(mockWorkerService, 'launch')
@@ -374,6 +374,21 @@ describe('Kernel', () => {
       await kernel.launchVat(makeMockVatConfig());
       await kernel.launchVat(makeMockVatConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
+    });
+  });
+
+  describe('getStatus()', () => {
+    it('returns the current kernel status', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      const status = kernel.getStatus();
+      expect(status).toStrictEqual({
+        clusterConfig: null,
+        vats: [],
+      });
     });
   });
 

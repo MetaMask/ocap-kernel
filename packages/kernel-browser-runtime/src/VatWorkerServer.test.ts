@@ -12,7 +12,7 @@ import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { ExtensionVatWorkerService } from './VatWorkerServer.ts';
+import { VatWorkerServer } from './VatWorkerServer.ts';
 import type { VatWorker, VatWorkerServiceStream } from './VatWorkerServer.ts';
 
 vi.mock('@metamask/ocap-kernel', () => ({
@@ -60,7 +60,7 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
     params: [],
   });
 
-describe('ExtensionVatWorkerService', () => {
+describe('VatWorkerServer', () => {
   let cleanup: (() => Promise<void>)[] = [];
 
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('ExtensionVatWorkerService', () => {
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
     expect(
-      new ExtensionVatWorkerService(
+      new VatWorkerServer(
         stream as unknown as VatWorkerServiceStream,
         () => ({}) as unknown as VatWorker,
       ),
@@ -89,7 +89,7 @@ describe('ExtensionVatWorkerService', () => {
   });
 
   it('constructs using static factory method', () => {
-    const server = ExtensionVatWorkerService.make(
+    const server = VatWorkerServer.make(
       {
         postMessage: vi.fn(),
         addEventListener: vi.fn(),
@@ -104,7 +104,7 @@ describe('ExtensionVatWorkerService', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
-    let server: ExtensionVatWorkerService;
+    let server: VatWorkerServer;
 
     const makeMockVatWorker = (
       _id: string,
@@ -129,7 +129,7 @@ describe('ExtensionVatWorkerService', () => {
       workers = [];
       logger = new Logger('test-server');
       stream = await TestDuplexStream.make(() => undefined);
-      server = new ExtensionVatWorkerService(
+      server = new VatWorkerServer(
         stream as unknown as VatWorkerServiceStream,
         makeMockVatWorker,
         logger,

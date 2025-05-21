@@ -1,13 +1,13 @@
 {
-  "name": "@metamask/kernel-shims",
-  "version": "0.1.0",
-  "description": "Ocap Kernel shims",
+  "name": "@metamask/kernel-browser-runtime",
+  "version": "0.0.0",
+  "description": "Tools for running the MetaMask Ocap Kernel in a web browser",
   "keywords": [
     "MetaMask",
     "object capabilities",
     "ocap"
   ],
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-shims#readme",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-browser-runtime#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -16,22 +16,35 @@
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "license": "SEE LICENSE IN LICENSE",
-  "sideEffects": true,
+  "sideEffects": false,
   "type": "module",
   "exports": {
-    "./endoify": "./dist/endoify.js",
-    "./package.json": "./package.json"
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json",
+    "./default-cluster": "./dist/default-cluster.json"
   },
-  "main": "./dist/endoify.js",
-  "module": "./dist/endoify.js",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "node scripts/bundle.js",
+    "build": "yarn build:ts && yarn build:kernel-worker",
+    "build:ts": "ts-bridge --project tsconfig.build.json --clean",
+    "build:kernel-worker": "node scripts/build-kernel-worker.js",
     "build:docs": "typedoc",
-    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-shims",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-shims",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-browser-runtime",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-browser-runtime",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -46,23 +59,37 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/eventual-send": "^1.3.1",
-    "@endo/lockdown": "^1.0.15",
+    "@endo/marshal": "^1.6.4",
+    "@metamask/json-rpc-engine": "^10.0.3",
+    "@metamask/kernel-errors": "workspace:^",
+    "@metamask/kernel-rpc-methods": "workspace:^",
+    "@metamask/kernel-store": "workspace:^",
+    "@metamask/kernel-utils": "workspace:^",
+    "@metamask/logger": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
+    "@metamask/rpc-errors": "^7.0.2",
+    "@metamask/snaps-utils": "^9.1.0",
+    "@metamask/streams": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
+    "@metamask/utils": "^11.4.0",
+    "nanoid": "^5.1.5",
     "ses": "^1.12.0"
   },
   "devDependencies": {
-    "@endo/bundle-source": "^4.0.0",
+    "@arethetypeswrong/cli": "^0.17.4",
     "@metamask/auto-changelog": "^5.0.1",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/cli": "workspace:^",
     "@ocap/test-utils": "workspace:^",
+    "@ts-bridge/cli": "^0.6.3",
+    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
     "@vitest/eslint-plugin": "^1.1.44",
     "depcheck": "^1.4.7",
+    "esbuild": "^0.25.3",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-import-resolver-typescript": "^4.3.1",
@@ -73,6 +100,7 @@
     "eslint-plugin-promise": "^7.2.1",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
+    "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
     "vite": "^6.3.5",

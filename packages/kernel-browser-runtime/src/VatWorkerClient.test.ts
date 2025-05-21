@@ -8,7 +8,7 @@ import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { VatWorkerClientStream } from './VatWorkerClient.ts';
-import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
+import { VatWorkerClient } from './VatWorkerClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -54,16 +54,14 @@ const makeNullReply = (messageId: `m${number}`): MessageEvent =>
     result: null,
   });
 
-describe('ExtensionVatWorkerClient', () => {
+describe('VatWorkerClient', () => {
   it('constructs with default logger', () => {
-    const client = new ExtensionVatWorkerClient(
-      {} as unknown as VatWorkerClientStream,
-    );
+    const client = new VatWorkerClient({} as unknown as VatWorkerClientStream);
     expect(client).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
-    const client = ExtensionVatWorkerClient.make({
+    const client = VatWorkerClient.make({
       postMessage: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -74,12 +72,12 @@ describe('ExtensionVatWorkerClient', () => {
   describe('message handling', () => {
     let stream: TestDuplexStream;
     let clientLogger: Logger;
-    let client: ExtensionVatWorkerClient;
+    let client: VatWorkerClient;
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
       clientLogger = new Logger('test-client');
-      client = new ExtensionVatWorkerClient(
+      client = new VatWorkerClient(
         stream as unknown as VatWorkerClientStream,
         clientLogger,
       );

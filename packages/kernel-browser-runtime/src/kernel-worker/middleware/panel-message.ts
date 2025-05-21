@@ -5,7 +5,7 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
 import type { Json, JsonRpcParams } from '@metamask/utils';
 
-import { handlers } from '../handlers/index.ts';
+import { rpcHandlers } from '../../rpc-handlers/index.ts';
 
 /**
  * Creates a middleware function that handles panel messages.
@@ -18,12 +18,15 @@ export const createPanelMessageMiddleware = (
   kernel: Kernel,
   kernelDatabase: KernelDatabase,
 ): JsonRpcMiddleware<JsonRpcParams, Json> => {
-  const rpcService: RpcService<typeof handlers> = new RpcService(handlers, {
-    kernel,
-    executeDBQuery: (sql: string) => kernelDatabase.executeQuery(sql),
-    updateClusterConfig: (config: ClusterConfig) =>
-      (kernel.clusterConfig = config),
-  });
+  const rpcService: RpcService<typeof rpcHandlers> = new RpcService(
+    rpcHandlers,
+    {
+      kernel,
+      executeDBQuery: (sql: string) => kernelDatabase.executeQuery(sql),
+      updateClusterConfig: (config: ClusterConfig) =>
+        (kernel.clusterConfig = config),
+    },
+  );
 
   return createAsyncMiddleware(async (req, res, _next) => {
     const { method, params } = req;

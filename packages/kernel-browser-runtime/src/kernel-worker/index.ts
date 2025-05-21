@@ -1,10 +1,9 @@
 import { JsonRpcEngine } from '@metamask/json-rpc-engine';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { fetchValidatedJson, isJsonRpcCall } from '@metamask/kernel-utils';
+import { isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
-import { ClusterConfigStruct, Kernel } from '@metamask/ocap-kernel';
+import { Kernel } from '@metamask/ocap-kernel';
 import type { PostMessageTarget } from '@metamask/streams/browser';
 import {
   MessagePortDuplexStream,
@@ -12,10 +11,11 @@ import {
 } from '@metamask/streams/browser';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 
+import defaultSubcluster from '../default-cluster.json';
+import { receiveUiConnections } from '../ui-connections.ts';
+import { VatWorkerClient } from '../VatWorkerClient.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
-import { receiveUiConnections } from './ui-connections.ts';
-import { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -45,9 +45,7 @@ async function main(): Promise<void> {
   >(port, isJsonRpcCall);
 
   // Initialize kernel dependencies
-  const vatWorkerClient = ExtensionVatWorkerClient.make(
-    globalThis as PostMessageTarget,
-  );
+  const vatWorkerClient = VatWorkerClient.make(globalThis as PostMessageTarget);
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: DB_FILENAME,
   });
@@ -65,16 +63,12 @@ async function main(): Promise<void> {
   kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
   kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
   // JsonRpcEngine type error: does not handle JSON-RPC notifications
-  receiveUiConnections(
-    async (request) => kernelEngine.handle(request as JsonRpcRequest),
+  receiveUiConnections({
+    handleInstanceMessage: async (request) =>
+      kernelEngine.handle(request as JsonRpcRequest),
     logger,
-  );
+  });
   const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
-
-  const defaultSubcluster = await fetchValidatedJson<ClusterConfig>(
-    new URL('../vats/default-cluster.json', import.meta.url).href,
-    ClusterConfigStruct,
-  );
 
   await Promise.all([
     vatWorkerClient.start(),

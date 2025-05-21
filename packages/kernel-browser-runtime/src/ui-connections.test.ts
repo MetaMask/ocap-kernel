@@ -11,7 +11,6 @@ import {
   receiveUiConnections,
   UI_CONTROL_CHANNEL_NAME,
 } from './ui-connections.ts';
-import clusterConfig from '../vats/default-cluster.json';
 
 vi.mock('nanoid', () => ({
   nanoid: vi.fn(() => 'test-id'),
@@ -53,6 +52,12 @@ vi.mock('@metamask/streams/browser', async () => {
   return {
     PostMessageDuplexStream: MockStream,
   };
+});
+
+const makeClusterConfig = () => ({
+  vats: {
+    alice: {},
+  },
 });
 
 // Mock BroadcastChannel
@@ -101,7 +106,7 @@ describe('ui-connections', () => {
   describe('establishKernelConnection', () => {
     it('should establish a connection and return a stream', async () => {
       const logger = makeMockLogger();
-      const connectionPromise = establishKernelConnection(logger);
+      const connectionPromise = establishKernelConnection({ logger });
 
       // Verify that the control channel receives the init message
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -115,7 +120,7 @@ describe('ui-connections', () => {
 
     it('should handle instance channel message errors', async () => {
       const logger = makeMockLogger();
-      await establishKernelConnection(logger);
+      await establishKernelConnection({ logger });
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
       const instanceChannel = MockBroadcastChannel.channels.get(
@@ -138,7 +143,7 @@ describe('ui-connections', () => {
 
     it('should handle control channel message errors', async () => {
       const logger = makeMockLogger();
-      await establishKernelConnection(logger);
+      await establishKernelConnection({ logger });
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -165,12 +170,15 @@ describe('ui-connections', () => {
       async (_request: JsonRpcCall): Promise<JsonRpcResponse> => ({
         id: 'foo',
         jsonrpc: '2.0' as const,
-        result: { vats: [], clusterConfig },
+        result: { vats: [], clusterConfig: makeClusterConfig() },
       }),
     );
 
     it('should handle new UI connections', async () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
 
       // Simulate a new UI instance connecting
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -192,7 +200,10 @@ describe('ui-connections', () => {
     });
 
     it('should handle valid message', async () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
 
       const controlChannel = MockBroadcastChannel.channels.get(
         UI_CONTROL_CHANNEL_NAME,
@@ -226,7 +237,10 @@ describe('ui-connections', () => {
     });
 
     it('should handle multiple simultaneous connections', async () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
 
       const controlChannel = MockBroadcastChannel.channels.get(
         UI_CONTROL_CHANNEL_NAME,
@@ -257,8 +271,52 @@ describe('ui-connections', () => {
       );
     });
 
+    it('should forget ids of closed channels', async () => {
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
+      const controlChannel = MockBroadcastChannel.channels.get(
+        UI_CONTROL_CHANNEL_NAME,
+      );
+
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: 'test-instance-channel',
+          },
+        }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(2);
+
+      const instanceChannel = MockBroadcastChannel.channels.get(
+        'test-instance-channel',
+      );
+      instanceChannel?.onmessageerror?.(
+        new MessageEvent('messageerror', { data: new Error('Test error') }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(1);
+
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: 'test-instance-channel',
+          },
+        }),
+      );
+      await delay(10);
+      expect(MockBroadcastChannel.channels.size).toBe(2);
+    });
+
     it('should reject duplicate connections', () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
       const controlChannel = MockBroadcastChannel.channels.get(
         UI_CONTROL_CHANNEL_NAME,
       );
@@ -280,7 +338,10 @@ describe('ui-connections', () => {
     });
 
     it('should reject invalid control commands', () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
       const controlChannel = MockBroadcastChannel.channels.get(
         UI_CONTROL_CHANNEL_NAME,
       );
@@ -299,7 +360,10 @@ describe('ui-connections', () => {
     });
 
     it('should handle instance channel message errors', async () => {
-      receiveUiConnections(mockHandleMessage, logger);
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
 
       const controlChannel = MockBroadcastChannel.channels.get(
         UI_CONTROL_CHANNEL_NAME,

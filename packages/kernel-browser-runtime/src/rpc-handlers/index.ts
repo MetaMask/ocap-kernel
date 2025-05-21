@@ -26,7 +26,7 @@ import {
 /**
  * Call-ee side handlers for the kernel control methods.
  */
-export const handlers = {
+export const rpcHandlers = {
   clearState: clearStateHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
@@ -39,12 +39,25 @@ export const handlers = {
   collectGarbage: collectGarbageHandler,
   terminateVat: terminateVatHandler,
   updateClusterConfig: updateClusterConfigHandler,
-} as const;
+} as {
+  clearState: typeof clearStateHandler;
+  executeDBQuery: typeof executeDBQueryHandler;
+  getStatus: typeof getStatusHandler;
+  launchVat: typeof launchVatHandler;
+  pingVat: typeof pingVatHandler;
+  reload: typeof reloadConfigHandler;
+  restartVat: typeof restartVatHandler;
+  queueMessage: typeof queueMessageHandler;
+  terminateAllVats: typeof terminateAllVatsHandler;
+  collectGarbage: typeof collectGarbageHandler;
+  terminateVat: typeof terminateVatHandler;
+  updateClusterConfig: typeof updateClusterConfigHandler;
+};
 
 /**
  * Call-er side method specs for the kernel control methods.
  */
-export const methodSpecs = {
+export const rpcMethodSpecs = {
   clearState: clearStateSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
@@ -57,10 +70,21 @@ export const methodSpecs = {
   collectGarbage: collectGarbageSpec,
   terminateVat: terminateVatSpec,
   updateClusterConfig: updateClusterConfigSpec,
-} as const;
+} as {
+  clearState: typeof clearStateSpec;
+  executeDBQuery: typeof executeDBQuerySpec;
+  getStatus: typeof getStatusSpec;
+  launchVat: typeof launchVatSpec;
+  pingVat: typeof pingVatSpec;
+  reload: typeof reloadConfigSpec;
+  restartVat: typeof restartVatSpec;
+  queueMessage: typeof queueMessageSpec;
+  terminateAllVats: typeof terminateAllVatsSpec;
+  collectGarbage: typeof collectGarbageSpec;
+  terminateVat: typeof terminateVatSpec;
+  updateClusterConfig: typeof updateClusterConfigSpec;
+};
 
-type Handlers = (typeof handlers)[keyof typeof handlers];
+type Handlers = (typeof rpcHandlers)[keyof typeof rpcHandlers];
 
 export type KernelControlMethod = Handlers['method'];
-
-export type { KernelStatus } from './get-status.ts';

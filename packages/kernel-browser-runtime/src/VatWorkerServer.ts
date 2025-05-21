@@ -23,7 +23,7 @@ import type {
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ExtensionVatWorkerClient } from './VatWorkerClient.ts';
+import type { VatWorkerClient } from './VatWorkerClient.ts';
 
 export type VatWorker = {
   launch: (vatConfig: VatConfig) => Promise<[MessagePort, unknown]>;
@@ -35,7 +35,7 @@ export type VatWorkerServiceStream = PostMessageDuplexStream<
   PostMessageEnvelope<JsonRpcResponse>
 >;
 
-export class ExtensionVatWorkerService {
+export class VatWorkerServer {
   readonly #logger;
 
   readonly #stream: VatWorkerServiceStream;
@@ -45,7 +45,7 @@ export class ExtensionVatWorkerService {
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
   /**
-   * **ATTN:** Prefer {@link ExtensionVatWorkerService.make} over constructing
+   * **ATTN:** Prefer {@link VatWorkerServer.make} over constructing
    * this class directly.
    *
    * The server end of the vat worker service, intended to be constructed in
@@ -53,10 +53,10 @@ export class ExtensionVatWorkerService {
    * from the client and uses the {@link VatWorker} methods to effect those
    * requests.
    *
-   * Note that {@link ExtensionVatWorkerService.start} must be called to start
+   * Note that {@link VatWorkerServer.start} must be called to start
    * the server.
    *
-   * @see {@link ExtensionVatWorkerClient} for the other end of the service.
+   * @see {@link VatWorkerClient} for the other end of the service.
    *
    * @param stream - The stream to use for communication with the client.
    * @param makeWorker - A method for making a {@link VatWorker}.
@@ -73,18 +73,18 @@ export class ExtensionVatWorkerService {
   }
 
   /**
-   * Create a new {@link ExtensionVatWorkerService}. Does not start the server.
+   * Create a new {@link VatWorkerServer}. Does not start the server.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param makeWorker - A method for making a {@link VatWorker}.
    * @param logger - An optional {@link Logger}.
-   * @returns A new {@link ExtensionVatWorkerService}.
+   * @returns A new {@link VatWorkerServer}.
    */
   static make(
     messageTarget: PostMessageTarget,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
-  ): ExtensionVatWorkerService {
+  ): VatWorkerServer {
     const stream: VatWorkerServiceStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
@@ -92,7 +92,7 @@ export class ExtensionVatWorkerService {
         message instanceof MessageEvent && isJsonRpcRequest(message.data),
     });
 
-    return new ExtensionVatWorkerService(stream, makeWorker, logger);
+    return new VatWorkerServer(stream, makeWorker, logger);
   }
 
   /**
@@ -207,4 +207,4 @@ export class ExtensionVatWorkerService {
     this.#vatWorkers.delete(vatId);
   }
 }
-harden(ExtensionVatWorkerService);
+harden(VatWorkerServer);

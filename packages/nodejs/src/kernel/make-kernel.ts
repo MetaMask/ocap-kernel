@@ -5,7 +5,7 @@ import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { MessagePort as NodeMessagePort } from 'node:worker_threads';
 
-import { NodejsVatWorkerManager } from './VatWorkerManager.ts';
+import { NodejsVatWorkerService } from './VatWorkerService.ts';
 
 /**
  * The main function for the kernel worker.
@@ -36,7 +36,7 @@ export async function makeKernel({
     JsonRpcResponse
   >(port);
   const rootLogger = logger ?? new Logger('kernel-worker');
-  const vatWorkerClient = new NodejsVatWorkerManager({
+  const vatWorkerClient = new NodejsVatWorkerService({
     workerFilePath,
     logger: rootLogger.subLogger({ tags: ['vat-worker-manager'] }),
   });

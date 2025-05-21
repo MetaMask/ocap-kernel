@@ -18,6 +18,8 @@ import {
   literal,
   boolean,
   exactOptional,
+  type,
+  nullable,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
@@ -226,7 +228,11 @@ export const VatMessageIdStruct = define<VatMessageId>(
   isVatMessageId,
 );
 
-export type VatWorkerManager = {
+/**
+ * A "service" for managing vat workers. Abstracts platform-specific details of
+ * how vat workers are launched, terminated, and connected to the kernel.
+ */
+export type VatWorkerService = {
   /**
    * Launch a new worker with a specific vat id.
    *
@@ -310,6 +316,18 @@ export type ClusterConfig = Infer<typeof ClusterConfigStruct>;
 
 export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
+
+export const KernelStatusStruct = type({
+  clusterConfig: nullable(ClusterConfigStruct),
+  vats: array(
+    object({
+      id: VatIdStruct,
+      config: VatConfigStruct,
+    }),
+  ),
+});
+
+export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
 

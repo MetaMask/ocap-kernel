@@ -25,9 +25,10 @@ import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
   KRef,
-  VatWorkerManager,
+  VatWorkerService,
   ClusterConfig,
   VatConfig,
+  KernelStatus,
 } from './types.ts';
 import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
 import { Fail } from './utils/assert.ts';
@@ -43,7 +44,7 @@ export class Kernel {
   readonly #vats: Map<VatId, VatHandle>;
 
   /** Service to spawn workers (in iframes) for vats to run in */
-  readonly #vatWorkerService: VatWorkerManager;
+  readonly #vatWorkerService: VatWorkerService;
 
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
@@ -73,7 +74,7 @@ export class Kernel {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
     commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
-    vatWorkerService: VatWorkerManager,
+    vatWorkerService: VatWorkerService,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
@@ -112,7 +113,7 @@ export class Kernel {
    */
   static async make(
     commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
-    vatWorkerService: VatWorkerManager,
+    vatWorkerService: VatWorkerService,
     kernelDatabase: KernelDatabase,
     options: {
       resetStorage?: boolean;
@@ -388,6 +389,19 @@ export class Kernel {
    */
   get clusterConfig(): ClusterConfig | null {
     return this.#mostRecentSubcluster;
+  }
+
+  /**
+   * Get the current kernel status, defined as the current cluster configuration
+   * and a list of all running vats.
+   *
+   * @returns The current kernel status.
+   */
+  getStatus(): KernelStatus {
+    return {
+      clusterConfig: this.#mostRecentSubcluster,
+      vats: this.getVats(),
+    };
   }
 
   /**
