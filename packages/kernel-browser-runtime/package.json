@@ -98,6 +98,7 @@
     "eslint-plugin-n": "^17.17.0",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-promise": "^7.2.1",
+    "has-flag": "^5.0.1",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "typedoc": "^0.28.1",
