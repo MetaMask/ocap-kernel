@@ -26,6 +26,7 @@ describe('KernelQueue', () => {
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
   let mockPromiseKit: ReturnType<typeof makePromiseKit>;
+  let terminateVat: (vatId: string, reason?: CapData<KRef>) => Promise<void>;
 
   beforeEach(() => {
     mockPromiseKit = {
@@ -34,6 +35,9 @@ describe('KernelQueue', () => {
       reject: vi.fn(),
     };
     (makePromiseKit as unknown as MockInstance).mockReturnValue(mockPromiseKit);
+
+    terminateVat = vi.fn().mockResolvedValue(undefined);
+
     kernelStore = {
       nextTerminatedVatCleanup: vi.fn(),
       collectGarbage: vi.fn(),
@@ -49,9 +53,12 @@ describe('KernelQueue', () => {
       startCrank: vi.fn(),
       endCrank: vi.fn(),
       createCrankSavepoint: vi.fn(),
+      rollbackCrank: vi.fn(),
+      getRunQueueItemTargetVatId: vi.fn(),
+      isVatCompromised: vi.fn().mockReturnValue(false),
     } as unknown as KernelStore;
 
-    kernelQueue = new KernelQueue(kernelStore);
+    kernelQueue = new KernelQueue(kernelStore, terminateVat);
   });
 
   describe('run', () => {

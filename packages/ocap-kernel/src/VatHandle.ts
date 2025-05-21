@@ -150,7 +150,7 @@ export class VatHandle {
       },
     );
 
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'initVat',
       params: {
         vatConfig: this.config,
@@ -165,7 +165,7 @@ export class VatHandle {
    * @returns A promise that resolves to the result of the ping.
    */
   async ping(): Promise<PingVatResult> {
-    return await this.#sendVatCommand({
+    return await this.sendVatCommand({
       method: 'ping',
       params: [],
     });
@@ -211,11 +211,10 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    const result = await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
     });
-    console.log('deliverMessage result', result);
     return this.#deliveryCrankResults();
   }
 
@@ -226,7 +225,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
     });
@@ -240,7 +239,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
@@ -254,7 +253,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
@@ -268,7 +267,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
@@ -281,7 +280,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
-    await this.#sendVatCommand({
+    await this.sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
@@ -317,7 +316,7 @@ export class VatHandle {
    * @param payload.params - The parameters to pass to the method.
    * @returns A promise that resolves the response to the command.
    */
-  async #sendVatCommand<Method extends VatMethod>({
+  async sendVatCommand<Method extends VatMethod>({
     method,
     params,
   }: {

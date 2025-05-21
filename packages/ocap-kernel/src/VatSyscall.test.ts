@@ -30,8 +30,13 @@ describe('VatSyscall', () => {
       clearReachableFlag: vi.fn(),
       getReachableFlag: vi.fn(),
       forgetKref: vi.fn(),
+      getVatConfig: vi.fn(() => ({})),
+      markVatAsCompromised: vi.fn(),
     } as unknown as KernelStore;
-    logger = { debug: vi.fn() } as unknown as Logger;
+    logger = {
+      debug: vi.fn(),
+      error: vi.fn(),
+    } as unknown as Logger;
     vatSys = new VatSyscall({ vatId: 'v1', kernelQueue, kernelStore, logger });
   });
 
@@ -93,9 +98,15 @@ describe('VatSyscall', () => {
     it.each([
       ['o+1', 'vat v1 issued invalid syscall dropImports for o+1'],
       ['p-1', 'vat v1 issued invalid syscall dropImports for p-1'],
-    ])('throws for invalid ref %s', async (ref, errMsg) => {
+    ])('returns error for invalid ref %s', async (ref, errMsg) => {
+      (
+        kernelStore.translateSyscallVtoK as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw new Error(errMsg);
+      });
       const vso = ['dropImports', [ref]] as unknown as VatSyscallObject;
-      await expect(vatSys.handleSyscall(vso)).rejects.toThrow(errMsg);
+      const result = await vatSys.handleSyscall(vso);
+      expect(result).toStrictEqual(['error', errMsg]);
     });
   });
 
@@ -109,14 +120,21 @@ describe('VatSyscall', () => {
       expect(kernelStore.forgetKref).toHaveBeenCalledWith('v1', 'o-1');
     });
 
-    it('throws if still reachable', async () => {
+    it('returns error if still reachable', async () => {
       (
-        kernelStore.getReachableFlag as unknown as MockInstance
-      ).mockReturnValueOnce(true);
+        kernelStore.translateSyscallVtoK as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        (
+          kernelStore.getReachableFlag as unknown as MockInstance
+        ).mockReturnValueOnce(true);
+        throw new Error('syscall.retireImports but o-1 is still reachable');
+      });
       const vso = ['retireImports', ['o-1']] as unknown as VatSyscallObject;
-      await expect(vatSys.handleSyscall(vso)).rejects.toThrow(
+      const result = await vatSys.handleSyscall(vso);
+      expect(result).toStrictEqual([
+        'error',
         'syscall.retireImports but o-1 is still reachable',
-      );
+      ]);
     });
   });
 
@@ -133,14 +151,21 @@ describe('VatSyscall', () => {
       );
     });
 
-    it('throws for reachable exports', async () => {
+    it('returns error for reachable exports', async () => {
       (
-        kernelStore.getReachableFlag as unknown as MockInstance
-      ).mockReturnValueOnce(true);
+        kernelStore.translateSyscallVtoK as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        (
+          kernelStore.getReachableFlag as unknown as MockInstance
+        ).mockReturnValueOnce(true);
+        throw new Error('syscall.retireExports but o+1 is still reachable');
+      });
       const vso = ['retireExports', ['o+1']] as unknown as VatSyscallObject;
-      await expect(vatSys.handleSyscall(vso)).rejects.toThrow(
+      const result = await vatSys.handleSyscall(vso);
+      expect(result).toStrictEqual([
+        'error',
         'syscall.retireExports but o+1 is still reachable',
-      );
+      ]);
     });
 
     it('abandons exports without reachability check', async () => {
@@ -152,10 +177,67 @@ describe('VatSyscall', () => {
       );
     });
 
-    it('throws for invalid abandonExports refs', async () => {
+    it('returns error for invalid abandonExports refs', async () => {
+      (
+        kernelStore.translateSyscallVtoK as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw new Error('vat v1 issued invalid syscall abandonExports for o-1');
+      });
       const vso = ['abandonExports', ['o-1']] as unknown as VatSyscallObject;
-      await expect(vatSys.handleSyscall(vso)).rejects.toThrow(
+      const result = await vatSys.handleSyscall(vso);
+      expect(result).toStrictEqual([
+        'error',
         'vat v1 issued invalid syscall abandonExports for o-1',
+      ]);
+    });
+  });
+
+  describe('exit syscall', () => {
+    it('records vat termination request', async () => {
+      const vso = [
+        'exit',
+        true,
+        { message: 'error' },
+      ] as unknown as VatSyscallObject;
+      await vatSys.handleSyscall(vso);
+      expect(vatSys.vatRequestedTermination).toStrictEqual({
+        reject: true,
+        info: { message: 'error' },
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('handles vat not found error', async () => {
+      (kernelStore.getVatConfig as unknown as MockInstance).mockReturnValueOnce(
+        undefined,
+      );
+      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const result = await vatSys.handleSyscall(vso);
+
+      expect(result).toStrictEqual(['error', 'vat not found']);
+      expect(vatSys.illegalSyscall).toBeDefined();
+      expect(kernelStore.markVatAsCompromised).toHaveBeenCalledWith('v1');
+      expect(logger.error).toHaveBeenCalledWith(
+        'Vat v1 marked as compromised due to fatal syscall error: vat not found',
+      );
+    });
+
+    it('handles general syscall errors', async () => {
+      const error = new Error('test error');
+      (
+        kernelStore.translateSyscallVtoK as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw error;
+      });
+
+      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const result = await vatSys.handleSyscall(vso);
+
+      expect(result).toStrictEqual(['error', 'test error']);
+      expect(logger.error).toHaveBeenCalledWith(
+        'Fatal syscall error in vat v1',
+        error,
       );
     });
   });
@@ -163,6 +245,10 @@ describe('VatSyscall', () => {
   describe('invalid or unknown syscalls', () => {
     it.each([
       ['vatstoreGet', 'invalid syscall vatstoreGet'],
+      ['vatstoreGetNextKey', 'invalid syscall vatstoreGetNextKey'],
+      ['vatstoreSet', 'invalid syscall vatstoreSet'],
+      ['vatstoreDelete', 'invalid syscall vatstoreDelete'],
+      ['callNow', 'invalid syscall callNow'],
       ['unknownOp', 'unknown syscall unknownOp'],
     ])('%s should warn', async (op, message) => {
       const spy = vi.spyOn(console, 'warn').mockImplementation(() => {

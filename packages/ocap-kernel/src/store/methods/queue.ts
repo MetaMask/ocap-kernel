@@ -71,7 +71,7 @@ export function getQueueMethods(ctx: StoreContext) {
   function getRunQueueItemTargetVatId(item: RunQueueItem): VatId | undefined {
     switch (item.type) {
       case 'send': {
-        return getOwner(item.target);
+        return getOwner(item.target, false);
       }
       case 'notify':
       case 'dropExports':

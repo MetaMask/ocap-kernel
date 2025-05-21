@@ -172,8 +172,9 @@ export class KernelRouter {
     item: RunQueueItemSend,
   ): Promise<CrankResults | undefined> {
     const route = this.#routeMessage(item);
+    let crankResults: CrankResults | undefined;
 
-    // Message went splat, no longer the kernel's responsibility
+    // Message went splat
     if (!route) {
       this.#kernelStore.decrementRefCount(item.target, 'deliver|splat|target');
       if (item.message.result) {
@@ -188,7 +189,7 @@ export class KernelRouter {
       console.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
-      return undefined;
+      return crankResults;
     }
 
     const { vatId, target } = route;
@@ -196,37 +197,39 @@ export class KernelRouter {
     console.log(
       `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
-    if (!vatId) {
-      throw Fail`no owner for kernel object ${target}`;
-    }
-
-    const vat = this.#getVat(vatId);
-
-    if (!vat) {
-      // Requeue the message for later delivery.
-      this.#kernelStore.enqueuePromiseMessage(target, message);
-      // For requeued messages, there's no immediate crank outcome from a vat.
-      return undefined;
-    }
-
-    if (message.result) {
-      if (typeof message.result !== 'string') {
-        throw TypeError('message result must be a string');
+    if (vatId) {
+      const vat = this.#getVat(vatId);
+      if (vat) {
+        if (message.result) {
+          if (typeof message.result !== 'string') {
+            throw TypeError('message result must be a string');
+          }
+          this.#kernelStore.setPromiseDecider(message.result, vatId);
+          this.#kernelStore.decrementRefCount(
+            message.result,
+            'deliver|send|result',
+          );
+        }
+        const vatTarget = this.#kernelStore.translateRefKtoV(
+          vatId,
+          target,
+          false,
+        );
+        const vatMessage = this.#kernelStore.translateMessageKtoV(
+          vatId,
+          message,
+        );
+        crankResults = await vat.deliverMessage(vatTarget, vatMessage);
+        this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
+        for (const slot of message.methargs.slots) {
+          this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
+        }
+      } else {
+        Fail`no owner for kernel object ${target}`;
       }
-      this.#kernelStore.setPromiseDecider(message.result, vatId);
-      this.#kernelStore.decrementRefCount(
-        message.result,
-        'deliver|send|result',
-      );
+    } else {
+      this.#kernelStore.enqueuePromiseMessage(target, message);
     }
-    const vatTarget = this.#kernelStore.translateRefKtoV(vatId, target, false);
-    const vatMessage = this.#kernelStore.translateMessageKtoV(vatId, message);
-    const crankResults = await vat.deliverMessage(vatTarget, vatMessage);
-    this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
-    for (const slot of message.methargs.slots) {
-      this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
-    }
-
     console.log(
       `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
