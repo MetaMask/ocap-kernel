@@ -8,7 +8,7 @@ import type {
   ExtractParams,
   ExtractResult,
 } from '@metamask/kernel-rpc-methods';
-import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
+import type { VatStore } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -18,9 +18,16 @@ import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
 import type { PingVatResult, VatMethod } from './rpc/index.ts';
-import { kser } from './services/kernel-marshal.ts';
+import { kser, makeError } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { Message, VatId, VatConfig, VRef, CrankResults } from './types.ts';
+import type {
+  Message,
+  VatId,
+  VatConfig,
+  VRef,
+  CrankResults,
+  VatDeliveryResult,
+} from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type VatConstructorProps = {
@@ -143,7 +150,7 @@ export class VatHandle {
       },
     );
 
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'initVat',
       params: {
         vatConfig: this.config,
@@ -158,7 +165,7 @@ export class VatHandle {
    * @returns A promise that resolves to the result of the ping.
    */
   async ping(): Promise<PingVatResult> {
-    return await this.sendVatCommand({
+    return await this.#sendVatCommand({
       method: 'ping',
       params: [],
     });
@@ -204,10 +211,11 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const result = await this.#sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
     });
+    console.log('deliverMessage result', result);
     return this.#deliveryCrankResults();
   }
 
@@ -218,7 +226,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
     });
@@ -232,7 +240,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
@@ -246,7 +254,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
@@ -260,7 +268,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
@@ -273,7 +281,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
-    await this.sendVatCommand({
+    await this.#sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
@@ -309,7 +317,7 @@ export class VatHandle {
    * @param payload.params - The parameters to pass to the method.
    * @returns A promise that resolves the response to the command.
    */
-  async sendVatCommand<Method extends VatMethod>({
+  async #sendVatCommand<Method extends VatMethod>({
     method,
     params,
   }: {
@@ -317,10 +325,10 @@ export class VatHandle {
     params: ExtractParams<Method, typeof vatMethodSpecs>;
   }): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
     const result = await this.#rpcClient.call(method, params);
-    if (method === 'deliver' || method === 'initVat') {
-      // TypeScript fails to narrow the result type on its own
-      const [sets, deletes] = result as VatCheckpoint;
+    if (method === 'initVat' || method === 'deliver') {
+      const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
       this.#vatStore.updateKVData(sets, deletes);
+      this.#vatSyscall.deliveryError = deliveryError ?? undefined;
     }
     return result;
   }
@@ -335,19 +343,18 @@ export class VatHandle {
       didDelivery: this.vatId,
     };
 
-    // note: these conditionals express a priority order: the
-    // consequences of an illegal syscall take precedence over a vat
-    // requesting termination, etc
+    // These conditionals express a priority order: the consequences of an
+    // illegal syscall take precedence over a vat requesting termination, etc.
     if (this.#vatSyscall.illegalSyscall) {
       // For now, vat errors both rewind changes and terminate the vat.
       // Some day, they might rewind changes but then suspend the vat.
       results.abort = true;
       const { info } = this.#vatSyscall.illegalSyscall;
       results.terminate = { vatId: this.vatId, reject: true, info };
-      // } else if (this.#vatSyscall.deliveryError) {
-      //   results.abort = true;
-      //   const info = makeError(this.#vatSyscall.deliveryError);
-      //   results.terminate = { vatId: this.vatId, reject: true, info };
+    } else if (this.#vatSyscall.deliveryError) {
+      results.abort = true;
+      const info = makeError(this.#vatSyscall.deliveryError);
+      results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.vatRequestedTermination) {
       if (this.#vatSyscall.vatRequestedTermination.reject) {
         results.abort = true; // vatPowers.exitWithFailure wants rewind
@@ -357,11 +364,7 @@ export class VatHandle {
         ...this.#vatSyscall.vatRequestedTermination,
       };
     }
-    // We leave results.consumeMessage up to the caller. Send failures
-    // never set results.consumeMessage (we allow the delivery to be
-    // re-attempted and it splats against the now-dead vat, or doesn't
-    // get delivered until the vat is unsuspended). But failures in
-    // e.g. startVat will want to set consumeMessage.
+
     return harden(results);
   }
 }

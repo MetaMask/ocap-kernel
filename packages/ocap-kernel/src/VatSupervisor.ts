@@ -9,7 +9,7 @@ import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@metamask/kernel-errors';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
-import type { VatKVStore, VatCheckpoint } from '@metamask/kernel-store';
+import type { VatKVStore } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
@@ -18,13 +18,12 @@ import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
-import type { InitVat } from './rpc/vat/initVat.ts';
 import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
 import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
 import { makeVatKVStore } from './store/vat-kv-store.ts';
-import type { VatId } from './types.ts';
+import type { VatConfig, VatDeliveryResult, VatId } from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
@@ -179,7 +178,17 @@ export class VatSupervisor {
    */
   executeSyscall(vso: VatSyscallObject): VatSyscallResult {
     this.#syscallsInFlight.push(
-      // XXX TODO: These all get rejected, so we have to catch them. See #deliver.
+      // IMPORTANT: Syscall architecture design explanation:
+      // 1. Vats operate on an "optimistic execution" model - they send syscalls and continue execution
+      //    without waiting for responses, assuming success.
+      // 2. The Kernel processes syscalls asynchronously, and responses often arrive after the current crank is complete.
+      // 3. At the end of each crank (in #deliver), we explicitly reject all in-flight syscalls using
+      //    this.#rpcClient.rejectAll() because:
+      //    - The vat model requires synchronous syscall returns but asynchronous actual execution
+      //    - Late-arriving responses would cause unexpected state changes if handled mid-crank
+      //    - This gives us a clean slate for the next crank
+      // 4. We catch these rejections here to prevent unhandled promise rejections, as they're an
+      //    expected part of the architecture, not errors
       this.#rpcClient
         .call('syscall', coerceVatSyscallObject(vso))
         .catch(() => undefined),
@@ -187,18 +196,32 @@ export class VatSupervisor {
     return ['ok', null];
   }
 
-  async #deliver(params: VatDeliveryObject): Promise<VatCheckpoint> {
+  async #deliver(params: VatDeliveryObject): Promise<VatDeliveryResult> {
     if (!this.#dispatch) {
       throw new Error(`cannot deliver before vat is loaded`);
     }
-    await this.#dispatch(harden(params));
 
-    // XXX TODO: Actually handle the syscall results
-    this.#syscallsInFlight.length = 0;
-    this.#rpcClient.rejectAll(new Error('end of crank'));
+    let deliveryError: string | null = null;
+
+    try {
+      await this.#dispatch(harden(params));
+    } catch (error) {
+      // Handle delivery errors
+      deliveryError = error instanceof Error ? error.message : String(error);
+      this.#logger.error(`Delivery error in vat ${this.id}:`, deliveryError);
+    } finally {
+      // Clean up at the end of a crank:
+      // 1. Clear the syscallsInFlight array to prevent memory leaks
+      this.#syscallsInFlight.length = 0;
+      // 2. Reject all pending RPC requests to maintain the optimistic execution model
+      //    This prevents late responses from affecting the vat in unexpected ways
+      //    between cranks. Any actual responses that arrive later will be ignored
+      //    since their message IDs will no longer be in the unresolvedMessages map.
+      this.#rpcClient.rejectAll(new Error('end of crank'));
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return this.#vatKVStore!.checkpoint();
+    return [this.#vatKVStore!.checkpoint(), deliveryError];
   }
 
   /**
@@ -210,7 +233,10 @@ export class VatSupervisor {
    *
    * @returns a promise for a checkpoint of the new vat.
    */
-  readonly #initVat: InitVat = async (vatConfig, state) => {
+  async #initVat(
+    vatConfig: VatConfig,
+    state: Map<string, string>,
+  ): Promise<VatDeliveryResult> {
     if (this.#loaded) {
       throw Error(
         'VatSupervisor received initVat after user code already loaded',
@@ -275,8 +301,7 @@ export class VatSupervisor {
 
     this.#dispatch = liveslots.dispatch;
     const serParam = marshal.toCapData(harden(parameters)) as CapData<string>;
-    await this.#dispatch(harden(['startVat', serParam]));
 
-    return this.#vatKVStore.checkpoint();
-  };
+    return await this.#deliver(harden(['startVat', serParam]));
+  }
 }

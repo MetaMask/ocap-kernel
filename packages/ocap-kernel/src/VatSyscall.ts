@@ -42,6 +42,9 @@ export class VatSyscall {
   /** The illegal syscall that was received */
   illegalSyscall: { vatId: VatId; info: SwingSetCapData } | undefined;
 
+  /** The error when delivery failed */
+  deliveryError: string | undefined;
+
   /** The termination request that was received from the vat with syscall.exit() */
   vatRequestedTermination:
     | { reject: boolean; info: SwingSetCapData }

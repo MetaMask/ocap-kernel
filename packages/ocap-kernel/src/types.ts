@@ -5,6 +5,7 @@ import type {
   VatSyscallSend,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -386,3 +387,5 @@ export type CrankResults = {
   consumeMessage?: boolean; // discard the aborted delivery
   terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
 };
+
+export type VatDeliveryResult = [VatCheckpoint, string | null];

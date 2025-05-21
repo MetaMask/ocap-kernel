@@ -318,10 +318,8 @@ export class Kernel {
       throw new VatNotFoundError(vatId);
     }
 
-    // Construct an error object for vat.terminate and vatWorkerService.terminate
     let terminationError: Error | undefined;
     if (reason) {
-      // You might want a more sophisticated way to turn CapData<KRef> into an Error
       terminationError = new Error(`Vat termination: ${reason.body}`);
     } else if (terminating) {
       terminationError = new VatDeletedError(vatId);
