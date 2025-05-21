@@ -1,6 +1,6 @@
-import type { RunQueueItem } from '../../types.ts';
+import type { RunQueueItem, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
-
+import { getObjectMethods } from './object.ts';
 /**
  * Get a queue store object that provides functionality for managing queues.
  *
@@ -10,6 +10,8 @@ import type { StoreContext } from '../types.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getQueueMethods(ctx: StoreContext) {
+  const { getOwner } = getObjectMethods(ctx);
+
   /**
    * Find out how long some queue is.
    *
@@ -60,10 +62,34 @@ export function getQueueMethods(ctx: StoreContext) {
     return ctx.runQueueLengthCache;
   }
 
+  /**
+   * Get the target VatId from a RunQueueItem.
+   *
+   * @param item - The RunQueueItem to get the target VatId from.
+   * @returns The target VatId, or undefined if the item is not a send.
+   */
+  function getRunQueueItemTargetVatId(item: RunQueueItem): VatId | undefined {
+    switch (item.type) {
+      case 'send': {
+        return getOwner(item.target);
+      }
+      case 'notify':
+      case 'dropExports':
+      case 'retireExports':
+      case 'retireImports':
+      case 'bringOutYourDead': {
+        return item.vatId;
+      }
+      default:
+        return undefined;
+    }
+  }
+
   return {
     getQueueLength,
     enqueueRun,
     dequeueRun,
     runQueueLength,
+    getRunQueueItemTargetVatId,
   };
 }

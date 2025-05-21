@@ -286,5 +286,9 @@ export class VatSyscall {
    */
   #vatFatalSyscall(error: string): void {
     this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
+    this.#kernelStore.markVatAsCompromised(this.vatId);
+    this.#logger.error(
+      `Vat ${this.vatId} marked as compromised due to fatal syscall error: ${error}`,
+    );
   }
 }

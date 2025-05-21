@@ -105,10 +105,10 @@ export default defineConfig({
           lines: 24.65,
         },
         'packages/kernel-rpc-methods/**': {
-          statements: 64.7,
-          functions: 60,
+          statements: 72.54,
+          functions: 69.23,
           branches: 44.44,
-          lines: 64.7,
+          lines: 72.54,
         },
         'packages/kernel-shims/**': {
           statements: 0,
@@ -129,8 +129,8 @@ export default defineConfig({
           lines: 44,
         },
         'packages/logger/**': {
-          statements: 88.4,
-          functions: 79.16,
+          statements: 86.95,
+          functions: 75,
           branches: 54.05,
           lines: 89.39,
         },

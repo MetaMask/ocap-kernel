@@ -16,6 +16,7 @@ export type StoreContext = {
   terminatedVats: StoredValue;
   inCrank: boolean;
   savepoints: string[];
+  compromisedVats: StoredValue;
 };
 
 export type StoredValue = {

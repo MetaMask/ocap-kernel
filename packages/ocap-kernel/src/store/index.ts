@@ -60,6 +60,7 @@ import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import type { KRef, VatId } from '../types.ts';
 import { getBaseMethods } from './methods/base.ts';
 import { getCListMethods } from './methods/clist.ts';
+import { getCompromisedMethods } from './methods/compromised.ts';
 import { getCrankMethods } from './methods/crank.ts';
 import { getGCMethods } from './methods/gc.ts';
 import { getIdMethods } from './methods/id.ts';
@@ -127,6 +128,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
+    compromisedVats: provideCachedStoredValue('compromisedVats', '[]'),
   };
 
   const id = getIdMethods(context);
@@ -141,6 +143,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const translators = getTranslators(context);
   const pinned = getPinMethods(context);
   const crank = getCrankMethods(context, kdb);
+  const compromised = getCompromisedMethods(context);
 
   /**
    * Create a new VatStore for a vat.
@@ -160,6 +163,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
    */
   function deleteVat(vatId: VatId): void {
     vat.deleteVatConfig(vatId);
+    compromised.clearVatCompromisedStatus(vatId);
     kdb.deleteVatStore(vatId);
   }
 
@@ -177,6 +181,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
     context.nextVatId = provideCachedStoredValue('nextVatId', '1');
     context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+    context.compromisedVats = provideCachedStoredValue('compromisedVats', '[]');
     context.inCrank = false;
     if (context.savepoints.length > 0) {
       kdb.releaseSavepoint('t0');
@@ -204,6 +209,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...translators,
     ...pinned,
     ...crank,
+    ...compromised,
     makeVatStore,
     deleteVat,
     clear,
