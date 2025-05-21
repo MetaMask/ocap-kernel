@@ -22,6 +22,7 @@ export function parseObjectRegistry(
   let gcActions = '';
   let reapQueue = '';
   let terminatedVats = '';
+  let compromisedVats = '';
 
   // 1) Collect
   for (const { key, value } of entries) {
@@ -35,6 +36,10 @@ export function parseObjectRegistry(
     }
     if (key === 'vats.terminated') {
       terminatedVats = value;
+      continue;
+    }
+    if (key === 'vats.compromised') {
+      compromisedVats = value;
       continue;
     }
     if (key.startsWith('vatConfig.')) {
@@ -176,6 +181,7 @@ export function parseObjectRegistry(
     gcActions,
     reapQueue,
     terminatedVats,
+    compromisedVats,
     vats,
   };
 }

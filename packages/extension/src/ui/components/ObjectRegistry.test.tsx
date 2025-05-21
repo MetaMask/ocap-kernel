@@ -34,6 +34,7 @@ describe('ObjectRegistry Component', () => {
     gcActions: 'test gc actions',
     reapQueue: 'test reap queue',
     terminatedVats: 'test terminated vats',
+    compromisedVats: 'test compromised vats',
     vats: {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },
@@ -125,6 +126,8 @@ describe('ObjectRegistry Component', () => {
     expect(screen.getByText('test reap queue')).toBeInTheDocument();
     expect(screen.getByText('Terminated Vats')).toBeInTheDocument();
     expect(screen.getByText('test terminated vats')).toBeInTheDocument();
+    expect(screen.getByText('Compromised Vats')).toBeInTheDocument();
+    expect(screen.getByText('test compromised vats')).toBeInTheDocument();
   });
 
   it('renders vat list with correct number of vats', () => {

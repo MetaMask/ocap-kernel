@@ -154,6 +154,7 @@ describe('useDatabase', () => {
         gcActions: '',
         reapQueue: '',
         terminatedVats: '',
+        compromisedVats: '',
         vats: {},
       };
 

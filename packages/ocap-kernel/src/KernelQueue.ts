@@ -74,13 +74,17 @@ export class KernelQueue {
         // - consumeMessage=true (for hypothetical one-shot lifecycle ops):
         //   rolls back to 'deliver', discarding the message.
         // - consumeMessage=false (default for sends/notifies):
-        //   rolls back to 'start', re-queuing the message (e.g., to "splat" against a now-terminated vat, rejecting its result to the sender).
-        // Currently, consumeMessage defaults to false as such lifecycle ops are not distinct run-queue item types here.
+        //   rolls back to 'start', re-queuing the message
+        //   e.g., to "splat" against a now-terminated vat, rejecting
+        //   its result to the sender.
+        // Currently, consumeMessage defaults to false as such lifecycle ops
+        // are not distinct run-queue item types here.
         this.#kernelStore.rollbackCrank(
           crankResults.consumeMessage ? 'deliver' : 'start',
         );
       }
-      // Vat termination during delivery is triggered by an illegal syscall or by syscall.exit()
+      // Vat termination during delivery is triggered by an illegal syscall
+      // or by syscall.exit().
       if (crankResults?.terminate) {
         const { vatId, info } = crankResults.terminate;
         await this.#terminateVat(vatId, info);

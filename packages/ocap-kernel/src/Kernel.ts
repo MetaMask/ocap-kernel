@@ -325,10 +325,10 @@ export class Kernel {
       terminationError = new VatDeletedError(vatId);
     }
 
-    await vat.terminate(terminating, terminationError);
     await this.#vatWorkerService
       .terminate(vatId, terminationError)
       .catch(this.#logger.error);
+    await vat.terminate(terminating, terminationError);
     this.#vats.delete(vatId);
   }
 

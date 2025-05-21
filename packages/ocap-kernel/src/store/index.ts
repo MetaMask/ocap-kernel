@@ -125,10 +125,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
     // Garbage collection
     gcActions: provideCachedStoredValue('gcActions', '[]'),
     reapQueue: provideCachedStoredValue('reapQueue', '[]'),
+    compromisedVats: provideCachedStoredValue('vats.compromised', '[]'),
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
-    compromisedVats: provideCachedStoredValue('compromisedVats', '[]'),
   };
 
   const id = getIdMethods(context);
@@ -181,8 +181,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
     context.nextVatId = provideCachedStoredValue('nextVatId', '1');
     context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
-    context.compromisedVats = provideCachedStoredValue('compromisedVats', '[]');
-    context.inCrank = false;
+    context.compromisedVats = provideCachedStoredValue(
+      'vats.compromised',
+      '[]',
+    );
     if (context.savepoints.length > 0) {
       kdb.releaseSavepoint('t0');
       context.savepoints.length = 0;
