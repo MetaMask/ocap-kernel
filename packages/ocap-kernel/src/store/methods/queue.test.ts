@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import * as objectModule from './object.ts';
 import { getQueueMethods } from './queue.ts';
 import type { RunQueueItem } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
-
-// Mock dependencies
-vi.mock('./object.ts', () => ({
-  getObjectMethods: vi.fn(),
-}));
 
 describe('queue store methods', () => {
   let mockKV: Map<string, string>;
@@ -18,7 +12,6 @@ describe('queue store methods', () => {
   };
   let context: StoreContext;
   let queueMethods: ReturnType<typeof getQueueMethods>;
-  const mockGetOwner = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,24 +21,6 @@ describe('queue store methods', () => {
       enqueue: vi.fn(),
       dequeue: vi.fn(),
     };
-
-    // Set up mock implementation for getObjectMethods
-    (objectModule.getObjectMethods as ReturnType<typeof vi.fn>).mockReturnValue(
-      {
-        getOwner: mockGetOwner,
-      },
-    );
-
-    // Configure mock getOwner behavior
-    mockGetOwner.mockImplementation((target: string) => {
-      if (target === 'o+1') {
-        return 'v1';
-      }
-      if (target === 'o+2') {
-        return 'v2';
-      }
-      return undefined;
-    });
 
     context = {
       kv: {
@@ -237,91 +212,6 @@ describe('queue store methods', () => {
       context.runQueueLengthCache = -1;
 
       expect(() => queueMethods.runQueueLength()).toThrow('unknown queue run');
-    });
-  });
-
-  describe('getRunQueueItemTargetVatId', () => {
-    it('returns owner vat for send items', () => {
-      const sendItem: RunQueueItem = {
-        type: 'send',
-        target: 'o+1',
-        message: { methargs: { body: '', slots: [] }, result: null },
-      };
-
-      const result = queueMethods.getRunQueueItemTargetVatId(sendItem);
-
-      expect(mockGetOwner).toHaveBeenCalledWith('o+1', false);
-      expect(result).toBe('v1');
-    });
-
-    it('returns vatId for notify items', () => {
-      const notifyItem: RunQueueItem = {
-        type: 'notify',
-        vatId: 'v2',
-        kpid: 'kp123',
-      };
-
-      const result = queueMethods.getRunQueueItemTargetVatId(notifyItem);
-
-      expect(result).toBe('v2');
-    });
-
-    it('returns vatId for dropExports items', () => {
-      const dropExportsItem: RunQueueItem = {
-        type: 'dropExports',
-        vatId: 'v3',
-        krefs: ['o+1', 'o+2'],
-      };
-
-      const result = queueMethods.getRunQueueItemTargetVatId(dropExportsItem);
-
-      expect(result).toBe('v3');
-    });
-
-    it('returns vatId for retireExports items', () => {
-      const retireExportsItem: RunQueueItem = {
-        type: 'retireExports',
-        vatId: 'v4',
-        krefs: ['o+1', 'o+2'],
-      };
-
-      const result = queueMethods.getRunQueueItemTargetVatId(retireExportsItem);
-
-      expect(result).toBe('v4');
-    });
-
-    it('returns vatId for retireImports items', () => {
-      const retireImportsItem: RunQueueItem = {
-        type: 'retireImports',
-        vatId: 'v5',
-        krefs: ['o-1', 'o-2'],
-      };
-
-      const result = queueMethods.getRunQueueItemTargetVatId(retireImportsItem);
-
-      expect(result).toBe('v5');
-    });
-
-    it('returns vatId for bringOutYourDead items', () => {
-      const bringOutYourDeadItem: RunQueueItem = {
-        type: 'bringOutYourDead',
-        vatId: 'v6',
-      };
-
-      const result =
-        queueMethods.getRunQueueItemTargetVatId(bringOutYourDeadItem);
-
-      expect(result).toBe('v6');
-    });
-
-    it('returns undefined for unknown item types', () => {
-      const unknownItem = {
-        type: 'unknown',
-      } as unknown as RunQueueItem;
-
-      const result = queueMethods.getRunQueueItemTargetVatId(unknownItem);
-
-      expect(result).toBeUndefined();
     });
   });
 });

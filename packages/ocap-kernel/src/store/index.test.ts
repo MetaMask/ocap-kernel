@@ -85,7 +85,6 @@ describe('kernel store', () => {
         'getReachableFlag',
         'getRefCount',
         'getRootObject',
-        'getRunQueueItemTargetVatId',
         'getTerminatedVats',
         'getVatConfig',
         'getVatIDs',

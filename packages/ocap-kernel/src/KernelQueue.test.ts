@@ -54,7 +54,6 @@ describe('KernelQueue', () => {
       endCrank: vi.fn(),
       createCrankSavepoint: vi.fn(),
       rollbackCrank: vi.fn(),
-      getRunQueueItemTargetVatId: vi.fn(),
     } as unknown as KernelStore;
 
     kernelQueue = new KernelQueue(kernelStore, terminateVat);
