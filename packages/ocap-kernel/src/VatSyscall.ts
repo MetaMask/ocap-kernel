@@ -296,13 +296,6 @@ export class VatSyscall {
   }
 
   /**
-   * Reset the syscall counts.
-   */
-  resetSyscallCounts(): void {
-    this.pendingSyscalls = 0;
-  }
-
-  /**
    * Wait for all syscalls to complete.
    */
   async waitForSyscallsToComplete(): Promise<void> {
