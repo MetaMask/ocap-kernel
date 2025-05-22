@@ -268,6 +268,11 @@ export class KernelQueue {
     item: RunQueueItem,
     vatId: VatId,
   ): Promise<void> {
+    if (!this.#kernelStore.isVatActive(vatId)) {
+      this.#kernelStore.clearVatCompromisedStatus(vatId);
+      return;
+    }
+
     // Ensure the vat is fully terminated if not already done
     await this.#terminateVat(
       vatId,

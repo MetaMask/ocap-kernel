@@ -509,4 +509,30 @@ describe('vat store methods', () => {
       );
     });
   });
+
+  describe('isVatActive', () => {
+    it('returns true when vat configuration exists', () => {
+      mockKV.set(`vatConfig.${vatID1}`, JSON.stringify(vatConfig1));
+
+      const result = vatMethods.isVatActive(vatID1);
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when vat configuration does not exist', () => {
+      const result = vatMethods.isVatActive(vatID1);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false after vat configuration is deleted', () => {
+      mockKV.set(`vatConfig.${vatID1}`, JSON.stringify(vatConfig1));
+      expect(vatMethods.isVatActive(vatID1)).toBe(true);
+
+      mockKV.delete(`vatConfig.${vatID1}`);
+
+      const result = vatMethods.isVatActive(vatID1);
+      expect(result).toBe(false);
+    });
+  });
 });

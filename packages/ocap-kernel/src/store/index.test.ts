@@ -100,6 +100,7 @@ describe('kernel store', () => {
         'initKernelPromise',
         'isObjectPinned',
         'isRootObject',
+        'isVatActive',
         'isVatCompromised',
         'isVatTerminated',
         'kernelRefExists',

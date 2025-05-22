@@ -92,6 +92,16 @@ export function getVatMethods(ctx: StoreContext) {
   }
 
   /**
+   * Check if a vat is active.
+   *
+   * @param vatID - The ID of the vat to check.
+   * @returns True if the vat is active, false otherwise.
+   */
+  function isVatActive(vatID: VatId): boolean {
+    return kv.get(`${VAT_CONFIG_BASE}${vatID}`) !== undefined;
+  }
+
+  /**
    * Store the configuration for a vat.
    *
    * @param vatID - The vat whose configuration is to be set.
@@ -349,5 +359,6 @@ export function getVatMethods(ctx: StoreContext) {
     cleanupTerminatedVat,
     nextTerminatedVatCleanup,
     exportFromVat,
+    isVatActive,
   };
 }

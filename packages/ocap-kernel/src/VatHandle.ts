@@ -326,8 +326,11 @@ export class VatHandle {
     const result = await this.#rpcClient.call(method, params);
     if (method === 'initVat' || method === 'deliver') {
       const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
-      this.#vatStore.updateKVData(sets, deletes);
       this.#vatSyscall.deliveryError = deliveryError ?? undefined;
+      const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
+      if (noErrors) {
+        this.#vatStore.updateKVData(sets, deletes);
+      }
     }
     return result;
   }
