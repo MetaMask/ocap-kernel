@@ -356,10 +356,11 @@ export class VatHandle {
     // These conditionals express a priority order: the consequences of an
     // illegal syscall take precedence over a vat requesting termination, etc.
     if (this.#vatSyscall.illegalSyscall) {
-      // For now, vat errors both rewind changes and terminate the vat.
-      // Some day, they might rewind changes but then suspend the vat.
       results.abort = true;
       const { info } = this.#vatSyscall.illegalSyscall;
+      // TODO: For now, vat errors both rewind changes and terminate the vat.
+      // Some day, they might rewind changes and retry the syscall.
+      // We should terminate the vat only after a certain # of failed retries.
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.deliveryError) {
       results.abort = true;
