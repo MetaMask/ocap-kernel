@@ -14,8 +14,6 @@ describe('queue store methods', () => {
   let queueMethods: ReturnType<typeof getQueueMethods>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
     mockKV = new Map();
     mockRunQueue = {
       enqueue: vi.fn(),
