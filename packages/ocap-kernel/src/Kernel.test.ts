@@ -335,7 +335,6 @@ describe('Kernel', () => {
       await kernel.launchVat(config);
       const vats = kernel.getVats();
       expect(vats).toHaveLength(1);
-      console.log(vats);
       expect(vats).toStrictEqual([
         {
           id: 'v1',

@@ -116,14 +116,13 @@ test.describe('Control Panel', () => {
     await expect(popupPage.locator('table tr')).toHaveCount(3);
   });
 
-  // TODO: Fix this test once the ping method is implemented
-  test.skip('should ping a vat', async () => {
+  test('should ping a vat', async () => {
     await expect(
       popupPage.locator('td button:text("Ping")').first(),
     ).toBeVisible();
     await popupPage.locator('td button:text("Ping")').first().click();
-    await expect(messageOutput).toContainText('"method": "ping",');
-    await expect(messageOutput).toContainText('{"result":"pong"}');
+    await expect(messageOutput).toContainText('"method": "pingVat",');
+    await expect(messageOutput).toContainText('pong');
   });
 
   test('should terminate all vats', async () => {

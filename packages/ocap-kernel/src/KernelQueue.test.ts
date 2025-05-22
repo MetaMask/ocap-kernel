@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
 import { KernelQueue } from './KernelQueue.ts';
+import * as gc from './services/garbage-collection.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   KRef,
@@ -25,6 +26,7 @@ describe('KernelQueue', () => {
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
   let mockPromiseKit: ReturnType<typeof makePromiseKit>;
+  let terminateVat: (vatId: string, reason?: CapData<KRef>) => Promise<void>;
 
   beforeEach(() => {
     mockPromiseKit = {
@@ -33,6 +35,9 @@ describe('KernelQueue', () => {
       reject: vi.fn(),
     };
     (makePromiseKit as unknown as MockInstance).mockReturnValue(mockPromiseKit);
+
+    terminateVat = vi.fn().mockResolvedValue(undefined);
+
     kernelStore = {
       nextTerminatedVatCleanup: vi.fn(),
       collectGarbage: vi.fn(),
@@ -45,9 +50,13 @@ describe('KernelQueue', () => {
       resolveKernelPromise: vi.fn(),
       nextReapAction: vi.fn().mockReturnValue(null),
       getGCActions: vi.fn().mockReturnValue([]),
+      startCrank: vi.fn(),
+      endCrank: vi.fn(),
+      createCrankSavepoint: vi.fn(),
+      rollbackCrank: vi.fn(),
     } as unknown as KernelStore;
 
-    kernelQueue = new KernelQueue(kernelStore);
+    kernelQueue = new KernelQueue(kernelStore, terminateVat);
   });
 
   describe('run', () => {
@@ -63,11 +72,18 @@ describe('KernelQueue', () => {
       (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValue(
         mockItem,
       );
+      const processGCActionSetSpy = vi.spyOn(gc, 'processGCActionSet');
       const deliverError = new Error('stop');
       const deliver = vi.fn().mockRejectedValue(deliverError);
       await expect(kernelQueue.run(deliver)).rejects.toBe(deliverError);
+      expect(kernelStore.startCrank).toHaveBeenCalled();
+      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('start');
+      expect(processGCActionSetSpy).toHaveBeenCalled();
+      expect(kernelStore.nextReapAction).toHaveBeenCalled();
       expect(kernelStore.nextTerminatedVatCleanup).toHaveBeenCalled();
+      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('deliver');
       expect(deliver).toHaveBeenCalledWith(mockItem);
+      expect(kernelStore.endCrank).toHaveBeenCalled();
     });
   });
 

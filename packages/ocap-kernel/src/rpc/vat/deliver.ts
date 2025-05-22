@@ -1,5 +1,4 @@
 import type { Handler, MethodSpec } from '@metamask/kernel-rpc-methods';
-import type { VatCheckpoint } from '@metamask/kernel-store';
 import {
   tuple,
   literal,
@@ -11,12 +10,13 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 
-import { VatCheckpointStruct } from './shared.ts';
+import { VatDeliveryResultStruct } from './shared.ts';
 import {
   CapDataStruct,
   MessageStruct,
   VatOneResolutionStruct,
 } from '../../types.ts';
+import type { VatDeliveryResult } from '../../types.ts';
 
 const MessageDeliveryStruct = tuple([
   literal('message'),
@@ -72,18 +72,18 @@ type VatDeliveryParams = Infer<typeof VatDeliveryParamsStruct>;
 export type DeliverSpec = MethodSpec<
   'deliver',
   VatDeliveryParams,
-  Promise<VatCheckpoint>
+  Promise<VatDeliveryResult>
 >;
 
 export const deliverSpec: DeliverSpec = {
   method: 'deliver',
   params: VatDeliveryParamsStruct,
-  result: VatCheckpointStruct,
+  result: VatDeliveryResultStruct,
 } as const;
 
 export type HandleDelivery = (
   params: VatDeliveryParams,
-) => Promise<VatCheckpoint>;
+) => Promise<VatDeliveryResult>;
 
 type DeliverHooks = {
   handleDelivery: HandleDelivery;
@@ -92,7 +92,7 @@ type DeliverHooks = {
 export type DeliverHandler = Handler<
   'deliver',
   VatDeliveryParams,
-  Promise<VatCheckpoint>,
+  Promise<VatDeliveryResult>,
   DeliverHooks
 >;
 

@@ -7,6 +7,7 @@ import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistVatId } from './types.ts';
 import type {
+  CrankResults,
   KRef,
   Message,
   RunQueueItem,
@@ -26,14 +27,24 @@ export class KernelQueue {
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
 
+  /** A function that terminates a vat. */
+  readonly #terminateVat: (
+    vatId: VatId,
+    reason?: CapData<KRef>,
+  ) => Promise<void>;
+
   /** Message results that the kernel itself has subscribed to */
   readonly subscriptions: Map<KRef, (value: CapData<KRef>) => void> = new Map();
 
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
-  constructor(kernelStore: KernelStore) {
+  constructor(
+    kernelStore: KernelStore,
+    terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
+  ) {
     this.#kernelStore = kernelStore;
+    this.#terminateVat = terminateVat;
     this.#wakeUpTheRunQueue = null;
   }
 
@@ -43,10 +54,32 @@ export class KernelQueue {
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
-  async run(deliver: (item: RunQueueItem) => Promise<void>): Promise<void> {
+  async run(
+    deliver: (item: RunQueueItem) => Promise<CrankResults | undefined>,
+  ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
       this.#kernelStore.nextTerminatedVatCleanup();
-      await deliver(item);
+      this.#kernelStore.createCrankSavepoint('deliver');
+      const crankResults = await deliver(item);
+      if (crankResults?.abort) {
+        // - consumeMessage=true (for hypothetical one-shot lifecycle ops):
+        //   rolls back to 'deliver', discarding the message.
+        // - consumeMessage=false (default for sends/notifies):
+        //   rolls back to 'start', re-queuing the message
+        //   e.g., to "splat" against a now-terminated vat, rejecting
+        //   its result to the sender.
+        // Currently, consumeMessage defaults to false as such lifecycle ops
+        // are not distinct run-queue item types here.
+        this.#kernelStore.rollbackCrank(
+          crankResults.consumeMessage ? 'deliver' : 'start',
+        );
+      }
+      // Vat termination during delivery is triggered by an illegal syscall
+      // or by syscall.exit().
+      if (crankResults?.terminate) {
+        const { vatId, info } = crankResults.terminate;
+        await this.#terminateVat(vatId, info);
+      }
       this.#kernelStore.collectGarbage();
     }
   }
@@ -58,34 +91,40 @@ export class KernelQueue {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
-      const gcAction = processGCActionSet(this.#kernelStore);
-      if (gcAction) {
-        yield gcAction;
-        continue;
-      }
-
-      const reapAction = this.#kernelStore.nextReapAction();
-      if (reapAction) {
-        yield reapAction;
-        continue;
-      }
-
-      while (this.#kernelStore.runQueueLength() > 0) {
-        const item = this.#kernelStore.dequeueRun();
-        if (item) {
-          yield item;
-        } else {
-          break;
+      this.#kernelStore.startCrank();
+      try {
+        this.#kernelStore.createCrankSavepoint('start');
+        const gcAction = processGCActionSet(this.#kernelStore);
+        if (gcAction) {
+          yield gcAction;
+          continue;
         }
-      }
 
-      if (this.#kernelStore.runQueueLength() === 0) {
-        const { promise, resolve } = makePromiseKit<void>();
-        if (this.#wakeUpTheRunQueue !== null) {
-          Fail`wakeUpTheRunQueue function already set`;
+        const reapAction = this.#kernelStore.nextReapAction();
+        if (reapAction) {
+          yield reapAction;
+          continue;
         }
-        this.#wakeUpTheRunQueue = resolve;
-        await promise;
+
+        while (this.#kernelStore.runQueueLength() > 0) {
+          const item = this.#kernelStore.dequeueRun();
+          if (item) {
+            yield item;
+          } else {
+            break;
+          }
+        }
+
+        if (this.#kernelStore.runQueueLength() === 0) {
+          const { promise, resolve } = makePromiseKit<void>();
+          if (this.#wakeUpTheRunQueue !== null) {
+            Fail`wakeUpTheRunQueue function already set`;
+          }
+          this.#wakeUpTheRunQueue = resolve;
+          await promise;
+        }
+      } finally {
+        this.#kernelStore.endCrank();
       }
     }
   }
