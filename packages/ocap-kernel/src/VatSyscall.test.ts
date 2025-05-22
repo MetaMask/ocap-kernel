@@ -31,7 +31,6 @@ describe('VatSyscall', () => {
       getReachableFlag: vi.fn(),
       forgetKref: vi.fn(),
       getVatConfig: vi.fn(() => ({})),
-      markVatAsCompromised: vi.fn(),
     } as unknown as KernelStore;
     logger = {
       debug: vi.fn(),
@@ -217,10 +216,6 @@ describe('VatSyscall', () => {
 
       expect(result).toStrictEqual(['error', 'vat not found']);
       expect(vatSys.illegalSyscall).toBeDefined();
-      expect(kernelStore.markVatAsCompromised).toHaveBeenCalledWith('v1');
-      expect(logger.error).toHaveBeenCalledWith(
-        'Vat v1 marked as compromised due to fatal syscall error: vat not found',
-      );
     });
 
     it('handles general syscall errors', async () => {

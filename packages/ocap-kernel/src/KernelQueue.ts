@@ -3,7 +3,7 @@ import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 
 import { processGCActionSet } from './services/garbage-collection.ts';
-import { kser, makeError } from './services/kernel-marshal.ts';
+import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistVatId } from './types.ts';
 import type {
@@ -59,15 +59,6 @@ export class KernelQueue {
   ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
       this.#kernelStore.nextTerminatedVatCleanup();
-
-      // Check if the target vat is compromised before attempting delivery
-      const targetVatId = this.#kernelStore.getRunQueueItemTargetVatId(item);
-      if (targetVatId && this.#kernelStore.isVatCompromised(targetVatId)) {
-        await this.#terminateCompromisedVat(item, targetVatId);
-        this.#kernelStore.collectGarbage();
-        continue;
-      }
-
       this.#kernelStore.createCrankSavepoint('deliver');
       const crankResults = await deliver(item);
       if (crankResults?.abort) {
@@ -255,39 +246,6 @@ export class KernelQueue {
         this.subscriptions.delete(kpid);
         kernelResolve(data);
       }
-    }
-  }
-
-  /**
-   * Terminate a compromised vat and reject any pending promises.
-   *
-   * @param item - The run queue item that triggered the termination.
-   * @param vatId - The ID of the compromised vat.
-   */
-  async #terminateCompromisedVat(
-    item: RunQueueItem,
-    vatId: VatId,
-  ): Promise<void> {
-    if (!this.#kernelStore.isVatActive(vatId)) {
-      this.#kernelStore.clearVatCompromisedStatus(vatId);
-      return;
-    }
-
-    // Ensure the vat is fully terminated if not already done
-    await this.#terminateVat(
-      vatId,
-      makeError(`Vat ${vatId} terminated due to prior syscall error.`),
-    );
-
-    // If the item was a 'send' with a result promise, reject that promise
-    if (item.type === 'send' && item.message.result) {
-      this.resolvePromises(undefined, [
-        [
-          item.message.result,
-          true, // rejected
-          makeError(`Vat ${vatId} terminated.`),
-        ],
-      ]);
     }
   }
 }

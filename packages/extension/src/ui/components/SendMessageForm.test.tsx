@@ -40,7 +40,6 @@ describe('SendMessageForm Component', () => {
     gcActions: '',
     reapQueue: '',
     terminatedVats: '',
-    compromisedVats: '',
     vats: {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },

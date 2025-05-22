@@ -343,7 +343,6 @@ export class Kernel {
     this.#kernelStore.deleteVatConfig(vatId);
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
-    this.#kernelStore.clearVatCompromisedStatus(vatId);
   }
 
   /**

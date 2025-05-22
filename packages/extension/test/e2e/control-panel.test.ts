@@ -146,7 +146,6 @@ test.describe('Control Panel', () => {
       { key: 'nextPromiseId', value: '4' },
       { key: 'nextVatId', value: '4' },
       { key: 'nextRemoteId', value: '1' },
-      { key: 'vats.compromised', value: '[]' },
       { key: 'initialized', value: 'true' },
     ]);
     await expect(messageOutput).toContainText(expectedValues);
@@ -170,7 +169,6 @@ test.describe('Control Panel', () => {
       { key: 'nextPromiseId', value: '1' },
       { key: 'nextVatId', value: '1' },
       { key: 'nextRemoteId', value: '1' },
-      { key: 'vats.compromised', value: '[]' },
     ]);
     await expect(messageOutput).toContainText(expectedValues);
     await expect(messageOutput).not.toContainText('"initialized":true');

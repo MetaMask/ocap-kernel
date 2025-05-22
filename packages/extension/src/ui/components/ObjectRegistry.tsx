@@ -57,22 +57,15 @@ export const ObjectRegistry: React.FC = () => {
         <tbody>
           <tr>
             <td width="160">GC Actions</td>
-            <td colSpan={3}>{objectRegistry.gcActions ?? 'None'}</td>
+            <td>{objectRegistry.gcActions ?? 'None'}</td>
           </tr>
           <tr>
             <td width="160">Reap Queue</td>
-            <td colSpan={3}>{objectRegistry.reapQueue ?? 'Empty'}</td>
+            <td>{objectRegistry.reapQueue ?? 'Empty'}</td>
           </tr>
           <tr>
             <td width="160">Terminated Vats</td>
             <td>{objectRegistry.terminatedVats ?? 'None'}</td>
-            <td
-              width="160"
-              style={{ borderLeft: '1px solid var(--color-gray-300)' }}
-            >
-              Compromised Vats
-            </td>
-            <td>{objectRegistry.compromisedVats ?? 'None'}</td>
           </tr>
         </tbody>
       </table>

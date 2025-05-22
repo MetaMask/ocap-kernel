@@ -11,7 +11,6 @@ describe('parseObjectRegistry', () => {
       { key: 'gcActions', value: '[]' },
       { key: 'reapQueue', value: '[]' },
       { key: 'vats.terminated', value: '[]' },
-      { key: 'vats.compromised', value: '[]' },
       { key: 'nextObjectId', value: '4' },
       { key: 'nextPromiseId', value: '4' },
       { key: 'nextVatId', value: '4' },
@@ -103,7 +102,6 @@ describe('parseObjectRegistry', () => {
       gcActions: '[]',
       reapQueue: '[]',
       terminatedVats: '[]',
-      compromisedVats: '[]',
       vats: {
         v1: {
           exportedPromises: [

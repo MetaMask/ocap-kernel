@@ -179,18 +179,13 @@ export class VatSupervisor {
   executeSyscall(vso: VatSyscallObject): VatSyscallResult {
     this.#syscallsInFlight.push(
       // IMPORTANT: Syscall architecture design explanation:
-      // 1. Vats operate on an "optimistic execution" model - they send syscalls and continue execution
+      // - Vats operate on an "optimistic execution" model - they send syscalls and continue execution
       //    without waiting for responses, assuming success.
-      // 2. The Kernel processes syscalls asynchronously, and responses often arrive after the current crank is complete.
-      // 3. At the end of each crank (in #deliver), we explicitly reject all in-flight syscalls using
-      //    this.#rpcClient.rejectAll() because:
-      //    - The vat model requires synchronous syscall returns but asynchronous actual execution
-      //    - Late-arriving responses would cause unexpected state changes if handled mid-crank
-      //    - This gives us a clean slate for the next crank
-      // 4. We catch these rejections here to prevent unhandled promise rejections, as they're an
-      //    expected part of the architecture, not errors
+      // - The Kernel processes syscalls asynchronously and failures are catched in VatHandle.
       this.#rpcClient
         .call('syscall', coerceVatSyscallObject(vso))
+        // We catch these rejections here to prevent unhandled promise rejections,
+        // as they're an expected part of the architecture, not errors
         .catch(() => undefined),
     );
     return ['ok', null];
@@ -210,13 +205,11 @@ export class VatSupervisor {
       deliveryError = error instanceof Error ? error.message : String(error);
       this.#logger.error(`Delivery error in vat ${this.id}:`, deliveryError);
     } finally {
-      // Clean up at the end of a crank:
-      // 1. Clear the syscallsInFlight array to prevent memory leaks
+      // Clean up at the end of a crank
       this.#syscallsInFlight.length = 0;
-      // 2. Reject all pending RPC requests to maintain the optimistic execution model
-      //    This prevents late responses from affecting the vat in unexpected ways
-      //    between cranks. Any actual responses that arrive later will be ignored
-      //    since their message IDs will no longer be in the unresolvedMessages map.
+      // Reject all pending RPC requests to maintain the optimistic execution model
+      // This prevents late responses from affecting the vat in unexpected ways
+      // between cranks.
       this.#rpcClient.rejectAll(new Error('end of crank'));
     }
 

@@ -211,6 +211,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
@@ -225,6 +226,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
@@ -239,6 +241,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
@@ -253,6 +256,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
@@ -267,6 +271,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
@@ -280,6 +285,7 @@ export class VatHandle {
    * @returns The crank results.
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
+    this.#vatSyscall.resetSyscallCounts();
     await this.sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
@@ -340,7 +346,9 @@ export class VatHandle {
    *
    * @returns The crank outcome.
    */
-  #deliveryCrankResults(): CrankResults {
+  async #deliveryCrankResults(): Promise<CrankResults> {
+    await this.#vatSyscall.waitForSyscallsToComplete();
+
     const results: CrankResults = {
       didDelivery: this.vatId,
     };

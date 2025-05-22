@@ -14,7 +14,6 @@ export type ObjectRegistry = {
   gcActions: string;
   reapQueue: string;
   terminatedVats: string;
-  compromisedVats: string;
   vats: Record<string, VatSnapshot>;
 };
 
