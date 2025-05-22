@@ -111,7 +111,7 @@ export class VatHandle {
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
       handleSyscall: async (params) => {
-        return await this.#vatSyscall.handleSyscall(params as VatSyscallObject);
+        return this.#vatSyscall.handleSyscall(params as VatSyscallObject);
       },
     });
   }

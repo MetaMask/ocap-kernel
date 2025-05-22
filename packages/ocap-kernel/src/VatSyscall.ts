@@ -179,14 +179,14 @@ export class VatSyscall {
    * @param vso - The syscall that was received.
    * @returns The result of the syscall.
    */
-  async handleSyscall(vso: VatSyscallObject): Promise<VatSyscallResult> {
+  handleSyscall(vso: VatSyscallObject): VatSyscallResult {
     try {
       this.illegalSyscall = undefined;
       this.vatRequestedTermination = undefined;
       this.pendingSyscalls += 1;
 
       // This is a safety check - this case should never happen
-      if (!this.#kernelStore.getVatConfig(this.vatId)) {
+      if (!this.#kernelStore.isVatActive(this.vatId)) {
         this.#vatFatalSyscall('vat not found');
         return harden(['error', 'vat not found']);
       }
