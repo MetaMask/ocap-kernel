@@ -297,6 +297,11 @@ export class VatSyscall {
 
   /**
    * Wait for all syscalls to complete.
+   *
+   * This is useful because syscalls are asynchronous,
+   * and we need to wait for them to complete before returning the result.
+   *
+   * @returns A promise that resolves when all syscalls have completed.
    */
   async waitForSyscallsToComplete(): Promise<void> {
     while (this.pendingSyscalls > 0) {
