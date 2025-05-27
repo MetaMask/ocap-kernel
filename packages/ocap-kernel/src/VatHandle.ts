@@ -328,6 +328,8 @@ export class VatHandle {
       const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
       this.#vatSyscall.deliveryError = deliveryError ?? undefined;
       const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
+      // On errors, we neither update KV data nor rollback previous changes.
+      // This is safe because vats are always terminated when errors occur.
       if (noErrors) {
         this.#vatStore.updateKVData(sets, deletes);
       }
