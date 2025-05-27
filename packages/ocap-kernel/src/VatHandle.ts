@@ -330,7 +330,8 @@ export class VatHandle {
       const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
       // On errors, we neither update this vat's KV data nor rollback previous changes.
       // This is safe because vats are always terminated when errors occur
-      // and they have their own databases. The main kernel database will be rolled back.
+      // and they have their own databases, which are deleted when the vat is terminated.
+      // The main kernel database will be rolled back.
       if (noErrors) {
         this.#vatStore.updateKVData(sets, deletes);
       }
