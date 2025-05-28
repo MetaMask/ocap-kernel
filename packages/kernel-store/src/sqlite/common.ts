@@ -60,8 +60,8 @@ export const SQL_QUERIES = {
   BEGIN_IMMEDIATE_TRANSACTION: `BEGIN IMMEDIATE TRANSACTION`,
   COMMIT_TRANSACTION: `COMMIT TRANSACTION`,
   ABORT_TRANSACTION: `ROLLBACK TRANSACTION`,
-  // SQLite’s parameter markers (?, ?NNN, :name, @name, $name) can only be used
-  // in places where a literal value is allowed. We can’t bind identifiers
+  // SQLite's parameter markers (?, ?NNN, :name, @name, $name) can only be used
+  // in places where a literal value is allowed. We can't bind identifiers
   // for table names, column names, or savepoint names. We use %NAME% as a
   // placeholder for the savepoint name.
   CREATE_SAVEPOINT: `SAVEPOINT %NAME%`,
@@ -80,7 +80,7 @@ export const DEFAULT_DB_FILENAME = ':memory:';
  * @param name - The string to check.
  * @returns The string if it is a valid identifier.
  */
-export function safeIdentifier(name: string): string {
+export function assertSafeIdentifier(name: string): string {
   if (!/^[A-Za-z_]\w*$/u.test(name)) {
     throw new Error(`Invalid identifier: ${name}`);
   }

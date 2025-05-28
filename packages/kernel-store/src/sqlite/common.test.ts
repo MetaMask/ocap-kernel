@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { SQL_QUERIES, safeIdentifier } from './common.ts';
+import { SQL_QUERIES, assertSafeIdentifier } from './common.ts';
 
 describe('SQL_QUERIES', () => {
   // XXX Is this test actually useful? It's basically testing that the source code matches itself.
@@ -64,27 +64,39 @@ describe('SQL_QUERIES', () => {
   });
 });
 
-describe('safeIdentifier', () => {
+describe('assertSafeIdentifier', () => {
   it('accepts valid SQL identifiers', () => {
-    expect(safeIdentifier('valid')).toBe('valid');
-    expect(safeIdentifier('Valid')).toBe('Valid');
-    expect(safeIdentifier('valid_name')).toBe('valid_name');
-    expect(safeIdentifier('valid_name_123')).toBe('valid_name_123');
-    expect(safeIdentifier('_leading_underscore')).toBe('_leading_underscore');
+    expect(assertSafeIdentifier('valid')).toBe('valid');
+    expect(assertSafeIdentifier('Valid')).toBe('Valid');
+    expect(assertSafeIdentifier('valid_name')).toBe('valid_name');
+    expect(assertSafeIdentifier('valid_name_123')).toBe('valid_name_123');
+    expect(assertSafeIdentifier('_leading_underscore')).toBe(
+      '_leading_underscore',
+    );
   });
 
   it('rejects invalid SQL identifiers', () => {
     // Starting with a number
-    expect(() => safeIdentifier('123invalid')).toThrow('Invalid identifier');
+    expect(() => assertSafeIdentifier('123invalid')).toThrow(
+      'Invalid identifier',
+    );
 
     // Containing invalid characters
-    expect(() => safeIdentifier('invalid-name')).toThrow('Invalid identifier');
-    expect(() => safeIdentifier('invalid.name')).toThrow('Invalid identifier');
-    expect(() => safeIdentifier('invalid;name')).toThrow('Invalid identifier');
-    expect(() => safeIdentifier('invalid name')).toThrow('Invalid identifier');
+    expect(() => assertSafeIdentifier('invalid-name')).toThrow(
+      'Invalid identifier',
+    );
+    expect(() => assertSafeIdentifier('invalid.name')).toThrow(
+      'Invalid identifier',
+    );
+    expect(() => assertSafeIdentifier('invalid;name')).toThrow(
+      'Invalid identifier',
+    );
+    expect(() => assertSafeIdentifier('invalid name')).toThrow(
+      'Invalid identifier',
+    );
 
     // Containing SQL injection attempts
-    expect(() => safeIdentifier("name'; DROP TABLE users--")).toThrow(
+    expect(() => assertSafeIdentifier("name'; DROP TABLE users--")).toThrow(
       'Invalid identifier',
     );
   });

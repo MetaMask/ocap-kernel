@@ -2,7 +2,11 @@ import { Logger } from '@metamask/logger';
 import type { Database as SqliteDatabase } from '@sqlite.org/sqlite-wasm';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-import { DEFAULT_DB_FILENAME, safeIdentifier, SQL_QUERIES } from './common.ts';
+import {
+  DEFAULT_DB_FILENAME,
+  assertSafeIdentifier,
+  SQL_QUERIES,
+} from './common.ts';
 import { getDBFolder } from './env.ts';
 import type { KVStore, VatStore, KernelDatabase } from '../types.ts';
 
@@ -353,7 +357,7 @@ export async function makeSQLKernelDatabase({
     // later will cause an autocommit.
     // See https://github.com/Agoric/agoric-sdk/issues/8423
     beginIfNeeded();
-    const point = safeIdentifier(name);
+    const point = assertSafeIdentifier(name);
     const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
     db.exec(query);
     db._spStack.push(point);
@@ -365,7 +369,7 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function rollbackSavepoint(name: string): void {
-    const point = safeIdentifier(name);
+    const point = assertSafeIdentifier(name);
     const idx = db._spStack.lastIndexOf(point);
     if (idx < 0) {
       throw new Error(`No such savepoint: ${point}`);
@@ -384,7 +388,7 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function releaseSavepoint(name: string): void {
-    const point = safeIdentifier(name);
+    const point = assertSafeIdentifier(name);
     const idx = db._spStack.lastIndexOf(point);
     if (idx < 0) {
       throw new Error(`No such savepoint: ${point}`);
