@@ -384,7 +384,6 @@ export const isGCAction = (value: unknown): value is GCAction =>
 export type CrankResults = {
   didDelivery?: VatId; // the vat on which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
-  consumeMessage?: boolean; // discard the aborted delivery
   terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
 };
 

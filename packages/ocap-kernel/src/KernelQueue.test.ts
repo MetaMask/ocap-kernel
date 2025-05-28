@@ -7,6 +7,7 @@ import type { MockInstance } from 'vitest';
 import { KernelQueue } from './KernelQueue.ts';
 import * as gc from './services/garbage-collection.ts';
 import type { KernelStore } from './store/index.ts';
+import * as types from './types.ts';
 import type {
   KRef,
   Message,
@@ -81,8 +82,70 @@ describe('KernelQueue', () => {
       expect(processGCActionSetSpy).toHaveBeenCalled();
       expect(kernelStore.nextReapAction).toHaveBeenCalled();
       expect(kernelStore.nextTerminatedVatCleanup).toHaveBeenCalled();
-      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('deliver');
       expect(deliver).toHaveBeenCalledWith(mockItem);
+      expect(kernelStore.endCrank).toHaveBeenCalled();
+    });
+
+    it('rolls back crank when deliver returns abort', async () => {
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko123',
+        message: {} as Message,
+      };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+      const collectGarbageError = new Error(
+        'wakeUpTheRunQueue function already set',
+      );
+      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
+        collectGarbageError,
+      );
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(
+        collectGarbageError.message,
+      );
+      expect(kernelStore.startCrank).toHaveBeenCalled();
+      expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('start');
+      expect(deliver).toHaveBeenCalledWith(mockItem);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
+      expect(kernelStore.collectGarbage).toHaveBeenCalled();
+      expect(kernelStore.endCrank).toHaveBeenCalled();
+    });
+
+    it('terminates vat when deliver returns terminate', async () => {
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko123',
+        message: {} as Message,
+      };
+      const terminateInfo = { vatId: 'v1', info: { body: '"test"' } };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue({ terminate: terminateInfo });
+      const collectGarbageError = new Error(
+        'wakeUpTheRunQueue function already set',
+      );
+      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
+        collectGarbageError,
+      );
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(
+        collectGarbageError.message,
+      );
+      expect(kernelStore.startCrank).toHaveBeenCalled();
+      expect(deliver).toHaveBeenCalledWith(mockItem);
+      expect(terminateVat).toHaveBeenCalledWith(
+        terminateInfo.vatId,
+        terminateInfo.info,
+      );
+      expect(kernelStore.collectGarbage).toHaveBeenCalled();
       expect(kernelStore.endCrank).toHaveBeenCalled();
     });
   });
@@ -248,6 +311,78 @@ describe('KernelQueue', () => {
         body: 'resolved value',
         slots: ['slot1'],
       });
+      expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
+    });
+
+    it('handles resolutions with undefined vatId (kernel decider)', () => {
+      const kpid = 'kp123';
+      const resolution: VatOneResolution = [
+        kpid,
+        false,
+        { body: 'resolved value', slots: ['slot1'] } as CapData<KRef>,
+      ];
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'unresolved',
+          decider: undefined,
+          subscribers: ['v2'],
+        },
+      );
+      const resolveHandler = vi.fn();
+      kernelQueue.subscriptions.set(kpid, resolveHandler);
+      const insistVatIdSpy = vi.spyOn(types, 'insistVatId');
+      kernelQueue.resolvePromises(undefined, [resolution]);
+      expect(insistVatIdSpy).not.toHaveBeenCalled();
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        kpid,
+        'resolve|kpid',
+      );
+      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
+        'slot1',
+        'resolve|slot',
+      );
+      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+        type: 'notify',
+        vatId: 'v2',
+        kpid,
+      });
+      expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
+        kpid,
+        false,
+        resolution[2],
+      );
+      expect(resolveHandler).toHaveBeenCalledWith(resolution[2]);
+      expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
+      insistVatIdSpy.mockRestore();
+    });
+
+    it('handles promises with no subscribers', () => {
+      const vatId = 'v1';
+      const kpid = 'kpNoSubscribers';
+      const resolution: VatOneResolution = [
+        kpid,
+        false,
+        { body: 'resolved value', slots: [] } as CapData<KRef>,
+      ];
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'unresolved',
+          decider: vatId,
+          subscribers: [],
+        },
+      );
+      const resolveHandler = vi.fn();
+      kernelQueue.subscriptions.set(kpid, resolveHandler);
+      kernelQueue.resolvePromises(vatId, [resolution]);
+      expect(kernelStore.enqueueRun).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'notify' }),
+      );
+      expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
+        kpid,
+        false,
+        resolution[2],
+      );
+      expect(resolveHandler).toHaveBeenCalledWith(resolution[2]);
       expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
     });
 

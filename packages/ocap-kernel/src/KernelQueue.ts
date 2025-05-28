@@ -59,20 +59,15 @@ export class KernelQueue {
   ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
       this.#kernelStore.nextTerminatedVatCleanup();
-      this.#kernelStore.createCrankSavepoint('deliver');
       const crankResults = await deliver(item);
       if (crankResults?.abort) {
-        // - consumeMessage=true (for hypothetical one-shot lifecycle ops):
-        //   rolls back to 'deliver', discarding the message.
-        // - consumeMessage=false (default for sends/notifies):
-        //   rolls back to 'start', re-queuing the message
-        //   e.g., to "splat" against a now-terminated vat, rejecting
-        //   its result to the sender.
-        // Currently, consumeMessage defaults to false as such lifecycle ops
-        // are not distinct run-queue item types here.
-        this.#kernelStore.rollbackCrank(
-          crankResults.consumeMessage ? 'deliver' : 'start',
-        );
+        // Rollback the kernel state to before the failed delivery attempt.
+        // For active vats, this allows the message to be retried in a future crank.
+        // For terminated vats, the message will just go splat.
+        this.#kernelStore.rollbackCrank('start');
+        // TODO: Currently all errors terminate the vat, but instead we could
+        // restart it and terminate the vat only after a certain number of failed
+        // retries. This is probably where we should implement the vat restart logic.
       }
       // Vat termination during delivery is triggered by an illegal syscall
       // or by syscall.exit().

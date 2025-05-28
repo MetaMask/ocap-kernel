@@ -3,6 +3,7 @@ import type {
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
+import * as kernelUtils from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -254,6 +255,30 @@ describe('VatSyscall', () => {
       vatSys.handleSyscall(vso);
       expect(spy).toHaveBeenCalledWith(expect.stringContaining(message), vso);
       spy.mockRestore();
+    });
+  });
+
+  describe('waitForSyscallsToComplete', () => {
+    it('resolves immediately if pendingSyscalls is zero', async () => {
+      vatSys.pendingSyscalls = 0;
+      const delaySpy = vi.spyOn(kernelUtils, 'delay');
+      await vatSys.waitForSyscallsToComplete();
+      expect(delaySpy).not.toHaveBeenCalled();
+      delaySpy.mockRestore();
+    });
+
+    it('waits and resolves when pendingSyscalls becomes zero', async () => {
+      vatSys.pendingSyscalls = 2;
+      const delaySpy = vi
+        .spyOn(kernelUtils, 'delay')
+        .mockImplementation(async () => {
+          vatSys.pendingSyscalls -= 1;
+          return Promise.resolve();
+        });
+      await vatSys.waitForSyscallsToComplete();
+      expect(delaySpy).toHaveBeenCalledTimes(2);
+      expect(vatSys.pendingSyscalls).toBe(0);
+      delaySpy.mockRestore();
     });
   });
 });
