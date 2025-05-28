@@ -66,13 +66,11 @@ describe('SQL_QUERIES', () => {
 
 describe('assertSafeIdentifier', () => {
   it('accepts valid SQL identifiers', () => {
-    expect(assertSafeIdentifier('valid')).toBe('valid');
-    expect(assertSafeIdentifier('Valid')).toBe('Valid');
-    expect(assertSafeIdentifier('valid_name')).toBe('valid_name');
-    expect(assertSafeIdentifier('valid_name_123')).toBe('valid_name_123');
-    expect(assertSafeIdentifier('_leading_underscore')).toBe(
-      '_leading_underscore',
-    );
+    expect(() => assertSafeIdentifier('valid')).not.toThrow();
+    expect(() => assertSafeIdentifier('Valid')).not.toThrow();
+    expect(() => assertSafeIdentifier('valid_name')).not.toThrow();
+    expect(() => assertSafeIdentifier('valid_name_123')).not.toThrow();
+    expect(() => assertSafeIdentifier('_leading_underscore')).not.toThrow();
   });
 
   it('rejects invalid SQL identifiers', () => {

@@ -78,11 +78,9 @@ export const DEFAULT_DB_FILENAME = ':memory:';
  * Check if a string is a valid SQLite identifier.
  *
  * @param name - The string to check.
- * @returns The string if it is a valid identifier.
  */
-export function assertSafeIdentifier(name: string): string {
+export function assertSafeIdentifier(name: string): void {
   if (!/^[A-Za-z_]\w*$/u.test(name)) {
     throw new Error(`Invalid identifier: ${name}`);
   }
-  return name;
 }

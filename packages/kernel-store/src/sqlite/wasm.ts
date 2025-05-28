@@ -357,10 +357,10 @@ export async function makeSQLKernelDatabase({
     // later will cause an autocommit.
     // See https://github.com/Agoric/agoric-sdk/issues/8423
     beginIfNeeded();
-    const point = assertSafeIdentifier(name);
-    const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', point);
+    assertSafeIdentifier(name);
+    const query = SQL_QUERIES.CREATE_SAVEPOINT.replace('%NAME%', name);
     db.exec(query);
-    db._spStack.push(point);
+    db._spStack.push(name);
   }
 
   /**
@@ -369,12 +369,12 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function rollbackSavepoint(name: string): void {
-    const point = assertSafeIdentifier(name);
-    const idx = db._spStack.lastIndexOf(point);
+    assertSafeIdentifier(name);
+    const idx = db._spStack.lastIndexOf(name);
     if (idx < 0) {
-      throw new Error(`No such savepoint: ${point}`);
+      throw new Error(`No such savepoint: ${name}`);
     }
-    const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', point);
+    const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', name);
     db.exec(query);
     db._spStack.splice(idx);
     if (db._spStack.length === 0) {
@@ -388,12 +388,12 @@ export async function makeSQLKernelDatabase({
    * @param name - The name of the savepoint.
    */
   function releaseSavepoint(name: string): void {
-    const point = assertSafeIdentifier(name);
-    const idx = db._spStack.lastIndexOf(point);
+    assertSafeIdentifier(name);
+    const idx = db._spStack.lastIndexOf(name);
     if (idx < 0) {
-      throw new Error(`No such savepoint: ${point}`);
+      throw new Error(`No such savepoint: ${name}`);
     }
-    const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', point);
+    const query = SQL_QUERIES.RELEASE_SAVEPOINT.replace('%NAME%', name);
     db.exec(query);
     db._spStack.splice(idx);
     if (db._spStack.length === 0) {
