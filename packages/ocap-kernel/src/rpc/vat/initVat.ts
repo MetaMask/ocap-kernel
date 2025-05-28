@@ -1,11 +1,10 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { VatCheckpoint } from '@metamask/kernel-store';
 import { array, object, string, tuple } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 
-import { VatCheckpointStruct } from './shared.ts';
+import { VatDeliveryResultStruct } from './shared.ts';
 import { VatConfigStruct } from '../../types.ts';
-import type { VatConfig } from '../../types.ts';
+import type { VatConfig, VatDeliveryResult } from '../../types.ts';
 
 const paramsStruct = object({
   vatConfig: VatConfigStruct,
@@ -14,18 +13,22 @@ const paramsStruct = object({
 
 type Params = Infer<typeof paramsStruct>;
 
-export type InitVatSpec = MethodSpec<'initVat', Params, Promise<VatCheckpoint>>;
+export type InitVatSpec = MethodSpec<
+  'initVat',
+  Params,
+  Promise<VatDeliveryResult>
+>;
 
 export const initVatSpec: InitVatSpec = {
   method: 'initVat',
   params: paramsStruct,
-  result: VatCheckpointStruct,
+  result: VatDeliveryResultStruct,
 };
 
 export type InitVat = (
   vatConfig: VatConfig,
   state: Map<string, string>,
-) => Promise<VatCheckpoint>;
+) => Promise<VatDeliveryResult>;
 
 type InitVatHooks = {
   initVat: InitVat;
@@ -34,7 +37,7 @@ type InitVatHooks = {
 export type InitVatHandler = Handler<
   'initVat',
   Params,
-  Promise<VatCheckpoint>,
+  Promise<VatDeliveryResult>,
   InitVatHooks
 >;
 

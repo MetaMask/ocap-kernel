@@ -52,30 +52,35 @@ export const SQL_QUERIES = {
     DELETE FROM kv_vatstore
     WHERE vatID = ?
   `,
-  CLEAR: `
-    DELETE FROM kv
-  `,
-  CLEAR_VS: `
-    DELETE FROM kv_vatstore
-  `,
-  DROP: `
-    DROP TABLE kv
-  `,
-  DROP_VS: `
-    DROP TABLE kv_vatstore
-  `,
-  BEGIN_TRANSACTION: `
-    BEGIN TRANSACTION
-  `,
-  COMMIT_TRANSACTION: `
-    COMMIT TRANSACTION
-  `,
-  ABORT_TRANSACTION: `
-    ROLLBACK TRANSACTION
-  `,
+  CLEAR: `DELETE FROM kv`,
+  CLEAR_VS: `DELETE FROM kv_vatstore`,
+  DROP: `DROP TABLE kv`,
+  DROP_VS: `DROP TABLE kv_vatstore`,
+  BEGIN_TRANSACTION: `BEGIN TRANSACTION`,
+  BEGIN_IMMEDIATE_TRANSACTION: `BEGIN IMMEDIATE TRANSACTION`,
+  COMMIT_TRANSACTION: `COMMIT TRANSACTION`,
+  ABORT_TRANSACTION: `ROLLBACK TRANSACTION`,
+  // SQLite's parameter markers (?, ?NNN, :name, @name, $name) can only be used
+  // in places where a literal value is allowed. We can't bind identifiers
+  // for table names, column names, or savepoint names. We use %NAME% as a
+  // placeholder for the savepoint name.
+  CREATE_SAVEPOINT: `SAVEPOINT %NAME%`,
+  ROLLBACK_SAVEPOINT: `ROLLBACK TO SAVEPOINT %NAME%`,
+  RELEASE_SAVEPOINT: `RELEASE SAVEPOINT %NAME%`,
 } as const;
 
 /**
  * The default filename for the SQLite database; ":memory:" is an ephemeral in-memory database.
  */
 export const DEFAULT_DB_FILENAME = ':memory:';
+
+/**
+ * Check if a string is a valid SQLite identifier.
+ *
+ * @param name - The string to check.
+ */
+export function assertSafeIdentifier(name: string): void {
+  if (!/^[A-Za-z_]\w*$/u.test(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  }
+}

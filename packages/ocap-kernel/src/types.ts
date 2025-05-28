@@ -1,9 +1,11 @@
 import type {
+  SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
   VatSyscallSend,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -249,10 +251,11 @@ export type VatWorkerService = {
    * Terminate a worker identified by its vat id.
    *
    * @param vatId - The vat id of the worker to terminate.
+   * @param error - An optional error to terminate the worker with.
    * @returns A promise that resolves when the worker has terminated
    * or rejects if that worker does not exist.
    */
-  terminate: (vatId: VatId) => Promise<void>;
+  terminate: (vatId: VatId, error?: Error) => Promise<void>;
   /**
    * Terminate all workers managed by the service.
    *
@@ -377,3 +380,11 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
 
 export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
+
+export type CrankResults = {
+  didDelivery?: VatId; // the vat on which we made a delivery
+  abort?: boolean; // changes should be discarded, not committed
+  terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
+};
+
+export type VatDeliveryResult = [VatCheckpoint, string | null];

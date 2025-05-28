@@ -8,7 +8,7 @@ import type {
   ExtractParams,
   ExtractResult,
 } from '@metamask/kernel-rpc-methods';
-import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
+import type { VatStore } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -18,9 +18,16 @@ import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
 import type { PingVatResult, VatMethod } from './rpc/index.ts';
-import { kser } from './services/kernel-marshal.ts';
+import { kser, makeError } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { Message, VatId, VatConfig, VRef } from './types.ts';
+import type {
+  Message,
+  VatId,
+  VatConfig,
+  VRef,
+  CrankResults,
+  VatDeliveryResult,
+} from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type VatConstructorProps = {
@@ -104,8 +111,7 @@ export class VatHandle {
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
       handleSyscall: async (params) => {
-        await this.#vatSyscall.handleSyscall(params as VatSyscallObject);
-        return ['ok', null]; // XXX TODO: Return actual results from syscalls
+        return this.#vatSyscall.handleSyscall(params as VatSyscallObject);
       },
     });
   }
@@ -202,70 +208,83 @@ export class VatHandle {
    *
    * @param target - The VRef of the object to which the message is addressed.
    * @param message - The message to deliver.
+   * @returns The crank results.
    */
-  async deliverMessage(target: VRef, message: Message): Promise<void> {
+  async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
    * Make a 'notify' delivery to the vat.
    *
    * @param resolutions - One or more promise resolutions to deliver.
+   * @returns The crank results.
    */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<void> {
+  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
    * Make a 'dropExports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the exports to be dropped.
+   * @returns The crank results.
    */
-  async deliverDropExports(vrefs: VRef[]): Promise<void> {
+  async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
    * Make a 'retireExports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the exports to be retired.
+   * @returns The crank results.
    */
-  async deliverRetireExports(vrefs: VRef[]): Promise<void> {
+  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
    * Make a 'retireImports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the imports to be retired.
+   * @returns The crank results.
    */
-  async deliverRetireImports(vrefs: VRef[]): Promise<void> {
+  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
    * Make a 'bringOutYourDead' delivery to the vat.
+   *
+   * @returns The crank results.
    */
-  async deliverBringOutYourDead(): Promise<void> {
+  async deliverBringOutYourDead(): Promise<CrankResults> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -277,15 +296,14 @@ export class VatHandle {
    */
   async terminate(terminating: boolean, error?: Error): Promise<void> {
     await this.#vatStream.end(error);
-
+    const terminationError = error ?? new VatDeletedError(this.vatId);
     if (terminating) {
       // Reject promises exported to other vats for which this vat is the decider
-      const failure = kser(new VatDeletedError(this.vatId));
+      const failure = kser(terminationError);
       for (const kpid of this.#kernelStore.getPromisesByDecider(this.vatId)) {
         this.#kernelQueue.resolvePromises(this.vatId, [[kpid, true, failure]]);
       }
-
-      this.#rpcClient.rejectAll(error ?? new VatDeletedError(this.vatId));
+      this.#rpcClient.rejectAll(terminationError);
       this.#kernelStore.deleteVat(this.vatId);
     }
   }
@@ -306,11 +324,56 @@ export class VatHandle {
     params: ExtractParams<Method, typeof vatMethodSpecs>;
   }): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
     const result = await this.#rpcClient.call(method, params);
-    if (method === 'deliver' || method === 'initVat') {
-      // TypeScript fails to narrow the result type on its own
-      const [sets, deletes] = result as VatCheckpoint;
-      this.#vatStore.updateKVData(sets, deletes);
+    if (method === 'initVat' || method === 'deliver') {
+      const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
+      this.#vatSyscall.deliveryError = deliveryError ?? undefined;
+      const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
+      // On errors, we neither update this vat's KV data nor rollback previous changes.
+      // This is safe because vats are always terminated when errors occur
+      // and they have their own databases, which are deleted when the vat is terminated.
+      // The main kernel database will be rolled back.
+      if (noErrors) {
+        this.#vatStore.updateKVData(sets, deletes);
+      }
     }
     return result;
+  }
+
+  /**
+   * Get the crank outcome for a given checkpoint result.
+   *
+   * @returns The crank outcome.
+   */
+  async #getDeliveryCrankResults(): Promise<CrankResults> {
+    await this.#vatSyscall.waitForSyscallsToComplete();
+
+    const results: CrankResults = {
+      didDelivery: this.vatId,
+    };
+
+    // These conditionals express a priority order: the consequences of an
+    // illegal syscall take precedence over a vat requesting termination, etc.
+    if (this.#vatSyscall.illegalSyscall) {
+      results.abort = true;
+      const { info } = this.#vatSyscall.illegalSyscall;
+      // TODO: For now, vat errors both rewind changes and terminate the vat.
+      // Some day, they might rewind changes and retry the syscall.
+      // We should terminate the vat only after a certain # of failed retries.
+      results.terminate = { vatId: this.vatId, reject: true, info };
+    } else if (this.#vatSyscall.deliveryError) {
+      results.abort = true;
+      const info = makeError(this.#vatSyscall.deliveryError);
+      results.terminate = { vatId: this.vatId, reject: true, info };
+    } else if (this.#vatSyscall.vatRequestedTermination) {
+      if (this.#vatSyscall.vatRequestedTermination.reject) {
+        results.abort = true; // vatPowers.exitWithFailure wants rewind
+      }
+      results.terminate = {
+        vatId: this.vatId,
+        ...this.#vatSyscall.vatRequestedTermination,
+      };
+    }
+
+    return harden(results);
   }
 }
