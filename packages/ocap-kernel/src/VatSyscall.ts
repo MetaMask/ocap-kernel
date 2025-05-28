@@ -187,7 +187,7 @@ export class VatSyscall {
 
       // This is a safety check - this case should never happen
       if (!this.#kernelStore.isVatActive(this.vatId)) {
-        this.#vatFatalSyscall('vat not found');
+        this.#recordVatFatalSyscall('vat not found');
         return harden(['error', 'vat not found']);
       }
 
@@ -276,7 +276,7 @@ export class VatSyscall {
       return harden(['ok', null]);
     } catch (error) {
       this.#logger.error(`Fatal syscall error in vat ${this.vatId}`, error);
-      this.#vatFatalSyscall('syscall translation error: prepare to die');
+      this.#recordVatFatalSyscall('syscall translation error: prepare to die');
       return harden([
         'error',
         error instanceof Error ? error.message : String(error),
@@ -291,7 +291,7 @@ export class VatSyscall {
    *
    * @param error - The error message to log.
    */
-  #vatFatalSyscall(error: string): void {
+  #recordVatFatalSyscall(error: string): void {
     this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
   }
 

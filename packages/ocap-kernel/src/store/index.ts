@@ -177,10 +177,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
     context.nextVatId = provideCachedStoredValue('nextVatId', '1');
     context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
-    if (context.savepoints.length > 0) {
-      kdb.releaseSavepoint('t0');
-      context.savepoints.length = 0;
-    }
+    crank.releaseAllSavepoints();
   }
 
   /**

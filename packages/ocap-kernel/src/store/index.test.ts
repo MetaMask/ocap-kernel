@@ -108,6 +108,7 @@ describe('kernel store', () => {
         'nextReapAction',
         'nextTerminatedVatCleanup',
         'pinObject',
+        'releaseAllSavepoints',
         'reset',
         'resolveKernelPromise',
         'retireKernelObjects',

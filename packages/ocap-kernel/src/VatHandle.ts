@@ -215,7 +215,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['message', target, message],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -229,7 +229,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -243,7 +243,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -257,7 +257,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -271,7 +271,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -284,7 +284,7 @@ export class VatHandle {
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
-    return this.#deliveryCrankResults();
+    return this.#getDeliveryCrankResults();
   }
 
   /**
@@ -344,7 +344,7 @@ export class VatHandle {
    *
    * @returns The crank outcome.
    */
-  async #deliveryCrankResults(): Promise<CrankResults> {
+  async #getDeliveryCrankResults(): Promise<CrankResults> {
     await this.#vatSyscall.waitForSyscallsToComplete();
 
     const results: CrankResults = {

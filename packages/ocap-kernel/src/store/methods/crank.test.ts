@@ -123,4 +123,20 @@ describe('crank methods', () => {
       );
     });
   });
+
+  describe('releaseAllSavepoints', () => {
+    it('should release all savepoints', () => {
+      context.inCrank = true;
+      context.savepoints = ['test'];
+      crankMethods.releaseAllSavepoints();
+      expect(kdb.releaseSavepoint).toHaveBeenCalledWith('t0');
+      expect(context.savepoints).toStrictEqual([]);
+    });
+
+    it('should not call releaseSavepoint if no savepoints exist', () => {
+      context.inCrank = true;
+      crankMethods.releaseAllSavepoints();
+      expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -61,10 +61,21 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     ctx.inCrank = false;
   }
 
+  /**
+   * Release all savepoints.
+   */
+  function releaseAllSavepoints(): void {
+    if (ctx.savepoints.length > 0) {
+      kdb.releaseSavepoint('t0');
+      ctx.savepoints.length = 0;
+    }
+  }
+
   return {
     startCrank,
     createCrankSavepoint,
     rollbackCrank,
     endCrank,
+    releaseAllSavepoints,
   };
 }
