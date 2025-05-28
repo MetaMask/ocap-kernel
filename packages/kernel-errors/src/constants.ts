@@ -28,6 +28,7 @@ export const ErrorCode = {
   VatAlreadyExists: 'VAT_ALREADY_EXISTS',
   VatDeleted: 'VAT_DELETED',
   VatNotFound: 'VAT_NOT_FOUND',
+  SubclusterNotFound: 'SUBCLUSTER_NOT_FOUND',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
