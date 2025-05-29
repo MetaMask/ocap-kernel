@@ -1,4 +1,3 @@
-import type { VatSyscallResult } from '@agoric/swingset-liveslots';
 import type { Handler, MethodSpec } from '@metamask/kernel-rpc-methods';
 import {
   tuple,
@@ -69,9 +68,7 @@ export const vatSyscallSpec: MethodSpec<'syscall', VatSyscallParams, void> = {
   params: VatSyscallParamsStruct,
 } as const;
 
-export type HandleSyscall = (
-  params: VatSyscallParams,
-) => Promise<VatSyscallResult>;
+export type HandleSyscall = (params: VatSyscallParams) => void;
 
 type SyscallHooks = {
   handleSyscall: HandleSyscall;
@@ -80,12 +77,12 @@ type SyscallHooks = {
 export const vatSyscallHandler: Handler<
   'syscall',
   VatSyscallParams,
-  Promise<void>,
+  void,
   SyscallHooks
 > = {
   ...vatSyscallSpec,
   hooks: { handleSyscall: true },
-  implementation: async ({ handleSyscall }, params) => {
-    await handleSyscall(params);
+  implementation: ({ handleSyscall }, params) => {
+    handleSyscall(params);
   },
 } as const;

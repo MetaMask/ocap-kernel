@@ -114,8 +114,8 @@ export class VatHandle {
       `${this.vatId}:`,
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
-      handleSyscall: async (params) => {
-        return this.#vatSyscall.handleSyscall(params as VatSyscallObject);
+      handleSyscall: (params) => {
+        this.#vatSyscall.handleSyscall(params as VatSyscallObject);
       },
     });
   }

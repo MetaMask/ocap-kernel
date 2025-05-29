@@ -3,9 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { vatSyscallHandler } from './vat-syscall.ts';
 
 describe('vatSyscallHandler', () => {
-  it('should initialize a vat', async () => {
+  it('should initialize a vat', () => {
     const handleSyscall = vi.fn();
-    await vatSyscallHandler.implementation({ handleSyscall }, [
+    vatSyscallHandler.implementation({ handleSyscall }, [
       'send',
       'test',
       {
@@ -25,11 +25,11 @@ describe('vatSyscallHandler', () => {
     ]);
   });
 
-  it('should propagate errors from hooks', async () => {
+  it('should propagate errors from hooks', () => {
     const handleSyscall = vi.fn(() => {
       throw new Error('fake');
     });
-    await expect(
+    expect(() =>
       vatSyscallHandler.implementation({ handleSyscall }, [
         'send',
         'test',
@@ -38,6 +38,6 @@ describe('vatSyscallHandler', () => {
           result: null,
         },
       ]),
-    ).rejects.toThrow('fake');
+    ).toThrow('fake');
   });
 });
