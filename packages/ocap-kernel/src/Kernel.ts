@@ -20,6 +20,8 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
+import { kslot } from './services/kernel-marshal.ts';
+import type { SlotValue } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
@@ -29,11 +31,11 @@ import type {
   ClusterConfig,
   VatConfig,
   KernelStatus,
+  Subcluster,
 } from './types.ts';
 import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
 import { Fail } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
-import { kslot, type SlotValue } from './services/kernel-marshal.ts';
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
@@ -189,7 +191,7 @@ export class Kernel {
    * Launches a new vat.
    *
    * @param vatConfig - Configuration for the new vat. This may include `subclusterName`.
-   *
+   * @param subclusterId - The ID of the subcluster to launch the vat in.
    * @returns a promise for the KRef of the new vat's root object.
    */
   async launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
@@ -262,8 +264,8 @@ export class Kernel {
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
-    const subclusterId = this.#kernelStore.getNextSubclusterId();
-    return this.#launchVatsForSubcluster(subclusterId, config, false);
+    const subclusterId = this.#kernelStore.addSubcluster(config);
+    return this.#launchVatsForSubcluster(subclusterId, config);
   }
 
   /**
@@ -276,8 +278,7 @@ export class Kernel {
     if (!this.#kernelStore.hasSubcluster(subclusterId)) {
       throw new SubclusterNotFoundError(subclusterId);
     }
-    const vatIdsToTerminate =
-      this.#kernelStore.getSubclusterVatIds(subclusterId);
+    const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
     for (const vatId of vatIdsToTerminate.reverse()) {
       await this.terminateVat(vatId);
     }
@@ -285,22 +286,13 @@ export class Kernel {
   }
 
   /**
-   * Retrieves the configuration for a named subcluster.
+   * Retrieves a subcluster by its ID.
    *
    * @param subclusterId - The id of the subcluster.
-   * @returns The cluster configuration, or undefined if not found.
+   * @returns The subcluster, or undefined if not found.
    */
-  getSubclusterConfig(subclusterId: string): ClusterConfig | undefined {
-    return this.#kernelStore.getSubclusterConfig(subclusterId);
-  }
-
-  /**
-   * Retrieves all named subcluster configurations.
-   *
-   * @returns A record mapping subcluster names to their configurations.
-   */
-  getAllSubclusterConfigs(): Readonly<Record<string, ClusterConfig>> {
-    return this.#kernelStore.getAllSubclusterConfigs();
+  getSubcluster(subclusterId: string): Subcluster | undefined {
+    return this.#kernelStore.getSubcluster(subclusterId);
   }
 
   /**
@@ -311,7 +303,7 @@ export class Kernel {
    * @returns True if the vat belongs to the specified subcluster, false otherwise.
    */
   isVatInSubcluster(vatId: VatId, subclusterId: string): boolean {
-    return this.#kernelStore.getVatSubclusterId(vatId) === subclusterId;
+    return this.#kernelStore.getVatSubcluster(vatId) === subclusterId;
   }
 
   /**
@@ -321,7 +313,16 @@ export class Kernel {
    * @returns An array of vat IDs that belong to the specified subcluster.
    */
   getSubclusterVats(subclusterId: string): VatId[] {
-    return this.#kernelStore.getSubclusterVatIds(subclusterId);
+    return this.#kernelStore.getSubclusterVats(subclusterId);
+  }
+
+  /**
+   * Gets all subclusters.
+   *
+   * @returns An array of subcluster information records.
+   */
+  getSubclusters(): Subcluster[] {
+    return this.#kernelStore.getSubclusters();
   }
 
   /**
@@ -336,16 +337,15 @@ export class Kernel {
   async reloadSubcluster(
     subclusterId: string,
   ): Promise<CapData<KRef> | undefined> {
-    const config = this.getSubclusterConfig(subclusterId);
-    if (!config) {
+    const subcluster = this.getSubcluster(subclusterId);
+    if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
     }
-    const vatIdsToTerminate =
-      this.#kernelStore.getSubclusterVatIds(subclusterId);
+    const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
     for (const vatId of vatIdsToTerminate) {
       await this.terminateVat(vatId);
     }
-    return this.#launchVatsForSubcluster(subclusterId, config, true);
+    return this.#launchVatsForSubcluster(subclusterId, subcluster.config);
   }
 
   /**
@@ -353,18 +353,12 @@ export class Kernel {
    *
    * @param subclusterId - The ID of the subcluster to launch vats for.
    * @param config - The configuration for the subcluster.
-   * @param isReload - Whether this is a reload operation (true) or initial launch (false).
    * @returns A promise for the (CapData encoded) result of the bootstrap message, if any.
    */
   async #launchVatsForSubcluster(
     subclusterId: string,
     config: ClusterConfig,
-    isReload: boolean,
   ): Promise<CapData<KRef> | undefined> {
-    if (!isReload) {
-      this.#kernelStore.setSubclusterConfig(subclusterId, config);
-    }
-
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
@@ -442,7 +436,7 @@ export class Kernel {
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     await this.#stopVat(vatId, true, reason);
     this.#kernelStore.deleteVatConfig(vatId);
-    const subclusterId = this.#kernelStore.getVatSubclusterId(vatId);
+    const subclusterId = this.#kernelStore.getVatSubcluster(vatId);
     if (subclusterId) {
       this.#kernelStore.deleteSubclusterVat(subclusterId, vatId);
     }
@@ -488,12 +482,16 @@ export class Kernel {
   getVats(): {
     id: VatId;
     config: VatConfig;
+    subclusterId?: string;
   }[] {
-    return Array.from(this.#vats.values()).map((vat) => ({
-      id: vat.vatId,
-      config: vat.config,
-      subclusterId: this.#kernelStore.getVatSubclusterId(vat.vatId),
-    }));
+    return Array.from(this.#vats.values()).map((vat) => {
+      const subclusterId = this.#kernelStore.getVatSubcluster(vat.vatId);
+      return {
+        id: vat.vatId,
+        config: vat.config,
+        ...(subclusterId && { subclusterId }),
+      };
+    });
   }
 
   /**
@@ -501,7 +499,6 @@ export class Kernel {
    * and a list of all running vats.
    *
    * @returns The current kernel status containing vats and subclusters information.
-   * @returns {KernelStatus} Object containing vats and subclusters information.
    */
   getStatus(): KernelStatus {
     return {
@@ -597,19 +594,19 @@ export class Kernel {
    */
   async reload(): Promise<void> {
     const errors: Error[] = [];
-    for (const subclusterId of this.#kernelStore.getSubclusterIds()) {
+    for (const subcluster of this.#kernelStore.getSubclusters()) {
       try {
-        await this.reloadSubcluster(subclusterId);
+        await this.reloadSubcluster(subcluster.id);
       } catch (error) {
         errors.push(error as Error);
         this.#logger.error(
-          `Failed to reload subcluster ${subclusterId}:`,
+          `Failed to reload subcluster ${subcluster.id}:`,
           error,
         );
       }
     }
     if (errors.length > 0) {
-      throw new Error('Subclusters failed to reload:' + errors.join(', '));
+      throw new Error(`Subclusters failed to reload:${errors.join(', ')}`);
     }
   }
 
