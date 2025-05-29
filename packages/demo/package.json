@@ -77,5 +77,8 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "dependencies": {
+    "@endo/far": "^1.1.11"
   }
 }
