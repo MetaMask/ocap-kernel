@@ -345,8 +345,6 @@ export class VatHandle {
    * @returns The crank outcome.
    */
   async #getDeliveryCrankResults(): Promise<CrankResults> {
-    await this.#vatSyscall.waitForSyscallsToComplete();
-
     const results: CrankResults = {
       didDelivery: this.vatId,
     };

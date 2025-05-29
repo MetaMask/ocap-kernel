@@ -4,7 +4,6 @@ import type {
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
-import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
@@ -50,9 +49,6 @@ export class VatSyscall {
   vatRequestedTermination:
     | { reject: boolean; info: SwingSetCapData }
     | undefined;
-
-  /** The pending syscalls that were received from the vat */
-  pendingSyscalls: number = 0;
 
   /**
    * Construct a new VatSyscall instance.
@@ -183,7 +179,6 @@ export class VatSyscall {
     try {
       this.illegalSyscall = undefined;
       this.vatRequestedTermination = undefined;
-      this.pendingSyscalls += 1;
 
       // This is a safety check - this case should never happen
       if (!this.#kernelStore.isVatActive(this.vatId)) {
@@ -281,8 +276,6 @@ export class VatSyscall {
         'error',
         error instanceof Error ? error.message : String(error),
       ]);
-    } finally {
-      this.pendingSyscalls -= 1;
     }
   }
 
@@ -293,19 +286,5 @@ export class VatSyscall {
    */
   #recordVatFatalSyscall(error: string): void {
     this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
-  }
-
-  /**
-   * Wait for all syscalls to complete.
-   *
-   * This is useful because syscalls are asynchronous,
-   * and we need to wait for them to complete before returning the result.
-   *
-   * @returns A promise that resolves when all syscalls have completed.
-   */
-  async waitForSyscallsToComplete(): Promise<void> {
-    while (this.pendingSyscalls > 0) {
-      await delay(10);
-    }
   }
 }
