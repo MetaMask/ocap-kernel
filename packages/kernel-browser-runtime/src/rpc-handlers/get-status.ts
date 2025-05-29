@@ -14,7 +14,7 @@ export const getStatusSpec: MethodSpec<
 };
 
 export type GetStatusHooks = {
-  kernel: Pick<Kernel, 'getVats' | 'clusterConfig'>;
+  kernel: Pick<Kernel, 'getVats' | 'getSubclusters'>;
 };
 
 export const getStatusHandler: Handler<
@@ -27,6 +27,6 @@ export const getStatusHandler: Handler<
   hooks: { kernel: true },
   implementation: ({ kernel }: GetStatusHooks): KernelStatus => ({
     vats: kernel.getVats(),
-    clusterConfig: kernel.clusterConfig,
+    subclusters: kernel.getSubclusters(),
   }),
 };
