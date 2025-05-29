@@ -31,6 +31,11 @@ const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 // eslint-disable-next-line n/no-unsupported-features/node-builtins
 export type FetchBlob = (bundleURL: string) => Promise<Response>;
 
+type SupervisorRpcClient = Pick<
+  RpcClient<typeof vatSyscallMethodSpecs>,
+  'notify' | 'handleResponse'
+>;
+
 type SupervisorConstructorProps = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -54,7 +59,7 @@ export class VatSupervisor {
   readonly #logger: Logger;
 
   /** RPC client for sending syscall requests to the kernel */
-  readonly #rpcClient: RpcClient<typeof vatSyscallMethodSpecs>;
+  readonly #rpcClient: SupervisorRpcClient;
 
   /** RPC service for handling requests from the kernel */
   readonly #rpcService: RpcService<typeof vatHandlers>;
@@ -73,9 +78,6 @@ export class VatSupervisor {
 
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
-
-  /** Result promises from all syscalls sent to the kernel in the current crank */
-  readonly #syscallsInFlight: Promise<unknown>[] = [];
 
   /**
    * Construct a new VatSupervisor instance.
@@ -177,17 +179,15 @@ export class VatSupervisor {
    * @returns a syscall success result.
    */
   executeSyscall(vso: VatSyscallObject): VatSyscallResult {
-    this.#syscallsInFlight.push(
-      // IMPORTANT: Syscall architecture design explanation:
-      // - Vats operate on an "optimistic execution" model - they send syscalls and continue execution
-      //    without waiting for responses, assuming success.
-      // - The Kernel processes syscalls asynchronously and failures are catched in VatHandle.
-      this.#rpcClient
-        .call('syscall', coerceVatSyscallObject(vso))
-        // We catch these rejections here to prevent unhandled promise rejections,
-        // as they're an expected part of the architecture, not errors
-        .catch(() => undefined),
-    );
+    // IMPORTANT: Syscall architecture design explanation:
+    // - Vats operate on an "optimistic execution" model - they send syscalls and continue execution
+    //    without waiting for responses, assuming success.
+    // - The Kernel processes syscalls synchronously on receipt and failures are caught in VatHandle.
+    // - The vat is terminated and the crank is rolled back if a syscall fails.
+    this.#rpcClient
+      .notify('syscall', coerceVatSyscallObject(vso))
+      // Just to please the linter (notifications never reject)
+      .catch(() => undefined);
     return ['ok', null];
   }
 
@@ -204,13 +204,6 @@ export class VatSupervisor {
       // Handle delivery errors
       deliveryError = error instanceof Error ? error.message : String(error);
       this.#logger.error(`Delivery error in vat ${this.id}:`, deliveryError);
-    } finally {
-      // Clean up at the end of a crank
-      this.#syscallsInFlight.length = 0;
-      // Reject all pending RPC requests to maintain the optimistic execution model
-      // This prevents late responses from affecting the vat in unexpected ways
-      // between cranks.
-      this.#rpcClient.rejectAll(new Error('end of crank'));
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

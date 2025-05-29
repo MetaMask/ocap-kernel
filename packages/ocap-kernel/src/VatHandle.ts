@@ -11,9 +11,9 @@ import type {
 import type { VatStore } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
-import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import { isJsonRpcNotification, isJsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
@@ -30,10 +30,14 @@ import type {
 } from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
+type MessageFromVat = JsonRpcResponse | JsonRpcNotification;
+
+type VatStream = DuplexStream<MessageFromVat, JsonRpcMessage>;
+
 type VatConstructorProps = {
   vatId: VatId;
   vatConfig: VatConfig;
-  vatStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
+  vatStream: VatStream;
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger | undefined;
@@ -44,7 +48,7 @@ export class VatHandle {
   readonly vatId: VatId;
 
   /** Communications channel to and from the vat itself */
-  readonly #vatStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
+  readonly #vatStream: VatStream;
 
   /** The vat's configuration */
   readonly config: VatConfig;
@@ -110,8 +114,8 @@ export class VatHandle {
       `${this.vatId}:`,
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
-      handleSyscall: async (params) => {
-        return this.#vatSyscall.handleSyscall(params as VatSyscallObject);
+      handleSyscall: (params) => {
+        this.#vatSyscall.handleSyscall(params as VatSyscallObject);
       },
     });
   }
@@ -181,25 +185,13 @@ export class VatHandle {
   async #handleMessage(message: JsonRpcMessage): Promise<void> {
     if (isJsonRpcResponse(message)) {
       this.#rpcClient.handleResponse(message.id as string, message);
-    } else if (isJsonRpcRequest(message)) {
-      try {
-        this.#rpcService.assertHasMethod(message.method);
-        const result = await this.#rpcService.execute(
-          message.method,
-          message.params,
-        );
-        await this.#vatStream.write({
-          id: message.id,
-          result,
-          jsonrpc: '2.0',
-        });
-      } catch (error) {
-        await this.#vatStream.write({
-          id: message.id,
-          error: serializeError(error),
-          jsonrpc: '2.0',
-        });
-      }
+    } else if (isJsonRpcNotification(message)) {
+      this.#rpcService.assertHasMethod(message.method);
+      await this.#rpcService.execute(message.method, message.params);
+    } else {
+      // We don't expect any JSON-RPC requests from the vat, but the stream may permit them
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`Received unexpected message: ${message}`);
     }
   }
 

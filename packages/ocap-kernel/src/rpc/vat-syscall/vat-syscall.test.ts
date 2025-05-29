@@ -1,16 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { vatSyscallHandler } from './vat-syscall.ts';
-import type { HandleSyscall } from './vat-syscall.ts';
 
 describe('vatSyscallHandler', () => {
-  it('should initialize a vat', async () => {
-    const handleSyscall = vi.fn(async () =>
-      Promise.resolve({
-        checkpoint: 'fake',
-      }),
-    ) as unknown as HandleSyscall;
-    const result = await vatSyscallHandler.implementation({ handleSyscall }, [
+  it('should initialize a vat', () => {
+    const handleSyscall = vi.fn();
+    vatSyscallHandler.implementation({ handleSyscall }, [
       'send',
       'test',
       {
@@ -18,16 +13,23 @@ describe('vatSyscallHandler', () => {
         result: null,
       },
     ]);
-    expect(result).toStrictEqual({
-      checkpoint: 'fake',
-    });
+
+    expect(handleSyscall).toHaveBeenCalledTimes(1);
+    expect(handleSyscall).toHaveBeenCalledWith([
+      'send',
+      'test',
+      {
+        methargs: { body: 'test', slots: [] },
+        result: null,
+      },
+    ]);
   });
 
-  it('should propagate errors from hooks', async () => {
+  it('should propagate errors from hooks', () => {
     const handleSyscall = vi.fn(() => {
       throw new Error('fake');
     });
-    await expect(
+    expect(() =>
       vatSyscallHandler.implementation({ handleSyscall }, [
         'send',
         'test',
@@ -36,6 +38,6 @@ describe('vatSyscallHandler', () => {
           result: null,
         },
       ]),
-    ).rejects.toThrow('fake');
+    ).toThrow('fake');
   });
 });
