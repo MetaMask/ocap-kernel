@@ -29,8 +29,20 @@ await build({
   tsconfig: path.resolve(rootDir, 'tsconfig.build.json'),
   minify: !isDev,
   sourcemap: isDev ? 'inline' : false,
-  // This file is dynamically imported in the ocap-kernel package in Node.js only
-  external: ['./gc-engine.mjs'],
+  // Mark workspace dependencies as external
+  external: [
+    './gc-engine.mjs',
+    '@metamask/json-rpc-engine',
+    '@metamask/kernel-rpc-methods',
+    '@metamask/kernel-store',
+    '@metamask/kernel-utils',
+    '@metamask/logger',
+    '@metamask/ocap-kernel',
+    '@metamask/streams',
+    '@metamask/superstruct',
+    '@metamask/utils',
+    'nanoid',
+  ],
 });
 
 // @sqlite.org/sqlite-wasm fetches certain files at runtime, and esbuild doesn't copy
