@@ -117,7 +117,8 @@
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
       "vitest>@vitest/mocker>msw": false,
       "@ocap/cli>@metamask/logger>@metamask/streams": true,
-      "eslint-plugin-import-x>unrs-resolver": false
+      "eslint-plugin-import-x>unrs-resolver": false,
+      "eslint-import-resolver-typescript>unrs-resolver": false
     }
   },
   "resolutions": {
