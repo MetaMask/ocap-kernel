@@ -3,7 +3,6 @@ import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { split } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcNotification } from '@metamask/utils';
-import type { JsonRpcRequest } from '@metamask/utils';
 
 import type { LogEntry, LogLevel } from './types.ts';
 
@@ -84,7 +83,7 @@ harden(isLoggerMessage);
  */
 export const isKernelMessage = (
   message: JsonRpcMessage,
-): message is JsonRpcRequest => !isLoggerMessage(message);
+): message is JsonRpcMessage => !isLoggerMessage(message);
 harden(isKernelMessage);
 
 /**

@@ -7,7 +7,6 @@ import {
   string,
   union,
   boolean,
-  Struct,
 } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 
@@ -65,22 +64,9 @@ const VatSyscallParamsStruct = union([
 
 type VatSyscallParams = Infer<typeof VatSyscallParamsStruct>;
 
-const VatSyscallResultStruct: Struct<VatSyscallResult> = union([
-  tuple([
-    literal('ok'),
-    union([CapDataStruct, string(), array(string()), literal(null)]),
-  ]),
-  tuple([literal('error'), string()]),
-]);
-
-export const vatSyscallSpec: MethodSpec<
-  'syscall',
-  VatSyscallParams,
-  Promise<VatSyscallResult>
-> = {
+export const vatSyscallSpec: MethodSpec<'syscall', VatSyscallParams, void> = {
   method: 'syscall',
   params: VatSyscallParamsStruct,
-  result: VatSyscallResultStruct,
 } as const;
 
 export type HandleSyscall = (
@@ -94,12 +80,12 @@ type SyscallHooks = {
 export const vatSyscallHandler: Handler<
   'syscall',
   VatSyscallParams,
-  Promise<VatSyscallResult>,
+  Promise<void>,
   SyscallHooks
 > = {
   ...vatSyscallSpec,
   hooks: { handleSyscall: true },
   implementation: async ({ handleSyscall }, params) => {
-    return await handleSyscall(params);
+    await handleSyscall(params);
   },
 } as const;

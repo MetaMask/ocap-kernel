@@ -12,8 +12,8 @@ export type MethodSignature<
 export type MethodSpec<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json> | void,
-> = Result extends void
+  Result extends Json | Promise<Json> | void | Promise<void>,
+> = Result extends void | Promise<void>
   ? { method: Method; params: Struct<Params>; result?: undefined }
   : {
       method: Method;
@@ -74,7 +74,7 @@ export type ExtractResult<
 
 export type HandlerFunction<
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json> | void,
+  Result extends Json | Promise<Json> | void | Promise<void>,
   Hooks extends Record<string, unknown>,
 > = (hooks: Hooks, params: Params) => Result;
 
@@ -83,7 +83,7 @@ export type HandlerFunction<
 export type Handler<
   Method extends string,
   Params extends JsonRpcParams,
-  Result extends Json | Promise<Json> | void,
+  Result extends Json | Promise<Json> | void | Promise<void>,
   Hooks extends Record<string, unknown>,
 > = MethodSpec<Method, Params, Result> & {
   hooks: { [Key in keyof Hooks]: true };

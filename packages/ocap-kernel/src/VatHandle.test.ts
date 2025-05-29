@@ -90,7 +90,30 @@ describe('VatHandle', () => {
       await delay(10);
       expect(logger.error).toHaveBeenCalledWith(
         'Unexpected read error',
-        expect.any(Error),
+        expect.objectContaining({
+          message: expect.stringMatching(/Message failed type validation/u),
+        }),
+      );
+    });
+
+    it('throws if handleMessage throws', async () => {
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      const { stream } = await makeVat({ logger });
+      await stream.receiveInput({
+        id: 'v0:1',
+        method: 'ping',
+        params: [],
+        jsonrpc: '2.0',
+      });
+      await delay(10);
+      expect(logger.error).toHaveBeenCalledWith(
+        'Unexpected read error',
+        expect.objectContaining({
+          message: expect.stringMatching(/^Received unexpected message/u),
+        }),
       );
     });
   });
