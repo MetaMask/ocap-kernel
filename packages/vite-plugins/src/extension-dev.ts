@@ -3,10 +3,6 @@ import { chromium } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import type { Plugin as VitePlugin } from 'vite';
 
-// Re-implemented here because we live in hell.
-const delay = async (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * Vite plugin that opens the extension's popup in a browser context
  * and reloads the extension when the bundle is written.
@@ -71,7 +67,7 @@ export function extensionDev({
     await Promise.all(pages.map(async (page) => await page.close()));
 
     // Wait for the extension to be loaded
-    await delay(1000);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const chromeExtensionURLIdMatcher = /^chrome-extension:\/\/([^/]+)/u;
     const serviceWorkers = browserContext.serviceWorkers();
