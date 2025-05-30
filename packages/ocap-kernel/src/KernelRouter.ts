@@ -1,5 +1,6 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { kser } from './services/kernel-marshal.ts';
@@ -42,21 +43,27 @@ export class KernelRouter {
   /** A function that returns a vat handle for a given vat id. */
   readonly #getVat: (vatId: VatId) => VatHandle;
 
+  /** A logger for the kernel router. */
+  readonly #logger: Logger;
+
   /**
    * Construct a new KernelRouter.
    *
    * @param kernelStore - The kernel's store.
    * @param kernelQueue - The kernel's queue.
    * @param getVat - A function that returns a vat handle for a given vat id.
+   * @param logger - An optional logger for the kernel router.
    */
   constructor(
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getVat: (vatId: VatId) => VatHandle,
+    logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#getVat = getVat;
+    this.#logger = logger ?? new Logger({ tags: ['router'] });
   }
 
   /**
@@ -175,6 +182,7 @@ export class KernelRouter {
     item: RunQueueItemSend,
   ): Promise<CrankResults | undefined> {
     const route = this.#routeMessage(item);
+    const { log } = this.#logger;
     let crankResults: CrankResults | undefined;
 
     // Message went splat
@@ -189,7 +197,7 @@ export class KernelRouter {
       for (const slot of item.message.methargs.slots) {
         this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
       }
-      console.log(
+      log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
       return crankResults;
@@ -197,9 +205,7 @@ export class KernelRouter {
 
     const { vatId, target } = route;
     const { message } = item;
-    console.log(
-      `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
-    );
+    log(`@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`);
     if (vatId) {
       const vat = this.#getVat(vatId);
       if (vat) {
@@ -233,9 +239,7 @@ export class KernelRouter {
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
     }
-    console.log(
-      `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
-    );
+    log(`@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`);
 
     return crankResults;
   }
@@ -254,7 +258,8 @@ export class KernelRouter {
       context === 'kernel' && isPromise,
       `${kpid} is not a kernel promise`,
     );
-    console.log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
+    const { log } = this.#logger;
+    log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
     const promise = this.#kernelStore.getKernelPromise(kpid);
     const { state, value } = promise;
     assert(value, `no value for promise ${kpid}`);
@@ -293,7 +298,7 @@ export class KernelRouter {
     const crankResults = await vat.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    console.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
+    log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
     return crankResults;
   }
 
@@ -305,7 +310,8 @@ export class KernelRouter {
    */
   async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
     const { type, vatId, krefs } = item;
-    console.log(`@@@@ deliver ${vatId} ${type}`, krefs);
+    const { log } = this.#logger;
+    log(`@@@@ deliver ${vatId} ${type}`, krefs);
     const vat = this.#getVat(vatId);
     const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
     const method =
@@ -314,7 +320,7 @@ export class KernelRouter {
         | 'deliverRetireExports'
         | 'deliverRetireImports';
     const crankResults = await vat[method](vrefs);
-    console.log(`@@@@ done ${vatId} ${type}`, krefs);
+    log(`@@@@ done ${vatId} ${type}`, krefs);
     return crankResults;
   }
 
@@ -328,10 +334,11 @@ export class KernelRouter {
     item: RunQueueItemBringOutYourDead,
   ): Promise<CrankResults | undefined> {
     const { vatId } = item;
-    console.log(`@@@@ deliver ${vatId} bringOutYourDead`);
+    const { log } = this.#logger;
+    log(`@@@@ deliver ${vatId} bringOutYourDead`);
     const vat = this.#getVat(vatId);
     const crankResults = await vat.deliverBringOutYourDead();
-    console.log(`@@@@ done ${vatId} bringOutYourDead`);
+    log(`@@@@ done ${vatId} bringOutYourDead`);
     return crankResults;
   }
 }

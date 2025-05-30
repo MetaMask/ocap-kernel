@@ -63,8 +63,7 @@ export class VatSyscall {
     this.vatId = vatId;
     this.#kernelQueue = kernelQueue;
     this.#kernelStore = kernelStore;
-    this.#logger =
-      logger ?? new Logger({ tags: [`[vat ${vatId}]`, 'syscall'] });
+    this.#logger = logger ?? new Logger({ tags: [vatId, 'syscall'] });
   }
 
   /**
@@ -192,7 +191,7 @@ export class VatSyscall {
       );
       const [op] = kso;
       const { vatId } = this;
-      const { log } = console;
+      const { log } = this.#logger;
       switch (op) {
         case 'send': {
           // [KRef, Message];

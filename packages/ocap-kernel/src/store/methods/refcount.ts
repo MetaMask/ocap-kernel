@@ -6,6 +6,9 @@ import type { StoreContext } from '../types.ts';
 import { getBaseMethods } from './base.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 
+// XXX TODO:grypez replace this constant with a hierarchical logger
+const DEBUG = false;
+
 /**
  * Create a refcount store object that provides functionality for managing reference counts.
  *
@@ -90,7 +93,7 @@ export function getRefCountMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
-      console.debug('++', refCountKey(kref), refCount, tag);
+      DEBUG && console.debug('++', refCountKey(kref), refCount, tag);
       ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
@@ -105,7 +108,8 @@ export function getRefCountMethods(ctx: StoreContext) {
       counts.reachable += 1;
     }
     counts.recognizable += 1;
-    console.debug('++', refCountKey(kref), JSON.stringify(counts), tag);
+    DEBUG &&
+      console.debug('++', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
   }
 
@@ -133,7 +137,7 @@ export function getRefCountMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       let refCount = Number(ctx.kv.get(refCountKey(kref)));
-      console.debug('--', refCountKey(kref), refCount - 1, tag);
+      DEBUG && console.debug('--', refCountKey(kref), refCount - 1, tag);
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
       ctx.kv.set(refCountKey(kref), `${refCount}`);
@@ -156,7 +160,8 @@ export function getRefCountMethods(ctx: StoreContext) {
     if (!counts.reachable || !counts.recognizable) {
       ctx.maybeFreeKrefs.add(kref);
     }
-    console.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
+    DEBUG &&
+      console.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
     ctx.kv.set('initialized', 'true');
     return false;
