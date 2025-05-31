@@ -10,8 +10,32 @@ Each vat is initialized from an entrypoint bundle. The bundle can be produced by
 
 From this directory, run the following command.
 
-```
-yarn ocap bundle ./my-vat.sh
+```sh
+yarn ocap bundle my-vat.js
 ```
 
-It will produce the file `./my-vat.bundle`.
+It will produce the file `./my-vat.bundle`. Then, use the demo runner to run the bundle.
+
+```
+yarn demo 01 <bundle-path> <params-path> <method-name>
+```
+
+This will create a vat from the bundle file at `<bundle-path>`, passing the parameters from the json file at `<params-path>`, and calling the method `<method-name>` on the resulting root object.
+
+```sh
+yarn demo 01 my-vat.bundle { "name": "Alice" } hello
+
+> Demo completed: Hello, Alice!
+```
+
+```sh
+yarn demo 01 my-vat.bundle { "name": "Alice" } goodbye
+
+> Demo completed: Goodbye, Alice!
+```
+
+```sh
+yarn demo 01 my-vat.bundle my-vat-params.json aloha
+
+> Demo failed: target has no method "aloha", has ["__getMethodNames__","goodbye","hello"]
+```

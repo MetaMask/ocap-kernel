@@ -13,17 +13,14 @@ import { Far } from '@endo/far';
 /**
  * This function is called by the ocap kernel to build the vat's root object.
  *
+ * @param {unknown} _ - Unused.
+ * @param {object} parameters - The parameters passed to the vat.
+ * @param {string} parameters.name - The name to say hello to.
  * @returns {object} The root object of the vat.
  */
-export function buildRootObject() {
-  // Mutable state with default values can be declared here as let variables.
-  let name = 'world';
-
+export function buildRootObject(_, { name = 'world' }) {
   // The root object is passed to 'Far' since it must be accessed remotely.
   return Far('root', {
-    setName(newName) {
-      name = newName;
-    },
     hello() {
       return `Hello, ${name}!`;
     },
