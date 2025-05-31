@@ -12,6 +12,7 @@
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
   "type": "module",
+  "bin": "./dist/run-demo.mjs",
   "exports": {
     ".": {
       "import": {
@@ -33,6 +34,7 @@
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/demo",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "demo": "tsx run-demo.ts",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
@@ -51,6 +53,7 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
+    "@ocap/cli": "workspace:^",
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
@@ -79,6 +82,14 @@
     "node": "^20 || >=22"
   },
   "dependencies": {
-    "@endo/far": "^1.1.11"
+    "@endo/errors": "^1.2.10",
+    "@endo/far": "^1.1.11",
+    "@metamask/kernel-store": "workspace:^",
+    "@metamask/kernel-utils": "workspace:^",
+    "@metamask/logger": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
+    "@metamask/streams": "workspace:^",
+    "@metamask/utils": "^11.4.0",
+    "@ocap/nodejs": "workspace:^"
   }
 }
