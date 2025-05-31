@@ -3056,16 +3056,25 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/demo@workspace:packages/demo":
+"@ocap/demo@workspace:^, @ocap/demo@workspace:packages/demo":
   version: 0.0.0-use.local
   resolution: "@ocap/demo@workspace:packages/demo"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
+    "@endo/errors": "npm:^1.2.10"
     "@endo/far": "npm:^1.1.11"
     "@metamask/auto-changelog": "npm:^5.0.1"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/kernel-store": "workspace:^"
+    "@metamask/kernel-utils": "workspace:^"
+    "@metamask/logger": "workspace:^"
+    "@metamask/ocap-kernel": "workspace:^"
+    "@metamask/streams": "workspace:^"
+    "@metamask/utils": "npm:^11.4.0"
+    "@ocap/cli": "workspace:^"
+    "@ocap/nodejs": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -3089,6 +3098,8 @@ __metadata:
     typescript-eslint: "npm:^8.29.0"
     vite: "npm:^6.3.5"
     vitest: "npm:^3.1.3"
+  bin:
+    demo: ./dist/run-demo.mjs
   languageName: unknown
   linkType: soft
 
@@ -3218,6 +3229,7 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/eslint-config-vitest": "npm:^1.0.0"
     "@ocap/cli": "workspace:^"
+    "@ocap/demo": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@types/lodash": "npm:^4.17.16"
