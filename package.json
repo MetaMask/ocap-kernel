@@ -118,10 +118,15 @@
       "vitest>@vitest/mocker>msw": false,
       "@ocap/cli>@metamask/logger>@metamask/streams": true,
       "eslint-plugin-import-x>unrs-resolver": false,
-      "eslint-import-resolver-typescript>unrs-resolver": false
+      "eslint-import-resolver-typescript>unrs-resolver": false,
+      "@ocap/demo>@metamask/kernel-store>better-sqlite3": false,
+      "@ocap/demo>@metamask/streams": false
     }
   },
   "resolutions": {
     "cookie": "^0.7.0"
+  },
+  "dependencies": {
+    "@ocap/demo": "workspace:^"
   }
 }
