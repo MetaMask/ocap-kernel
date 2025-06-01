@@ -6,6 +6,7 @@
     "types": ["vitest"]
   },
   "references": [
+    { "path": "../kernel-shims" },
     { "path": "../kernel-store" },
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
@@ -14,6 +15,7 @@
   ],
   "include": [
     "../../vitest.config.ts",
+    "./scripts",
     "./src",
     "./vite.config.ts",
     "./vitest.config.ts"
