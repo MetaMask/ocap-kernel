@@ -13,8 +13,12 @@ export function useKernelActions(): {
   collectGarbage: () => void;
   clearState: () => void;
   reload: () => void;
-  launchVat: (bundleUrl: string, vatName: string) => void;
-  updateClusterConfig: (config: ClusterConfig) => Promise<void>;
+  launchVat: (
+    bundleUrl: string,
+    vatName: string,
+    subclusterId?: string,
+  ) => void;
+  launchSubcluster: (config: ClusterConfig) => void;
 } {
   const { callKernelMethod, logMessage } = usePanelContext();
 
@@ -55,14 +59,14 @@ export function useKernelActions(): {
   }, [callKernelMethod, logMessage]);
 
   /**
-   * Reloads the kernel default sub-cluster.
+   * Reloads the kernel
    */
   const reload = useCallback(() => {
     callKernelMethod({
       method: 'reload',
       params: [],
     })
-      .then(() => logMessage('Default sub-cluster reloaded', 'success'))
+      .then(() => logMessage('Kernel reloaded', 'success'))
       .catch(() => logMessage('Failed to reload', 'error'));
   }, [callKernelMethod, logMessage]);
 
@@ -70,14 +74,17 @@ export function useKernelActions(): {
    * Launches a vat.
    */
   const launchVat = useCallback(
-    (bundleUrl: string, vatName: string) => {
+    (bundleUrl: string, vatName: string, subclusterId?: string) => {
       callKernelMethod({
         method: 'launchVat',
         params: {
-          bundleSpec: bundleUrl,
-          parameters: {
-            name: vatName,
+          config: {
+            bundleSpec: bundleUrl,
+            parameters: {
+              name: vatName,
+            },
           },
+          ...(subclusterId && { subclusterId }),
         },
       })
         .then(() => logMessage(`Launched vat "${vatName}"`, 'success'))
@@ -87,16 +94,18 @@ export function useKernelActions(): {
   );
 
   /**
-   * Updates the cluster config.
+   * Launches a subcluster.
    */
-  const updateClusterConfig = useCallback(
-    async (config: ClusterConfig) => {
-      return callKernelMethod({
-        method: 'updateClusterConfig',
+  const launchSubcluster = useCallback(
+    (config: ClusterConfig) => {
+      callKernelMethod({
+        method: 'launchSubcluster',
         params: { config },
       })
-        .then(() => logMessage('Config updated', 'success'))
-        .catch(() => logMessage('Failed to update config', 'error'));
+        .then(() => logMessage('Subcluster launched', 'success'))
+        .catch((error) =>
+          logMessage(`Failed to launch subcluster: ${error.message}`, 'error'),
+        );
     },
     [callKernelMethod, logMessage],
   );
@@ -107,6 +116,6 @@ export function useKernelActions(): {
     clearState,
     reload,
     launchVat,
-    updateClusterConfig,
+    launchSubcluster,
   };
 }

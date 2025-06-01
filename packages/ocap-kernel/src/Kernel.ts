@@ -281,6 +281,7 @@ export class Kernel {
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
     for (const vatId of vatIdsToTerminate.reverse()) {
       await this.terminateVat(vatId);
+      this.collectGarbage();
     }
     this.#kernelStore.deleteSubcluster(subclusterId);
   }
@@ -342,8 +343,9 @@ export class Kernel {
       throw new SubclusterNotFoundError(subclusterId);
     }
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
-    for (const vatId of vatIdsToTerminate) {
+    for (const vatId of vatIdsToTerminate.reverse()) {
       await this.terminateVat(vatId);
+      this.collectGarbage();
     }
     return this.#launchVatsForSubcluster(subclusterId, subcluster.config);
   }
@@ -435,11 +437,6 @@ export class Kernel {
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     await this.#stopVat(vatId, true, reason);
-    this.#kernelStore.deleteVatConfig(vatId);
-    const subclusterId = this.#kernelStore.getVatSubcluster(vatId);
-    if (subclusterId) {
-      this.#kernelStore.deleteSubclusterVat(subclusterId, vatId);
-    }
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
   }

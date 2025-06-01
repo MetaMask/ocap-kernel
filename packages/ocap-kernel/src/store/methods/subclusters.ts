@@ -26,7 +26,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    *
    * @returns An array of all stored subclusters.
    */
-  function getAllSubclustersFromStorage(): Subcluster[] {
+  function getSubclusters(): Subcluster[] {
     const subclustersJSON = ctx.subclusters.get();
     return subclustersJSON ? (JSON.parse(subclustersJSON) as Subcluster[]) : [];
   }
@@ -45,7 +45,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    *
    * @returns A record mapping VatIds to SubclusterIds.
    */
-  function getVatToSubclusterMapFromStorage(): Record<VatId, SubclusterId> {
+  function getVatToSubclusterMap(): Record<VatId, SubclusterId> {
     const mapJSON = ctx.vatToSubclusterMap.get();
     return mapJSON ? (JSON.parse(mapJSON) as Record<VatId, SubclusterId>) : {};
   }
@@ -69,7 +69,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @throws If a subcluster with the generated ID already exists.
    */
   function addSubcluster(config: ClusterConfig): SubclusterId {
-    const currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     const newId = `s${incCounter(ctx.nextSubclusterId)}`;
 
     // In a multi-writer scenario, a robust check or transactional update would be needed.
@@ -98,17 +98,8 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns True if the subcluster exists, false otherwise.
    */
   function hasSubcluster(subclusterId: SubclusterId): boolean {
-    const currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     return currentSubclusters.some((sc) => sc.id === subclusterId);
-  }
-
-  /**
-   * Retrieves all subclusters.
-   *
-   * @returns An array of all subclusters.
-   */
-  function getSubclusters(): Subcluster[] {
-    return getAllSubclustersFromStorage();
   }
 
   /**
@@ -118,7 +109,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns The subcluster if found, otherwise undefined.
    */
   function getSubcluster(subclusterId: SubclusterId): Subcluster | undefined {
-    const currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     return currentSubclusters.find((sc) => sc.id === subclusterId);
   }
 
@@ -130,22 +121,23 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @throws If the subcluster is not found.
    */
   function addSubclusterVat(subclusterId: SubclusterId, vatId: VatId): void {
-    const currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     const subcluster = currentSubclusters.find((sc) => sc.id === subclusterId);
 
     if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
     }
 
+    // Add vat to subcluster if not already present
     if (!subcluster.vats.includes(vatId)) {
       subcluster.vats.push(vatId);
       saveAllSubclustersToStorage(currentSubclusters);
     }
 
-    const currentMap = getVatToSubclusterMapFromStorage();
+    // Update vat mapping
+    const currentMap = getVatToSubclusterMap();
     if (currentMap[vatId] !== subclusterId) {
       if (currentMap[vatId]) {
-        // This vat was previously in another subcluster, which might indicate an issue
         console.warn(
           `vat ${vatId} is being moved from subcluster ${currentMap[vatId]} to ${subclusterId}.`,
         );
@@ -177,30 +169,21 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @param vatId - The ID of the vat to delete.
    */
   function deleteSubclusterVat(subclusterId: SubclusterId, vatId: VatId): void {
-    const currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     const subcluster = currentSubclusters.find((sc) => sc.id === subclusterId);
 
-    let subclustersModified = false;
+    // Remove vat from subcluster's vats array if subcluster exists
     if (subcluster) {
       const vatIndex = subcluster.vats.indexOf(vatId);
       if (vatIndex > -1) {
         subcluster.vats.splice(vatIndex, 1);
-        subclustersModified = true;
+        saveAllSubclustersToStorage(currentSubclusters);
       }
     }
 
-    if (subclustersModified) {
-      saveAllSubclustersToStorage(currentSubclusters);
-    }
-
-    const currentMap = getVatToSubclusterMapFromStorage();
+    // Always remove vat from the mapping if it points to this subcluster
+    const currentMap = getVatToSubclusterMap();
     if (currentMap[vatId] === subclusterId) {
-      delete currentMap[vatId];
-      saveVatToSubclusterMapToStorage(currentMap);
-    } else if (currentMap[vatId] && !subcluster) {
-      // Vat is mapped to a subclusterId that we're trying to delete it from,
-      // but that subcluster wasn't found in the main list (or it's a different one).
-      // This case might indicate an inconsistency, but we'll still try to clear the map entry for the given vatId.
       delete currentMap[vatId];
       saveVatToSubclusterMapToStorage(currentMap);
     }
@@ -212,32 +195,31 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @param subclusterId - The ID of the subcluster to delete.
    */
   function deleteSubcluster(subclusterId: SubclusterId): void {
-    let currentSubclusters = getAllSubclustersFromStorage();
+    const currentSubclusters = getSubclusters();
     const subclusterToDelete = currentSubclusters.find(
       (sc) => sc.id === subclusterId,
     );
 
     if (!subclusterToDelete) {
-      return; // Subcluster not found, nothing to delete.
+      return;
     }
 
-    const vatsInDeletedSubcluster = [...subclusterToDelete.vats];
-
-    currentSubclusters = currentSubclusters.filter(
+    // Remove subcluster from the list
+    const updatedSubclusters = currentSubclusters.filter(
       (sc) => sc.id !== subclusterId,
     );
-    saveAllSubclustersToStorage(currentSubclusters);
+    saveAllSubclustersToStorage(updatedSubclusters);
 
-    const currentMap = getVatToSubclusterMapFromStorage();
-    let mapModified = false;
-    for (const vatId of vatsInDeletedSubcluster) {
-      if (currentMap[vatId] === subclusterId) {
+    // Remove all vats from the mapping
+    const currentMap = getVatToSubclusterMap();
+    const vatsToRemove = subclusterToDelete.vats.filter(
+      (vatId) => currentMap[vatId] === subclusterId,
+    );
+
+    if (vatsToRemove.length > 0) {
+      for (const vatId of vatsToRemove) {
         delete currentMap[vatId];
-        mapModified = true;
       }
-    }
-
-    if (mapModified) {
       saveVatToSubclusterMapToStorage(currentMap);
     }
   }
@@ -249,8 +231,33 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns The ID of the subcluster the vat belongs to, or undefined if not found.
    */
   function getVatSubcluster(vatId: VatId): SubclusterId | undefined {
-    const currentMap = getVatToSubclusterMapFromStorage();
+    const currentMap = getVatToSubclusterMap();
     return currentMap[vatId];
+  }
+
+  /**
+   * Clears empty subclusters.
+   */
+  function clearEmptySubclusters(): void {
+    const currentSubclusters = getSubclusters();
+    const nonEmptySubclusters = currentSubclusters.filter(
+      (sc) => sc.vats.length > 0,
+    );
+    if (nonEmptySubclusters.length !== currentSubclusters.length) {
+      saveAllSubclustersToStorage(nonEmptySubclusters);
+    }
+  }
+
+  /**
+   * Removes a vat from its subcluster.
+   *
+   * @param vatId - The ID of the vat to remove.
+   */
+  function removeVatFromSubcluster(vatId: VatId): void {
+    const subclusterId = getVatSubcluster(vatId);
+    if (subclusterId) {
+      deleteSubclusterVat(subclusterId, vatId);
+    }
   }
 
   return {
@@ -263,5 +270,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
     getSubclusterVats,
     deleteSubclusterVat,
     getVatSubcluster,
+    clearEmptySubclusters,
+    removeVatFromSubcluster,
   };
 }

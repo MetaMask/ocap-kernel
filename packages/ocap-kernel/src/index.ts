@@ -9,6 +9,8 @@ export type {
   VatWorkerService,
   VatConfig,
   KernelStatus,
+  Subcluster,
+  SubclusterId,
 } from './types.ts';
 export {
   isVatId,

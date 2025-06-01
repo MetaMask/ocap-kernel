@@ -5,6 +5,7 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
+import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
 import type {
   VatId,
@@ -30,6 +31,8 @@ export function getGCMethods(ctx: StoreContext) {
   const { getKernelPromise, deleteKernelPromise } = getPromiseMethods(ctx);
   const { getImporters, isVatTerminated } = getVatMethods(ctx);
   const { getReachableFlag, getReachableAndVatSlot } = getReachableMethods(ctx);
+  const { clearEmptySubclusters } = getSubclusterMethods(ctx);
+
   /**
    * Get the set of GC actions to perform.
    *
@@ -202,6 +205,7 @@ export function getGCMethods(ctx: StoreContext) {
     }
     addGCActions([...actions]);
     ctx.maybeFreeKrefs.clear();
+    clearEmptySubclusters();
   }
 
   return {

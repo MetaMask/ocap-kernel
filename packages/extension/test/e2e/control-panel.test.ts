@@ -281,7 +281,9 @@ test.describe('Control Panel', () => {
     ).toContainText('"method": "reload"');
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Default sub-cluster reloaded');
+    ).toContainText('Kernel reloaded', {
+      timeout: 10000,
+    });
   });
 
   test('should handle cluster configuration updates', async () => {

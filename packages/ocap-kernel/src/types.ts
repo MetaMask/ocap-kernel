@@ -334,6 +334,7 @@ export const KernelStatusStruct = type({
     object({
       id: VatIdStruct,
       config: VatConfigStruct,
+      subclusterId: exactOptional(string()),
     }),
   ),
 });
