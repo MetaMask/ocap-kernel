@@ -173,8 +173,9 @@ const config = createConfig([
   {
     files: ['**/scripts/**/*'],
     rules: {
-      // Script files have reasonable cause to read from process.env
+      // Script files have reasonable cause to interact with process
       'n/no-process-env': 'off',
+      'n/no-process-exit': 'off',
     },
   },
 
