@@ -361,7 +361,7 @@ describe('getSubclusterMethods', () => {
       expect(map[vatId1]).toBe(scId2);
     });
 
-    it('should do nothing to subclusters list if subcluster is not found, but clear map entry', () => {
+    it('should do nothing to subclusters list if subcluster is not found', () => {
       const initialSubclustersRaw = mockSubclustersStorage.get();
       const nonExistentScId = 'sNonExistentCluster' as SubclusterId;
       const someVat = 'vSomeVat' as VatId;
@@ -478,6 +478,42 @@ describe('getSubclusterMethods', () => {
     it('should return undefined if the map is empty', () => {
       mockVatToSubclusterMapStorage.set('{}');
       expect(subclusterMethods.getVatSubcluster('v1' as VatId)).toBeUndefined();
+    });
+  });
+
+  describe('clearEmptySubclusters', () => {
+    it('should remove subclusters with no vats', () => {
+      const scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
+      subclusterMethods.addSubcluster(mockClusterConfig2);
+      const vatId = 'v1' as VatId;
+      subclusterMethods.addSubclusterVat(scId1, vatId);
+
+      subclusterMethods.clearEmptySubclusters();
+
+      const subclusters = subclusterMethods.getSubclusters();
+      expect(subclusters).toHaveLength(1);
+      expect(subclusters[0]?.id).toBe(scId1);
+      expect(subclusters[0]?.vats).toContain(vatId);
+    });
+
+    it('should do nothing if all subclusters have vats', () => {
+      const scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
+      const scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
+      const vatId1 = 'v1' as VatId;
+      const vatId2 = 'v2' as VatId;
+      subclusterMethods.addSubclusterVat(scId1, vatId1);
+      subclusterMethods.addSubclusterVat(scId2, vatId2);
+
+      const initialSubclusters = subclusterMethods.getSubclusters();
+      subclusterMethods.clearEmptySubclusters();
+      const finalSubclusters = subclusterMethods.getSubclusters();
+
+      expect(finalSubclusters).toStrictEqual(initialSubclusters);
+    });
+
+    it('should do nothing if there are no subclusters', () => {
+      subclusterMethods.clearEmptySubclusters();
+      expect(subclusterMethods.getSubclusters()).toStrictEqual([]);
     });
   });
 });

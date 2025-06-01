@@ -12,20 +12,40 @@ describe('launchVatHandler', () => {
     } as unknown as Kernel;
   });
 
-  it('should launch vat and return null', async () => {
-    const params = { sourceSpec: 'test.js' };
+  it('should launch vat without subcluster and return null', async () => {
+    const params = {
+      config: { sourceSpec: 'test.js' },
+    };
     const result = await launchVatHandler.implementation(
       { kernel: mockKernel },
       params,
     );
-    expect(mockKernel.launchVat).toHaveBeenCalledWith(params);
+    expect(mockKernel.launchVat).toHaveBeenCalledWith(params.config, undefined);
+    expect(result).toBeNull();
+  });
+
+  it('should launch vat with subcluster and return null', async () => {
+    const params = {
+      config: { sourceSpec: 'test.js' },
+      subclusterId: 'test-subcluster',
+    };
+    const result = await launchVatHandler.implementation(
+      { kernel: mockKernel },
+      params,
+    );
+    expect(mockKernel.launchVat).toHaveBeenCalledWith(
+      params.config,
+      params.subclusterId,
+    );
     expect(result).toBeNull();
   });
 
   it('should propagate errors from kernel.launchVat', async () => {
     const error = new Error('Launch failed');
     vi.mocked(mockKernel.launchVat).mockRejectedValueOnce(error);
-    const params = { sourceSpec: 'test.js' };
+    const params = {
+      config: { sourceSpec: 'test.js' },
+    };
     await expect(
       launchVatHandler.implementation({ kernel: mockKernel }, params),
     ).rejects.toThrow(error);

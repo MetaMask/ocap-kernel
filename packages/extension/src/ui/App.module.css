@@ -1,5 +1,6 @@
 /* Base variables */
 :root {
+  /* Light theme (default) */
   --color-white: #fff;
   --color-black: #333;
   --color-gray-100: #f5f5f5;
@@ -12,6 +13,14 @@
   --color-error: #f44336;
   --color-warning: #ffeb3b;
   --color-warning-dark: #ffe600;
+  --color-background: var(--color-white);
+  --color-text: var(--color-black);
+  --color-border: var(--color-gray-300);
+  --color-hover: var(--color-gray-800);
+  --color-hover-text: var(--color-white);
+  --color-input-bg: var(--color-white);
+  --color-panel-bg: var(--color-gray-100);
+  --color-header-bg: var(--color-gray-200);
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -35,6 +44,30 @@
   --panel-min-width: 600px;
   --output-width: 400px;
   --table-actions-width: 160px;
+}
+
+/* Dark theme */
+[data-theme='dark'] {
+  --color-white: #1a1a1a;
+  --color-black: #e0e0e0;
+  --color-gray-100: #2d2d2d;
+  --color-gray-200: #3d3d3d;
+  --color-gray-300: #4d4d4d;
+  --color-gray-600: #a0a0a0;
+  --color-gray-800: #e0e0e0;
+  --color-primary: #6b76ff;
+  --color-success: #66bb6a;
+  --color-error: #ef5350;
+  --color-warning: #ffd54f;
+  --color-warning-dark: #ffec3d;
+  --color-background: #1a1a1a;
+  --color-text: #e0e0e0;
+  --color-border: #4d4d4d;
+  --color-hover: #e0e0e0;
+  --color-hover-text: #1a1a1a;
+  --color-input-bg: #2d2d2d;
+  --color-panel-bg: #2d2d2d;
+  --color-header-bg: #3d3d3d;
 }
 
 html,
@@ -76,7 +109,8 @@ pre {
   gap: var(--spacing-xxl);
   min-width: var(--panel-min-width);
   min-height: 100%;
-  background: var(--color-white);
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
 /* Common form elements */
@@ -85,13 +119,16 @@ input,
 .button,
 select,
 .select {
+  display: flex;
+  align-items: center;
   height: var(--input-height);
   padding: 0 var(--spacing-lg);
   border-radius: var(--border-radius);
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
   margin: 0;
-  background-color: var(--color-white);
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
   transition: background-color var(--transition-speed);
 }
 
@@ -111,7 +148,7 @@ select,
 .button {
   white-space: nowrap;
   cursor: pointer;
-  color: var(--color-black);
+  color: var(--color-text);
   background-color: var(--color-gray-200);
 }
 
@@ -169,8 +206,8 @@ select,
 }
 
 .button:hover:not(:disabled) {
-  background-color: var(--color-gray-800);
-  color: var(--color-white);
+  background-color: var(--color-hover);
+  color: var(--color-hover-text);
 }
 
 .buttonBlack:hover:not(:disabled) {
@@ -238,9 +275,10 @@ select,
   font-family: monospace;
   font-size: var(--font-size-xs);
   line-height: 1.4;
-  background: var(--color-gray-100);
+  background: var(--color-panel-bg);
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--border-radius);
+  color: var(--color-text);
 }
 
 .messageScrollWrapper {
@@ -308,6 +346,10 @@ div + .sent {
   gap: var(--spacing-sm);
 }
 
+.headerControls h4 {
+  flex: 1;
+}
+
 .headerControls button {
   margin: 0;
 }
@@ -331,26 +373,12 @@ div + .sent {
 
 .outputHeader {
   padding: var(--spacing-md);
-  background: var(--color-gray-200);
-  border-bottom: 1px solid var(--color-gray-300);
+  background: var(--color-header-bg);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: var(--bar-height);
-}
-
-.messageOutput {
-  flex: 1;
-  padding: var(--spacing-md);
-  overflow-y: auto;
-  font-family: monospace;
-  font-size: var(--font-size-xs);
-  line-height: 1.4;
-}
-
-.loading {
-  padding: var(--spacing-md) 0;
-  color: var(--color-gray-600);
 }
 
 .messageInputSection {
@@ -416,15 +444,17 @@ table.table {
 }
 
 .table th {
-  background: var(--color-gray-200);
+  background: var(--color-header-bg);
   padding: var(--spacing-md);
   text-align: left;
   font-weight: 600;
+  color: var(--color-text);
 }
 
 .table td {
   padding: var(--spacing-sm) var(--spacing-md);
-  border-top: 1px solid var(--color-gray-300);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .table td.long {
@@ -432,7 +462,7 @@ table.table {
 }
 
 .table tr:hover {
-  background: var(--color-gray-100);
+  background: var(--color-panel-bg);
 }
 
 .tableActions {
@@ -536,36 +566,6 @@ table.table {
   gap: var(--spacing-sm);
 }
 
-.configEditor {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.configTextarea {
-  font-family: monospace;
-  padding: var(--spacing-sm);
-  border: 1px solid var(--color-gray-300);
-  border-radius: var(--border-radius);
-  resize: vertical;
-  min-height: 200px;
-  width: 100%;
-  margin-bottom: var(--spacing-sm);
-}
-
-.configEditorButtons {
-  display: flex;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
-}
-
-.configControls {
-  display: flex;
-  gap: var(--spacing-xs);
-  justify-content: space-between;
-}
-
 .noMargin {
   margin: 0;
 }
@@ -616,6 +616,10 @@ table.table {
   background-color: var(--color-white);
 }
 
+.accordionContent .table {
+  margin-bottom: 0;
+}
+
 .tableContainer {
   margin-bottom: var(--spacing-xl);
 }
@@ -637,6 +641,10 @@ table.table {
   margin: var(--spacing-md) 0;
 }
 
+.subclusterTable {
+  margin-top: var(--spacing-md);
+}
+
 .vatDetailsHeader {
   font-size: var(--font-size-sm);
   color: var(--color-gray-600);
@@ -649,4 +657,38 @@ table.table {
     width: 150px;
     flex: none;
   }
+}
+
+.dropZone {
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xxl);
+  margin-top: var(--spacing-md);
+  background-color: var(--color-gray-100);
+  transition: all var(--transition-speed) ease;
+  cursor: pointer;
+}
+
+.dropZone.dragging {
+  border-color: var(--color-primary);
+  background-color: var(--color-gray-200);
+}
+
+.dropZoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  text-align: center;
+}
+
+.uploadIcon {
+  color: var(--color-gray-600);
+  margin-bottom: var(--spacing-sm);
+}
+
+.dropZoneText {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+  margin: 0;
 }

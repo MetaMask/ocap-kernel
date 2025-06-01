@@ -1,7 +1,7 @@
-import { ConfigEditor } from './ConfigEditor.tsx';
 import { KernelControls } from './KernelControls.tsx';
+import { LaunchSubcluster } from './LaunchSubcluster.tsx';
 import { LaunchVat } from './LaunchVat.tsx';
-import { VatTable } from './VatTable.tsx';
+import { SubclustersTable } from './SubclustersTable.tsx';
 import styles from '../App.module.css';
 
 export const ControlPanel: React.FC = () => {
@@ -11,9 +11,9 @@ export const ControlPanel: React.FC = () => {
         <h2 className={styles.noMargin}>Kernel</h2>
         <KernelControls />
       </div>
-      <ConfigEditor />
-      <VatTable />
+      <SubclustersTable />
       <LaunchVat />
+      <LaunchSubcluster />
     </>
   );
 };

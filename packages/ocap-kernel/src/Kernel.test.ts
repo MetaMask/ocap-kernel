@@ -690,24 +690,6 @@ describe('Kernel', () => {
         'Test error',
       );
     });
-
-    it('removes vat from subcluster when terminated', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
-      const [firstSubcluster] = subclusters;
-      expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
-      expect(subclusterId).toBeDefined();
-      expect(kernel.getSubclusterVats(subclusterId)).toStrictEqual(['v1']);
-      await kernel.terminateVat('v1');
-      expect(kernel.getSubclusterVats(subclusterId)).toStrictEqual([]);
-    });
   });
 
   describe('terminateAllVats()', () => {

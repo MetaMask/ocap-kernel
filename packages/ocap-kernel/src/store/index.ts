@@ -167,6 +167,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   function deleteVat(vatId: VatId): void {
     vat.deleteVatConfig(vatId);
     kdb.deleteVatStore(vatId);
+    subclusters.removeVatFromSubcluster(vatId);
   }
 
   /**
