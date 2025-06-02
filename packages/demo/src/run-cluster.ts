@@ -6,39 +6,28 @@ import { Logger } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
-import type { Json, JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { NodejsVatWorkerService } from '@ocap/nodejs';
-import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
-import { getUrlSourceDir } from './url.ts';
-
-const bootstrapBundlePath = resolve(
-  getUrlSourceDir(import.meta.url),
-  'vats/bootstrap.bundle',
-);
+const DEFAULT_WORKER_FILE = new URL('../dist/vat-worker.mjs', import.meta.url)
+  .pathname;
 
 /**
- * Run a bundle file and call a specific method on its root object.
+ * Run a cluster config with the ocap kernel.
  *
- * @param bundlePath - Path to the bundle file
- * @param methodName - Name of the method to call on the root object
- * @param options - Options for the bundle
- * @param options.bundleParameters - Parameters to pass to the bundle
- * @param options.args - Arguments to pass to the method
- * @param options.logger - Logger to use for the bundle
+ * @param clusterPath - Path to the clusterConfig file
+ * @param options - Options for the cluster
+ * @param options.logger - Logger to use for the cluster
  * @returns The result of calling the method
  */
-export async function runBundle(
-  bundlePath: string,
-  methodName: string,
+export async function runCluster(
+  clusterPath: string,
   options: {
-    bundleParameters?: Record<string, Json>;
-    args?: Json[];
     logger?: Logger;
   },
 ): Promise<unknown> {
-  const { bundleParameters = {}, args = [] } = options;
-  const logger = options.logger ?? new Logger('run-bundle');
+  const logger = options.logger ?? new Logger('run-cluster');
 
   // Create kernel database
   const kernelDatabase = await makeSQLKernelDatabase({
@@ -55,6 +44,7 @@ export async function runBundle(
 
   // Create vat worker service
   const vatWorkerService = new NodejsVatWorkerService({
+    workerFilePath: DEFAULT_WORKER_FILE,
     logger: logger.subLogger('vat-worker'),
   });
 
@@ -72,23 +62,7 @@ export async function runBundle(
   );
 
   // Create subcluster config
-  const config: ClusterConfig = {
-    bootstrap: 'main',
-    forceReset: true,
-    vats: {
-      main: {
-        bundleSpec: `file://${bootstrapBundlePath}`,
-        parameters: {
-          methodName,
-          args,
-        },
-      },
-      target: {
-        bundleSpec: `file://${bundlePath}`,
-        parameters: bundleParameters,
-      },
-    },
-  };
+  const config: ClusterConfig = JSON.parse(await readFile(clusterPath, 'utf8'));
 
   // Launch subcluster and wait for quiescence
   const bootstrapResultRaw = await kernel.launchSubcluster(config);
