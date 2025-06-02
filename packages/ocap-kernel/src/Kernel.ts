@@ -190,8 +190,8 @@ export class Kernel {
   /**
    * Launches a new vat.
    *
-   * @param vatConfig - Configuration for the new vat. This may include `subclusterName`.
-   * @param subclusterId - The ID of the subcluster to launch the vat in.
+   * @param vatConfig - Configuration for the new vat.
+   * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
    * @returns a promise for the KRef of the new vat's root object.
    */
   async launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
@@ -252,7 +252,7 @@ export class Kernel {
   }
 
   /**
-   * Launches a sub-cluster of vats with a given name.
+   * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
    * @returns a promise for the (CapData encoded) result of the bootstrap message.
