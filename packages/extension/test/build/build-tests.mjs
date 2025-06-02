@@ -7,6 +7,8 @@ import {
   trustedPreludes,
 } from '../../scripts/build-constants.mjs';
 
+const { hasOwn } = Object;
+
 const untransformedFiles = [
   {
     sourcePath: path.resolve('../kernel-shims/dist/endoify.js'),
@@ -16,10 +18,24 @@ const untransformedFiles = [
     sourcePath: path.resolve(sourceDir, 'env/dev-console.js'),
     builtPath: path.resolve(buildDir, 'dev-console.js'),
   },
-  ...Object.values(trustedPreludes).map((preludePath) => ({
-    sourcePath: preludePath,
-    builtPath: path.join(buildDir, path.basename(preludePath)),
-  })),
+  ...Object.values(trustedPreludes).map((prelude) => {
+    if (hasOwn(prelude, 'path')) {
+      return {
+        sourcePath: prelude.path,
+        builtPath: path.join(buildDir, path.basename(prelude.path)),
+      };
+    }
+
+    const preludePath = /^import ["']([^"']+)["']/iu.exec(prelude.content)[1];
+    if (!preludePath) {
+      throw new Error('No prelude path found in content');
+    }
+
+    return {
+      sourcePath: preludePath,
+      builtPath: path.join(buildDir, path.basename(preludePath)),
+    };
+  }),
 ];
 
 await runTests();
@@ -63,13 +79,16 @@ async function checkUntransformed() {
 async function checkTrustedPreludes() {
   console.log('Checking that trusted preludes are loaded at the top...');
 
-  for (const [preludeName, preludePath] of Object.entries(trustedPreludes)) {
-    const expectedImport = path.basename(preludePath);
-    const builtFilePath = path.join(buildDir, `${preludeName}.js`);
-    const content = await fs.readFile(builtFilePath, 'utf8');
-    if (!content.startsWith(`import "./${expectedImport}";`)) {
+  for (const [outputFileName, prelude] of Object.entries(trustedPreludes)) {
+    const outputFilePath = path.join(buildDir, `${outputFileName}.js`);
+    const outputFileContent = await fs.readFile(outputFilePath, 'utf8');
+    const expectedImportStatement = hasOwn(prelude, 'path')
+      ? `import "./${path.basename(prelude.path)}";`
+      : prelude.content;
+
+    if (!outputFileContent.startsWith(expectedImportStatement)) {
       throw new Error(
-        `The trusted prelude ${expectedImport} is not imported in the first position in ${preludeName}.js`,
+        `The trusted prelude ${expectedImportStatement} is not imported in the first position in ${outputFileName}.js`,
       );
     }
   }

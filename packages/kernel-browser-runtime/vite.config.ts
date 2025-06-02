@@ -1,6 +1,8 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
+import { jsTrustedPrelude } from '@ocap/vite-plugins';
+import type { PreludeRecord } from '@ocap/vite-plugins';
 import path from 'path';
 import sourcemaps from 'rollup-plugin-sourcemaps2';
 import { defineConfig } from 'vite';
@@ -9,10 +11,14 @@ import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
-// We will only run this where it's available, but ESLint doesn't know that
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
-const sourceDir = path.resolve(import.meta.dirname, 'src');
-const buildDir = path.resolve(sourceDir, '../dist/static');
+// The importing files end up in `./<entrypoint>/index.js`, and we statically copy
+// endoify.js to `./`
+const endoifyImportStatement = `import "../endoify.js";`;
+
+export const trustedPreludes: PreludeRecord = {
+  'kernel-worker': { content: endoifyImportStatement },
+  vat: { content: endoifyImportStatement },
+};
 
 /**
  * Files that need to be statically copied to the destination directory.
@@ -21,6 +27,11 @@ const buildDir = path.resolve(sourceDir, '../dist/static');
 const staticCopyTargets: readonly (string | Target)[] = [
   '../../kernel-shims/dist/endoify.js',
 ];
+
+// We will only run this where it's available, but ESLint doesn't know that
+// eslint-disable-next-line n/no-unsupported-features/node-builtins
+const sourceDir = path.resolve(import.meta.dirname, 'src');
+const buildDir = path.resolve(sourceDir, '../dist/static');
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -32,21 +43,26 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: sourceDir,
+    // Ensures that transformed import specifiers are relative to the importing file, which
+    // is necessary since consumers may place these files anywhere.
+    // See: https://vite.dev/guide/build.html#relative-base
+    base: './',
 
     build: {
-      // assetsDir: buildDir,
       emptyOutDir: true,
       outDir: buildDir,
+      // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
+      modulePreload: false,
       rollupOptions: {
         input: {
           vat: path.resolve(sourceDir, 'vat', 'iframe.html'),
-          // The stub.html file only exists to get Vite to bundle the web worker file correctly
-          stub: path.resolve(sourceDir, 'kernel-worker', 'stub.html'),
           'kernel-worker': path.resolve(
             sourceDir,
             'kernel-worker',
             'kernel-worker.ts',
           ),
+          // The stub.html file only exists to get Vite to bundle the web worker file correctly
+          stub: path.resolve(sourceDir, 'kernel-worker', 'stub.html'),
         },
         output: {
           format: 'esm',
@@ -55,7 +71,9 @@ export default defineConfig(({ mode }) => {
               return '[name].js';
             }
 
-            const fileName = ['kernel-worker', 'vat'].includes(chunkInfo.name)
+            const fileName = Object.keys(trustedPreludes).includes(
+              chunkInfo.name,
+            )
               ? 'index'
               : '[name]';
 
@@ -79,6 +97,7 @@ export default defineConfig(({ mode }) => {
     },
 
     plugins: [
+      jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
         targets: staticCopyTargets.map((src) =>
           typeof src === 'string' ? { src, dest: './' } : src,
@@ -87,7 +106,7 @@ export default defineConfig(({ mode }) => {
         silent: isDev,
       }),
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
-      // Remove files from the output
+      // Remove stub files from the output
       {
         name: 'filter-stub',
         enforce: 'post',

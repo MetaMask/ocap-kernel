@@ -36,7 +36,11 @@ const staticCopyTargets: readonly (string | Target)[] = [
     dest: './browser-runtime',
   },
   // Trusted preludes
-  ...new Set(Object.values(trustedPreludes)),
+  ...new Set(
+    Object.values(trustedPreludes)
+      .filter((prelude) => 'path' in prelude)
+      .map((prelude) => prelude.path),
+  ),
 ];
 
 // https://vitejs.dev/config/

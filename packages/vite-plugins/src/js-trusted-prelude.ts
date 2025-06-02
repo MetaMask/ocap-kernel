@@ -1,6 +1,10 @@
 import path from 'path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 
+type PreludeDesignator = { path: string } | { content: string };
+
+export type PreludeRecord = Record<string, PreludeDesignator>;
+
 /**
  * A Vite plugin that ensures trusted preludes are imported first in their respective files.
  * The plugin will:
@@ -14,7 +18,7 @@ import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
  * @returns A Vite plugin
  */
 export function jsTrustedPrelude(pluginConfig: {
-  trustedPreludes: Record<string, string>;
+  trustedPreludes: PreludeRecord;
 }): VitePlugin {
   const { trustedPreludes } = pluginConfig;
 
@@ -33,7 +37,9 @@ export function jsTrustedPrelude(pluginConfig: {
       return {
         build: {
           rollupOptions: {
-            external: Object.values(trustedPreludes),
+            external: Object.values(trustedPreludes)
+              .filter((prelude) => 'path' in prelude)
+              .map((prelude) => prelude.path),
           },
         },
       };
@@ -83,28 +89,31 @@ export function jsTrustedPrelude(pluginConfig: {
             continue;
           }
 
-          const entryName = path.basename(
-            chunk.fileName,
-            path.extname(chunk.fileName),
-          );
-          const preludePath = trustedPreludes[entryName];
-
-          if (!preludePath) {
+          const prelude = trustedPreludes[chunk.name];
+          if (!prelude) {
             continue;
           }
 
           // Validate chunk is an entry point
           if (!chunk.isEntry) {
             this.error(
-              `Trusted prelude importer "${entryName}" must be an entry point`,
+              `Trusted prelude importer "${chunk.name}" must be an entry point`,
             );
           }
 
           // Check for any existing trusted prelude imports
           const trustedPreludeImports = chunk.imports.filter((imp) =>
-            Object.values(trustedPreludes).some(
-              (importPath) => path.basename(importPath) === path.basename(imp),
-            ),
+            Object.values(trustedPreludes).some((_prelude) => {
+              const importPath =
+                'path' in _prelude
+                  ? _prelude.path
+                  : /^import ["']([^"']+)["']/iu.exec(_prelude.content)?.[1];
+
+              if (importPath) {
+                return path.basename(importPath) === path.basename(imp);
+              }
+              return false;
+            }),
           );
 
           if (trustedPreludeImports.length > 0) {
@@ -114,9 +123,11 @@ export function jsTrustedPrelude(pluginConfig: {
           }
 
           // Add the import at the top - always use root level import
-          const preludeFile = path.basename(preludePath);
-          const importStatement = `import "./${preludeFile}";\n`;
-          chunk.code = importStatement + chunk.code;
+          if ('path' in prelude) {
+            chunk.code = `import "./${path.basename(prelude.path)}";\n${chunk.code}`;
+          } else {
+            chunk.code = `${prelude.content}\n${chunk.code}`;
+          }
         }
       },
     },

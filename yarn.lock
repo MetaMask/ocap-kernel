@@ -2030,6 +2030,7 @@ __metadata:
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.4.0"
     "@ocap/test-utils": "workspace:^"
+    "@ocap/vite-plugins": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
