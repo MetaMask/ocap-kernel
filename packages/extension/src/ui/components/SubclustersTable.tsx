@@ -140,7 +140,11 @@ export const SubclustersTable: React.FC = () => {
   } = useVats();
 
   if (!groupedVats || groupedVats.subclusters.length === 0) {
-    return <p>No vats or subclusters are currently active.</p>;
+    return (
+      <p className={styles.error}>
+        No vats or subclusters are currently active.
+      </p>
+    );
   }
 
   return (
