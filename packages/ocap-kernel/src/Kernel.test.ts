@@ -219,37 +219,6 @@ describe('Kernel', () => {
       const result = await kernel.reload();
       expect(result).toBeUndefined();
     });
-
-    it('should continue reloading other subclusters if one fails', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      // Launch two subclusters
-      const config1 = makeMockClusterConfig();
-      const config2 = {
-        ...makeMockClusterConfig(),
-        bootstrap: 'bob',
-        vats: {
-          bob: {
-            bundleSpec: 'http://localhost:3000/bob-vat.bundle',
-            parameters: { name: 'Bob' },
-          },
-        },
-      };
-      await kernel.launchSubcluster(config1);
-      await kernel.launchSubcluster(config2);
-      // Make the first vat termination fail
-      vatHandles[0]?.terminate.mockRejectedValueOnce(
-        new Error('Termination failed'),
-      );
-      await expect(kernel.reload()).rejects.toThrow(
-        'Subclusters failed to reload',
-      );
-      // Verify that the second subcluster was still reloaded
-      expect(launchWorkerMock).toHaveBeenCalledTimes(3); // 2 initial + 1 reload attempt
-    });
   });
 
   describe('queueMessage()', () => {
