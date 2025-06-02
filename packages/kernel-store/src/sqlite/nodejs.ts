@@ -141,7 +141,9 @@ export async function makeSQLKernelDatabase({
   label?: string | undefined;
   verbose?: boolean | undefined;
 }): Promise<KernelDatabase> {
-  const logger = new Logger(label ?? 'sqlite');
+  const logger = label
+    ? new Logger(label)
+    : new Logger({ transports: [], tags: ['sqlite'] });
   const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger, verbose);
 
   const kvStore = makeKVStore(db);
