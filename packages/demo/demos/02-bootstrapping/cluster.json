@@ -1,0 +1,15 @@
+{
+  "bootstrap": "entrypoint",
+  "forceReset": true,
+  "vats": {
+    "entrypoint": {
+      "bundleSpec": "file:entrypoint.bundle"
+    },
+    "target": {
+      "bundleSpec": "file:target.bundle",
+      "parameters": {
+        "name": "Alice"
+      }
+    }
+  }
+}
