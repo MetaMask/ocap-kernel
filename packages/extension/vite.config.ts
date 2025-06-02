@@ -30,17 +30,12 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'manifest.json',
   // External modules
   'env/dev-console.js',
+  'env/background-trusted-prelude.js',
   '../../kernel-shims/dist/endoify.js',
   {
     src: '../../kernel-browser-runtime/dist/static/*',
     dest: './browser-runtime',
   },
-  // Trusted preludes
-  ...new Set(
-    Object.values(trustedPreludes)
-      .filter((prelude) => 'path' in prelude)
-      .map((prelude) => prelude.path),
-  ),
 ];
 
 // https://vitejs.dev/config/
