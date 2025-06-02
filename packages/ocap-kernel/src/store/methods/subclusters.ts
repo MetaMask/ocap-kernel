@@ -66,21 +66,10 @@ export function getSubclusterMethods(ctx: StoreContext) {
    *
    * @param config - The configuration for the new subcluster.
    * @returns The ID of the newly created subcluster.
-   * @throws If a subcluster with the generated ID already exists.
    */
   function addSubcluster(config: ClusterConfig): SubclusterId {
     const currentSubclusters = getSubclusters();
     const newId = `s${incCounter(ctx.nextSubclusterId)}`;
-
-    // In a multi-writer scenario, a robust check or transactional update would be needed.
-    // For now, assuming incCounter provides sufficient uniqueness for typical operation.
-    if (currentSubclusters.some((sc) => sc.id === newId)) {
-      // This should be rare if incCounter is working as expected.
-      throw new Error(
-        `Generated subcluster ID ${newId} already exists. This indicates a potential issue with ID generation.`,
-      );
-    }
-
     const newSubcluster: Subcluster = {
       id: newId,
       config,

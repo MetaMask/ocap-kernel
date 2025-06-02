@@ -39,7 +39,7 @@ describe('MessagePanel Component', () => {
       clearState: vi.fn(),
       reload: vi.fn(),
       launchVat: vi.fn(),
-      updateClusterConfig: vi.fn(),
+      launchSubcluster: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',

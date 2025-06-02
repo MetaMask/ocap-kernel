@@ -46,13 +46,8 @@ export const MessagePanel: React.FC = () => {
           Clear
         </button>
       </div>
-      <div className={styles.messageOutput}>
-        <div
-          className={styles.messageScrollWrapper}
-          data-testid="message-output"
-          ref={messageScrollRef}
-          role="log"
-        >
+      <div className={styles.messageOutput} ref={messageScrollRef} role="log">
+        <div data-testid="message-output">
           {panelLogs.map((log, index) => (
             <div key={index} className={styles[log.type]}>
               <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>

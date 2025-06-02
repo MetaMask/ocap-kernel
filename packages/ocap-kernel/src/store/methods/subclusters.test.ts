@@ -143,18 +143,6 @@ describe('getSubclusterMethods', () => {
         vats: [],
       });
     });
-
-    it('should throw an error if generated ID already exists', () => {
-      mockSubclustersStorage.set(
-        JSON.stringify([{ id: 's2', config: mockClusterConfig1, vats: [] }]),
-      );
-      mockNextSubclusterIdCounter.set('1');
-
-      expect(() => subclusterMethods.addSubcluster(mockClusterConfig1)).toThrow(
-        'Generated subcluster ID s2 already exists. This indicates a potential issue with ID generation.',
-      );
-      expect(mockNextSubclusterIdCounter.get()).toBe('2');
-    });
   });
 
   describe('getSubclusters', () => {
