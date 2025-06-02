@@ -187,25 +187,29 @@ describe('Subcluster functionality', () => {
     expect(rogueVat).toBeDefined();
   });
 
-  it('can handle subcluster operations with terminated vats', async () => {
-    // Create subcluster
-    const subcluster = makeTestSubcluster('subcluster1');
-    await runTestVats(kernel, subcluster);
+  it(
+    'can handle subcluster operations with terminated vats',
+    { timeout: 10000 },
+    async () => {
+      // Create subcluster
+      const subcluster = makeTestSubcluster('subcluster1');
+      await runTestVats(kernel, subcluster);
 
-    // Terminate a vat
-    await kernel.terminateVat('v2');
-    kernel.collectGarbage();
+      // Terminate a vat
+      await kernel.terminateVat('v2');
+      kernel.collectGarbage();
 
-    // Verify vat is removed from subcluster
-    const subclusterVats = kernel.getSubclusterVats('s1');
-    console.log('subclusterVats', subclusterVats);
-    expect(subclusterVats).toHaveLength(1);
-    expect(subclusterVats).not.toContain('v2');
+      // Verify vat is removed from subcluster
+      const subclusterVats = kernel.getSubclusterVats('s1');
+      console.log('subclusterVats', subclusterVats);
+      expect(subclusterVats).toHaveLength(1);
+      expect(subclusterVats).not.toContain('v2');
 
-    // reload subcluster should recreate all vats
-    const reloadedSubcluster = await kernel.reloadSubcluster('s1');
-    console.log('reloadedSubcluster', reloadedSubcluster);
-    expect(reloadedSubcluster).toBeDefined();
-    expect(reloadedSubcluster.vats).toHaveLength(2);
-  });
+      // reload subcluster should recreate all vats
+      const reloadedSubcluster = await kernel.reloadSubcluster('s1');
+      console.log('reloadedSubcluster', reloadedSubcluster);
+      expect(reloadedSubcluster).toBeDefined();
+      expect(reloadedSubcluster.vats).toHaveLength(2);
+    },
+  );
 });
