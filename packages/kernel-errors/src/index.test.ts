@@ -11,6 +11,7 @@ describe('index', () => {
       'MarshaledErrorStruct',
       'MarshaledOcapErrorStruct',
       'StreamReadError',
+      'SubclusterNotFoundError',
       'VatAlreadyExistsError',
       'VatDeletedError',
       'VatNotFoundError',

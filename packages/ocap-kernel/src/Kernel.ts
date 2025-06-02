@@ -8,7 +8,7 @@ import {
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { stringify } from '@metamask/kernel-utils';
+import { delay, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger, splitLoggerStream } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -287,6 +287,32 @@ export class Kernel {
   }
 
   /**
+   * Reloads a named subcluster by restarting all its vats.
+   * This terminates and restarts all vats in the subcluster.
+   *
+   * @param subclusterId - The id of the subcluster to reload.
+   * @returns A promise for an object containing the subcluster.
+   * @throws If the subcluster is not found.
+   */
+  async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
+    const subcluster = this.getSubcluster(subclusterId);
+    if (!subcluster) {
+      throw new SubclusterNotFoundError(subclusterId);
+    }
+    for (const vatId of subcluster.vats.reverse()) {
+      await this.terminateVat(vatId);
+      this.collectGarbage();
+    }
+    const newId = this.#kernelStore.addSubcluster(subcluster.config);
+    await this.#launchVatsForSubcluster(newId, subcluster.config);
+    const newSubcluster = this.getSubcluster(newId);
+    if (!newSubcluster) {
+      throw new SubclusterNotFoundError(newId);
+    }
+    return newSubcluster;
+  }
+
+  /**
    * Retrieves a subcluster by its ID.
    *
    * @param subclusterId - The id of the subcluster.
@@ -324,30 +350,6 @@ export class Kernel {
    */
   getSubclusters(): Subcluster[] {
     return this.#kernelStore.getSubclusters();
-  }
-
-  /**
-   * Reloads a named subcluster.
-   * This involves terminating all its vats and then launching them again
-   * based on its persisted configuration.
-   *
-   * @param subclusterId - The id of the subcluster to reload.
-   * @returns A promise for the (CapData encoded) result of the bootstrap message, if any.
-   * @throws If the subcluster is not found.
-   */
-  async reloadSubcluster(
-    subclusterId: string,
-  ): Promise<CapData<KRef> | undefined> {
-    const subcluster = this.getSubcluster(subclusterId);
-    if (!subcluster) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-    const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
-    for (const vatId of vatIdsToTerminate.reverse()) {
-      await this.terminateVat(vatId);
-      this.collectGarbage();
-    }
-    return this.#launchVatsForSubcluster(subclusterId, subcluster.config);
   }
 
   /**
@@ -586,24 +588,21 @@ export class Kernel {
   }
 
   /**
-   * Terminate all running vats and reload the default subcluster.
+   * Terminate all running vats and reload them.
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
-    const errors: Error[] = [];
-    for (const subcluster of this.#kernelStore.getSubclusters()) {
-      try {
-        await this.reloadSubcluster(subcluster.id);
-      } catch (error) {
-        errors.push(error as Error);
-        this.#logger.error(
-          `Failed to reload subcluster ${subcluster.id}:`,
-          error,
-        );
-      }
+    const rogueVats = this.getVats().filter((vat) => !vat.subclusterId);
+    const subclusters = this.#kernelStore.getSubclusters();
+    await this.terminateAllVats();
+    for (const subcluster of subclusters) {
+      const newId = this.#kernelStore.addSubcluster(subcluster.config);
+      await this.#launchVatsForSubcluster(newId, subcluster.config);
+      // Wait for run queue to be empty before proceeding to next subcluster
+      await delay(100);
     }
-    if (errors.length > 0) {
-      throw new Error(`Subclusters failed to reload:${errors.join(', ')}`);
+    for (const vat of rogueVats) {
+      await this.launchVat(vat.config);
     }
   }
 
