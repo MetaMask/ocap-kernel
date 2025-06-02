@@ -275,7 +275,7 @@ export class Kernel {
    * @returns A promise that resolves when termination is complete.
    */
   async terminateSubcluster(subclusterId: string): Promise<void> {
-    if (!this.#kernelStore.hasSubcluster(subclusterId)) {
+    if (!this.#kernelStore.getSubcluster(subclusterId)) {
       throw new SubclusterNotFoundError(subclusterId);
     }
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
@@ -323,6 +323,15 @@ export class Kernel {
   }
 
   /**
+   * Gets all subclusters.
+   *
+   * @returns An array of subcluster information records.
+   */
+  getSubclusters(): Subcluster[] {
+    return this.#kernelStore.getSubclusters();
+  }
+
+  /**
    * Checks if a vat belongs to a specific subcluster.
    *
    * @param vatId - The ID of the vat to check.
@@ -341,15 +350,6 @@ export class Kernel {
    */
   getSubclusterVats(subclusterId: string): VatId[] {
     return this.#kernelStore.getSubclusterVats(subclusterId);
-  }
-
-  /**
-   * Gets all subclusters.
-   *
-   * @returns An array of subcluster information records.
-   */
-  getSubclusters(): Subcluster[] {
-    return this.#kernelStore.getSubclusters();
   }
 
   /**
@@ -615,16 +615,6 @@ export class Kernel {
       // wait for all vats to be cleaned up
     }
     this.#kernelStore.collectGarbage();
-  }
-
-  /**
-   * Checks if a subcluster exists.
-   *
-   * @param subclusterId - The ID of the subcluster to check.
-   * @returns True if the subcluster exists, false otherwise.
-   */
-  hasSubcluster(subclusterId: string): boolean {
-    return this.#kernelStore.hasSubcluster(subclusterId);
   }
 }
 harden(Kernel);
