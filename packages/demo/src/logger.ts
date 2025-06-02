@@ -6,11 +6,11 @@ export const nullLogger = new Logger({ transports: [] });
 /**
  * Creates a logger for a demo. The subLogger method returns a logger which does nothing.
  *
- * @param meta - The import meta object.
+ * @param root - The root directory of the demo.
  * @returns A logger for the demo.
  */
-export default function makeDemoLogger(meta: ImportMeta): Logger {
-  const dirName = meta.dirname.split('/').pop();
+export default function makeDemoLogger(root: string): Logger {
+  const dirName = root.split('/').pop();
   const kebabs = dirName?.split('-');
   const [head, ...tail] = kebabs ?? [];
   const number =
