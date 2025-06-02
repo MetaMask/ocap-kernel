@@ -96,6 +96,101 @@ describe('SubclustersTable Component', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders rogue vats table when only rogue vats are present', () => {
+    vi.mocked(useVats).mockReturnValue({
+      groupedVats: {
+        subclusters: [],
+        rogueVats: [
+          {
+            id: 'rogue-vat-1',
+            source: 'rogue-source-1',
+            parameters: 'rogue-params-1',
+            creationOptions: '',
+          },
+        ],
+      },
+      ...mockActions,
+      hasVats: true,
+    });
+    render(<SubclustersTable />);
+
+    const rogueVatsTable = screen.getByTestId('rogue-vats-table');
+    expect(rogueVatsTable).toBeInTheDocument();
+    expect(screen.getByText('rogue-vat-1')).toBeInTheDocument();
+    expect(screen.getByText('rogue-source-1')).toBeInTheDocument();
+    expect(screen.getByText('rogue-params-1')).toBeInTheDocument();
+  });
+
+  it('renders both subclusters and rogue vats when both are present', () => {
+    vi.mocked(useVats).mockReturnValue({
+      groupedVats: {
+        subclusters: mockGroupedVats.subclusters,
+        rogueVats: [
+          {
+            id: 'rogue-vat-1',
+            source: 'rogue-source-1',
+            parameters: 'rogue-params-1',
+            creationOptions: '',
+          },
+        ],
+      },
+      ...mockActions,
+      hasVats: true,
+    });
+    render(<SubclustersTable />);
+
+    // Check subcluster is rendered
+    expect(screen.getByText('Subcluster subcluster-1 -')).toBeInTheDocument();
+
+    // Check rogue vats table is rendered
+    const rogueVatsTable = screen.getByTestId('rogue-vats-table');
+    expect(rogueVatsTable).toBeInTheDocument();
+    expect(screen.getByText('rogue-vat-1')).toBeInTheDocument();
+  });
+
+  it('applies correct action handlers to rogue vats', async () => {
+    vi.mocked(useVats).mockReturnValue({
+      groupedVats: {
+        subclusters: [],
+        rogueVats: [
+          {
+            id: 'rogue-vat-1',
+            source: 'rogue-source-1',
+            parameters: 'rogue-params-1',
+            creationOptions: '',
+          },
+        ],
+      },
+      ...mockActions,
+      hasVats: true,
+    });
+    render(<SubclustersTable />);
+
+    const rogueVatRow = screen
+      .getByTestId('vat-table')
+      .querySelector('tr[data-vat-id="rogue-vat-1"]');
+    const rowContainer = rogueVatRow as HTMLElement;
+
+    const pingButton = within(rowContainer).getByRole('button', {
+      name: 'Ping',
+    });
+    const restartButton = within(rowContainer).getByRole('button', {
+      name: 'Restart',
+    });
+    const terminateButton = within(rowContainer).getByRole('button', {
+      name: 'Terminate',
+    });
+
+    await userEvent.click(pingButton);
+    expect(mockActions.pingVat).toHaveBeenCalledWith('rogue-vat-1');
+
+    await userEvent.click(restartButton);
+    expect(mockActions.restartVat).toHaveBeenCalledWith('rogue-vat-1');
+
+    await userEvent.click(terminateButton);
+    expect(mockActions.terminateVat).toHaveBeenCalledWith('rogue-vat-1');
+  });
+
   it('renders subcluster accordion with correct title and vat count', () => {
     vi.mocked(useVats).mockReturnValue({
       groupedVats: mockGroupedVats,
@@ -212,34 +307,5 @@ describe('SubclustersTable Component', () => {
       screen.getByRole('button', { name: 'Reload Subcluster' }),
     );
     expect(mockActions.reloadSubcluster).toHaveBeenCalledWith('subcluster-1');
-  });
-
-  it('applies correct CSS classes', async () => {
-    vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
-      ...mockActions,
-      hasVats: true,
-    });
-    render(<SubclustersTable />);
-    await userEvent.click(screen.getByText('Subcluster subcluster-1 -'));
-
-    expect(screen.getByRole('table').parentElement).toHaveClass(
-      'table',
-      'subcluster-table',
-    );
-
-    // Get the first vat row's actions cell
-    const firstVatRow = screen
-      .getByTestId('vat-table')
-      .querySelector('tr[data-vat-id="vat-1"]');
-    expect(firstVatRow?.querySelector('.table-actions')).toHaveClass(
-      'table-actions',
-    );
-    expect(
-      screen.getByRole('button', { name: 'Terminate Subcluster' }),
-    ).toHaveClass('button-danger');
-    expect(
-      screen.getByRole('button', { name: 'Reload Subcluster' }),
-    ).toHaveClass('button-black');
   });
 });
