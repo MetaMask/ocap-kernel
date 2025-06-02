@@ -101,7 +101,7 @@ describe('Subcluster functionality', () => {
     // Verify subcluster and its vats are gone
     expect(kernel.getSubclusters()).toHaveLength(0);
     expect(kernel.getVats()).toHaveLength(0);
-    expect(kernel.hasSubcluster('s1')).toBe(false);
+    expect(kernel.getSubcluster('s1')).toBeUndefined();
   });
 
   it('can reload a subcluster', { timeout: 10000 }, async () => {

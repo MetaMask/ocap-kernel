@@ -316,7 +316,7 @@ describe('Kernel', () => {
       await kernel.terminateSubcluster(subclusterId);
       expect(terminateWorkerMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual([]);
-      expect(kernel.hasSubcluster(subclusterId)).toBe(false);
+      expect(kernel.getSubcluster(subclusterId)).toBeUndefined();
     });
 
     it('throws when terminating non-existent subcluster', async () => {
@@ -432,25 +432,6 @@ describe('Kernel', () => {
       await expect(kernel.reloadSubcluster('non-existent')).rejects.toThrow(
         'Subcluster does not exist.',
       );
-    });
-  });
-
-  describe('hasSubcluster()', () => {
-    it('correctly identifies subcluster existence', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
-      const [firstSubcluster] = subclusters;
-      expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
-      expect(subclusterId).toBeDefined();
-      expect(kernel.hasSubcluster(subclusterId)).toBe(true);
-      expect(kernel.hasSubcluster('non-existent')).toBe(false);
     });
   });
 

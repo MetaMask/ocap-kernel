@@ -92,17 +92,6 @@ export function getSubclusterMethods(ctx: StoreContext) {
   }
 
   /**
-   * Checks if a subcluster with the given ID exists.
-   *
-   * @param subclusterId - The ID of the subcluster to check.
-   * @returns True if the subcluster exists, false otherwise.
-   */
-  function hasSubcluster(subclusterId: SubclusterId): boolean {
-    const currentSubclusters = getSubclusters();
-    return currentSubclusters.some((sc) => sc.id === subclusterId);
-  }
-
-  /**
    * Retrieves a specific subcluster by its ID.
    *
    * @param subclusterId - The ID of the subcluster to retrieve.
@@ -263,7 +252,6 @@ export function getSubclusterMethods(ctx: StoreContext) {
   return {
     addSubcluster,
     getSubcluster,
-    hasSubcluster,
     getSubclusters,
     deleteSubcluster,
     addSubclusterVat,

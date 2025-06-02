@@ -157,23 +157,6 @@ describe('getSubclusterMethods', () => {
     });
   });
 
-  describe('hasSubcluster', () => {
-    it('should return true if a subcluster exists', () => {
-      const id = subclusterMethods.addSubcluster(mockClusterConfig1);
-      expect(subclusterMethods.hasSubcluster(id)).toBe(true);
-    });
-
-    it('should return false if a subcluster does not exist', () => {
-      expect(
-        subclusterMethods.hasSubcluster('sNonExistent' as SubclusterId),
-      ).toBe(false);
-    });
-
-    it('should return false if storage is empty', () => {
-      expect(subclusterMethods.hasSubcluster('s1' as SubclusterId)).toBe(false);
-    });
-  });
-
   describe('getSubclusters', () => {
     it('should return all subclusters', () => {
       const id1 = subclusterMethods.addSubcluster(mockClusterConfig1);
@@ -413,13 +396,12 @@ describe('getSubclusterMethods', () => {
     });
 
     it('should delete a subcluster and remove its vats from the map', () => {
-      expect(subclusterMethods.hasSubcluster(scId1)).toBe(true);
+      expect(subclusterMethods.getSubcluster(scId1)).toBeDefined();
       expect(subclusterMethods.getVatSubcluster(vatId1)).toBe(scId1);
       expect(subclusterMethods.getVatSubcluster(vatId2)).toBe(scId1);
 
       subclusterMethods.deleteSubcluster(scId1);
 
-      expect(subclusterMethods.hasSubcluster(scId1)).toBe(false);
       expect(subclusterMethods.getSubcluster(scId1)).toBeUndefined();
       expect(subclusterMethods.getVatSubcluster(vatId1)).toBeUndefined();
       expect(subclusterMethods.getVatSubcluster(vatId2)).toBeUndefined();
@@ -436,7 +418,7 @@ describe('getSubclusterMethods', () => {
 
       expect(mockSubclustersStorage.get()).toBe(initialSubclustersRaw);
       expect(mockVatToSubclusterMapStorage.get()).toBe(initialMapRaw);
-      expect(subclusterMethods.hasSubcluster(scId1)).toBe(true);
+      expect(subclusterMethods.getSubcluster(scId1)).toBeDefined();
     });
 
     it('should correctly update map if a vat was in multiple subclusters conceptually', () => {
