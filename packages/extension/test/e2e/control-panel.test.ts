@@ -1,8 +1,6 @@
-import defaultClusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-// Vitest/Playwright needs the import assertions
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
 import { makeLoadExtension } from '../helpers/extension.ts';
 
@@ -18,8 +16,9 @@ test.describe('Control Panel', () => {
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
     extensionId = extension.extensionId;
-    await expect(popupPage.locator('[data-testid="vat-table"]')).toBeVisible();
-    await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
+    await expect(
+      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -41,7 +40,7 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('State cleared');
     await expect(
-      popupPage.locator('[data-testid="vat-table"]'),
+      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
     ).not.toBeVisible();
   }
 
@@ -49,17 +48,44 @@ test.describe('Control Panel', () => {
    * Launches a vat with the given name and bundle URL.
    *
    * @param name - The name of the vat to launch.
+   * @param subclusterId - Optional subcluster ID to launch the vat in.
    */
-  async function launchVat(name: string = 'test-vat'): Promise<void> {
+  async function launchVat(
+    name: string = 'test-vat',
+    subclusterId?: string,
+  ): Promise<void> {
     await popupPage.fill('input[placeholder="Vat Name"]', name);
     await popupPage.fill(
       'input[placeholder="Bundle URL"]',
       'http://localhost:3000/sample-vat.bundle',
     );
+    if (subclusterId) {
+      await popupPage.selectOption('select', subclusterId);
+    }
     await popupPage.click('button:text("Launch Vat")');
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText(`Launched vat "${name}"`);
+  }
+
+  /**
+   * Launches a subcluster with the given configuration.
+   *
+   * @param config - The cluster configuration object to use for launching the subcluster.
+   */
+  async function launchSubcluster(config: object): Promise<void> {
+    const fileInput = popupPage.locator(
+      '[data-testid="subcluster-config-input"]',
+    );
+    const fileContent = JSON.stringify(config);
+    await fileInput.setInputFiles({
+      name: 'config.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(fileContent),
+    });
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Subcluster launched');
   }
 
   test('should load popup with kernel panel', async () => {
@@ -74,6 +100,9 @@ test.describe('Control Panel', () => {
       popupPage.locator('input[placeholder="Bundle URL"]'),
     ).toBeVisible();
     await expect(popupPage.locator('button:text("Launch Vat")')).toBeVisible();
+    await expect(
+      popupPage.locator('h4:text("Launch New Subcluster")'),
+    ).toBeVisible();
   });
 
   test('should validate bundle URL format', async () => {
@@ -94,37 +123,61 @@ test.describe('Control Panel', () => {
     await expect(popupPage.locator('button:text("Launch Vat")')).toBeEnabled();
   });
 
-  test('should launch a new vat', async () => {
+  test('should launch a new vat without subcluster', async () => {
     await clearState();
     await launchVat();
-    const vatTable = popupPage.locator('table');
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(2); // Header + 1 row
   });
 
-  test('should restart a vat', async () => {
+  test('should launch a new subcluster and vat within it', async () => {
+    await clearState();
+    await launchSubcluster(minimalClusterConfig);
+    const subcluster = popupPage.locator(
+      '[data-testid="subcluster-accordion-s1"]',
+    );
+    await expect(subcluster).toBeVisible({
+      timeout: 2000,
+    });
+    await expect(popupPage.locator('text=1 Vat')).toBeVisible();
+    // Launch another vat in the subcluster
+    await launchVat('vat2', 's1');
+    await expect(popupPage.locator('text=2 Vats')).toBeVisible();
+    // Open the subcluster accordion to view vats
+    await popupPage.locator('.accordion-header').first().click();
+    const vatTable = popupPage.locator('[data-testid="vat-table"]');
+    await expect(vatTable).toBeVisible();
+    await expect(vatTable.locator('tr')).toHaveCount(3); // Header + 2 rows
+  });
+
+  test('should restart a vat within subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('.accordion-header').first().click();
     await expect(
       popupPage.locator('button:text("Restart")').first(),
     ).toBeVisible();
     await popupPage.locator('button:text("Restart")').first().click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Restarted vat "v1"');
+    ).toContainText('Restarted vat');
   });
 
-  test('should terminate a vat', async () => {
-    await expect(popupPage.locator('table tr')).toHaveCount(4);
+  test('should terminate a vat within subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('.accordion-header').first().click();
     await expect(
       popupPage.locator('td button:text("Terminate")').first(),
     ).toBeVisible();
     await popupPage.locator('td button:text("Terminate")').first().click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Terminated vat "v1"');
-    await expect(popupPage.locator('table tr')).toHaveCount(3);
+    ).toContainText('Terminated vat');
   });
 
-  test('should ping a vat', async () => {
+  test('should ping a vat within subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('.accordion-header').first().click();
     await expect(
       popupPage.locator('td button:text("Ping")').first(),
     ).toBeVisible();
@@ -135,6 +188,33 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('pong');
+  });
+
+  test('should terminate a subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('.accordion-header').first().click();
+    await expect(
+      popupPage.locator('button:text("Terminate Subcluster")').first(),
+    ).toBeVisible();
+    await popupPage
+      .locator('button:text("Terminate Subcluster")')
+      .first()
+      .click();
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Terminated subcluster');
+  });
+
+  test('should reload a subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('.accordion-header').first().click();
+    await expect(
+      popupPage.locator('button:text("Reload Subcluster")').first(),
+    ).toBeVisible();
+    await popupPage.locator('button:text("Reload Subcluster")').first().click();
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Reloaded subcluster');
   });
 
   test('should terminate all vats', async () => {
@@ -162,6 +242,9 @@ test.describe('Control Panel', () => {
       { key: 'nextPromiseId', value: '4' },
       { key: 'nextVatId', value: '4' },
       { key: 'nextRemoteId', value: '1' },
+      { key: 'subclusters', value: '[]' },
+      { key: 'nextSubclusterId', value: '2' },
+      { key: 'vatToSubclusterMap', value: '{}' },
       { key: 'initialized', value: 'true' },
     ]);
     await expect(
@@ -191,6 +274,9 @@ test.describe('Control Panel', () => {
       { key: 'nextPromiseId', value: '1' },
       { key: 'nextVatId', value: '1' },
       { key: 'nextRemoteId', value: '1' },
+      { key: 'subclusters', value: '[]' },
+      { key: 'nextSubclusterId', value: '1' },
+      { key: 'vatToSubclusterMap', value: '{}' },
     ]);
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
@@ -286,71 +372,7 @@ test.describe('Control Panel', () => {
     });
   });
 
-  test('should handle cluster configuration updates', async () => {
-    const configTitle = popupPage.locator('[data-testid="config-title"]');
-    await expect(configTitle).toBeVisible();
-    await configTitle.click();
-    // Check initial config is visible and matches clusterConfig
-    const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
-    await expect(configTextarea).toBeVisible();
-    await expect(configTextarea).toHaveValue(
-      JSON.stringify(defaultClusterConfig, null, 2),
-    );
-    // Test invalid JSON handling
-    await configTextarea.fill('{ invalid json }');
-    await popupPage.click('button:text("Update Config")');
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('SyntaxError');
-    // Verify original vats still exist
-    const firstVatKey = Object.keys(
-      defaultClusterConfig.vats,
-    )[0] as keyof typeof defaultClusterConfig.vats;
-    const originalVatName =
-      defaultClusterConfig.vats[firstVatKey].parameters.name;
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible();
-    await expect(vatTable).toContainText(originalVatName);
-    // Modify config with new vat name
-    const modifiedConfig = structuredClone(defaultClusterConfig);
-    modifiedConfig.vats[firstVatKey].parameters.name = 'SuperAlice';
-    // Update config and reload
-    await configTextarea.fill(JSON.stringify(modifiedConfig, null, 2));
-    await popupPage.click('button:text("Update Config")');
-    await popupPage.click('button:text("Reload Kernel")');
-    // Verify new vat name appears
-    await expect(vatTable).toContainText('SuperAlice');
-  });
-
-  test('should handle config template selection', async () => {
-    const configTitle = popupPage.locator('[data-testid="config-title"]');
-    await expect(configTitle).toBeVisible();
-    await configTitle.click();
-    // Get initial config textarea content
-    const configTextarea = popupPage.locator('[data-testid="config-textarea"]');
-    await expect(configTextarea).toBeVisible();
-    const initialConfig = await configTextarea.inputValue();
-    // Select minimal config template
-    const configSelect = popupPage.locator('[data-testid="config-select"]');
-    await configSelect.selectOption('Minimal');
-    // Verify config textarea was updated with minimal config
-    const minimalConfig = await configTextarea.inputValue();
-    expect(minimalConfig).not.toBe(initialConfig);
-    expect(JSON.parse(minimalConfig)).toMatchObject(minimalClusterConfig);
-    // Update and reload with minimal config
-    await popupPage.click('button:text("Update and Reload")');
-    // Verify vat table shows only the main vat
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible();
-    await expect(vatTable.locator('tr')).toHaveCount(2); // Header + 1 row
-    await expect(vatTable).toContainText(
-      minimalClusterConfig.vats.main.parameters.name,
-    );
-  });
-
   test('should collect garbage', async () => {
-    const configTitle = popupPage.locator('[data-testid="config-title"]');
-    await expect(configTitle).toBeVisible();
     await expect(
       popupPage.locator('button:text("Database Inspector")'),
     ).toBeVisible();
@@ -391,6 +413,7 @@ test.describe('Control Panel', () => {
       ).toContainText(value);
     }
     await popupPage.click('button:text("Control Panel")');
+    await popupPage.locator('.accordion-header').first().click();
     await popupPage.locator('td button:text("Terminate")').last().click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
@@ -439,6 +462,7 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('{"key":"kp3.refCount","value":"1"}');
     await popupPage.click('button:text("Control Panel")');
+    await popupPage.locator('.accordion-header').first().click();
     // delete v1
     await popupPage.locator('td button:text("Terminate")').first().click();
     await expect(

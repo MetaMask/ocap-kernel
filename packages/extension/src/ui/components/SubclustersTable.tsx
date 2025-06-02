@@ -81,7 +81,10 @@ const SubclusterAccordion: React.FC<{
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className={styles.accordion}>
+    <div
+      className={styles.accordion}
+      data-testid={`subcluster-accordion-${id}`}
+    >
       <div
         className={`accordion-header ${styles.accordionHeader}`}
         onClick={() => setIsExpanded(!isExpanded)}
@@ -139,7 +142,10 @@ export const SubclustersTable: React.FC = () => {
     reloadSubcluster,
   } = useVats();
 
-  if (!groupedVats || groupedVats.subclusters.length === 0) {
+  if (
+    !groupedVats ||
+    (groupedVats.subclusters.length === 0 && groupedVats.rogueVats.length === 0)
+  ) {
     return (
       <p className={styles.error}>
         No vats or subclusters are currently active.
@@ -161,6 +167,16 @@ export const SubclustersTable: React.FC = () => {
           onReloadSubcluster={reloadSubcluster}
         />
       ))}
+      {groupedVats.rogueVats.length > 0 && (
+        <div className={styles.tableContainer} data-testid="rogue-vats-table">
+          <VatTable
+            vats={groupedVats.rogueVats}
+            onPingVat={pingVat}
+            onRestartVat={restartVat}
+            onTerminateVat={terminateVat}
+          />
+        </div>
+      )}
     </div>
   );
 };

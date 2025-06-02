@@ -11,7 +11,10 @@ test.describe('Database Inspector', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await expect(popupPage.locator('[data-testid="vat-table"]')).toBeVisible();
+    await expect(
+      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
+    ).toBeVisible();
+    await popupPage.locator('.accordion-header').first().click();
     await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
     await popupPage.click('button:text("Database Inspector")');
     await expect(popupPage.locator('#root')).toContainText(
