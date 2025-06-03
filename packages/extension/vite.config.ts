@@ -1,6 +1,11 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
+import {
+  extensionDev,
+  htmlTrustedPrelude,
+  jsTrustedPrelude,
+} from '@ocap/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import sourcemaps from 'rollup-plugin-sourcemaps2';
@@ -15,9 +20,6 @@ import {
   buildDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
-import { extensionDev } from './vite-plugins/extension-dev.ts';
-import { htmlTrustedPrelude } from './vite-plugins/html-trusted-prelude.ts';
-import { jsTrustedPrelude } from './vite-plugins/js-trusted-prelude.ts';
 
 /**
  * Files that need to be statically copied to the destination directory.
@@ -28,14 +30,12 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'manifest.json',
   // External modules
   'env/dev-console.js',
+  'env/background-trusted-prelude.js',
   '../../kernel-shims/dist/endoify.js',
   {
-    src: '../../kernel-browser-runtime/dist/kernel-worker/*',
-    dest: './kernel-worker',
-    // rename: 'kernel-worker.js',
+    src: '../../kernel-browser-runtime/dist/static/*',
+    dest: './browser-runtime',
   },
-  // Trusted preludes
-  ...new Set(Object.values(trustedPreludes)),
 ];
 
 // https://vitejs.dev/config/
@@ -56,7 +56,6 @@ export default defineConfig(({ mode }) => {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
-          iframe: path.resolve(sourceDir, 'iframe.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
         },
         output: {

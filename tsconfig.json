@@ -27,6 +27,7 @@
     { "path": "./packages/nodejs" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/streams" },
-    { "path": "./packages/test-utils" }
+    { "path": "./packages/test-utils" },
+    { "path": "./packages/vite-plugins" }
   ]
 }

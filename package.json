@@ -16,7 +16,7 @@
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",
     "build:source": "ts-bridge --project tsconfig.build.json --verbose",
-    "build:special": "yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:kernel-worker && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build:vats",
+    "build:special": "yarn workspace @ocap/vite-plugins run build && yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:vite && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build:vats",
     "bundle": "node ./scripts/bundle-vat.js",
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
     "changelog:validate": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:validate",
@@ -109,15 +109,16 @@
   "lavamoat": {
     "allowScripts": {
       "$root$": true,
+      "@ocap/cli>@metamask/logger>@metamask/streams": true,
       "@lavamoat/preinstall-always-fail": false,
+      "eslint-import-resolver-typescript>unrs-resolver": false,
+      "eslint-plugin-import-x>unrs-resolver": false,
       "simple-git-hooks": false,
       "vite>esbuild": false,
       "vite>sass>@parcel/watcher": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>edgedriver": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
-      "vitest>@vitest/mocker>msw": false,
-      "@ocap/cli>@metamask/logger>@metamask/streams": true,
-      "eslint-plugin-import-x>unrs-resolver": false
+      "vitest>@vitest/mocker>msw": false
     }
   },
   "resolutions": {

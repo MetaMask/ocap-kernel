@@ -25,6 +25,7 @@
     "**/vitest.config.ts",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "./src/kernel-worker"
+    "./src/kernel-worker",
+    "./src/vat"
   ]
 }

@@ -28,7 +28,8 @@
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
     { "path": "../streams" },
-    { "path": "../test-utils" }
+    { "path": "../test-utils" },
+    { "path": "../vite-plugins" }
   ],
   "include": [
     "../../vitest.config.ts",

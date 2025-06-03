@@ -7,7 +7,7 @@ import {
   receiveMessagePort,
 } from '@metamask/streams/browser';
 
-const logger = new Logger('iframe');
+const logger = new Logger('vat-iframe');
 
 main().catch(logger.error);
 
