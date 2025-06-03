@@ -1,3 +1,5 @@
+import '@metamask/kernel-shims/endoify';
+
 import cli from './cli.ts';
 import { commands } from './commands.ts';
 
