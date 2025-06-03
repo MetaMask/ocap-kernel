@@ -31,6 +31,7 @@
     "postinstall": "simple-git-hooks",
     "prepack": "./scripts/prepack.sh",
     "pretest": "bash scripts/reset-coverage-thresholds.sh",
+    "scrub": "./scripts/scrub.sh",
     "test": "yarn pretest && vitest run",
     "test:ci": "vitest run",
     "test:dev": "yarn test --mode development",
