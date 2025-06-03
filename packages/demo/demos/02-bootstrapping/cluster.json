@@ -3,12 +3,12 @@
   "forceReset": true,
   "vats": {
     "entrypoint": {
-      "bundleSpec": "file:entrypoint.bundle"
+      "bundleSpec": "file:02-bootstrapping/entrypoint.bundle"
     },
     "target": {
-      "bundleSpec": "file:target.bundle",
+      "bundleSpec": "file:02-bootstrapping/target.bundle",
       "parameters": {
-        "name": "Alice"
+        "name": "dimitris"
       }
     }
   }
