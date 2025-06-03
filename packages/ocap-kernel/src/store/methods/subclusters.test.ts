@@ -31,12 +31,12 @@ describe('getSubclusterMethods', () => {
   const mockVatConfig1: VatConfig = { bundleName: 'bundleA' };
   const mockVatConfig2: VatConfig = { sourceSpec: './sourceB.js' };
   const mockClusterConfig1: ClusterConfig = {
-    bootstrap: 'v1',
-    vats: { v1: mockVatConfig1 },
+    bootstrap: 'bob',
+    vats: { bob: mockVatConfig1 },
   };
   const mockClusterConfig2: ClusterConfig = {
-    bootstrap: 'v2',
-    vats: { v2: mockVatConfig2, v1: mockVatConfig1 },
+    bootstrap: 'alice',
+    vats: { alice: mockVatConfig2, bob: mockVatConfig1 },
   };
 
   beforeEach(() => {
@@ -215,23 +215,15 @@ describe('getSubclusterMethods', () => {
       expect(targetSubcluster?.vats).toStrictEqual([vatId1]);
     });
 
-    it('should update map and warn when moving a vat from another subcluster', () => {
+    it('should throw an error when trying to add a vat to a different subcluster', () => {
       const scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
       subclusterMethods.addSubclusterVat(scId, vatId1);
-      let mapRaw = mockVatToSubclusterMapStorage.get();
-      let map = mapRaw ? JSON.parse(mapRaw) : {};
-      expect(map[vatId1]).toBe(scId);
 
-      subclusterMethods.addSubclusterVat(scId2, vatId1);
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        `vat ${vatId1} is being moved from subcluster ${scId} to ${scId2}.`,
+      expect(() => subclusterMethods.addSubclusterVat(scId2, vatId1)).toThrow(
+        `Cannot add vat ${vatId1} to subcluster ${scId2} as it already belongs to subcluster ${scId}.`,
       );
 
-      mapRaw = mockVatToSubclusterMapStorage.get();
-      map = mapRaw ? JSON.parse(mapRaw) : {};
-      expect(map[vatId1]).toBe(scId2);
-
+      // Verify the vat is still in the original subcluster
       const subclustersRaw = mockSubclustersStorage.get();
       const subclusters = subclustersRaw
         ? (JSON.parse(subclustersRaw) as Subcluster[])
@@ -240,7 +232,12 @@ describe('getSubclusterMethods', () => {
       const newSc = subclusters.find((sc) => sc.id === scId2);
 
       expect(originalSc?.vats).toContain(vatId1);
-      expect(newSc?.vats).toContain(vatId1);
+      expect(newSc?.vats).not.toContain(vatId1);
+
+      // Verify the map hasn't changed
+      const mapRaw = mockVatToSubclusterMapStorage.get();
+      const map = mapRaw ? JSON.parse(mapRaw) : {};
+      expect(map[vatId1]).toBe(scId);
     });
 
     it('should throw SubclusterNotFoundError if subcluster does not exist', () => {
@@ -295,19 +292,16 @@ describe('getSubclusterMethods', () => {
 
   describe('deleteSubclusterVat', () => {
     let scId1: SubclusterId;
-    let scId2: SubclusterId;
     const vatId1: VatId = 'v1';
     const vatId2: VatId = 'v2';
 
     beforeEach(() => {
       scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
-      scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
       subclusterMethods.addSubclusterVat(scId1, vatId1);
       subclusterMethods.addSubclusterVat(scId1, vatId2);
-      subclusterMethods.addSubclusterVat(scId2, vatId1);
     });
 
-    it('should delete a vat from a subcluster and update map if map points to it', () => {
+    it('should delete a vat from a subcluster and update map', () => {
       subclusterMethods.deleteSubclusterVat(scId1, vatId2);
 
       const sc1 = subclusterMethods.getSubcluster(scId1) as Subcluster;
@@ -317,19 +311,7 @@ describe('getSubclusterMethods', () => {
       const mapRaw = mockVatToSubclusterMapStorage.get();
       const map = mapRaw ? JSON.parse(mapRaw) : {};
       expect(map[vatId2]).toBeUndefined();
-      expect(map[vatId1]).toBe(scId2);
-    });
-
-    it('should delete vat from subcluster vats list, even if map points elsewhere', () => {
-      subclusterMethods.deleteSubclusterVat(scId1, vatId1);
-
-      const sc1Updated = subclusterMethods.getSubcluster(scId1) as Subcluster;
-      expect(sc1Updated.vats).not.toContain(vatId1);
-      expect(sc1Updated.vats).toContain(vatId2);
-
-      const mapRaw = mockVatToSubclusterMapStorage.get();
-      const map = mapRaw ? JSON.parse(mapRaw) : {};
-      expect(map[vatId1]).toBe(scId2);
+      expect(map[vatId1]).toBe(scId1);
     });
 
     it('should do nothing to subclusters list if subcluster is not found', () => {

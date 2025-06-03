@@ -106,23 +106,25 @@ export function getSubclusterMethods(ctx: StoreContext) {
       throw new SubclusterNotFoundError(subclusterId);
     }
 
+    // Update vat mapping
+    const currentMap = getVatToSubclusterMap();
+
+    // Check if vat is already in another subcluster
+    if (currentMap[vatId] && currentMap[vatId] !== subclusterId) {
+      throw new Error(
+        `Cannot add vat ${vatId} to subcluster ${subclusterId} as it already belongs to subcluster ${currentMap[vatId]}.`,
+      );
+    }
+
     // Add vat to subcluster if not already present
     if (!subcluster.vats.includes(vatId)) {
       subcluster.vats.push(vatId);
-      saveAllSubclustersToStorage(currentSubclusters);
     }
 
-    // Update vat mapping
-    const currentMap = getVatToSubclusterMap();
-    if (currentMap[vatId] !== subclusterId) {
-      if (currentMap[vatId]) {
-        console.warn(
-          `vat ${vatId} is being moved from subcluster ${currentMap[vatId]} to ${subclusterId}.`,
-        );
-      }
-      currentMap[vatId] = subclusterId;
-      saveVatToSubclusterMapToStorage(currentMap);
-    }
+    // Update the map and save all changes
+    currentMap[vatId] = subclusterId;
+    saveVatToSubclusterMapToStorage(currentMap);
+    saveAllSubclustersToStorage(currentSubclusters);
   }
 
   /**
