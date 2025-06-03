@@ -12,17 +12,17 @@ const { hasOwn } = Object;
 const untransformedFiles = [
   {
     sourcePath: path.resolve('../kernel-shims/dist/endoify.js'),
-    builtPath: path.resolve(buildDir, 'endoify.js'),
+    buildPath: path.resolve(buildDir, 'endoify.js'),
   },
   {
     sourcePath: path.resolve(sourceDir, 'env/dev-console.js'),
-    builtPath: path.resolve(buildDir, 'dev-console.js'),
+    buildPath: path.resolve(buildDir, 'dev-console.js'),
   },
   ...Object.values(trustedPreludes).map((prelude) => {
     if (hasOwn(prelude, 'path')) {
       return {
         sourcePath: prelude.path,
-        builtPath: path.join(buildDir, path.basename(prelude.path)),
+        buildPath: path.join(buildDir, path.basename(prelude.path)),
       };
     }
 
@@ -33,7 +33,7 @@ const untransformedFiles = [
 
     return {
       sourcePath: preludePath,
-      builtPath: path.join(buildDir, path.basename(preludePath)),
+      buildPath: path.join(buildDir, path.basename(preludePath)),
     };
   }),
 ];
@@ -58,16 +58,14 @@ async function runTests() {
  * Test that shims and preludes are packaged untransformed.
  */
 async function checkUntransformed() {
-  console.log('Checking if shims and preludes are packaged untransformed...');
-
-  for (const { builtPath, sourcePath } of untransformedFiles) {
+  for (const { buildPath, sourcePath } of untransformedFiles) {
     const [originalContent, builtContent] = await Promise.all([
       fs.readFile(sourcePath, 'utf8'),
-      fs.readFile(builtPath, 'utf8'),
+      fs.readFile(buildPath, 'utf8'),
     ]);
     if (originalContent.trim() !== builtContent.trim()) {
       throw new Error(
-        `The ${builtPath} is transformed or differs from the original source.`,
+        `"${buildPath}" is transformed or differs from the original source.`,
       );
     }
   }
@@ -77,8 +75,6 @@ async function checkUntransformed() {
  * Test that trusted preludes are loaded at the top of the file.
  */
 async function checkTrustedPreludes() {
-  console.log('Checking that trusted preludes are loaded at the top...');
-
   for (const [outputFileName, prelude] of Object.entries(trustedPreludes)) {
     const outputFilePath = path.join(buildDir, `${outputFileName}.js`);
     const outputFileContent = await fs.readFile(outputFilePath, 'utf8');
@@ -88,7 +84,7 @@ async function checkTrustedPreludes() {
 
     if (!outputFileContent.startsWith(expectedImportStatement)) {
       throw new Error(
-        `The trusted prelude ${expectedImportStatement} is not imported in the first position in ${outputFileName}.js`,
+        `The trusted prelude \`${expectedImportStatement}\` is not imported in the first position in "${outputFileName}.js"`,
       );
     }
   }
