@@ -61,8 +61,6 @@ export default defineConfig(({ mode }) => {
             'kernel-worker',
             'kernel-worker.ts',
           ),
-          // The stub.html file only exists to get Vite to bundle the web worker file correctly
-          stub: path.resolve(sourceDir, 'kernel-worker', 'stub.html'),
         },
         output: {
           format: 'esm',
@@ -106,19 +104,33 @@ export default defineConfig(({ mode }) => {
         silent: isDev,
       }),
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
-      // Remove stub files from the output
+      isDev && (sourcemaps() as unknown as VitePlugin),
+      // For unknown reasons, Vite duplicates the WASM binary file of @sqlite.org/sqlite-wasm.
+      // (The file is conditionally imported by multiple files, so that may be the reason.)
+      // To avoid bloating the bundle, we introduce the following distasteful hack, which:
+      // 1. finds the extraneous sqlite-wasm files
+      // 2. deletes them from the bundle
       {
-        name: 'filter-stub',
+        name: 'deduplicate-sqlite-wasm',
         enforce: 'post',
         generateBundle(_, bundle) {
-          for (const key of Object.keys(bundle)) {
-            if (path.basename(key).includes('stub')) {
-              delete bundle[key];
-            }
+          const extraneousAssets = Object.values(bundle).filter(
+            (assetOrChunk) =>
+              assetOrChunk.fileName.startsWith('assets/sqlite3-') &&
+              !assetOrChunk.fileName.includes('opfs-async-proxy'),
+          );
+
+          if (extraneousAssets.length !== 2) {
+            throw new Error(
+              `Expected 2 extraneous sqlite3.wasm assets, got ${extraneousAssets.length}: ${extraneousAssets.map((asset) => asset.fileName).join(', ')}`,
+            );
+          }
+
+          for (const asset of extraneousAssets) {
+            delete bundle[asset.fileName];
           }
         },
       },
-      isDev && (sourcemaps() as unknown as VitePlugin),
     ],
   };
 });
