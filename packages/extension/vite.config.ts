@@ -56,7 +56,6 @@ export default defineConfig(({ mode }) => {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
-          iframe: path.resolve(sourceDir, 'iframe.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
         },
         output: {

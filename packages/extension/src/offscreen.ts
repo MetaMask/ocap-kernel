@@ -69,7 +69,7 @@ async function makeKernelWorker(): Promise<{
     (vatId) =>
       makeIframeVatWorker({
         id: vatId,
-        iframeUri: 'iframe.html',
+        iframeUri: 'browser-runtime/vat/iframe.html',
         getPort: initializeMessageChannel,
         logger: logger.subLogger({
           tags: ['iframe-vat-worker', vatId],
