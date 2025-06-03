@@ -17,11 +17,14 @@ import { E, Far } from '@endo/far';
 export function buildRootObject() {
   return Far('root', {
     async bootstrap(vats) {
-      await E(vats.target).hello();
-      const name = await E(vats.target).getName();
-      await E(vats.target).setName(`0x${name}`);
-      await E(vats.target).goodbye();
-      return 'Success!';
+      const { target } = vats;
+      // Say hello with the target vat's default name.
+      await E(target).hello().then(console.log);
+      // Flip the target vat's name around.
+      const name = await E(target).getName();
+      await E(target).setName(name.split('').reverse().join(''));
+      // Say goodbye with the target vat's new name.
+      await E(target).goodbye().then(console.log);
     },
   });
 }
