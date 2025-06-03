@@ -5,7 +5,7 @@ import type {
   Arguments,
 } from 'yargs';
 
-import makeDemoLogger from './logger.ts';
+import { logger } from './logger.ts';
 import { runBundle } from './run-bundle.ts';
 import { runCluster } from './run-cluster.ts';
 
@@ -31,7 +31,7 @@ export type CommandModule =
  * The yargs command for running a bundle.
  */
 const runBundleCommand: CommandModule = {
-  command: 'run-bundle',
+  command: 'bundle',
   describe: 'Run a bundle.',
   builder: (argv: Argv<object>) => {
     argv
@@ -92,7 +92,7 @@ const runBundleCommand: CommandModule = {
 };
 
 const runClusterCommand: CommandModule = {
-  command: 'run-cluster',
+  command: 'cluster',
   describe: 'Run a cluster.',
   builder: (argv: Argv<object>) => {
     argv
@@ -132,8 +132,6 @@ export async function runBundleHandler(
   args: Arguments<RunBundleOptions>,
 ): Promise<void> {
   const { bundlePath, methodName, bundleParams } = args;
-  const logger = makeDemoLogger(resolve(bundlePath, '..'));
-
   logger.log(`Attempting to run bundle "${bundlePath}"...`);
 
   try {
@@ -141,7 +139,7 @@ export async function runBundleHandler(
       bundleParameters: JSON.parse(bundleParams),
       logger,
     });
-    logger.log('Result:', result);
+    logger.log(`Result of '${methodName}':`, result);
   } catch (error: unknown) {
     if (error instanceof Error) {
       logger.error('Failed:', error.message);
@@ -160,13 +158,11 @@ export async function runClusterHandler(
   args: Arguments<RunClusterOptions>,
 ): Promise<void> {
   const { clusterPath } = args;
-  const logger = makeDemoLogger(resolve(clusterPath, '..'));
-
   logger.log(`Attempting to run cluster "${clusterPath}"...`);
 
   try {
     const result = await runCluster(clusterPath, { logger });
-    logger.log('Result:', result);
+    logger.log("Result of 'bootstrap':", result);
   } catch (error: unknown) {
     if (error instanceof Error) {
       logger.error('Failed:', error.message);

@@ -13,5 +13,5 @@
     { "path": "../ocap-kernel/tsconfig.build.json" }
   ],
   "files": [],
-  "include": ["./src", "./src/demos/**/*.json"]
+  "include": ["./src"]
 }
