@@ -1,17 +1,15 @@
 import '@metamask/kernel-shims/endoify';
-import { Fail } from '@endo/errors';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { stringify, waitUntilQuiescent } from '@metamask/kernel-utils';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { Kernel, kunser } from '@metamask/ocap-kernel';
+import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { NodejsVatWorkerService } from '@ocap/nodejs';
 import { readFile } from 'node:fs/promises';
 
-const DEFAULT_WORKER_FILE = new URL('../dist/vat-worker.mjs', import.meta.url)
-  .pathname;
+import { DEFAULT_WORKER_FILE } from './constants.ts';
 
 /**
  * Run a cluster config with the ocap kernel.
@@ -26,7 +24,7 @@ export async function runCluster(
   options: {
     logger?: Logger;
   },
-): Promise<unknown> {
+): Promise<void> {
   const logger = options.logger ?? new Logger('run-cluster');
 
   // Create kernel database
@@ -65,28 +63,7 @@ export async function runCluster(
   const config: ClusterConfig = JSON.parse(await readFile(clusterPath, 'utf8'));
 
   // Launch subcluster and wait for quiescence
-  const bootstrapResultRaw = await kernel.launchSubcluster(config);
+  await kernel.launchSubcluster(config);
 
   await waitUntilQuiescent(1000);
-
-  // Unserialize the bootstrap result
-  const result =
-    kunser(bootstrapResultRaw ?? Fail`Bootstrap result is undefined`) ??
-    Fail`Bootstrap result is undefined`;
-
-  // If the result is an error, throw it
-  if (
-    typeof result === 'object' &&
-    'name' in result &&
-    typeof result.name === 'string' &&
-    result.name.includes('Error')
-  ) {
-    throw new Error(
-      (result as { message?: string }).message ??
-        `Unknown error: ${stringify(result)}`,
-    );
-  }
-
-  // Otherwise, return the result
-  return result;
 }

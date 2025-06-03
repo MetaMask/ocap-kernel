@@ -4,14 +4,11 @@ import { Logger, makeStreamTransport } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { VatSupervisor } from '@metamask/ocap-kernel';
 import { makeStreams } from '@ocap/nodejs';
-import { resolve } from 'node:path';
 
+import { DEMO_ROOT_DIR } from './constants.ts';
 import makeDemoFs from './fs.ts';
-import { getUrlSourceDir } from './url.ts';
 
-const { readFile } = makeDemoFs(
-  resolve(getUrlSourceDir(import.meta.url), '../demos'),
-);
+const { readFile } = makeDemoFs(DEMO_ROOT_DIR);
 
 const LOG_TAG = 'demo-vat-worker';
 
