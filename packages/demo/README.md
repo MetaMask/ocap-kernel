@@ -2,13 +2,10 @@
 
 Demonstrations of ocap kernel usage.
 
-## Installation
+## Index
 
-`yarn add @ocap/demo`
-
-or
-
-`npm install @ocap/demo`
+1. [Vat Creation](./demos/01-vat-creation/README.md)
+2. [Bootstrapping](./demos/02-bootstrapping/README.md)
 
 ## Contributing
 
