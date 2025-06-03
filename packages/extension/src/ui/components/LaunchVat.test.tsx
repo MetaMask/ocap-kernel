@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { LaunchVat } from './LaunchVat.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
+import type { PanelContextType } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 import { isValidBundleUrl } from '../utils.ts';
 
@@ -33,12 +34,12 @@ describe('LaunchVat Component', () => {
       collectGarbage: vi.fn(),
     });
 
-    (usePanelContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    vi.mocked(usePanelContext).mockReturnValue({
       status: {
         subclusters: [],
         rogueVats: [],
       },
-    });
+    } as unknown as PanelContextType);
   });
 
   it('renders inputs and button with initial values', () => {
@@ -108,12 +109,12 @@ describe('LaunchVat Component', () => {
       { id: 'subcluster1', vats: [] },
       { id: 'subcluster2', vats: [] },
     ];
-    (usePanelContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    vi.mocked(usePanelContext).mockReturnValue({
       status: {
         subclusters: mockSubclusters,
         rogueVats: [],
       },
-    });
+    } as unknown as PanelContextType);
 
     render(<LaunchVat />);
     const subclusterSelect = screen.getByRole('combobox');
@@ -130,12 +131,12 @@ describe('LaunchVat Component', () => {
   it('calls launchVat with selected subcluster when provided', async () => {
     vi.mocked(isValidBundleUrl).mockReturnValue(true);
     const mockSubclusters = [{ id: 'subcluster1', vats: [] }];
-    (usePanelContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    vi.mocked(usePanelContext).mockReturnValue({
       status: {
         subclusters: mockSubclusters,
         rogueVats: [],
       },
-    });
+    } as unknown as PanelContextType);
 
     render(<LaunchVat />);
     const vatNameInput = screen.getByPlaceholderText('Vat Name');
