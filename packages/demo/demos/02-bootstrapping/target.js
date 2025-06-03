@@ -1,10 +1,7 @@
 /**
- * Example 01: A simple vat with a mutable state.
- * ----------
- * This example shows how to create a vat with a mutable state.
- *
- * The vat entrypoint script exports a buildRootObject function.
- * The returned object declares the vat's public API.
+ * 2. target.js: A vat with a mutable state.
+ * ------------
+ * This vat has a mutable name, and a hello and goodbye method that use it.
  */
 
 import { Far } from '@endo/far';
@@ -21,17 +18,9 @@ export function buildRootObject(_, { name = 'world' }) {
   let currentName = name;
 
   return Far('root', {
-    hello() {
-      return `Hello, ${currentName}!`;
-    },
-    goodbye() {
-      return `Goodbye, ${currentName}!`;
-    },
-    getName() {
-      return currentName;
-    },
-    setName(newName) {
-      currentName = newName;
-    },
+    hello: () => `Hello, ${currentName}!`,
+    goodbye: () => `Goodbye, ${currentName}!`,
+    getName: () => currentName,
+    setName: (newName) => (currentName = newName),
   });
 }
