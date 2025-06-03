@@ -11,8 +11,8 @@ import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
-// The importing files end up in `./<entrypoint>/index.js`, and we statically copy
-// endoify.js to `./`
+// The importing files end up in `./<entrypoint>/`, and we statically copy `endoify.js`
+// to `./`.
 const endoifyImportStatement = `import "../endoify.js";`;
 
 export const trustedPreludes: PreludeRecord = {
@@ -55,23 +55,26 @@ export default defineConfig(({ mode }) => {
       modulePreload: false,
       rollupOptions: {
         input: {
-          vat: path.resolve(sourceDir, 'vat', 'iframe.html'),
           'kernel-worker': path.resolve(
             sourceDir,
             'kernel-worker',
             'kernel-worker.ts',
           ),
+          vat: path.resolve(sourceDir, 'vat', 'iframe.html'),
         },
         output: {
           format: 'esm',
+          // Basically, create directories for each entry point and put all related
+          // files in them.
           entryFileNames: (chunkInfo) => {
+            // This property isn't really documented, but it appears to be equivalent
+            // to the keys of `rollupOptions.input`.
             if (!chunkInfo.facadeModuleId) {
               return '[name].js';
             }
 
-            const fileName = Object.keys(trustedPreludes).includes(
-              chunkInfo.name,
-            )
+            // Rename JS entry points to `index.js`
+            const fileName = ['kernel-worker', 'vat'].includes(chunkInfo.name)
               ? 'index'
               : '[name]';
 
@@ -106,10 +109,10 @@ export default defineConfig(({ mode }) => {
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
       isDev && (sourcemaps() as unknown as VitePlugin),
       // For unknown reasons, Vite duplicates the WASM binary file of @sqlite.org/sqlite-wasm.
-      // (The file is conditionally imported by multiple files, so that may be the reason.)
-      // To avoid bloating the bundle, we introduce the following distasteful hack, which:
-      // 1. finds the extraneous sqlite-wasm files
-      // 2. deletes them from the bundle
+      // (It's probably related to the the file being conditionally imported in multiple places.)
+      // To avoid bloating the bundle, we delete the duplicate files. Thankfully, these files are
+      // extraneous because we don't hit their code paths in practice. (If we did, things would
+      // blow up spectacularly.)
       {
         name: 'deduplicate-sqlite-wasm',
         enforce: 'post',
