@@ -308,4 +308,32 @@ describe('SubclustersTable Component', () => {
     );
     expect(mockActions.reloadSubcluster).toHaveBeenCalledWith('subcluster-1');
   });
+
+  it('opens config modal when View Config button is clicked', async () => {
+    vi.mocked(useVats).mockReturnValue({
+      groupedVats: mockGroupedVats,
+      ...mockActions,
+      hasVats: true,
+    });
+    render(<SubclustersTable />);
+    await userEvent.click(screen.getByText('Subcluster subcluster-1 -'));
+
+    // Initially modal should not be visible
+    expect(
+      screen.queryByText('Subcluster subcluster-1 Configuration'),
+    ).not.toBeInTheDocument();
+
+    // Click View Config button
+    await userEvent.click(screen.getByRole('button', { name: 'View Config' }));
+
+    // Modal should now be visible
+    expect(
+      screen.getByText('Subcluster subcluster-1 Configuration'),
+    ).toBeInTheDocument();
+
+    // Check that the config is displayed in the textarea
+    const textarea = screen.getByTestId('config-textarea');
+    expect(textarea).toBeInTheDocument();
+    expect((textarea as HTMLTextAreaElement).value).toContain('bootstrap');
+  });
 });
