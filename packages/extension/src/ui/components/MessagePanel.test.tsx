@@ -23,7 +23,7 @@ vi.mock('@metamask/kernel-utils', () => ({
 }));
 
 // Mock the LoadingDots component
-vi.mock('./LoadingDots.tsx', () => ({
+vi.mock('./shared/LoadingDots.tsx', () => ({
   LoadingDots: () => <div data-testid="loading-dots">Loading...</div>,
 }));
 

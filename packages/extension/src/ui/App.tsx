@@ -6,7 +6,7 @@ import { ControlPanel } from './components/ControlPanel.tsx';
 import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
-import { Tabs } from './components/Tabs.tsx';
+import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
 import { useStream } from './hooks/useStream.ts';
 

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-import { LoadingDots } from './LoadingDots.tsx';
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { OutputType } from '../context/PanelContext.tsx';
+import { LoadingDots } from './shared/LoadingDots.tsx';
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
