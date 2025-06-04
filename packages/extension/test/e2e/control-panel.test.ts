@@ -1,6 +1,6 @@
 import defaultClusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
 import { test, expect } from '@playwright/test';
-import type { Page, BrowserContext, Locator } from '@playwright/test';
+import type { Page, BrowserContext } from '@playwright/test';
 
 // Vitest/Playwright needs the import assertions
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
@@ -12,14 +12,12 @@ test.describe('Control Panel', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
   let extensionId: string;
-  let messageOutput: Locator;
 
   test.beforeEach(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
     extensionId = extension.extensionId;
-    messageOutput = popupPage.locator('[data-testid="message-output"]');
     await expect(popupPage.locator('[data-testid="vat-table"]')).toBeVisible();
     await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
   });
@@ -33,11 +31,15 @@ test.describe('Control Panel', () => {
    */
   async function clearState(): Promise<void> {
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.fill('input[placeholder="Vat Name"]', '');
     await popupPage.fill('input[placeholder="Bundle URL"]', '');
     await popupPage.click('button:text("Clear All State")');
-    await expect(messageOutput).toContainText('State cleared');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('State cleared');
     await expect(
       popupPage.locator('[data-testid="vat-table"]'),
     ).not.toBeVisible();
@@ -55,7 +57,9 @@ test.describe('Control Panel', () => {
       'http://localhost:3000/sample-vat.bundle',
     );
     await popupPage.click('button:text("Launch Vat")');
-    await expect(messageOutput).toContainText(`Launched vat "${name}"`);
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText(`Launched vat "${name}"`);
   }
 
   test('should load popup with kernel panel', async () => {
@@ -103,7 +107,9 @@ test.describe('Control Panel', () => {
       popupPage.locator('button:text("Restart")').first(),
     ).toBeVisible();
     await popupPage.locator('button:text("Restart")').first().click();
-    await expect(messageOutput).toContainText('Restarted vat "v1"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Restarted vat "v1"');
   });
 
   test('should terminate a vat', async () => {
@@ -112,7 +118,9 @@ test.describe('Control Panel', () => {
       popupPage.locator('td button:text("Terminate")').first(),
     ).toBeVisible();
     await popupPage.locator('td button:text("Terminate")').first().click();
-    await expect(messageOutput).toContainText('Terminated vat "v1"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Terminated vat "v1"');
     await expect(popupPage.locator('table tr')).toHaveCount(3);
   });
 
@@ -121,8 +129,12 @@ test.describe('Control Panel', () => {
       popupPage.locator('td button:text("Ping")').first(),
     ).toBeVisible();
     await popupPage.locator('td button:text("Ping")').first().click();
-    await expect(messageOutput).toContainText('"method": "pingVat",');
-    await expect(messageOutput).toContainText('pong');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('"method": "pingVat",');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('pong');
   });
 
   test('should terminate all vats', async () => {
@@ -130,11 +142,15 @@ test.describe('Control Panel', () => {
       popupPage.locator('button:text("Terminate All Vats")'),
     ).toBeVisible();
     await popupPage.click('button:text("Terminate All Vats")');
-    await expect(messageOutput).toContainText('All vats terminated');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('All vats terminated');
     await expect(popupPage.locator('table')).not.toBeVisible();
     // ensure all references were garbage collected
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.click('button:text("Database Inspector")');
     const expectedValues = JSON.stringify([
       { key: 'queue.run.head', value: '6' },
@@ -148,16 +164,22 @@ test.describe('Control Panel', () => {
       { key: 'nextRemoteId', value: '1' },
       { key: 'initialized', value: 'true' },
     ]);
-    await expect(messageOutput).toContainText(expectedValues);
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText(expectedValues);
   });
 
   test('should clear kernel state', async () => {
     await popupPage.click('button:text("Clear All State")');
-    await expect(messageOutput).toContainText('State cleared');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('State cleared');
     await expect(popupPage.locator('table')).not.toBeVisible();
     // ensure kernel state was cleared
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.click('button:text("Database Inspector")');
     const expectedValues = JSON.stringify([
       { key: 'queue.run.head', value: '1' },
@@ -170,8 +192,12 @@ test.describe('Control Panel', () => {
       { key: 'nextVatId', value: '1' },
       { key: 'nextRemoteId', value: '1' },
     ]);
-    await expect(messageOutput).toContainText(expectedValues);
-    await expect(messageOutput).not.toContainText('"initialized":true');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText(expectedValues);
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).not.toContainText('"initialized":true');
     await popupPage.click('button:text("Control Panel")');
     await launchVat('test-vat-new');
     await expect(popupPage.locator('table tr')).toHaveCount(2);
@@ -250,8 +276,12 @@ test.describe('Control Panel', () => {
       popupPage.locator('button:text("Reload Kernel")'),
     ).toBeVisible();
     await popupPage.click('button:text("Reload Kernel")');
-    await expect(messageOutput).toContainText('"method": "reload"');
-    await expect(messageOutput).toContainText('Default sub-cluster reloaded', {
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('"method": "reload"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Default sub-cluster reloaded', {
       timeout: 10000,
     });
   });
@@ -269,7 +299,9 @@ test.describe('Control Panel', () => {
     // Test invalid JSON handling
     await configTextarea.fill('{ invalid json }');
     await popupPage.click('button:text("Update Config")');
-    await expect(messageOutput).toContainText('SyntaxError');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('SyntaxError');
     // Verify original vats still exist
     const firstVatKey = Object.keys(
       defaultClusterConfig.vats,
@@ -323,9 +355,9 @@ test.describe('Control Panel', () => {
       popupPage.locator('button:text("Database Inspector")'),
     ).toBeVisible();
     await popupPage.click('button:text("Database Inspector")');
-    await expect(messageOutput).toContainText(
-      '{"key":"vats.terminated","value":"[]"}',
-    );
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"vats.terminated","value":"[]"}');
     const v3Values = [
       '{"key":"e.nextPromiseId.v3","value":"2"}',
       '{"key":"e.nextObjectId.v3","value":"1"}',
@@ -342,64 +374,92 @@ test.describe('Control Panel', () => {
       '{"key":"kp3.state","value":"fulfilled"}',
       '{"key":"kp3.value","value"',
     ];
-    await expect(messageOutput).toContainText(
-      '{"key":"kp3.refCount","value":"2"}',
-    );
-    await expect(messageOutput).toContainText('{"key":"vatConfig.v3","value"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"kp3.refCount","value":"2"}');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"vatConfig.v3","value"');
     for (const value of v3Values) {
-      await expect(messageOutput).toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
     }
     for (const value of v1ko3Values) {
-      await expect(messageOutput).toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
     }
     await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('td button:text("Terminate")').last().click();
-    await expect(messageOutput).toContainText('Terminated vat "v3"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Terminated vat "v3"');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.click('button:text("Database Inspector")');
-    await expect(messageOutput).toContainText(
-      '{"key":"vats.terminated","value":"[\\"v3\\"]"}',
-    );
-    await expect(messageOutput).not.toContainText(
-      '{"key":"vatConfig.v3","value"',
-    );
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"vats.terminated","value":"[\\"v3\\"]"}');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).not.toContainText('{"key":"vatConfig.v3","value"');
     for (const value of v3Values) {
-      await expect(messageOutput).toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
     }
     await popupPage.click('button:text("Control Panel")');
 
     await popupPage.click('button:text("Collect Garbage")');
-    await expect(messageOutput).toContainText('Garbage collected');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Garbage collected');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.click('button:text("Database Inspector")');
     // v3 is gone
     for (const value of v3Values) {
-      await expect(messageOutput).not.toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).not.toContainText(value);
     }
     // ko3 reference still exists for v1
     for (const value of v1ko3Values) {
-      await expect(messageOutput).toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
     }
     // kp3 reference dropped to 1
-    await expect(messageOutput).toContainText(
-      '{"key":"kp3.refCount","value":"1"}',
-    );
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"kp3.refCount","value":"1"}');
     await popupPage.click('button:text("Control Panel")');
     // delete v1
     await popupPage.locator('td button:text("Terminate")').first().click();
-    await expect(messageOutput).toContainText('Terminated vat "v1"');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Terminated vat "v1"');
     await popupPage.click('button:text("Collect Garbage")');
-    await expect(messageOutput).toContainText('Garbage collected');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('Garbage collected');
     await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(messageOutput).toContainText('');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('');
     await popupPage.click('button:text("Database Inspector")');
-    await expect(messageOutput).toContainText(
-      '{"key":"vats.terminated","value":"[]"}',
-    );
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('{"key":"vats.terminated","value":"[]"}');
     for (const value of v1ko3Values) {
-      await expect(messageOutput).not.toContainText(value);
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).not.toContainText(value);
     }
   });
 });
