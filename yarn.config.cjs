@@ -26,6 +26,13 @@ const noTests = ['test-utils'];
 const noPackageJson = ['extension'];
 // Packages that have weird exports
 const exportsExceptions = ['kernel-shims'];
+// Packages that have weird files
+const filesExceptions = [
+  'kernel-browser-runtime',
+  'kernel-store',
+  'ocap-kernel',
+  'streams',
+];
 
 /**
  * Aliases for the Yarn type definitions, to make the code more readable.
@@ -176,7 +183,12 @@ module.exports = defineConfig({
           );
         }
 
-        if (!isPrivate || entrypointExceptions.includes(workspaceBasename)) {
+        if (filesExceptions.includes(workspaceBasename)) {
+          expectWorkspaceField(workspace, 'files');
+        } else if (
+          !isPrivate ||
+          entrypointExceptions.includes(workspaceBasename)
+        ) {
           // The list of files included in all non-root packages must only include
           // files generated during the build process.
           expectWorkspaceField(workspace, 'files', ['dist/']);
