@@ -49,6 +49,7 @@ export default defineConfig(({ mode }) => {
     base: './',
 
     build: {
+      assetsDir: './',
       emptyOutDir: true,
       outDir: buildDir,
       // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
@@ -119,8 +120,8 @@ export default defineConfig(({ mode }) => {
         generateBundle(_, bundle) {
           const extraneousAssets = Object.values(bundle).filter(
             (assetOrChunk) =>
-              assetOrChunk.fileName.startsWith('assets/sqlite3-') &&
-              !assetOrChunk.fileName.includes('opfs-async-proxy'),
+              assetOrChunk.fileName.startsWith('sqlite3-') &&
+              !assetOrChunk.fileName.includes('sqlite3-opfs-async-proxy'),
           );
 
           if (extraneousAssets.length !== 2) {
