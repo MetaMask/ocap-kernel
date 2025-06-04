@@ -23,7 +23,7 @@ vi.mock('@metamask/kernel-utils', () => ({
 }));
 
 // Mock the LoadingDots component
-vi.mock('./LoadingDots.tsx', () => ({
+vi.mock('./shared/LoadingDots.tsx', () => ({
   LoadingDots: () => <div data-testid="loading-dots">Loading...</div>,
 }));
 
@@ -39,7 +39,7 @@ describe('MessagePanel Component', () => {
       clearState: vi.fn(),
       reload: vi.fn(),
       launchVat: vi.fn(),
-      updateClusterConfig: vi.fn(),
+      launchSubcluster: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',

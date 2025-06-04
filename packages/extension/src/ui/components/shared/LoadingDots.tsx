@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import styles from '../App.module.css';
+import styles from '../../App.module.css';
 
 /**
  * @returns A component that displays a loading animation with dots.

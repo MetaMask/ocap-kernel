@@ -4,18 +4,21 @@ import type { KRef } from '../types.ts';
 
 export type StoreContext = {
   kv: KVStore;
-  runQueue: StoredQueue;
-  runQueueLengthCache: number;
-  nextObjectId: StoredValue;
-  nextPromiseId: StoredValue;
-  nextVatId: StoredValue;
-  nextRemoteId: StoredValue;
+  runQueue: StoredQueue; // Holds RunAction[]
+  runQueueLengthCache: number; // Holds number
+  nextObjectId: StoredValue; // Holds string
+  nextPromiseId: StoredValue; // Holds string
+  nextVatId: StoredValue; // Holds string
+  nextRemoteId: StoredValue; // Holds string
   maybeFreeKrefs: Set<KRef>;
-  gcActions: StoredValue;
-  reapQueue: StoredValue;
-  terminatedVats: StoredValue;
+  gcActions: StoredValue; // Holds GCAction[]
+  reapQueue: StoredValue; // Holds ReapAction[]
+  terminatedVats: StoredValue; // Holds VatId[]
   inCrank: boolean;
   savepoints: string[];
+  subclusters: StoredValue; // Holds Subcluster[]
+  nextSubclusterId: StoredValue; // Holds string
+  vatToSubclusterMap: StoredValue; // Holds Record<VatId, SubclusterId>
 };
 
 export type StoredValue = {

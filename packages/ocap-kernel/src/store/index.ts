@@ -69,6 +69,7 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
@@ -127,6 +128,10 @@ export function makeKernelStore(kdb: KernelDatabase) {
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
+    // Subclusters
+    subclusters: provideCachedStoredValue('subclusters', '[]'),
+    nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
+    vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
   };
 
   const id = getIdMethods(context);
@@ -141,6 +146,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const translators = getTranslators(context);
   const pinned = getPinMethods(context);
   const crank = getCrankMethods(context, kdb);
+  const subclusters = getSubclusterMethods(context);
 
   /**
    * Create a new VatStore for a vat.
@@ -161,6 +167,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   function deleteVat(vatId: VatId): void {
     vat.deleteVatConfig(vatId);
     kdb.deleteVatStore(vatId);
+    subclusters.removeVatFromSubcluster(vatId);
   }
 
   /**
@@ -177,6 +184,15 @@ export function makeKernelStore(kdb: KernelDatabase) {
     context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
     context.nextVatId = provideCachedStoredValue('nextVatId', '1');
     context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
+    context.subclusters = provideCachedStoredValue('subclusters', '[]');
+    context.nextSubclusterId = provideCachedStoredValue(
+      'nextSubclusterId',
+      '1',
+    );
+    context.vatToSubclusterMap = provideCachedStoredValue(
+      'vatToSubclusterMap',
+      '{}',
+    );
     crank.releaseAllSavepoints();
   }
 
@@ -200,6 +216,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...translators,
     ...pinned,
     ...crank,
+    ...subclusters,
     makeVatStore,
     deleteVat,
     clear,

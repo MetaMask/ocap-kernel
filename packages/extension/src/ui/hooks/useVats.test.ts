@@ -21,15 +21,27 @@ describe('useVats', () => {
   const mockLogMessage = vi.fn();
   const mockSetSelectedVatId = vi.fn();
   const mockVatId = 'vat1';
+  const mockSubclusterId = 'subcluster1';
 
   const mockStatus = {
     vats: [
       {
         id: mockVatId,
+        subclusterId: mockSubclusterId,
         config: {
           bundleSpec: 'test-bundle',
           parameters: { foo: 'bar' },
           creationOptions: { test: true },
+        },
+      },
+    ],
+    subclusters: [
+      {
+        id: mockSubclusterId,
+        name: 'Test Subcluster',
+        config: {
+          bundleSpec: 'test-bundle',
+          parameters: { foo: 'bar' },
         },
       },
     ],
@@ -50,21 +62,38 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.vats).toStrictEqual([
-      {
-        id: mockVatId,
-        source: 'test-bundle',
-        parameters: '{"foo":"bar"}',
-        creationOptions: '{"test":true}',
-      },
-    ]);
+    expect(result.current.groupedVats).toStrictEqual({
+      subclusters: [
+        {
+          id: mockSubclusterId,
+          name: 'Test Subcluster',
+          config: {
+            bundleSpec: 'test-bundle',
+            parameters: { foo: 'bar' },
+          },
+          vatRecords: [
+            {
+              id: mockVatId,
+              source: 'test-bundle',
+              parameters: '{"foo":"bar"}',
+              creationOptions: '{"test":true}',
+              subclusterId: mockSubclusterId,
+            },
+          ],
+        },
+      ],
+      rogueVats: [],
+    });
   });
 
   it('should handle missing vat config gracefully', async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
     vi.mocked(usePanelContext).mockReturnValue({
       callKernelMethod: mockSendMessage,
-      status: { vats: [{ id: mockVatId, config: {} as VatConfig }] },
+      status: {
+        vats: [{ id: mockVatId, config: {} as VatConfig }],
+        subclusters: [],
+      },
       selectedVatId: mockVatId,
       setSelectedVatId: mockSetSelectedVatId,
       logMessage: mockLogMessage,
@@ -73,19 +102,22 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.vats).toStrictEqual([
-      {
-        id: mockVatId,
-        source: 'unknown',
-        parameters: '{}',
-        creationOptions: '{}',
-      },
-    ]);
+    expect(result.current.groupedVats).toStrictEqual({
+      subclusters: [],
+      rogueVats: [
+        {
+          id: mockVatId,
+          source: 'unknown',
+          parameters: '{}',
+          creationOptions: '{}',
+          subclusterId: undefined,
+        },
+      ],
+    });
   });
 
   it('should use sourceSpec when bundleSpec is not available', async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
-    const sourceSpecValue = 'source-test';
     vi.mocked(usePanelContext).mockReturnValue({
       callKernelMethod: mockSendMessage,
       status: {
@@ -93,32 +125,37 @@ describe('useVats', () => {
           {
             id: mockVatId,
             config: {
-              sourceSpec: sourceSpecValue,
+              sourceSpec: 'test-source',
               parameters: { foo: 'bar' },
-              creationOptions: { test: true },
-            } as VatConfig,
+            },
           },
         ],
+        subclusters: [],
       },
       selectedVatId: mockVatId,
       setSelectedVatId: mockSetSelectedVatId,
       logMessage: mockLogMessage,
     } as unknown as PanelContextType);
+
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
-    expect(result.current.vats).toStrictEqual([
-      {
-        id: mockVatId,
-        source: sourceSpecValue,
-        parameters: '{"foo":"bar"}',
-        creationOptions: '{"test":true}',
-      },
-    ]);
+
+    expect(result.current.groupedVats).toStrictEqual({
+      subclusters: [],
+      rogueVats: [
+        {
+          id: mockVatId,
+          source: 'test-source',
+          parameters: '{"foo":"bar"}',
+          creationOptions: '{}',
+          subclusterId: undefined,
+        },
+      ],
+    });
   });
 
   it('should use bundleName when bundleSpec and sourceSpec are not available', async () => {
     const { usePanelContext } = await import('../context/PanelContext.tsx');
-    const bundleNameValue = 'bundle-name-test';
     vi.mocked(usePanelContext).mockReturnValue({
       callKernelMethod: mockSendMessage,
       status: {
@@ -126,35 +163,42 @@ describe('useVats', () => {
           {
             id: mockVatId,
             config: {
-              bundleName: bundleNameValue,
+              bundleName: 'test-bundle',
               parameters: { foo: 'bar' },
-              creationOptions: { test: true },
-            } as VatConfig,
+            },
           },
         ],
+        subclusters: [],
       },
       selectedVatId: mockVatId,
       setSelectedVatId: mockSetSelectedVatId,
       logMessage: mockLogMessage,
     } as unknown as PanelContextType);
+
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
-    expect(result.current.vats).toStrictEqual([
-      {
-        id: mockVatId,
-        source: bundleNameValue,
-        parameters: '{"foo":"bar"}',
-        creationOptions: '{"test":true}',
-      },
-    ]);
+
+    expect(result.current.groupedVats).toStrictEqual({
+      subclusters: [],
+      rogueVats: [
+        {
+          id: mockVatId,
+          source: 'test-bundle',
+          parameters: '{"foo":"bar"}',
+          creationOptions: '{}',
+          subclusterId: undefined,
+        },
+      ],
+    });
   });
 
   describe('pingVat', () => {
     it('should send ping message and log success', async () => {
       const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
-      const pingResult = 'pong';
-      mockSendMessage.mockResolvedValueOnce(pingResult);
+
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
       result.current.pingVat(mockVatId);
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
@@ -162,17 +206,22 @@ describe('useVats', () => {
           params: { id: mockVatId },
         });
       });
-      expect(mockLogMessage).toHaveBeenCalledWith(pingResult, 'success');
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        '{"success":true}',
+        'success',
+      );
     });
 
     it('should handle ping error', async () => {
       const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
-      const errorMessage = 'Vat not responding';
-      mockSendMessage.mockRejectedValueOnce(new Error(errorMessage));
+
+      const error = new Error('Ping failed');
+      mockSendMessage.mockRejectedValueOnce(error);
+
       result.current.pingVat(mockVatId);
       await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(errorMessage, 'error');
+        expect(mockLogMessage).toHaveBeenCalledWith('Ping failed', 'error');
       });
     });
   });
@@ -182,7 +231,8 @@ describe('useVats', () => {
       const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
-      mockSendMessage.mockResolvedValueOnce(undefined);
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
       result.current.restartVat(mockVatId);
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
@@ -191,7 +241,7 @@ describe('useVats', () => {
         });
       });
       expect(mockLogMessage).toHaveBeenCalledWith(
-        'Restarted vat "vat1"',
+        `Restarted vat "${mockVatId}"`,
         'success',
       );
     });
@@ -201,10 +251,11 @@ describe('useVats', () => {
       const { result } = renderHook(() => useVats());
 
       mockSendMessage.mockRejectedValueOnce(new Error());
+
       result.current.restartVat(mockVatId);
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
-          'Failed to restart vat "vat1"',
+          `Failed to restart vat "${mockVatId}"`,
           'error',
         );
       });
@@ -216,7 +267,8 @@ describe('useVats', () => {
       const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
 
-      mockSendMessage.mockResolvedValueOnce(undefined);
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
       result.current.terminateVat(mockVatId);
       await waitFor(() => {
         expect(mockSendMessage).toHaveBeenCalledWith({
@@ -225,7 +277,7 @@ describe('useVats', () => {
         });
       });
       expect(mockLogMessage).toHaveBeenCalledWith(
-        'Terminated vat "vat1"',
+        `Terminated vat "${mockVatId}"`,
         'success',
       );
     });
@@ -233,11 +285,85 @@ describe('useVats', () => {
     it('should handle terminate error', async () => {
       const { useVats } = await import('./useVats.ts');
       const { result } = renderHook(() => useVats());
+
       mockSendMessage.mockRejectedValueOnce(new Error());
+
       result.current.terminateVat(mockVatId);
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
-          'Failed to terminate vat "vat1"',
+          `Failed to terminate vat "${mockVatId}"`,
+          'error',
+        );
+      });
+    });
+  });
+
+  describe('terminateSubcluster', () => {
+    it('should send terminate subcluster message and log success', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      result.current.terminateSubcluster(mockSubclusterId);
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'terminateSubcluster',
+          params: { id: mockSubclusterId },
+        });
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        `Terminated subcluster "${mockSubclusterId}"`,
+        'success',
+      );
+    });
+
+    it('should handle terminate subcluster error', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+
+      mockSendMessage.mockRejectedValueOnce(new Error());
+
+      result.current.terminateSubcluster(mockSubclusterId);
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          `Failed to terminate subcluster "${mockSubclusterId}"`,
+          'error',
+        );
+      });
+    });
+  });
+
+  describe('reloadSubcluster', () => {
+    it('should send reload subcluster message and log success', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+
+      mockSendMessage.mockResolvedValueOnce({ success: true });
+
+      result.current.reloadSubcluster(mockSubclusterId);
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'reloadSubcluster',
+          params: { id: mockSubclusterId },
+        });
+      });
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        `Reloaded subcluster "${mockSubclusterId}"`,
+        'success',
+      );
+    });
+
+    it('should handle reload subcluster error', async () => {
+      const { useVats } = await import('./useVats.ts');
+      const { result } = renderHook(() => useVats());
+
+      mockSendMessage.mockRejectedValueOnce(new Error());
+
+      result.current.reloadSubcluster(mockSubclusterId);
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          `Failed to reload subcluster "${mockSubclusterId}"`,
           'error',
         );
       });

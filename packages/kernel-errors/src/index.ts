@@ -3,6 +3,7 @@ export { VatAlreadyExistsError } from './errors/VatAlreadyExistsError.ts';
 export { VatDeletedError } from './errors/VatDeletedError.ts';
 export { VatNotFoundError } from './errors/VatNotFoundError.ts';
 export { StreamReadError } from './errors/StreamReadError.ts';
+export { SubclusterNotFoundError } from './errors/SubclusterNotFoundError.ts';
 export {
   ErrorCode,
   ErrorSentinel,

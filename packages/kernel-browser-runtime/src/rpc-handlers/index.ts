@@ -8,20 +8,28 @@ import {
   executeDBQuerySpec,
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
+import {
+  launchSubclusterHandler,
+  launchSubclusterSpec,
+} from './launch-subcluster.ts';
 import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
+import {
+  reloadSubclusterHandler,
+  reloadSubclusterSpec,
+} from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import {
   terminateAllVatsHandler,
   terminateAllVatsSpec,
 } from './terminate-all-vats.ts';
-import { terminateVatHandler, terminateVatSpec } from './terminate-vat.ts';
 import {
-  updateClusterConfigHandler,
-  updateClusterConfigSpec,
-} from './update-cluster-config.ts';
+  terminateSubclusterHandler,
+  terminateSubclusterSpec,
+} from './terminate-subcluster.ts';
+import { terminateVatHandler, terminateVatSpec } from './terminate-vat.ts';
 
 /**
  * Call-ee side handlers for the kernel control methods.
@@ -38,7 +46,9 @@ export const rpcHandlers = {
   terminateAllVats: terminateAllVatsHandler,
   collectGarbage: collectGarbageHandler,
   terminateVat: terminateVatHandler,
-  updateClusterConfig: updateClusterConfigHandler,
+  launchSubcluster: launchSubclusterHandler,
+  reloadSubcluster: reloadSubclusterHandler,
+  terminateSubcluster: terminateSubclusterHandler,
 } as {
   clearState: typeof clearStateHandler;
   executeDBQuery: typeof executeDBQueryHandler;
@@ -51,7 +61,9 @@ export const rpcHandlers = {
   terminateAllVats: typeof terminateAllVatsHandler;
   collectGarbage: typeof collectGarbageHandler;
   terminateVat: typeof terminateVatHandler;
-  updateClusterConfig: typeof updateClusterConfigHandler;
+  launchSubcluster: typeof launchSubclusterHandler;
+  reloadSubcluster: typeof reloadSubclusterHandler;
+  terminateSubcluster: typeof terminateSubclusterHandler;
 };
 
 /**
@@ -69,7 +81,9 @@ export const rpcMethodSpecs = {
   terminateAllVats: terminateAllVatsSpec,
   collectGarbage: collectGarbageSpec,
   terminateVat: terminateVatSpec,
-  updateClusterConfig: updateClusterConfigSpec,
+  launchSubcluster: launchSubclusterSpec,
+  reloadSubcluster: reloadSubclusterSpec,
+  terminateSubcluster: terminateSubclusterSpec,
 } as {
   clearState: typeof clearStateSpec;
   executeDBQuery: typeof executeDBQuerySpec;
@@ -82,7 +96,9 @@ export const rpcMethodSpecs = {
   terminateAllVats: typeof terminateAllVatsSpec;
   collectGarbage: typeof collectGarbageSpec;
   terminateVat: typeof terminateVatSpec;
-  updateClusterConfig: typeof updateClusterConfigSpec;
+  launchSubcluster: typeof launchSubclusterSpec;
+  reloadSubcluster: typeof reloadSubclusterSpec;
+  terminateSubcluster: typeof terminateSubclusterSpec;
 };
 
 type Handlers = (typeof rpcHandlers)[keyof typeof rpcHandlers];

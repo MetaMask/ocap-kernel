@@ -29,18 +29,24 @@ const mockUseKernelActions = (overrides = {}): void => {
     clearState: vi.fn(),
     reload: vi.fn(),
     launchVat: vi.fn(),
-    updateClusterConfig: vi.fn(),
     collectGarbage: vi.fn(),
+    launchSubcluster: vi.fn(),
     ...overrides,
   });
 };
 
 const mockUseVats = (vats: VatRecord[] = []): void => {
   vi.mocked(useVats).mockReturnValue({
-    vats,
+    groupedVats: {
+      subclusters: [],
+      rogueVats: vats,
+    },
     pingVat: vi.fn(),
     restartVat: vi.fn(),
     terminateVat: vi.fn(),
+    terminateSubcluster: vi.fn(),
+    reloadSubcluster: vi.fn(),
+    hasVats: vats.length > 0,
   });
 };
 

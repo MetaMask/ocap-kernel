@@ -1,6 +1,7 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
+import { ROOT_OBJECT_VREF } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -55,7 +56,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The root object for the vat.
    */
   function getRootObject(vatId: VatId): KRef | undefined {
-    return ctx.kv.get(getSlotKey(vatId, 'o+0'));
+    return ctx.kv.get(getSlotKey(vatId, ROOT_OBJECT_VREF));
   }
 
   /**

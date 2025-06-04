@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getObjectMethods } from './object.ts';
 import { makeMapKVStore } from '../../../test/storage.ts';
+import { ROOT_OBJECT_VREF } from '../../types.ts';
 import type { EndpointId, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
@@ -82,7 +83,7 @@ describe('object-methods', () => {
       const rootKref = 'ko42';
 
       // Set up a root object entry in the KV store
-      kv.set(`${vatId}.c.o+0`, rootKref);
+      kv.set(`${vatId}.c.${ROOT_OBJECT_VREF}`, rootKref);
 
       // Should return the root object KRef
       expect(objectStore.getRootObject(vatId)).toBe(rootKref);
@@ -104,7 +105,7 @@ describe('object-methods', () => {
       const rootKref = 'ko42';
 
       // Set up a root object entry in the KV store
-      kv.set(`${vatId}.c.o+0`, rootKref);
+      kv.set(`${vatId}.c.${ROOT_OBJECT_VREF}`, rootKref);
 
       // Should return true for the matching KRef
       expect(objectStore.isRootObject(rootKref, vatId)).toBe(true);
@@ -116,7 +117,7 @@ describe('object-methods', () => {
       const nonRootKref = 'ko99';
 
       // Set up a root object entry in the KV store
-      kv.set(`${vatId}.c.o+0`, rootKref);
+      kv.set(`${vatId}.c.${ROOT_OBJECT_VREF}`, rootKref);
 
       // Should return false for a different KRef
       expect(objectStore.isRootObject(nonRootKref, vatId)).toBe(false);

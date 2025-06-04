@@ -1,18 +1,18 @@
 import styles from '../App.module.css';
-import { useVats } from '../hooks/useVats.ts';
+import type { VatRecord } from '../types.ts';
 
-/**
- * @returns A table of active vats.
- */
-export const VatTable: React.FC = () => {
-  const { vats, restartVat, terminateVat, pingVat } = useVats();
-
+export const VatTable: React.FC<{
+  vats: VatRecord[];
+  onPingVat: (id: string) => void;
+  onRestartVat: (id: string) => void;
+  onTerminateVat: (id: string) => void;
+}> = ({ vats, onPingVat, onRestartVat, onTerminateVat }) => {
   if (vats.length === 0) {
     return null;
   }
 
   return (
-    <div className={styles.table}>
+    <div className={`${styles.table} ${styles.subclusterTable}`}>
       <table data-testid="vat-table">
         <thead>
           <tr>
@@ -32,19 +32,19 @@ export const VatTable: React.FC = () => {
                 <div className={styles.tableActions}>
                   <button
                     className={styles.smallButton}
-                    onClick={() => pingVat(vat.id)}
+                    onClick={() => onPingVat(vat.id)}
                   >
                     Ping
                   </button>
                   <button
                     className={styles.smallButton}
-                    onClick={() => restartVat(vat.id)}
+                    onClick={() => onRestartVat(vat.id)}
                   >
                     Restart
                   </button>
                   <button
                     className={styles.smallButton}
-                    onClick={() => terminateVat(vat.id)}
+                    onClick={() => onTerminateVat(vat.id)}
                   >
                     Terminate
                   </button>
