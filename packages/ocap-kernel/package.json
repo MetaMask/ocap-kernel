@@ -45,7 +45,8 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
   "files": [
-    "dist/"
+    "dist/",
+    "rpc.js"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",
