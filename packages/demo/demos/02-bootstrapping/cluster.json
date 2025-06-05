@@ -3,10 +3,10 @@
   "forceReset": true,
   "vats": {
     "entrypoint": {
-      "bundleSpec": "file:02-bootstrapping/entrypoint.bundle"
+      "bundleSpec": "http://localhost:3000/entrypoint.bundle"
     },
     "target": {
-      "bundleSpec": "file:02-bootstrapping/target.bundle",
+      "bundleSpec": "http://localhost:3000/target.bundle",
       "parameters": {
         "name": "dimitris"
       }
