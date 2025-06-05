@@ -1,10 +1,15 @@
 /**
- * Example 01: A simple vat with a mutable state.
- * ----------
- * This example shows how to create a vat with a mutable state.
+ * Example 01: Vat creation.
+ * -------------------------
+ * This example shows how to create a vat. This vat's root object declares
+ * a hello and goodbye method with outputs that depend on the name parameter.
  *
- * The vat entrypoint script exports a buildRootObject function.
- * The returned object declares the vat's public API.
+ * For a js file to become a vat, it must export a buildRootObject function.
+ * The ocap kernel will call this function to build the vat's root object,
+ * which is a remotable object that provides the vat's initial capabilities.
+ *
+ * Additional capabilities can be exported from the vat at runtime, and
+ * other vats generally access only a limited facet of the root object.
  */
 
 // 'Far' is used to explicitly mark that an object is allowed to exit the vat.
@@ -15,17 +20,13 @@ import { Far } from '@endo/far';
  *
  * @param {unknown} _ - Unused.
  * @param {object} parameters - The parameters passed to the vat.
- * @param {string} parameters.name - The name to say hello to.
- * @returns {object} The root object of the vat.
+ * @param {string} parameters.name - The name to say hello and goodbye to.
+ * @returns {object} The vat's root object.
  */
 export function buildRootObject(_, { name = 'world' }) {
-  // The root object is passed to 'Far' since it must be accessed remotely.
+  // The root object is passed through 'Far' to mark it as remotable.
   return Far('root', {
-    hello() {
-      return `Hello, ${name}!`;
-    },
-    goodbye() {
-      return `Goodbye, ${name}!`;
-    },
+    hello: () => `Hello, ${name}!`,
+    goodbye: () => `Goodbye, ${name}!`,
   });
 }
