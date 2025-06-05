@@ -1,0 +1,15 @@
+{
+  "bootstrap": "introducer",
+  "forceReset": true,
+  "vats": {
+    "introducer": {
+      "bundleSpec": "http://localhost:3000/introducer.bundle"
+    },
+    "bob": {
+      "bundleSpec": "http://localhost:3000/bob.bundle"
+    },
+    "fred": {
+      "bundleSpec": "http://localhost:3000/fred.bundle"
+    }
+  }
+}
