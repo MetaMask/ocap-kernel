@@ -1,23 +1,26 @@
 /**
- * Example 02: Bootstrapping a vat.
- * ----------
- * This example shows how to bootstrap a vat.
+ * Example 02: Bootstrapping.
+ * --------------------------
+ * This example shows how to bootstrap a cluster. This vat's root object has
+ * the bootstrap method.
  *
- * The vat entrypoint script exports a buildRootObject function.
- * The returned object declares the vat's public API.
+ * @see target.js for the vat that exports the remotable object.
+ * @see cluster.json to see how this vat is declared the cluster bootstrapper.
  */
 
 import { E, Far } from '@endo/far';
 
-/**
- * This function is called by the ocap kernel to build the vat's root object.
- *
- * @returns {object} The root object of the vat.
- */
 export function buildRootObject() {
   return Far('root', {
-    async bootstrap(vats) {
-      const { target } = vats;
+    /**
+     * The bootstrap method is called by the ocap kernel when the cluster is
+     * started. It is passed a vats object which is a record of the root objects
+     * of all the vats in the cluster.
+     *
+     * @param {object} vats - The vats object.
+     * @param {object} vats.target - The target vat.
+     */
+    async bootstrap({ target }) {
       // Say hello with the target vat's default name.
       await E(target).hello().then(console.log);
       // Flip the target vat's name around.
