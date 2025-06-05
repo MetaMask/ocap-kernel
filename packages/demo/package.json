@@ -39,6 +39,7 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "publish:preview": "yarn npm publish --tag preview",
+    "run-demo": "./scripts/demo.sh",
     "run-bundle": "node --disable-warning=ExperimentalWarning --experimental-strip-types ./src/index.ts bundle",
     "run-cluster": "node --disable-warning=ExperimentalWarning --experimental-strip-types ./src/index.ts cluster",
     "test": "vitest run --config vitest.config.ts",

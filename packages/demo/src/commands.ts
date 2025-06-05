@@ -103,6 +103,13 @@ const runClusterCommand: CommandModule = {
           type: 'string',
           requiresArg: true,
         },
+        silent: {
+          alias: 's',
+          describe: 'Whether to run without top-level logging.',
+          type: 'boolean',
+          requiresArg: false,
+          default: false,
+        },
       })
       .coerce('clusterPath', (clusterPath) =>
         resolve(process.cwd(), clusterPath),
@@ -157,12 +164,13 @@ export async function runBundleHandler(
 export async function runClusterHandler(
   args: Arguments<RunClusterOptions>,
 ): Promise<void> {
-  const { clusterPath } = args;
-  logger.log(`Attempting to run cluster "${clusterPath}"...`);
+  const { clusterPath, silent } = args;
+  const { log } = logger;
+  silent ?? log(`Attempting to run cluster "${clusterPath}"...`);
 
   try {
     const result = await runCluster(clusterPath, { logger });
-    logger.log("Result of 'bootstrap':", result);
+    silent ?? log("Result of 'bootstrap':", result);
   } catch (error: unknown) {
     if (error instanceof Error) {
       logger.error('Failed:', error.message);
