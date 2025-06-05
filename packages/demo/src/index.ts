@@ -3,7 +3,12 @@ import '@metamask/kernel-shims/endoify';
 import cli from './cli.ts';
 import { commands } from './commands.ts';
 
-cli(process.argv, commands).catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+cli(process.argv, commands)
+  // TODO: make this an exception by convention
+  // eslint-disable-next-line n/no-process-exit
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    // eslint-disable-next-line n/no-process-exit
+    process.exit(1);
+  });
