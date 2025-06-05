@@ -1,0 +1,18 @@
+{
+  "bootstrap": "guesser",
+  "forceReset": true,
+  "vats": {
+    "guesser": {
+      "bundleSpec": "http://localhost:3000/guesser.bundle",
+      "parameters": {
+        "guesses": ["foo", "bar", "baz", "qux", "fizz", "buzz", "fizzbuzz"]
+      }
+    },
+    "keeper": {
+      "bundleSpec": "http://localhost:3000/keeper.bundle",
+      "parameters": {
+        "initialValue": "fizz"
+      }
+    }
+  }
+}
