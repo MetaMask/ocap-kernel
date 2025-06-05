@@ -1,0 +1,23 @@
+{
+  "bootstrap": "introducer",
+  "forceReset": true,
+  "vats": {
+    "introducer": {
+      "bundleSpec": "http://localhost:3000/introducer.bundle"
+    },
+    "alice": {
+      "bundleSpec": "http://localhost:3000/agent.bundle",
+      "parameters": {
+        "name": "Alice",
+        "seed": 3
+      }
+    },
+    "bob": {
+      "bundleSpec": "http://localhost:3000/agent.bundle",
+      "parameters": {
+        "name": "Bob",
+        "seed": 2357111317
+      }
+    }
+  }
+}
