@@ -251,6 +251,14 @@ const config = createConfig([
       'import-x/no-unresolved': 'off',
     },
   },
+
+  {
+    files: ['packages/demo/demos/**/*.js'],
+    rules: {
+      // Demo files: doc less, say more.
+      'jsdoc/require-jsdoc': 'off',
+    },
+  },
 ]);
 
 export default config;
