@@ -1,7 +1,11 @@
 /**
- * 2. target.js: A vat with a mutable state.
- * ------------
- * This vat has a mutable name, and a hello and goodbye method that use it.
+ * Example 02: Bootstrapping.
+ * --------------------------
+ * This example shows how to bootstrap a cluster. This vat's root object
+ * declares a hello and goodbye method that use a mutable name.
+ *
+ * @see entrypoint.js for the vat that bootstraps the cluster.
+ * @see cluster.json for the target vat's initial name.
  */
 
 import { Far } from '@endo/far';
