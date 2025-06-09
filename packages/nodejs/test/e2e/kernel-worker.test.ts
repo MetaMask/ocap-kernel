@@ -35,7 +35,6 @@ describe('Kernel Worker', () => {
 
   afterEach(async () => {
     if (kernel) {
-      await kernel.terminateAllVats();
       await kernel.clearStorage();
     }
   });
@@ -65,11 +64,11 @@ describe('Kernel Worker', () => {
         },
         bob: {
           bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-          parameters: { name: 'Nodeen' },
+          parameters: { name: 'bob' },
         },
         alice: {
           bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-          parameters: { name: 'Nodeen' },
+          parameters: { name: 'alice' },
         },
       },
     };
@@ -92,7 +91,6 @@ describe('Kernel Worker', () => {
   it('pings vats', async () => {
     await launchTestVats();
     const result = await kernel.pingVat('v1');
-    expect(result).toBeDefined();
     expect(result).toBe('pong');
   });
 });

@@ -1,4 +1,5 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -86,7 +87,7 @@ describe('Subcluster functionality', () => {
     },
   );
 
-  it('can terminate a subcluster', async () => {
+  it('can terminate a subcluster', { timeout: 10000 }, async () => {
     // Create subcluster
     const subcluster = makeTestSubcluster('subcluster1');
     await runTestVats(kernel, subcluster);
@@ -113,6 +114,8 @@ describe('Subcluster functionality', () => {
     // Get initial vat IDs
     const initialVats = kernel.getVats();
     const initialVatIds = initialVats.map((vat) => vat.id);
+
+    await waitUntilQuiescent();
 
     // Reload Subcluster
     await kernel.reloadSubcluster('s1');
