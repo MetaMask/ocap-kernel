@@ -194,7 +194,7 @@ export class Kernel {
    * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
    * @returns a promise for the KRef of the new vat's root object.
    */
-  async launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
+  async #launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
@@ -366,7 +366,7 @@ export class Kernel {
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.launchVat(vatConfig, subclusterId);
+      const rootRef = await this.#launchVat(vatConfig, subclusterId);
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
@@ -602,7 +602,7 @@ export class Kernel {
       await delay(100);
     }
     for (const vat of rogueVats) {
-      await this.launchVat(vat.config);
+      await this.#launchVat(vat.config);
     }
   }
 

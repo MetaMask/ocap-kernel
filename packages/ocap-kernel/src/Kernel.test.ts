@@ -40,6 +40,16 @@ vi.mock('./KernelQueue.ts', () => {
 const makeMockVatConfig = (): VatConfig => ({
   sourceSpec: 'not-really-there.js',
 });
+
+const makeSingleVatClusterConfig = (): ClusterConfig => ({
+  bootstrap: 'testVat',
+  vats: {
+    testVat: {
+      sourceSpec: 'not-really-there.js',
+    },
+  },
+});
+
 const makeMockClusterConfig = (): ClusterConfig => ({
   bootstrap: 'alice',
   vats: {
@@ -132,7 +142,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
 
@@ -177,7 +187,7 @@ describe('Kernel', () => {
       const db = makeMapKernelDatabase();
       // Launch initial kernel and vat
       const kernel1 = await Kernel.make(mockStream, mockWorkerService, db);
-      await kernel1.launchVat(makeMockVatConfig());
+      await kernel1.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel1.getVatIds()).toStrictEqual(['v1']);
       // Clear spies
       launchWorkerMock.mockClear();
@@ -228,7 +238,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const result = await kernel.queueMessage('ko1', 'hello', []);
       expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
     });
@@ -464,14 +474,16 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      const config = makeMockVatConfig();
-      await kernel.launchVat(config);
+      const config = makeSingleVatClusterConfig();
+      await kernel.launchSubcluster(config);
       const vats = kernel.getVats();
       expect(vats).toHaveLength(1);
+      console.log(vats);
       expect(vats).toStrictEqual([
         {
           id: 'v1',
-          config,
+          config: config.vats.testVat,
+          subclusterId: 's1',
         },
       ]);
     });
@@ -510,7 +522,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
     });
 
@@ -520,8 +532,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
     });
   });
@@ -562,7 +574,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(makeVatHandleMock).toHaveBeenCalledOnce();
       expect(launchWorkerMock).toHaveBeenCalled();
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
@@ -574,29 +586,11 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(makeVatHandleMock).toHaveBeenCalledTimes(2);
       expect(launchWorkerMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
-    });
-
-    it('can launch vat with subclusterId', async () => {
-      const kernel = await Kernel.make(
-        mockStream,
-        mockWorkerService,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
-      const [firstSubcluster] = subclusters;
-      expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
-      expect(subclusterId).toBeDefined();
-      // Launch another vat in the same subcluster
-      await kernel.launchVat(makeMockVatConfig(), subclusterId);
-      expect(kernel.isVatInSubcluster('v2', subclusterId)).toBe(true);
     });
   });
 
@@ -607,7 +601,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.terminateVat('v1');
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
@@ -634,7 +628,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.terminate.mockRejectedValueOnce('Test error');
       await expect(async () => kernel.terminateVat('v1')).rejects.toThrow(
         'Test error',
@@ -652,8 +646,8 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1', 'v2']);
       expect(vatHandles).toHaveLength(2);
       await kernel.terminateAllVats();
@@ -671,7 +665,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       await kernel.restartVat('v1');
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
@@ -693,7 +687,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.restartVat('v1');
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
@@ -724,7 +718,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.terminate.mockRejectedValueOnce(
         new Error('Termination failed'),
       );
@@ -740,7 +734,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       launchWorkerMock.mockRejectedValueOnce(new Error('Launch failed'));
       await expect(kernel.restartVat('v1')).rejects.toThrow('Launch failed');
       expect(vatHandles[0]?.terminate).toHaveBeenCalledOnce();
@@ -753,7 +747,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const originalHandle = vatHandles[0];
       const returnedHandle = await kernel.restartVat('v1');
       expect(returnedHandle).toBe(originalHandle);
@@ -767,7 +761,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       vatHandles[0]?.ping.mockResolvedValueOnce('pong');
       const result = await kernel.pingVat('v1');
       expect(vatHandles[0]?.ping).toHaveBeenCalledTimes(1);
@@ -792,7 +786,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const pingError = new Error('Ping failed');
       vatHandles[0]?.ping.mockRejectedValueOnce(pingError);
       await expect(async () => kernel.pingVat('v1')).rejects.toThrow(pingError);
@@ -804,7 +798,7 @@ describe('Kernel', () => {
       const mockDb = makeMapKernelDatabase();
       const clearSpy = vi.spyOn(mockDb, 'clear');
       const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb);
-      await kernel.launchVat(makeMockVatConfig());
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
       expect(kernel.getVatIds()).toHaveLength(0);
@@ -818,10 +812,10 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      const config = makeMockVatConfig();
-      const rootRef = await kernel.launchVat(config);
+      const config = makeSingleVatClusterConfig();
+      await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe(rootRef);
+      expect(kernel.pinVatRoot('v1')).toBe('ko1');
       // Pinning non-existent vat should throw
       expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed

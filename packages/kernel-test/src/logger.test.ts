@@ -17,15 +17,21 @@ describe('logger', () => {
     const { logger, entries } = makeTestLogger();
     const database = await makeSQLKernelDatabase({});
     const kernel = await makeKernel(database, true, logger);
-    const vat = await kernel.launchVat({
-      bundleSpec: getBundleSpec('logger-vat'),
-      parameters: { name },
+    const vat = await kernel.launchSubcluster({
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: getBundleSpec('logger-vat'),
+          parameters: { name },
+        },
+      },
     });
+    expect(vat).toBeDefined();
     const vats = kernel.getVatIds();
     expect(vats).toStrictEqual([vatId]);
 
     await waitUntilQuiescent();
-    await kernel.queueMessage(vat, 'foo', []);
+    await kernel.queueMessage('ko1', 'foo', []);
 
     await waitUntilQuiescent();
     const vatLogs = extractTestLogs(entries, vatId);

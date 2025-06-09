@@ -1,6 +1,5 @@
 import { KernelControls } from './KernelControls.tsx';
 import { LaunchSubcluster } from './LaunchSubcluster.tsx';
-import { LaunchVat } from './LaunchVat.tsx';
 import { SubclustersTable } from './SubclustersTable.tsx';
 import styles from '../App.module.css';
 
@@ -12,7 +11,6 @@ export const ControlPanel: React.FC = () => {
         <KernelControls />
       </div>
       <SubclustersTable />
-      <LaunchVat />
       <LaunchSubcluster />
     </>
   );

@@ -4,15 +4,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ControlPanel } from './ControlPanel.tsx';
 import { KernelControls } from './KernelControls.tsx';
 import { LaunchSubcluster } from './LaunchSubcluster.tsx';
-import { LaunchVat } from './LaunchVat.tsx';
 import { SubclustersTable } from './SubclustersTable.tsx';
 
 vi.mock('./KernelControls.tsx', () => ({
   KernelControls: vi.fn(() => <div data-testid="kernel-controls" />),
-}));
-
-vi.mock('./LaunchVat.tsx', () => ({
-  LaunchVat: vi.fn(() => <div data-testid="launch-vat" />),
 }));
 
 vi.mock('./LaunchSubcluster.tsx', () => ({
@@ -44,14 +39,11 @@ describe('ControlPanel Component', () => {
   it('renders all child components in correct order', () => {
     render(<ControlPanel />);
 
-    const children = screen.getAllByTestId(
-      /-controls|-table|-vat|-subcluster$/u,
-    );
-    expect(children).toHaveLength(4);
+    const children = screen.getAllByTestId(/-controls|-table|-subcluster$/u);
+    expect(children).toHaveLength(3);
     expect(children[0]).toHaveAttribute('data-testid', 'kernel-controls');
     expect(children[1]).toHaveAttribute('data-testid', 'subclusters-table');
-    expect(children[2]).toHaveAttribute('data-testid', 'launch-vat');
-    expect(children[3]).toHaveAttribute('data-testid', 'launch-subcluster');
+    expect(children[2]).toHaveAttribute('data-testid', 'launch-subcluster');
   });
 
   it('renders header section with correct class', () => {
@@ -68,11 +60,6 @@ describe('ControlPanel Component', () => {
   it('renders SubclustersTable component', () => {
     render(<ControlPanel />);
     expect(SubclustersTable).toHaveBeenCalled();
-  });
-
-  it('renders LaunchVat component', () => {
-    render(<ControlPanel />);
-    expect(LaunchVat).toHaveBeenCalled();
   });
 
   it('renders LaunchSubcluster component', () => {

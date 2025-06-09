@@ -28,7 +28,6 @@ const mockUseKernelActions = (overrides = {}): void => {
     terminateAllVats: vi.fn(),
     clearState: vi.fn(),
     reload: vi.fn(),
-    launchVat: vi.fn(),
     collectGarbage: vi.fn(),
     launchSubcluster: vi.fn(),
     ...overrides,

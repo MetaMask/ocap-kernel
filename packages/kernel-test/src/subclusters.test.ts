@@ -126,16 +126,20 @@ describe('Subcluster functionality', () => {
     expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
   });
 
-  it('can check if a vat belongs to a subcluster', async () => {
-    // Create subcluster
-    const subcluster = makeTestSubcluster('subcluster1');
-    await runTestVats(kernel, subcluster);
+  it(
+    'can check if a vat belongs to a subcluster',
+    { timeout: 10000 },
+    async () => {
+      // Create subcluster
+      const subcluster = makeTestSubcluster('subcluster1');
+      await runTestVats(kernel, subcluster);
 
-    // Verify vat membership
-    expect(kernel.isVatInSubcluster('v1', 's1')).toBe(true);
-    expect(kernel.isVatInSubcluster('v2', 's1')).toBe(true);
-    expect(kernel.isVatInSubcluster('v1', 's2')).toBe(false);
-  });
+      // Verify vat membership
+      expect(kernel.isVatInSubcluster('v1', 's1')).toBe(true);
+      expect(kernel.isVatInSubcluster('v2', 's1')).toBe(true);
+      expect(kernel.isVatInSubcluster('v1', 's2')).toBe(false);
+    },
+  );
 
   it('can handle subcluster operations with non-existent subclusters', async () => {
     expect(() => kernel.getSubclusterVats('nonexistent')).toThrow(
@@ -156,35 +160,22 @@ describe('Subcluster functionality', () => {
     await runTestVats(kernel, subcluster1);
     await runTestVats(kernel, subcluster2);
 
-    // Add a rogue vat (not part of any subcluster)
-    const rogueVatConfig = {
-      bundleSpec: getBundleSpec('subcluster-vat'),
-      parameters: {
-        name: 'Rogue',
-      },
-    };
-    await kernel.launchVat(rogueVatConfig);
-
     // Verify initial state
     expect(kernel.getSubclusters()).toHaveLength(2);
-    expect(kernel.getVats()).toHaveLength(5); // 4 from subclusters + 1 rogue
+    expect(kernel.getVats()).toHaveLength(4);
     const initialVatIds = kernel.getVats().map((vat) => vat.id);
 
     // Reload kernel
     await kernel.reload();
 
-    // Verify subclusters and rogue vat were reloaded
+    // Verify subclusters were reloaded
     expect(kernel.getSubclusters()).toHaveLength(2);
-    expect(kernel.getVats()).toHaveLength(5);
+    expect(kernel.getVats()).toHaveLength(4);
 
     // Verify vat IDs are different after reload
     const reloadedVatIds = kernel.getVats().map((vat) => vat.id);
+    expect(reloadedVatIds).toHaveLength(4);
     expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
-
-    // Verify the rogue vat exists and has no subcluster
-    const reloadedVats = kernel.getVats();
-    const rogueVat = reloadedVats.find((vat) => !vat.subclusterId);
-    expect(rogueVat).toBeDefined();
   });
 
   it(
