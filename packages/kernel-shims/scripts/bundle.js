@@ -11,17 +11,22 @@ import { rimraf } from 'rimraf';
 
 console.log('Bundling shims...');
 
+const shims = ['endoify.js', 'eventual-send.js'];
+
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const srcDir = path.resolve(rootDir, 'src');
 const distDir = path.resolve(rootDir, 'dist');
-const shim = 'endoify.js';
 
 await mkdir(distDir, { recursive: true });
 await rimraf(`${distDir}/*`, { glob: true });
 
-const { source } = await bundleSource(path.resolve(srcDir, shim), {
-  format: 'endoScript',
-});
-await writeFile(path.resolve(distDir, shim), source);
+await Promise.all(
+  shims.map(async (shim) => {
+    const { source } = await bundleSource(path.resolve(srcDir, shim), {
+      format: 'endoScript',
+    });
+    await writeFile(path.resolve(distDir, shim), source);
+  }),
+);
 
 console.log('Success!');

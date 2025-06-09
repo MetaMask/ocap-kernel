@@ -20,6 +20,7 @@
   "type": "module",
   "exports": {
     "./endoify": "./dist/endoify.js",
+    "./eventual-send": "./dist/eventual-send.js",
     "./package.json": "./package.json"
   },
   "main": "./dist/endoify.js",
