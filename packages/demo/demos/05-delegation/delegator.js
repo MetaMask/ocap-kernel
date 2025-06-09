@@ -6,7 +6,6 @@
  * the work individually.
  *
  * @see bootstrap.js for the assignment of the delegation tree.
- * @see delegatee.js for the nodes of the tree.
  */
 
 import { E, Far } from '@endo/far';

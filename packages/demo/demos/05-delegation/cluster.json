@@ -22,16 +22,20 @@
       }
     },
     "v:AA": {
-      "bundleSpec": "http://localhost:3000/delegatee.bundle"
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": {}
     },
     "v:AB": {
-      "bundleSpec": "http://localhost:3000/delegatee.bundle"
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": {}
     },
     "v:Bx": {
-      "bundleSpec": "http://localhost:3000/delegatee.bundle"
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": {}
     },
     "v:Cx": {
-      "bundleSpec": "http://localhost:3000/delegatee.bundle"
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": {}
     }
   }
 }

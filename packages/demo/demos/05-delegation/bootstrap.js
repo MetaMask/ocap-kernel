@@ -5,7 +5,6 @@
  * themselves delegate to other workers or simply perform the work individually.
  *
  * @see delegator.js for the divide and conquer implementation.
- * @see delegatee.js for the individual contributors.
  */
 
 import { E, Far } from '@endo/far';
