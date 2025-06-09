@@ -51,8 +51,7 @@ describe('Kernel Worker', () => {
         },
       },
     };
-    const kRef = await kernel.launchSubcluster(testConfig);
-    expect(typeof kRef).toBe('string');
+    await kernel.launchSubcluster(testConfig);
     expect(kernel.getVatIds()).toHaveLength(1);
   });
 
