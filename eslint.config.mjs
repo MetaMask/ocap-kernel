@@ -257,6 +257,8 @@ const config = createConfig([
     rules: {
       // Demo files: doc less, say more.
       'jsdoc/require-jsdoc': 'off',
+      // Permitted for familiarity and concision.
+      'no-plusplus': 'off',
     },
   },
 ]);
