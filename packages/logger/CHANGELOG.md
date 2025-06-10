@@ -9,10 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-### Uncategorized
+### Changed
 
-- refactor(ocap-kernel): Use JSON-RPC notifications for vat syscalls ([#528](https://github.com/MetaMask/ocap-kernel/pull/528))
-- chore: Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+- Include JSON-RPC notifications in `KernelMessage` type ([#528](https://github.com/MetaMask/ocap-kernel/pull/528))
 
 ## [0.1.0]
 

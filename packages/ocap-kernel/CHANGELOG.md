@@ -9,14 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-### Uncategorized
+### Added
 
-- feat: Make export paths compatible with Browserify ([#533](https://github.com/MetaMask/ocap-kernel/pull/533))
-- refactor(ocap-kernel): Use JSON-RPC notifications for vat syscalls ([#528](https://github.com/MetaMask/ocap-kernel/pull/528))
-- refactor(ocap-kernel): Remove `waitForSyscallsToComplete()` ([#527](https://github.com/MetaMask/ocap-kernel/pull/527))
-- feat(kernel): Handle syscall failures ([#520](https://github.com/MetaMask/ocap-kernel/pull/520))
-- feat: Add kernel-browser-runtime package ([#522](https://github.com/MetaMask/ocap-kernel/pull/522))
-- chore: Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+- Make export paths compatible with Browserify ([#533](https://github.com/MetaMask/ocap-kernel/pull/533))
+- Properly handle syscall failures ([#520](https://github.com/MetaMask/ocap-kernel/pull/520))
+- Add `Kernel.getStatus()` ([#522](https://github.com/MetaMask/ocap-kernel/pull/522))
+- Use JSON-RPC notifications for vat syscalls ([#528](https://github.com/MetaMask/ocap-kernel/pull/528))
+
+### Removed
+
+- Remove `waitForSyscallsToComplete()` ([#527](https://github.com/MetaMask/ocap-kernel/pull/527))
 
 ## [0.1.0]
 
