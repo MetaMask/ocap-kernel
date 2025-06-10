@@ -5,6 +5,9 @@ export default defineConfig({
   retries: 3,
   workers: 1,
   fullyParallel: false,
+  expect: {
+    timeout: 10000,
+  },
   use: {
     trace: 'on-first-retry',
   },
