@@ -281,9 +281,7 @@ test.describe('Control Panel', () => {
     ).toContainText('"method": "reload"');
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Default sub-cluster reloaded', {
-      timeout: 10000,
-    });
+    ).toContainText('Default sub-cluster reloaded');
   });
 
   test('should handle cluster configuration updates', async () => {
@@ -309,7 +307,7 @@ test.describe('Control Panel', () => {
     const originalVatName =
       defaultClusterConfig.vats[firstVatKey].parameters.name;
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible({ timeout: 10000 });
+    await expect(vatTable).toBeVisible();
     await expect(vatTable).toContainText(originalVatName);
     // Modify config with new vat name
     const modifiedConfig = structuredClone(defaultClusterConfig);
