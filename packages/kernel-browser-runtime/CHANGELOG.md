@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Uncategorized
 
 - feat: Make export paths compatible with Browserify ([#533](https://github.com/MetaMask/ocap-kernel/pull/533))
@@ -14,4 +16,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - refactor: Make some improvements to the kernel worker build script ([#524](https://github.com/MetaMask/ocap-kernel/pull/524))
 - feat: Add kernel-browser-runtime package ([#522](https://github.com/MetaMask/ocap-kernel/pull/522))
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-browser-runtime@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-browser-runtime@0.1.0
