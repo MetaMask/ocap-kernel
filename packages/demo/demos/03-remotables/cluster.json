@@ -1,0 +1,11 @@
+{
+  "bootstrap": "boot",
+  "vats": {
+    "boot": {
+      "bundleSpec": "http://localhost:3000/boot.bundle",
+      "parameters": { "moduli": [2, 5] }
+    },
+    "buzzer": { "bundleSpec": "http://localhost:3000/buzzer.bundle" },
+    "counter": { "bundleSpec": "http://localhost:3000/counter.bundle" }
+  }
+}
