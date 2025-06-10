@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat: Make export paths compatible with Browserify ([#533](https://github.com/MetaMask/ocap-kernel/pull/533))
+- feat(kernel): Handle syscall failures ([#520](https://github.com/MetaMask/ocap-kernel/pull/520))
+- feat: Add kernel-browser-runtime package ([#522](https://github.com/MetaMask/ocap-kernel/pull/522))
+- chore: Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+
 ## [0.1.0]
 
 ### Added

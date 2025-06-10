@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat: Bundle iframe and vat worker via `kernel-browser-runtime` ([#531](https://github.com/MetaMask/ocap-kernel/pull/531))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
