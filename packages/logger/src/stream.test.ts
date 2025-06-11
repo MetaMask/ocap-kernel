@@ -20,7 +20,7 @@ vi.mock('@ocap/streams', () => ({
 
 describe('serialization', () => {
   it.each`
-    description | logEntry
+    description                              | logEntry
     ${'with message and data'} | ${{
   level: 'info',
   tags: ['test'],
@@ -36,6 +36,10 @@ describe('serialization', () => {
   level: 'info',
   tags: ['test'],
 }}
+    ${'message and falsey data (0)'}         | ${{ level: 'log', tags: ['test'], message: 'foo', data: [0] }}
+    ${'message and falsey data (false)'}     | ${{ level: 'log', tags: ['test'], message: 'foo', data: [false] }}
+    ${'message and falsey data (null)'}      | ${{ level: 'log', tags: ['test'], message: 'foo', data: [null] }}
+    ${'message and falsey data (undefined)'} | ${{ level: 'log', tags: ['test'], message: 'foo', data: [undefined] }}
   `('round-trips a log entry $description', ({ logEntry }) => {
     const serialized = lser(logEntry);
     const deserialized = lunser(serialized);

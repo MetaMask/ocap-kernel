@@ -122,10 +122,14 @@ describe('Logger', () => {
     });
 
     it.each`
-      description              | logEntry
-      ${'message and data'}    | ${{ level: 'log', tags: ['test'], message: 'foo', data: ['bar'] }}
-      ${'message but no data'} | ${{ level: 'log', tags: ['test'], message: 'foo' }}
-      ${'no message or data'}  | ${{ level: 'log', tags: ['test'] }}
+      description                             | logEntry
+      ${'message and data'}                   | ${{ level: 'log', tags: ['test'], message: 'foo', data: ['bar'] }}
+      ${'message but no data'}                | ${{ level: 'log', tags: ['test'], message: 'foo' }}
+      ${'no message or data'}                 | ${{ level: 'log', tags: ['test'] }}
+      ${'falsy message (0), no data'}         | ${{ level: 'log', tags: ['test'], message: 0 }}
+      ${'falsy message (null), no data'}      | ${{ level: 'log', tags: ['test'], message: null }}
+      ${'falsy message (false), no data'}     | ${{ level: 'log', tags: ['test'], message: false }}
+      ${'falsy message (undefined), no data'} | ${{ level: 'log', tags: ['test'], message: undefined }}
     `(
       'delivers a logEntry to the logger transport: $description',
       ({ logEntry }) => {
