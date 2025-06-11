@@ -44,9 +44,7 @@ const makeMockVatConfig = (): VatConfig => ({
 const makeSingleVatClusterConfig = (): ClusterConfig => ({
   bootstrap: 'testVat',
   vats: {
-    testVat: {
-      sourceSpec: 'not-really-there.js',
-    },
+    testVat: makeMockVatConfig(),
   },
 });
 
@@ -478,7 +476,6 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(config);
       const vats = kernel.getVats();
       expect(vats).toHaveLength(1);
-      console.log(vats);
       expect(vats).toStrictEqual([
         {
           id: 'v1',

@@ -481,14 +481,14 @@ export class Kernel {
   getVats(): {
     id: VatId;
     config: VatConfig;
-    subclusterId?: string;
+    subclusterId: string;
   }[] {
     return Array.from(this.#vats.values()).map((vat) => {
       const subclusterId = this.#kernelStore.getVatSubcluster(vat.vatId);
       return {
         id: vat.vatId,
         config: vat.config,
-        ...(subclusterId && { subclusterId }),
+        subclusterId,
       };
     });
   }

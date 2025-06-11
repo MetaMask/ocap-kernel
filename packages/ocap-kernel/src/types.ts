@@ -218,6 +218,16 @@ export function insistVatId(value: unknown): asserts value is VatId {
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
 
+export const isSubclusterId = (value: unknown): value is SubclusterId =>
+  typeof value === 'string' &&
+  value.at(0) === 's' &&
+  value.slice(1) === String(Number(value.slice(1)));
+
+export const SubclusterIdStruct = define<SubclusterId>(
+  'SubclusterId',
+  isSubclusterId,
+);
+
 export type VatMessageId = `m${number}`;
 
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
@@ -321,7 +331,7 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
 
 export const SubclusterStruct = object({
-  id: string(),
+  id: SubclusterIdStruct,
   config: ClusterConfigStruct,
   vats: array(VatIdStruct),
 });
@@ -334,7 +344,7 @@ export const KernelStatusStruct = type({
     object({
       id: VatIdStruct,
       config: VatConfigStruct,
-      subclusterId: exactOptional(string()),
+      subclusterId: SubclusterIdStruct,
     }),
   ),
 });
