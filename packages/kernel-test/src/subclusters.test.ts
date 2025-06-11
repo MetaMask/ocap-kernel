@@ -168,6 +168,8 @@ describe('Subcluster functionality', () => {
     expect(kernel.getVats()).toHaveLength(4);
     const initialVatIds = kernel.getVats().map((vat) => vat.id);
 
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // Reload kernel
     await kernel.reload();
 
