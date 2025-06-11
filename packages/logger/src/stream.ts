@@ -1,81 +1,38 @@
-import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { split } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcNotification } from '@metamask/utils';
 
-import { TOKEN_NULL, TOKEN_UNDEFINED } from './constants.ts';
-import type { LogEntry, LogLevel } from './types.ts';
-
-export type SerializedLogEntry = [
-  /* level   */ LogLevel,
-  /* tags    */ string[],
-  /* message */ string | null,
-  /* data    */ string[] | null,
-];
+import { TOKEN_UNDEFINED } from './constants.ts';
+import type { LogEntry } from './types.ts';
 
 export type LogMessage = JsonRpcCall & {
   method: 'notify';
-  params: ['logger', ...SerializedLogEntry];
+  params: ['logger', string];
 };
-
-// The supported type for message is string, but in a basic javascript context
-// it is a better user experience just to support null values.
-const serializeMessage = (message: unknown): string | null =>
-  message === null ? TOKEN_NULL : ((message ?? null) as string | null);
-
-const unserializeMessage = (message: string | null): string =>
-  (message === TOKEN_NULL ? null : message) as string;
-
-// JSON.stringify does not support undefined values, so we need to use a special
-// token to represent them. We do not support deeply nested undefined values,
-// but this is an effort.
-const serializeDatum = (datum: unknown): string =>
-  datum === undefined ? TOKEN_UNDEFINED : stringify(datum);
-
-const unserializeDatum = (datum: string): unknown =>
-  datum === TOKEN_UNDEFINED ? undefined : JSON.parse(datum);
 
 /**
  * Serializes a log entry.
  *
  * @param entry - The log entry to serialize.
- * @param entry.level - The log level.
- * @param entry.tags - The log tags.
- * @param entry.message - The log message.
- * @param entry.data - The log data.
  * @returns The serialized log entry.
  */
-export const lser = ({
-  level,
-  tags,
-  message,
-  data,
-}: LogEntry): SerializedLogEntry => [
-  level,
-  tags,
-  serializeMessage(message),
-  data?.map(serializeDatum) ?? null,
-];
+export const lser = (entry: LogEntry): string =>
+  JSON.stringify(entry, (_key, value) =>
+    value === undefined ? TOKEN_UNDEFINED : value,
+  );
 harden(lser);
 
 /**
  * Deserializes a log entry.
  *
- * @param params - The serialized log entry to deserialize.
+ * @param serializedEntry - The serialized log entry to deserialize.
  * @returns The deserialized log entry.
  */
-export const lunser = (params: SerializedLogEntry): LogEntry => {
-  const [level, tags, message, data] = params;
-  const entry: LogEntry = { level, tags };
-  if (message !== null) {
-    entry.message = unserializeMessage(message);
-  }
-  if (data !== null) {
-    entry.data = data.map(unserializeDatum);
-  }
-  return entry;
-};
+export const lunser = (serializedEntry: string): LogEntry =>
+  JSON.parse(serializedEntry, (_key, value) =>
+    value === TOKEN_UNDEFINED ? undefined : value,
+  ) as LogEntry;
 harden(lunser);
 
 /**
@@ -88,8 +45,10 @@ export const isLoggerMessage = (
   message: JsonRpcMessage,
 ): message is LogMessage =>
   isJsonRpcNotification(message) &&
-  (message as { params: { length: number } }).params.length > 0 &&
-  (message as { params: unknown[] }).params[0] === 'logger';
+  Array.isArray(message.params) &&
+  message.params.length > 0 &&
+  message.params[0] === 'logger' &&
+  typeof message.params[1] === 'string';
 harden(isLoggerMessage);
 
 /**

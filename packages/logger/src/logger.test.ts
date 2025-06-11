@@ -137,7 +137,7 @@ describe('Logger', () => {
         const logger = new Logger({ transports: [testTransport] });
         const stream = {
           drain: vi.fn(async (handler) =>
-            handler({ params: ['logger', ...lser(logEntry)] }),
+            handler({ params: ['logger', lser(logEntry)] }),
           ),
         } as unknown as DuplexStream<LogMessage>;
         logger.injectStream(stream);

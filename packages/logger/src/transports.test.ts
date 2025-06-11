@@ -43,13 +43,7 @@ describe('makeStreamTransport', () => {
     expect(mockStream.write).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'notify',
-        params: expect.arrayContaining([
-          'logger',
-          logLevel,
-          logEntry.tags,
-          logEntry.message,
-          null,
-        ]),
+        params: ['logger', JSON.stringify(logEntry)],
         jsonrpc: '2.0',
       }),
     );
