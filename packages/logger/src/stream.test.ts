@@ -31,7 +31,9 @@ describe('serialization', () => {
   `('round-trips a log entry $description', ({ logEntry }) => {
     const serialized = lser(logEntry);
     const deserialized = lunser(serialized);
-    expect(deserialized).toMatchObject(logEntry);
+    // We want deep equals for testing missing versus undefined properties.
+    // eslint-disable-next-line vitest/valid-expect
+    expect(deserialized).to.deep.equal(logEntry);
   });
 });
 
