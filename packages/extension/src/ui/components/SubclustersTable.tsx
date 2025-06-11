@@ -7,7 +7,7 @@ import { useVats } from '../hooks/useVats.ts';
  */
 export const SubclustersTable: React.FC = () => {
   const {
-    groupedVats,
+    subclusters,
     pingVat,
     restartVat,
     terminateVat,
@@ -15,7 +15,7 @@ export const SubclustersTable: React.FC = () => {
     reloadSubcluster,
   } = useVats();
 
-  if (!groupedVats || groupedVats.length === 0) {
+  if (!subclusters || subclusters.length === 0) {
     return (
       <p className={styles.error}>
         No vats or subclusters are currently active.
@@ -25,7 +25,7 @@ export const SubclustersTable: React.FC = () => {
 
   return (
     <div className={styles.tableContainer}>
-      {groupedVats.map((subcluster) => (
+      {subclusters.map((subcluster) => (
         <SubclusterAccordion
           key={subcluster.id}
           id={subcluster.id}

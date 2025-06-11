@@ -36,7 +36,7 @@ const mockUseKernelActions = (overrides = {}): void => {
 
 const mockUseVats = (vats: VatRecord[] = []): void => {
   vi.mocked(useVats).mockReturnValue({
-    groupedVats: [],
+    subclusters: [],
     pingVat: vi.fn(),
     restartVat: vi.fn(),
     terminateVat: vi.fn(),

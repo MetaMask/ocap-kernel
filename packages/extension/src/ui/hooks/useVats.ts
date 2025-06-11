@@ -10,7 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { VatRecord } from '../types.ts';
 
-export type GroupedVats = (Subcluster & { vatRecords: VatRecord[] })[];
+export type Subclusters = (Subcluster & { vatRecords: VatRecord[] })[];
 
 const getSourceFromConfig = (config: VatConfig): string => {
   if ('bundleSpec' in config) {
@@ -41,7 +41,7 @@ const transformVatData = (
  * @returns An object containing the grouped vats and functions to interact with them.
  */
 export const useVats = (): {
-  groupedVats: GroupedVats;
+  subclusters: Subclusters;
   pingVat: (id: VatId) => void;
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
@@ -52,7 +52,7 @@ export const useVats = (): {
   const { callKernelMethod, status, logMessage } = usePanelContext();
   const [hasVats, setHasVats] = useState(false);
 
-  const groupedVats = useMemo<GroupedVats>(() => {
+  const subclusters = useMemo<Subclusters>(() => {
     if (!status) {
       return [];
     }
@@ -149,12 +149,12 @@ export const useVats = (): {
   );
 
   return {
-    groupedVats,
+    hasVats,
+    subclusters,
     pingVat,
     restartVat,
     terminateVat,
     terminateSubcluster,
     reloadSubcluster,
-    hasVats,
   };
 };

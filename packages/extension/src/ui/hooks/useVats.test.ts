@@ -62,7 +62,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual([
+    expect(result.current.subclusters).toStrictEqual([
       {
         id: mockSubclusterId,
         name: 'Test Subcluster',
@@ -99,7 +99,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual([]);
+    expect(result.current.subclusters).toStrictEqual([]);
   });
 
   it('should use sourceSpec when bundleSpec is not available', async () => {
@@ -126,7 +126,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual([]);
+    expect(result.current.subclusters).toStrictEqual([]);
   });
 
   it('should use bundleName when bundleSpec and sourceSpec are not available', async () => {
@@ -153,7 +153,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual([]);
+    expect(result.current.subclusters).toStrictEqual([]);
   });
 
   describe('pingVat', () => {

@@ -56,7 +56,7 @@ describe('SubclustersTable Component', () => {
     },
   };
 
-  const mockGroupedVats = [
+  const mockSubclusters = [
     {
       id: 'subcluster-1',
       vats: ['vat-1', 'vat-2'],
@@ -83,7 +83,7 @@ describe('SubclustersTable Component', () => {
 
   it('renders message when no subclusters are present', () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: [],
+      subclusters: [],
       ...mockActions,
       hasVats: false,
     });
@@ -95,7 +95,7 @@ describe('SubclustersTable Component', () => {
 
   it('renders subcluster accordion with correct title and vat count', () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -106,7 +106,7 @@ describe('SubclustersTable Component', () => {
 
   it('expands and collapses subcluster accordion on click', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -126,7 +126,7 @@ describe('SubclustersTable Component', () => {
 
   it('renders table with correct headers when expanded', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -141,7 +141,7 @@ describe('SubclustersTable Component', () => {
 
   it('renders correct vat data in table rows when expanded', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -157,7 +157,7 @@ describe('SubclustersTable Component', () => {
 
   it('calls correct action handlers when vat buttons are clicked', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -191,7 +191,7 @@ describe('SubclustersTable Component', () => {
 
   it('calls correct action handlers when subcluster buttons are clicked', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
@@ -213,7 +213,7 @@ describe('SubclustersTable Component', () => {
 
   it('opens config modal when View Config button is clicked', async () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: mockGroupedVats,
+      subclusters: mockSubclusters,
       ...mockActions,
       hasVats: true,
     });
