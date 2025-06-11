@@ -322,6 +322,100 @@ describe('ObjectRegistry Component', () => {
     const sendMessageForm = screen.queryByTestId('send-message-form');
     expect(sendMessageForm).toBeInTheDocument();
   });
+
+  it('displays singular forms for VatDetailsHeader with 1 object/promise', () => {
+    const registryWithSingular: ObjectRegistryType = {
+      gcActions: 'test',
+      reapQueue: 'test',
+      terminatedVats: 'test',
+      vats: {
+        singularVat: {
+          overview: { name: 'SingleVat', bundleSpec: '' },
+          ownedObjects: [
+            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] },
+          ],
+          importedObjects: [],
+          importedPromises: [
+            {
+              kref: 'promise1',
+              eref: 'eref-promise1',
+              state: 'pending',
+              value: { body: '', slots: [] },
+              fromVat: 'vat2',
+            },
+          ],
+          exportedPromises: [],
+        },
+      },
+    };
+
+    vi.mocked(usePanelContext).mockReturnValue({
+      objectRegistry: registryWithSingular,
+    } as unknown as PanelContextType);
+
+    render(<ObjectRegistry />);
+
+    // Should display "1 object, 1 promise" (singular forms)
+    expect(screen.getByText(/1 object, 1 promise/u)).toBeInTheDocument();
+  });
+
+  it('handles empty slots arrays and empty toVats arrays', () => {
+    const registryWithEmptyArrays: ObjectRegistryType = {
+      gcActions: 'test',
+      reapQueue: 'test',
+      terminatedVats: 'test',
+      vats: {
+        emptyVat: {
+          overview: { name: 'EmptyVat', bundleSpec: '' },
+          ownedObjects: [
+            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] }, // Empty toVats
+          ],
+          importedObjects: [
+            { kref: 'kref2', eref: 'eref2', refCount: '1', fromVat: null }, // Null fromVat
+          ],
+          importedPromises: [
+            {
+              kref: 'promise1',
+              eref: 'eref-promise1',
+              state: 'pending',
+              value: { body: 'test', slots: [] }, // Empty slots
+              fromVat: null, // Null fromVat
+            },
+          ],
+          exportedPromises: [
+            {
+              kref: 'promise2',
+              eref: 'eref-promise2',
+              state: 'fulfilled',
+              value: { body: 'test', slots: [] }, // Empty slots
+              toVats: [], // Empty toVats
+            },
+          ],
+        },
+      },
+    };
+
+    vi.mocked(usePanelContext).mockReturnValue({
+      objectRegistry: registryWithEmptyArrays,
+    } as unknown as PanelContextType);
+
+    const { container } = render(<ObjectRegistry />);
+
+    // Expand the vat to see the tables
+    const accordionHeaders = container.querySelectorAll('.accordion-header');
+    const emptyVatHeader = Array.from(accordionHeaders).find(
+      (el) =>
+        el.textContent?.includes('EmptyVat') &&
+        el.textContent?.includes('emptyVat'),
+    );
+    expect(emptyVatHeader).toBeDefined();
+    expect(emptyVatHeader).toBeInstanceOf(Element);
+    fireEvent.click(emptyVatHeader as Element);
+
+    // Should display "—" for empty arrays and null values
+    const dashElements = screen.getAllByText('—');
+    expect(dashElements.length).toBeGreaterThan(0);
+  });
 });
 
 /**

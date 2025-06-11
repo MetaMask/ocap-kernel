@@ -151,10 +151,7 @@ describe('useKernelActions', () => {
           params: [],
         });
       });
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        'Default sub-cluster reloaded',
-        'success',
-      );
+      expect(mockLogMessage).toHaveBeenCalledWith('Kernel reloaded', 'success');
     });
 
     it('logs error on failure', async () => {
@@ -187,9 +184,11 @@ describe('useKernelActions', () => {
         expect(mockSendMessage).toHaveBeenCalledWith({
           method: 'launchVat',
           params: {
-            bundleSpec: bundleUrl,
-            parameters: {
-              name: vatName,
+            config: {
+              bundleSpec: bundleUrl,
+              parameters: {
+                name: vatName,
+              },
             },
           },
         });
@@ -216,28 +215,36 @@ describe('useKernelActions', () => {
     });
   });
 
-  describe('updateClusterConfig', () => {
-    it('sends update cluster config command with correct parameters', async () => {
+  describe('launchSubcluster', () => {
+    it('sends launch subcluster command with correct parameters', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
       mockSendMessage.mockResolvedValueOnce({ success: true });
-      await result.current.updateClusterConfig(clusterConfig);
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        method: 'updateClusterConfig',
-        params: { config: clusterConfig },
+      result.current.launchSubcluster(clusterConfig);
+      await waitFor(() => {
+        expect(mockSendMessage).toHaveBeenCalledWith({
+          method: 'launchSubcluster',
+          params: { config: clusterConfig },
+        });
       });
-      expect(mockLogMessage).toHaveBeenCalledWith('Config updated', 'success');
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Subcluster launched',
+        'success',
+      );
     });
 
     it('logs error on failure', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
-      mockSendMessage.mockRejectedValueOnce(new Error());
-      await result.current.updateClusterConfig(clusterConfig);
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        'Failed to update config',
-        'error',
-      );
+      const error = new Error('Failed to launch subcluster');
+      mockSendMessage.mockRejectedValueOnce(error);
+      result.current.launchSubcluster(clusterConfig);
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          'Failed to launch subcluster: Failed to launch subcluster',
+          'error',
+        );
+      });
     });
   });
 });

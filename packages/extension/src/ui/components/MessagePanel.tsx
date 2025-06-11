@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-import { LoadingDots } from './LoadingDots.tsx';
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { OutputType } from '../context/PanelContext.tsx';
+import { LoadingDots } from './shared/LoadingDots.tsx';
 
 const getLogTypeIcon = (type: OutputType): string => {
   switch (type) {
@@ -46,13 +46,8 @@ export const MessagePanel: React.FC = () => {
           Clear
         </button>
       </div>
-      <div className={styles.messageOutput}>
-        <div
-          className={styles.messageScrollWrapper}
-          data-testid="message-output"
-          ref={messageScrollRef}
-          role="log"
-        >
+      <div className={styles.messageOutput} ref={messageScrollRef} role="log">
+        <div data-testid="message-output">
           {panelLogs.map((log, index) => (
             <div key={index} className={styles[log.type]}>
               <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Tabs } from './Tabs.tsx';
 
-vi.mock('../App.module.css', () => ({
+vi.mock('../../App.module.css', () => ({
   default: {
     tabButtons: 'tab-buttons',
     tabButton: 'tab-button',

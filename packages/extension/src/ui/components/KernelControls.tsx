@@ -8,11 +8,11 @@ import { useVats } from '../hooks/useVats.ts';
 export const KernelControls: React.FC = () => {
   const { terminateAllVats, collectGarbage, clearState, reload } =
     useKernelActions();
-  const { vats } = useVats();
+  const { hasVats } = useVats();
 
   return (
     <div className={styles.headerControls}>
-      {vats.length > 0 && (
+      {hasVats && (
         <button className={styles.buttonWarning} onClick={terminateAllVats}>
           Terminate All Vats
         </button>

@@ -5,6 +5,7 @@ export type VatRecord = {
   source: string;
   parameters: string;
   creationOptions: string;
+  subclusterId?: string | undefined;
 };
 
 /**

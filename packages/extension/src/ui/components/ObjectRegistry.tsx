@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import styles from '../App.module.css';
 import { SendMessageForm } from './SendMessageForm.tsx';
+import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 import type { VatSnapshot } from '../types.ts';
@@ -72,164 +73,157 @@ export const ObjectRegistry: React.FC = () => {
 
       <h3>Vats</h3>
 
-      {Object.entries(objectRegistry.vats).map(([vatId, vatData]) => (
-        <div key={vatId} className={styles.accordion}>
-          <div
-            className={`accordion-header ${styles.accordionHeader}`}
-            onClick={() => toggleVat(vatId)}
+      {Object.entries(objectRegistry.vats).map(([vatId, vatData]) => {
+        return (
+          <Accordion
+            key={vatId}
+            title={
+              <>
+                {vatData.overview.name} ({vatId}) -{' '}
+                <VatDetailsHeader data={vatData} />
+              </>
+            }
+            isExpanded={expandedVats[vatId] ?? false}
+            onToggle={(_isExpanded) => toggleVat(vatId)}
           >
-            <div className={`accordion-title ${styles.accordionTitle}`}>
-              {vatData.overview.name} ({vatId}) -{' '}
-              <VatDetailsHeader data={vatData} />
-            </div>
-            <div className={styles.accordionIndicator}>
-              {expandedVats[vatId] ? '−' : '+'}
-            </div>
-          </div>
-
-          {expandedVats[vatId] && (
-            <div className={styles.accordionContent}>
-              {vatData.ownedObjects.length > 0 && (
-                <div className={styles.tableContainer}>
-                  <h4>Owned Objects</h4>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>KRef</th>
-                        <th>ERef</th>
-                        <th>Ref Count</th>
-                        <th>To Vat(s)</th>
+            {vatData.ownedObjects.length > 0 && (
+              <div className={styles.tableContainer}>
+                <h4>Owned Objects</h4>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>KRef</th>
+                      <th>ERef</th>
+                      <th>Ref Count</th>
+                      <th>To Vat(s)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vatData.ownedObjects.map((obj, idx) => (
+                      <tr key={`owned-${obj.kref}-${idx}`}>
+                        <td>{obj.kref}</td>
+                        <td>{obj.eref}</td>
+                        <td>{obj.refCount}</td>
+                        <td>
+                          {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {vatData.ownedObjects.map((obj, idx) => (
-                        <tr key={`owned-${obj.kref}-${idx}`}>
-                          <td>{obj.kref}</td>
-                          <td>{obj.eref}</td>
-                          <td>{obj.refCount}</td>
-                          <td>
-                            {obj.toVats.length > 0
-                              ? obj.toVats.join(', ')
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-              {vatData.importedObjects.length > 0 && (
-                <div className={styles.tableContainer}>
-                  <h4>Imported Objects</h4>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>KRef</th>
-                        <th>ERef</th>
-                        <th>Ref Count</th>
-                        <th>From Vat</th>
+            {vatData.importedObjects.length > 0 && (
+              <div className={styles.tableContainer}>
+                <h4>Imported Objects</h4>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>KRef</th>
+                      <th>ERef</th>
+                      <th>Ref Count</th>
+                      <th>From Vat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vatData.importedObjects.map((obj, idx) => (
+                      <tr key={`imported-${obj.kref}-${idx}`}>
+                        <td>{obj.kref}</td>
+                        <td>{obj.eref}</td>
+                        <td>{obj.refCount}</td>
+                        <td>{obj.fromVat ?? '—'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {vatData.importedObjects.map((obj, idx) => (
-                        <tr key={`imported-${obj.kref}-${idx}`}>
-                          <td>{obj.kref}</td>
-                          <td>{obj.eref}</td>
-                          <td>{obj.refCount}</td>
-                          <td>{obj.fromVat ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-              {vatData.importedPromises.length > 0 && (
-                <div className={styles.tableContainer}>
-                  <h4>Imported Promises</h4>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>KRef</th>
-                        <th>ERef</th>
-                        <th>State</th>
-                        <th>Value</th>
-                        <th>Slots</th>
-                        <th>From Vat</th>
+            {vatData.importedPromises.length > 0 && (
+              <div className={styles.tableContainer}>
+                <h4>Imported Promises</h4>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>KRef</th>
+                      <th>ERef</th>
+                      <th>State</th>
+                      <th>Value</th>
+                      <th>Slots</th>
+                      <th>From Vat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vatData.importedPromises.map((promise, idx) => (
+                      <tr key={`imported-promise-${promise.kref}-${idx}`}>
+                        <td>{promise.kref}</td>
+                        <td>{promise.eref}</td>
+                        <td>{promise.state}</td>
+                        <td>{promise.value.body}</td>
+                        <td>
+                          {promise.value.slots.length > 0
+                            ? promise.value.slots
+                                .map(
+                                  (slot) =>
+                                    `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                )
+                                .join(', ')
+                            : '—'}
+                        </td>
+                        <td>{promise.fromVat ?? '—'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {vatData.importedPromises.map((promise, idx) => (
-                        <tr key={`imported-promise-${promise.kref}-${idx}`}>
-                          <td>{promise.kref}</td>
-                          <td>{promise.eref}</td>
-                          <td>{promise.state}</td>
-                          <td>{promise.value.body}</td>
-                          <td>
-                            {promise.value.slots.length > 0
-                              ? promise.value.slots
-                                  .map(
-                                    (slot) =>
-                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                  )
-                                  .join(', ')
-                              : '—'}
-                          </td>
-                          <td>{promise.fromVat ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-              {vatData.exportedPromises.length > 0 && (
-                <div className={styles.tableContainer}>
-                  <h4>Exported Promises</h4>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>KRef</th>
-                        <th>ERef</th>
-                        <th>State</th>
-                        <th>Value</th>
-                        <th>Slots</th>
-                        <th>To Vat(s)</th>
+            {vatData.exportedPromises.length > 0 && (
+              <div className={styles.tableContainer}>
+                <h4>Exported Promises</h4>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>KRef</th>
+                      <th>ERef</th>
+                      <th>State</th>
+                      <th>Value</th>
+                      <th>Slots</th>
+                      <th>To Vat(s)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vatData.exportedPromises.map((promise, idx) => (
+                      <tr key={`exported-promise-${promise.kref}-${idx}`}>
+                        <td>{promise.kref}</td>
+                        <td>{promise.eref}</td>
+                        <td>{promise.state}</td>
+                        <td>{promise.value.body}</td>
+                        <td>
+                          {promise.value.slots.length > 0
+                            ? promise.value.slots
+                                .map(
+                                  (slot) =>
+                                    `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                )
+                                .join(', ')
+                            : '—'}
+                        </td>
+                        <td>
+                          {promise.toVats.length > 0
+                            ? promise.toVats.join(', ')
+                            : '—'}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {vatData.exportedPromises.map((promise, idx) => (
-                        <tr key={`exported-promise-${promise.kref}-${idx}`}>
-                          <td>{promise.kref}</td>
-                          <td>{promise.eref}</td>
-                          <td>{promise.state}</td>
-                          <td>{promise.value.body}</td>
-                          <td>
-                            {promise.value.slots.length > 0
-                              ? promise.value.slots
-                                  .map(
-                                    (slot) =>
-                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                  )
-                                  .join(', ')
-                              : '—'}
-                          </td>
-                          <td>
-                            {promise.toVats.length > 0
-                              ? promise.toVats.join(', ')
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Accordion>
+        );
+      })}
     </div>
   );
 };

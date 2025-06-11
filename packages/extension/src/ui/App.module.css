@@ -1,5 +1,6 @@
 /* Base variables */
 :root {
+  /* Light theme (default) */
   --color-white: #fff;
   --color-black: #333;
   --color-gray-100: #f5f5f5;
@@ -12,6 +13,14 @@
   --color-error: #f44336;
   --color-warning: #ffeb3b;
   --color-warning-dark: #ffe600;
+  --color-background: var(--color-white);
+  --color-text: var(--color-black);
+  --color-border: var(--color-gray-300);
+  --color-hover: var(--color-gray-800);
+  --color-hover-text: var(--color-white);
+  --color-input-bg: var(--color-white);
+  --color-panel-bg: var(--color-gray-100);
+  --color-header-bg: var(--color-gray-200);
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -76,7 +85,8 @@ pre {
   gap: var(--spacing-xxl);
   min-width: var(--panel-min-width);
   min-height: 100%;
-  background: var(--color-white);
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
 /* Common form elements */
@@ -85,13 +95,16 @@ input,
 .button,
 select,
 .select {
+  display: flex;
+  align-items: center;
   height: var(--input-height);
   padding: 0 var(--spacing-lg);
   border-radius: var(--border-radius);
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
   margin: 0;
-  background-color: var(--color-white);
+  background-color: var(--color-input-bg);
+  color: var(--color-text);
   transition: background-color var(--transition-speed);
 }
 
@@ -111,7 +124,7 @@ select,
 .button {
   white-space: nowrap;
   cursor: pointer;
-  color: var(--color-black);
+  color: var(--color-text);
   background-color: var(--color-gray-200);
 }
 
@@ -169,8 +182,8 @@ select,
 }
 
 .button:hover:not(:disabled) {
-  background-color: var(--color-gray-800);
-  color: var(--color-white);
+  background-color: var(--color-hover);
+  color: var(--color-hover-text);
 }
 
 .buttonBlack:hover:not(:disabled) {
@@ -238,14 +251,11 @@ select,
   font-family: monospace;
   font-size: var(--font-size-xs);
   line-height: 1.4;
-  background: var(--color-gray-100);
+  background: var(--color-panel-bg);
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--border-radius);
-}
-
-.messageScrollWrapper {
+  color: var(--color-text);
   overflow-y: auto;
-  height: 100%;
 }
 
 .timestamp {
@@ -308,6 +318,10 @@ div + .sent {
   gap: var(--spacing-sm);
 }
 
+.headerControls h4 {
+  flex: 1;
+}
+
 .headerControls button {
   margin: 0;
 }
@@ -331,26 +345,12 @@ div + .sent {
 
 .outputHeader {
   padding: var(--spacing-md);
-  background: var(--color-gray-200);
-  border-bottom: 1px solid var(--color-gray-300);
+  background: var(--color-header-bg);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: var(--bar-height);
-}
-
-.messageOutput {
-  flex: 1;
-  padding: var(--spacing-md);
-  overflow-y: auto;
-  font-family: monospace;
-  font-size: var(--font-size-xs);
-  line-height: 1.4;
-}
-
-.loading {
-  padding: var(--spacing-md) 0;
-  color: var(--color-gray-600);
 }
 
 .messageInputSection {
@@ -416,15 +416,17 @@ table.table {
 }
 
 .table th {
-  background: var(--color-gray-200);
+  background: var(--color-header-bg);
   padding: var(--spacing-md);
   text-align: left;
   font-weight: 600;
+  color: var(--color-text);
 }
 
 .table td {
   padding: var(--spacing-sm) var(--spacing-md);
-  border-top: 1px solid var(--color-gray-300);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .table td.long {
@@ -432,7 +434,7 @@ table.table {
 }
 
 .table tr:hover {
-  background: var(--color-gray-100);
+  background: var(--color-panel-bg);
 }
 
 .tableActions {
@@ -536,36 +538,6 @@ table.table {
   gap: var(--spacing-sm);
 }
 
-.configEditor {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.configTextarea {
-  font-family: monospace;
-  padding: var(--spacing-sm);
-  border: 1px solid var(--color-gray-300);
-  border-radius: var(--border-radius);
-  resize: vertical;
-  min-height: 200px;
-  width: 100%;
-  margin-bottom: var(--spacing-sm);
-}
-
-.configEditorButtons {
-  display: flex;
-  gap: var(--spacing-sm);
-  justify-content: flex-end;
-}
-
-.configControls {
-  display: flex;
-  gap: var(--spacing-xs);
-  justify-content: space-between;
-}
-
 .noMargin {
   margin: 0;
 }
@@ -616,6 +588,10 @@ table.table {
   background-color: var(--color-white);
 }
 
+.accordionContent .table {
+  margin-bottom: 0;
+}
+
 .tableContainer {
   margin-bottom: var(--spacing-xl);
 }
@@ -637,6 +613,10 @@ table.table {
   margin: var(--spacing-md) 0;
 }
 
+.subclusterTable {
+  margin-top: var(--spacing-md);
+}
+
 .vatDetailsHeader {
   font-size: var(--font-size-sm);
   color: var(--color-gray-600);
@@ -649,4 +629,142 @@ table.table {
     width: 150px;
     flex: none;
   }
+}
+
+.dropZone {
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xxl);
+  margin-top: var(--spacing-md);
+  background-color: var(--color-gray-100);
+  transition: all var(--transition-speed) ease;
+  cursor: pointer;
+}
+
+.dropZone.dragging {
+  border-color: var(--color-primary);
+  background-color: var(--color-gray-200);
+}
+
+.dropZoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  text-align: center;
+}
+
+.uploadIcon {
+  color: var(--color-gray-600);
+  margin-bottom: var(--spacing-sm);
+}
+
+.dropZoneText {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Modal styles */
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-xl);
+}
+
+.modalContent {
+  background: var(--color-white);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalContent.sm {
+  width: 400px;
+}
+
+.modalContent.md {
+  width: 600px;
+}
+
+.modalContent.lg {
+  width: 800px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-gray-100);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--color-gray-600);
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius);
+  transition: background-color var(--transition-speed);
+}
+
+.modalCloseButton:hover {
+  background-color: var(--color-gray-200);
+  color: var(--color-text);
+}
+
+.modalBody {
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.configModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.configTextarea {
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  background-color: var(--color-gray-100);
+  color: var(--color-text);
+  resize: none;
+  width: 100%;
+  min-height: 350px;
+  line-height: 1.4;
+  white-space: pre;
+  overflow: auto;
 }
