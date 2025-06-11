@@ -112,7 +112,7 @@ const referenceKVUpdates: VatCheckpoint[] = [
 
 describe('exercise vatstore', async () => {
   // TODO: fix flaky
-  it('exercise vatstore', { retry: 3, timeout: 10_000 }, async () => {
+  it('exercise vatstore', { retry: 3 }, async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });

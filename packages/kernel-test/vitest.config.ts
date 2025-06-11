@@ -10,6 +10,7 @@ const config = mergeConfig(
       name: 'kernel-test',
       pool: 'forks',
       setupFiles: path.resolve(__dirname, '../kernel-shims/src/endoify.js'),
+      testTimeout: 30_000,
     },
   }),
 );

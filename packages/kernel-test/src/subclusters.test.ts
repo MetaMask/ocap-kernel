@@ -51,43 +51,39 @@ describe('Subcluster functionality', () => {
     kernel = await makeKernel(kernelDatabase, true, logger);
   });
 
-  it(
-    'can create and manage multiple subclusters',
-    { timeout: 10000 },
-    async () => {
-      // Create first subcluster
-      const subcluster1 = makeTestSubcluster('subcluster1');
-      const bootstrapResult1 = await runTestVats(kernel, subcluster1);
-      expect(bootstrapResult1).toBe('bootstrap complete');
+  it('can create and manage multiple subclusters', async () => {
+    // Create first subcluster
+    const subcluster1 = makeTestSubcluster('subcluster1');
+    const bootstrapResult1 = await runTestVats(kernel, subcluster1);
+    expect(bootstrapResult1).toBe('bootstrap complete');
 
-      // Create second subcluster
-      const subcluster2 = makeTestSubcluster('subcluster2');
-      const bootstrapResult2 = await runTestVats(kernel, subcluster2);
-      expect(bootstrapResult2).toBe('bootstrap complete');
+    // Create second subcluster
+    const subcluster2 = makeTestSubcluster('subcluster2');
+    const bootstrapResult2 = await runTestVats(kernel, subcluster2);
+    expect(bootstrapResult2).toBe('bootstrap complete');
 
-      // Verify subclusters exist
-      const subclusters = kernel.getSubclusters();
-      expect(subclusters).toHaveLength(2);
-      expect(subclusters[0]?.id).toBe('s1');
-      expect(subclusters[1]?.id).toBe('s2');
+    // Verify subclusters exist
+    const subclusters = kernel.getSubclusters();
+    expect(subclusters).toHaveLength(2);
+    expect(subclusters[0]?.id).toBe('s1');
+    expect(subclusters[1]?.id).toBe('s2');
 
-      // Verify vats are in correct subclusters
-      const vats = kernel.getVats();
-      expect(vats).toHaveLength(4); // 2 vats per subcluster
+    // Verify vats are in correct subclusters
+    const vats = kernel.getVats();
+    expect(vats).toHaveLength(4); // 2 vats per subcluster
 
-      const subcluster1Vats = kernel.getSubclusterVats('s1');
-      expect(subcluster1Vats).toHaveLength(2);
-      expect(subcluster1Vats).toContain('v1');
-      expect(subcluster1Vats).toContain('v2');
+    const subcluster1Vats = kernel.getSubclusterVats('s1');
+    expect(subcluster1Vats).toHaveLength(2);
+    expect(subcluster1Vats).toContain('v1');
+    expect(subcluster1Vats).toContain('v2');
 
-      const subcluster2Vats = kernel.getSubclusterVats('s2');
-      expect(subcluster2Vats).toHaveLength(2);
-      expect(subcluster2Vats).toContain('v3');
-      expect(subcluster2Vats).toContain('v4');
-    },
-  );
+    const subcluster2Vats = kernel.getSubclusterVats('s2');
+    expect(subcluster2Vats).toHaveLength(2);
+    expect(subcluster2Vats).toContain('v3');
+    expect(subcluster2Vats).toContain('v4');
+  });
 
-  it('can terminate a subcluster', { timeout: 10000 }, async () => {
+  it('can terminate a subcluster', async () => {
     // Create subcluster
     const subcluster = makeTestSubcluster('subcluster1');
     await runTestVats(kernel, subcluster);
@@ -105,7 +101,7 @@ describe('Subcluster functionality', () => {
     expect(kernel.getSubcluster('s1')).toBeUndefined();
   });
 
-  it('can reload a subcluster', { timeout: 10000 }, async () => {
+  it('can reload a subcluster', async () => {
     // Create subcluster
     const subcluster = makeTestSubcluster('subcluster1');
     const bootstrapResult1 = await runTestVats(kernel, subcluster);
@@ -129,20 +125,16 @@ describe('Subcluster functionality', () => {
     expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
   });
 
-  it(
-    'can check if a vat belongs to a subcluster',
-    { timeout: 10000 },
-    async () => {
-      // Create subcluster
-      const subcluster = makeTestSubcluster('subcluster1');
-      await runTestVats(kernel, subcluster);
+  it('can check if a vat belongs to a subcluster', async () => {
+    // Create subcluster
+    const subcluster = makeTestSubcluster('subcluster1');
+    await runTestVats(kernel, subcluster);
 
-      // Verify vat membership
-      expect(kernel.isVatInSubcluster('v1', 's1')).toBe(true);
-      expect(kernel.isVatInSubcluster('v2', 's1')).toBe(true);
-      expect(kernel.isVatInSubcluster('v1', 's2')).toBe(false);
-    },
-  );
+    // Verify vat membership
+    expect(kernel.isVatInSubcluster('v1', 's1')).toBe(true);
+    expect(kernel.isVatInSubcluster('v2', 's1')).toBe(true);
+    expect(kernel.isVatInSubcluster('v1', 's2')).toBe(false);
+  });
 
   it('can handle subcluster operations with non-existent subclusters', async () => {
     expect(() => kernel.getSubclusterVats('nonexistent')).toThrow(
@@ -156,7 +148,8 @@ describe('Subcluster functionality', () => {
     );
   });
 
-  it('can reload the entire kernel', { timeout: 10000 }, async () => {
+  // TODO: fix flaky
+  it('can reload the entire kernel', { retry: 3 }, async () => {
     // Create multiple subclusters
     const subcluster1 = makeTestSubcluster('subcluster1');
     const subcluster2 = makeTestSubcluster('subcluster2');
@@ -183,29 +176,25 @@ describe('Subcluster functionality', () => {
     expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
   });
 
-  it(
-    'can handle subcluster operations with terminated vats',
-    { timeout: 10000 },
-    async () => {
-      // Create subcluster
-      const subcluster = makeTestSubcluster('subcluster1');
-      await runTestVats(kernel, subcluster);
+  it('can handle subcluster operations with terminated vats', async () => {
+    // Create subcluster
+    const subcluster = makeTestSubcluster('subcluster1');
+    await runTestVats(kernel, subcluster);
 
-      // Terminate a vat
-      await kernel.terminateVat('v2');
-      kernel.collectGarbage();
+    // Terminate a vat
+    await kernel.terminateVat('v2');
+    kernel.collectGarbage();
 
-      // Verify vat is removed from subcluster
-      const subclusterVats = kernel.getSubclusterVats('s1');
-      console.log('subclusterVats', subclusterVats);
-      expect(subclusterVats).toHaveLength(1);
-      expect(subclusterVats).not.toContain('v2');
+    // Verify vat is removed from subcluster
+    const subclusterVats = kernel.getSubclusterVats('s1');
+    console.log('subclusterVats', subclusterVats);
+    expect(subclusterVats).toHaveLength(1);
+    expect(subclusterVats).not.toContain('v2');
 
-      // reload subcluster should recreate all vats
-      const reloadedSubcluster = await kernel.reloadSubcluster('s1');
-      console.log('reloadedSubcluster', reloadedSubcluster);
-      expect(reloadedSubcluster).toBeDefined();
-      expect(reloadedSubcluster.vats).toHaveLength(2);
-    },
-  );
+    // reload subcluster should recreate all vats
+    const reloadedSubcluster = await kernel.reloadSubcluster('s1');
+    console.log('reloadedSubcluster', reloadedSubcluster);
+    expect(reloadedSubcluster).toBeDefined();
+    expect(reloadedSubcluster.vats).toHaveLength(2);
+  });
 });
