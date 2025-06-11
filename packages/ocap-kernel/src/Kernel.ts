@@ -592,7 +592,6 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
-    const rogueVats = this.getVats().filter((vat) => !vat.subclusterId);
     const subclusters = this.#kernelStore.getSubclusters();
     await this.terminateAllVats();
     for (const subcluster of subclusters) {
@@ -600,9 +599,6 @@ export class Kernel {
       await this.#launchVatsForSubcluster(newId, subcluster.config);
       // Wait for run queue to be empty before proceeding to next subcluster
       await delay(100);
-    }
-    for (const vat of rogueVats) {
-      await this.#launchVat(vat.config);
     }
   }
 

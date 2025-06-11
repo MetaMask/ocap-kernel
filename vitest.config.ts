@@ -80,10 +80,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 89.5,
-          functions: 90.22,
-          branches: 85.87,
-          lines: 89.51,
+          statements: 89.42,
+          functions: 90.11,
+          branches: 85.6,
+          lines: 89.45,
         },
         'packages/kernel-browser-runtime/**': {
           statements: 77.35,
@@ -134,10 +134,10 @@ export default defineConfig({
           lines: 73.58,
         },
         'packages/ocap-kernel/**': {
-          statements: 93,
-          functions: 95.5,
-          branches: 83.72,
-          lines: 92.97,
+          statements: 92.49,
+          functions: 95.48,
+          branches: 83.1,
+          lines: 92.46,
         },
         'packages/streams/**': {
           statements: 100,

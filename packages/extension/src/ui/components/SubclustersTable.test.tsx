@@ -56,20 +56,17 @@ describe('SubclustersTable Component', () => {
     },
   };
 
-  const mockGroupedVats = {
-    subclusters: [
-      {
-        id: 'subcluster-1',
-        vats: ['vat-1', 'vat-2'],
-        config: {
-          bootstrap: 'bootstrap-1',
-          vats: mockVatConfig,
-        },
-        vatRecords: mockVats,
+  const mockGroupedVats = [
+    {
+      id: 'subcluster-1',
+      vats: ['vat-1', 'vat-2'],
+      config: {
+        bootstrap: 'bootstrap-1',
+        vats: mockVatConfig,
       },
-    ],
-    rogueVats: [],
-  };
+      vatRecords: mockVats,
+    },
+  ];
 
   const mockActions = {
     pingVat: vi.fn(),
@@ -86,7 +83,7 @@ describe('SubclustersTable Component', () => {
 
   it('renders message when no subclusters are present', () => {
     vi.mocked(useVats).mockReturnValue({
-      groupedVats: { subclusters: [], rogueVats: [] },
+      groupedVats: [],
       ...mockActions,
       hasVats: false,
     });
@@ -94,101 +91,6 @@ describe('SubclustersTable Component', () => {
     expect(
       screen.getByText('No vats or subclusters are currently active.'),
     ).toBeInTheDocument();
-  });
-
-  it('renders rogue vats table when only rogue vats are present', () => {
-    vi.mocked(useVats).mockReturnValue({
-      groupedVats: {
-        subclusters: [],
-        rogueVats: [
-          {
-            id: 'rogue-vat-1',
-            source: 'rogue-source-1',
-            parameters: 'rogue-params-1',
-            creationOptions: '',
-          },
-        ],
-      },
-      ...mockActions,
-      hasVats: true,
-    });
-    render(<SubclustersTable />);
-
-    const rogueVatsTable = screen.getByTestId('rogue-vats-table');
-    expect(rogueVatsTable).toBeInTheDocument();
-    expect(screen.getByText('rogue-vat-1')).toBeInTheDocument();
-    expect(screen.getByText('rogue-source-1')).toBeInTheDocument();
-    expect(screen.getByText('rogue-params-1')).toBeInTheDocument();
-  });
-
-  it('renders both subclusters and rogue vats when both are present', () => {
-    vi.mocked(useVats).mockReturnValue({
-      groupedVats: {
-        subclusters: mockGroupedVats.subclusters,
-        rogueVats: [
-          {
-            id: 'rogue-vat-1',
-            source: 'rogue-source-1',
-            parameters: 'rogue-params-1',
-            creationOptions: '',
-          },
-        ],
-      },
-      ...mockActions,
-      hasVats: true,
-    });
-    render(<SubclustersTable />);
-
-    // Check subcluster is rendered
-    expect(screen.getByText('Subcluster subcluster-1 -')).toBeInTheDocument();
-
-    // Check rogue vats table is rendered
-    const rogueVatsTable = screen.getByTestId('rogue-vats-table');
-    expect(rogueVatsTable).toBeInTheDocument();
-    expect(screen.getByText('rogue-vat-1')).toBeInTheDocument();
-  });
-
-  it('applies correct action handlers to rogue vats', async () => {
-    vi.mocked(useVats).mockReturnValue({
-      groupedVats: {
-        subclusters: [],
-        rogueVats: [
-          {
-            id: 'rogue-vat-1',
-            source: 'rogue-source-1',
-            parameters: 'rogue-params-1',
-            creationOptions: '',
-          },
-        ],
-      },
-      ...mockActions,
-      hasVats: true,
-    });
-    render(<SubclustersTable />);
-
-    const rogueVatRow = screen
-      .getByTestId('vat-table')
-      .querySelector('tr[data-vat-id="rogue-vat-1"]');
-    const rowContainer = rogueVatRow as HTMLElement;
-
-    const pingButton = within(rowContainer).getByRole('button', {
-      name: 'Ping',
-    });
-    const restartButton = within(rowContainer).getByRole('button', {
-      name: 'Restart',
-    });
-    const terminateButton = within(rowContainer).getByRole('button', {
-      name: 'Terminate',
-    });
-
-    await userEvent.click(pingButton);
-    expect(mockActions.pingVat).toHaveBeenCalledWith('rogue-vat-1');
-
-    await userEvent.click(restartButton);
-    expect(mockActions.restartVat).toHaveBeenCalledWith('rogue-vat-1');
-
-    await userEvent.click(terminateButton);
-    expect(mockActions.terminateVat).toHaveBeenCalledWith('rogue-vat-1');
   });
 
   it('renders subcluster accordion with correct title and vat count', () => {

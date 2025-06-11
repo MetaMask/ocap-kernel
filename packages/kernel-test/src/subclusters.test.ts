@@ -148,8 +148,7 @@ describe('Subcluster functionality', () => {
     );
   });
 
-  // TODO: fix this test that fails on CI
-  it.todo('can reload the entire kernel', async () => {
+  it('can reload the entire kernel', async () => {
     // Create multiple subclusters
     const subcluster1 = makeTestSubcluster('subcluster1');
     const subcluster2 = makeTestSubcluster('subcluster2');

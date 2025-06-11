@@ -8,7 +8,6 @@ const config = mergeConfig(
   defineProject({
     test: {
       name: 'kernel-test',
-      pool: 'forks',
       setupFiles: path.resolve(__dirname, '../kernel-shims/src/endoify.js'),
       testTimeout: 30_000,
     },

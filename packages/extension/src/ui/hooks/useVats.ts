@@ -10,10 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { VatRecord } from '../types.ts';
 
-export type GroupedVats = {
-  subclusters: (Subcluster & { vatRecords: VatRecord[] })[];
-  rogueVats: VatRecord[];
-};
+export type GroupedVats = (Subcluster & { vatRecords: VatRecord[] })[];
 
 const getSourceFromConfig = (config: VatConfig): string => {
   if ('bundleSpec' in config) {
@@ -57,7 +54,7 @@ export const useVats = (): {
 
   const groupedVats = useMemo<GroupedVats>(() => {
     if (!status) {
-      return { subclusters: [], rogueVats: [] };
+      return [];
     }
 
     setHasVats(status.vats.length > 0);
@@ -84,16 +81,7 @@ export const useVats = (): {
       vatRecords: subclusterVats.get(subcluster.id) ?? [],
     }));
 
-    // Find rogue vats (those without a valid subcluster)
-    const validSubclusterIds = new Set(status.subclusters.map((sc) => sc.id));
-    const rogueVats = Array.from(vatRecords.values()).filter(
-      (vat) => !vat.subclusterId || !validSubclusterIds.has(vat.subclusterId),
-    );
-
-    return {
-      subclusters: subclustersWithVats,
-      rogueVats,
-    };
+    return subclustersWithVats;
   }, [status]);
 
   const pingVat = useCallback(

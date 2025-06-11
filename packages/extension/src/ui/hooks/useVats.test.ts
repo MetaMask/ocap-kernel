@@ -62,28 +62,25 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual({
-      subclusters: [
-        {
-          id: mockSubclusterId,
-          name: 'Test Subcluster',
-          config: {
-            bundleSpec: 'test-bundle',
-            parameters: { foo: 'bar' },
-          },
-          vatRecords: [
-            {
-              id: mockVatId,
-              source: 'test-bundle',
-              parameters: '{"foo":"bar"}',
-              creationOptions: '{"test":true}',
-              subclusterId: mockSubclusterId,
-            },
-          ],
+    expect(result.current.groupedVats).toStrictEqual([
+      {
+        id: mockSubclusterId,
+        name: 'Test Subcluster',
+        config: {
+          bundleSpec: 'test-bundle',
+          parameters: { foo: 'bar' },
         },
-      ],
-      rogueVats: [],
-    });
+        vatRecords: [
+          {
+            id: mockVatId,
+            source: 'test-bundle',
+            parameters: '{"foo":"bar"}',
+            creationOptions: '{"test":true}',
+            subclusterId: mockSubclusterId,
+          },
+        ],
+      },
+    ]);
   });
 
   it('should handle missing vat config gracefully', async () => {
@@ -102,18 +99,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual({
-      subclusters: [],
-      rogueVats: [
-        {
-          id: mockVatId,
-          source: 'unknown',
-          parameters: '{}',
-          creationOptions: '{}',
-          subclusterId: undefined,
-        },
-      ],
-    });
+    expect(result.current.groupedVats).toStrictEqual([]);
   });
 
   it('should use sourceSpec when bundleSpec is not available', async () => {
@@ -140,18 +126,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual({
-      subclusters: [],
-      rogueVats: [
-        {
-          id: mockVatId,
-          source: 'test-source',
-          parameters: '{"foo":"bar"}',
-          creationOptions: '{}',
-          subclusterId: undefined,
-        },
-      ],
-    });
+    expect(result.current.groupedVats).toStrictEqual([]);
   });
 
   it('should use bundleName when bundleSpec and sourceSpec are not available', async () => {
@@ -178,18 +153,7 @@ describe('useVats', () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
 
-    expect(result.current.groupedVats).toStrictEqual({
-      subclusters: [],
-      rogueVats: [
-        {
-          id: mockVatId,
-          source: 'test-bundle',
-          parameters: '{"foo":"bar"}',
-          creationOptions: '{}',
-          subclusterId: undefined,
-        },
-      ],
-    });
+    expect(result.current.groupedVats).toStrictEqual([]);
   });
 
   describe('pingVat', () => {
