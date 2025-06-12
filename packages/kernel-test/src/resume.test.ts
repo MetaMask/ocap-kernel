@@ -99,7 +99,7 @@ const reference = sortLogs([
   ...carolResumeReference,
 ]);
 
-describe('restarting vats', { timeout: 30_000 }, async () => {
+describe('restarting vats', async () => {
   it('exercise restart vats individually', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
@@ -124,7 +124,7 @@ describe('restarting vats', { timeout: 30_000 }, async () => {
     expect(sortLogs(vatLogs)).toStrictEqual(reference);
   });
 
-  it('exercise restart kernel', { timeout: 30_000 }, async () => {
+  it('exercise restart kernel', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });

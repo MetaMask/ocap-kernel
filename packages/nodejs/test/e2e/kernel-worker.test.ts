@@ -1,7 +1,7 @@
 import '@metamask/kernel-shims/endoify';
 
 import { Kernel } from '@metamask/ocap-kernel';
-import type { VatConfig } from '@metamask/ocap-kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import {
   MessageChannel as NodeMessageChannel,
   MessagePort as NodePort,
@@ -23,11 +23,6 @@ describe('Kernel Worker', () => {
   // Tests below assume these are sorted for convenience.
   const testVatIds = ['v1', 'v2', 'v3'].sort();
 
-  const testVatConfig: VatConfig = {
-    bundleSpec: 'http://localhost:3000/sample-vat.bundle',
-    parameters: { name: 'Nodeen' },
-  };
-
   beforeEach(async () => {
     if (kernelPort) {
       kernelPort.close();
@@ -40,22 +35,44 @@ describe('Kernel Worker', () => {
 
   afterEach(async () => {
     if (kernel) {
-      await kernel.terminateAllVats();
       await kernel.clearStorage();
     }
   });
 
-  it('launches a vat', async () => {
+  it('launches a subcluster', async () => {
     expect(kernel.getVatIds()).toHaveLength(0);
-    const kRef = await kernel.launchVat(testVatConfig);
-    expect(typeof kRef).toBe('string');
+    const testConfig: ClusterConfig = {
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+          parameters: { name: 'Nodeen' },
+        },
+      },
+    };
+    await kernel.launchSubcluster(testConfig);
     expect(kernel.getVatIds()).toHaveLength(1);
   });
 
   const launchTestVats = async (): Promise<void> => {
-    await Promise.all(
-      testVatIds.map(async () => await kernel.launchVat(testVatConfig)),
-    );
+    const testConfig: ClusterConfig = {
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+          parameters: { name: 'Nodeen' },
+        },
+        bob: {
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+          parameters: { name: 'bob' },
+        },
+        alice: {
+          bundleSpec: 'http://localhost:3000/sample-vat.bundle',
+          parameters: { name: 'alice' },
+        },
+      },
+    };
+    await kernel.launchSubcluster(testConfig);
     expect(kernel.getVatIds().sort()).toStrictEqual(testVatIds);
   };
 
@@ -71,8 +88,9 @@ describe('Kernel Worker', () => {
     expect(kernel.getVatIds()).toHaveLength(0);
   });
 
-  // TODO: Fix this test once the ping method is implemented
-  it.todo('pings vats', async () => {
-    // silence is golden
+  it('pings vats', async () => {
+    await launchTestVats();
+    const result = await kernel.pingVat('v1');
+    expect(result).toBe('pong');
   });
 });

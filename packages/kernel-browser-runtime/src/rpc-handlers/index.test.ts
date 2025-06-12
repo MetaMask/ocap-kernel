@@ -15,7 +15,6 @@ import {
   launchSubclusterHandler,
   launchSubclusterSpec,
 } from './launch-subcluster.ts';
-import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
@@ -40,7 +39,6 @@ describe('handlers/index', () => {
       clearState: clearStateHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
-      launchVat: launchVatHandler,
       pingVat: pingVatHandler,
       reload: reloadConfigHandler,
       restartVat: restartVatHandler,
@@ -68,7 +66,6 @@ describe('handlers/index', () => {
       clearState: clearStateSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
-      launchVat: launchVatSpec,
       pingVat: pingVatSpec,
       reload: reloadConfigSpec,
       restartVat: restartVatSpec,

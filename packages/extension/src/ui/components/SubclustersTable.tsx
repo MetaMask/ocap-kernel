@@ -1,6 +1,5 @@
 import styles from '../App.module.css';
 import { SubclusterAccordion } from './SubclusterAccordion.tsx';
-import { VatTable } from './VatTable.tsx';
 import { useVats } from '../hooks/useVats.ts';
 
 /**
@@ -8,7 +7,7 @@ import { useVats } from '../hooks/useVats.ts';
  */
 export const SubclustersTable: React.FC = () => {
   const {
-    groupedVats,
+    subclusters,
     pingVat,
     restartVat,
     terminateVat,
@@ -16,10 +15,7 @@ export const SubclustersTable: React.FC = () => {
     reloadSubcluster,
   } = useVats();
 
-  if (
-    !groupedVats ||
-    (groupedVats.subclusters.length === 0 && groupedVats.rogueVats.length === 0)
-  ) {
+  if (!subclusters || subclusters.length === 0) {
     return (
       <p className={styles.error}>
         No vats or subclusters are currently active.
@@ -29,7 +25,7 @@ export const SubclustersTable: React.FC = () => {
 
   return (
     <div className={styles.tableContainer}>
-      {groupedVats.subclusters.map((subcluster) => (
+      {subclusters.map((subcluster) => (
         <SubclusterAccordion
           key={subcluster.id}
           id={subcluster.id}
@@ -42,16 +38,6 @@ export const SubclustersTable: React.FC = () => {
           onReloadSubcluster={reloadSubcluster}
         />
       ))}
-      {groupedVats.rogueVats.length > 0 && (
-        <div className={styles.tableContainer} data-testid="rogue-vats-table">
-          <VatTable
-            vats={groupedVats.rogueVats}
-            onPingVat={pingVat}
-            onRestartVat={restartVat}
-            onTerminateVat={terminateVat}
-          />
-        </div>
-      )}
     </div>
   );
 };

@@ -12,7 +12,6 @@ import {
   launchSubclusterHandler,
   launchSubclusterSpec,
 } from './launch-subcluster.ts';
-import { launchVatHandler, launchVatSpec } from './launch-vat.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
@@ -38,7 +37,6 @@ export const rpcHandlers = {
   clearState: clearStateHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
-  launchVat: launchVatHandler,
   pingVat: pingVatHandler,
   reload: reloadConfigHandler,
   restartVat: restartVatHandler,
@@ -53,7 +51,6 @@ export const rpcHandlers = {
   clearState: typeof clearStateHandler;
   executeDBQuery: typeof executeDBQueryHandler;
   getStatus: typeof getStatusHandler;
-  launchVat: typeof launchVatHandler;
   pingVat: typeof pingVatHandler;
   reload: typeof reloadConfigHandler;
   restartVat: typeof restartVatHandler;
@@ -73,7 +70,6 @@ export const rpcMethodSpecs = {
   clearState: clearStateSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
-  launchVat: launchVatSpec,
   pingVat: pingVatSpec,
   reload: reloadConfigSpec,
   restartVat: restartVatSpec,
@@ -88,7 +84,6 @@ export const rpcMethodSpecs = {
   clearState: typeof clearStateSpec;
   executeDBQuery: typeof executeDBQuerySpec;
   getStatus: typeof getStatusSpec;
-  launchVat: typeof launchVatSpec;
   pingVat: typeof pingVatSpec;
   reload: typeof reloadConfigSpec;
   restartVat: typeof restartVatSpec;

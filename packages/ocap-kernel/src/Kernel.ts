@@ -194,7 +194,7 @@ export class Kernel {
    * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
    * @returns a promise for the KRef of the new vat's root object.
    */
-  async launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
+  async #launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
     await this.#runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
@@ -366,7 +366,7 @@ export class Kernel {
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.launchVat(vatConfig, subclusterId);
+      const rootRef = await this.#launchVat(vatConfig, subclusterId);
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
@@ -481,14 +481,14 @@ export class Kernel {
   getVats(): {
     id: VatId;
     config: VatConfig;
-    subclusterId?: string;
+    subclusterId: string;
   }[] {
     return Array.from(this.#vats.values()).map((vat) => {
       const subclusterId = this.#kernelStore.getVatSubcluster(vat.vatId);
       return {
         id: vat.vatId,
         config: vat.config,
-        ...(subclusterId && { subclusterId }),
+        subclusterId,
       };
     });
   }
@@ -592,7 +592,6 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
-    const rogueVats = this.getVats().filter((vat) => !vat.subclusterId);
     const subclusters = this.#kernelStore.getSubclusters();
     await this.terminateAllVats();
     for (const subcluster of subclusters) {
@@ -600,9 +599,6 @@ export class Kernel {
       await this.#launchVatsForSubcluster(newId, subcluster.config);
       // Wait for run queue to be empty before proceeding to next subcluster
       await delay(100);
-    }
-    for (const vat of rogueVats) {
-      await this.launchVat(vat.config);
     }
   }
 

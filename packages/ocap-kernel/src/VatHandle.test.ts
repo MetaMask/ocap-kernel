@@ -270,6 +270,10 @@ describe('VatHandle', () => {
   describe('terminate', () => {
     it('terminates the vat and rejects unresolved messages', async () => {
       const { vat, stream } = await makeVat();
+      // terminate will remove the vat from the subcluster
+      // so we need to add the vat to a subcluster
+      mockKernelStore.addSubcluster({ bootstrap: 'test', vats: {} });
+      mockKernelStore.addSubclusterVat('s1', 'v0');
 
       // Create a pending message that should be rejected on terminate
       const messagePromise = vat.sendVatCommand({

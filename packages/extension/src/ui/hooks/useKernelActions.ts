@@ -13,11 +13,6 @@ export function useKernelActions(): {
   collectGarbage: () => void;
   clearState: () => void;
   reload: () => void;
-  launchVat: (
-    bundleUrl: string,
-    vatName: string,
-    subclusterId?: string,
-  ) => void;
   launchSubcluster: (config: ClusterConfig) => void;
 } {
   const { callKernelMethod, logMessage } = usePanelContext();
@@ -71,29 +66,6 @@ export function useKernelActions(): {
   }, [callKernelMethod, logMessage]);
 
   /**
-   * Launches a vat.
-   */
-  const launchVat = useCallback(
-    (bundleUrl: string, vatName: string, subclusterId?: string) => {
-      callKernelMethod({
-        method: 'launchVat',
-        params: {
-          config: {
-            bundleSpec: bundleUrl,
-            parameters: {
-              name: vatName,
-            },
-          },
-          ...(subclusterId && { subclusterId }),
-        },
-      })
-        .then(() => logMessage(`Launched vat "${vatName}"`, 'success'))
-        .catch(() => logMessage(`Failed to launch vat "${vatName}":`, 'error'));
-    },
-    [callKernelMethod, logMessage],
-  );
-
-  /**
    * Launches a subcluster.
    */
   const launchSubcluster = useCallback(
@@ -115,7 +87,6 @@ export function useKernelActions(): {
     collectGarbage,
     clearState,
     reload,
-    launchVat,
     launchSubcluster,
   };
 }

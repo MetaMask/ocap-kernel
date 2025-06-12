@@ -170,51 +170,6 @@ describe('useKernelActions', () => {
     });
   });
 
-  describe('launchVat', () => {
-    it('sends launch vat command with correct parameters', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      const bundleUrl = 'test-bundle-url';
-      const vatName = 'test-vat';
-
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-
-      result.current.launchVat(bundleUrl, vatName);
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'launchVat',
-          params: {
-            config: {
-              bundleSpec: bundleUrl,
-              parameters: {
-                name: vatName,
-              },
-            },
-          },
-        });
-      });
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        `Launched vat "${vatName}"`,
-        'success',
-      );
-    });
-
-    it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      const bundleUrl = 'test-bundle-url';
-      const vatName = 'test-vat';
-      mockSendMessage.mockRejectedValueOnce(new Error());
-      result.current.launchVat(bundleUrl, vatName);
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(
-          `Failed to launch vat "${vatName}":`,
-          'error',
-        );
-      });
-    });
-  });
-
   describe('launchSubcluster', () => {
     it('sends launch subcluster command with correct parameters', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');

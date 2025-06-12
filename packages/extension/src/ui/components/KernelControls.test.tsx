@@ -28,7 +28,6 @@ const mockUseKernelActions = (overrides = {}): void => {
     terminateAllVats: vi.fn(),
     clearState: vi.fn(),
     reload: vi.fn(),
-    launchVat: vi.fn(),
     collectGarbage: vi.fn(),
     launchSubcluster: vi.fn(),
     ...overrides,
@@ -37,10 +36,7 @@ const mockUseKernelActions = (overrides = {}): void => {
 
 const mockUseVats = (vats: VatRecord[] = []): void => {
   vi.mocked(useVats).mockReturnValue({
-    groupedVats: {
-      subclusters: [],
-      rogueVats: vats,
-    },
+    subclusters: [],
     pingVat: vi.fn(),
     restartVat: vi.fn(),
     terminateVat: vi.fn(),

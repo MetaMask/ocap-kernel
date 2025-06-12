@@ -342,8 +342,8 @@ describe('getSubclusterMethods', () => {
     });
 
     it('should clear map entry if vat is mapped to a subclusterId being deleted from, but subcluster is not found in main list', () => {
-      const vatX = 'vX' as VatId;
-      const scGhostId = 'scGhost' as SubclusterId;
+      const vatX: VatId = 'v100';
+      const scGhostId: SubclusterId = 's100';
       mockVatToSubclusterMapStorage.set(JSON.stringify({ [vatX]: scGhostId }));
 
       subclusterMethods.deleteSubclusterVat(scGhostId, vatX);
@@ -373,8 +373,12 @@ describe('getSubclusterMethods', () => {
       subclusterMethods.deleteSubcluster(scId1);
 
       expect(subclusterMethods.getSubcluster(scId1)).toBeUndefined();
-      expect(subclusterMethods.getVatSubcluster(vatId1)).toBeUndefined();
-      expect(subclusterMethods.getVatSubcluster(vatId2)).toBeUndefined();
+      expect(() => subclusterMethods.getVatSubcluster(vatId1)).toThrow(
+        `Vat "${vatId1}" has no subcluster`,
+      );
+      expect(() => subclusterMethods.getVatSubcluster(vatId2)).toThrow(
+        `Vat "${vatId2}" has no subcluster`,
+      );
 
       const allSc = subclusterMethods.getSubclusters();
       expect(allSc.find((sc) => sc.id === scId1)).toBeUndefined();
@@ -406,7 +410,9 @@ describe('getSubclusterMethods', () => {
 
       subclusterMethods.deleteSubcluster(scId1);
 
-      expect(subclusterMethods.getVatSubcluster(vatX)).toBeUndefined();
+      expect(() => subclusterMethods.getVatSubcluster(vatX)).toThrow(
+        `Vat "${vatX}" has no subcluster`,
+      );
       const sc2AfterDelete = subclusterMethods.getSubcluster(scId2);
       expect(sc2AfterDelete).toBeDefined();
       expect(sc2AfterDelete?.vats).toContain(vatX);
@@ -421,15 +427,17 @@ describe('getSubclusterMethods', () => {
       expect(subclusterMethods.getVatSubcluster(vatId)).toBe(scId);
     });
 
-    it('should return undefined if the vat is not in any subcluster map', () => {
-      expect(
+    it('should throw an error if the vat is not in any subcluster map', () => {
+      expect(() =>
         subclusterMethods.getVatSubcluster('vNonMapped' as VatId),
-      ).toBeUndefined();
+      ).toThrow('Vat "vNonMapped" has no subcluster');
     });
 
-    it('should return undefined if the map is empty', () => {
+    it('should throw an error if the map is empty', () => {
       mockVatToSubclusterMapStorage.set('{}');
-      expect(subclusterMethods.getVatSubcluster('v1' as VatId)).toBeUndefined();
+      expect(() => subclusterMethods.getVatSubcluster('v1' as VatId)).toThrow(
+        'Vat "v1" has no subcluster',
+      );
     });
   });
 
@@ -466,6 +474,51 @@ describe('getSubclusterMethods', () => {
     it('should do nothing if there are no subclusters', () => {
       subclusterMethods.clearEmptySubclusters();
       expect(subclusterMethods.getSubclusters()).toStrictEqual([]);
+    });
+  });
+
+  describe('removeVatFromSubcluster', () => {
+    let scId: SubclusterId;
+    const vatId1: VatId = 'v1';
+    const vatId2: VatId = 'v2';
+
+    beforeEach(() => {
+      scId = subclusterMethods.addSubcluster(mockClusterConfig1);
+      subclusterMethods.addSubclusterVat(scId, vatId1);
+      subclusterMethods.addSubclusterVat(scId, vatId2);
+    });
+
+    it('should remove a vat from its subcluster', () => {
+      subclusterMethods.removeVatFromSubcluster(vatId1);
+
+      const subcluster = subclusterMethods.getSubcluster(scId);
+      expect(subcluster?.vats).not.toContain(vatId1);
+      expect(subcluster?.vats).toContain(vatId2);
+
+      const mapRaw = mockVatToSubclusterMapStorage.get();
+      const map = mapRaw ? JSON.parse(mapRaw) : {};
+      expect(map[vatId1]).toBeUndefined();
+      expect(map[vatId2]).toBe(scId);
+    });
+
+    it('should throw an error if the vat is not in any subcluster', () => {
+      const nonMappedVat = 'vNonMapped' as VatId;
+      expect(() =>
+        subclusterMethods.removeVatFromSubcluster(nonMappedVat),
+      ).toThrow('Vat "vNonMapped" has no subcluster');
+    });
+
+    it('should handle removing the last vat from a subcluster', () => {
+      subclusterMethods.removeVatFromSubcluster(vatId1);
+      subclusterMethods.removeVatFromSubcluster(vatId2);
+
+      const subcluster = subclusterMethods.getSubcluster(scId);
+      expect(subcluster?.vats).toHaveLength(0);
+
+      const mapRaw = mockVatToSubclusterMapStorage.get();
+      const map = mapRaw ? JSON.parse(mapRaw) : {};
+      expect(map[vatId1]).toBeUndefined();
+      expect(map[vatId2]).toBeUndefined();
     });
   });
 });

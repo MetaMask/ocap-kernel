@@ -9,13 +9,11 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Control Panel', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
-  let extensionId: string;
 
   test.beforeEach(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    extensionId = extension.extensionId;
     await expect(
       popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
     ).toBeVisible();
@@ -33,8 +31,6 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('');
-    await popupPage.fill('input[placeholder="Vat Name"]', '');
-    await popupPage.fill('input[placeholder="Bundle URL"]', '');
     await popupPage.click('button:text("Clear All State")');
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
@@ -42,30 +38,6 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
     ).not.toBeVisible();
-  }
-
-  /**
-   * Launches a vat with the given name and bundle URL.
-   *
-   * @param name - The name of the vat to launch.
-   * @param subclusterId - Optional subcluster ID to launch the vat in.
-   */
-  async function launchVat(
-    name: string = 'test-vat',
-    subclusterId?: string,
-  ): Promise<void> {
-    await popupPage.fill('input[placeholder="Vat Name"]', name);
-    await popupPage.fill(
-      'input[placeholder="Bundle URL"]',
-      'http://localhost:3000/sample-vat.bundle',
-    );
-    if (subclusterId) {
-      await popupPage.selectOption('select', subclusterId);
-    }
-    await popupPage.click('button:text("Launch Vat")');
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(`Launched vat "${name}"`);
   }
 
   /**
@@ -94,41 +66,8 @@ test.describe('Control Panel', () => {
       popupPage.locator('button:text("Clear All State")'),
     ).toBeVisible();
     await expect(
-      popupPage.locator('input[placeholder="Vat Name"]'),
-    ).toBeVisible();
-    await expect(
-      popupPage.locator('input[placeholder="Bundle URL"]'),
-    ).toBeVisible();
-    await expect(popupPage.locator('button:text("Launch Vat")')).toBeVisible();
-    await expect(
       popupPage.locator('h4:text("Launch New Subcluster")'),
     ).toBeVisible();
-  });
-
-  test('should validate bundle URL format', async () => {
-    await popupPage.fill('input[placeholder="Vat Name"]', 'test-vat');
-    await popupPage.fill('input[placeholder="Bundle URL"]', 'invalid-url');
-    await expect(popupPage.locator('button:text("Launch Vat")')).toBeDisabled();
-
-    await popupPage.fill(
-      'input[placeholder="Bundle URL"]',
-      'http://localhost:3000/test.js',
-    );
-    await expect(popupPage.locator('button:text("Launch Vat")')).toBeDisabled();
-
-    await popupPage.fill(
-      'input[placeholder="Bundle URL"]',
-      'http://localhost:3000/sample-vat.bundle',
-    );
-    await expect(popupPage.locator('button:text("Launch Vat")')).toBeEnabled();
-  });
-
-  test('should launch a new vat without subcluster', async () => {
-    await clearState();
-    await launchVat();
-    const vatTable = popupPage.locator('[data-testid="vat-table"]');
-    await expect(vatTable).toBeVisible();
-    await expect(vatTable.locator('tr')).toHaveCount(2); // Header + 1 row
   });
 
   test('should launch a new subcluster and vat within it', async () => {
@@ -141,14 +80,11 @@ test.describe('Control Panel', () => {
       timeout: 2000,
     });
     await expect(popupPage.locator('text=1 Vat')).toBeVisible();
-    // Launch another vat in the subcluster
-    await launchVat('vat2', 's1');
-    await expect(popupPage.locator('text=2 Vats')).toBeVisible();
     // Open the subcluster accordion to view vats
     await popupPage.locator('.accordion-header').first().click();
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
-    await expect(vatTable.locator('tr')).toHaveCount(3); // Header + 2 rows
+    await expect(vatTable.locator('tr')).toHaveCount(2);
   });
 
   test('should restart a vat within subcluster', async () => {
@@ -285,35 +221,6 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).not.toContainText('"initialized":true');
     await popupPage.click('button:text("Control Panel")');
-    await launchVat('test-vat-new');
-    await expect(popupPage.locator('table tr')).toHaveCount(2);
-  });
-
-  test('should initialize vat with correct ID from kernel', async () => {
-    await clearState();
-    // Open the offscreen page where vat logs appear
-    const offscreenPage = await extensionContext.newPage();
-    await offscreenPage.goto(
-      `chrome-extension://${extensionId}/offscreen.html`,
-    );
-    // Capture console logs
-    const logs: string[] = [];
-    offscreenPage.on('console', (message) => logs.push(message.text()));
-    // Launch a vat and get its ID from the table
-    await launchVat('test-vat');
-    const vatId = await popupPage
-      .locator('table')
-      .locator('tr')
-      .nth(1)
-      .getAttribute('data-vat-id');
-    // Verify the KV store initialization log shows the correct vat ID
-    await expect
-      .poll(() =>
-        logs.some((log) =>
-          log.includes(`VatSupervisor initialized with vatId: ${vatId}`),
-        ),
-      )
-      .toBeTruthy();
   });
 
   test('should send a message to a vat', async () => {

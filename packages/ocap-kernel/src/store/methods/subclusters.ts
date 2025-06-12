@@ -1,3 +1,4 @@
+import { Fail } from '@endo/errors';
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
 
 import type {
@@ -210,9 +211,9 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @param vatId - The ID of the vat.
    * @returns The ID of the subcluster the vat belongs to, or undefined if not found.
    */
-  function getVatSubcluster(vatId: VatId): SubclusterId | undefined {
+  function getVatSubcluster(vatId: VatId): SubclusterId {
     const currentMap = getVatToSubclusterMap();
-    return currentMap[vatId];
+    return currentMap[vatId] ?? Fail`Vat ${vatId} has no subcluster`;
   }
 
   /**
@@ -235,9 +236,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    */
   function removeVatFromSubcluster(vatId: VatId): void {
     const subclusterId = getVatSubcluster(vatId);
-    if (subclusterId) {
-      deleteSubclusterVat(subclusterId, vatId);
-    }
+    deleteSubclusterVat(subclusterId, vatId);
   }
 
   return {
