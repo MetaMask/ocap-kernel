@@ -39,6 +39,11 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
+  /** Promise that resolves when the run queue becomes empty */
+  #emptyPromise: Promise<void> | null = null;
+
+  #emptyResolve: (() => void) | null = null;
+
   constructor(
     kernelStore: KernelStore,
     terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
@@ -111,6 +116,14 @@ export class KernelQueue {
         }
 
         if (this.#kernelStore.runQueueLength() === 0) {
+          // Resolve any pending empty promise
+          if (this.#emptyResolve) {
+            const emptyResolve = this.#emptyResolve;
+            this.#emptyResolve = null;
+            this.#emptyPromise = null;
+            emptyResolve();
+          }
+          // Wait for next wake-up
           const { promise, resolve } = makePromiseKit<void>();
           if (this.#wakeUpTheRunQueue !== null) {
             Fail`wakeUpTheRunQueue function already set`;
@@ -122,6 +135,24 @@ export class KernelQueue {
         this.#kernelStore.endCrank();
       }
     }
+  }
+
+  /**
+   * Returns a promise that resolves when the run queue is empty and waiting for
+   * the next wakeUpTheRunQueue call. This is useful for testing and synchronization.
+   *
+   * @returns A promise that resolves when the run queue is empty and waiting
+   */
+  async runQueueEmpty(): Promise<void> {
+    if (this.#kernelStore.runQueueLength() === 0) {
+      return undefined;
+    }
+    if (!this.#emptyPromise) {
+      const { promise, resolve } = makePromiseKit<void>();
+      this.#emptyPromise = promise;
+      this.#emptyResolve = resolve;
+    }
+    return this.#emptyPromise;
   }
 
   /**

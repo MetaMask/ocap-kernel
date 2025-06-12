@@ -8,7 +8,7 @@ import {
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { delay, stringify } from '@metamask/kernel-utils';
+import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger, splitLoggerStream } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -597,8 +597,7 @@ export class Kernel {
     for (const subcluster of subclusters) {
       const newId = this.#kernelStore.addSubcluster(subcluster.config);
       await this.#launchVatsForSubcluster(newId, subcluster.config);
-      // Wait for run queue to be empty before proceeding to next subcluster
-      await delay(100);
+      await this.#kernelQueue.runQueueEmpty();
     }
   }
 
