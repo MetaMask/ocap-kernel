@@ -20,26 +20,20 @@ vi.mock('@ocap/streams', () => ({
 
 describe('serialization', () => {
   it.each`
-    description | logEntry
-    ${'with message and data'} | ${{
-  level: 'info',
-  tags: ['test'],
-  message: 'test',
-  data: ['test'],
-}}
-    ${'with message but no data'} | ${{
-  level: 'info',
-  tags: ['test'],
-  message: 'test',
-}}
-    ${'with no message or data'} | ${{
-  level: 'info',
-  tags: ['test'],
-}}
+    description                              | logEntry
+    ${'with message and data'}               | ${{ level: 'info', tags: ['test'], message: 'test', data: ['test'] }}
+    ${'with message but no data'}            | ${{ level: 'info', tags: ['test'], message: 'test' }}
+    ${'with no message or data'}             | ${{ level: 'info', tags: ['test'] }}
+    ${'message and falsey data (0)'}         | ${{ level: 'log', tags: ['test'], message: 'foo', data: [0] }}
+    ${'message and falsey data (false)'}     | ${{ level: 'log', tags: ['test'], message: 'foo', data: [false] }}
+    ${'message and falsey data (null)'}      | ${{ level: 'log', tags: ['test'], message: 'foo', data: [null] }}
+    ${'message and falsey data (undefined)'} | ${{ level: 'log', tags: ['test'], message: 'foo', data: [undefined] }}
   `('round-trips a log entry $description', ({ logEntry }) => {
     const serialized = lser(logEntry);
     const deserialized = lunser(serialized);
-    expect(deserialized).toStrictEqual(logEntry);
+    // We want deep equals for testing missing versus undefined properties.
+    // eslint-disable-next-line vitest/valid-expect
+    expect(deserialized).to.deep.equal(logEntry);
   });
 });
 

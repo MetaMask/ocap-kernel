@@ -52,7 +52,7 @@ import type { DuplexStream } from '@metamask/streams';
 
 import { parseOptions, mergeOptions } from './options.ts';
 import { lunser } from './stream.ts';
-import type { LogMessage, SerializedLogEntry } from './stream.ts';
+import type { LogMessage } from './stream.ts';
 import type {
   LogLevel,
   LogEntry,
@@ -142,9 +142,10 @@ export class Logger {
   ): void {
     stream
       .drain(async ({ params }) => {
-        const [, ...args]: ['logger', ...SerializedLogEntry] = params;
+        const [, args]: ['logger', string] = params;
         const { level, tags, message, data } = lunser(args);
-        const logArgs: LogArgs = message ? [message, ...(data ?? [])] : [];
+        const logArgs: LogArgs =
+          message === undefined ? [] : [message, ...(data ?? [])];
         this.#dispatch({ level, tags }, ...logArgs);
       })
       .catch((problem) => onError?.(problem));

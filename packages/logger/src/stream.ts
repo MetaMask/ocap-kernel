@@ -1,63 +1,38 @@
-import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { split } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcNotification } from '@metamask/utils';
 
-import type { LogEntry, LogLevel } from './types.ts';
-
-export type SerializedLogEntry = [
-  /* level   */ LogLevel,
-  /* tags    */ string[],
-  /* message */ string | null,
-  /* data    */ string[] | null,
-];
+import { TOKEN_UNDEFINED } from './constants.ts';
+import type { LogEntry } from './types.ts';
 
 export type LogMessage = JsonRpcCall & {
   method: 'notify';
-  params: ['logger', ...SerializedLogEntry];
+  params: ['logger', string];
 };
 
 /**
  * Serializes a log entry.
  *
  * @param entry - The log entry to serialize.
- * @param entry.level - The log level.
- * @param entry.tags - The log tags.
- * @param entry.message - The log message.
- * @param entry.data - The log data.
  * @returns The serialized log entry.
  */
-export const lser = ({
-  level,
-  tags,
-  message,
-  data,
-}: LogEntry): SerializedLogEntry => [
-  level,
-  tags,
-  message ?? null,
-  data?.map(stringify) ?? null,
-];
+export const lser = (entry: LogEntry): string =>
+  JSON.stringify(entry, (_key, value) =>
+    value === undefined ? TOKEN_UNDEFINED : value,
+  );
 harden(lser);
 
 /**
  * Deserializes a log entry.
  *
- * @param params - The serialized log entry to deserialize.
+ * @param serializedEntry - The serialized log entry to deserialize.
  * @returns The deserialized log entry.
  */
-export const lunser = (params: SerializedLogEntry): LogEntry => {
-  const [level, tags, message, data] = params;
-  const entry: LogEntry = { level, tags };
-  if (message !== null) {
-    entry.message = message;
-  }
-  if (data !== null) {
-    entry.data = data.map((datum) => JSON.parse(datum));
-  }
-  return entry;
-};
+export const lunser = (serializedEntry: string): LogEntry =>
+  JSON.parse(serializedEntry, (_key, value) =>
+    value === TOKEN_UNDEFINED ? undefined : value,
+  ) as LogEntry;
 harden(lunser);
 
 /**
@@ -70,8 +45,10 @@ export const isLoggerMessage = (
   message: JsonRpcMessage,
 ): message is LogMessage =>
   isJsonRpcNotification(message) &&
-  (message as { params: { length: number } }).params.length > 0 &&
-  (message as { params: unknown[] }).params[0] === 'logger';
+  Array.isArray(message.params) &&
+  message.params.length > 0 &&
+  message.params[0] === 'logger' &&
+  typeof message.params[1] === 'string';
 harden(isLoggerMessage);
 
 /**

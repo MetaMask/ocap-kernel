@@ -32,7 +32,7 @@ export const makeStreamTransport = (
     stream
       .write({
         method: 'notify',
-        params: ['logger', ...lser(entry)],
+        params: ['logger', lser(entry)],
         jsonrpc: '2.0',
       })
       .catch(console.debug);
