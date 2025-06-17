@@ -11,6 +11,7 @@ import {
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { rpcHandlers, rpcMethodSpecs } from './index.ts';
+import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
 import {
   launchSubclusterHandler,
   launchSubclusterSpec,
@@ -44,6 +45,7 @@ describe('handlers/index', () => {
       reload: reloadConfigHandler,
       restartVat: restartVatHandler,
       revoke: revokeHandler,
+      isRevoked: isRevokedHandler,
       queueMessage: queueMessageHandler,
       terminateAllVats: terminateAllVatsHandler,
       collectGarbage: collectGarbageHandler,
@@ -72,6 +74,7 @@ describe('handlers/index', () => {
       reload: reloadConfigSpec,
       restartVat: restartVatSpec,
       revoke: revokeSpec,
+      isRevoked: isRevokedSpec,
       queueMessage: queueMessageSpec,
       terminateAllVats: terminateAllVatsSpec,
       collectGarbage: collectGarbageSpec,
