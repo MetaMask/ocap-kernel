@@ -802,6 +802,30 @@ describe('Kernel', () => {
     });
   });
 
+  describe('revoke and isRevoked', () => {
+    it('reflect when an object is revoked', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect(kernel.isRevoked('ko1')).toBe(false);
+      kernel.revoke('ko1');
+      expect(kernel.isRevoked('ko1')).toBe(true);
+    });
+
+    it('throws when revoking a promise', async () => {
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect(() => kernel.revoke('kp1')).toThrow(Error);
+    });
+  });
+
   describe('pinVatRoot and unpinVatRoot', () => {
     it('pins and unpins a vat root correctly', async () => {
       const kernel = await Kernel.make(
