@@ -507,12 +507,10 @@ export class Kernel {
    * Check if an object is revoked.
    *
    * @param kref - The KRef of the object to check.
-   * @param throwIfUnknown - If true, throw an error if the object is unknown.
    * @returns True if the object is revoked, false otherwise.
-   * @throws If the object is unknown and `throwIfUnknown` is true.
    */
-  isRevoked(kref: KRef, throwIfUnknown = true): boolean {
-    return this.#kernelStore.isRevoked(kref, throwIfUnknown);
+  isRevoked(kref: KRef): boolean {
+    return this.#kernelStore.isRevoked(kref);
   }
 
   /**
