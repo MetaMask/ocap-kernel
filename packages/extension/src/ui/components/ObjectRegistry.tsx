@@ -21,28 +21,54 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
 
 const RevokeButton: React.FC<{ kref: KRef }> = ({ kref }) => {
   const { callKernelMethod, logMessage } = usePanelContext();
-  // TODO: ask kernel if object is revoked
-  const [revocationStatus, setRevocationStatus] = useState<
-    'unrevoked' | 'revoked' | 'revoking'
-  >('unrevoked');
-  const disabled = ['revoking', 'revoked'].includes(revocationStatus);
+  type RevocationStatus =
+    | 'loading'
+    | 'unrevoked'
+    | 'revoking'
+    | 'revoked'
+    | 'error';
+  const [revocationStatus, setRevocationStatus] =
+    useState<RevocationStatus>('loading');
+  useEffect(() => {
+    // eslint-disable-next-line no-void
+    void callKernelMethod({ method: 'isRevoked', params: { kref } })
+      .then(([isRevoked]) => (isRevoked ? 'revoked' : 'unrevoked'))
+      .catch((error): 'error' => {
+        logMessage(
+          `Failed to check if object ${kref} is revoked: ${String(error)}`,
+          'error',
+        );
+        return 'error';
+      })
+      .then((status) => setRevocationStatus(status));
+  }, []);
+  const handleRevoke = (): void => {
+    setRevocationStatus('revoking');
+    callKernelMethod({ method: 'revoke', params: { kref } })
+      .then(() => setRevocationStatus('revoked'))
+      .catch((error) => {
+        logMessage(
+          `Failed to revoke object ${kref}: ${String(error)}`,
+          'error',
+        );
+        setRevocationStatus('unrevoked');
+      });
+  };
   return (
     <button
-      onClick={() => {
-        setRevocationStatus('revoking');
-        callKernelMethod({ method: 'revoke', params: { kref } })
-          .then(() => setRevocationStatus('revoked'))
-          .catch((error) => {
-            logMessage(
-              `Failed to revoke object ${kref}: ${String(error)}`,
-              'error',
-            );
-            setRevocationStatus('unrevoked');
-          });
-      }}
-      disabled={disabled}
+      data-testid={`revoke-button-${kref}`}
+      onClick={handleRevoke}
+      disabled={revocationStatus !== 'unrevoked'}
     >
-      {revocationStatus === 'revoked' ? 'Revoked' : 'Revoke'}
+      {
+        {
+          loading: 'Loading...',
+          unrevoked: 'Revoke',
+          revoking: 'Revoking...',
+          revoked: 'Revoked',
+          error: 'Error',
+        }[revocationStatus]
+      }
     </button>
   );
 };
