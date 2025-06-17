@@ -20,6 +20,7 @@ import {
   reloadSubclusterSpec,
 } from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
+import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
   terminateAllVatsHandler,
   terminateAllVatsSpec,
@@ -39,6 +40,7 @@ export const rpcHandlers = {
   getStatus: getStatusHandler,
   pingVat: pingVatHandler,
   reload: reloadConfigHandler,
+  revoke: revokeHandler,
   restartVat: restartVatHandler,
   queueMessage: queueMessageHandler,
   terminateAllVats: terminateAllVatsHandler,
@@ -53,6 +55,7 @@ export const rpcHandlers = {
   getStatus: typeof getStatusHandler;
   pingVat: typeof pingVatHandler;
   reload: typeof reloadConfigHandler;
+  revoke: typeof revokeHandler;
   restartVat: typeof restartVatHandler;
   queueMessage: typeof queueMessageHandler;
   terminateAllVats: typeof terminateAllVatsHandler;
@@ -72,6 +75,7 @@ export const rpcMethodSpecs = {
   getStatus: getStatusSpec,
   pingVat: pingVatSpec,
   reload: reloadConfigSpec,
+  revoke: revokeSpec,
   restartVat: restartVatSpec,
   queueMessage: queueMessageSpec,
   terminateAllVats: terminateAllVatsSpec,
@@ -86,6 +90,7 @@ export const rpcMethodSpecs = {
   getStatus: typeof getStatusSpec;
   pingVat: typeof pingVatSpec;
   reload: typeof reloadConfigSpec;
+  revoke: typeof revokeSpec;
   restartVat: typeof restartVatSpec;
   queueMessage: typeof queueMessageSpec;
   terminateAllVats: typeof terminateAllVatsSpec;
