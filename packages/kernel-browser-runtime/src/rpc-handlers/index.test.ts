@@ -23,6 +23,7 @@ import {
   reloadSubclusterSpec,
 } from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
+import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
   terminateAllVatsHandler,
   terminateAllVatsSpec,
@@ -42,6 +43,7 @@ describe('handlers/index', () => {
       pingVat: pingVatHandler,
       reload: reloadConfigHandler,
       restartVat: restartVatHandler,
+      revoke: revokeHandler,
       queueMessage: queueMessageHandler,
       terminateAllVats: terminateAllVatsHandler,
       collectGarbage: collectGarbageHandler,
@@ -69,6 +71,7 @@ describe('handlers/index', () => {
       pingVat: pingVatSpec,
       reload: reloadConfigSpec,
       restartVat: restartVatSpec,
+      revoke: revokeSpec,
       queueMessage: queueMessageSpec,
       terminateAllVats: terminateAllVatsSpec,
       collectGarbage: collectGarbageSpec,
