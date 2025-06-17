@@ -1,6 +1,7 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
+import { getRevocationMethods } from './revocation.ts';
 import { ROOT_OBJECT_VREF } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
@@ -15,14 +16,15 @@ import { makeKernelSlot } from '../utils/kernel-slots.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getObjectMethods(ctx: StoreContext) {
-  const { getSlotKey, incCounter, refCountKey, getOwnerKey } = getBaseMethods(
-    ctx.kv,
-  );
+  const { getSlotKey, incCounter, refCountKey, getOwnerKey, getRevokedKey } =
+    getBaseMethods(ctx.kv);
+  const { setRevoked } = getRevocationMethods(ctx);
 
   /**
    * Create a new kernel object.  The new object will be born with reference and
    * recognizability counts of 1, on the assumption that the new object
-   * corresponds to an object that has just been imported from somewhere.
+   * corresponds to an object that has just been imported from somewhere. The
+   * object is initially unrevoked.
    *
    * @param owner - The endpoint that is the owner of the new object.
    * @returns The new object's KRef.
@@ -31,6 +33,7 @@ export function getObjectMethods(ctx: StoreContext) {
     const koId = getNextObjectId();
     ctx.kv.set(getOwnerKey(koId), owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
+    setRevoked(koId, false);
     return koId;
   }
 
@@ -80,6 +83,7 @@ export function getObjectMethods(ctx: StoreContext) {
   function deleteKernelObject(koId: KRef): void {
     ctx.kv.delete(getOwnerKey(koId));
     ctx.kv.delete(refCountKey(koId));
+    ctx.kv.delete(getRevokedKey(koId));
   }
 
   /**

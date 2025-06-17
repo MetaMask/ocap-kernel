@@ -50,6 +50,7 @@ describe('KernelRouter', () => {
     // Mock KernelStore
     kernelStore = {
       getOwner: vi.fn(),
+      isRevoked: vi.fn(),
       getKernelPromise: vi.fn(),
       decrementRefCount: vi.fn(),
       setPromiseDecider: vi.fn(),
@@ -134,6 +135,63 @@ describe('KernelRouter', () => {
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
           'kp1',
           'deliver|send|result',
+        );
+      });
+
+      it('splats a message when target is revoked and returns undefined', async () => {
+        // Setup the kernel store to return a revoked owner for the target
+        (kernelStore.isRevoked as unknown as MockInstance).mockReturnValueOnce(
+          true,
+        );
+
+        // Create a send message
+        const target = 'ko123';
+        const message: Message = {
+          methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
+          result: 'kp1',
+        };
+        const sendItem: RunQueueItemSend = {
+          type: 'send',
+          target,
+          message: message as unknown as SwingsetMessage,
+        };
+        const result = await kernelRouter.deliver(sendItem);
+
+        // Verify the message was not delivered to any vat and resources were cleaned up
+        expect(getVat).not.toHaveBeenCalled();
+        expect(vatHandle.deliverMessage).not.toHaveBeenCalled();
+        expect(result).toBeUndefined();
+
+        // Verify refcounts were decremented
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          target,
+          'deliver|splat|target',
+        );
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          'slot1',
+          'deliver|splat|slot',
+        );
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          'slot2',
+          'deliver|splat|slot',
+        );
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          'kp1',
+          'deliver|splat|result',
+        );
+        // Verify the promise was rejected with 'revoked object'
+        expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
+          undefined,
+          expect.arrayContaining([
+            expect.arrayContaining([
+              'kp1',
+              true,
+              expect.objectContaining({
+                body: expect.stringContaining('revoked object'),
+                slots: [],
+              }),
+            ]),
+          ]),
         );
       });
 

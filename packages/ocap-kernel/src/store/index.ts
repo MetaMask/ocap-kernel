@@ -69,6 +69,7 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
@@ -138,6 +139,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
   const refCount = getRefCountMethods(context);
   const object = getObjectMethods(context);
   const promise = getPromiseMethods(context);
+  const revocation = getRevocationMethods(context);
   const gc = getGCMethods(context);
   const cList = getCListMethods(context);
   const queue = getQueueMethods(context);
@@ -209,6 +211,7 @@ export function makeKernelStore(kdb: KernelDatabase) {
     ...refCount,
     ...object,
     ...promise,
+    ...revocation,
     ...gc,
     ...reachable,
     ...cList,
