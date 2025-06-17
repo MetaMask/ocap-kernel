@@ -1,3 +1,4 @@
+import type { KRef } from '@metamask/ocap-kernel';
 import { useEffect, useState } from 'react';
 
 import styles from '../App.module.css';
@@ -15,6 +16,34 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
       {objects} object{objects === 1 ? '' : 's'}, {promises} promise
       {promises === 1 ? '' : 's'}
     </span>
+  );
+};
+
+const RevokeButton: React.FC<{ kref: KRef }> = ({ kref }) => {
+  const { callKernelMethod, logMessage } = usePanelContext();
+  // TODO: ask kernel if object is revoked
+  const [revocationStatus, setRevocationStatus] = useState<
+    'unrevoked' | 'revoked' | 'revoking'
+  >('unrevoked');
+  const disabled = ['revoking', 'revoked'].includes(revocationStatus);
+  return (
+    <button
+      onClick={() => {
+        setRevocationStatus('revoking');
+        callKernelMethod({ method: 'revoke', params: { kref } })
+          .then(() => setRevocationStatus('revoked'))
+          .catch((error) => {
+            logMessage(
+              `Failed to revoke object ${kref}: ${String(error)}`,
+              'error',
+            );
+            setRevocationStatus('unrevoked');
+          });
+      }}
+      disabled={disabled}
+    >
+      {revocationStatus === 'revoked' ? 'Revoked' : 'Revoke'}
+    </button>
   );
 };
 
@@ -96,6 +125,7 @@ export const ObjectRegistry: React.FC = () => {
                       <th>ERef</th>
                       <th>Ref Count</th>
                       <th>To Vat(s)</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -106,6 +136,9 @@ export const ObjectRegistry: React.FC = () => {
                         <td>{obj.refCount}</td>
                         <td>
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
+                        </td>
+                        <td>
+                          <RevokeButton kref={obj.kref} />
                         </td>
                       </tr>
                     ))}
