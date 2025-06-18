@@ -8,6 +8,7 @@ import {
   executeDBQuerySpec,
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
+import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
 import {
   launchSubclusterHandler,
   launchSubclusterSpec,
@@ -20,6 +21,7 @@ import {
   reloadSubclusterSpec,
 } from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
+import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
   terminateAllVatsHandler,
   terminateAllVatsSpec,
@@ -39,6 +41,8 @@ export const rpcHandlers = {
   getStatus: getStatusHandler,
   pingVat: pingVatHandler,
   reload: reloadConfigHandler,
+  revoke: revokeHandler,
+  isRevoked: isRevokedHandler,
   restartVat: restartVatHandler,
   queueMessage: queueMessageHandler,
   terminateAllVats: terminateAllVatsHandler,
@@ -53,6 +57,8 @@ export const rpcHandlers = {
   getStatus: typeof getStatusHandler;
   pingVat: typeof pingVatHandler;
   reload: typeof reloadConfigHandler;
+  revoke: typeof revokeHandler;
+  isRevoked: typeof isRevokedHandler;
   restartVat: typeof restartVatHandler;
   queueMessage: typeof queueMessageHandler;
   terminateAllVats: typeof terminateAllVatsHandler;
@@ -72,6 +78,8 @@ export const rpcMethodSpecs = {
   getStatus: getStatusSpec,
   pingVat: pingVatSpec,
   reload: reloadConfigSpec,
+  revoke: revokeSpec,
+  isRevoked: isRevokedSpec,
   restartVat: restartVatSpec,
   queueMessage: queueMessageSpec,
   terminateAllVats: terminateAllVatsSpec,
@@ -86,6 +94,8 @@ export const rpcMethodSpecs = {
   getStatus: typeof getStatusSpec;
   pingVat: typeof pingVatSpec;
   reload: typeof reloadConfigSpec;
+  revoke: typeof revokeSpec;
+  isRevoked: typeof isRevokedSpec;
   restartVat: typeof restartVatSpec;
   queueMessage: typeof queueMessageSpec;
   terminateAllVats: typeof terminateAllVatsSpec;

@@ -6,6 +6,7 @@ import { makeMapKVStore } from '../../../test/storage.ts';
 import { ROOT_OBJECT_VREF } from '../../types.ts';
 import type { EndpointId, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
+import { getRevocationMethods } from './revocation.ts';
 
 describe('object-methods', () => {
   let kv: KVStore;
@@ -45,6 +46,12 @@ describe('object-methods', () => {
       const refCounts = objectStore.getObjectRefCount(koId);
       expect(refCounts.reachable).toBe(1);
       expect(refCounts.recognizable).toBe(1);
+    });
+
+    it('initializes the revoked flag to false', () => {
+      const { isRevoked } = getRevocationMethods({ kv } as StoreContext);
+      const koId = objectStore.initKernelObject('v1');
+      expect(isRevoked(koId)).toBe(false);
     });
 
     it('increments the object ID counter', () => {

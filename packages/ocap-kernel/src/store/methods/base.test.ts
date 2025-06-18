@@ -36,6 +36,14 @@ describe('base-methods', () => {
     });
   });
 
+  describe('getRevokedKey', () => {
+    it('generates correct revoked keys', () => {
+      expect(baseStore.getRevokedKey('ko1')).toBe('ko1.revoked');
+      expect(baseStore.getRevokedKey('kp42')).toBe('kp42.revoked');
+      expect(baseStore.getRevokedKey('v7')).toBe('v7.revoked');
+    });
+  });
+
   describe('incCounter', () => {
     it('increments a stored counter value', () => {
       // Create a stored value to increment

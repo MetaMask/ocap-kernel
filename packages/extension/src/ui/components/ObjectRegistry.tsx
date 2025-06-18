@@ -1,3 +1,4 @@
+import type { KRef } from '@metamask/ocap-kernel';
 import { useEffect, useState } from 'react';
 
 import styles from '../App.module.css';
@@ -15,6 +16,60 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
       {objects} object{objects === 1 ? '' : 's'}, {promises} promise
       {promises === 1 ? '' : 's'}
     </span>
+  );
+};
+
+const RevokeButton: React.FC<{ kref: KRef }> = ({ kref }) => {
+  const { callKernelMethod, logMessage } = usePanelContext();
+  type RevocationStatus =
+    | 'loading'
+    | 'unrevoked'
+    | 'revoking'
+    | 'revoked'
+    | 'error';
+  const [revocationStatus, setRevocationStatus] =
+    useState<RevocationStatus>('loading');
+  useEffect(() => {
+    // eslint-disable-next-line no-void
+    void callKernelMethod({ method: 'isRevoked', params: { kref } })
+      .then(([isRevoked]) => (isRevoked ? 'revoked' : 'unrevoked'))
+      .catch((error): 'error' => {
+        logMessage(
+          `Failed to check if object ${kref} is revoked: ${String(error)}`,
+          'error',
+        );
+        return 'error';
+      })
+      .then((status) => setRevocationStatus(status));
+  }, []);
+  const handleRevoke = (): void => {
+    setRevocationStatus('revoking');
+    callKernelMethod({ method: 'revoke', params: { kref } })
+      .then(() => setRevocationStatus('revoked'))
+      .catch((error) => {
+        logMessage(
+          `Failed to revoke object ${kref}: ${String(error)}`,
+          'error',
+        );
+        setRevocationStatus('unrevoked');
+      });
+  };
+  return (
+    <button
+      data-testid={`revoke-button-${kref}`}
+      onClick={handleRevoke}
+      disabled={revocationStatus !== 'unrevoked'}
+    >
+      {
+        {
+          loading: 'Loading...',
+          unrevoked: 'Revoke',
+          revoking: 'Revoking...',
+          revoked: 'Revoked',
+          error: 'Error',
+        }[revocationStatus]
+      }
+    </button>
   );
 };
 
@@ -96,6 +151,7 @@ export const ObjectRegistry: React.FC = () => {
                       <th>ERef</th>
                       <th>Ref Count</th>
                       <th>To Vat(s)</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -106,6 +162,9 @@ export const ObjectRegistry: React.FC = () => {
                         <td>{obj.refCount}</td>
                         <td>
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
+                        </td>
+                        <td>
+                          <RevokeButton kref={obj.kref} />
                         </td>
                       </tr>
                     ))}

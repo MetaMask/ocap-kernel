@@ -494,6 +494,28 @@ export class Kernel {
   }
 
   /**
+   * Revoke an exported object. Idempotent. Revoking promises is not supported.
+   *
+   * @param kref - The KRef of the object to revoke.
+   * @throws If the object is a promise.
+   */
+  revoke(kref: KRef): void {
+    this.#kernelStore.revoke(kref);
+  }
+
+  /**
+   * Check if an object is revoked.
+   *
+   * @param kref - The KRef of the object to check.
+   * @param throwIfUnknown - If true, throw an error if the object is unknown.
+   * @returns True if the object is revoked, false otherwise.
+   * @throws If the object is unknown and `throwIfUnknown` is true.
+   */
+  isRevoked(kref: KRef, throwIfUnknown = true): boolean {
+    return this.#kernelStore.isRevoked(kref, throwIfUnknown);
+  }
+
+  /**
    * Get the current kernel status, defined as the current cluster configuration
    * and a list of all running vats.
    *
