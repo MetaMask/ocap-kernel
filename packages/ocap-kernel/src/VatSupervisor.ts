@@ -1,8 +1,12 @@
-import { makeLiveSlots as localMakeLiveSlots } from '@agoric/swingset-liveslots';
+import {
+  makeLiveSlots as localMakeLiveSlots,
+  makeMarshaller,
+} from '@agoric/swingset-liveslots';
 import type {
   VatDeliveryObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
+import { Fail } from '@endo/errors';
 import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
@@ -27,6 +31,7 @@ import type {
   VatDeliveryResult,
   VatId,
   VatSyscallObject,
+  VRef,
 } from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
@@ -255,9 +260,21 @@ export class VatSupervisor {
       meterControl: makeDummyMeterControl(),
     });
 
+    const { m } = makeMarshaller(syscall, gcTools, this.id);
+    const toRef = (object: unknown): VRef =>
+      m.toCapData(object).slots[0] ?? Fail`cannot revoke object ${object}`;
+    const makeRevoker = (object: unknown): (() => void) => {
+      const ref = toRef(object);
+      return harden(() => {
+        syscall.revoke([ref]);
+      });
+    };
+    harden(makeRevoker);
+
     const workerEndowments = {
       console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
+      makeRevoker,
     };
 
     const { bundleSpec, parameters } = vatConfig;
