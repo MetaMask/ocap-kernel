@@ -1,7 +1,6 @@
 import type {
   SwingSetCapData,
   Message as SwingsetMessage,
-  VatSyscallObject,
   VatSyscallSend,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
@@ -26,7 +25,10 @@ import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
 
+import type { VatSyscallObject } from './services/types.ts';
 import { Fail } from './utils/assert.ts';
+
+export type { VatSyscallObject };
 
 export type VatId = string;
 export type RemoteId = string;

@@ -1,7 +1,6 @@
 import type {
   SwingSetCapData,
   VatOneResolution,
-  VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
 import { Logger } from '@metamask/logger';
@@ -11,7 +10,7 @@ import { makeError } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import { coerceMessage } from './types.ts';
-import type { Message, VatId, KRef } from './types.ts';
+import type { VatSyscallObject, Message, VatId, KRef } from './types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -101,6 +100,23 @@ export class VatSyscall {
   }
 
   /**
+   * Handle a 'revoke' syscall from the vat.
+   *
+   * @param krefs - The KRefs of the objects to be revoked.
+   */
+  #handleSyscallRevoke(krefs: KRef[]): void {
+    for (const kref of krefs) {
+      const owner = this.#kernelStore.getOwner(kref);
+      if (owner !== this.vatId) {
+        throw Error(
+          `vat ${this.vatId} cannot revoke ${kref} (owned by ${owner})`,
+        );
+      }
+      this.#kernelStore.revoke(kref);
+    }
+  }
+
+  /**
    * Handle a 'dropImports' syscall from the vat.
    *
    * @param krefs - The KRefs of the imports to be dropped.
@@ -186,10 +202,7 @@ export class VatSyscall {
         return harden(['error', 'vat not found']);
       }
 
-      const kso: VatSyscallObject = this.#kernelStore.translateSyscallVtoK(
-        this.vatId,
-        vso,
-      );
+      const kso = this.#kernelStore.translateSyscallVtoK(this.vatId, vso);
       const [op] = kso;
       const { vatId } = this;
       const { log } = console;
@@ -224,6 +237,13 @@ export class VatSyscall {
             `@@@@ ${vatId} syscall exit fail=${isFailure} ${JSON.stringify(info)}`,
           );
           this.vatRequestedTermination = { reject: isFailure, info };
+          break;
+        }
+        case 'revoke': {
+          // [KRef[]];
+          const [, krefs] = kso;
+          log(`@@@@ ${vatId} syscall revoke ${JSON.stringify(krefs)}`);
+          this.#handleSyscallRevoke(krefs);
           break;
         }
         case 'dropImports': {

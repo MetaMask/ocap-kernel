@@ -1,7 +1,6 @@
 import { makeLiveSlots as localMakeLiveSlots } from '@agoric/swingset-liveslots';
 import type {
   VatDeliveryObject,
-  VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
 import { importBundle } from '@endo/import-bundle';
@@ -23,7 +22,12 @@ import { makeDummyMeterControl } from './services/meter-control.ts';
 import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
 import { makeVatKVStore } from './store/vat-kv-store.ts';
-import type { VatConfig, VatDeliveryResult, VatId } from './types.ts';
+import type {
+  VatConfig,
+  VatDeliveryResult,
+  VatId,
+  VatSyscallObject,
+} from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
