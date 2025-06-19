@@ -54,6 +54,7 @@ describe('syscall', () => {
       expect(syscall).toHaveProperty('resolve');
       expect(syscall).toHaveProperty('exit');
       expect(syscall).toHaveProperty('dropImports');
+      expect(syscall).toHaveProperty('revoke');
       expect(syscall).toHaveProperty('retireImports');
       expect(syscall).toHaveProperty('retireExports');
       expect(syscall).toHaveProperty('abandonExports');
@@ -126,6 +127,20 @@ describe('syscall', () => {
           'exit',
           isFailure,
           info,
+        ]);
+      });
+
+      it('handles revoke syscall', () => {
+        const supervisor = createMockSupervisor();
+        const kv = createMockKVStore();
+        const syscall = makeSupervisorSyscall(supervisor, kv);
+
+        const vrefs = ['ko1', 'ko2'];
+        syscall.revoke(vrefs);
+
+        expect(supervisor.executeSyscall).toHaveBeenCalledWith([
+          'revoke',
+          vrefs,
         ]);
       });
 
