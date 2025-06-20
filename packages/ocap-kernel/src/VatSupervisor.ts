@@ -1,12 +1,8 @@
-import {
-  makeLiveSlots as localMakeLiveSlots,
-  makeMarshaller,
-} from '@agoric/swingset-liveslots';
+import { makeLiveSlots as localMakeLiveSlots } from '@agoric/swingset-liveslots';
 import type {
   VatDeliveryObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
-import { Fail } from '@endo/errors';
 import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
@@ -20,6 +16,7 @@ import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
+import { makeEndowments } from './endowments/index.ts';
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
@@ -31,7 +28,6 @@ import type {
   VatDeliveryResult,
   VatId,
   VatSyscallObject,
-  VRef,
 } from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
@@ -260,21 +256,10 @@ export class VatSupervisor {
       meterControl: makeDummyMeterControl(),
     });
 
-    const { m } = makeMarshaller(syscall, gcTools, this.id);
-    const toRef = (object: unknown): VRef =>
-      m.toCapData(object).slots[0] ?? Fail`cannot revoke object ${object}`;
-    const makeRevoker = (object: unknown): (() => void) => {
-      const ref = toRef(object);
-      return harden(() => {
-        syscall.revoke([ref]);
-      });
-    };
-    harden(makeRevoker);
-
     const workerEndowments = {
       console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
-      makeRevoker,
+      ...makeEndowments(syscall, gcTools, this.id),
     };
 
     const { bundleSpec, parameters } = vatConfig;
