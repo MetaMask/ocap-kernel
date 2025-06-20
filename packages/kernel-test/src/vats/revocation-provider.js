@@ -17,9 +17,12 @@ export function buildRootObject({ logger }) {
     // the linter has no way to know that it is defined.
     // eslint-disable-next-line no-undef
     const revoker = makeRevoker(gate);
-    revokerCount += 1;
     const id = revokerCount;
-    const slam = () => revoker() || log(`slam:${id}`);
+    revokerCount += 1;
+    const slam = () => {
+      revoker();
+      log(`slam:${id}`);
+    };
     return [gate, Far(`slam:${id}`, { slam })];
   };
   return Far('root', {
