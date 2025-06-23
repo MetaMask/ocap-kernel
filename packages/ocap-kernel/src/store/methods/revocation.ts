@@ -1,5 +1,3 @@
-import { Fail } from '@endo/errors';
-
 import type { KRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getBaseMethods } from './base.ts';
@@ -22,7 +20,11 @@ export const getRevocationMethods = (ctx: StoreContext) => {
    * @param revoked - The value of the revoked flag.
    */
   function setRevoked(koId: KRef, revoked: boolean): void {
-    ctx.kv.set(getRevokedKey(koId), revoked ? 'true' : 'false');
+    if (revoked) {
+      ctx.kv.set(getRevokedKey(koId), 'true');
+    } else {
+      ctx.kv.delete(getRevokedKey(koId));
+    }
   }
 
   /**
@@ -36,8 +38,6 @@ export const getRevocationMethods = (ctx: StoreContext) => {
       // Revoking a promise is not supported.
       throw Error(`cannot revoke promise ${koId}`);
     }
-    // Throw if the revoked flag does not exist for this object.
-    isRevoked(koId, true);
     // Set the revoked flag to true.
     setRevoked(koId, true);
   }
@@ -46,24 +46,11 @@ export const getRevocationMethods = (ctx: StoreContext) => {
    * Check if a kernel object has been revoked.
    *
    * @param koId - The KRef of the kernel object of interest.
-   * @param throwIfUnknown - Whether to throw an error if the object is unknown.
    * @returns True if the object is revoked, false otherwise.
    * @throws If the object is unknown and `throwIfUnknown` is true.
    */
-  function isRevoked(koId: KRef, throwIfUnknown = true): boolean {
-    const revoked = ctx.kv.get(getRevokedKey(koId));
-    switch (revoked) {
-      case 'true':
-        return true;
-      case 'false':
-        return false;
-      case undefined:
-        return throwIfUnknown
-          ? Fail`cannot check revocation status of unknown object ${koId}`
-          : false;
-      default:
-        throw Error(`invalid revoked flag for object ${koId}: ${revoked}`);
-    }
+  function isRevoked(koId: KRef): boolean {
+    return Boolean(ctx.kv.get(getRevokedKey(koId)));
   }
 
   return {

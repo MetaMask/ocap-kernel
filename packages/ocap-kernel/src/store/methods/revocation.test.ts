@@ -1,5 +1,5 @@
 import type { KVStore } from '@metamask/kernel-store';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { getObjectMethods } from './object.ts';
 import { makeMapKVStore } from '../../../test/storage.ts';
@@ -30,6 +30,24 @@ describe('revocation-methods', () => {
       kv,
       nextObjectId,
     } as StoreContext);
+  });
+
+  describe('setRevoked', () => {
+    it('sets the revoked flag when argument is true', () => {
+      const koId = objectStore.initKernelObject('v1');
+      const expectedKey = expect.stringContaining(koId);
+      const setSpy = vi.spyOn(kv, 'set');
+      revocation.setRevoked(koId, true);
+      expect(setSpy).toHaveBeenCalledWith(expectedKey, 'true');
+    });
+
+    it('deletes the revoked flag when argument is false', () => {
+      const koId = objectStore.initKernelObject('v1');
+      const expectedKey = expect.stringContaining(koId);
+      const deleteSpy = vi.spyOn(kv, 'delete');
+      revocation.setRevoked(koId, false);
+      expect(deleteSpy).toHaveBeenCalledWith(expectedKey);
+    });
   });
 
   describe('revokeKernelObject', () => {
@@ -67,26 +85,6 @@ describe('revocation-methods', () => {
     it('returns false if the object is not revoked', () => {
       const koId = objectStore.initKernelObject('v1');
       expect(revocation.isRevoked(koId)).toBe(false);
-    });
-
-    it('throws if the object is unknown and throwIfUnknown is true', () => {
-      const koId = 'ko1';
-      expect(() => revocation.isRevoked(koId)).toThrow(
-        `cannot check revocation status of unknown object "${koId}"`,
-      );
-    });
-
-    it('returns false if the object is unknown and throwIfUnknown is false', () => {
-      const koId = 'ko1';
-      expect(revocation.isRevoked(koId, false)).toBe(false);
-    });
-
-    it('throws if the revoked flag is invalid', () => {
-      const koId = 'ko1';
-      kv.set(`${koId}.revoked`, 'invalid');
-      expect(() => revocation.isRevoked(koId)).toThrow(
-        `invalid revoked flag for object ${koId}: invalid`,
-      );
     });
   });
 });
