@@ -119,10 +119,13 @@ export function parseObjectRegistry(
       kref,
       eref,
       refCount: koRefCount[kref] ?? '0',
-      revoked: koRevoked[kref] ?? 'false',
     };
     if (eref.startsWith('o+')) {
-      bucket.ownedObjects.push({ ...rec, toVats: [] });
+      bucket.ownedObjects.push({
+        ...rec,
+        toVats: [],
+        revoked: koRevoked[kref] ?? 'false',
+      });
     } else {
       bucket.importedObjects.push({ ...rec, fromVat: koOwner[kref] ?? null });
     }

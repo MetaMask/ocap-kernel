@@ -133,14 +133,12 @@ describe('parseObjectRegistry', () => {
               fromVat: 'v2',
               kref: 'ko2',
               refCount: '1,1',
-              revoked: 'true',
             },
             {
               eref: 'o-2',
               fromVat: 'v3',
               kref: 'ko3',
               refCount: '1,1',
-              revoked: 'false',
             },
           ],
           importedPromises: [
@@ -200,7 +198,6 @@ describe('parseObjectRegistry', () => {
               fromVat: 'v1',
               kref: 'ko4',
               refCount: '3,3',
-              revoked: 'false',
             },
           ],
           importedPromises: [

@@ -1,4 +1,3 @@
-import type { KRef } from '@metamask/ocap-kernel';
 import { useEffect, useState } from 'react';
 
 import styles from '../App.module.css';
@@ -7,6 +6,7 @@ import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 import type { VatSnapshot } from '../types.ts';
+import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;
@@ -19,35 +19,10 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   );
 };
 
-const RevokeButton: React.FC<{ kref: KRef; revoked: boolean }> = ({
-  kref,
-  revoked,
-}) => {
-  const { callKernelMethod, logMessage } = usePanelContext();
-  const [isRevoking, setIsRevoking] = useState(false);
-  const handleRevoke = (): void => {
-    setIsRevoking(true);
-    callKernelMethod({ method: 'revoke', params: { kref } })
-      .catch((error) => logMessage(
-        `Failed to revoke object ${kref}: ${String(error)}`,
-        'error',
-      ))
-      .finally(() => setIsRevoking(false));
-  };
-  return (
-    <button
-      data-testid={`revoke-button-${kref}`}
-      onClick={handleRevoke}
-      disabled={revoked || isRevoking}
-    >
-      { revoked ? 'Revoked' : isRevoking ? 'Revoking...' : 'Revoke' }
-    </button>
-  );
-};
-
 export const ObjectRegistry: React.FC = () => {
   const { objectRegistry } = usePanelContext();
   const { fetchObjectRegistry } = useDatabase();
+  const { revoke } = useKernelActions();
   const [expandedVats, setExpandedVats] = useState<Record<string, boolean>>({});
 
   const toggleVat = (vatId: string): void => {
@@ -136,7 +111,13 @@ export const ObjectRegistry: React.FC = () => {
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
                         </td>
                         <td>
-                          <RevokeButton kref={obj.kref} revoked={obj.revoked === 'true'} />
+                          <button
+                            data-testid={`revoke-button-${obj.kref}`}
+                            onClick={() => revoke(obj.kref, fetchObjectRegistry)}
+                            disabled={obj.revoked === 'true'}
+                          >
+                            {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
+                          </button>
                         </td>
                       </tr>
                     ))}

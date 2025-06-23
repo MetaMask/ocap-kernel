@@ -39,8 +39,8 @@ describe('ObjectRegistry Component', () => {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: ['vat2'] },
-          { kref: 'kref2', eref: 'eref2', refCount: '2', toVats: [] },
+          { kref: 'kref1', eref: 'eref1', refCount: '1', revoked: 'false', toVats: ['vat2'] },
+          { kref: 'kref2', eref: 'eref2', refCount: '2', revoked: 'false', toVats: [] },
         ],
         importedObjects: [
           { kref: 'kref3', eref: 'eref3', refCount: '1', fromVat: 'vat2' },
@@ -306,7 +306,16 @@ describe('ObjectRegistry Component', () => {
     'displays the Revoke button reflecting the revocation status ($revoked)',
     async ({ revoked, expectedText, expectEnabled }) => {
       vi.mocked(usePanelContext).mockReturnValue({
-        objectRegistry: mockRegistry,
+        objectRegistry: (() => {
+          const registry = structuredClone(mockRegistry) as
+            & ObjectRegistryType
+            & {
+              vats: { vat1: { ownedObjects: [{ revoked: string }] } };
+            };
+          registry.vats.vat1.ownedObjects[0].revoked = revoked;
+          console.log(registry);
+          return registry;
+        })(),
         callKernelMethod: vi.fn().mockResolvedValue([revoked]),
         logMessage: vi.fn(),
       } as unknown as PanelContextType);
@@ -315,9 +324,7 @@ describe('ObjectRegistry Component', () => {
       expandVat(container, 'TestVat1', 'vat1');
       const revokeButton = screen.getByTestId('revoke-button-kref1');
       expect(revokeButton).toBeInTheDocument();
-      await waitFor(() =>
-        expect(revokeButton?.textContent).toStrictEqual(expectedText),
-      );
+      expect(revokeButton?.textContent).toStrictEqual(expectedText),
       expect(revokeButton)[expectEnabled ? 'toBeEnabled' : 'toBeDisabled']();
     },
   );
@@ -325,57 +332,15 @@ describe('ObjectRegistry Component', () => {
   it('revokes an object when the Revoke button is pressed', async () => {
     const { container } = render(<ObjectRegistry />);
     expandVat(container, 'TestVat1', 'vat1');
-    expect(mockCallKernelMethod).toHaveBeenCalledTimes(2);
-    expect(mockCallKernelMethod.mock.calls).toStrictEqual([
-      [{ method: 'isRevoked', params: { kref: 'kref1' } }],
-      [{ method: 'isRevoked', params: { kref: 'kref2' } }],
-    ]);
     const revokeButton = screen.getByTestId('revoke-button-kref1');
     expect(revokeButton).toBeInTheDocument();
     await waitFor(() => expect(revokeButton).toBeEnabled());
-    expect(revokeButton?.textContent).toBe('Revoke');
+    expect(revokeButton?.textContent).toStrictEqual('Revoke');
     fireEvent.click(revokeButton as Element);
-    await waitFor(() => expect(mockCallKernelMethod).toHaveBeenCalledTimes(3));
-    expect(mockCallKernelMethod.mock.calls[2]).toStrictEqual([
+    await waitFor(() => expect(mockCallKernelMethod).toHaveBeenCalledTimes(1));
+    expect(mockCallKernelMethod.mock.calls[0]).toStrictEqual([
       { method: 'revoke', params: { kref: 'kref1' } },
     ]);
-    expect(revokeButton?.textContent).toBe('Revoked');
-  });
-
-  it('keeps the Revoke button enabled if revoking fails', async () => {
-    const { container } = render(<ObjectRegistry />);
-    expandVat(container, 'TestVat1', 'vat1');
-    expect(mockCallKernelMethod).toHaveBeenCalledTimes(2);
-    expect(mockCallKernelMethod.mock.calls).toStrictEqual([
-      [{ method: 'isRevoked', params: { kref: 'kref1' } }],
-      [{ method: 'isRevoked', params: { kref: 'kref2' } }],
-    ]);
-    const revokeButton = screen.getByTestId('revoke-button-kref1');
-    expect(revokeButton).toBeInTheDocument();
-    await waitFor(() => expect(revokeButton).toBeEnabled());
-    expect(revokeButton?.textContent).toBe('Revoke');
-    mockCallKernelMethod.mockRejectedValue(new Error('Revoke failed'));
-    fireEvent.click(revokeButton as Element);
-    await waitFor(() => expect(mockCallKernelMethod).toHaveBeenCalledTimes(3));
-    expect(mockCallKernelMethod.mock.calls[2]).toStrictEqual([
-      { method: 'revoke', params: { kref: 'kref1' } },
-    ]);
-    expect(revokeButton?.textContent).toBe('Revoke');
-  });
-
-  it('displays the Error state if checking revocation status fails', async () => {
-    const { container } = render(<ObjectRegistry />);
-    mockCallKernelMethod.mockRejectedValue(new Error('Revoke failed'));
-    expandVat(container, 'TestVat1', 'vat1');
-    expect(mockCallKernelMethod).toHaveBeenCalledTimes(2);
-    expect(mockCallKernelMethod.mock.calls).toStrictEqual([
-      [{ method: 'isRevoked', params: { kref: 'kref1' } }],
-      [{ method: 'isRevoked', params: { kref: 'kref2' } }],
-    ]);
-    const revokeButton = screen.getByTestId('revoke-button-kref1');
-    expect(revokeButton).toBeInTheDocument();
-    expect(revokeButton).toBeDisabled();
-    await waitFor(() => expect(revokeButton?.textContent).toBe('Error'));
   });
 
   it('displays the SendMessageForm component', () => {
@@ -393,7 +358,7 @@ describe('ObjectRegistry Component', () => {
         singularVat: {
           overview: { name: 'SingleVat', bundleSpec: '' },
           ownedObjects: [
-            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] },
+            { kref: 'kref1', eref: 'eref1', refCount: '1', revoked: 'false', toVats: [] },
           ],
           importedObjects: [],
           importedPromises: [
@@ -429,7 +394,7 @@ describe('ObjectRegistry Component', () => {
         emptyVat: {
           overview: { name: 'EmptyVat', bundleSpec: '' },
           ownedObjects: [
-            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] }, // Empty toVats
+            { kref: 'kref1', eref: 'eref1', refCount: '1', revoked: 'false', toVats: [] }, // Empty toVats
           ],
           importedObjects: [
             { kref: 'kref2', eref: 'eref2', refCount: '1', fromVat: null }, // Null fromVat
