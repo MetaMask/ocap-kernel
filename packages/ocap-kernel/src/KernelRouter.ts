@@ -278,7 +278,7 @@ export class KernelRouter {
       }
       resolutions.push([
         this.#kernelStore.translateRefKtoV(vatId, toResolve, true),
-        false,
+        tPromise.state === 'rejected',
         this.#kernelStore.translateCapDataKtoV(vatId, tPromise.value),
       ]);
       // decrement refcount for the promise being notified
