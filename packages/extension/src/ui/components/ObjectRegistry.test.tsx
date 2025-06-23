@@ -312,7 +312,7 @@ describe('ObjectRegistry Component', () => {
             & {
               vats: { vat1: { ownedObjects: [{ revoked: string }] } };
             };
-          registry.vats.vat1.ownedObjects[0].revoked = revoked;
+          registry.vats.vat1.ownedObjects[0].revoked = revoked ? 'true' : 'false';
           console.log(registry);
           return registry;
         })(),
