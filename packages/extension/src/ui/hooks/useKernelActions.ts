@@ -1,4 +1,4 @@
-import type { ClusterConfig, KRef } from '@metamask/ocap-kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
@@ -14,7 +14,6 @@ export function useKernelActions(): {
   clearState: () => void;
   reload: () => void;
   launchSubcluster: (config: ClusterConfig) => void;
-  revoke: (kref: KRef, onSuccess?: () => void) => void;
 } {
   const { callKernelMethod, logMessage } = usePanelContext();
 
@@ -83,27 +82,11 @@ export function useKernelActions(): {
     [callKernelMethod, logMessage],
   );
 
-  const revoke = useCallback(
-    (kref: KRef, onSuccess?: () => void) => {
-      callKernelMethod({ method: 'revoke', params: { kref } })
-        .then(() => logMessage(`Revoked object ${kref}`, 'success'))
-        .then(() => onSuccess?.())
-        .catch((error) =>
-          logMessage(
-            `Failed to revoke object ${kref}: ${error.message}`,
-            'error',
-          ),
-        );
-    },
-    [callKernelMethod, logMessage],
-  );
-
   return {
     terminateAllVats,
     collectGarbage,
     clearState,
     reload,
     launchSubcluster,
-    revoke,
   };
 }

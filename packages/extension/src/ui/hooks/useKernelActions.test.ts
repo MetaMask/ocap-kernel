@@ -202,19 +202,4 @@ describe('useKernelActions', () => {
       });
     });
   });
-
-  describe('revoke', () => {
-    it('sends revoke command with correct parameters', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-      result.current.revoke('test');
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'revoke',
-          params: { kref: 'test' },
-        });
-      });
-    });
-  });
 });

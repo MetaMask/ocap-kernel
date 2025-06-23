@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { useDatabase } from '../hooks/useDatabase.ts';
+import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry as ObjectRegistryType } from '../types.ts';
 import { ObjectRegistry } from './ObjectRegistry.tsx';
 
@@ -18,8 +18,8 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('../hooks/useDatabase.ts', () => ({
-  useDatabase: vi.fn(),
+vi.mock('../hooks/useRegistry.ts', () => ({
+  useRegistry: vi.fn(),
 }));
 
 vi.mock('./SendMessageForm.tsx', () => ({
@@ -30,6 +30,7 @@ vi.mock('./SendMessageForm.tsx', () => ({
 
 describe('ObjectRegistry Component', () => {
   const fetchObjectRegistry = vi.fn();
+  const revoke = vi.fn();
 
   const mockRegistry: ObjectRegistryType = {
     gcActions: 'test gc actions',
@@ -102,11 +103,9 @@ describe('ObjectRegistry Component', () => {
           throw new Error(`unknown kernel method: ${method}`);
       }
     });
-    vi.mocked(useDatabase).mockReturnValue({
-      fetchTables: vi.fn(),
-      fetchTableData: vi.fn(),
-      executeQuery: vi.fn(),
+    vi.mocked(useRegistry).mockReturnValue({
       fetchObjectRegistry,
+      revoke,
     });
     vi.mocked(usePanelContext).mockReturnValue({
       objectRegistry: mockRegistry,
@@ -337,10 +336,8 @@ describe('ObjectRegistry Component', () => {
     await waitFor(() => expect(revokeButton).toBeEnabled());
     expect(revokeButton?.textContent).toStrictEqual('Revoke');
     fireEvent.click(revokeButton as Element);
-    await waitFor(() => expect(mockCallKernelMethod).toHaveBeenCalledTimes(1));
-    expect(mockCallKernelMethod.mock.calls[0]).toStrictEqual([
-      { method: 'revoke', params: { kref: 'kref1' } },
-    ]);
+    await waitFor(() => expect(revoke).toHaveBeenCalledTimes(1));
+    expect(revoke.mock.calls[0]).toStrictEqual(['kref1']);
   });
 
   it('displays the SendMessageForm component', () => {

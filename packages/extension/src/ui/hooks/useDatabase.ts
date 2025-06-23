@@ -3,7 +3,6 @@ import { hasProperty } from '@metamask/utils';
 import { useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { parseObjectRegistry } from '../services/db-parser.ts';
 
 /**
  * Hook for database actions.
@@ -14,9 +13,8 @@ export function useDatabase(): {
   fetchTables: () => Promise<string[]>;
   fetchTableData: (tableName: string) => Promise<Record<string, string>[]>;
   executeQuery: (sql: string) => Promise<Record<string, string>[]>;
-  fetchObjectRegistry: () => void;
 } {
-  const { callKernelMethod, logMessage, setObjectRegistry } = usePanelContext();
+  const { callKernelMethod, logMessage } = usePanelContext();
 
   // Execute a query and set the result as table data
   const executeQuery = useCallback(
@@ -65,27 +63,9 @@ export function useDatabase(): {
     [logMessage, callKernelMethod],
   );
 
-  // Fetch the kv db and parse it into an object registry
-  const fetchObjectRegistry = useCallback((): void => {
-    executeQuery('SELECT key, value FROM kv')
-      .then((result) => {
-        const parsedData = parseObjectRegistry(
-          result as { key: string; value: string }[],
-        );
-        return setObjectRegistry(parsedData);
-      })
-      .catch((error: Error) =>
-        logMessage(
-          `Failed to fetch object registry: ${error.message}`,
-          'error',
-        ),
-      );
-  }, [executeQuery, logMessage, setObjectRegistry]);
-
   return {
     fetchTables,
     fetchTableData,
     executeQuery,
-    fetchObjectRegistry,
   };
 }
