@@ -33,6 +33,7 @@ export type ObjectBinding = {
   kref: string;
   eref: string;
   refCount: string;
+  revoked: string;
 };
 
 export type ObjectBindingWithSource = {

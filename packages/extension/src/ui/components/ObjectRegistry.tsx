@@ -19,56 +19,28 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   );
 };
 
-const RevokeButton: React.FC<{ kref: KRef }> = ({ kref }) => {
+const RevokeButton: React.FC<{ kref: KRef; revoked: boolean }> = ({
+  kref,
+  revoked,
+}) => {
   const { callKernelMethod, logMessage } = usePanelContext();
-  type RevocationStatus =
-    | 'loading'
-    | 'unrevoked'
-    | 'revoking'
-    | 'revoked'
-    | 'error';
-  const [revocationStatus, setRevocationStatus] =
-    useState<RevocationStatus>('loading');
-  useEffect(() => {
-    // eslint-disable-next-line no-void
-    void callKernelMethod({ method: 'isRevoked', params: { kref } })
-      .then(([isRevoked]) => (isRevoked ? 'revoked' : 'unrevoked'))
-      .catch((error): 'error' => {
-        logMessage(
-          `Failed to check if object ${kref} is revoked: ${String(error)}`,
-          'error',
-        );
-        return 'error';
-      })
-      .then((status) => setRevocationStatus(status));
-  }, []);
+  const [isRevoking, setIsRevoking] = useState(false);
   const handleRevoke = (): void => {
-    setRevocationStatus('revoking');
+    setIsRevoking(true);
     callKernelMethod({ method: 'revoke', params: { kref } })
-      .then(() => setRevocationStatus('revoked'))
-      .catch((error) => {
-        logMessage(
-          `Failed to revoke object ${kref}: ${String(error)}`,
-          'error',
-        );
-        setRevocationStatus('unrevoked');
-      });
+      .catch((error) => logMessage(
+        `Failed to revoke object ${kref}: ${String(error)}`,
+        'error',
+      ))
+      .finally(() => setIsRevoking(false));
   };
   return (
     <button
       data-testid={`revoke-button-${kref}`}
       onClick={handleRevoke}
-      disabled={revocationStatus !== 'unrevoked'}
+      disabled={revoked || isRevoking}
     >
-      {
-        {
-          loading: 'Loading...',
-          unrevoked: 'Revoke',
-          revoking: 'Revoking...',
-          revoked: 'Revoked',
-          error: 'Error',
-        }[revocationStatus]
-      }
+      { revoked ? 'Revoked' : isRevoking ? 'Revoking...' : 'Revoke' }
     </button>
   );
 };
@@ -164,7 +136,7 @@ export const ObjectRegistry: React.FC = () => {
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
                         </td>
                         <td>
-                          <RevokeButton kref={obj.kref} />
+                          <RevokeButton kref={obj.kref} revoked={obj.revoked === 'true'} />
                         </td>
                       </tr>
                     ))}
