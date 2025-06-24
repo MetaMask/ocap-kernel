@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { useDatabase } from '../hooks/useDatabase.ts';
+import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry } from '../types.ts';
 import { SendMessageForm } from './SendMessageForm.tsx';
 
@@ -23,8 +23,8 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('../hooks/useDatabase.ts', () => ({
-  useDatabase: vi.fn(),
+vi.mock('../hooks/useRegistry.ts', () => ({
+  useRegistry: vi.fn(),
 }));
 
 vi.mock('@metamask/kernel-utils', () => ({
@@ -44,8 +44,20 @@ describe('SendMessageForm Component', () => {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] },
-          { kref: 'kref2', eref: 'eref2', refCount: '1', toVats: [] },
+          {
+            kref: 'kref1',
+            eref: 'eref1',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
+          {
+            kref: 'kref2',
+            eref: 'eref2',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
         ],
         importedObjects: [],
         importedPromises: [],
@@ -54,7 +66,13 @@ describe('SendMessageForm Component', () => {
       vat2: {
         overview: { name: 'TestVat2', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref3', eref: 'eref3', refCount: '1', toVats: [] },
+          {
+            kref: 'kref3',
+            eref: 'eref3',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
         ],
         importedObjects: [
           {
@@ -75,12 +93,9 @@ describe('SendMessageForm Component', () => {
       JSON.stringify(value, null, 2),
     );
 
-    vi.mocked(useDatabase).mockReturnValue({
-      fetchTables: vi.fn(),
-      fetchTableData: vi.fn(),
-      executeQuery: vi.fn(),
+    vi.mocked(useRegistry).mockReturnValue({
       fetchObjectRegistry,
-    });
+    } as unknown as ReturnType<typeof useRegistry>);
 
     vi.mocked(usePanelContext).mockReturnValue({
       callKernelMethod,

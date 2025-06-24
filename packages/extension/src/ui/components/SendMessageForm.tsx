@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 
 import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { useDatabase } from '../hooks/useDatabase.ts';
+import { useRegistry } from '../hooks/useRegistry.ts';
 
 /**
  * Renders a form for users to queue a message to a vat.
@@ -13,7 +13,7 @@ import { useDatabase } from '../hooks/useDatabase.ts';
  */
 export const SendMessageForm: React.FC = () => {
   const { callKernelMethod, logMessage, objectRegistry } = usePanelContext();
-  const { fetchObjectRegistry } = useDatabase();
+  const { fetchObjectRegistry } = useRegistry();
   const [target, setTarget] = useState('');
   const [method, setMethod] = useState('__getMethodNames__');
   const [paramsText, setParamsText] = useState('[]');

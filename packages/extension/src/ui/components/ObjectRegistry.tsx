@@ -4,7 +4,7 @@ import styles from '../App.module.css';
 import { SendMessageForm } from './SendMessageForm.tsx';
 import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { useDatabase } from '../hooks/useDatabase.ts';
+import { useRegistry } from '../hooks/useRegistry.ts';
 import type { VatSnapshot } from '../types.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
@@ -20,7 +20,7 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
 
 export const ObjectRegistry: React.FC = () => {
   const { objectRegistry } = usePanelContext();
-  const { fetchObjectRegistry } = useDatabase();
+  const { fetchObjectRegistry, revoke } = useRegistry();
   const [expandedVats, setExpandedVats] = useState<Record<string, boolean>>({});
 
   const toggleVat = (vatId: string): void => {
@@ -96,6 +96,7 @@ export const ObjectRegistry: React.FC = () => {
                       <th>ERef</th>
                       <th>Ref Count</th>
                       <th>To Vat(s)</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -106,6 +107,15 @@ export const ObjectRegistry: React.FC = () => {
                         <td>{obj.refCount}</td>
                         <td>
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
+                        </td>
+                        <td>
+                          <button
+                            data-testid={`revoke-button-${obj.kref}`}
+                            onClick={() => revoke(obj.kref)}
+                            disabled={obj.revoked === 'true'}
+                          >
+                            {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
+                          </button>
                         </td>
                       </tr>
                     ))}

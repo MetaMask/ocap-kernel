@@ -4,12 +4,13 @@ import {
   fireEvent,
   cleanup,
   within,
+  waitFor,
 } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import { useDatabase } from '../hooks/useDatabase.ts';
+import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry as ObjectRegistryType } from '../types.ts';
 import { ObjectRegistry } from './ObjectRegistry.tsx';
 
@@ -17,8 +18,8 @@ vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
-vi.mock('../hooks/useDatabase.ts', () => ({
-  useDatabase: vi.fn(),
+vi.mock('../hooks/useRegistry.ts', () => ({
+  useRegistry: vi.fn(),
 }));
 
 vi.mock('./SendMessageForm.tsx', () => ({
@@ -29,6 +30,7 @@ vi.mock('./SendMessageForm.tsx', () => ({
 
 describe('ObjectRegistry Component', () => {
   const fetchObjectRegistry = vi.fn();
+  const revoke = vi.fn();
 
   const mockRegistry: ObjectRegistryType = {
     gcActions: 'test gc actions',
@@ -38,8 +40,20 @@ describe('ObjectRegistry Component', () => {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: ['vat2'] },
-          { kref: 'kref2', eref: 'eref2', refCount: '2', toVats: [] },
+          {
+            kref: 'kref1',
+            eref: 'eref1',
+            refCount: '1',
+            revoked: 'false',
+            toVats: ['vat2'],
+          },
+          {
+            kref: 'kref2',
+            eref: 'eref2',
+            refCount: '2',
+            revoked: 'false',
+            toVats: [],
+          },
         ],
         importedObjects: [
           { kref: 'kref3', eref: 'eref3', refCount: '1', fromVat: 'vat2' },
@@ -86,15 +100,29 @@ describe('ObjectRegistry Component', () => {
     },
   };
 
+  let mockCallKernelMethod: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    vi.mocked(useDatabase).mockReturnValue({
-      fetchTables: vi.fn(),
-      fetchTableData: vi.fn(),
-      executeQuery: vi.fn(),
+    const revoked = new Set();
+    mockCallKernelMethod = vi.fn(async ({ method, params: { kref } }) => {
+      switch (method) {
+        case 'isRevoked':
+          return Promise.resolve().then(() => [revoked.has(kref)]);
+        case 'revoke':
+          revoked.add(kref);
+          return Promise.resolve();
+        default:
+          throw new Error(`unknown kernel method: ${method}`);
+      }
+    });
+    vi.mocked(useRegistry).mockReturnValue({
       fetchObjectRegistry,
+      revoke,
     });
     vi.mocked(usePanelContext).mockReturnValue({
       objectRegistry: mockRegistry,
+      callKernelMethod: mockCallKernelMethod,
+      logMessage: vi.fn(),
     } as unknown as PanelContextType);
   });
 
@@ -168,40 +196,21 @@ describe('ObjectRegistry Component', () => {
     const { container } = render(<ObjectRegistry />);
     // Initially, vat details should be collapsed
     expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
-    const accordionHeaders = container.querySelectorAll('.accordion-header');
-    const vat1Header = Array.from(accordionHeaders).find(
-      (el) =>
-        el.textContent?.includes('TestVat1') &&
-        el.textContent?.includes('vat1'),
-    );
-    expect(vat1Header).toBeDefined();
-    // Ensure vat1Header is not undefined before clicking
-    expect(vat1Header).toBeInstanceOf(Element);
-    fireEvent.click(vat1Header as Element);
+    const collapseVat = expandVat(container, 'TestVat1', 'vat1');
     // Now details should be visible
     expect(screen.getByText('Owned Objects')).toBeInTheDocument();
     expect(screen.getByText('Imported Objects')).toBeInTheDocument();
     expect(screen.getByText('Imported Promises')).toBeInTheDocument();
     expect(screen.getByText('Exported Promises')).toBeInTheDocument();
     // Click again to collapse
-    fireEvent.click(vat1Header as Element);
+    collapseVat();
     // Details should be hidden again
     expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
   });
 
   it('renders empty state indicators for empty arrays', () => {
     const { container } = render(<ObjectRegistry />);
-    // Find and click the Vat2 accordion header
-    const accordionHeaders = container.querySelectorAll('.accordion-header');
-    const vat2Header = Array.from(accordionHeaders).find(
-      (el) =>
-        el.textContent?.includes('TestVat2') &&
-        el.textContent?.includes('vat2'),
-    );
-    expect(vat2Header).toBeDefined();
-    // Ensure vat2Header is not undefined before clicking
-    expect(vat2Header).toBeInstanceOf(Element);
-    fireEvent.click(vat2Header as Element);
+    expandVat(container, 'TestVat2', 'vat2');
     // TestVat2 should not have any tables
     expect(screen.queryByText('Owned Objects')).not.toBeInTheDocument();
     expect(screen.queryByText('Imported Objects')).not.toBeInTheDocument();
@@ -211,17 +220,7 @@ describe('ObjectRegistry Component', () => {
 
   it('renders object tables with correct data', () => {
     const { container } = render(<ObjectRegistry />);
-    // Find and click the Vat1 accordion header
-    const accordionHeaders = container.querySelectorAll('.accordion-header');
-    const vat1Header = Array.from(accordionHeaders).find(
-      (el) =>
-        el.textContent?.includes('TestVat1') &&
-        el.textContent?.includes('vat1'),
-    );
-    expect(vat1Header).toBeDefined();
-    // Ensure vat1Header is not undefined before clicking
-    expect(vat1Header).toBeInstanceOf(Element);
-    fireEvent.click(vat1Header as Element);
+    expandVat(container, 'TestVat1', 'vat1');
     // Get tables by their headers
     const ownedObjectsTable = getTableByHeading(container, 'Owned Objects');
     const importedObjectsTable = getTableByHeading(
@@ -259,21 +258,14 @@ describe('ObjectRegistry Component', () => {
     within(exportedPromisesTable).getByText('fulfilled');
     within(exportedPromisesTable).getByText('value');
     within(exportedPromisesTable).getByText('vat2');
+
+    // If we arrive here without error, the test passed.
+    expect(true).toBe(true);
   });
 
   it('properly formats slots with and without eref', () => {
     const { container } = render(<ObjectRegistry />);
-
-    // Find and click the Vat1 accordion header to expand details
-    const accordionHeaders = container.querySelectorAll('.accordion-header');
-    const vat1Header = Array.from(accordionHeaders).find(
-      (el) =>
-        el.textContent?.includes('TestVat1') &&
-        el.textContent?.includes('vat1'),
-    );
-    expect(vat1Header).toBeDefined();
-    expect(vat1Header).toBeInstanceOf(Element);
-    fireEvent.click(vat1Header as Element);
+    expandVat(container, 'TestVat1', 'vat1');
 
     // Get the tables from the expanded content
     const importedPromisesTable = getTableByHeading(
@@ -317,6 +309,51 @@ describe('ObjectRegistry Component', () => {
     expect(fetchObjectRegistry).toHaveBeenCalledTimes(2);
   });
 
+  it.each`
+    revoked  | expectedText | expectEnabled
+    ${false} | ${'Revoke'}  | ${true}
+    ${true}  | ${'Revoked'} | ${false}
+  `(
+    'displays the Revoke button reflecting the revocation status ($revoked)',
+    async ({ revoked, expectedText, expectEnabled }) => {
+      vi.mocked(usePanelContext).mockReturnValue({
+        objectRegistry: (() => {
+          const registry = structuredClone(
+            mockRegistry,
+          ) as ObjectRegistryType & {
+            vats: { vat1: { ownedObjects: [{ revoked: string }] } };
+          };
+          registry.vats.vat1.ownedObjects[0].revoked = revoked
+            ? 'true'
+            : 'false';
+          console.log(registry);
+          return registry;
+        })(),
+        callKernelMethod: vi.fn().mockResolvedValue([revoked]),
+        logMessage: vi.fn(),
+      } as unknown as PanelContextType);
+      const { container } = render(<ObjectRegistry />);
+      // Expand the vat to see the revoke button
+      expandVat(container, 'TestVat1', 'vat1');
+      const revokeButton = screen.getByTestId('revoke-button-kref1');
+      expect(revokeButton).toBeInTheDocument();
+      expect(revokeButton?.textContent).toStrictEqual(expectedText);
+      expect(revokeButton)[expectEnabled ? 'toBeEnabled' : 'toBeDisabled']();
+    },
+  );
+
+  it('revokes an object when the Revoke button is pressed', async () => {
+    const { container } = render(<ObjectRegistry />);
+    expandVat(container, 'TestVat1', 'vat1');
+    const revokeButton = screen.getByTestId('revoke-button-kref1');
+    expect(revokeButton).toBeInTheDocument();
+    await waitFor(() => expect(revokeButton).toBeEnabled());
+    expect(revokeButton?.textContent).toBe('Revoke');
+    fireEvent.click(revokeButton as Element);
+    await waitFor(() => expect(revoke).toHaveBeenCalledTimes(1));
+    expect(revoke.mock.calls[0]).toStrictEqual(['kref1']);
+  });
+
   it('displays the SendMessageForm component', () => {
     render(<ObjectRegistry />);
     const sendMessageForm = screen.queryByTestId('send-message-form');
@@ -332,7 +369,13 @@ describe('ObjectRegistry Component', () => {
         singularVat: {
           overview: { name: 'SingleVat', bundleSpec: '' },
           ownedObjects: [
-            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] },
+            {
+              kref: 'kref1',
+              eref: 'eref1',
+              refCount: '1',
+              revoked: 'false',
+              toVats: [],
+            },
           ],
           importedObjects: [],
           importedPromises: [
@@ -368,7 +411,13 @@ describe('ObjectRegistry Component', () => {
         emptyVat: {
           overview: { name: 'EmptyVat', bundleSpec: '' },
           ownedObjects: [
-            { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [] }, // Empty toVats
+            {
+              kref: 'kref1',
+              eref: 'eref1',
+              refCount: '1',
+              revoked: 'false',
+              toVats: [],
+            }, // Empty toVats
           ],
           importedObjects: [
             { kref: 'kref2', eref: 'eref2', refCount: '1', fromVat: null }, // Null fromVat
@@ -397,20 +446,12 @@ describe('ObjectRegistry Component', () => {
 
     vi.mocked(usePanelContext).mockReturnValue({
       objectRegistry: registryWithEmptyArrays,
+      callKernelMethod: vi.fn().mockResolvedValue([false]),
+      logMessage: vi.fn(),
     } as unknown as PanelContextType);
 
     const { container } = render(<ObjectRegistry />);
-
-    // Expand the vat to see the tables
-    const accordionHeaders = container.querySelectorAll('.accordion-header');
-    const emptyVatHeader = Array.from(accordionHeaders).find(
-      (el) =>
-        el.textContent?.includes('EmptyVat') &&
-        el.textContent?.includes('emptyVat'),
-    );
-    expect(emptyVatHeader).toBeDefined();
-    expect(emptyVatHeader).toBeInstanceOf(Element);
-    fireEvent.click(emptyVatHeader as Element);
+    expandVat(container, 'EmptyVat', 'emptyVat');
 
     // Should display "—" for empty arrays and null values
     const dashElements = screen.getAllByText('—');
@@ -456,4 +497,28 @@ function getCellTextByIndex(table: HTMLElement, columnIndex: number): string {
   );
   expect(columnCells.length).toBeGreaterThan(0);
   return columnCells[0]?.textContent ?? '';
+}
+
+/**
+ * Helper function to expand a vat by clicking its accordion header
+ *
+ * @param container - The container element to search within
+ * @param vatName - The name of the vat to expand
+ * @param vatId - The id of the vat to expand
+ * @returns A function that can be used to collapse the vat
+ */
+function expandVat(
+  container: HTMLElement,
+  vatName: string,
+  vatId: string,
+): () => void {
+  const accordionHeaders = container.querySelectorAll('.accordion-header');
+  const vatHeader = Array.from(accordionHeaders).find(
+    (ele) =>
+      ele.textContent?.includes(vatName) && ele.textContent?.includes(vatId),
+  ) as Element;
+  expect(vatHeader).toBeDefined();
+  expect(vatHeader).toBeInstanceOf(Element);
+  fireEvent.click(vatHeader);
+  return () => fireEvent.click(vatHeader);
 }

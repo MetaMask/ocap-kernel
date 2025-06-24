@@ -41,6 +41,7 @@ export type ObjectBindingWithSource = {
 
 export type ObjectBindingWithTargets = {
   toVats: string[];
+  revoked: string;
 } & ObjectBinding;
 
 export type PromiseBinding = {

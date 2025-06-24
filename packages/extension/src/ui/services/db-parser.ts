@@ -12,6 +12,7 @@ export function parseObjectRegistry(
   // Raw metadata
   const koOwner: Record<string, string> = {};
   const koRefCount: Record<string, string> = {};
+  const koRevoked: Record<string, string> = {};
   const kpState: Record<string, string> = {};
   const kpValueRaw: Record<string, { body: string; slots: string[] }> = {};
   const vatConfigs: Record<string, { name: string; bundleSpec: string }> = {};
@@ -53,6 +54,10 @@ export function parseObjectRegistry(
     }
     if ((matches = key.match(/^(ko\d+)\.refCount$/u))) {
       matches[1] && (koRefCount[matches[1]] = value);
+      continue;
+    }
+    if ((matches = key.match(/^(ko\d+)\.revoked$/u))) {
+      matches[1] && (koRevoked[matches[1]] = value);
       continue;
     }
     if ((matches = key.match(/^(kp\d+)\.state$/u))) {
@@ -110,9 +115,17 @@ export function parseObjectRegistry(
     if (!bucket) {
       continue;
     }
-    const rec = { kref, eref, refCount: koRefCount[kref] ?? '0' };
+    const rec = {
+      kref,
+      eref,
+      refCount: koRefCount[kref] ?? '0',
+    };
     if (eref.startsWith('o+')) {
-      bucket.ownedObjects.push({ ...rec, toVats: [] });
+      bucket.ownedObjects.push({
+        ...rec,
+        toVats: [],
+        revoked: koRevoked[kref] ?? 'false',
+      });
     } else {
       bucket.importedObjects.push({ ...rec, fromVat: koOwner[kref] ?? null });
     }
