@@ -4,8 +4,8 @@ import styles from '../App.module.css';
 import { SendMessageForm } from './SendMessageForm.tsx';
 import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import type { VatSnapshot } from '../types.ts';
 import { useRegistry } from '../hooks/useRegistry.ts';
+import type { VatSnapshot } from '../types.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;

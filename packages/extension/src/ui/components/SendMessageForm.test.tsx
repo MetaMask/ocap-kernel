@@ -44,8 +44,20 @@ describe('SendMessageForm Component', () => {
       vat1: {
         overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref1', eref: 'eref1', refCount: '1', toVats: [], revoked: 'false' },
-          { kref: 'kref2', eref: 'eref2', refCount: '1', toVats: [], revoked: 'false' },
+          {
+            kref: 'kref1',
+            eref: 'eref1',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
+          {
+            kref: 'kref2',
+            eref: 'eref2',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
         ],
         importedObjects: [],
         importedPromises: [],
@@ -54,7 +66,13 @@ describe('SendMessageForm Component', () => {
       vat2: {
         overview: { name: 'TestVat2', bundleSpec: '' },
         ownedObjects: [
-          { kref: 'kref3', eref: 'eref3', refCount: '1', toVats: [], revoked: 'false' },
+          {
+            kref: 'kref3',
+            eref: 'eref3',
+            refCount: '1',
+            toVats: [],
+            revoked: 'false',
+          },
         ],
         importedObjects: [
           {
