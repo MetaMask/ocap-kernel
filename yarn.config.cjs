@@ -17,7 +17,7 @@ const { inspect } = require('util');
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
-const typedocExceptions = ['test-utils', 'extension'];
+const typedocExceptions = ['extension', 'kernel-test', 'test-utils'];
 // Packages that do not have builds
 const noBuild = ['create-package', 'test-utils'];
 // Packages that do not have tests
@@ -262,7 +262,7 @@ module.exports = defineConfig({
         }
       }
 
-      // Add all packages must have the same "build" script
+      // Add all packages must have a "build" script
       if (!noBuild.includes(workspaceBasename)) {
         expectWorkspaceField(workspace, 'scripts.build');
       }
