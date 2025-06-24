@@ -7,33 +7,27 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
-    "noEmit": true,
-    "types": ["chrome", "ses", "vitest", "@playwright/test", "react-dom"]
+    "plugins": [{ "name": "typescript-plugin-css-modules" }],
+    "types": ["chrome", "ses", "vitest", "vitest/jsdom", "react", "react-dom"]
   },
   "references": [
     { "path": "../kernel-browser-runtime" },
     { "path": "../kernel-rpc-methods" },
     { "path": "../kernel-shims" },
-    { "path": "../kernel-ui" },
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
     { "path": "../streams" },
-    { "path": "../test-utils" },
-    { "path": "../vite-plugins" }
+    { "path": "../test-utils" }
   ],
   "include": [
     "../../vitest.config.ts",
     "../../vitest.workspace.ts",
-    "./scripts/build-constants.mjs",
-    "./playwright.config.ts",
     "./src/**/*.ts",
     "./src/**/*.tsx",
-    "./src/**/*-trusted-prelude.js",
-    "./src/env/dev-console.js",
+    "./src/**/*.module.css",
     "./test/**/*.ts",
-    "./vite-plugins/*.ts",
     "./vite.config.ts",
     "./vitest.config.ts"
   ]

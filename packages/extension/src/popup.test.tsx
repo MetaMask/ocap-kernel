@@ -1,7 +1,6 @@
+import { App } from '@metamask/kernel-ui';
 import { createRoot } from 'react-dom/client';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-import { App } from './ui/App.tsx';
 
 vi.mock('react-dom/client', () => ({
   createRoot: vi.fn(() => ({
@@ -9,7 +8,7 @@ vi.mock('react-dom/client', () => ({
   })),
 }));
 
-vi.mock('./ui/App.jsx', () => ({
+vi.mock('@metamask/kernel-ui', () => ({
   App: vi.fn(() => null),
 }));
 

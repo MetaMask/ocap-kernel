@@ -1,25 +1,50 @@
 {
-  "name": "@ocap/extension",
-  "version": "0.0.0",
-  "private": true,
-  "description": "For running Ocap Kernel experiments in an extension environment",
+  "name": "@metamask/kernel-ui",
+  "version": "0.1.0",
+  "description": "Kernel control panel UI",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-ui#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "sideEffects": false,
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json",
+    "./styles.css": "./dist/styles.css"
+  },
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
-  "workspaces": [
-    "vats"
-  ],
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
-    "build": "yarn build:vite && yarn test:build",
-    "build:dev": "yarn build:vite --mode development",
-    "build:watch": "yarn build:dev --watch",
+    "build": "yarn build:ts && yarn build:vite",
+    "build:ts": "ts-bridge --project tsconfig.build.json --clean",
     "build:vite": "vite build --config vite.config.ts",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "build:docs": "typedoc",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-ui",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-ui",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -27,31 +52,20 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "publish:preview": "yarn npm publish --tag preview",
-    "postinstall": "yarn playwright install chromium",
-    "start": "./scripts/start.sh",
     "test": "vitest run --config vitest.config.ts",
-    "test:build": "node ./test/build/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.ts",
-    "test:e2e": "yarn playwright test",
-    "test:e2e:ci": "./scripts/test-e2e-ci.sh",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug"
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/eventual-send": "^1.3.1",
-    "@endo/marshal": "^1.6.4",
     "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
-    "@metamask/kernel-shims": "workspace:^",
-    "@metamask/kernel-ui": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
-    "@metamask/streams": "workspace:^",
     "@metamask/utils": "^11.4.0",
+    "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ses": "^1.13.0"
   },
@@ -61,11 +75,13 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/cli": "workspace:^",
     "@ocap/test-utils": "workspace:^",
-    "@ocap/vite-plugins": "workspace:^",
-    "@playwright/test": "^1.51.1",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@ts-bridge/cli": "^0.6.3",
+    "@ts-bridge/shims": "^0.1.1",
     "@types/chrome": "^0.0.313",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
@@ -84,20 +100,20 @@
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-promise": "^7.2.1",
     "jsdom": "^26.0.0",
-    "playwright": "^1.51.1",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
-    "rollup": "^4.39.0",
-    "rollup-plugin-sourcemaps2": "^0.5.0",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
+    "typescript-plugin-css-modules": "^5.1.0",
     "vite": "^6.3.5",
-    "vite-plugin-checker": "^0.9.1",
-    "vite-plugin-static-copy": "^2.3.0",
     "vitest": "^3.1.3"
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
