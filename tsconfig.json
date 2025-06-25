@@ -22,6 +22,7 @@
     { "path": "./packages/kernel-shims" },
     { "path": "./packages/kernel-store" },
     { "path": "./packages/kernel-test" },
+    { "path": "./packages/kernel-ui" },
     { "path": "./packages/kernel-utils" },
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
