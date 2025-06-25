@@ -107,7 +107,7 @@ describe('ObjectRegistry Component', () => {
     mockCallKernelMethod = vi.fn(async ({ method, params: { kref } }) => {
       switch (method) {
         case 'isRevoked':
-          return Promise.resolve().then(() => [revoked.has(kref)]);
+          return Promise.resolve().then(() => revoked.has(kref));
         case 'revoke':
           revoked.add(kref);
           return Promise.resolve();

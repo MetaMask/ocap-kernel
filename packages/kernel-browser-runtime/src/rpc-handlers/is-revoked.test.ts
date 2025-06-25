@@ -23,7 +23,7 @@ describe('isRevokedHandler', () => {
       { kref },
     );
     expect(mockKernel.isRevoked).toHaveBeenCalledWith(kref);
-    expect(result).toStrictEqual([isRevoked]);
+    expect(result).toStrictEqual(isRevoked);
   });
 
   it('should propagate errors from kernel.isRevoked', () => {
