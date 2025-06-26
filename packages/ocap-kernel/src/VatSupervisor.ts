@@ -240,7 +240,11 @@ export class VatSupervisor {
     this.#loaded = true;
 
     this.#vatKVStore = makeVatKVStore(state);
-    const syscall = makeSupervisorSyscall(this, this.#vatKVStore);
+    const syscall = makeSupervisorSyscall(
+      this,
+      this.#vatKVStore,
+      this.#logger.subLogger({ tags: ['syscall'] }),
+    );
     const liveSlotsOptions = {}; // XXX should be something more real
 
     const gcTools: GCTools = harden({
