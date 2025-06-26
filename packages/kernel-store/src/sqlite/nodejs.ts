@@ -23,19 +23,14 @@ export type Database = SqliteDatabase & {
  * Ensure that SQLite is initialized.
  *
  * @param dbFilename - The filename of the database to use.
- * @param logger - An optional logger to pass to the Sqlite constructor.
- * @param verbose - If true, log database activity.
+ * @param logger - The logger to use, if any.
  * @returns The SQLite database object.
  */
-async function initDB(
-  dbFilename: string,
-  logger: Logger,
-  verbose: boolean,
-): Promise<Database> {
+async function initDB(dbFilename: string, logger?: Logger): Promise<Database> {
   const dbPath = await getDBFilename(dbFilename);
-  logger.debug('dbPath:', dbPath);
+  logger?.debug('dbPath:', dbPath);
   const db = new Sqlite(dbPath, {
-    verbose: (verbose ? logger.info.bind(logger) : undefined) as
+    verbose: (logger ? logger.info.bind(logger) : undefined) as
       | ((...args: unknown[]) => void)
       | undefined,
   }) as Database;
@@ -127,22 +122,17 @@ function makeKVStore(db: Database): KVStore {
  *
  * @param options - The options for the database.
  * @param options.dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
- * @param options.label - A logger prefix label. Defaults to '[sqlite]'.
- * @param options.verbose - If true, generate logger output; if false, be quiet.
+ * @param options.logger - A logger to use.
  * @returns The key/value store to base the kernel store on.
  */
 export async function makeSQLKernelDatabase({
   dbFilename,
-  label,
-  verbose = false,
+  logger,
 }: {
   dbFilename?: string | undefined;
-  // XXX TODO:grypez use a logger argument instead
-  label?: string | undefined;
-  verbose?: boolean | undefined;
+  logger?: Logger;
 }): Promise<KernelDatabase> {
-  const logger = new Logger(label ?? 'sqlite');
-  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger, verbose);
+  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger);
 
   const kvStore = makeKVStore(db);
 
