@@ -1,4 +1,4 @@
-import type { Page, Expect } from 'playwright/test';
+import type { Page, Expect, Locator } from 'playwright/test';
 
 export const openObjectRegistryTab = async (
   page: Page,
@@ -27,10 +27,11 @@ export const revokeObject = async (
   page: Page,
   owner: string,
   target: string,
-) => {
+): Promise<{ button: Locator; output: Locator }> => {
   await page
     .locator(`.accordion-header:has(.accordion-title:text("${owner}"))`)
     .click();
-  await page.locator(`[data-testid="revoke-button-${target}"]`).click();
-  return page.locator('[data-testid="message-output"]');
+  const button = page.locator(`[data-testid="revoke-button-${target}"]`);
+  await button.click();
+  return { button, output: page.locator('[data-testid="message-output"]') };
 };

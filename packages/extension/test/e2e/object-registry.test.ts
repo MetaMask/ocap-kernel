@@ -73,8 +73,12 @@ test.describe('Object Registry', () => {
     let response = await sendMessage(popupPage, target, method, params);
     await expect(response).toContainText(/body(.+):(.+)hello(.+)from(.+)Bob/u);
 
-    response = await revokeObject(popupPage, owner, target);
-    await expect(response).toContainText(`Revoked object ${target}`);
+    const { button, output } = await revokeObject(popupPage, owner, target);
+    await expect(output).toContainText(`Revoked object ${target}`);
+
+    // After revoking, the revoke button should be disabled and show "Revoked"
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveText('Revoked');
 
     // After revoking, the previously successful message should fail
     response = await sendMessage(popupPage, target, method, params);
