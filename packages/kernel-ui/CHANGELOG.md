@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0]
 
-### Uncategorized
+### Added
 
-- chore: Move control panel ui to own @metamask/kernel-ui package ([#549](https://github.com/MetaMask/ocap-kernel/pull/549))
+- Initial release with control panel UI moved to dedicated package ([#549](https://github.com/MetaMask/ocap-kernel/pull/549))
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.1.0...HEAD
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-ui@0.1.0

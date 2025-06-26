@@ -9,13 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0]
 
-### Uncategorized
+### Added
 
-- feat(ocap-kernel): Add kernel command 'revoke' ([#544](https://github.com/MetaMask/ocap-kernel/pull/544))
-- fix(ocap-kernel): throwing from remotable method rejects result ([#545](https://github.com/MetaMask/ocap-kernel/pull/545))
-- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
-- feat: Remove support for launching vats outside a subcluster ([#535](https://github.com/MetaMask/ocap-kernel/pull/535))
-- feat(ocap-kernel): Support multiple subclusters ([#530](https://github.com/MetaMask/ocap-kernel/pull/530))
+- Add kernel command 'revoke' ([#544](https://github.com/MetaMask/ocap-kernel/pull/544))
+- Support multiple subclusters ([#530](https://github.com/MetaMask/ocap-kernel/pull/530))
+
+### Changed
+
+- Bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+
+### Fixed
+
+- Fix throwing from remotable method rejects result ([#545](https://github.com/MetaMask/ocap-kernel/pull/545))
+
+### Removed
+
+- Remove support for launching vats outside a subcluster ([#535](https://github.com/MetaMask/ocap-kernel/pull/535))
 
 ## [0.2.0]
 
