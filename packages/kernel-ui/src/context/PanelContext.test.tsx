@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@metamask/kernel-utils', () => ({
@@ -176,17 +177,8 @@ describe('PanelContext', () => {
   describe('usePanelContext', () => {
     it('should throw error when used outside of PanelProvider', async () => {
       const { usePanelContext } = await import('./PanelContext.tsx');
-
-      // Use a try-catch block to verify the error
-      let caughtError: Error | null = null;
-      try {
-        renderHook(() => usePanelContext());
-      } catch (error) {
-        caughtError = error as Error;
-      }
-
-      // Expect the error to be thrown
-      expect(caughtError).toStrictEqual(
+      const { result } = renderHook(() => usePanelContext());
+      expect(result.error).toStrictEqual(
         new Error('usePanelContext must be used within a PanelProvider'),
       );
     });
