@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- feat(ocap-kernel): Support multiple subclusters ([#530](https://github.com/MetaMask/ocap-kernel/pull/530))
+- chore: Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+
 ## [0.1.0]
 
 ### Added

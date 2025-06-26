@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- feat(logger): Support streaming falsey values ([#542](https://github.com/MetaMask/ocap-kernel/pull/542))
+
 ## [0.2.0]
 
 ### Changed
