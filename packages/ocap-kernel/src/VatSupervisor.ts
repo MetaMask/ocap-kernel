@@ -251,7 +251,9 @@ export class VatSupervisor {
       WeakRef,
       FinalizationRegistry,
       waitUntilQuiescent,
-      gcAndFinalize: makeGCAndFinalize(),
+      gcAndFinalize: makeGCAndFinalize(
+        this.#logger.subLogger({ tags: ['gc'] }),
+      ),
       meterControl: makeDummyMeterControl(),
     });
 
