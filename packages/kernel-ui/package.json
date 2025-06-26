@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Kernel control panel UI",
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-ui#readme",
   "bugs": {
