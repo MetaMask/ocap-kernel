@@ -84,6 +84,20 @@ Documentation:
 - Use JSDoc and TypeDoc for public APIs.
 - Include examples and document error cases.
 
+Changelog management:
+
+- Follow Keep a Changelog format for all CHANGELOG.md files.
+- For release PRs, categorize "### Uncategorized" entries into:
+  - "### Added" for new features and functionality (entries starting with "feat:")
+  - "### Changed" for changes to existing functionality, dependency updates, removals (entries starting with "chore:" or breaking changes)
+  - "### Fixed" for bug fixes and corrections (entries starting with "fix:" or "refactor:")
+- Remove prefixes like "feat:", "chore:", "fix:", "refactor:" from changelog entries
+- Use clean, descriptive language without technical prefixes
+- Example transformation:
+  - "feat(ocap-kernel): Add kernel command 'revoke'" → "Add kernel command 'revoke'"
+  - "chore: bump endo dependencies" → "Bump endo dependencies"
+  - "fix: make Revoke button refresh object registry" → "Make Revoke button refresh object registry"
+
 Context-aware development:
 
 - Align new code with existing project structure for consistency.
