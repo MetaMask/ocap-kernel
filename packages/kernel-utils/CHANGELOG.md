@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-### Uncategorized
+### Changed
 
-- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
-- chore: Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+- Bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
 
 ## [0.1.0]
 
