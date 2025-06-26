@@ -17,14 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Remove support for launching vats outside a subcluster ([#535](https://github.com/MetaMask/ocap-kernel/pull/535))
 
 ### Fixed
 
 - Fix isRevoked RPC method result type ([#552](https://github.com/MetaMask/ocap-kernel/pull/552))
-
-### Removed
-
-- Remove support for launching vats outside a subcluster ([#535](https://github.com/MetaMask/ocap-kernel/pull/535))
 
 ## [0.1.0]
 
