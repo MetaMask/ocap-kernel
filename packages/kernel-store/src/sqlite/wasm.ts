@@ -20,9 +20,13 @@ export type Database = SqliteDatabase & {
  * Ensure that SQLite is initialized.
  *
  * @param dbFilename - The filename of the database to use.
+ * @param logger - The logger to use, if any.
  * @returns The SQLite database object.
  */
-export async function initDB(dbFilename: string): Promise<Database> {
+export async function initDB(
+  dbFilename: string,
+  logger?: Logger,
+): Promise<Database> {
   const sqlite3 = await sqlite3InitModule();
   let db: SqliteDatabase;
 
@@ -32,7 +36,7 @@ export async function initDB(dbFilename: string): Promise<Database> {
       : ['ocap', getDBFolder(), dbFilename].filter(Boolean).join('-');
     db = new sqlite3.oo1.OpfsDb(dbName, 'cw');
   } else {
-    console.warn(`OPFS not enabled, database will be ephemeral`);
+    logger?.warn(`OPFS not enabled, database will be ephemeral`);
     db = new sqlite3.oo1.DB(`:memory:`, 'cw');
   }
 
@@ -48,10 +52,9 @@ export async function initDB(dbFilename: string): Promise<Database> {
  *
  * @param db - The (open) database to use.
  * @param logger - A logger object for recording activity.
- * @param label - Label string for this store, for use in log messages.
  * @returns A key/value store using the given database.
  */
-function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
+function makeKVStore(db: Database, logger?: Logger): KVStore {
   db.exec(SQL_QUERIES.CREATE_TABLE);
 
   const sqlKVGet = db.prepare(SQL_QUERIES.GET);
@@ -69,13 +72,13 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
       const result = sqlKVGet.getString(0);
       if (result) {
         sqlKVGet.reset();
-        logger.debug(`kv get '${key}' as '${result}'`);
+        logger?.debug(`kv get '${key}' as '${result}'`);
         return result;
       }
     }
     sqlKVGet.reset();
     if (required) {
-      throw Error(`[${label}] no record matching key '${key}'`);
+      throw Error(`no record matching key '${key}'`);
     }
     return undefined;
   }
@@ -96,7 +99,7 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
       const result = sqlKVGetNextKey.getString(0);
       if (result) {
         sqlKVGetNextKey.reset();
-        logger.debug(`kv getNextKey '${previousKey}' as '${result}'`);
+        logger?.debug(`kv getNextKey '${previousKey}' as '${result}'`);
         return result;
       }
     }
@@ -113,7 +116,7 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
    * @param value - The value to assign to it.
    */
   function kvSet(key: string, value: string): void {
-    logger.debug(`kv set '${key}' to '${value}'`);
+    logger?.debug(`kv set '${key}' to '${value}'`);
     sqlKVSet.bind([key, value]);
     sqlKVSet.step();
     sqlKVSet.reset();
@@ -127,7 +130,7 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
    * @param key - The key to remove.
    */
   function kvDelete(key: string): void {
-    logger.debug(`kv delete '${key}'`);
+    logger?.debug(`kv delete '${key}'`);
     sqlKVDelete.bind([key]);
     sqlKVDelete.step();
     sqlKVDelete.reset();
@@ -147,29 +150,20 @@ function makeKVStore(db: Database, logger: Logger, label: string): KVStore {
  *
  * @param options - The options for the database.
  * @param options.dbFilename - The filename of the database to use. Defaults to {@link DEFAULT_DB_FILENAME}.
- * @param options.label - A logger prefix label. Defaults to '[sqlite]'.
- * @param options.verbose - If true, generate logger output; if false, be quiet.
+ * @param options.logger - A logger to use.
  * @returns A key/value store to base higher level stores on.
  */
 export async function makeSQLKernelDatabase({
   dbFilename,
-  label,
-  verbose = false,
+  logger,
 }: {
   dbFilename?: string | undefined;
-  // XXX TODO:grypez use a logger argument instead
-  label?: string | undefined;
-  verbose?: boolean | undefined;
+  logger?: Logger;
 }): Promise<KernelDatabase> {
-  const thisLabel = label ?? '[sqlite]';
-  const logger = new Logger(thisLabel);
-  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME);
+  const db = await initDB(dbFilename ?? DEFAULT_DB_FILENAME, logger);
 
-  if (verbose) {
-    logger.log('Initializing kernel store');
-  }
-
-  const kvStore = makeKVStore(db, logger, thisLabel);
+  logger?.debug('Initializing kernel store');
+  const kvStore = makeKVStore(db, logger?.subLogger({ tags: ['kv'] }));
 
   db.exec(SQL_QUERIES.CREATE_TABLE_VS);
 
@@ -245,9 +239,7 @@ export async function makeSQLKernelDatabase({
    * Delete everything from the database.
    */
   function kvClear(): void {
-    if (verbose) {
-      logger.log('clearing all kernel state');
-    }
+    logger?.debug('clearing all kernel state');
     sqlKVClear.step();
     sqlKVClear.reset();
     sqlKVClearVS.step();
