@@ -1,11 +1,13 @@
 import { delay } from '@metamask/kernel-utils';
+import type { Logger } from '@metamask/logger';
 
 /**
  * Try to get a GC function for the current environment
  *
+ * @param logger - The logger to use.
  * @returns A function that triggers GC and finalization when possible
  */
-async function getGCFunction(): Promise<GCFunction | undefined> {
+async function getGCFunction(logger?: Logger): Promise<GCFunction | undefined> {
   if (typeof globalThis.gc === 'function') {
     return globalThis.gc;
   }
@@ -20,7 +22,7 @@ async function getGCFunction(): Promise<GCFunction | undefined> {
       const { engineGC } = await import('./gc-engine.ts');
       return engineGC;
     } catch (error) {
-      console.debug('Failed to load Node.js GC implementation:', error);
+      logger?.debug('Failed to load Node.js GC implementation:', error);
     }
   }
 
@@ -31,11 +33,12 @@ async function getGCFunction(): Promise<GCFunction | undefined> {
  * Utility to create a function that performs garbage collection and finalization
  * in a cross-environment compatible way.
  *
+ * @param logger - The logger to use.
  * @returns A function that triggers GC and finalization when possible
  */
-export function makeGCAndFinalize(): () => Promise<void> {
+export function makeGCAndFinalize(logger?: Logger): () => Promise<void> {
   // Cache the GC function promise
-  const gcFunctionPromise = getGCFunction();
+  const gcFunctionPromise = getGCFunction(logger);
 
   /**
    * Function to trigger garbage collection and finalization
@@ -56,11 +59,11 @@ export function makeGCAndFinalize(): () => Promise<void> {
         await delay(0);
       } else {
         // No GC function available, log warning and cycle the event loop
-        console.warn('Deterministic GC not available in this environment');
+        logger?.warn('Deterministic GC not available in this environment');
         await delay(0);
       }
     } catch (error) {
-      console.warn('GC operation failed:', error);
+      logger?.warn('GC operation failed:', error);
     }
   };
 }
