@@ -36,6 +36,9 @@ describe('VatSyscall', () => {
     logger = {
       debug: vi.fn(),
       error: vi.fn(),
+      log: vi.fn(),
+      warn: vi.fn(),
+      subLogger: vi.fn(() => logger),
     } as unknown as Logger;
     vatSys = new VatSyscall({ vatId: 'v1', kernelQueue, kernelStore, logger });
   });
@@ -247,9 +250,7 @@ describe('VatSyscall', () => {
       ['callNow', 'invalid syscall callNow'],
       ['unknownOp', 'unknown syscall unknownOp'],
     ])('%s should warn', async (op, message) => {
-      const spy = vi.spyOn(console, 'warn').mockImplementation(() => {
-        // do nothing
-      });
+      const spy = vi.spyOn(logger, 'warn');
       const vso = [op, []] as unknown as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(spy).toHaveBeenCalledWith(expect.stringContaining(message), vso);
