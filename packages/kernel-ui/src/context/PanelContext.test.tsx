@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-hooks';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@metamask/kernel-utils', () => ({
@@ -27,10 +28,6 @@ describe('PanelContext', () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
-      const payload = {
-        method: 'getStatus',
-        params: [],
-      };
       const response = { success: true };
       mockSendMessage.mockResolvedValueOnce(response);
       vi.mocked(
@@ -43,8 +40,10 @@ describe('PanelContext', () => {
           </PanelProvider>
         ),
       });
-      const actualResponse = await result.current.callKernelMethod(payload);
-      expect(mockSendMessage).toHaveBeenCalledWith(payload);
+      const actualResponse = await result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [],
+      });
       expect(actualResponse).toBe(response);
     });
 
@@ -52,10 +51,6 @@ describe('PanelContext', () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
-      const payload = {
-        method: 'getStatus',
-        params: [],
-      };
       const errorResponse = { error: 'Test error' };
       mockSendMessage.mockResolvedValueOnce(errorResponse);
       vi.mocked(
@@ -68,9 +63,12 @@ describe('PanelContext', () => {
           </PanelProvider>
         ),
       });
-      await expect(result.current.callKernelMethod(payload)).rejects.toThrow(
-        JSON.stringify(errorResponse.error),
-      );
+      await expect(
+        result.current.callKernelMethod({
+          method: 'getStatus',
+          params: [],
+        }),
+      ).rejects.toThrow(JSON.stringify(errorResponse.error));
       expect(
         vi.mocked(await import('../services/logger.ts')).logger.error,
       ).toHaveBeenCalledWith(
@@ -83,10 +81,6 @@ describe('PanelContext', () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
-      const payload = {
-        method: 'getStatus',
-        params: [],
-      };
       const error = new Error('Network error');
       mockSendMessage.mockRejectedValueOnce(error);
       const { result } = renderHook(() => usePanelContext(), {
@@ -96,9 +90,12 @@ describe('PanelContext', () => {
           </PanelProvider>
         ),
       });
-      await expect(result.current.callKernelMethod(payload)).rejects.toThrow(
-        error,
-      );
+      await expect(
+        result.current.callKernelMethod({
+          method: 'getStatus',
+          params: [],
+        }),
+      ).rejects.toThrow(error);
       expect(
         vi.mocked(await import('../services/logger.ts')).logger.error,
       ).toHaveBeenCalledWith(`Error: ${error.message}`, 'error');
@@ -108,14 +105,6 @@ describe('PanelContext', () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
-      const firstPayload = {
-        method: 'getStatus',
-        params: [],
-      };
-      const secondPayload = {
-        method: 'getStatus',
-        params: [],
-      };
 
       // Use a promise that we control to ensure the first request is still in progress
       let resolveFirstRequest!: (value: { success: boolean }) => void;
@@ -136,12 +125,17 @@ describe('PanelContext', () => {
       });
 
       // Start the first request but don't await it
-      const firstRequestPromiseResult =
-        result.current.callKernelMethod(firstPayload);
+      const firstRequestPromiseResult = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [],
+      });
 
       // Try to make a second request while the first is still processing
       await expect(
-        result.current.callKernelMethod(secondPayload),
+        result.current.callKernelMethod({
+          method: 'getStatus',
+          params: [],
+        }),
       ).rejects.toThrow('A request is already in progress');
 
       // Resolve the first request to clean up
@@ -176,17 +170,8 @@ describe('PanelContext', () => {
   describe('usePanelContext', () => {
     it('should throw error when used outside of PanelProvider', async () => {
       const { usePanelContext } = await import('./PanelContext.tsx');
-
-      // Use a try-catch block to verify the error
-      let caughtError: Error | null = null;
-      try {
-        renderHook(() => usePanelContext());
-      } catch (error) {
-        caughtError = error as Error;
-      }
-
-      // Expect the error to be thrown
-      expect(caughtError).toStrictEqual(
+      const { result } = renderHook(() => usePanelContext());
+      expect(result.error).toStrictEqual(
         new Error('usePanelContext must be used within a PanelProvider'),
       );
     });

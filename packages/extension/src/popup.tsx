@@ -1,7 +1,6 @@
 import '@metamask/kernel-ui/styles.css';
 import { App } from '@metamask/kernel-ui';
-import { createRoot } from 'react-dom/client';
+import { createElement } from 'react';
+import { render } from 'react-dom';
 
-// @ts-expect-error - our root element is not null
-const root = createRoot(document.getElementById('root'));
-root.render(<App />);
+render(createElement(App), document.getElementById('root'));
