@@ -15,6 +15,8 @@ export const consoleTransport: Transport = (entry) => {
     ...(entry.message ? [entry.message] : []),
     ...(entry.data ?? []),
   ];
+  // Ultimately, a console somewhere is an acceptable terminal for logging
+  // eslint-disable-next-line no-console
   console[entry.level](...args);
 };
 
@@ -35,6 +37,8 @@ export const makeStreamTransport = (
         params: ['logger', lser(entry)],
         jsonrpc: '2.0',
       })
+      // This is a last resort, but it's better than nothing
+      // eslint-disable-next-line no-console
       .catch(console.debug);
   };
 };
