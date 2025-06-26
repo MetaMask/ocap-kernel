@@ -1,5 +1,5 @@
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getBaseMethods } from './base.ts';
 import { getSubclusterMethods } from './subclusters.ts';
@@ -27,7 +27,6 @@ describe('getSubclusterMethods', () => {
   let mockKvStore: unknown;
   let mockContext: StoreContext;
   let subclusterMethods: ReturnType<typeof getSubclusterMethods>;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
   const mockVatConfig1: VatConfig = { bundleName: 'bundleA' };
   const mockVatConfig2: VatConfig = { sourceSpec: './sourceB.js' };
   const mockClusterConfig1: ClusterConfig = {
@@ -96,13 +95,6 @@ describe('getSubclusterMethods', () => {
     } as unknown as StoreContext;
 
     subclusterMethods = getSubclusterMethods(mockContext);
-    consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-  });
-
-  afterEach(() => {
-    consoleWarnSpy.mockRestore();
   });
 
   describe('addSubcluster', () => {
