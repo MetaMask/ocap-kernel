@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- Support multiple subclusters ([#530](https://github.com/MetaMask/ocap-kernel/pull/530))
+
+### Changed
+
+- Bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Bump vite and vitest dependencies ([#516](https://github.com/MetaMask/ocap-kernel/pull/516))
+
 ## [0.1.0]
 
 ### Added
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.2.0...HEAD
+[0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...@metamask/kernel-errors@0.2.0
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-errors@0.1.0
