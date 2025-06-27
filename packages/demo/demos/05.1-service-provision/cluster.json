@@ -1,0 +1,30 @@
+{
+  "bootstrap": "boot",
+  "vats": {
+    "boot": {
+      "bundleSpec": "http://localhost:3000/boot.bundle",
+      "parameters": {}
+    },
+    "alice": {
+      "bundleSpec": "http://localhost:3000/customer.bundle",
+      "parameters": {
+        "initialBalance": 300,
+        "maxPayment": 100,
+        "serviceName": "pow",
+        "serviceArgs": [4, 2]
+      }
+    },
+    "bob": {
+      "bundleSpec": "http://localhost:3000/aggregator.bundle",
+      "parameters": {}
+    },
+    "carol": {
+      "bundleSpec": "http://localhost:3000/provider.bundle",
+      "parameters": { "prices": { "pow": 100, "mod": 10 } }
+    },
+    "charlie": {
+      "bundleSpec": "http://localhost:3000/provider.bundle",
+      "parameters": { "prices": { "pow": 99, "sub": 40 } }
+    }
+  }
+}
