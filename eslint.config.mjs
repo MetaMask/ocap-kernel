@@ -159,8 +159,9 @@ const config = createConfig([
   {
     files: ['**/scripts/**/*'],
     rules: {
-      // Script files have reasonable cause to read from process.env
+      // Script files have reasonable cause to interact with process
       'n/no-process-env': 'off',
+      'n/no-process-exit': 'off',
     },
   },
 
@@ -234,6 +235,16 @@ const config = createConfig([
     rules: {
       // Test worker files can resolve these imports, even if eslint cannot.
       'import-x/no-unresolved': 'off',
+    },
+  },
+
+  {
+    files: ['packages/demo/demos/**/*.js'],
+    rules: {
+      // Demo files: doc less, say more.
+      'jsdoc/require-jsdoc': 'off',
+      // Permitted for familiarity and concision.
+      'no-plusplus': 'off',
     },
   },
 ]);
