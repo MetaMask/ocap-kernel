@@ -1,11 +1,14 @@
-import type {
-  VatOneResolution,
-  VatSyscallObject,
-} from '@agoric/swingset-liveslots';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
 import { coerceMessage } from '../../types.ts';
-import type { Message, VatId, KRef, VRef } from '../../types.ts';
+import type {
+  Message,
+  VatId,
+  KRef,
+  VRef,
+  VatSyscallObject,
+} from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
 import { getVatMethods } from './vat.ts';
@@ -200,6 +203,7 @@ export function getTranslators(ctx: StoreContext) {
         ];
         break;
       }
+      case 'revoke':
       case 'dropImports':
       case 'retireImports':
       case 'retireExports':

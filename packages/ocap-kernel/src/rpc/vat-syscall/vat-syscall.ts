@@ -22,6 +22,7 @@ const ResolveStruct = tuple([
   array(VatOneResolutionStruct),
 ]);
 const ExitStruct = tuple([literal('exit'), boolean(), CapDataStruct]);
+const RevokeStruct = tuple([literal('revoke'), array(string())]);
 const DropImportsStruct = tuple([literal('dropImports'), array(string())]);
 const RetireImportsStruct = tuple([literal('retireImports'), array(string())]);
 const RetireExportsStruct = tuple([literal('retireExports'), array(string())]);
@@ -50,6 +51,7 @@ const VatSyscallParamsStruct = union([
   ResolveStruct,
   ExitStruct,
   DropImportsStruct,
+  RevokeStruct,
   RetireImportsStruct,
   RetireExportsStruct,
   AbandonExportsStruct,

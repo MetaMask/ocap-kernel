@@ -2,14 +2,11 @@ import {
   insistVatSyscallObject,
   insistVatSyscallResult,
 } from '@agoric/swingset-liveslots';
-import type {
-  VatSyscallObject,
-  VatOneResolution,
-} from '@agoric/swingset-liveslots';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@metamask/kernel-store';
 
-import type { Syscall, SyscallResult } from './types.ts';
+import type { Syscall, SyscallResult, VatSyscallObject } from './types.ts';
 import type { VatSupervisor } from '../VatSupervisor.ts';
 
 /**
@@ -37,7 +34,9 @@ function makeSupervisorSyscall(
    * @returns the result from performing the syscall.
    */
   function doSyscall(vso: VatSyscallObject): SyscallResult {
-    insistVatSyscallObject(vso);
+    vso[0] === 'revoke'
+      ? assert(Array.isArray(vso[1]))
+      : insistVatSyscallObject(vso);
     let syscallResult;
     try {
       syscallResult = supervisor.executeSyscall(vso);
@@ -72,6 +71,7 @@ function makeSupervisorSyscall(
       doSyscall(['resolve', resolutions]),
     exit: (isFailure: boolean, info: CapData<string>) =>
       doSyscall(['exit', isFailure, info]),
+    revoke: (vrefs: string[]) => doSyscall(['revoke', vrefs]),
     dropImports: (vrefs: string[]) => doSyscall(['dropImports', vrefs]),
     retireImports: (vrefs: string[]) => doSyscall(['retireImports', vrefs]),
     retireExports: (vrefs: string[]) => doSyscall(['retireExports', vrefs]),

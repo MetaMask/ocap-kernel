@@ -4,6 +4,7 @@ import type {
   SwingSetCapData,
   LiveSlotsOptions,
   MeterControl,
+  VatSyscallObject as LiveslotsVatSyscallObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
@@ -12,6 +13,10 @@ export type DispatchFn = (vdo: VatDeliveryObject) => Promise<void>;
 export type LiveSlots = {
   dispatch: DispatchFn;
 };
+
+type VatSyscallRevoke = ['revoke', string[]];
+
+export type VatSyscallObject = LiveslotsVatSyscallObject | VatSyscallRevoke;
 
 export type Syscall = {
   send: (
@@ -22,6 +27,7 @@ export type Syscall = {
   subscribe: (vpid: string) => SyscallResult;
   resolve: (resolutions: VatOneResolution[]) => SyscallResult;
   exit: (isFailure: boolean, info: CapData<string>) => SyscallResult;
+  revoke: (vrefs: string[]) => SyscallResult;
   dropImports: (vrefs: string[]) => SyscallResult;
   retireImports: (vrefs: string[]) => SyscallResult;
   retireExports: (vrefs: string[]) => SyscallResult;

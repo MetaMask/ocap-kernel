@@ -225,7 +225,7 @@ export class KernelQueue {
       if (state !== 'unresolved') {
         Fail`${kpid} was already resolved`;
       }
-      if (decider !== vatId) {
+      if (vatId && decider !== vatId) {
         const why = decider ? `its decider is ${decider}` : `it has no decider`;
         Fail`${vatId} not permitted to resolve ${kpid} because ${why}`;
       }
