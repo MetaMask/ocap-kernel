@@ -88,6 +88,31 @@ const config = createConfig([
           allowTernary: true,
         },
       ],
+
+      // Nag if console statements are used in TypeScript files
+      'no-console': 'warn',
+    },
+  },
+
+  {
+    files: [
+      '**/kernel-errors/**/*.ts',
+      '**/kernel-store/**/*.ts',
+      '**/kernel-rpc-methods/**/*.ts',
+      '**/kernel-utils/**/*.ts',
+      '**/ocap-kernel/**/*.ts',
+    ],
+    rules: {
+      // Prevent console statements in TypeScript files
+      // Use the logger instead
+      'no-console': 'error',
+    },
+  },
+
+  {
+    files: ['**/*.test.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
 

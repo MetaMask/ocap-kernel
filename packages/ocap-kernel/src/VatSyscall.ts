@@ -192,7 +192,8 @@ export class VatSyscall {
       );
       const [op] = kso;
       const { vatId } = this;
-      const { log } = console;
+      const log = this.#logger.log.bind(this.#logger);
+      const warn = this.#logger.warn.bind(this.#logger);
       switch (op) {
         case 'send': {
           // [KRef, Message];
@@ -259,13 +260,13 @@ export class VatSyscall {
         case 'vatstoreGetNextKey':
         case 'vatstoreSet':
         case 'vatstoreDelete': {
-          console.warn(`vat ${vatId} issued invalid syscall ${op} `, vso);
+          warn(`vat ${vatId} issued invalid syscall ${op} `, vso);
           break;
         }
         default:
           // Compile-time exhaustiveness check
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          console.warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
+          warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
           break;
       }
       return harden(['ok', null]);

@@ -90,7 +90,7 @@ export function getRefCountMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
-      console.debug('++', refCountKey(kref), refCount, tag);
+      ctx.logger?.debug('++', refCountKey(kref), refCount, tag);
       ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
@@ -105,7 +105,7 @@ export function getRefCountMethods(ctx: StoreContext) {
       counts.reachable += 1;
     }
     counts.recognizable += 1;
-    console.debug('++', refCountKey(kref), JSON.stringify(counts), tag);
+    ctx.logger?.debug('++', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
   }
 
@@ -133,7 +133,7 @@ export function getRefCountMethods(ctx: StoreContext) {
     const { isPromise } = parseRef(kref);
     if (isPromise) {
       let refCount = Number(ctx.kv.get(refCountKey(kref)));
-      console.debug('--', refCountKey(kref), refCount - 1, tag);
+      ctx.logger?.debug('--', refCountKey(kref), refCount - 1, tag);
       refCount > 0 || Fail`refCount underflow ${kref}`;
       refCount -= 1;
       ctx.kv.set(refCountKey(kref), `${refCount}`);
@@ -156,7 +156,7 @@ export function getRefCountMethods(ctx: StoreContext) {
     if (!counts.reachable || !counts.recognizable) {
       ctx.maybeFreeKrefs.add(kref);
     }
-    console.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
+    ctx.logger?.debug('--', refCountKey(kref), JSON.stringify(counts), tag);
     setObjectRefCount(kref, counts);
     ctx.kv.set('initialized', 'true');
     return false;

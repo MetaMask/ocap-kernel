@@ -1,4 +1,5 @@
 import type { KVStore } from '@metamask/kernel-store';
+import type { Logger } from '@metamask/logger';
 
 import type { KRef } from '../types.ts';
 
@@ -19,6 +20,7 @@ export type StoreContext = {
   subclusters: StoredValue; // Holds Subcluster[]
   nextSubclusterId: StoredValue; // Holds string
   vatToSubclusterMap: StoredValue; // Holds Record<VatId, SubclusterId>
+  logger?: Logger;
 };
 
 export type StoredValue = {
