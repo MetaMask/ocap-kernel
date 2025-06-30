@@ -105,6 +105,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (!isMessageEnvelope(message)) {
+      // TODO(#562): Use logger instead.
+      // eslint-disable-next-line no-console
       console.debug(
         `ChromeRuntimeReader received unexpected message: ${stringify(
           message,
@@ -114,6 +116,8 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     }
 
     if (message.target !== this.#target || message.source !== this.#source) {
+      // TODO(#562): Use logger instead.
+      // eslint-disable-next-line no-console
       console.debug(
         `ChromeRuntimeReader received message with incorrect target or source: ${stringify(message)}`,
         `Expected target: ${this.#target}`,
