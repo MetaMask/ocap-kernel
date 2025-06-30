@@ -86,12 +86,14 @@ Documentation:
 
 Changelog management:
 
-- Follow Keep a Changelog format for all CHANGELOG.md files.
+- Follow Keep a Changelog v1.0.0 format (https://keepachangelog.com/en/1.0.0/) for all CHANGELOG.md files.
 - For release PRs, categorize "### Uncategorized" entries into:
   - "### Added" for new features and functionality (entries starting with "feat:")
   - "### Changed" for changes to existing functionality (entries starting with "chore:" or breaking changes)
-  - "### Removed" for removed functionality or features
+  - "### Deprecated" for soon-to-be removed features
+  - "### Removed" for now removed features
   - "### Fixed" for bug fixes and corrections (entries starting with "fix:" or "refactor:")
+  - "### Security" in case of vulnerabilities
 - Each changelog should describe changes specific to that package
 - Skip dependency updates unless they cause downstream changes; if so, describe the actual changes instead
 - Remove prefixes like "feat:", "chore:", "fix:", "refactor:" from changelog entries
