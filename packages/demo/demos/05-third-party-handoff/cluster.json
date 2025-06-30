@@ -1,0 +1,21 @@
+{
+  "bootstrap": "boot",
+  "vats": {
+    "boot": {
+      "bundleSpec": "http://localhost:3000/boot.bundle",
+      "parameters": {}
+    },
+    "alice": {
+      "bundleSpec": "http://localhost:3000/obligee.bundle",
+      "parameters": { "name": "Alice" }
+    },
+    "bob": {
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": { "name": "Bob" }
+    },
+    "carol": {
+      "bundleSpec": "http://localhost:3000/delegatee.bundle",
+      "parameters": { "name": "Carol" }
+    }
+  }
+}

@@ -86,6 +86,7 @@
   "dependencies": {
     "@endo/errors": "^1.2.10",
     "@endo/far": "^1.1.11",
+    "@endo/promise-kit": "^1.1.10",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
