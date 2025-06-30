@@ -11,11 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support streaming falsey values ([#542](https://github.com/MetaMask/ocap-kernel/pull/542))
-
-### Changed
-
-- Bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Support streaming falsy values ([#542](https://github.com/MetaMask/ocap-kernel/pull/542))
 
 ## [0.2.0]
 
