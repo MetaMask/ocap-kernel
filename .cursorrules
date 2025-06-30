@@ -89,13 +89,24 @@ Changelog management:
 - Follow Keep a Changelog format for all CHANGELOG.md files.
 - For release PRs, categorize "### Uncategorized" entries into:
   - "### Added" for new features and functionality (entries starting with "feat:")
-  - "### Changed" for changes to existing functionality, dependency updates, removals (entries starting with "chore:" or breaking changes)
+  - "### Changed" for changes to existing functionality (entries starting with "chore:" or breaking changes)
+  - "### Removed" for removed functionality or features
   - "### Fixed" for bug fixes and corrections (entries starting with "fix:" or "refactor:")
+- Each changelog should describe changes specific to that package
+- Skip dependency updates unless they cause downstream changes; if so, describe the actual changes instead
 - Remove prefixes like "feat:", "chore:", "fix:", "refactor:" from changelog entries
 - Use clean, descriptive language without technical prefixes
-- Example transformation:
+- When running in agent mode, fetch GitHub PR descriptions to better understand:
+  - The actual impact of each change on the specific package
+  - Whether dependency updates introduce breaking changes or new functionality
+  - More context for writing accurate, descriptive changelog entries
+- Use PR descriptions to determine if changes should be:
+  - Skipped entirely (pure dependency bumps with no package impact)
+  - Rewritten to focus on user-facing changes rather than implementation details
+  - Moved to different categories based on actual impact
+- Example transformations:
   - "feat(ocap-kernel): Add kernel command 'revoke'" → "Add kernel command 'revoke'"
-  - "chore: bump endo dependencies" → "Bump endo dependencies"
+  - "chore: bump endo dependencies" → Remove (unless it causes package-specific changes)
   - "fix: make Revoke button refresh object registry" → "Make Revoke button refresh object registry"
 
 Context-aware development:
