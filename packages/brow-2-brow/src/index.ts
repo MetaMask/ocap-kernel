@@ -71,6 +71,8 @@ const App = async (): Promise<void> => {
   const showAddresses = queryParams.get('addresses');
   const peerId = peerIdList[localId] as unknown as PeerId;
   const privateKey = keyList[localId] as unknown as PrivateKey;
+  // TODO(#562): Use logger instead.
+  // eslint-disable-next-line no-console
   console.log(`I am id:${localId} peerId:${peerId.toString()}`);
 
   const relayPeerId = peerIdList[RELAY_ID];
@@ -307,6 +309,8 @@ const App = async (): Promise<void> => {
     event.preventDefault();
     const target = DOM.inputTarget().value;
     const message = DOM.inputMessage().value;
+    // TODO(#562): Use logger instead.
+    // eslint-disable-next-line no-console
     console.log(`send to ${target}: '${message}'`);
     await sendMsg(Number(target), message);
   };
@@ -436,5 +440,7 @@ const App = async (): Promise<void> => {
 };
 
 App().catch((problem) => {
+  // TODO(#562): Use logger instead.
+  // eslint-disable-next-line no-console
   console.error(problem);
 });
