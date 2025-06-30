@@ -20,7 +20,7 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
-import { kslot } from './services/kernel-marshal.ts';
+import { kslot, kser, kunser } from './services/kernel-marshal.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
@@ -32,10 +32,17 @@ import type {
   VatConfig,
   KernelStatus,
   Subcluster,
+  Message,
 } from './types.ts';
 import { ROOT_OBJECT_VREF, isClusterConfig } from './types.ts';
-import { Fail } from './utils/assert.ts';
+import { Fail, assert } from './utils/assert.ts';
 import { VatHandle } from './VatHandle.ts';
+
+type KernelService = {
+  name: string;
+  kref: string;
+  service: object;
+};
 
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
@@ -60,6 +67,11 @@ export class Kernel {
 
   /** The kernel's router */
   readonly #kernelRouter: KernelRouter;
+
+  /** Objects providing custom or kernel-privileged services to vats. */
+  readonly #kernelServicesByName: Map<string, KernelService> = new Map();
+
+  readonly #kernelServicesByObject: Map<string, KernelService> = new Map();
 
   /**
    * Construct a new kernel instance.
@@ -98,6 +110,7 @@ export class Kernel {
       this.#kernelStore,
       this.#kernelQueue,
       this.#getVat.bind(this),
+      this.#invokeKernelService.bind(this),
     );
     harden(this);
   }
@@ -370,9 +383,21 @@ export class Kernel {
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
+    const services: Record<string, SlotValue> = {};
+    if (config.services) {
+      for (const name of config.services) {
+        const possibleService = this.#kernelServicesByName.get(name);
+        if (possibleService) {
+          const { kref } = possibleService;
+          services[name] = kslot(kref);
+        } else {
+          throw Error(`no registered kernel service '${name}'`);
+        }
+      }
+    }
     const bootstrapRoot = rootIds[config.bootstrap];
     if (bootstrapRoot) {
-      return this.queueMessage(bootstrapRoot, 'bootstrap', [roots]);
+      return this.queueMessage(bootstrapRoot, 'bootstrap', [roots, services]);
     }
     return undefined;
   }
@@ -631,6 +656,58 @@ export class Kernel {
       // wait for all vats to be cleaned up
     }
     this.#kernelStore.collectGarbage();
+  }
+
+  registerKernelServiceObject(name: string, service: object): void {
+    const kref = this.#kernelStore.initKernelObject('kernel');
+    const kernelService = { name, kref, service };
+    this.#kernelServicesByName.set(name, kernelService);
+    this.#kernelServicesByObject.set(kref, kernelService);
+  }
+
+  async #invokeKernelService(target: KRef, message: Message): Promise<void> {
+    const kernelService = this.#kernelServicesByObject.get(target);
+    if (!kernelService) {
+      throw Error(`no registered service for ${target}`);
+    }
+    const { methargs, result } = message;
+    const [method, args] = kunser(methargs) as [string, unknown[]];
+    assert.typeof(method, 'string');
+    if (result) {
+      assert.typeof(result, 'string');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    const service = kernelService.service as Record<string, Function>;
+    const methodFunction = service[method];
+    if (methodFunction === undefined) {
+      if (result) {
+        this.#kernelQueue.resolvePromises('kernel', [
+          [result, true, kser(Error(`unknown service method '${method}'`))],
+        ]);
+      } else {
+        this.#logger.error(`unknown service method '${method}'`);
+      }
+      return;
+    }
+    assert.typeof(methodFunction, 'function');
+    assert(Array.isArray(args));
+    try {
+      // eslint-disable-next-line prefer-spread
+      const resultValue = await methodFunction.apply(null, args);
+      if (result) {
+        this.#kernelQueue.resolvePromises('kernel', [
+          [result, false, kser(resultValue)],
+        ]);
+      }
+    } catch (problem) {
+      if (result) {
+        this.#kernelQueue.resolvePromises('kernel', [
+          [result, true, kser(problem)],
+        ]);
+      } else {
+        this.#logger.error('error in kernel service method:', problem);
+      }
+    }
   }
 }
 harden(Kernel);

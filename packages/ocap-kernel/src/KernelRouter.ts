@@ -10,6 +10,7 @@ import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
   VatId,
   KRef,
+  Message,
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemBringOutYourDead,
@@ -42,21 +43,30 @@ export class KernelRouter {
   /** A function that returns a vat handle for a given vat id. */
   readonly #getVat: (vatId: VatId) => VatHandle;
 
+  /** A function that invokes a method on a kernel service. */
+  readonly #invokeKernelService: (
+    target: KRef,
+    message: Message,
+  ) => Promise<void>;
+
   /**
    * Construct a new KernelRouter.
    *
    * @param kernelStore - The kernel's store.
    * @param kernelQueue - The kernel's queue.
    * @param getVat - A function that returns a vat handle for a given vat id.
+   * @param invokeKernelService - A function that calls a method on a kernel service object.
    */
   constructor(
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getVat: (vatId: VatId) => VatHandle,
+    invokeKernelService: (target: KRef, message: Message) => Promise<void>,
   ) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#getVat = getVat;
+    this.#invokeKernelService = invokeKernelService;
   }
 
   /**
@@ -201,8 +211,9 @@ export class KernelRouter {
       `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
     if (vatId) {
-      const vat = this.#getVat(vatId);
-      if (vat) {
+      const isKernelServiceMessage = vatId === 'kernel';
+      const vat = isKernelServiceMessage ? null : this.#getVat(vatId);
+      if (vat || isKernelServiceMessage) {
         if (message.result) {
           if (typeof message.result !== 'string') {
             throw TypeError('message result must be a string');
@@ -213,6 +224,8 @@ export class KernelRouter {
             'deliver|send|result',
           );
         }
+      }
+      if (vat) {
         const vatTarget = this.#kernelStore.translateRefKtoV(
           vatId,
           target,
@@ -223,12 +236,14 @@ export class KernelRouter {
           message,
         );
         crankResults = await vat.deliverMessage(vatTarget, vatMessage);
-        this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
-        for (const slot of message.methargs.slots) {
-          this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
-        }
+      } else if (isKernelServiceMessage) {
+        crankResults = await this.#deliverKernelServiceMessage(target, message);
       } else {
         Fail`no owner for kernel object ${target}`;
+      }
+      this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
+      for (const slot of message.methargs.slots) {
+        this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
       }
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
@@ -238,6 +253,14 @@ export class KernelRouter {
     );
 
     return crankResults;
+  }
+
+  async #deliverKernelServiceMessage(
+    target: KRef,
+    message: Message,
+  ): Promise<CrankResults> {
+    await this.#invokeKernelService(target, message);
+    return { didDelivery: 'kernel' };
   }
 
   /**

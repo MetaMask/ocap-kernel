@@ -321,6 +321,7 @@ export type VatConfigTable = Record<string, VatConfig>;
 export const ClusterConfigStruct = object({
   bootstrap: string(),
   forceReset: exactOptional(boolean()),
+  services: exactOptional(array(string())),
   vats: record(string(), VatConfigStruct),
   bundles: exactOptional(record(string(), VatConfigStruct)),
 });
