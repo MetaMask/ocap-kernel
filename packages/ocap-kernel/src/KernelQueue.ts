@@ -152,6 +152,9 @@ export class KernelQueue {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
+    // TODO(#562): Use logger instead.
+    // eslint-disable-next-line no-console
+    console.debug('enqueueMessage', target, method, args);
     const result = this.#kernelStore.initKernelPromise()[0];
     const { promise, resolve } = makePromiseKit<CapData<KRef>>();
     this.subscriptions.set(result, resolve);
@@ -232,9 +235,11 @@ export class KernelQueue {
       if (!subscribers) {
         throw Fail`${kpid} subscribers not set`;
       }
+
       for (const subscriber of subscribers) {
         this.enqueueNotify(subscriber, kpid);
       }
+
       this.#kernelStore.resolveKernelPromise(kpid, rejected, data);
       const kernelResolve = this.subscriptions.get(kpid);
       if (kernelResolve) {

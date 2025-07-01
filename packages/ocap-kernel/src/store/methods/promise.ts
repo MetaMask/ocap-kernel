@@ -30,7 +30,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
     getBaseMethods(ctx.kv);
   const { enqueueRun } = getQueueMethods(ctx);
-  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
+  const { decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with
@@ -50,6 +50,14 @@ export function getPromiseMethods(ctx: StoreContext) {
     ctx.kv.set(`${kpid}.state`, 'unresolved');
     ctx.kv.set(`${kpid}.subscribers`, '[]');
     ctx.kv.set(refCountKey(kpid), '1');
+    // TODO(#562): Use logger instead.
+    // eslint-disable-next-line no-console
+    console.debug(
+      'initKernelPromise',
+      kpid,
+      ctx.kv.get(refCountKey(kpid)),
+      kpr,
+    );
     return [kpid, kpr];
   }
 
@@ -156,12 +164,6 @@ export function getPromiseMethods(ctx: StoreContext) {
     rejected: boolean,
     value: CapData<KRef>,
   ): void {
-    let idx = 0;
-    for (const dataSlot of value.slots) {
-      incrementRefCount(dataSlot, `resolve|${kpid}|s${idx}`);
-      idx += 1;
-    }
-
     const queue = provideStoredQueue(kpid, false);
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       const messageItem: RunQueueItemSend = {

@@ -617,8 +617,13 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reset(): Promise<void> {
-    await this.terminateAllVats();
-    this.#resetKernelState();
+    try {
+      await this.terminateAllVats();
+      this.#resetKernelState();
+    } catch (error) {
+      this.#logger.error('Error resetting kernel:', error);
+      throw error;
+    }
   }
 
   /**

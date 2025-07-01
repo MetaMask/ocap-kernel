@@ -2,7 +2,7 @@
 /// <reference types="vite/client" />
 
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { stringify, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger, makeArrayTransport } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
@@ -170,7 +170,7 @@ export function logDatabase(
   logger: Logger = console as unknown as Logger,
 ): void {
   const result = kernelDatabase.executeQuery('SELECT * FROM kv');
-  logger.log('kv result', result);
+  logger.log('kv result', stringify(result));
 }
 
 /**

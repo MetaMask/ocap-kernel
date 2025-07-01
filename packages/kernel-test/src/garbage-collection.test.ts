@@ -83,8 +83,8 @@ describe('Garbage Collection', () => {
     const createObjectRef = createObjectData.slots[0] as KRef;
     // Verify initial reference counts from database
     const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(3);
-    expect(initialRefCounts.recognizable).toBe(3);
+    expect(initialRefCounts.reachable).toBe(2);
+    expect(initialRefCounts.recognizable).toBe(2);
     // Send the object to the importer vat
     const objectRef = kunser(createObjectData);
     await kernel.queueMessage(importerKRef, 'storeImport', [objectRef]);
@@ -117,8 +117,8 @@ describe('Garbage Collection', () => {
 
     // Store initial reference count information
     const initialRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(initialRefCounts.reachable).toBe(3);
-    expect(initialRefCounts.recognizable).toBe(3);
+    expect(initialRefCounts.reachable).toBe(2);
+    expect(initialRefCounts.recognizable).toBe(2);
 
     // Store the reference in the importer vat
     const objectRef = kunser(createObjectData);
@@ -159,8 +159,8 @@ describe('Garbage Collection', () => {
 
     // Check reference counts after dropImports
     const afterWeakRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(afterWeakRefCounts.reachable).toBe(2);
-    expect(afterWeakRefCounts.recognizable).toBe(3);
+    expect(afterWeakRefCounts.reachable).toBe(1);
+    expect(afterWeakRefCounts.recognizable).toBe(2);
 
     // Now completely forget the import in the importer vat
     // This should trigger retireImports when GC runs
@@ -177,8 +177,8 @@ describe('Garbage Collection', () => {
 
     // Check reference counts after retireImports
     const afterForgetRefCounts = kernelStore.getObjectRefCount(createObjectRef);
-    expect(afterForgetRefCounts.reachable).toBe(2);
-    expect(afterForgetRefCounts.recognizable).toBe(2);
+    expect(afterForgetRefCounts.reachable).toBe(1);
+    expect(afterForgetRefCounts.recognizable).toBe(1);
 
     // Now forget the object in the exporter vat
     // This should trigger retireExports when GC runs

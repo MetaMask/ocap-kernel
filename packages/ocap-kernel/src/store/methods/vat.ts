@@ -340,6 +340,7 @@ export function getVatMethods(ctx: StoreContext) {
       isExport: true,
       onlyRecognizable: true,
     });
+    ctx.logger?.debug('exportFromVat', vatId, vref, kref);
     return kref;
   }
 

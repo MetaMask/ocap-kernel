@@ -59,7 +59,6 @@ describe('promise store methods', () => {
   };
   let context: StoreContext;
   let promiseMethods: ReturnType<typeof getPromiseMethods>;
-  const mockIncrementRefCount = vi.fn();
   const mockDecrementRefCount = vi.fn();
 
   beforeEach(() => {
@@ -87,7 +86,6 @@ describe('promise store methods', () => {
     });
 
     (getRefCountMethods as ReturnType<typeof vi.fn>).mockReturnValue({
-      incrementRefCount: mockIncrementRefCount,
       decrementRefCount: mockDecrementRefCount,
     });
 
@@ -338,7 +336,6 @@ describe('promise store methods', () => {
       expect(mockKV.has(`${kpid}.decider`)).toBe(false);
       expect(mockKV.has(`${kpid}.subscribers`)).toBe(false);
       expect(mockQueue.delete).toHaveBeenCalled();
-      expect(mockIncrementRefCount).toHaveBeenCalledTimes(2);
       expect(mockDecrementRefCount).toHaveBeenCalledTimes(1);
     });
 

@@ -50,7 +50,9 @@ export function useKernelActions(): {
       params: [],
     })
       .then(() => logMessage('State cleared', 'success'))
-      .catch(() => logMessage('Failed to clear state', 'error'));
+      .catch((error: Error) =>
+        logMessage(`Failed to clear state: ${error.message}`, 'error'),
+      );
   }, [callKernelMethod, logMessage]);
 
   /**

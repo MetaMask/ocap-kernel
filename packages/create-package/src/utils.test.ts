@@ -190,7 +190,6 @@ describe('create-package/utils', () => {
       (execa as Mock)
         .mockResolvedValueOnce(undefined)
         .mockImplementationOnce(() => {
-          console.log('FOOBAR');
           throw new Error('foo');
         });
 
