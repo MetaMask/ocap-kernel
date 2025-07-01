@@ -136,7 +136,9 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param vatId - The vat which will become the decider.
    */
   function setPromiseDecider(kpid: KRef, vatId: VatId): void {
-    insistVatId(vatId);
+    if (vatId !== 'kernel') {
+      insistVatId(vatId);
+    }
     if (kpid) {
       ctx.kv.set(`${kpid}.decider`, vatId);
     }

@@ -208,7 +208,7 @@ export class KernelQueue {
     vatId: VatId | undefined,
     resolutions: VatOneResolution[],
   ): void {
-    if (vatId) {
+    if (vatId && vatId !== 'kernel') {
       insistVatId(vatId);
     }
     for (const resolution of resolutions) {
