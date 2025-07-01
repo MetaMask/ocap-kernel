@@ -1,7 +1,6 @@
 import { makeLiveSlots as localMakeLiveSlots } from '@agoric/swingset-liveslots';
 import type {
   VatDeliveryObject,
-  VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
 import { importBundle } from '@endo/import-bundle';
@@ -17,13 +16,19 @@ import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
+import { makeEndowments } from './endowments/index.ts';
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
 import { makeSupervisorSyscall } from './services/syscall.ts';
 import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
 import { makeVatKVStore } from './store/vat-kv-store.ts';
-import type { VatConfig, VatDeliveryResult, VatId } from './types.ts';
+import type {
+  VatConfig,
+  VatDeliveryResult,
+  VatId,
+  VatSyscallObject,
+} from './types.ts';
 import { isVatConfig, coerceVatSyscallObject } from './types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
@@ -254,6 +259,7 @@ export class VatSupervisor {
     const workerEndowments = {
       console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
+      ...makeEndowments(syscall, gcTools, this.id),
     };
 
     const { bundleSpec, parameters } = vatConfig;
