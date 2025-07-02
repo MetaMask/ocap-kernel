@@ -13,6 +13,9 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   const logger = vatPowers.logger.subLogger({ tags: ['test'] });
 
   return Far('root', {
+    bootstrap() {
+      // do nothing
+    },
     foo() {
       logger.log(`foo: ${name}`);
       console.log(`bar: ${name}`);
