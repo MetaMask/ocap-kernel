@@ -397,7 +397,16 @@ export class Kernel {
     }
     const bootstrapRoot = rootIds[config.bootstrap];
     if (bootstrapRoot) {
-      return this.queueMessage(bootstrapRoot, 'bootstrap', [roots, services]);
+      return this.queueMessage(bootstrapRoot, 'bootstrap', [
+        roots,
+        services,
+      ]).then((result) => {
+        const unserialized = kunser(result);
+        if (unserialized instanceof Error) {
+          throw unserialized;
+        }
+        return result;
+      });
     }
     return undefined;
   }
