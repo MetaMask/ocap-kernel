@@ -1,23 +1,15 @@
 import { E, Far } from '@endo/far';
 
 export function buildRootObject(_, { name }) {
-  let service;
-
   return Far('root', {
-    async introduceService(introduced) {
-      console.log(`${name} introducing service`);
-      service = introduced;
-      console.log(`${name} introduced service`);
-      return undefined;
-    },
-
-    async run() {
-      console.log(`${name} requesting service...`);
-      const response = E(service).request();
-      console.log(`${name} waiting for response...`);
-      const result = await response;
-      console.log(`${name} received response:`, result);
-      return result;
+    getName: () => name,
+    async run(service, terminator) {
+      // Make the request, oblivious to the details of delegation.
+      const result = E(service).foo();
+      // Terminate the service between the time of request and response.
+      await E(terminator).call();
+      // Await the result of the request.
+      console.log(`${name}: got ${await result}`);
     },
   });
 }

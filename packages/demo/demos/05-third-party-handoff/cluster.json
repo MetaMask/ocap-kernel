@@ -13,6 +13,14 @@
       "bundleSpec": "http://localhost:3000/delegator.bundle",
       "parameters": { "name": "Bob" }
     },
+    "brandon": {
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": { "name": "Brandon" }
+    },
+    "bubba": {
+      "bundleSpec": "http://localhost:3000/delegator.bundle",
+      "parameters": { "name": "Bubba" }
+    },
     "carol": {
       "bundleSpec": "http://localhost:3000/delegatee.bundle",
       "parameters": { "name": "Carol" }
