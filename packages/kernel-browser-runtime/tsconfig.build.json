@@ -10,7 +10,6 @@
   "references": [
     { "path": "../kernel-errors/tsconfig.build.json" },
     { "path": "../kernel-rpc-methods/tsconfig.build.json" },
-    { "path": "../kernel-shims/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
