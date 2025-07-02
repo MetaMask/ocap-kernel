@@ -134,16 +134,21 @@ export class VatHandle {
    */
   static async make(params: VatConstructorProps): Promise<VatHandle> {
     const vat = new VatHandle(params);
-    await vat.#init();
+    const [, deliveryError] = await vat.#init();
+    if (deliveryError) {
+      throw new Error(
+        `Failed to initialize vat ${vat.vatId}: ${deliveryError}`,
+      );
+    }
     return vat;
   }
 
   /**
    * Initializes the vat.
    *
-   * @returns A promise that resolves when the vat is initialized.
+   * @returns A promise for the vat's initial delivery result.
    */
-  async #init(): Promise<void> {
+  async #init(): Promise<VatDeliveryResult> {
     Promise.all([this.#vatStream.drain(this.#handleMessage.bind(this))]).catch(
       async (error) => {
         this.#logger.error(`Unexpected read error`, error);
@@ -154,7 +159,7 @@ export class VatHandle {
       },
     );
 
-    await this.sendVatCommand({
+    return await this.sendVatCommand({
       method: 'initVat',
       params: {
         vatConfig: this.config,
