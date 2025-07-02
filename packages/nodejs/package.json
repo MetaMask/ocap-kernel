@@ -38,6 +38,7 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
+    "@endo/far": "^1.1.11",
     "@endo/promise-kit": "^1.1.10",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",

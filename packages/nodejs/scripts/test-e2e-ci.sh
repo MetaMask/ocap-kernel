@@ -4,11 +4,10 @@ set -x
 set -e
 set -o pipefail
 
-# We borrow the vat definition from extension for now
-yarn ocap bundle "../extension/src/vats"
+yarn ocap bundle "./test/vats"
 
 # Start the server in background and capture its PID
-yarn ocap serve "../extension/src/vats" & 
+yarn ocap serve "./test/vats" & 
 SERVER_PID=$!
 
 function cleanup() {
