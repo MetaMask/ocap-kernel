@@ -4,21 +4,23 @@ export function buildRootObject() {
   return Far('root', {
     async bootstrap({ alice, bob, brandon, bubba, carol }) {
       // To begin, perform introductions.
-      await Promise.all([
-        E(bob).introduce(brandon),
-        E(brandon).introduce(bubba),
-        E(bubba).introduce(carol),
-      ]);
+      console.log(
+        `Introductions: ${await Promise.all([
+          E(bob).connectTo(brandon),
+          E(brandon).connectTo(bubba),
+          E(bubba).connectTo(carol),
+        ])}`,
+      );
 
-      const terminator = () =>
+      const unlink = () =>
         Promise.all([
-          E(bob).terminate(),
-          E(brandon).terminate(),
-          E(bubba).terminate(),
+          E(bob).disconnect(),
+          E(brandon).disconnect(),
+          E(bubba).disconnect(),
         ]);
 
       // Alice will make a request to Bob, which he will hand off to Carol.
-      await E(alice).run(bob, Far('terminator', { call: terminator }));
+      await E(alice).run(bob, Far('connection', { unlink }));
     },
   });
 }

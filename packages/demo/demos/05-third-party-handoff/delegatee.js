@@ -1,10 +1,15 @@
 import { Far } from '@endo/far';
 
-export function buildRootObject(_, { name }) {
+export function buildRootObject(_, { name = 'Carol' }) {
   return Far('root', {
+    getName: () => name,
+
+    // Returns an incrementing counter.
     foo: () => {
-      console.log(`${name}: foo`);
-      return `${name}'s foo`;
+      let counter = 0;
+      return Far(`${name}'s foo`, {
+        inc: () => counter++,
+      });
     },
   });
 }

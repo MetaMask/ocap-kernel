@@ -1,20 +1,15 @@
-import { Fail } from '@endo/errors';
 import { E, Far } from '@endo/far';
 
-export function buildRootObject(_, { name }) {
-  let delegatee;
-  let offline = false;
+export function buildRootObject(_, { name = 'Bob' }) {
+  let target = null;
 
   return Far('root', {
-    introduce: (introduced) => (delegatee = introduced),
+    getName: () => name,
 
-    // To hand off the request, just return a promise from the delegatee.
-    foo: () => (offline ? Fail`${name} is offline` : E(delegatee).foo()),
+    connectTo: async (whom) => `${name}~>${await E((target = whom)).getName()}`,
 
-    // Simulate this vat becoming unavailable.
-    terminate: () => {
-      offline = true;
-      console.log(`${name} will not be back`);
-    },
+    foo: () => E(target).foo(),
+
+    disconnect: () => (target = null),
   });
 }
