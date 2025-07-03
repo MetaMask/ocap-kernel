@@ -14,7 +14,6 @@
   "references": [
     { "path": "../kernel-browser-runtime/tsconfig.build.json" },
     { "path": "../kernel-rpc-methods/tsconfig.build.json" },
-    { "path": "../kernel-shims/tsconfig.build.json" },
     { "path": "../kernel-ui/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
