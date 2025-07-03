@@ -3,52 +3,59 @@
 
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import dts from 'vite-plugin-dts';
 
 // https://vitejs.dev/config/
-export default defineConfig(() => {
-  return {
-    build: {
-      emptyOutDir: false,
-      outDir: './dist',
-      lib: {
-        entry: './src/index.ts',
-        name: 'KernelUI',
-        formats: ['es', 'cjs'],
-        fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`,
+export default defineConfig({
+  build: {
+    emptyOutDir: true,
+    outDir: 'dist',
+    sourcemap: true,
+    cssCodeSplit: false,
+    cssMinify: true,
+    lib: {
+      entry: './src/index.ts',
+      name: 'KernelUI',
+      formats: ['es', 'cjs'],
+      fileName: (format, entryName) => {
+        const ext = format === 'es' ? 'mjs' : 'cjs';
+        return `${entryName}.${ext}`;
       },
-      rollupOptions: {
-        external: [
-          'react',
-          'react-dom',
-          '@endo/eventual-send',
-          '@endo/marshal',
-          '@metamask/kernel-browser-runtime',
-          '@metamask/kernel-rpc-methods',
-          '@metamask/kernel-shims',
-          '@metamask/kernel-utils',
-          '@metamask/logger',
-          '@metamask/ocap-kernel',
-          '@metamask/streams',
-          '@metamask/utils',
-          'ses',
-        ],
-        output: {
-          globals: {
-            react: 'React',
-            'react-dom': 'ReactDOM',
-          },
-          assetFileNames: 'styles.css',
+    },
+    rollupOptions: {
+      external: [
+        'react',
+        'react-dom',
+        '@endo/eventual-send',
+        '@endo/marshal',
+        '@metamask/kernel-browser-runtime',
+        '@metamask/kernel-rpc-methods',
+        '@metamask/kernel-shims',
+        '@metamask/kernel-utils',
+        '@metamask/logger',
+        '@metamask/ocap-kernel',
+        '@metamask/streams',
+        '@metamask/utils',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'ses',
+      ],
+      output: {
+        preserveModules: true,
+        preserveModulesRoot: 'src',
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
         },
-      },
-      cssCodeSplit: false,
-      cssMinify: true,
-    },
-    css: {
-      modules: {
-        localsConvention: 'camelCase',
-        generateScopedName: '[name]__[local]___[hash:base64:5]',
+        assetFileNames: 'styles.css',
       },
     },
-    plugins: [react()],
-  };
+  },
+  plugins: [
+    react(),
+    dts({
+      tsconfigPath: 'tsconfig.build.json',
+      outDir: 'dist',
+    }),
+  ],
 });
