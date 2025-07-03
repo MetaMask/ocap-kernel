@@ -191,13 +191,11 @@ export class VatSyscall {
       );
       const [op] = kso;
       const { vatId } = this;
-      const log = this.#logger && this.#logger.log.bind(this.#logger);
-      const warn = this.#logger && this.#logger.warn.bind(this.#logger);
       switch (op) {
         case 'send': {
           // [KRef, Message];
           const [, target, message] = kso;
-          log?.(
+          this.#logger?.log(
             `@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`,
           );
           this.#handleSyscallSend(target, coerceMessage(message));
@@ -206,21 +204,23 @@ export class VatSyscall {
         case 'subscribe': {
           // [KRef];
           const [, promise] = kso;
-          log?.(`@@@@ ${vatId} syscall subscribe ${promise}`);
+          this.#logger?.log(`@@@@ ${vatId} syscall subscribe ${promise}`);
           this.#handleSyscallSubscribe(promise);
           break;
         }
         case 'resolve': {
           // [VatOneResolution[]];
           const [, resolutions] = kso;
-          log?.(`@@@@ ${vatId} syscall resolve ${JSON.stringify(resolutions)}`);
+          this.#logger?.log(
+            `@@@@ ${vatId} syscall resolve ${JSON.stringify(resolutions)}`,
+          );
           this.#handleSyscallResolve(resolutions as VatOneResolution[]);
           break;
         }
         case 'exit': {
           // [boolean, SwingSetCapData];
           const [, isFailure, info] = kso;
-          log?.(
+          this.#logger?.log(
             `@@@@ ${vatId} syscall exit fail=${isFailure} ${JSON.stringify(info)}`,
           );
           this.vatRequestedTermination = { reject: isFailure, info };
@@ -229,28 +229,36 @@ export class VatSyscall {
         case 'dropImports': {
           // [KRef[]];
           const [, refs] = kso;
-          log?.(`@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`);
+          this.#logger?.log(
+            `@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`,
+          );
           this.#handleSyscallDropImports(refs);
           break;
         }
         case 'retireImports': {
           // [KRef[]];
           const [, refs] = kso;
-          log?.(`@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`);
+          this.#logger?.log(
+            `@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`,
+          );
           this.#handleSyscallRetireImports(refs);
           break;
         }
         case 'retireExports': {
           // [KRef[]];
           const [, refs] = kso;
-          log?.(`@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`);
+          this.#logger?.log(
+            `@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`,
+          );
           this.#handleSyscallExportCleanup(refs, true);
           break;
         }
         case 'abandonExports': {
           // [KRef[]];
           const [, refs] = kso;
-          log?.(`@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`);
+          this.#logger?.log(
+            `@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`,
+          );
           this.#handleSyscallExportCleanup(refs, false);
           break;
         }
@@ -259,13 +267,13 @@ export class VatSyscall {
         case 'vatstoreGetNextKey':
         case 'vatstoreSet':
         case 'vatstoreDelete': {
-          warn?.(`vat ${vatId} issued invalid syscall ${op} `, vso);
+          this.#logger?.warn(`vat ${vatId} issued invalid syscall ${op} `, vso);
           break;
         }
         default:
           // Compile-time exhaustiveness check
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          warn?.(`vat ${vatId} issued unknown syscall ${op} `, vso);
+          this.#logger?.warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
           break;
       }
       return harden(['ok', null]);
