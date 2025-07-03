@@ -6,23 +6,15 @@
       "parameters": {}
     },
     "alice": {
-      "bundleSpec": "http://localhost:3000/obligee.bundle",
+      "bundleSpec": "http://localhost:3000/alice.bundle",
       "parameters": { "name": "Alice" }
     },
     "bob": {
-      "bundleSpec": "http://localhost:3000/delegator.bundle",
-      "parameters": { "name": "Bob" }
-    },
-    "brandon": {
-      "bundleSpec": "http://localhost:3000/delegator.bundle",
-      "parameters": { "name": "Brandon" }
-    },
-    "bubba": {
-      "bundleSpec": "http://localhost:3000/delegator.bundle",
-      "parameters": { "name": "Bubba" }
+      "bundleSpec": "http://localhost:3000/bob.bundle",
+      "parameters": { "name": "Bob", "handoff": false }
     },
     "carol": {
-      "bundleSpec": "http://localhost:3000/delegatee.bundle",
+      "bundleSpec": "http://localhost:3000/carol.bundle",
       "parameters": { "name": "Carol" }
     }
   }
