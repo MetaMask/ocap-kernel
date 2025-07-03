@@ -239,12 +239,14 @@ const config = createConfig([
   },
 
   {
-    files: ['packages/demo/demos/**/*.js'],
+    files: ['packages/demo/demos/**/*.js', 'packages/demo/demos/**/*.ts'],
     rules: {
       // Demo files: doc less, say more.
       'jsdoc/require-jsdoc': 'off',
       // Permitted for familiarity and concision.
       'no-plusplus': 'off',
+      // We use `void` for concision.
+      'no-void': 'off',
     },
   },
 ]);
