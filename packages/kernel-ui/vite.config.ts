@@ -41,8 +41,6 @@ export default defineConfig({
         'ses',
       ],
       output: {
-        preserveModules: true,
-        preserveModulesRoot: 'src',
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',

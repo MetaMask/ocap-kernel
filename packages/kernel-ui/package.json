@@ -39,7 +39,8 @@
   ],
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
-    "build": "vite build --config vite.config.ts",
+    "build": "vite build --config vite.config.ts && yarn copy:types",
+    "copy:types": "cp dist/index.d.ts dist/index.d.mts && cp dist/index.d.ts dist/index.d.cts",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-ui",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-ui",
