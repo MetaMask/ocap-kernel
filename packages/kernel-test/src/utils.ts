@@ -160,6 +160,20 @@ export function parseReplyBody(body: string): unknown {
 }
 
 /**
+ * Debug the database.
+ *
+ * @param kernelDatabase - The database to debug.
+ * @param logger - The logger to use for the database.
+ */
+export function logDatabase(
+  kernelDatabase: KernelDatabase,
+  logger: Logger = console as unknown as Logger,
+): void {
+  const result = kernelDatabase.executeQuery('SELECT * FROM kv');
+  logger.log('kv result', result);
+}
+
+/**
  * Create a logger that records log entries in an array.
  *
  * @returns A logger that records log entries in an array.
