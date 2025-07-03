@@ -3282,6 +3282,7 @@ __metadata:
   resolution: "@ocap/nodejs@workspace:packages/nodejs"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
+    "@endo/far": "npm:^1.1.11"
     "@endo/promise-kit": "npm:^1.1.10"
     "@metamask/auto-changelog": "npm:^5.0.1"
     "@metamask/eslint-config": "npm:^14.0.0"

@@ -6,7 +6,7 @@ import { makePromiseKitMock } from '@ocap/test-utils';
 import { describe, expect, it } from 'vitest';
 import { Worker as NodeWorker } from 'worker_threads';
 
-import { getTestWorkerFile } from '../get-test-worker.ts';
+import { getTestWorkerFile } from '../../test/get-test-worker.ts';
 
 const { makePromiseKit } = makePromiseKitMock();
 
