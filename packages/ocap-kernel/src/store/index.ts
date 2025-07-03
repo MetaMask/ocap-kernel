@@ -56,6 +56,7 @@
  */
 
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
+import { Logger } from '@metamask/logger';
 
 import type { KRef, VatId } from '../types.ts';
 import { getBaseMethods } from './methods/base.ts';
@@ -86,11 +87,12 @@ import type { StoreContext } from './types.ts';
  * the kernel itself to be any the wiser.
  *
  * @param kdb - The kernel database this store is based on.
+ * @param logger - The logger to use.
  * @returns A KernelStore object that maps various persistent kernel data
  * structures onto `kdb`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeKernelStore(kdb: KernelDatabase) {
+export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   // Initialize core state
 
   /** KV store in which all the kernel's own state is kept. */
@@ -133,6 +135,8 @@ export function makeKernelStore(kdb: KernelDatabase) {
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
     vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
+    // Logging
+    logger: logger ?? new Logger({ tags: ['kernel-store'] }),
   };
 
   const id = getIdMethods(context);

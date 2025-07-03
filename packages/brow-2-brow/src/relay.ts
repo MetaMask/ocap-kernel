@@ -35,7 +35,11 @@ async function main(): Promise<void> {
     },
   });
 
+  // TODO(#562): Use logger instead.
+  // eslint-disable-next-line no-console
   console.log('PeerID: ', libp2p.peerId.toString());
+  // TODO(#562): Use logger instead.
+  // eslint-disable-next-line no-console
   console.log('Multiaddrs: ', libp2p.getMultiaddrs());
 }
 

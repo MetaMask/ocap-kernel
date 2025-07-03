@@ -5,6 +5,7 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@metamask/kernel-store';
+import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeSupervisorSyscall } from './syscall.ts';
@@ -192,6 +193,30 @@ describe('syscall', () => {
 
         expect(() => syscall.callNow('ko1', 'method', [])).toThrow(
           'callNow not supported (we have no devices)',
+        );
+      });
+
+      it('calls logger.warn and then throws if supervisor.syscall fails', () => {
+        const supervisor = createMockSupervisor();
+        const kv = createMockKVStore();
+        const logger = {
+          warn: vi.fn(),
+        } as unknown as Logger;
+        const syscall = makeSupervisorSyscall(supervisor, kv, logger);
+
+        const testError = new Error('supervisor error');
+
+        vi.spyOn(supervisor, 'executeSyscall').mockImplementationOnce(() => {
+          throw testError;
+        });
+
+        expect(() => syscall.send('ko1', { body: '[]', slots: [] })).toThrow(
+          'supervisor error',
+        );
+
+        expect(logger.warn).toHaveBeenCalledWith(
+          'supervisor got error during syscall:',
+          testError,
         );
       });
     });

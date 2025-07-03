@@ -8,7 +8,5 @@ main().catch(console.error);
  * No supervisor is created, but the stream is synchronized for comms testing.
  */
 async function main() {
-  const { kernelStream, loggerStream } = makeStreams();
-  await kernelStream.synchronize();
-  await loggerStream.synchronize();
+  await makeStreams();
 }

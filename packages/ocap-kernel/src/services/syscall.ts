@@ -8,6 +8,7 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@metamask/kernel-store';
+import type { Logger } from '@metamask/logger';
 
 import type { Syscall, SyscallResult } from './types.ts';
 import type { VatSupervisor } from '../VatSupervisor.ts';
@@ -23,12 +24,14 @@ import type { VatSupervisor } from '../VatSupervisor.ts';
  *
  * @param supervisor - The VatSupervisor for which we're providing syscall services.
  * @param kv - A key/value store for holding the vat's persistent state.
+ * @param logger - The logger to use.
  *
  * @returns a syscall object suitable for use by liveslots.
  */
 function makeSupervisorSyscall(
   supervisor: VatSupervisor,
   kv: KVStore,
+  logger?: Logger,
 ): Syscall {
   /**
    * Actually perform the syscall operation.
@@ -42,7 +45,7 @@ function makeSupervisorSyscall(
     try {
       syscallResult = supervisor.executeSyscall(vso);
     } catch (problem) {
-      console.warn(`supervisor got error during syscall:`, problem);
+      logger?.warn(`supervisor got error during syscall:`, problem);
       throw problem;
     }
     const vsr = syscallResult;

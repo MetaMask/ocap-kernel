@@ -1,5 +1,6 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { kser } from './services/kernel-marshal.ts';
@@ -49,6 +50,9 @@ export class KernelRouter {
     message: Message,
   ) => Promise<void>;
 
+  /** The logger, if any. */
+  readonly #logger: Logger | undefined;
+
   /**
    * Construct a new KernelRouter.
    *
@@ -56,17 +60,20 @@ export class KernelRouter {
    * @param kernelQueue - The kernel's queue.
    * @param getVat - A function that returns a vat handle for a given vat id.
    * @param invokeKernelService - A function that calls a method on a kernel service object.
+   * @param logger - The logger. If not provided, no logging will be done.
    */
   constructor(
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getVat: (vatId: VatId) => VatHandle,
     invokeKernelService: (target: KRef, message: Message) => Promise<void>,
+    logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#getVat = getVat;
     this.#invokeKernelService = invokeKernelService;
+    this.#logger = logger;
   }
 
   /**
@@ -199,7 +206,7 @@ export class KernelRouter {
       for (const slot of item.message.methargs.slots) {
         this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
       }
-      console.log(
+      this.#logger?.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
       return crankResults;
@@ -207,7 +214,7 @@ export class KernelRouter {
 
     const { vatId, target } = route;
     const { message } = item;
-    console.log(
+    this.#logger?.log(
       `@@@@ deliver ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
     if (vatId) {
@@ -248,7 +255,7 @@ export class KernelRouter {
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
     }
-    console.log(
+    this.#logger?.log(
       `@@@@ done ${vatId} send ${target}<-${JSON.stringify(message)}`,
     );
 
@@ -277,7 +284,7 @@ export class KernelRouter {
       context === 'kernel' && isPromise,
       `${kpid} is not a kernel promise`,
     );
-    console.log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
+    this.#logger?.log(`@@@@ deliver ${vatId} notify ${vatId} ${kpid}`);
     const promise = this.#kernelStore.getKernelPromise(kpid);
     const { state, value } = promise;
     assert(value, `no value for promise ${kpid}`);
@@ -316,7 +323,7 @@ export class KernelRouter {
     const crankResults = await vat.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    console.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
+    this.#logger?.log(`@@@@ done ${vatId} notify ${vatId} ${kpid}`);
     return crankResults;
   }
 
@@ -328,7 +335,7 @@ export class KernelRouter {
    */
   async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
     const { type, vatId, krefs } = item;
-    console.log(`@@@@ deliver ${vatId} ${type}`, krefs);
+    this.#logger?.log(`@@@@ deliver ${vatId} ${type}`, krefs);
     const vat = this.#getVat(vatId);
     const vrefs = this.#kernelStore.krefsToExistingErefs(vatId, krefs);
     const method =
@@ -337,7 +344,7 @@ export class KernelRouter {
         | 'deliverRetireExports'
         | 'deliverRetireImports';
     const crankResults = await vat[method](vrefs);
-    console.log(`@@@@ done ${vatId} ${type}`, krefs);
+    this.#logger?.log(`@@@@ done ${vatId} ${type}`, krefs);
     return crankResults;
   }
 
@@ -351,10 +358,10 @@ export class KernelRouter {
     item: RunQueueItemBringOutYourDead,
   ): Promise<CrankResults | undefined> {
     const { vatId } = item;
-    console.log(`@@@@ deliver ${vatId} bringOutYourDead`);
+    this.#logger?.log(`@@@@ deliver ${vatId} bringOutYourDead`);
     const vat = this.#getVat(vatId);
     const crankResults = await vat.deliverBringOutYourDead();
-    console.log(`@@@@ done ${vatId} bringOutYourDead`);
+    this.#logger?.log(`@@@@ done ${vatId} bringOutYourDead`);
     return crankResults;
   }
 }

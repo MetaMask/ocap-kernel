@@ -1,3 +1,4 @@
+import type { Logger } from '@metamask/logger';
 import type { Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -75,9 +76,13 @@ describe('makeSQLKernelDatabase', () => {
           },
         }) as unknown as Sqlite3Static,
     );
-    const consoleSpy = vi.spyOn(console, 'warn');
-    await makeSQLKernelDatabase({});
-    expect(consoleSpy).toHaveBeenCalledWith(
+    const logger = {
+      warn: vi.fn(),
+      debug: vi.fn(),
+      subLogger: vi.fn(() => logger),
+    } as unknown as Logger;
+    await makeSQLKernelDatabase({ logger });
+    expect(logger.warn).toHaveBeenCalledWith(
       'OPFS not enabled, database will be ephemeral',
     );
     expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
@@ -300,26 +305,13 @@ describe('makeSQLKernelDatabase', () => {
       expect(mockDb.exec).toHaveBeenCalledWith(SQL_QUERIES.CREATE_TABLE);
     });
 
-    it('should use custom label in logs', async () => {
-      const customLabel = '[custom-store]';
-      const db = await makeSQLKernelDatabase({
-        label: customLabel,
-        verbose: true,
-      });
-      const store = db.kernelKVStore;
-      mockStatement.step.mockReturnValueOnce(false);
-      expect(() => store.getRequired('missing-key')).toThrow(
-        `[${customLabel}] no record matching key 'missing-key'`,
-      );
-    });
-
-    it('should handle verbose logging', async () => {
-      const consoleSpy = vi.spyOn(console, 'log');
-      await makeSQLKernelDatabase({ verbose: true });
-      expect(consoleSpy).toHaveBeenCalledWith(
-        ['[sqlite]'],
-        'Initializing kernel store',
-      );
+    it('should log if logger is provided', async () => {
+      const logger = {
+        debug: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      await makeSQLKernelDatabase({ logger });
+      expect(logger.debug).toHaveBeenCalledWith('Initializing kernel store');
     });
   });
 
