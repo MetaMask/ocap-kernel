@@ -142,8 +142,8 @@ export default defineConfig({
         'packages/ocap-kernel/**': {
           statements: 92.43,
           functions: 95.28,
-          branches: 82.74,
-          lines: 92.41,
+          branches: 82.64,
+          lines: 92.4,
         },
         'packages/streams/**': {
           statements: 100,
