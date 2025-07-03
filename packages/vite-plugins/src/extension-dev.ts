@@ -30,6 +30,9 @@ export function extensionDev({
       // Close the browser context when the server shuts down
       server.httpServer?.once('close', () => {
         closeBrowserContext().catch((error) => {
+          // This is a build plugin, so it's okay to use console.
+          // TODO(#562): Use logger instead or change lint rule.
+          // eslint-disable-next-line no-console
           console.error('Error closing browser context:', error);
         });
       });
@@ -76,6 +79,9 @@ export function extensionDev({
       .match(chromeExtensionURLIdMatcher)?.[1];
 
     if (!extensionId) {
+      // This is a build plugin, so it's okay to use console.
+      // TODO(#562): Use logger instead or change lint rule.
+      // eslint-disable-next-line no-console
       console.error('Extension ID not found');
       await browserContext.close();
       return;

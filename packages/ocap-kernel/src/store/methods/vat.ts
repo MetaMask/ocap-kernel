@@ -299,7 +299,7 @@ export function getVatMethods(ctx: StoreContext) {
     forgetTerminatedVat(vatID);
 
     // Log the cleanup work done
-    console.debug(`Cleaned up terminated vat ${vatID}:`, work);
+    ctx.logger?.debug(`Cleaned up terminated vat ${vatID}:`, work);
 
     return work;
   }

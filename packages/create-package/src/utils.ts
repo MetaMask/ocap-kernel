@@ -100,6 +100,8 @@ export async function finalizeAndWriteData(
     throw new Error(`The package directory already exists: ${packagePath}`);
   }
 
+  // TODO(#562): Use logger instead or change lint rule.
+  // eslint-disable-next-line no-console
   console.log('Writing package and monorepo files...');
 
   // Read and write package files
@@ -118,14 +120,20 @@ export async function finalizeAndWriteData(
 
   // Postprocess
   // Add the new package to the lockfile.
+  // TODO(#562): Use logger instead or change lint rule.
+  // eslint-disable-next-line no-console
   console.log('Running "yarn install"...');
   await execa('yarn', ['install'], { cwd: REPO_ROOT });
 
   // Run constraints
+  // TODO(#562): Use logger instead or change lint rule.
+  // eslint-disable-next-line no-console
   console.log('Running "yarn constraints --fix"...');
   try {
     await execa('yarn', ['constraints', '--fix'], { cwd: REPO_ROOT });
   } catch {
+    // TODO(#562): Use logger instead or change lint rule.
+    // eslint-disable-next-line no-console
     console.error(
       'Warning: Failed to run "yarn constraints --fix". You will need to re-run it manually.',
     );

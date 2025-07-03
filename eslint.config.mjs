@@ -88,6 +88,17 @@ const config = createConfig([
           allowTernary: true,
         },
       ],
+
+      // Prevent console statements in TypeScript files.
+      'no-console': 'error',
+    },
+  },
+
+  {
+    // Tests can use the console for now.
+    files: ['**/*.test.*'],
+    rules: {
+      'no-console': 'off',
     },
   },
 

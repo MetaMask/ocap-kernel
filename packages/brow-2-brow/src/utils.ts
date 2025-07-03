@@ -59,6 +59,8 @@ export function getPeerTypes(libp2p: Libp2p): string {
         types['Circuit Relay'] += 1;
       } else {
         types.Other += 1;
+        // TODO(#562): Use logger instead.
+        // eslint-disable-next-line no-console
         console.info('wat', ma.toString());
       }
     });
