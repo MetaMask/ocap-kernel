@@ -11,7 +11,7 @@
     },
     "bob": {
       "bundleSpec": "http://localhost:3000/bob.bundle",
-      "parameters": { "name": "Bob", "handoff": false }
+      "parameters": { "name": "Bob" }
     },
     "carol": {
       "bundleSpec": "http://localhost:3000/carol.bundle",

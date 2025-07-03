@@ -1,15 +1,15 @@
-The ocap kernel supports a delegation pattern for distributing computation over a network of vats.
+## Transcript
 
-When Bob delegates a request, he hands off to a third party precisely the information necessary to resolve the request, including how to route the response.
+It is often the responsibility of a well-connected vat to transfer a capability from one vat with means to another with ends.
 
-To delegate Alice's request to Carol, all Bob needs to do is return a promise for Carol's response as his own.
+In this demo, Bob transfers a counter from Carol to Alice.
 
-```js
-{
-  request: (x) => E(carol).request(x);
-}
-```
+One way to accomplish this is via proxy.
 
-When Carol completes the request, the ocap kernel will route her response to directly to Alice, evebn if Bob is busy, unavailable, or offline.
+The proxy gives Bob local control over Alice's authority to Carol, but has a major drawback: if Bob is unreachable from Alice, then so is Carol('s capability).
 
-This pattern can be extended to arbitrarily complex interactions.
+Instead of a proxy, Bob can give Alice a direct connection to Carol, handing off all future responsibility for communicating this instance of authority.
+
+The ocap kernel supports handoff of remotables automatically within clusters.
+
+Now, Bob can respond to Alice's request with a remote capability that, even in his absence, she can still count on.

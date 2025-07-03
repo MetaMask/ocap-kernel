@@ -1,6 +1,6 @@
 import { E, Far } from '@endo/far';
 
-export function buildRootObject(_, { name = 'Bob', handoff }) {
+export function buildRootObject(_, { name = 'Bob' }) {
   let cap = null;
 
   return Far('root', {
@@ -8,16 +8,18 @@ export function buildRootObject(_, { name = 'Bob', handoff }) {
 
     introduce: async (whom) => `${name}~>${await E((cap = whom)).getName()}`,
 
-    makeCounter: () =>
-      handoff
-        ? E(cap).makeCounter()
-        : E(cap)
-            .makeCounter()
-            .then((counter) =>
-              Far(`${name}'s counter`, {
-                inc: () => E(counter).inc(),
-                get: () => E(counter).get(),
-              }),
-            ),
+    makeCounter: () => {
+      const counter = E(cap).makeCounter();
+      return Far(`${name}'s counter`, {
+        inc: () => E(counter).inc(),
+        get: () => E(counter).get(),
+      });
+    },
+
+    terminate: () => {
+      for (;;) {
+        /* this ends the vat */
+      }
+    },
   });
 }
