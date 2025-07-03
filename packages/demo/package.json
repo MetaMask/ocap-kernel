@@ -41,6 +41,7 @@
     "publish:preview": "yarn npm publish --tag preview",
     "run-bundle": "node --disable-warning=ExperimentalWarning --experimental-strip-types ./src/index.ts bundle",
     "run-cluster": "node --disable-warning=ExperimentalWarning --experimental-strip-types ./src/index.ts cluster",
+    "run-script": "node --disable-warning=ExperimentalWarning --experimental-strip-types ./src/index.ts script",
     "run-demo": "./scripts/demo.sh",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",

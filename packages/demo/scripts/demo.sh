@@ -40,4 +40,19 @@ for _ in {1..10}; do
   sleep 1
 done
 
-yarn run-cluster -c "$DEMO_PATH/cluster.json" -s
+# Run different commands based on the demo number
+case "$1" in
+  "01")
+    yarn run-bundle -b "$DEMO_PATH/my-vat.bundle" -m "$2" -p "$3"
+    ;;
+  "02"|"03"|"04")
+    yarn run-cluster -c "$DEMO_PATH/cluster.json" -s
+    ;;
+  "05")
+    yarn run-script -c "$DEMO_PATH/cluster.json"
+    ;;
+  *)
+    echo "Unknown demo number: $1"
+    exit 1
+    ;;
+esac

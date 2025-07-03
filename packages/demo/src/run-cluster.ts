@@ -22,7 +22,7 @@ import { DEFAULT_WORKER_FILE } from './constants.ts';
 export async function runCluster(
   clusterPath: string,
   { logger = new Logger({}) }: { logger?: Logger },
-): Promise<void> {
+): Promise<{ kernel: Kernel; config: ClusterConfig }> {
   // Create kernel database
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: ':memory:',
@@ -60,4 +60,6 @@ export async function runCluster(
   await kernel.launchSubcluster(config);
 
   await waitUntilQuiescent(1000);
+
+  return { kernel, config };
 }

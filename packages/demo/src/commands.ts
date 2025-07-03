@@ -8,6 +8,7 @@ import type {
 import { logger } from './logger.ts';
 import { runBundle } from './run-bundle.ts';
 import { runCluster } from './run-cluster.ts';
+import { runScript } from './run-script.ts';
 
 export type RunBundleOptions = {
   bundlePath: string;
@@ -16,6 +17,10 @@ export type RunBundleOptions = {
 };
 
 export type RunClusterOptions = {
+  clusterPath: string;
+};
+
+export type RunScriptOptions = {
   clusterPath: string;
 };
 
@@ -124,10 +129,33 @@ const runClusterCommand: CommandModule = {
     await runClusterHandler(args),
 };
 
-export const commands = [runBundleCommand, runClusterCommand];
+const runScriptCommand: CommandModule = {
+  command: 'script',
+  describe: 'Run a script in a cluster.',
+  builder: (argv: Argv<object>) => {
+    argv
+      .options({
+        clusterPath: {
+          alias: 'c',
+          describe: 'The path to the cluster config file.',
+          type: 'string',
+          requiresArg: true,
+        },
+      })
+      .coerce('clusterPath', (clusterPath) =>
+        resolve(process.cwd(), clusterPath),
+      );
+    return argv as Argv<RunScriptOptions>;
+  },
+  handler: async (args: Arguments<RunScriptOptions>) =>
+    await runScriptHandler(args),
+};
+
+export const commands = [runBundleCommand, runClusterCommand, runScriptCommand];
 export const commandMap = {
   runBundle: runBundleCommand,
   runCluster: runClusterCommand,
+  runScript: runScriptCommand,
 };
 
 /**
@@ -178,4 +206,17 @@ export async function runClusterHandler(
       logger.error('Error:', error);
     }
   }
+}
+
+/**
+ * Runs a cluster using the ocap kernel, then passes the kernel to a script.
+ *
+ * @param args - The yargs arguments.
+ */
+export async function runScriptHandler(
+  args: Arguments<RunScriptOptions>,
+): Promise<void> {
+  const { clusterPath } = args;
+  const scriptPath = resolve(clusterPath, '../script.ts');
+  await runScript(clusterPath, scriptPath);
 }
