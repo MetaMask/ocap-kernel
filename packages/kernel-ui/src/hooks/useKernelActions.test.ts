@@ -126,12 +126,12 @@ describe('useKernelActions', () => {
       const { useKernelActions } = await import('./useKernelActions.ts');
       const { result } = renderHook(() => useKernelActions());
 
-      mockSendMessage.mockRejectedValueOnce(new Error());
+      mockSendMessage.mockRejectedValueOnce(new Error('test error'));
 
       result.current.clearState();
       await waitFor(() => {
         expect(mockLogMessage).toHaveBeenCalledWith(
-          'Failed to clear state',
+          'Failed to clear state: test error',
           'error',
         );
       });

@@ -8,12 +8,7 @@ import { KernelQueue } from './KernelQueue.ts';
 import * as gc from './services/garbage-collection.ts';
 import type { KernelStore } from './store/index.ts';
 import * as types from './types.ts';
-import type {
-  KRef,
-  Message,
-  RunQueueItem,
-  RunQueueItemNotify,
-} from './types.ts';
+import type { KRef, Message, RunQueueItem } from './types.ts';
 
 vi.mock('./services/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
@@ -252,12 +247,11 @@ describe('KernelQueue', () => {
       const vatId = 'v1';
       const kpid = 'kp123';
       kernelQueue.enqueueNotify(vatId, kpid);
-      const expectedNotifyItem: RunQueueItemNotify = {
+      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
         type: 'notify',
         vatId,
         kpid,
-      };
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith(expectedNotifyItem);
+      });
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
         'notify',

@@ -4,6 +4,7 @@
     "allowJs": true,
     "baseUrl": "./",
     "lib": ["ES2022"],
+    "noEmit": true,
     "types": ["vitest"]
   },
   "references": [
@@ -14,10 +15,5 @@
     { "path": "../ocap-kernel" },
     { "path": "../kernel-store" }
   ],
-  "include": [
-    "../../vitest.config.ts",
-    "./src",
-    "./vite.config.ts",
-    "./vitest.config.ts"
-  ]
+  "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
 }

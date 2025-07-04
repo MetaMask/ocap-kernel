@@ -1,6 +1,7 @@
 import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { JsonRpcResponse, JsonRpcRequest } from '@metamask/utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
@@ -799,6 +800,25 @@ describe('Kernel', () => {
       await kernel.reset();
       expect(clearSpy).toHaveBeenCalled();
       expect(kernel.getVatIds()).toHaveLength(0);
+    });
+
+    it('logs an error if resetting the kernel state fails', async () => {
+      const mockDb = makeMapKernelDatabase();
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const kernel = await Kernel.make(mockStream, mockWorkerService, mockDb, {
+        logger,
+      });
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+
+      vi.spyOn(mockDb, 'clear').mockImplementationOnce(() => {
+        throw new Error('test error');
+      });
+      await expect(kernel.reset()).rejects.toThrow('test error');
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'Error resetting kernel:',
+        new Error('test error'),
+      );
     });
   });
 
