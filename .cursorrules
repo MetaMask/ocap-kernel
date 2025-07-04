@@ -81,8 +81,24 @@ Error handling:
 
 Documentation:
 
+- Check the [glossary](./docs/glossary.md) for definitions of unclear terms.
 - Use JSDoc and TypeDoc for public APIs.
 - Include examples and document error cases.
+- When adding glossary entries:
+  - Include links to relevant implementation files using `[term](../path/to/file.ts)` syntax
+  - Use cross-references with `[term](#term)` syntax to link related concepts
+  - Consider how new terms relate to existing architectural concepts
+
+PR review:
+
+- Check if new terms, concepts, or architectural patterns are introduced that should be added to the glossary for AI agent accessibility.
+- Consider adding glossary entries for:
+  - New technical terms or abbreviations
+  - Core architectural components
+  - Important data structures or types
+  - Communication patterns or protocols
+  - System operations or processes
+- Include links to relevant implementation files when adding glossary entries.
 
 Changelog management:
 
