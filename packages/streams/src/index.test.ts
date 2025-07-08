@@ -8,8 +8,8 @@ describe('index', () => {
       'NodeWorkerDuplexStream',
       'NodeWorkerReader',
       'NodeWorkerWriter',
-      'makeIteratorRef',
-      'makeRefIterator',
+      'makeEventualIterator',
+      'makeFarGenerator',
       'split',
     ]);
   });

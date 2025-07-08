@@ -5,5 +5,5 @@
  *
  * The github source gives the appearance that these are exported from the daemon package, but npm does not.
  */
-export { makeRefIterator as makeEventualIterator } from './ref-reader.ts';
+export { makeEventualIterator } from './eventual-iterator.ts';
 export { makeFarGenerator } from './far-generator.ts';

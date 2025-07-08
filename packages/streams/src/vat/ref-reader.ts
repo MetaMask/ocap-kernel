@@ -1,7 +1,8 @@
 import { E } from '@endo/far';
 import type { ERef } from '@endo/far';
-
 /**
+ * Make an iterator from a remote reference.
+ *
  * @param iteratorRef - The iterator ref to make an iterator from.
  * @returns An iterator that wraps the iterator ref.
  */
