@@ -3157,7 +3157,6 @@ __metadata:
     react: "npm:^17.0.2"
     react-dom: "npm:^17.0.2"
     rimraf: "npm:^6.0.1"
-    rollup: "npm:^4.39.0"
     ses: "npm:^1.13.0"
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
@@ -12028,7 +12027,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rollup@npm:^4.34.9, rollup@npm:^4.39.0":
+"rollup@npm:^4.34.9":
   version: 4.40.0
   resolution: "rollup@npm:4.40.0"
   dependencies:
