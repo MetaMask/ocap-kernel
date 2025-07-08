@@ -62,12 +62,11 @@ export default defineConfig(({ mode }) => {
           vat: path.resolve(sourceDir, 'vat', 'iframe.html'),
         },
         output: {
-          format: 'esm',
           // Basically, create directories for each entry point and put all related
           // files in them.
           entryFileNames: (chunkInfo) => {
-            // This property isn't really documented, but it appears to be equivalent
-            // to the keys of `rollupOptions.input`.
+            // This property isn't really documented, but it appears to be the absolute path
+            // to the entry point.
             if (!chunkInfo.facadeModuleId) {
               return '[name].js';
             }
@@ -85,7 +84,6 @@ export default defineConfig(({ mode }) => {
           },
           chunkFileNames: '[name].js',
           assetFileNames: '[name].[ext]',
-          preserveModulesRoot: sourceDir,
         },
       },
       ...(isDev
