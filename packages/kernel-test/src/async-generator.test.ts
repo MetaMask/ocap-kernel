@@ -1,6 +1,5 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import { consoleTransport } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';
 
@@ -17,13 +16,13 @@ const testSubcluster = {
   forceReset: true,
   vats: {
     consumer: {
-      bundleSpec: getBundleSpec('asyncerator-vat'),
+      bundleSpec: getBundleSpec('async-generator-iterator-vat'),
       parameters: {
         name: 'alice',
       },
     },
     producer: {
-      bundleSpec: getBundleSpec('asyncerator-vat'),
+      bundleSpec: getBundleSpec('async-generator-iterator-vat'),
       parameters: {
         name: 'bob',
       },
@@ -44,11 +43,7 @@ describe(
         dbFilename: ':memory:',
       });
       const { logger, entries } = makeTestLogger();
-      kernel = await makeKernel(
-        kernelDatabase,
-        true,
-        logger.subLogger({ transports: [consoleTransport] }),
-      );
+      kernel = await makeKernel(kernelDatabase, true, logger);
 
       await runTestVats(kernel, testSubcluster);
       await waitUntilQuiescent(100);
