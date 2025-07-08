@@ -1,7 +1,7 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
-import { jsTrustedPrelude } from '@ocap/vite-plugins';
+import { deduplicateAssets, jsTrustedPrelude } from '@ocap/vite-plugins';
 import type { PreludeRecord } from '@ocap/vite-plugins';
 import path from 'path';
 import { defineConfig } from 'vite';
@@ -110,28 +110,13 @@ export default defineConfig(({ mode }) => {
       // (It's probably related to the the file being conditionally imported in multiple places.)
       // To avoid bloating the bundle, we delete the duplicate files. Thankfully, these files are
       // extraneous because we don't hit their code paths in practice. (If we did, things would
-      // blow up spectacularly.)
-      {
-        name: 'deduplicate-sqlite-wasm',
-        enforce: 'post',
-        generateBundle(_, bundle) {
-          const extraneousAssets = Object.values(bundle).filter(
-            (assetOrChunk) =>
-              assetOrChunk.fileName.startsWith('sqlite3-') &&
-              !assetOrChunk.fileName.includes('sqlite3-opfs-async-proxy'),
-          );
-
-          if (extraneousAssets.length !== 2) {
-            throw new Error(
-              `Expected 2 extraneous sqlite3.wasm assets, got ${extraneousAssets.length}: ${extraneousAssets.map((asset) => asset.fileName).join(', ')}`,
-            );
-          }
-
-          for (const asset of extraneousAssets) {
-            delete bundle[asset.fileName];
-          }
-        },
-      },
+      // blow up.)
+      deduplicateAssets({
+        assetFilter: (fileName) =>
+          fileName.startsWith('sqlite3-') &&
+          !fileName.includes('sqlite3-opfs-async-proxy'),
+        expectedCount: 2,
+      }),
     ],
   };
 });

@@ -23,7 +23,7 @@ export function extensionDev({
   };
 
   return {
-    name: 'vite:extension-dev',
+    name: 'ocap-kernel:extension-dev',
 
     // This is called when the server starts
     async configureServer(server) {
