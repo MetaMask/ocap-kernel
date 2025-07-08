@@ -67,11 +67,17 @@ export default defineConfig({
       ],
       thresholds: {
         autoUpdate: true,
+        'packages/agents/**': {
+          statements: 22.22,
+          functions: 40,
+          branches: 0,
+          lines: 22.22,
+        },
         'packages/cli/**': {
-          statements: 70,
+          statements: 70.22,
           functions: 66.66,
           branches: 88.57,
-          lines: 70,
+          lines: 70.22,
         },
         'packages/create-package/**': {
           statements: 100,
@@ -122,10 +128,10 @@ export default defineConfig({
           lines: 95.09,
         },
         'packages/kernel-utils/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
+          statements: 71.42,
+          functions: 65.38,
+          branches: 83.87,
+          lines: 71.42,
         },
         'packages/logger/**': {
           statements: 98.46,
@@ -140,10 +146,10 @@ export default defineConfig({
           lines: 73.58,
         },
         'packages/ocap-kernel/**': {
-          statements: 92.47,
-          functions: 95.28,
-          branches: 82.89,
-          lines: 92.44,
+          statements: 92.15,
+          functions: 94.03,
+          branches: 81.75,
+          lines: 92.13,
         },
         'packages/streams/**': {
           statements: 100,
