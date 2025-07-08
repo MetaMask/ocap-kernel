@@ -2056,7 +2056,6 @@ __metadata:
     nanoid: "npm:^5.1.5"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
-    rollup-plugin-sourcemaps2: "npm:^0.5.0"
     ses: "npm:^1.13.0"
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
@@ -3158,8 +3157,6 @@ __metadata:
     react: "npm:^17.0.2"
     react-dom: "npm:^17.0.2"
     rimraf: "npm:^6.0.1"
-    rollup: "npm:^4.39.0"
-    rollup-plugin-sourcemaps2: "npm:^0.5.0"
     ses: "npm:^1.13.0"
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
@@ -3736,22 +3733,6 @@ __metadata:
   version: 1.0.0-next.29
   resolution: "@polka/url@npm:1.0.0-next.29"
   checksum: 10/69ca11ab15a4ffec7f0b07fcc4e1f01489b3d9683a7e1867758818386575c60c213401259ba3705b8a812228d17e2bfd18e6f021194d943fff4bca389c9d4f28
-  languageName: node
-  linkType: hard
-
-"@rollup/pluginutils@npm:5.1.4":
-  version: 5.1.4
-  resolution: "@rollup/pluginutils@npm:5.1.4"
-  dependencies:
-    "@types/estree": "npm:^1.0.0"
-    estree-walker: "npm:^2.0.2"
-    picomatch: "npm:^4.0.2"
-  peerDependencies:
-    rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
-  peerDependenciesMeta:
-    rollup:
-      optional: true
-  checksum: 10/598f628988af25541a9a6c6ef154aaf350f8be3238884e500cc0e47138684071abe490563c953f9bda9e8b113ecb1f99c11abfb9dbaf4f72cdd62e257a673fa3
   languageName: node
   linkType: hard
 
@@ -12046,22 +12027,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rollup-plugin-sourcemaps2@npm:^0.5.0":
-  version: 0.5.1
-  resolution: "rollup-plugin-sourcemaps2@npm:0.5.1"
-  dependencies:
-    "@rollup/pluginutils": "npm:5.1.4"
-  peerDependencies:
-    "@types/node": ">=18.0.0"
-    rollup: ">=4"
-  peerDependenciesMeta:
-    "@types/node":
-      optional: true
-  checksum: 10/dadcb7ab0b672c5b48cae014f96c9d2570b56727909d83f31c57815c6849a3494517be90434817c16c76de6ee0238b2aee1615a76191310a5de086fd995844e1
-  languageName: node
-  linkType: hard
-
-"rollup@npm:^4.34.9, rollup@npm:^4.39.0":
+"rollup@npm:^4.34.9":
   version: 4.40.0
   resolution: "rollup@npm:4.40.0"
   dependencies:

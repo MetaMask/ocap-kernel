@@ -4,9 +4,7 @@
 import { jsTrustedPrelude } from '@ocap/vite-plugins';
 import type { PreludeRecord } from '@ocap/vite-plugins';
 import path from 'path';
-import sourcemaps from 'rollup-plugin-sourcemaps2';
 import { defineConfig } from 'vite';
-import type { Plugin as VitePlugin } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
@@ -108,7 +106,6 @@ export default defineConfig(({ mode }) => {
         silent: isDev,
       }),
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
-      isDev && (sourcemaps() as unknown as VitePlugin),
       // For unknown reasons, Vite duplicates the WASM binary file of @sqlite.org/sqlite-wasm.
       // (It's probably related to the the file being conditionally imported in multiple places.)
       // To avoid bloating the bundle, we delete the duplicate files. Thankfully, these files are
