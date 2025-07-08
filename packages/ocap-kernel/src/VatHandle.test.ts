@@ -61,7 +61,7 @@ describe('VatHandle', () => {
     mockKernelStore = makeKernelStore(makeMapKernelDatabase());
     sendVatCommandMock = vi
       .spyOn(VatHandle.prototype, 'sendVatCommand')
-      .mockResolvedValueOnce('fake');
+      .mockResolvedValueOnce(['fake', null] as unknown as VatDeliveryResult);
   });
 
   describe('init', () => {
