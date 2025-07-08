@@ -68,6 +68,9 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
+    "@endo/exo": "^1.5.9",
+    "@endo/far": "^1.1.11",
+    "@endo/patterns": "^1.5.0",
     "@endo/promise-kit": "^1.1.10",
     "@endo/stream": "^1.2.10",
     "@metamask/kernel-errors": "workspace:^",
