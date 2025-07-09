@@ -51,7 +51,7 @@ async function makeKernelWorker(): Promise<{
   kernelStream: DuplexStream<JsonRpcResponse, JsonRpcCall>;
   vatWorkerService: VatWorkerServer;
 }> {
-  const worker = new Worker('browser-runtime/kernel-worker/index.js', {
+  const worker = new Worker('kernel-worker.js', {
     type: 'module',
   });
 
@@ -69,7 +69,7 @@ async function makeKernelWorker(): Promise<{
     (vatId) =>
       makeIframeVatWorker({
         id: vatId,
-        iframeUri: 'browser-runtime/vat/iframe.html',
+        iframeUri: 'iframe.html',
         getPort: initializeMessageChannel,
         logger: logger.subLogger({
           tags: ['iframe-vat-worker', vatId],

@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 import {
-  buildDir,
+  outDir,
   sourceDir,
   trustedPreludes,
 } from '../../scripts/build-constants.mjs';
@@ -12,31 +12,24 @@ const { hasOwn } = Object;
 const untransformedFiles = [
   {
     sourcePath: path.resolve('../kernel-shims/dist/endoify.js'),
-    buildPath: path.resolve(buildDir, 'endoify.js'),
+    buildPath: path.resolve(outDir, 'endoify.js'),
   },
   {
     sourcePath: path.resolve(sourceDir, 'env/dev-console.js'),
-    buildPath: path.resolve(buildDir, 'dev-console.js'),
+    buildPath: path.resolve(outDir, 'dev-console.js'),
   },
   ...Object.values(trustedPreludes).map((prelude) => {
     if (hasOwn(prelude, 'path')) {
       return {
         sourcePath: prelude.path,
-        buildPath: path.join(buildDir, path.basename(prelude.path)),
+        buildPath: path.join(outDir, path.basename(prelude.path)),
       };
     }
 
-    const preludePath = /^import ["']([^"']+)["']/iu.exec(prelude.content)[1];
-    if (!preludePath) {
-      throw new Error('No prelude path found in content');
-    }
-
-    return {
-      sourcePath: preludePath,
-      buildPath: path.join(buildDir, path.basename(preludePath)),
-    };
+    // This is a "content" prelude, which does not specify an original source path.
+    return undefined;
   }),
-];
+].filter(Boolean);
 
 await runTests();
 
@@ -58,7 +51,7 @@ async function runTests() {
  * Test that shims and preludes are packaged untransformed.
  */
 async function checkUntransformed() {
-  for (const { buildPath, sourcePath } of untransformedFiles) {
+  for (const { sourcePath, buildPath } of untransformedFiles) {
     const [originalContent, builtContent] = await Promise.all([
       fs.readFile(sourcePath, 'utf8'),
       fs.readFile(buildPath, 'utf8'),
@@ -76,7 +69,7 @@ async function checkUntransformed() {
  */
 async function checkTrustedPreludes() {
   for (const [outputFileName, prelude] of Object.entries(trustedPreludes)) {
-    const outputFilePath = path.join(buildDir, `${outputFileName}.js`);
+    const outputFilePath = path.join(outDir, `${outputFileName}.js`);
     const outputFileContent = await fs.readFile(outputFilePath, 'utf8');
     const expectedImportStatement = hasOwn(prelude, 'path')
       ? `import "./${path.basename(prelude.path)}";`

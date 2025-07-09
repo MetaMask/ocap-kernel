@@ -2,6 +2,7 @@
 /// <reference types="vitest" />
 
 import {
+  deduplicateAssets,
   extensionDev,
   htmlTrustedPrelude,
   jsTrustedPrelude,
@@ -14,8 +15,10 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
 import {
+  rootDir,
+  kernelBrowserRuntimeSrcDir,
+  outDir,
   sourceDir,
-  buildDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
 
@@ -25,15 +28,11 @@ import {
  */
 const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
-  'manifest.json',
-  // External modules
-  'env/dev-console.js',
-  'env/background-trusted-prelude.js',
-  '../../kernel-shims/dist/endoify.js',
-  {
-    src: '../../kernel-browser-runtime/dist/static/*',
-    dest: './browser-runtime',
-  },
+  path.resolve(sourceDir, 'manifest.json'),
+  // Trusted prelude-related
+  path.resolve(sourceDir, 'env/dev-console.js'),
+  path.resolve(sourceDir, 'env/background-trusted-prelude.js'),
+  path.resolve(rootDir, 'kernel-shims/dist/endoify.js'),
 ];
 
 // https://vitejs.dev/config/
@@ -45,16 +44,26 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    root: sourceDir,
+    root: rootDir,
 
     build: {
+      assetsDir: '',
       emptyOutDir: true,
-      outDir: buildDir,
+      // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
+      modulePreload: false,
+      outDir,
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
+          // kernel-browser-runtime
+          'kernel-worker': path.resolve(
+            kernelBrowserRuntimeSrcDir,
+            'kernel-worker',
+            'kernel-worker.ts',
+          ),
+          vat: path.resolve(kernelBrowserRuntimeSrcDir, 'vat', 'iframe.html'),
         },
         output: {
           entryFileNames: '[name].js',
@@ -82,10 +91,30 @@ export default defineConfig(({ mode }) => {
         silent: isDev,
       }),
       viteChecker({ typescript: { tsconfigPath: 'tsconfig.build.json' } }),
-      // Import sourcemaps from our own libraries
-      // For whatever reason, the types don't match, but it works
+      // Deduplicate sqlite-wasm assets
+      deduplicateAssets({
+        assetFilter: (fileName) =>
+          fileName.includes('sqlite3-') &&
+          !fileName.includes('sqlite3-opfs-async-proxy'),
+        expectedCount: 2,
+      }),
+      // Would you believe that there's no other way to do this?
+      {
+        name: 'move-html-files-to-root',
+        generateBundle: {
+          order: 'post',
+          handler(_, bundle) {
+            for (const chunk of Object.values(bundle)) {
+              if (!chunk.fileName.endsWith('.html')) {
+                continue;
+              }
+              chunk.fileName = path.basename(chunk.fileName);
+            }
+          },
+        },
+      },
       // Open the extension in the browser when watching
-      isWatching && extensionDev({ extensionPath: buildDir }),
+      isWatching && extensionDev({ extensionPath: outDir }),
     ],
   };
 });
