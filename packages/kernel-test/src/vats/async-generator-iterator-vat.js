@@ -1,5 +1,5 @@
 import { E, Far } from '@endo/far';
-// XXX Unclear why the bundler can resolve this import but the linter can't.
+// ESLint's import-x/no-unresolved rule with commonjs:false doesn't support subpath exports
 // eslint-disable-next-line import-x/no-unresolved
 import { makeEventualIterator, makeFarGenerator } from '@metamask/streams/vat';
 
