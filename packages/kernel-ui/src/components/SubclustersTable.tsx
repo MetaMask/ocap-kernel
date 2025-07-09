@@ -1,4 +1,3 @@
-import styles from '../App.module.css';
 import { SubclusterAccordion } from './SubclusterAccordion.tsx';
 import { useVats } from '../hooks/useVats.ts';
 
@@ -17,14 +16,14 @@ export const SubclustersTable: React.FC = () => {
 
   if (!subclusters || subclusters.length === 0) {
     return (
-      <p className={styles.error}>
+      <p className="error">
         No vats or subclusters are currently active.
       </p>
     );
   }
 
   return (
-    <div className={styles.tableContainer}>
+    <div className="tableContainer">
       {subclusters.map((subcluster) => (
         <SubclusterAccordion
           key={subcluster.id}

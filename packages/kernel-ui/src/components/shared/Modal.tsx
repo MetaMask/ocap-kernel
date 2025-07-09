@@ -1,6 +1,9 @@
+import {
+  ButtonIcon,
+  ButtonIconSize,
+  IconName,
+} from '@metamask/design-system-react';
 import { useEffect, useRef } from 'react';
-
-import styles from '../../App.module.css';
 
 export type ModalProps = {
   isOpen: boolean;
@@ -70,30 +73,25 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className={styles.modalBackdrop}
+      className="modalBackdrop"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div
-        className={`${styles.modalContent} ${styles[size]}`}
-        ref={modalRef}
-        tabIndex={-1}
-      >
-        <div className={styles.modalHeader}>
-          <h3 id="modal-title" className={styles.modalTitle}>
+      <div className={`modalContent ${size}`} ref={modalRef} tabIndex={-1}>
+        <div className="modalHeader">
+          <h3 id="modal-title" className="modalTitle">
             {title}
           </h3>
-          <button
-            className={styles.modalCloseButton}
+          <ButtonIcon
+            iconName={IconName.Close}
+            size={ButtonIconSize.Sm}
             onClick={onClose}
-            aria-label="Close modal"
-          >
-            ×
-          </button>
+            ariaLabel="Close modal"
+          />
         </div>
-        <div className={styles.modalBody}>{children}</div>
+        <div className="modalBody">{children}</div>
       </div>
     </div>
   );

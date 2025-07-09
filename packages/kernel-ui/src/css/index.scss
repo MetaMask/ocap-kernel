@@ -1,0 +1,8 @@
+/* Tailwind CSS directives - must come first */
+@import './tailwind';
+
+/* MetaMask Design Tokens */
+@import '@metamask/design-tokens/styles.css';
+
+/* Custom styles - must come after Tailwind to override */
+@import './custom';

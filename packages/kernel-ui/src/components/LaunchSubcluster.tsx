@@ -1,7 +1,6 @@
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { useCallback, useState } from 'react';
 
-import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 
@@ -86,22 +85,22 @@ export const LaunchSubcluster: React.FC = () => {
   );
 
   return (
-    <div className={styles.newVatWrapper}>
-      <h4 className={styles.noMargin}>Launch New Subcluster</h4>
+    <div className="newVatWrapper">
+      <h4 className="noMargin">Launch New Subcluster</h4>
       <div
-        className={`${styles.dropZone} ${isDragging ? styles.dragging : ''}`}
+        className={`dropZone ${isDragging ? 'dragging' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className={styles.dropZoneContent}>
+        <div className="dropZoneContent">
           <svg
             width="24"
             height="24"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className={styles.uploadIcon}
+            className="uploadIcon"
           >
             <path
               d="M12 16L12 8M12 8L15 11M12 8L9 11"
@@ -118,13 +117,10 @@ export const LaunchSubcluster: React.FC = () => {
               strokeLinejoin="round"
             />
           </svg>
-          <p className={styles.dropZoneText}>
+          <p className="dropZoneText">
             {fileName || 'Drag and drop your cluster config JSON file here'}
           </p>
-          <label
-            htmlFor="subcluster-config-input"
-            className={styles.buttonPrimary}
-          >
+          <label htmlFor="subcluster-config-input" className="buttonPrimary">
             Browse Files
           </label>
           <input

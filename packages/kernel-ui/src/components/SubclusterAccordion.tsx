@@ -1,7 +1,11 @@
+import {
+  Button,
+  ButtonBaseSize,
+  ButtonVariant,
+} from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
 import { useMemo, useState } from 'react';
 
-import styles from '../App.module.css';
 import type { VatRecord } from '../types.ts';
 import { Accordion } from './shared/Accordion.tsx';
 import { Modal } from './shared/Modal.tsx';
@@ -36,7 +40,7 @@ export const SubclusterAccordion: React.FC<{
         title={
           <>
             Subcluster {id} -{' '}
-            <span className={styles.vatDetailsHeader}>
+            <span className="vatDetailsHeader">
               {vats.length} Vat{vats.length === 1 ? '' : 's'}
             </span>
           </>
@@ -45,26 +49,30 @@ export const SubclusterAccordion: React.FC<{
         onToggle={setIsExpanded}
         testId={`subcluster-accordion-${id}`}
       >
-        <div className={styles.headerControls}>
+        <div className="headerControls">
           <h4>Subcluster Vats</h4>
-          <button
-            className={styles.buttonGray}
+          <Button
+            size={ButtonBaseSize.Sm}
+            variant={ButtonVariant.Secondary}
             onClick={() => setIsConfigModalOpen(true)}
           >
             View Config
-          </button>
-          <button
-            className={styles.buttonDanger}
+          </Button>
+          <Button
+            size={ButtonBaseSize.Sm}
+            variant={ButtonVariant.Primary}
             onClick={() => onTerminateSubcluster(id)}
+            isDanger
           >
             Terminate Subcluster
-          </button>
-          <button
-            className={styles.buttonBlack}
+          </Button>
+          <Button
+            size={ButtonBaseSize.Sm}
+            variant={ButtonVariant.Primary}
             onClick={() => onReloadSubcluster(id)}
           >
             Reload Subcluster
-          </button>
+          </Button>
         </div>
         <VatTable
           vats={vats}
@@ -80,9 +88,9 @@ export const SubclusterAccordion: React.FC<{
         title={`Subcluster ${id} Configuration`}
         size="md"
       >
-        <div className={styles.configModalContent}>
+        <div className="configModalContent">
           <textarea
-            className={styles.configTextarea}
+            className="configTextarea"
             value={formattedConfig}
             readOnly
             rows={20}

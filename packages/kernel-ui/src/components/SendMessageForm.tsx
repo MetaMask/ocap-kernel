@@ -1,8 +1,8 @@
+import { Button, ButtonVariant } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
 import type { Json } from '@metamask/utils';
 import { useState, useMemo } from 'react';
 
-import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useRegistry } from '../hooks/useRegistry.ts';
 
@@ -80,10 +80,10 @@ export const SendMessageForm: React.FC = () => {
   }
 
   return (
-    <div className={styles.messageInputSection}>
+    <div className="messageInputSection">
       <h3>Send Message</h3>
-      <div className={styles.horizontalForm}>
-        <div className={styles.formFieldTarget}>
+      <div className="horizontalForm">
+        <div className="formFieldTarget">
           <label htmlFor="message-target">Target:</label>
           <select
             id="message-target"
@@ -125,18 +125,18 @@ export const SendMessageForm: React.FC = () => {
           />
         </div>
         <div style={{ flex: 'none', width: 66, paddingTop: 18 }}>
-          <button
-            className={styles.sendButton}
+          <Button
+            variant={ButtonVariant.Primary}
             onClick={handleSend}
-            disabled={!(target.trim() && method.trim())}
+            isDisabled={!(target.trim() && method.trim())}
             data-testid="message-send-button"
           >
             Send
-          </button>
+          </Button>
         </div>
       </div>
       {result && (
-        <div className={styles.messageResponse} data-testid="message-response">
+        <div className="messageResponse" data-testid="message-response">
           <h4>Response:</h4>
           <pre>{stringify(result, 0)}</pre>
         </div>

@@ -1,4 +1,11 @@
-import styles from '../App.module.css';
+import {
+  Button,
+  ButtonVariant,
+  ButtonBaseSize,
+  TextButton,
+  TextButtonSize,
+} from '@metamask/design-system-react';
+
 import type { VatRecord } from '../types.ts';
 
 export const VatTable: React.FC<{
@@ -12,7 +19,7 @@ export const VatTable: React.FC<{
   }
 
   return (
-    <div className={`${styles.table} ${styles.subclusterTable}`}>
+    <div className="table subclusterTable">
       <table data-testid="vat-table">
         <thead>
           <tr>
@@ -29,25 +36,28 @@ export const VatTable: React.FC<{
               <td>{vat.source}</td>
               <td>{vat.parameters}</td>
               <td>
-                <div className={styles.tableActions}>
-                  <button
-                    className={styles.smallButton}
+                <div className="tableActions">
+                  <TextButton
+                    size={TextButtonSize.BodyXs}
                     onClick={() => onPingVat(vat.id)}
+                    className="min-w-0"
                   >
                     Ping
-                  </button>
-                  <button
-                    className={styles.smallButton}
+                  </TextButton>
+                  <TextButton
+                    size={TextButtonSize.BodyXs}
                     onClick={() => onRestartVat(vat.id)}
+                    className="min-w-0"
                   >
                     Restart
-                  </button>
-                  <button
-                    className={styles.smallButton}
+                  </TextButton>
+                  <TextButton
+                    size={TextButtonSize.BodyXs}
                     onClick={() => onTerminateVat(vat.id)}
+                    className="min-w-0"
                   >
                     Terminate
-                  </button>
+                  </TextButton>
                 </div>
               </td>
             </tr>

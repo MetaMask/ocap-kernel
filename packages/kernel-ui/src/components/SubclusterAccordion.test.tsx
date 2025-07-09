@@ -5,27 +5,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SubclusterAccordion } from './SubclusterAccordion.tsx';
 import type { VatRecord } from '../types.ts';
 
-vi.mock('../App.module.css', () => ({
-  default: {
-    headerControls: 'header-controls',
-    buttonGray: 'button-gray',
-    buttonDanger: 'button-danger',
-    buttonBlack: 'button-black',
-    configModalContent: 'config-modal-content',
-    configTextarea: 'config-textarea',
-    table: 'table',
-    subclusterTable: 'subcluster-table',
-    tableActions: 'table-actions',
-    smallButton: 'small-button',
-    vatDetailsHeader: 'vat-details-header',
-    accordion: 'accordion',
-    accordionHeader: 'accordion-header',
-    accordionTitle: 'accordion-title',
-    accordionIndicator: 'accordion-indicator',
-    accordionContent: 'accordion-content',
-  },
-}));
-
 // Mock the child components
 vi.mock('./shared/Accordion.tsx', () => ({
   Accordion: ({

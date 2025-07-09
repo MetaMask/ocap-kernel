@@ -1,6 +1,10 @@
+import {
+  Button,
+  ButtonVariant,
+  ButtonBaseSize,
+} from '@metamask/design-system-react';
 import { useEffect, useState } from 'react';
 
-import styles from '../App.module.css';
 import { SendMessageForm } from './SendMessageForm.tsx';
 import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
@@ -11,7 +15,7 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;
   const promises = data.importedPromises.length + data.exportedPromises.length;
   return (
-    <span className={styles.vatDetailsHeader}>
+    <span className="vatDetailsHeader">
       {objects} object{objects === 1 ? '' : 's'}, {promises} promise
       {promises === 1 ? '' : 's'}
     </span>
@@ -36,25 +40,25 @@ export const ObjectRegistry: React.FC = () => {
   }, [fetchObjectRegistry]);
 
   if (!objectRegistry) {
-    return <p className={styles.error}>Loading...</p>;
+    return <p className="error">Loading...</p>;
   }
 
   return (
     <div className="vat-details-header">
       <SendMessageForm />
 
-      <div className={styles.headerSection}>
-        <h2 className={styles.noMargin}>Kernel Registry</h2>
-        <button
-          className={styles.buttonBlack}
+      <div className="headerSection">
+        <h2 className="noMargin">Kernel Registry</h2>
+        <Button
+          variant={ButtonVariant.Secondary}
           data-testid="refresh-registry-button"
           onClick={fetchObjectRegistry}
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
-      <table className={`${styles.noBorder} ${styles.table}`}>
+      <table className="noBorder table">
         <tbody>
           <tr>
             <td width="160">GC Actions</td>
@@ -87,9 +91,9 @@ export const ObjectRegistry: React.FC = () => {
             onToggle={(_isExpanded) => toggleVat(vatId)}
           >
             {vatData.ownedObjects.length > 0 && (
-              <div className={styles.tableContainer}>
+              <div className="tableContainer">
                 <h4>Owned Objects</h4>
-                <table className={styles.table}>
+                <table className="table">
                   <thead>
                     <tr>
                       <th>KRef</th>
@@ -109,13 +113,15 @@ export const ObjectRegistry: React.FC = () => {
                           {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
                         </td>
                         <td>
-                          <button
+                          <Button
+                            variant={ButtonVariant.Secondary}
+                            size={ButtonBaseSize.Sm}
                             data-testid={`revoke-button-${obj.kref}`}
                             onClick={() => revoke(obj.kref)}
-                            disabled={obj.revoked === 'true'}
+                            isDisabled={obj.revoked === 'true'}
                           >
                             {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -125,9 +131,9 @@ export const ObjectRegistry: React.FC = () => {
             )}
 
             {vatData.importedObjects.length > 0 && (
-              <div className={styles.tableContainer}>
+              <div className="tableContainer">
                 <h4>Imported Objects</h4>
-                <table className={styles.table}>
+                <table className="table">
                   <thead>
                     <tr>
                       <th>KRef</th>
@@ -151,9 +157,9 @@ export const ObjectRegistry: React.FC = () => {
             )}
 
             {vatData.importedPromises.length > 0 && (
-              <div className={styles.tableContainer}>
+              <div className="tableContainer">
                 <h4>Imported Promises</h4>
-                <table className={styles.table}>
+                <table className="table">
                   <thead>
                     <tr>
                       <th>KRef</th>
@@ -190,9 +196,9 @@ export const ObjectRegistry: React.FC = () => {
             )}
 
             {vatData.exportedPromises.length > 0 && (
-              <div className={styles.tableContainer}>
+              <div className="tableContainer">
                 <h4>Exported Promises</h4>
-                <table className={styles.table}>
+                <table className="table">
                   <thead>
                     <tr>
                       <th>KRef</th>

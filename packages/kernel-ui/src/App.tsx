@@ -1,7 +1,6 @@
 import type { NonEmptyArray } from '@metamask/utils';
 import { useState } from 'react';
 
-import styles from './App.module.css';
 import { ControlPanel } from './components/ControlPanel.tsx';
 import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
@@ -34,17 +33,15 @@ export const App: React.FC = () => {
 
   if (error) {
     return (
-      <div className={styles.panel}>
-        <div className={styles.error}>
-          Error connecting to kernel: {error.message}
-        </div>
+      <div className="panel">
+        <div className="error">Error connecting to kernel: {error.message}</div>
       </div>
     );
   }
 
   if (!callKernelMethod) {
     return (
-      <div className={styles.panel}>
+      <div className="panel">
         <div>Connecting to kernel...</div>
       </div>
     );
@@ -52,12 +49,12 @@ export const App: React.FC = () => {
 
   return (
     <PanelProvider callKernelMethod={callKernelMethod}>
-      <div className={styles.panel}>
-        <div className={styles.leftPanel}>
+      <div className="panel">
+        <div className="leftPanel">
           <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           {tabs.find((tab) => tab.value === activeTab)?.component}
         </div>
-        <div className={styles.rightPanel}>
+        <div className="rightPanel">
           <MessagePanel />
         </div>
       </div>

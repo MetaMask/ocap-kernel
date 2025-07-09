@@ -1,6 +1,6 @@
+import { TextButton, TextButtonSize } from '@metamask/design-system-react';
 import { useEffect, useRef } from 'react';
 
-import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import type { OutputType } from '../context/PanelContext.tsx';
 import { LoadingDots } from './shared/LoadingDots.tsx';
@@ -35,23 +35,24 @@ export const MessagePanel: React.FC = () => {
   }, [panelLogs]);
 
   return (
-    <div className={styles.outputSection}>
-      <div className={styles.outputHeader}>
+    <div className="outputSection">
+      <div className="outputHeader">
         <h4>Message History</h4>
-        <button
-          className={styles.smallButton}
+        <TextButton
+          size={TextButtonSize.BodyXs}
           data-testid="clear-logs-button"
           onClick={clearLogs}
+          className="min-w-0"
         >
           Clear
-        </button>
+        </TextButton>
       </div>
-      <div className={styles.messageOutput} ref={messageScrollRef} role="log">
+      <div className="messageOutput" ref={messageScrollRef} role="log">
         <div data-testid="message-output">
           {panelLogs.map((log, index) => (
-            <div key={index} className={styles[log.type]}>
-              <span className={styles.logType}>{getLogTypeIcon(log.type)}</span>
-              <span className={styles.logMessage}>{log.message}</span>
+            <div key={index} className={log.type}>
+              <span className="logType">{getLogTypeIcon(log.type)}</span>
+              <span className="logMessage">{log.message}</span>
             </div>
           ))}
           {isLoading && <LoadingDots />}

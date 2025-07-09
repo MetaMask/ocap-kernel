@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-import styles from '../../App.module.css';
 
 export type AccordionProps = {
   title: React.ReactNode;
@@ -44,20 +43,20 @@ export const Accordion: React.FC<AccordionProps> = ({
   };
 
   return (
-    <div className={styles.accordion} data-testid={testId}>
+    <div className="accordion" data-testid={testId}>
       <div
-        className={`accordion-header ${styles.accordionHeader}`}
+        className={`accordion-header accordionHeader`}
         onClick={handleToggle}
       >
-        <div className={`accordion-title ${styles.accordionTitle}`}>
+        <div className={`accordion-title accordionTitle`}>
           {title}
         </div>
-        <div className={styles.accordionIndicator}>
+        <div className="accordionIndicator">
           {isExpanded ? '−' : '+'}
         </div>
       </div>
 
-      {isExpanded && <div className={styles.accordionContent}>{children}</div>}
+      {isExpanded && <div className="accordionContent">{children}</div>}
     </div>
   );
 };
