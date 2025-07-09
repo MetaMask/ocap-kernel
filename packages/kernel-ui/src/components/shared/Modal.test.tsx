@@ -4,20 +4,6 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
 import { Modal } from './Modal.tsx';
 
-vi.mock('../../App.module.css', () => ({
-  default: {
-    modalBackdrop: 'modal-backdrop',
-    modalContent: 'modal-content',
-    modalHeader: 'modal-header',
-    modalTitle: 'modal-title',
-    modalCloseButton: 'modal-close-button',
-    modalBody: 'modal-body',
-    sm: 'size-sm',
-    md: 'size-md',
-    lg: 'size-lg',
-  },
-}));
-
 describe('Modal', () => {
   const mockOnClose = vi.fn();
   const defaultProps = {
@@ -140,24 +126,22 @@ describe('Modal', () => {
     const { rerender } = render(<Modal {...defaultProps} size="sm" />);
 
     let modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modal-content', 'size-sm');
+    expect(modalContent).toHaveClass('modalContent', 'sm');
 
     rerender(<Modal {...defaultProps} size="md" />);
-
     modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modal-content', 'size-md');
+    expect(modalContent).toHaveClass('modalContent', 'md');
 
     rerender(<Modal {...defaultProps} size="lg" />);
-
     modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modal-content', 'size-lg');
+    expect(modalContent).toHaveClass('modalContent', 'lg');
   });
 
   it('defaults to medium size when no size is specified', () => {
     render(<Modal {...defaultProps} />);
 
     const modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modal-content', 'size-md');
+    expect(modalContent).toHaveClass('modalContent', 'md');
   });
 
   it('renders custom children correctly', () => {

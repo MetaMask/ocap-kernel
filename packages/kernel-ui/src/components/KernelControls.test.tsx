@@ -7,22 +7,6 @@ import { useKernelActions } from '../hooks/useKernelActions.ts';
 import { useVats } from '../hooks/useVats.ts';
 import type { VatRecord } from '../types.ts';
 
-vi.mock('../hooks/useKernelActions.ts', () => ({
-  useKernelActions: vi.fn(),
-}));
-
-vi.mock('../hooks/useVats.ts', () => ({
-  useVats: vi.fn(),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    headerControls: 'header-controls',
-    buttonWarning: 'button-warning',
-    buttonDanger: 'button-danger',
-  },
-}));
-
 const mockUseKernelActions = (overrides = {}): void => {
   vi.mocked(useKernelActions).mockReturnValue({
     terminateAllVats: vi.fn(),
@@ -57,7 +41,6 @@ describe('KernelControls', () => {
     render(<KernelControls />);
     const clearButton = screen.getByRole('button', { name: 'Clear All State' });
     expect(clearButton).toBeInTheDocument();
-    expect(clearButton).toHaveClass('button-danger');
   });
 
   it('does not render "Terminate All Vats" button when no vats exist', () => {
@@ -72,21 +55,32 @@ describe('KernelControls', () => {
   it('renders "Terminate All Vats" button when vats exist', () => {
     mockUseKernelActions();
     mockUseVats([
-      { id: 'v1', source: 'source', parameters: '', creationOptions: '' },
+      {
+        id: 'v1',
+        source: 'source',
+        parameters: '',
+        creationOptions: '',
+        subclusterId: 'subcluster1',
+      },
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {
       name: 'Terminate All Vats',
     });
     expect(terminateButton).toBeInTheDocument();
-    expect(terminateButton).toHaveClass('button-warning');
   });
 
   it('calls terminateAllVats when "Terminate All Vats" button is clicked', async () => {
     const terminateAllVats = vi.fn();
     mockUseKernelActions({ terminateAllVats });
     mockUseVats([
-      { id: 'v1', source: 'source', parameters: '', creationOptions: '' },
+      {
+        id: 'v1',
+        source: 'source',
+        parameters: '',
+        creationOptions: '',
+        subclusterId: 'subcluster1',
+      },
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {

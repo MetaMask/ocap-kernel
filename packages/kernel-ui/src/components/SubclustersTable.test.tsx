@@ -6,29 +6,6 @@ import { SubclustersTable } from './SubclustersTable.tsx';
 import { useVats } from '../hooks/useVats.ts';
 import type { VatRecord } from '../types.ts';
 
-vi.mock('../hooks/useVats.ts', () => ({
-  useVats: vi.fn(),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    table: 'table',
-    subclusterTable: 'subcluster-table',
-    tableActions: 'table-actions',
-    smallButton: 'small-button',
-    accordion: 'accordion',
-    accordionHeader: 'accordion-header',
-    accordionTitle: 'accordion-title',
-    accordionIndicator: 'accordion-indicator',
-    accordionContent: 'accordion-content',
-    headerControls: 'header-controls',
-    buttonDanger: 'button-danger',
-    buttonBlack: 'button-black',
-    vatDetailsHeader: 'vat-details-header',
-    tableContainer: 'table-container',
-  },
-}));
-
 describe('SubclustersTable Component', () => {
   const mockVats: VatRecord[] = [
     {

@@ -6,20 +6,6 @@ import type { StreamState } from './hooks/useStream.ts';
 
 setupOcapKernelMock();
 
-vi.mock('./hooks/useStream.ts', () => ({
-  useStream: vi.fn(),
-}));
-
-vi.mock('./App.module.css', () => ({
-  default: {
-    panel: 'panel-class',
-    error: 'error-class',
-    leftPanel: 'left-panel-class',
-    rightPanel: 'right-panel-class',
-    headerSection: 'header-section-class',
-  },
-}));
-
 describe('App', () => {
   beforeEach(() => {
     cleanup();

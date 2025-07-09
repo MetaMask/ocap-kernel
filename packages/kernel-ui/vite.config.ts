@@ -7,6 +7,15 @@ import dts from 'vite-plugin-dts';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  css: {
+    postcss: './postcss.config.js',
+    preprocessorOptions: {
+      scss: {
+        quietDeps: true,
+        silenceDeprecations: ['import'],
+      },
+    },
+  },
   build: {
     emptyOutDir: true,
     outDir: 'dist',

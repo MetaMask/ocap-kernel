@@ -1,27 +1,29 @@
-/* Base variables */
+/* Using MetaMask Design Tokens CSS Variables */
 :root {
-  /* Light theme (default) */
-  --color-white: #fff;
-  --color-black: #333;
-  --color-gray-100: #f5f5f5;
-  --color-gray-200: #f0f0f0;
-  --color-gray-300: #ccc;
-  --color-gray-600: #666;
-  --color-gray-800: #333;
-  --color-primary: #4956f9;
-  --color-success: #4caf50;
-  --color-error: #f44336;
-  --color-warning: #ffeb3b;
-  --color-warning-dark: #ffe600;
-  --color-background: var(--color-white);
-  --color-text: var(--color-black);
-  --color-border: var(--color-gray-300);
-  --color-hover: var(--color-gray-800);
-  --color-hover-text: var(--color-white);
-  --color-input-bg: var(--color-white);
-  --color-panel-bg: var(--color-gray-100);
-  --color-header-bg: var(--color-gray-200);
+  /* Map our custom variables to MetaMask Design Tokens */
+  --color-white: var(--brand-colors-white);
+  --color-black: var(
+    --color-text-default
+  ); /* Use text default instead of pure black */
+  --color-gray-100: var(--color-background-alternative);
+  --color-gray-200: var(--brand-colors-grey-grey200);
+  --color-gray-300: var(--brand-colors-grey-grey300);
+  --color-gray-600: var(--brand-colors-grey-grey600);
+  --color-gray-800: var(--brand-colors-grey-grey800);
+  --color-primary: var(--color-primary-default);
+  --color-success: var(--color-success-default);
+  --color-error: var(--color-error-default);
+  --color-warning: var(--brand-colors-yellow-yellow200);
+  --color-background: var(--color-background-default);
+  --color-text: var(--color-text-default);
+  --color-border: var(--color-border-default);
+  --color-hover: var(--color-primary-default-hover);
+  --color-hover-text: var(--color-primary-inverse);
+  --color-input-bg: var(--color-background-default);
+  --color-panel-bg: var(--color-background-alternative);
+  --color-header-bg: var(--color-background-section);
 
+  /* Keep spacing as is - MetaMask doesn't provide spacing tokens in CSS */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
@@ -29,10 +31,12 @@
   --spacing-xl: 16px;
   --spacing-xxl: 30px;
 
-  --font-size-xs: 12px;
-  --font-size-sm: 13px;
-  --font-size-md: 14px;
+  /* Use MetaMask font sizes */
+  --font-size-xs: var(--font-size-2); /* 0.75rem */
+  --font-size-sm: var(--font-size-3); /* 0.875rem */
+  --font-size-md: var(--font-size-4); /* 1rem */
 
+  /* Keep custom layout variables */
   --border-radius: 3px;
   --input-height: 36px;
   --input-height-sm: 28px;
@@ -64,22 +68,19 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
 }
 
 pre {
   word-break: break-word;
   white-space: normal;
-  line-height: 1.5;
+  line-height: var(--line-height-4);
 }
 
 /* Panel container */
 .panel {
   padding: var(--spacing-xl);
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-family-default);
   display: grid;
   grid-template-columns: 1fr var(--output-width);
   gap: var(--spacing-xxl);
@@ -92,7 +93,6 @@ pre {
 /* Common form elements */
 input,
 .input,
-.button,
 select,
 .select {
   display: flex;
@@ -120,94 +120,7 @@ select,
   padding-right: var(--spacing-xxl);
 }
 
-/* Button variants */
-.button {
-  white-space: nowrap;
-  cursor: pointer;
-  color: var(--color-text);
-  background-color: var(--color-gray-200);
-}
-
-.smallButton {
-  composes: button;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  height: var(--input-height-sm);
-  font-size: var(--font-size-xs);
-}
-
-.button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.buttonSuccess {
-  composes: button;
-  background-color: var(--color-success);
-  color: var(--color-white);
-  border: none;
-}
-
-.buttonDanger {
-  composes: button;
-  background-color: var(--color-error);
-  color: var(--color-white);
-  border: none;
-}
-
-.buttonWarning {
-  composes: button;
-  background-color: var(--color-warning);
-  border: 1px solid var(--color-warning-dark);
-}
-
-.buttonPrimary {
-  composes: button;
-  background-color: var(--color-primary);
-  color: var(--color-white);
-  border: none;
-}
-
-.buttonBlack {
-  composes: button;
-  background-color: var(--color-black);
-  color: var(--color-white);
-  border: none;
-}
-
-.buttonGray {
-  composes: button;
-  background-color: var(--color-gray-200);
-  border: 1px solid var(--color-gray-300);
-  color: var(--color-black);
-}
-
-.button:hover:not(:disabled) {
-  background-color: var(--color-hover);
-  color: var(--color-hover-text);
-}
-
-.buttonBlack:hover:not(:disabled) {
-  background-color: var(--color-gray-600);
-  color: var(--color-white);
-}
-
-.textButton {
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  height: auto;
-  background: transparent;
-  font-size: var(--font-size-xs);
-  color: var(--color-primary);
-  text-decoration: underline;
-  margin: 0;
-}
-
-.textButton:hover {
-  color: var(--color-black);
-  text-decoration: none;
-  background-color: transparent;
-}
+/* Button variants - REMOVED: Now using MetaMask design system buttons */
 
 .newVatWrapper {
   margin: var(--spacing-xl) 0;
@@ -221,11 +134,11 @@ select,
 }
 
 .vatNameInput {
-  composes: input;
+  @extend .input;
 }
 
 .bundleUrlInput {
-  composes: input;
+  @extend .input;
   flex: 1;
 }
 
@@ -236,13 +149,8 @@ select,
 }
 
 .messageContent {
-  composes: input;
+  @extend .input;
   flex: 1;
-  margin: 0;
-}
-
-.sendButton {
-  composes: buttonPrimary;
   margin: 0;
 }
 
@@ -250,7 +158,7 @@ select,
   flex: 1;
   font-family: monospace;
   font-size: var(--font-size-xs);
-  line-height: 1.4;
+  line-height: var(--line-height-3);
   background: var(--color-panel-bg);
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--border-radius);
@@ -259,7 +167,7 @@ select,
 }
 
 .timestamp {
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
   font-size: 0.9em;
   margin-right: var(--spacing-sm);
 }
@@ -275,16 +183,16 @@ select,
 }
 
 .sent {
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
 }
 
 div + .sent {
   padding-top: var(--spacing-sm);
-  border-top: 1px dashed var(--color-gray-300);
+  border-top: 1px dashed var(--color-border-muted);
 }
 
 .received {
-  color: var(--color-black);
+  color: var(--color-text-default);
   margin-bottom: var(--spacing-sm);
 }
 
@@ -299,7 +207,7 @@ div + .sent {
 }
 
 .info {
-  color: var(--color-black);
+  color: var(--color-text-default);
 }
 
 .leftPanel {
@@ -316,14 +224,10 @@ div + .sent {
 .headerControls {
   display: flex;
   gap: var(--spacing-sm);
-}
 
-.headerControls h4 {
-  flex: 1;
-}
-
-.headerControls button {
-  margin: 0;
+  h4 {
+    flex: 1;
+  }
 }
 
 .rightPanel {
@@ -338,7 +242,7 @@ div + .sent {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--color-gray-100);
+  background: var(--color-background-alternative);
   border-radius: var(--border-radius);
   overflow: hidden;
 }
@@ -354,87 +258,89 @@ div + .sent {
 }
 
 .messageInputSection {
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-border-default);
   padding: var(--spacing-md);
-  background: var(--color-gray-200);
+  background: var(--color-background-alternative);
   border-radius: var(--border-radius);
   margin-bottom: var(--spacing-xl);
-}
 
-.messageInputSection h3 {
-  margin: 0 0 var(--spacing-md);
+  h3 {
+    margin: 0 0 var(--spacing-md);
+  }
 }
 
 .horizontalForm {
   display: flex;
   gap: var(--spacing-sm);
-}
 
-.horizontalForm > div {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
+  > div {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 
-.horizontalForm > div > label {
-  margin-bottom: var(--spacing-xs);
+    > label {
+      margin-bottom: var(--spacing-xs);
+    }
+  }
 }
 
 .messageResponse {
   font-family: monospace;
   font-size: var(--font-size-xs);
-}
 
-.messageResponse h4 {
-  margin: var(--spacing-md) 0 var(--spacing-sm);
-}
+  h4 {
+    margin: var(--spacing-md) 0 var(--spacing-sm);
+  }
 
-.messageResponse pre {
-  margin: 0;
+  pre {
+    margin: 0;
+  }
 }
 
 .table {
   width: 100%;
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-border-default);
   border-radius: var(--border-radius);
   overflow: hidden;
   margin-bottom: var(--spacing-md);
+
+  &.noBorder {
+    border: none;
+    border-radius: 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    background: var(--color-header-bg);
+    padding: var(--spacing-md);
+    text-align: left;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+  }
+
+  td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text);
+
+    &.long {
+      word-break: break-word;
+    }
+  }
+
+  tr:hover {
+    background: var(--color-background-hover);
+  }
 }
 
-.noBorder {
-  border: none;
-}
-.table.noBorder {
-  border-radius: 0;
-  border-bottom: 1px solid var(--color-gray-300);
-}
-
-.table table,
 table.table {
   width: 100%;
   border-collapse: collapse;
-}
-
-.table th {
-  background: var(--color-header-bg);
-  padding: var(--spacing-md);
-  text-align: left;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.table td {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text);
-}
-
-.table td.long {
-  word-break: break-word;
-}
-
-.table tr:hover {
-  background: var(--color-panel-bg);
 }
 
 .tableActions {
@@ -457,6 +363,17 @@ table.table {
 
 .dbInspector {
   padding-top: 0;
+
+  table {
+    th {
+      height: var(--input-height);
+    }
+
+    td + td,
+    th + th {
+      border-left: 1px solid var(--color-border-default);
+    }
+  }
 }
 
 .dbSection {
@@ -464,10 +381,10 @@ table.table {
   display: flex;
   flex-direction: row;
   gap: var(--spacing-xxl);
-}
 
-.dbSection h3 {
-  margin-bottom: var(--spacing-md);
+  h3 {
+    margin-bottom: var(--spacing-md);
+  }
 }
 
 .querySection {
@@ -475,33 +392,24 @@ table.table {
   flex-direction: row;
   gap: var(--spacing-md);
   flex: 1;
-}
 
-.querySection .input {
-  flex: 1;
-  font-family: monospace;
+  .input {
+    flex: 1;
+    font-family: monospace;
+  }
 }
 
 .dbSectionTitle {
   margin: var(--spacing-xxl) 0 var(--spacing-md);
 }
 
-.dbInspector table th {
-  height: var(--input-height);
-}
-
-.dbInspector table td + td,
-.dbInspector table th + th {
-  border-left: 1px solid var(--color-gray-300);
-}
-
 .tabButtons {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--color-gray-300);
+  border-bottom: 1px solid var(--color-border-default);
   margin-bottom: var(--spacing-xl);
   height: var(--bar-height);
-  background: var(--color-gray-100);
+  background: var(--color-background-alternative);
   border-top-left-radius: var(--border-radius);
   border-top-right-radius: var(--border-radius);
 }
@@ -513,24 +421,25 @@ table.table {
   margin-bottom: -1px;
   background: transparent;
   cursor: pointer;
-  font-size: var(--font-size-md);
+  line-height: var(--line-height-1);
+  font-size: var(--font-size-sm);
   transition: background-color var(--transition-speed);
   border-top-left-radius: var(--border-radius);
   border-top-right-radius: var(--border-radius);
   flex: 0 0 auto;
-  font-weight: 500;
-  color: var(--color-gray-600);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+
+  &:hover:not(.activeTab) {
+    color: var(--color-primary);
+  }
 }
 
 .activeTab {
-  background: var(--color-white);
-  border-color: var(--color-gray-300);
-  border-bottom: 1px solid var(--color-white);
-  color: var(--color-black);
-}
-
-.tabButton:hover:not(.activeTab) {
-  color: var(--color-primary);
+  background: var(--color-background-default);
+  border-color: var(--color-border-default);
+  border-bottom: 1px solid var(--color-background-default);
+  color: var(--color-text-default);
 }
 
 .tableControls {
@@ -545,9 +454,13 @@ table.table {
 /* Accordion styles */
 .accordion {
   margin-bottom: var(--spacing-md);
-  border: 1px solid var(--color-gray-300);
+  border: 1px solid var(--color-border-default);
   border-radius: var(--border-radius);
   overflow: hidden;
+
+  &:hover .accordionHeader {
+    background-color: var(--color-background-hover);
+  }
 }
 
 .accordionHeader {
@@ -555,16 +468,12 @@ table.table {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md);
-  background-color: var(--color-gray-100);
+  background-color: var(--color-background-alternative);
   cursor: pointer;
   transition: background-color var(--transition-speed);
   user-select: none;
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   border-bottom: 1px solid transparent;
-}
-
-.accordion:hover .accordionHeader {
-  background-color: var(--color-gray-300);
 }
 
 .accordionTitle {
@@ -580,37 +489,37 @@ table.table {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
 }
 
 .accordionContent {
   padding: var(--spacing-md);
-  background-color: var(--color-white);
-}
+  background-color: var(--color-background-default);
 
-.accordionContent .table {
-  margin-bottom: 0;
+  .table {
+    margin-bottom: 0;
+  }
 }
 
 .tableContainer {
   margin-bottom: var(--spacing-xl);
-}
 
-.tableContainer h4 {
-  margin-top: var(--spacing-lg);
-  margin-bottom: var(--spacing-sm);
-  color: var(--color-gray-800);
-  font-weight: 600;
+  h4 {
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text-default);
+    font-weight: var(--font-weight-bold);
+  }
 }
 
 .vatInfo {
   margin-bottom: var(--spacing-md);
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
 
-.vatInfo p {
-  margin: var(--spacing-md) 0;
+  p {
+    margin: var(--spacing-md) 0;
+  }
 }
 
 .subclusterTable {
@@ -619,8 +528,8 @@ table.table {
 
 .vatDetailsHeader {
   font-size: var(--font-size-sm);
-  color: var(--color-gray-600);
-  font-weight: 400;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
   margin-left: var(--spacing-xs);
 }
 
@@ -632,18 +541,18 @@ table.table {
 }
 
 .dropZone {
-  border: 2px dashed var(--color-gray-300);
+  border: 2px dashed var(--color-border-default);
   border-radius: var(--border-radius);
   padding: var(--spacing-xxl);
   margin-top: var(--spacing-md);
-  background-color: var(--color-gray-100);
+  background-color: var(--color-background-alternative);
   transition: all var(--transition-speed) ease;
   cursor: pointer;
-}
 
-.dropZone.dragging {
-  border-color: var(--color-primary);
-  background-color: var(--color-gray-200);
+  &.dragging {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-muted);
+  }
 }
 
 .dropZoneContent {
@@ -655,12 +564,12 @@ table.table {
 }
 
 .uploadIcon {
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
   margin-bottom: var(--spacing-sm);
 }
 
 .dropZoneText {
-  color: var(--color-gray-600);
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   margin: 0;
 }
@@ -672,7 +581,7 @@ table.table {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--color-overlay-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -681,26 +590,26 @@ table.table {
 }
 
 .modalContent {
-  background: var(--color-white);
+  background: var(--color-background-default);
   border-radius: var(--border-radius);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-size-lg) var(--color-shadow-default);
   max-width: 90vw;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
 
-.modalContent.sm {
-  width: 400px;
-}
+  &.sm {
+    width: 400px;
+  }
 
-.modalContent.md {
-  width: 600px;
-}
+  &.md {
+    width: 600px;
+  }
 
-.modalContent.lg {
-  width: 800px;
+  &.lg {
+    width: 800px;
+  }
 }
 
 .modalHeader {
@@ -709,35 +618,13 @@ table.table {
   align-items: center;
   padding: var(--spacing-xl);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-gray-100);
+  background: var(--color-background-alternative);
 }
 
 .modalTitle {
   margin: 0;
   font-size: var(--font-size-md);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.modalCloseButton {
-  background: none;
-  border: none;
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--color-gray-600);
-  cursor: pointer;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--border-radius);
-  transition: background-color var(--transition-speed);
-}
-
-.modalCloseButton:hover {
-  background-color: var(--color-gray-200);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
 
@@ -759,12 +646,12 @@ table.table {
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
   padding: var(--spacing-md);
-  background-color: var(--color-gray-100);
+  background-color: var(--color-background-alternative);
   color: var(--color-text);
   resize: none;
   width: 100%;
   min-height: 350px;
-  line-height: 1.4;
+  line-height: var(--line-height-3);
   white-space: pre;
   overflow: auto;
 }

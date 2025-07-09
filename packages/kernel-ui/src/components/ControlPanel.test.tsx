@@ -6,25 +6,6 @@ import { KernelControls } from './KernelControls.tsx';
 import { LaunchSubcluster } from './LaunchSubcluster.tsx';
 import { SubclustersTable } from './SubclustersTable.tsx';
 
-vi.mock('./KernelControls.tsx', () => ({
-  KernelControls: vi.fn(() => <div data-testid="kernel-controls" />),
-}));
-
-vi.mock('./LaunchSubcluster.tsx', () => ({
-  LaunchSubcluster: vi.fn(() => <div data-testid="launch-subcluster" />),
-}));
-
-vi.mock('./SubclustersTable.tsx', () => ({
-  SubclustersTable: vi.fn(() => <div data-testid="subclusters-table" />),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    headerSection: 'header-section',
-    noMargin: 'no-margin',
-  },
-}));
-
 describe('ControlPanel Component', () => {
   beforeEach(() => {
     cleanup();
@@ -46,10 +27,10 @@ describe('ControlPanel Component', () => {
     expect(children[2]).toHaveAttribute('data-testid', 'launch-subcluster');
   });
 
-  it('renders header section with correct class', () => {
+  it('renders header section', () => {
     render(<ControlPanel />);
     const headerSection = screen.getByText('Kernel').parentElement;
-    expect(headerSection).toHaveClass('header-section');
+    expect(headerSection).toBeInTheDocument();
   });
 
   it('renders KernelControls component', () => {

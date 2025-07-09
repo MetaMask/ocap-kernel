@@ -1,4 +1,10 @@
-import styles from '../App.module.css';
+import {
+  Button,
+  ButtonBaseSize,
+  ButtonVariant,
+  IconName,
+} from '@metamask/design-system-react';
+
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 import { useVats } from '../hooks/useVats.ts';
 
@@ -11,21 +17,38 @@ export const KernelControls: React.FC = () => {
   const { hasVats } = useVats();
 
   return (
-    <div className={styles.headerControls}>
+    <div className="headerControls">
       {hasVats && (
-        <button className={styles.buttonWarning} onClick={terminateAllVats}>
+        <Button
+          size={ButtonBaseSize.Md}
+          variant={ButtonVariant.Secondary}
+          onClick={terminateAllVats}
+        >
           Terminate All Vats
-        </button>
+        </Button>
       )}
-      <button onClick={collectGarbage} className={styles.buttonGray}>
+      <Button
+        size={ButtonBaseSize.Md}
+        variant={ButtonVariant.Secondary}
+        onClick={collectGarbage}
+      >
         Collect Garbage
-      </button>
-      <button className={styles.buttonDanger} onClick={clearState}>
+      </Button>
+      <Button
+        size={ButtonBaseSize.Md}
+        variant={ButtonVariant.Primary}
+        isDanger
+        onClick={clearState}
+      >
         Clear All State
-      </button>
-      <button className={styles.buttonBlack} onClick={reload}>
+      </Button>
+      <Button
+        size={ButtonBaseSize.Md}
+        variant={ButtonVariant.Primary}
+        onClick={reload}
+      >
         Reload Kernel
-      </button>
+      </Button>
     </div>
   );
 };

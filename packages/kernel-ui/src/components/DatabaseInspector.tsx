@@ -1,6 +1,6 @@
+import { Button, ButtonVariant } from '@metamask/design-system-react';
 import { useEffect, useState, useCallback } from 'react';
 
-import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 
@@ -58,12 +58,12 @@ export const DatabaseInspector: React.FC = () => {
   }, [fetchTables, logMessage]);
 
   return (
-    <div className={styles.dbInspector}>
-      <div className={styles.dbSection}>
+    <div className="dbInspector">
+      <div className="dbSection">
         <div>
-          <div className={styles.tableControls}>
+          <div className="tableControls">
             <select
-              className={styles.select}
+              className="select"
               value={selectedTable}
               onChange={(event) => setSelectedTable(event.target.value)}
             >
@@ -76,18 +76,18 @@ export const DatabaseInspector: React.FC = () => {
                 </option>
               ))}
             </select>
-            <button
-              className={styles.buttonBlack}
+            <Button
+              variant={ButtonVariant.Secondary}
               onClick={refreshData}
-              disabled={!selectedTable}
+              isDisabled={!selectedTable}
             >
               Refresh
-            </button>
+            </Button>
           </div>
         </div>
-        <div className={styles.querySection}>
+        <div className="querySection">
           <input
-            className={styles.input}
+            className="input"
             value={sqlQuery}
             onChange={(event) => setSqlQuery(event.target.value)}
             placeholder="Enter SQL query..."
@@ -97,17 +97,17 @@ export const DatabaseInspector: React.FC = () => {
               }
             }}
           />
-          <button
-            className={styles.buttonPrimary}
+          <Button
+            variant={ButtonVariant.Primary}
             onClick={() => onExecuteQuery()}
-            disabled={!sqlQuery.trim()}
+            isDisabled={!sqlQuery.trim()}
           >
             Execute Query
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className={styles.table}>
+      <div className="table">
         <table>
           <thead>
             <tr>
@@ -124,7 +124,7 @@ export const DatabaseInspector: React.FC = () => {
                     {Object.entries(row).map(([key, value]) => (
                       <td
                         key={key}
-                        className={value?.length > 100 ? styles.long : ''}
+                        className={value?.length > 100 ? 'long' : ''}
                       >
                         <div>{value ?? ''}</div>
                       </td>

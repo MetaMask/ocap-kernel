@@ -4,14 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Tabs } from './Tabs.tsx';
 
-vi.mock('../../App.module.css', () => ({
-  default: {
-    tabButtons: 'tab-buttons',
-    tabButton: 'tab-button',
-    activeTab: 'active-tab',
-  },
-}));
-
 describe('Tabs Component', () => {
   const mockTabs = [
     { label: 'Tab 1', value: 'tab1' },
@@ -44,11 +36,11 @@ describe('Tabs Component', () => {
 
     const tabButtons = screen.getAllByRole('button');
     tabButtons.forEach((button) => {
-      expect(button).toHaveClass('tab-button');
+      expect(button).toHaveClass('tabButton');
     });
 
     const activeButton = screen.getByRole('button', { name: 'Tab 1' });
-    expect(activeButton).toHaveClass('active-tab');
+    expect(activeButton).toHaveClass('activeTab');
   });
 
   it('applies active class only to the selected tab', () => {
@@ -57,14 +49,14 @@ describe('Tabs Component', () => {
     );
 
     const activeButton = screen.getByRole('button', { name: 'Tab 2' });
-    expect(activeButton).toHaveClass('active-tab');
+    expect(activeButton).toHaveClass('activeTab');
 
     const inactiveButtons = [
       screen.getByRole('button', { name: 'Tab 1' }),
       screen.getByRole('button', { name: 'Tab 3' }),
     ];
     inactiveButtons.forEach((button) => {
-      expect(button).not.toHaveClass('active-tab');
+      expect(button).not.toHaveClass('activeTab');
     });
   });
 
@@ -85,6 +77,6 @@ describe('Tabs Component', () => {
       <Tabs tabs={mockTabs} activeTab="tab1" onTabChange={mockOnTabChange} />,
     );
 
-    expect(container.firstChild).toHaveClass('tab-buttons');
+    expect(container.firstChild).toHaveClass('tabButtons');
   });
 });
