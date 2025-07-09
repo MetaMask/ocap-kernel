@@ -27,6 +27,6 @@ export const makeFarGenerator = <Item>(
       await E(writer).next(value);
     }
     await E(writer).return(undefined);
-  })().catch(async (error) => E(writer).throw(error));
+  })().catch(async (error) => await E(writer).throw(error));
   return makeIteratorRef<Item>(reader);
 };
