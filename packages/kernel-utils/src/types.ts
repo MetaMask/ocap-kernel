@@ -82,3 +82,11 @@ export const JsonRpcMessageStruct: Struct<JsonRpcMessage> = union([
 
 export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
   is(value, JsonRpcMessageStruct);
+
+export type ModuleRecord = {
+  imports: string[];
+  exports: string[];
+  execute: (moduleExports: Record<string, unknown>) => void;
+};
+
+export type ImportHook = (specifier: string) => ModuleRecord | undefined;

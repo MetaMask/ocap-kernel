@@ -2,6 +2,7 @@ export { delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export type {
   ExtractGuardType,
+  ImportHook,
   JsonRpcCall,
   JsonRpcMessage,
   PromiseCallbacks,

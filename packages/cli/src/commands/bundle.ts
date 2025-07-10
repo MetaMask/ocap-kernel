@@ -1,5 +1,6 @@
 import '@endo/init';
 import endoBundleSource from '@endo/bundle-source';
+import { importHook } from '@metamask/kernel-utils/import-hook';
 import { Logger } from '@metamask/logger';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
