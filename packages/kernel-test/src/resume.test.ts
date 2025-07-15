@@ -112,11 +112,11 @@ describe('restarting vats', async () => {
     await kernel.restartVat('v1');
     await kernel.restartVat('v2');
     await kernel.restartVat('v3');
-    const resumeResultA = await runResume(kernel, 'ko1');
+    const resumeResultA = await runResume(kernel, 'ko3');
     expect(resumeResultA).toBe('resume Alice');
-    const resumeResultB = await runResume(kernel, 'ko2');
+    const resumeResultB = await runResume(kernel, 'ko4');
     expect(resumeResultB).toBe('resume Bob');
-    const resumeResultC = await runResume(kernel, 'ko3');
+    const resumeResultC = await runResume(kernel, 'ko5');
     expect(resumeResultC).toBe('resume Carol');
 
     await waitUntilQuiescent(1000);
@@ -135,11 +135,11 @@ describe('restarting vats', async () => {
     await waitUntilQuiescent();
     const { logger: logger2, entries: entries2 } = makeTestLogger();
     const kernel2 = await makeKernel(kernelDatabase, false, logger2);
-    const resumeResultA = await runResume(kernel2, 'ko1');
+    const resumeResultA = await runResume(kernel2, 'ko3');
     expect(resumeResultA).toBe('resume Alice');
-    const resumeResultB = await runResume(kernel2, 'ko2');
+    const resumeResultB = await runResume(kernel2, 'ko4');
     expect(resumeResultB).toBe('resume Bob');
-    const resumeResultC = await runResume(kernel2, 'ko3');
+    const resumeResultC = await runResume(kernel2, 'ko5');
     expect(resumeResultC).toBe('resume Carol');
     await waitUntilQuiescent(1000);
     const vatLogs = extractTestLogs(

@@ -31,7 +31,7 @@ describe('logger', () => {
     expect(vats).toStrictEqual([vatId]);
 
     await waitUntilQuiescent();
-    await kernel.queueMessage('ko1', 'foo', []);
+    await kernel.queueMessage('ko3', 'foo', []);
 
     await waitUntilQuiescent();
     const vatLogs = extractTestLogs(entries, vatId);

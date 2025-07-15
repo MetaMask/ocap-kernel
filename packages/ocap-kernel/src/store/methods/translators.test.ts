@@ -33,14 +33,14 @@ describe('getTranslators', () => {
     } as unknown as ReturnType<typeof vatModule.getVatMethods>);
   });
 
-  describe('translateRefKtoV', () => {
+  describe('translateRefKtoE', () => {
     it('returns existing eref when found', () => {
       const vatId: VatId = 'v1';
       const kref: KRef = 'k1';
       const expectedEref: VRef = 'e1';
       mockKrefToEref.mockReturnValue(expectedEref);
-      const { translateRefKtoV } = getTranslators(mockCtx);
-      const result = translateRefKtoV(vatId, kref, false);
+      const { translateRefKtoE } = getTranslators(mockCtx);
+      const result = translateRefKtoE(vatId, kref, false);
       expect(mockKrefToEref).toHaveBeenCalledWith(vatId, kref);
       expect(result).toStrictEqual(expectedEref);
       expect(mockAllocateErefForKref).not.toHaveBeenCalled();
@@ -52,8 +52,8 @@ describe('getTranslators', () => {
       const expectedEref: VRef = 'e1';
       mockKrefToEref.mockReturnValue(null);
       mockAllocateErefForKref.mockReturnValue(expectedEref);
-      const { translateRefKtoV } = getTranslators(mockCtx);
-      const result = translateRefKtoV(vatId, kref, true);
+      const { translateRefKtoE } = getTranslators(mockCtx);
+      const result = translateRefKtoE(vatId, kref, true);
       expect(mockKrefToEref).toHaveBeenCalledWith(vatId, kref);
       expect(mockAllocateErefForKref).toHaveBeenCalledWith(vatId, kref);
       expect(result).toStrictEqual(expectedEref);
@@ -63,14 +63,14 @@ describe('getTranslators', () => {
       const vatId: VatId = 'v1';
       const kref: KRef = 'k1';
       mockKrefToEref.mockReturnValue(null);
-      const { translateRefKtoV } = getTranslators(mockCtx);
-      expect(() => translateRefKtoV(vatId, kref, false)).toThrow(
-        `unmapped kref "${kref}" vat="${vatId}"`,
+      const { translateRefKtoE } = getTranslators(mockCtx);
+      expect(() => translateRefKtoE(vatId, kref, false)).toThrow(
+        `unmapped kref "${kref}" endpoint="${vatId}"`,
       );
     });
   });
 
-  describe('translateCapDataKtoV', () => {
+  describe('translateCapDataKtoE', () => {
     it('translates capdata from kernel to vat space', () => {
       const vatId: VatId = 'v1';
       const kref1: KRef = 'k1';
@@ -94,15 +94,15 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      const { translateCapDataKtoV } = getTranslators(mockCtx);
-      const result = translateCapDataKtoV(vatId, capdata);
+      const { translateCapDataKtoE } = getTranslators(mockCtx);
+      const result = translateCapDataKtoE(vatId, capdata);
       expect(result).toStrictEqual(expectedCapData);
       expect(mockKrefToEref).toHaveBeenCalledWith(vatId, kref1);
       expect(mockKrefToEref).toHaveBeenCalledWith(vatId, kref2);
     });
   });
 
-  describe('translateMessageKtoV', () => {
+  describe('translateMessageKtoE', () => {
     it('translates message from kernel to vat space', () => {
       const vatId: VatId = 'v1';
       const kref: KRef = 'k1';
@@ -132,9 +132,9 @@ describe('getTranslators', () => {
         } as unknown as CapData<VRef>,
         result: resultEref,
       };
-      const { translateMessageKtoV } = getTranslators(mockCtx);
+      const { translateMessageKtoE } = getTranslators(mockCtx);
       // @ts-expect-error: Message result is optional
-      const result = translateMessageKtoV(vatId, message);
+      const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
 
@@ -162,9 +162,9 @@ describe('getTranslators', () => {
         } as unknown as CapData<VRef>,
         result: null,
       };
-      const { translateMessageKtoV } = getTranslators(mockCtx);
+      const { translateMessageKtoE } = getTranslators(mockCtx);
       // @ts-expect-error: Message result is optional
-      const result = translateMessageKtoV(vatId, message);
+      const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
   });

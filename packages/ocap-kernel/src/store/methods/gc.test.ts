@@ -100,10 +100,10 @@ describe('GC methods', () => {
       vatIds.forEach((vatId) => kernelStore.scheduleReap(vatId));
 
       // Verify they are processed in order
-      vatIds.forEach((vatId) => {
+      vatIds.forEach((endpointId) => {
         expect(kernelStore.nextReapAction()).toStrictEqual({
           type: 'bringOutYourDead',
-          vatId,
+          endpointId,
         });
       });
 
@@ -119,12 +119,12 @@ describe('GC methods', () => {
       // Should only process v1 once
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
-        vatId: 'v1',
+        endpointId: 'v1',
       });
 
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
-        vatId: 'v2',
+        endpointId: 'v2',
       });
 
       expect(kernelStore.nextReapAction()).toBeUndefined();

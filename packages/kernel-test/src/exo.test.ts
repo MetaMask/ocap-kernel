@@ -75,7 +75,7 @@ describe('virtual objects functionality', async () => {
   it('tests scalar store functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const storeResult = await kernel.queueMessage('ko1', 'testScalarStore', []);
+    const storeResult = await kernel.queueMessage('ko3', 'testScalarStore', []);
     await waitUntilQuiescent(100);
     expect(kunser(storeResult)).toBe('scalar-store-tests-complete');
     const vatLogs = extractTestLogs(logEntries, 'ExoTest');
@@ -91,7 +91,7 @@ describe('virtual objects functionality', async () => {
   it('can create and use objects through messaging', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const counterResult = await kernel.queueMessage('ko1', 'createCounter', [
+    const counterResult = await kernel.queueMessage('ko3', 'createCounter', [
       42,
     ]);
     await waitUntilQuiescent();
@@ -102,26 +102,26 @@ describe('virtual objects functionality', async () => {
     // Verify the increment result
     expect(kunser(incrementResult)).toBe(47);
     await waitUntilQuiescent();
-    const personResult = await kernel.queueMessage('ko1', 'createPerson', [
+    const personResult = await kernel.queueMessage('ko3', 'createPerson', [
       'Dave',
       35,
     ]);
     await waitUntilQuiescent();
     const personRef = personResult.slots[0] as KRef;
-    await kernel.queueMessage('ko1', 'createOrUpdateInMap', [
+    await kernel.queueMessage('ko3', 'createOrUpdateInMap', [
       'dave',
       personRef,
     ]);
     await waitUntilQuiescent();
 
     // Get object from map store
-    const retrievedPerson = await kernel.queueMessage('ko1', 'getFromMap', [
+    const retrievedPerson = await kernel.queueMessage('ko3', 'getFromMap', [
       'dave',
     ]);
     await waitUntilQuiescent();
     // Verify the retrieved person object
     expect(kunser(retrievedPerson)).toBe(personRef);
-    await kernel.queueMessage('ko1', 'createOrUpdateInMap', [
+    await kernel.queueMessage('ko3', 'createOrUpdateInMap', [
       'dave',
       personRef,
     ]);
@@ -140,7 +140,7 @@ describe('virtual objects functionality', async () => {
   it('tests exoClass type validation and behavior', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const exoClassResult = await kernel.queueMessage('ko1', 'testExoClass', []);
+    const exoClassResult = await kernel.queueMessage('ko3', 'testExoClass', []);
     await waitUntilQuiescent(100);
     expect(kunser(exoClassResult)).toBe('exoClass-tests-complete');
     const vatLogs = extractTestLogs(logEntries, 'ExoTest');
@@ -155,7 +155,7 @@ describe('virtual objects functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
     const exoClassKitResult = await kernel.queueMessage(
-      'ko1',
+      'ko3',
       'testExoClassKit',
       [],
     );
@@ -173,7 +173,7 @@ describe('virtual objects functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
     // Create a temperature converter starting at 100°C
-    const tempResult = await kernel.queueMessage('ko1', 'createTemperature', [
+    const tempResult = await kernel.queueMessage('ko3', 'createTemperature', [
       100,
     ]);
     await waitUntilQuiescent();

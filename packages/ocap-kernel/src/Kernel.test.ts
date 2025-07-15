@@ -871,7 +871,7 @@ describe('Kernel', () => {
       const config = makeSingleVatClusterConfig();
       await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe('ko1');
+      expect(kernel.pinVatRoot('v1')).toBe('ko3');
       // Pinning non-existent vat should throw
       expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed

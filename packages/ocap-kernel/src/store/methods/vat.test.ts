@@ -487,7 +487,7 @@ describe('vat store methods', () => {
       const vref = 'o+42';
 
       expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
-        'not a valid VatId',
+        'not a valid EndpointId',
       );
     });
 
@@ -505,7 +505,7 @@ describe('vat store methods', () => {
       const vref = 'ko42'; // Kernel reference, not vat reference
 
       expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
-        'is not a VRef',
+        'is not an ERef',
       );
     });
   });
