@@ -1,3 +1,5 @@
+import { assert } from '@endo/errors';
+
 // XXX TODO: The following two hex conversion functions are placeholders. In
 // particular, they're not as paranoid as they ought to be, which I'll
 // rationalize by observing that we only use them on data of strictly internal
@@ -30,6 +32,7 @@ export function toHex(arr: Uint8Array): string {
  */
 export function fromHex(str: string): Uint8Array {
   const len = str.length;
+  assert(len <= 64);
   const resultLen = len / 2;
   const bytes = new Uint8Array(32);
   let inIdx = 0;
@@ -37,7 +40,7 @@ export function fromHex(str: string): Uint8Array {
   while (outIdx < resultLen) {
     const digits = str.slice(inIdx, inIdx + 2);
     bytes[outIdx] = parseInt(digits, 16);
-    outIdx += 2;
+    outIdx += 1;
     inIdx += 2;
   }
   return bytes;
