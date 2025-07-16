@@ -6,6 +6,10 @@ import '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
+import type {
+  EndowmentName,
+  MakeEndowmentsConfig,
+} from './endowments/index.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 
 vi.mock('./syscall.ts', () => ({
@@ -22,28 +26,43 @@ vi.mock('@agoric/swingset-liveslots', () => ({
   })),
 }));
 
-const makeVatSupervisor = async ({
-  dispatch,
-  logger,
-  vatPowers,
+const makeMockLogger = (): Logger => {
+  const logger = {
+    log: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    subLogger: vi.fn(() => logger),
+  };
+  return logger as unknown as Logger;
+};
+
+const makeVatSupervisor = async <EndowmentNames extends EndowmentName>({
+  dispatch = vi.fn(),
+  logger = makeMockLogger(),
+  vatPowers = {},
+  endowmentsConfig = {} as MakeEndowmentsConfig<never>,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
   vatPowers?: Record<string, unknown>;
+  endowmentsConfig?: MakeEndowmentsConfig<EndowmentNames>;
 } = {}): Promise<{
-  supervisor: VatSupervisor;
+  supervisor: VatSupervisor<EndowmentNames>;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
 }> => {
   const kernelStream = await TestDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
-  >(dispatch ?? (() => undefined), { validateInput: isJsonRpcMessage });
+  >(dispatch, { validateInput: isJsonRpcMessage });
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
       kernelStream,
-      logger: logger ?? new Logger(),
-      vatPowers: vatPowers ?? {},
+      logger,
+      vatPowers,
+      endowmentsConfig,
     }),
     stream: kernelStream,
   };
