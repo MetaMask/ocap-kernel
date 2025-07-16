@@ -54,6 +54,14 @@ async function main(): Promise<void> {
     logger,
     fetchBlob,
     vatPowers: { logger },
+    endowmentsConfig: {
+      fetch: {
+        urls: [
+          'http://localhost:11434/api/pull',
+          'http://localhost:11434/api/generate',
+        ],
+      },
+    },
   });
   logger.debug('vat-worker main');
 }
