@@ -2442,7 +2442,7 @@ __metadata:
   resolution: "@metamask/ocap-kernel@workspace:packages/ocap-kernel"
   dependencies:
     "@agoric/swingset-liveslots": "npm:0.10.3-u19.2"
-    "@endo/errors": "npm:^1.2.10"
+    "@endo/errors": "npm:^1.2.13"
     "@endo/far": "npm:^1.1.11"
     "@endo/import-bundle": "npm:^1.5.0"
     "@endo/marshal": "npm:^1.6.4"
