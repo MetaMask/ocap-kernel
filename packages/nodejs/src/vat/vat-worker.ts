@@ -61,6 +61,7 @@ async function main(): Promise<void> {
           'http://localhost:11434/api/generate',
         ],
       },
+      abort: undefined,
     },
   });
   logger.debug('vat-worker main');
