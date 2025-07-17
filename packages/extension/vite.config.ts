@@ -113,6 +113,18 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      // Watch kernel-ui dist folder and trigger rebuilds
+      {
+        name: 'watch-kernel-ui',
+        configureServer(server) {
+          server.watcher.add(path.resolve(rootDir, 'kernel-ui/dist'));
+          server.watcher.on('change', (file) => {
+            if (file.includes('kernel-ui/dist')) {
+              server.moduleGraph.invalidateAll();
+            }
+          });
+        },
+      },
       // Open the extension in the browser when watching
       isWatching && extensionDev({ extensionPath: outDir }),
     ],

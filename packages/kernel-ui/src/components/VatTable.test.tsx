@@ -5,15 +5,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { VatTable } from './VatTable.tsx';
 import type { VatRecord } from '../types.ts';
 
-vi.mock('../App.module.css', () => ({
-  default: {
-    table: 'table',
-    subclusterTable: 'subcluster-table',
-    tableActions: 'table-actions',
-    smallButton: 'small-button',
-  },
-}));
-
 describe('VatTable', () => {
   const mockVats: VatRecord[] = [
     {

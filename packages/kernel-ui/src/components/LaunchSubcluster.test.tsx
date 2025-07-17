@@ -11,27 +11,6 @@ import { LaunchSubcluster } from './LaunchSubcluster.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 
-vi.mock('../hooks/useKernelActions.ts', () => ({
-  useKernelActions: vi.fn(),
-}));
-
-vi.mock('../context/PanelContext.tsx', () => ({
-  usePanelContext: vi.fn(),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    newVatWrapper: 'new-vat-wrapper',
-    noMargin: 'no-margin',
-    dropZone: 'drop-zone',
-    dragging: 'dragging',
-    dropZoneContent: 'drop-zone-content',
-    uploadIcon: 'upload-icon',
-    dropZoneText: 'drop-zone-text',
-    buttonPrimary: 'button-primary',
-  },
-}));
-
 /**
  * Creates a mock DataTransfer object for testing drag and drop functionality.
  *

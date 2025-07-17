@@ -1,4 +1,5 @@
-import styles from '../App.module.css';
+import { Box, Text as TextComponent } from '@metamask/design-system-react';
+
 import { SubclusterAccordion } from './SubclusterAccordion.tsx';
 import { useVats } from '../hooks/useVats.ts';
 
@@ -17,14 +18,14 @@ export const SubclustersTable: React.FC = () => {
 
   if (!subclusters || subclusters.length === 0) {
     return (
-      <p className={styles.error}>
-        No vats or subclusters are currently active.
-      </p>
+      <TextComponent className="text-warning-inverse text-s-body-md leading-s-body-md tracking-s-body-md md:text-l-body-md md:leading-l-body-md md:tracking-l-body-md font-regular bg-warning-default p-4 font-default rounded-lg mb-4">
+        No subclusters are currently active.
+      </TextComponent>
     );
   }
 
   return (
-    <div className={styles.tableContainer}>
+    <Box className="mb-4">
       {subclusters.map((subcluster) => (
         <SubclusterAccordion
           key={subcluster.id}
@@ -38,6 +39,6 @@ export const SubclustersTable: React.FC = () => {
           onReloadSubcluster={reloadSubcluster}
         />
       ))}
-    </div>
+    </Box>
   );
 };

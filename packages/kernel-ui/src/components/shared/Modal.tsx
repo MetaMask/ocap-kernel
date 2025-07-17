@@ -1,6 +1,12 @@
+import {
+  Box,
+  ButtonIcon,
+  ButtonIconSize,
+  IconName,
+  Text as TextComponent,
+  TextVariant,
+} from '@metamask/design-system-react';
 import { useEffect, useRef } from 'react';
-
-import styles from '../../App.module.css';
 
 export type ModalProps = {
   isOpen: boolean;
@@ -68,33 +74,39 @@ export const Modal: React.FC<ModalProps> = ({
     return null;
   }
 
+  let widthClass = 'w-2/3';
+  if (size === 'sm') {
+    widthClass = 'w-96';
+  } else if (size === 'lg') {
+    widthClass = 'w-4/5';
+  }
+
   return (
-    <div
-      className={styles.modalBackdrop}
+    <Box
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div
-        className={`${styles.modalContent} ${styles[size]}`}
+      <Box
+        className={`bg-background-default rounded-lg shadow-lg max-h-[90vh] overflow-hidden ${widthClass}`}
         ref={modalRef}
         tabIndex={-1}
       >
-        <div className={styles.modalHeader}>
-          <h3 id="modal-title" className={styles.modalTitle}>
+        <Box className="flex justify-between items-center bg-alternative p-4 border-b border-muted">
+          <TextComponent className="!m-0" variant={TextVariant.HeadingSm}>
             {title}
-          </h3>
-          <button
-            className={styles.modalCloseButton}
+          </TextComponent>
+          <ButtonIcon
+            iconName={IconName.Close}
+            size={ButtonIconSize.Sm}
             onClick={onClose}
-            aria-label="Close modal"
-          >
-            ×
-          </button>
-        </div>
-        <div className={styles.modalBody}>{children}</div>
-      </div>
-    </div>
+            ariaLabel="Close modal"
+          />
+        </Box>
+        <Box className="p-4 overflow-y-auto">{children}</Box>
+      </Box>
+    </Box>
   );
 };

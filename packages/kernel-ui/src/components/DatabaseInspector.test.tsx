@@ -7,28 +7,6 @@ import { usePanelContext } from '../context/PanelContext.tsx';
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 
-vi.mock('../context/PanelContext.tsx', () => ({
-  usePanelContext: vi.fn(),
-}));
-
-vi.mock('../hooks/useDatabase.ts', () => ({
-  useDatabase: vi.fn(),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    dbInspector: 'db-inspector',
-    dbSection: 'db-section',
-    tableControls: 'table-controls',
-    select: 'select',
-    button: 'button',
-    querySection: 'query-section',
-    input: 'input',
-    buttonPrimary: 'button-primary',
-    table: 'table',
-  },
-}));
-
 const mockUsePanelContext: PanelContextType = {
   callKernelMethod: vi.fn(),
   status: undefined,
