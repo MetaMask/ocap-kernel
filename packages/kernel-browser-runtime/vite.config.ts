@@ -6,6 +6,7 @@ import type { PreludeRecord } from '@ocap/vite-plugins';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
@@ -114,6 +115,9 @@ export default defineConfig(({ mode }) => {
           fileName.startsWith('sqlite3-') &&
           !fileName.includes('sqlite3-opfs-async-proxy'),
         expectedCount: 2,
+      }),
+      nodePolyfills({
+        include: ['fs', 'path'],
       }),
     ],
   };
