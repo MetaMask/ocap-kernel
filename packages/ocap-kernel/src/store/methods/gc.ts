@@ -148,6 +148,9 @@ export function getGCMethods(ctx: StoreContext) {
         if (reachable === 0) {
           const ownerKey = getOwnerKey(kref);
           let ownerVatID = ctx.kv.get(ownerKey);
+          if (ownerVatID === 'kernel') {
+            ownerVatID = undefined;
+          }
           const terminated = isVatTerminated(ownerVatID as VatId);
 
           // Some objects that are still owned, but the owning vat
