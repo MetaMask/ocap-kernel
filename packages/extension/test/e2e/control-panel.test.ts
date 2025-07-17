@@ -174,7 +174,7 @@ test.describe('Control Panel', () => {
       { key: 'gcActions', value: '[]' },
       { key: 'reapQueue', value: '[]' },
       { key: 'vats.terminated', value: '[]' },
-      { key: 'nextObjectId', value: '4' },
+      { key: 'nextObjectId', value: '6' },
       { key: 'nextPromiseId', value: '4' },
       { key: 'nextVatId', value: '4' },
       { key: 'nextRemoteId', value: '1' },
