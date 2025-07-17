@@ -6,63 +6,71 @@ import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  css: {
-    postcss: './postcss.config.js',
-    preprocessorOptions: {
-      scss: {
-        quietDeps: true,
-        silenceDeprecations: ['import'],
-      },
-    },
-  },
-  build: {
-    emptyOutDir: true,
-    outDir: 'dist',
-    sourcemap: true,
-    cssCodeSplit: false,
-    cssMinify: true,
-    lib: {
-      entry: './src/index.ts',
-      name: 'KernelUI',
-      formats: ['es', 'cjs'],
-      fileName: (format, entryName) => {
-        const ext = format === 'es' ? 'mjs' : 'cjs';
-        return `${entryName}.${ext}`;
-      },
-    },
-    rollupOptions: {
-      external: [
-        'react',
-        'react-dom',
-        '@endo/eventual-send',
-        '@endo/marshal',
-        '@metamask/kernel-browser-runtime',
-        '@metamask/kernel-rpc-methods',
-        '@metamask/kernel-shims',
-        '@metamask/kernel-utils',
-        '@metamask/logger',
-        '@metamask/ocap-kernel',
-        '@metamask/streams',
-        '@metamask/utils',
-        'react/jsx-runtime',
-        'react/jsx-dev-runtime',
-        'ses',
-      ],
-      output: {
-        globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM',
+export default defineConfig(({ mode }) => {
+  const isDev = mode === 'development';
+  const isWatching = process.argv.includes('--watch');
+  if (isWatching && !isDev) {
+    throw new Error('Cannot watch in non-development mode');
+  }
+
+  return {
+    css: {
+      postcss: './postcss.config.js',
+      preprocessorOptions: {
+        scss: {
+          quietDeps: true,
+          silenceDeprecations: ['import'],
         },
-        assetFileNames: 'styles.css',
       },
     },
-  },
-  plugins: [
-    react(),
-    dts({
-      tsconfigPath: 'tsconfig.build.json',
+    build: {
+      emptyOutDir: true,
       outDir: 'dist',
-    }),
-  ],
+      sourcemap: true,
+      cssCodeSplit: false,
+      cssMinify: !isDev,
+      lib: {
+        entry: './src/index.ts',
+        name: 'KernelUI',
+        formats: ['es', 'cjs'],
+        fileName: (format, entryName) => {
+          const ext = format === 'es' ? 'mjs' : 'cjs';
+          return `${entryName}.${ext}`;
+        },
+      },
+      rollupOptions: {
+        external: [
+          'react',
+          'react-dom',
+          '@endo/eventual-send',
+          '@endo/marshal',
+          '@metamask/kernel-browser-runtime',
+          '@metamask/kernel-rpc-methods',
+          '@metamask/kernel-shims',
+          '@metamask/kernel-utils',
+          '@metamask/logger',
+          '@metamask/ocap-kernel',
+          '@metamask/streams',
+          '@metamask/utils',
+          'react/jsx-runtime',
+          'react/jsx-dev-runtime',
+          'ses',
+        ],
+        output: {
+          globals: {
+            react: 'React',
+            'react-dom': 'ReactDOM',
+          },
+          assetFileNames: 'styles.css',
+        },
+      },
+    },
+    plugins: [
+      react(),
+      dts({
+        tsconfigPath: 'tsconfig.build.json',
+        outDir: 'dist',
+      }),
+    ],
+  };
 });

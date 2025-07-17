@@ -1,5 +1,5 @@
+import { Box, Icon, IconName } from '@metamask/design-system-react';
 import { useState } from 'react';
-
 
 export type AccordionProps = {
   title: React.ReactNode;
@@ -43,20 +43,20 @@ export const Accordion: React.FC<AccordionProps> = ({
   };
 
   return (
-    <div className="accordion" data-testid={testId}>
-      <div
-        className={`accordion-header accordionHeader`}
+    <Box
+      className="mb-4 border border-border-default hover:border-primary-default rounded-lg overflow-hidden"
+      data-testid={testId}
+    >
+      <Box
+        className="flex justify-between items-center p-3 cursor-pointer transition-colors select-none"
         onClick={handleToggle}
       >
-        <div className={`accordion-title accordionTitle`}>
-          {title}
-        </div>
-        <div className="accordionIndicator">
-          {isExpanded ? '−' : '+'}
-        </div>
-      </div>
-
-      {isExpanded && <div className="accordionContent">{children}</div>}
-    </div>
+        <Box className="flex items-center">{title}</Box>
+        <Box className="text-lg w-5 h-5 flex items-center justify-center text-text-muted">
+          <Icon name={isExpanded ? IconName.Minus : IconName.Add} />
+        </Box>
+      </Box>
+      {isExpanded && <Box>{children}</Box>}
+    </Box>
   );
 };

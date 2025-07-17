@@ -1,4 +1,14 @@
-import { Button, ButtonVariant } from '@metamask/design-system-react';
+import {
+  Button,
+  ButtonVariant,
+  ButtonSize,
+  Box,
+  Text as TextComponent,
+  TextVariant,
+  TextColor,
+  FontWeight,
+  IconName,
+} from '@metamask/design-system-react';
 import { useEffect, useState, useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
@@ -58,61 +68,110 @@ export const DatabaseInspector: React.FC = () => {
   }, [fetchTables, logMessage]);
 
   return (
-    <div className="dbInspector">
-      <div className="dbSection">
-        <div>
-          <div className="tableControls">
-            <select
-              className="select"
-              value={selectedTable}
-              onChange={(event) => setSelectedTable(event.target.value)}
+    <Box>
+      <Box className="mb-6">
+        <Box className="flex flex-col lg:flex-row gap-6">
+          <Box className="flex flex-col gap-3">
+            <TextComponent
+              variant={TextVariant.BodySm}
+              fontWeight={FontWeight.Medium}
+              color={TextColor.TextDefault}
             >
-              <option value="" disabled>
-                Select a table
-              </option>
-              {tables.map((table) => (
-                <option key={table} value={table}>
-                  {table}
+              Select Table
+            </TextComponent>
+            <Box className="flex gap-3">
+              <select
+                className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default cursor-pointer transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
+                value={selectedTable}
+                onChange={(event) => setSelectedTable(event.target.value)}
+              >
+                <option value="" disabled>
+                  Select a table
                 </option>
-              ))}
-            </select>
-            <Button
-              variant={ButtonVariant.Secondary}
-              onClick={refreshData}
-              isDisabled={!selectedTable}
+                {tables.map((table) => (
+                  <option key={table} value={table}>
+                    {table}
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant={ButtonVariant.Secondary}
+                size={ButtonSize.Md}
+                startIconName={IconName.Refresh}
+                onClick={refreshData}
+                isDisabled={!selectedTable}
+                className="rounded-md h-9"
+              >
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="select-none"
+                >
+                  Refresh
+                </TextComponent>
+              </Button>
+            </Box>
+          </Box>
+          <Box className="flex flex-col gap-3 flex-1">
+            <TextComponent
+              variant={TextVariant.BodySm}
+              fontWeight={FontWeight.Medium}
+              color={TextColor.TextDefault}
             >
-              Refresh
-            </Button>
-          </div>
-        </div>
-        <div className="querySection">
-          <input
-            className="input"
-            value={sqlQuery}
-            onChange={(event) => setSqlQuery(event.target.value)}
-            placeholder="Enter SQL query..."
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && sqlQuery.trim()) {
-                onExecuteQuery();
-              }
-            }}
-          />
-          <Button
-            variant={ButtonVariant.Primary}
-            onClick={() => onExecuteQuery()}
-            isDisabled={!sqlQuery.trim()}
-          >
-            Execute Query
-          </Button>
-        </div>
-      </div>
+              SQL Query
+            </TextComponent>
+            <Box className="flex gap-3">
+              <input
+                className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default flex-1"
+                value={sqlQuery}
+                onChange={(event) => setSqlQuery(event.target.value)}
+                placeholder="Enter SQL query..."
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && sqlQuery.trim()) {
+                    onExecuteQuery();
+                  }
+                }}
+              />
+              <Button
+                variant={ButtonVariant.Primary}
+                size={ButtonSize.Md}
+                onClick={() => onExecuteQuery()}
+                isDisabled={!sqlQuery.trim()}
+                className="rounded-md h-9"
+              >
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  color={TextColor.PrimaryInverse}
+                  className="select-none"
+                >
+                  Execute Query
+                </TextComponent>
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
-      <div className="table">
-        <table>
+      <Box className="w-full">
+        <table className="w-full border-collapse border-t border-muted">
           <thead>
-            <tr>
-              {Object.keys(tableData[0] ?? {}).map((column) => (
-                <th key={column}>{column}</th>
+            <tr className="border-b border-muted">
+              {Object.keys(tableData[0] ?? {}).map((column, index, array) => (
+                <th
+                  key={column}
+                  className={`text-left py-2 px-3 ${
+                    index < array.length - 1 ? 'border-r border-muted' : ''
+                  }`}
+                >
+                  <TextComponent
+                    variant={TextVariant.BodyXs}
+                    fontWeight={FontWeight.Medium}
+                    color={TextColor.TextMuted}
+                  >
+                    {column}
+                  </TextComponent>
+                </th>
               ))}
             </tr>
           </thead>
@@ -120,13 +179,25 @@ export const DatabaseInspector: React.FC = () => {
             {tableData.map(
               (row, i) =>
                 row && (
-                  <tr key={i}>
-                    {Object.entries(row).map(([key, value]) => (
+                  <tr
+                    key={i}
+                    className="hover:bg-alternative border-b border-muted"
+                  >
+                    {Object.entries(row).map(([key, value], index, array) => (
                       <td
                         key={key}
-                        className={value?.length > 100 ? 'long' : ''}
+                        className={`py-1 px-3 ${
+                          index < array.length - 1
+                            ? 'border-r border-muted'
+                            : ''
+                        } ${value?.length > 100 ? 'break-all' : ''}`}
                       >
-                        <div>{value ?? ''}</div>
+                        <TextComponent
+                          variant={TextVariant.BodyXs}
+                          color={TextColor.TextDefault}
+                        >
+                          {value ?? ''}
+                        </TextComponent>
                       </td>
                     ))}
                   </tr>
@@ -134,7 +205,7 @@ export const DatabaseInspector: React.FC = () => {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };

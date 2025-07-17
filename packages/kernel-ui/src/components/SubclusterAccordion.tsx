@@ -1,7 +1,11 @@
 import {
+  Box,
   Button,
-  ButtonBaseSize,
-  ButtonVariant,
+  ButtonBase,
+  FontWeight,
+  TextColor,
+  Text as TextComponent,
+  TextVariant,
 } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
 import { useMemo, useState } from 'react';
@@ -39,41 +43,64 @@ export const SubclusterAccordion: React.FC<{
       <Accordion
         title={
           <>
-            Subcluster {id} -{' '}
-            <span className="vatDetailsHeader">
+            <TextComponent
+              variant={TextVariant.BodySm}
+              fontWeight={FontWeight.Medium}
+              color={TextColor.TextDefault}
+            >
+              Subcluster {id} -{' '}
+            </TextComponent>
+            <TextComponent
+              variant={TextVariant.BodySm}
+              color={TextColor.TextMuted}
+              fontWeight={FontWeight.Regular}
+              className="ml-1"
+            >
               {vats.length} Vat{vats.length === 1 ? '' : 's'}
-            </span>
+            </TextComponent>
           </>
         }
         isExpanded={isExpanded}
         onToggle={setIsExpanded}
         testId={`subcluster-accordion-${id}`}
       >
-        <div className="headerControls">
-          <h4>Subcluster Vats</h4>
+        <Box className="flex gap-2 px-3">
           <Button
-            size={ButtonBaseSize.Sm}
-            variant={ButtonVariant.Secondary}
-            onClick={() => setIsConfigModalOpen(true)}
-          >
-            View Config
-          </Button>
-          <Button
-            size={ButtonBaseSize.Sm}
-            variant={ButtonVariant.Primary}
-            onClick={() => onTerminateSubcluster(id)}
-            isDanger
-          >
-            Terminate Subcluster
-          </Button>
-          <Button
-            size={ButtonBaseSize.Sm}
-            variant={ButtonVariant.Primary}
+            className="h-auto flex-row justify-center rounded-md"
             onClick={() => onReloadSubcluster(id)}
           >
-            Reload Subcluster
+            <TextComponent
+              variant={TextVariant.BodySm}
+              color={TextColor.PrimaryInverse}
+            >
+              Reload
+            </TextComponent>
           </Button>
-        </div>
+
+          <ButtonBase
+            className="h-auto flex-row justify-center rounded-md bg-error-default py-1 hover:bg-error-default-pressed active:bg-error-default-pressed"
+            onClick={() => onTerminateSubcluster(id)}
+          >
+            <TextComponent
+              variant={TextVariant.BodySm}
+              color={TextColor.ErrorInverse}
+            >
+              Terminate
+            </TextComponent>
+          </ButtonBase>
+
+          <ButtonBase
+            className="h-auto flex-row justify-center rounded-md bg-muted py-1 hover:bg-muted-hover active:bg-muted-pressed"
+            onClick={() => setIsConfigModalOpen(true)}
+          >
+            <TextComponent
+              variant={TextVariant.BodySm}
+              color={TextColor.TextDefault}
+            >
+              View Config
+            </TextComponent>
+          </ButtonBase>
+        </Box>
         <VatTable
           vats={vats}
           onPingVat={onPingVat}
@@ -88,15 +115,15 @@ export const SubclusterAccordion: React.FC<{
         title={`Subcluster ${id} Configuration`}
         size="md"
       >
-        <div className="configModalContent">
+        <Box className="flex flex-col gap-4">
           <textarea
-            className="configTextarea"
+            className="font-mono text-sm border border-border-default rounded-md p-4 bg-background-alternative text-text-default resize-none w-full min-h-[350px] leading-relaxed whitespace-pre overflow-auto"
             value={formattedConfig}
             readOnly
             rows={20}
             data-testid="config-textarea"
           />
-        </div>
+        </Box>
       </Modal>
     </>
   );

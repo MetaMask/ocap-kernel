@@ -4,5 +4,10 @@
 /* MetaMask Design Tokens */
 @import '@metamask/design-tokens/styles.css';
 
-/* Custom styles - must come after Tailwind to override */
-@import './custom';
+html,
+body,
+body > div {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}

@@ -1,4 +1,13 @@
-import { Button, ButtonVariant } from '@metamask/design-system-react';
+import {
+  Button,
+  ButtonVariant,
+  Text as TextComponent,
+  TextVariant,
+  Box,
+  FontWeight,
+  ButtonSize,
+  TextColor,
+} from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
 import type { Json } from '@metamask/utils';
 import { useState, useMemo } from 'react';
@@ -80,16 +89,28 @@ export const SendMessageForm: React.FC = () => {
   }
 
   return (
-    <div className="messageInputSection">
-      <h3>Send Message</h3>
-      <div className="horizontalForm">
-        <div className="formFieldTarget">
-          <label htmlFor="message-target">Target:</label>
+    <Box className="bg-section p-4 rounded mb-4">
+      <TextComponent
+        variant={TextVariant.BodySm}
+        fontWeight={FontWeight.Medium}
+        className="mb-4"
+      >
+        Send Message
+      </TextComponent>
+      <Box className="flex flex-col lg:flex-row gap-3">
+        <Box className="flex flex-col flex-1 lg:flex-none lg:w-[200px]">
+          <label
+            htmlFor="message-target"
+            className="mb-1 text-sm text-text-default"
+          >
+            Target:
+          </label>
           <select
             id="message-target"
             value={target}
             onChange={(event) => setTarget(event.target.value)}
             data-testid="message-target"
+            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default cursor-pointer transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
           >
             <option value="" disabled>
               Select target
@@ -100,9 +121,14 @@ export const SendMessageForm: React.FC = () => {
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label htmlFor="message-method">Method:</label>
+        </Box>
+        <Box className="flex flex-col flex-1">
+          <label
+            htmlFor="message-method"
+            className="mb-1 text-sm text-text-default"
+          >
+            Method:
+          </label>
           <input
             id="message-method"
             type="text"
@@ -111,10 +137,16 @@ export const SendMessageForm: React.FC = () => {
             placeholder="methodName"
             onKeyDown={handleKeyDown}
             data-testid="message-method"
+            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
           />
-        </div>
-        <div>
-          <label htmlFor="message-params">Params (JSON):</label>
+        </Box>
+        <Box className="flex flex-col flex-1">
+          <label
+            htmlFor="message-params"
+            className="mb-1 text-sm text-text-default"
+          >
+            Params (JSON):
+          </label>
           <input
             id="message-params"
             value={paramsText}
@@ -122,25 +154,42 @@ export const SendMessageForm: React.FC = () => {
             placeholder="[arg1, arg2]"
             onKeyDown={handleKeyDown}
             data-testid="message-params"
+            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
           />
-        </div>
-        <div style={{ flex: 'none', width: 66, paddingTop: 18 }}>
+        </Box>
+        <Box className="flex flex-none lg:w-[80px] items-end">
           <Button
             variant={ButtonVariant.Primary}
+            size={ButtonSize.Sm}
             onClick={handleSend}
             isDisabled={!(target.trim() && method.trim())}
+            className="h-9 rounded-md"
             data-testid="message-send-button"
           >
-            Send
+            <TextComponent
+              variant={TextVariant.BodyMd}
+              color={TextColor.PrimaryInverse}
+              className="select-none"
+            >
+              Send
+            </TextComponent>
           </Button>
-        </div>
-      </div>
+        </Box>
+      </Box>
       {result && (
-        <div className="messageResponse" data-testid="message-response">
-          <h4>Response:</h4>
-          <pre>{stringify(result, 0)}</pre>
-        </div>
+        <Box className="mt-4 font-mono text-sm" data-testid="message-response">
+          <TextComponent
+            variant={TextVariant.BodySm}
+            fontWeight={FontWeight.Medium}
+            className="mb-2"
+          >
+            Response:
+          </TextComponent>
+          <pre className="p-3 rounded overflow-auto bg-background-default">
+            {stringify(result, 0)}
+          </pre>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };

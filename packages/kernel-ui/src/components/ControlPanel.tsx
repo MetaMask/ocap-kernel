@@ -5,10 +5,7 @@ import { SubclustersTable } from './SubclustersTable.tsx';
 export const ControlPanel: React.FC = () => {
   return (
     <>
-      <div className="headerSection">
-        <h2 className="noMargin">Kernel</h2>
-        <KernelControls />
-      </div>
+      <KernelControls />
       <SubclustersTable />
       <LaunchSubcluster />
     </>

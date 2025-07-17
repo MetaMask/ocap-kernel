@@ -40,7 +40,7 @@ export function useRegistry(): {
       callKernelMethod({ method: 'revoke', params: { kref } })
         .then(() => fetchObjectRegistry())
         .then(() => logMessage(`Revoked object ${kref}`, 'success'))
-        .catch((error) =>
+        .catch((error: Error) =>
           logMessage(
             `Failed to revoke object ${kref}: ${error.message}`,
             'error',
