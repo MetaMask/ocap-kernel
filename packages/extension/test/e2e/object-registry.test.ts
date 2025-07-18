@@ -37,6 +37,7 @@ test.describe('Object Registry', () => {
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
+    console.log('options', options);
     await expect(options).toHaveCount(await options.count());
     expect(await options.count()).toBeGreaterThan(0);
     await targetSelect.selectOption({ index: 1 });
@@ -67,7 +68,7 @@ test.describe('Object Registry', () => {
 
   test('should revoke an object', async () => {
     const owner = 'v1';
-    const [target, method, params] = ['ko1', 'hello', '["Bob"]'];
+    const [target, method, params] = ['ko3', 'hello', '["Bob"]'];
 
     // Before revoking, we should be able to send a message to the object
     let response = await sendMessage(popupPage, target, method, params);

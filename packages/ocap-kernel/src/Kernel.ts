@@ -56,9 +56,6 @@ type KernelService = {
   service: object;
 };
 
-// XXX See #egregiousDebugHack below
-let foolTheCompiler: string = 'start';
-
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
   readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
@@ -120,9 +117,6 @@ export class Kernel {
       logger?: Logger;
     } = {},
   ) {
-    // XXX See #egregiousDebugHack below
-    foolTheCompiler = 'nope';
-
     this.#commandStream = commandStream;
     this.#rpcService = new RpcService(kernelHandlers, {});
     this.#vats = new Map();
@@ -832,29 +826,6 @@ export class Kernel {
     }
   }
 
-  async #egregiousDebugHack(): Promise<void> {
-    if (this.#remoteComms) {
-      // We deliberately use `let` rather than `const` for the URL string. It is
-      // stored in a variable specifically to enable it to be modified in the
-      // debugger.  Unfortunately, we have to jump through some hoops to prevent
-      // the compiler's control flow analysis from removing it -- and the entire
-      // subsequent `if` block that tests it! -- from the generated code. To
-      // this end, the variable `foolTheCompiler` is defined as a global
-      // initialized with one value and then deliberately and gratuitously
-      // modified in the constructor to a different value, because TypeScript
-      // lacks anything like a `volatile` declaration.
-
-      // eslint-disable-next-line prefer-const
-      let url: string = 'nope';
-      // eslint-disable-next-line no-debugger
-      debugger;
-
-      if (url !== foolTheCompiler) {
-        await this.queueMessage('ko3', 'doRunRun', [url]);
-      }
-    }
-  }
-
   /**
    * Collect garbage.
    * This is for debugging purposes only.
@@ -864,14 +835,6 @@ export class Kernel {
       // wait for all vats to be cleaned up
     }
     this.#kernelStore.collectGarbage();
-
-    // XXX REMOVE THIS Stupid debug trick: In order to exercise the remote
-    // connection machinery (in service of attempting to get said machinery to
-    // actually work), we need a way during debugging to trigger the kernel to
-    // try to set up and use a remote connection.  The control panel's 'Collect
-    // Garbage' button turns out to be a super convenient one-click "hey kernel
-    // please do something" hook to parasitize for this purpose.
-    this.#egregiousDebugHack().catch(() => undefined);
   }
 
   registerKernelServiceObject(name: string, service: object): void {
