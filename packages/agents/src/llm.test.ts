@@ -3,14 +3,27 @@ import { consoleTransport, Logger } from '@metamask/logger';
 import { kunser } from '@metamask/ocap-kernel';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { makeKernel } from '@ocap/nodejs';
-import { expect, describe, it, beforeEach } from 'vitest';
+import { expect, describe, it, beforeEach, vi } from 'vitest';
 
+import { makeLlm } from './llm.ts';
 import { getBundleSpec } from './vats/index.ts';
 
 const logger = new Logger({
   tags: ['test'],
   transports: [consoleTransport],
 });
+
+const mocks = vi.hoisted(() => ({
+  Ollama: vi.fn(() => ({
+    generate: vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: vi.fn(),
+    }),
+    chat: vi.fn().mockResolvedValue({
+      [Symbol.asyncIterator]: vi.fn(),
+    }),
+  })),
+  makeFarGenerator: vi.fn(),
+}));
 
 describe('llm', () => {
   let kernel: Kernel;
@@ -21,6 +34,41 @@ describe('llm', () => {
       dbFilename: ':memory:',
       logger,
     });
+  });
+
+  vi.mock('ollama/browser', () => ({
+    Ollama: mocks.Ollama,
+  }));
+
+  vi.mock('@metamask/streams/vat', () => ({
+    makeFarGenerator: mocks.makeFarGenerator,
+  }));
+
+  describe('makeLlm', () => {
+    it('should return an object with generate and chat methods', async () => {
+      const llm = await makeLlm();
+      expect(llm).toHaveProperty('generate');
+      expect(llm).toHaveProperty('chat');
+    });
+
+    it('should pass config to Ollama', async () => {
+      const config = { host: 'http://test' };
+      await makeLlm(config);
+      // check that the Ollama constructor was called with the correct config
+      expect(mocks.Ollama).toHaveBeenCalledOnce();
+      expect(mocks.Ollama.mock.calls?.[0]).toMatchObject([config]);
+    });
+
+    it.each(['generate', 'chat'])(
+      'should promise a FarGenerator from its %s method',
+      async (method) => {
+        const llm = await makeLlm();
+        // @ts-expect-error The underlying ollama library is mocked in these tests
+        const result = await llm[method as keyof typeof llm]();
+        expect(mocks.makeFarGenerator).toHaveBeenCalledOnce();
+        expect(mocks.makeFarGenerator.mock.calls?.[0]).toMatchObject([result]);
+      },
+    );
   });
 
   // Only run in development mode
