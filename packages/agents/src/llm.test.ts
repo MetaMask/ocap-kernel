@@ -23,30 +23,34 @@ describe('llm', () => {
     });
   });
 
-  it(
-    'should be able to generate text',
-    {
-      timeout: 5_000,
-    },
-    async () => {
-      console.log('Starting test');
-      const prompt = 'Count to 6. Do not use any words.';
-      const result = await kernel.launchSubcluster({
-        bootstrap: 'user',
-        vats: {
-          user: {
-            bundleSpec: getBundleSpec('user'),
-            parameters: { name: 'Alice', prompt },
+  // Only run in development mode
+  // eslint-disable-next-line n/no-process-env
+  describe.runIf(process.env.NODE_ENV === 'development')('integration', () => {
+    it(
+      'should be able to generate text',
+      {
+        timeout: 5_000,
+      },
+      async () => {
+        console.log('Starting test');
+        const prompt = 'Count to 6. Do not use any words.';
+        const result = await kernel.launchSubcluster({
+          bootstrap: 'user',
+          vats: {
+            user: {
+              bundleSpec: getBundleSpec('user'),
+              parameters: { name: 'Alice', prompt },
+            },
+            ollama: {
+              bundleSpec: getBundleSpec('ollama'),
+            },
           },
-          ollama: {
-            bundleSpec: getBundleSpec('ollama'),
-          },
-        },
-      });
-      expect(result).toBeDefined();
-      const llmResponse = kunser(result as Parameters<typeof kunser>[0]);
-      expect(typeof llmResponse).toBe('string');
-      expect(llmResponse).toMatch(/1[^0-9]*2[^0-9]*3[^0-9]*4[^0-9]*5/u);
-    },
-  );
+        });
+        expect(result).toBeDefined();
+        const llmResponse = kunser(result as Parameters<typeof kunser>[0]);
+        expect(typeof llmResponse).toBe('string');
+        expect(llmResponse).toMatch(/1[^0-9]*2[^0-9]*3[^0-9]*4[^0-9]*5/u);
+      },
+    );
+  });
 });
