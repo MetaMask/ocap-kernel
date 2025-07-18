@@ -1,13 +1,9 @@
 {
-  "name": "@metamask/kernel-browser-runtime",
-  "version": "0.2.0",
-  "description": "Tools for running the MetaMask Ocap Kernel in a web browser",
-  "keywords": [
-    "MetaMask",
-    "object capabilities",
-    "ocap"
-  ],
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-browser-runtime#readme",
+  "name": "@ocap/agents",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A starting point for LLM integration",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/agents#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -15,69 +11,31 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
-  "license": "SEE LICENSE IN LICENSE",
-  "sideEffects": false,
   "type": "module",
   "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./package.json": "./package.json",
-    "./default-cluster": "./dist/default-cluster.json"
+    "./package.json": "./package.json"
   },
-  "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
-  "types": "./dist/index.d.cts",
   "files": [
-    "dist/",
-    "default-cluster.js"
+    "dist/"
   ],
   "scripts": {
-    "build": "yarn build:ts && yarn build:vite",
-    "build:dev": "yarn build:ts && yarn build:vite:dev",
-    "build:ts": "ts-bridge --project tsconfig.build.json --clean",
-    "build:vite": "vite build --config vite.config.ts && yarn test:build",
-    "build:vite:dev": "vite build --config vite.config.ts --mode development",
+    "build": "ts-bridge --project tsconfig.build.json --clean && yarn build:vats",
     "build:docs": "typedoc",
-    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-browser-runtime",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-browser-runtime",
+    "build:vats": "ocap bundle src/vats",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/agents",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+    "ollama:pull": "node scripts/ollama-pull.js",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
-    "test:build": "node ./test/build-tests.mjs",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
-  },
-  "dependencies": {
-    "@endo/marshal": "^1.6.4",
-    "@metamask/json-rpc-engine": "^10.0.3",
-    "@metamask/kernel-errors": "workspace:^",
-    "@metamask/kernel-rpc-methods": "workspace:^",
-    "@metamask/kernel-store": "workspace:^",
-    "@metamask/kernel-utils": "workspace:^",
-    "@metamask/logger": "workspace:^",
-    "@metamask/ocap-kernel": "workspace:^",
-    "@metamask/rpc-errors": "^7.0.2",
-    "@metamask/snaps-utils": "^9.1.0",
-    "@metamask/streams": "workspace:^",
-    "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0",
-    "nanoid": "^5.1.5",
-    "ses": "^1.13.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
@@ -85,10 +43,14 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
+    "@metamask/logger": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
+    "@ocap/cli": "workspace:^",
+    "@ocap/nodejs": "workspace:^",
     "@ocap/test-utils": "workspace:^",
-    "@ocap/vite-plugins": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
+    "@types/node": "^22.13.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
@@ -108,16 +70,14 @@
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
     "vite": "^6.3.5",
-    "vite-plugin-checker": "^0.9.1",
-    "vite-plugin-node-polyfills": "^0.24.0",
-    "vite-plugin-static-copy": "^2.3.0",
     "vitest": "^3.1.3"
   },
   "engines": {
     "node": "^20 || >=22"
   },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
+  "dependencies": {
+    "@endo/far": "^1.1.11",
+    "@metamask/streams": "workspace:^",
+    "ollama": "^0.5.16"
   }
 }
