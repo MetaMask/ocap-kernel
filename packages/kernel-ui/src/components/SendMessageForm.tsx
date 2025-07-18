@@ -97,7 +97,7 @@ export const SendMessageForm: React.FC = () => {
       >
         Send Message
       </TextComponent>
-      <Box className="flex flex-col lg:flex-row gap-3">
+      <Box className="flex flex-col sm:flex-row gap-3">
         <Box className="flex flex-col flex-1 lg:flex-none lg:w-[200px]">
           <label
             htmlFor="message-target"

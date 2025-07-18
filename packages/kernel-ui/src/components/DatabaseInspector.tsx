@@ -70,7 +70,7 @@ export const DatabaseInspector: React.FC = () => {
   return (
     <Box>
       <Box className="mb-6">
-        <Box className="flex flex-col lg:flex-row gap-6">
+        <Box className="flex flex-col md:flex-row gap-6">
           <Box className="flex flex-col gap-3">
             <TextComponent
               variant={TextVariant.BodySm}

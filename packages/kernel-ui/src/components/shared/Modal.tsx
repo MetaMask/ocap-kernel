@@ -89,7 +89,7 @@ export const Modal: React.FC<ModalProps> = ({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <Box
+      <div
         className={`bg-background-default rounded-lg shadow-lg max-h-[90vh] overflow-hidden ${widthClass}`}
         ref={modalRef}
         tabIndex={-1}
@@ -106,7 +106,7 @@ export const Modal: React.FC<ModalProps> = ({
           />
         </Box>
         <Box className="p-4 overflow-y-auto">{children}</Box>
-      </Box>
+      </div>
     </Box>
   );
 };

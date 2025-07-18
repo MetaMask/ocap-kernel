@@ -6,6 +6,14 @@ import type { StreamState } from './hooks/useStream.ts';
 
 setupOcapKernelMock();
 
+vi.mock('./hooks/useStream.ts', () => ({
+  useStream: vi.fn(),
+}));
+
+vi.mock('./hooks/useDarkMode.ts', () => ({
+  useDarkMode: vi.fn(),
+}));
+
 describe('App', () => {
   beforeEach(() => {
     cleanup();
@@ -46,6 +54,6 @@ describe('App', () => {
     } as unknown as StreamState);
     const { App } = await import('./App.tsx');
     render(<App />);
-    expect(screen.getByText('Kernel')).toBeInTheDocument();
+    expect(screen.getByText('Control Panel')).toBeInTheDocument();
   });
 });

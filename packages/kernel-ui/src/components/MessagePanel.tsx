@@ -82,7 +82,7 @@ export const MessagePanel: React.FC = () => {
           </TextButton>
         )}
       </Box>
-      <Box
+      <div
         className="flex-1 font-mono text-xs leading-relaxed p-3 rounded-none text-text-default overflow-y-auto"
         style={{
           boxShadow: 'inset 0 0 10px 0 var(--color-shadow-default)',
@@ -101,7 +101,7 @@ export const MessagePanel: React.FC = () => {
           ))}
           {isLoading && <LoadingDots />}
         </Box>
-      </Box>
+      </div>
     </Box>
   );
 };

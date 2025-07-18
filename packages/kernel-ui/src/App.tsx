@@ -12,7 +12,7 @@ import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
-// import { useDarkMode } from './hooks/useDarkMode.ts';
+import { useDarkMode } from './hooks/useDarkMode.ts';
 import { useStream } from './hooks/useStream.ts';
 
 const tabs: NonEmptyArray<{
@@ -37,11 +37,11 @@ export const App: React.FC = () => {
   const { callKernelMethod, error } = useStream();
   const [activeTab, setActiveTab] = useState(tabs[0].value);
 
-  // useDarkMode();
+  useDarkMode();
 
   if (error) {
     return (
-      <Box className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[600px] min-h-full">
+      <Box className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[650px] min-h-full">
         <TextComponent color={TextColor.ErrorDefault}>
           Error connecting to kernel: {error.message}
         </TextComponent>
@@ -51,7 +51,7 @@ export const App: React.FC = () => {
 
   if (!callKernelMethod) {
     return (
-      <Box className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[600px] min-h-full">
+      <Box className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[650px] min-h-full">
         <TextComponent>Connecting to kernel...</TextComponent>
       </Box>
     );
@@ -59,7 +59,7 @@ export const App: React.FC = () => {
 
   return (
     <PanelProvider callKernelMethod={callKernelMethod}>
-      <Box className="bg-background-default p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[600px] min-h-full">
+      <Box className="bg-background-default p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[650px] min-h-full">
         <Box className="min-w-0">
           <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           {tabs.find((tab) => tab.value === activeTab)?.component}

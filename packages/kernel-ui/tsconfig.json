@@ -27,6 +27,7 @@
     "./src/**/*.ts",
     "./src/**/*.tsx",
     "./test/**/*.ts",
+    "./test/**/*.tsx",
     "./vite.config.ts",
     "./vitest.config.ts"
   ]

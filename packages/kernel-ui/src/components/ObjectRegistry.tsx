@@ -178,8 +178,9 @@ export const ObjectRegistry: React.FC = () => {
             {vatData.ownedObjects.length > 0 && (
               <Box className="mt-6">
                 <TextComponent
-                  variant={TextVariant.BodyMd}
-                  className="mb-3 font-bold px-3"
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
                 >
                   Owned Objects
                 </TextComponent>
@@ -305,8 +306,9 @@ export const ObjectRegistry: React.FC = () => {
             {vatData.importedObjects.length > 0 && (
               <Box className="mt-6">
                 <TextComponent
-                  variant={TextVariant.BodyMd}
-                  className="mb-3 font-bold px-3"
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
                 >
                   Imported Objects
                 </TextComponent>
@@ -401,8 +403,9 @@ export const ObjectRegistry: React.FC = () => {
             {vatData.importedPromises.length > 0 && (
               <Box className="mt-6">
                 <TextComponent
-                  variant={TextVariant.BodyMd}
-                  className="mb-3 font-bold px-3"
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
                 >
                   Imported Promises
                 </TextComponent>
@@ -538,8 +541,9 @@ export const ObjectRegistry: React.FC = () => {
             {vatData.exportedPromises.length > 0 && (
               <Box className="mt-6">
                 <TextComponent
-                  variant={TextVariant.BodyMd}
-                  className="mb-3 font-bold px-3"
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
                 >
                   Exported Promises
                 </TextComponent>
