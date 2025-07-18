@@ -68,10 +68,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/agents/**': {
-          statements: 22.22,
-          functions: 40,
-          branches: 0,
-          lines: 22.22,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/cli/**': {
           statements: 70.22,
