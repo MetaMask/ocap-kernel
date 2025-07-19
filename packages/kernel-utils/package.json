@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@endo/captp": "^4.4.5",
+    "@endo/errors": "^1.2.13",
     "@endo/promise-kit": "^1.1.10",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",

@@ -32,11 +32,12 @@ test.describe('Object Registry', () => {
     await clearLogsButton.click();
     await popupPage.click('button:text("Object Registry")');
     await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 3 promises',
+      'Alice (v1) - 5 objects, 4 promises',
     );
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
+    console.log('options', options);
     await expect(options).toHaveCount(await options.count());
     expect(await options.count()).toBeGreaterThan(0);
     await targetSelect.selectOption({ index: 1 });
@@ -51,7 +52,7 @@ test.describe('Object Registry', () => {
     );
     await expect(messageResponse).toBeVisible();
     await expect(messageResponse).toContainText(
-      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
+      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"doRunRun\\",\\"hello\\"]"',
     );
     await expect(messageResponse).toContainText('"slots":[]');
     await clearLogsButton.click();
@@ -61,13 +62,13 @@ test.describe('Object Registry', () => {
     await expect(messageResponse).toContainText('"body":"#\\"vat Alice got');
     await expect(messageResponse).toContainText('"slots":[');
     await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 5 promises',
+      'Alice (v1) - 5 objects, 6 promises',
     );
   });
 
   test('should revoke an object', async () => {
     const owner = 'v1';
-    const [target, method, params] = ['ko1', 'hello', '["Bob"]'];
+    const [target, method, params] = ['ko3', 'hello', '["Bob"]'];
 
     // Before revoking, we should be able to send a message to the object
     let response = await sendMessage(popupPage, target, method, params);

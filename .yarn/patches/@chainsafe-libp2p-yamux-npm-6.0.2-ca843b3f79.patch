@@ -1,0 +1,41 @@
+diff --git a/dist/src/decode.js b/dist/src/decode.js
+index b2906243c57e0fe838e4510cd4b53d36b6e17ebf..2bfe711cde98de5a0ba4aaea75861f7389c4307b 100644
+--- a/dist/src/decode.js
++++ b/dist/src/decode.js
+@@ -112,14 +112,14 @@ export class Decoder {
+ export function returnlessSource(source) {
+     if (source[Symbol.iterator] !== undefined) {
+         const iterator = source[Symbol.iterator]();
+-        iterator.return = undefined;
++        Object.defineProperty(iterator, 'return', {});
+         return {
+             [Symbol.iterator]() { return iterator; }
+         };
+     }
+     else if (source[Symbol.asyncIterator] !== undefined) {
+         const iterator = source[Symbol.asyncIterator]();
+-        iterator.return = undefined;
++        Object.defineProperty(iterator, 'return', {});
+         return {
+             [Symbol.asyncIterator]() { return iterator; }
+         };
+diff --git a/src/decode.ts b/src/decode.ts
+index 56440b95afba0330d5ece77a2f737c79a80155b2..2429fa8cf3206389b9a4b5ae395c8d402872eae9 100644
+--- a/src/decode.ts
++++ b/src/decode.ts
+@@ -128,13 +128,13 @@ export class Decoder {
+ export function returnlessSource<T> (source: Source<T>): Source<T> {
+   if ((source as Iterable<T>)[Symbol.iterator] !== undefined) {
+     const iterator = (source as Iterable<T>)[Symbol.iterator]()
+-    iterator.return = undefined
++    Object.defineProperty(iterator, 'return', {});
+     return {
+       [Symbol.iterator] () { return iterator }
+     }
+   } else if ((source as AsyncIterable<T>)[Symbol.asyncIterator] !== undefined) {
+     const iterator = (source as AsyncIterable<T>)[Symbol.asyncIterator]()
+-    iterator.return = undefined
++    Object.defineProperty(iterator, 'return', {});
+     return {
+       [Symbol.asyncIterator] () { return iterator }
+     }

@@ -40,6 +40,7 @@
   "dependencies": {
     "@endo/far": "^1.1.11",
     "@endo/promise-kit": "^1.1.10",
+    "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",

@@ -115,7 +115,7 @@ export function getCListMethods(ctx: StoreContext) {
   }
 
   /**
-   * Look up the KRef that and endpoint's c-list maps an ERef to.
+   * Look up the KRef that an endpoint's c-list maps an ERef to.
    *
    * @param endpointId - The endpoint in question.
    * @param kref - The KRef to look up.
@@ -133,7 +133,7 @@ export function getCListMethods(ctx: StoreContext) {
   }
 
   /**
-   * Look up the ERef that and endpoint's c-list maps a KRef to.
+   * Look up the ERefs that an endpoint's c-list maps aa list of KRefs to.
    *
    * @param endpointId - The endpoint in question.
    * @param krefs - The KRefs to look up.
