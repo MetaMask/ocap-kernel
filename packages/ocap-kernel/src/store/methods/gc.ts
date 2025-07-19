@@ -149,7 +149,7 @@ export function getGCMethods(ctx: StoreContext) {
           const ownerKey = getOwnerKey(kref);
           let ownerVatID = ctx.kv.get(ownerKey);
           if (ownerVatID === 'kernel') {
-            ownerVatID = undefined;
+            continue;
           }
           const terminated = isVatTerminated(ownerVatID as VatId);
 

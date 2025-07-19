@@ -16,7 +16,7 @@ import type {
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
 import { getVatMethods } from './vat.ts';
-import { Fail } from '../../utils/assert.ts';
+import { Fail, assert } from '../../utils/assert.ts';
 
 /**
  * Create a translator object that provides functionality for translating
@@ -77,7 +77,7 @@ export function getTranslators(ctx: StoreContext) {
       // polarity of the RRef but EtoK doesn't.
       // eslint-disable-next-line require-unicode-regexp
       const parts = eref.match(/^(r[op])([-+])(\d+)$/);
-      assert(parts?.[1] && parts?.[2] && parts?.[3]);
+      assert(parts?.length === 4);
       eref = `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}`;
     }
     return eref;

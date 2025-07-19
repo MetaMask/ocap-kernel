@@ -24,9 +24,10 @@ export function toHex(arr: Uint8Array): string {
 }
 
 /**
- * Convert a hex string into a Uint8Array.
+ * Convert a hex string into a 32-byte fixed-length Uint8Array.
  *
- * @param str - The string to convert.
+ * @param str - The hex string to convert.  If shorter than the 64 characters
+ * needed to encode 32 bytes, remaining bytes in the result will be 0.
  *
  * @returns the bytes described by `str`.
  */
