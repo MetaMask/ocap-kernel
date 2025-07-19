@@ -3330,6 +3330,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/kernel-browser-runtime": "workspace:^"
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
