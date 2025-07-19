@@ -1,11 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import {
-  revokeObject,
-  sendMessage,
-  openObjectRegistryTab,
-} from './object-registry.ts';
+import { revokeObject, sendMessage } from './object-registry.ts';
 import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe.configure({ mode: 'serial' });
@@ -18,7 +14,9 @@ test.describe('Object Registry', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await openObjectRegistryTab(popupPage, expect);
+    const registryButton = popupPage.locator('button:text("Object Registry")');
+    await expect(registryButton).toBeVisible();
+    await registryButton.click();
   });
 
   test.afterEach(async () => {
