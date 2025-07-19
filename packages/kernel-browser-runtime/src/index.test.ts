@@ -8,6 +8,7 @@ describe('index', () => {
       'PlatformServicesClient',
       'PlatformServicesServer',
       'establishKernelConnection',
+      'initRemoteComms',
       'makeIframeVatWorker',
       'receiveUiConnections',
       'rpcHandlers',
