@@ -2036,6 +2036,7 @@ __metadata:
     "@metamask/streams": "workspace:^"
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.4.0"
+    "@mlc-ai/web-llm": "npm:^0.2.79"
     "@ocap/test-utils": "workspace:^"
     "@ocap/vite-plugins": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
@@ -2723,6 +2724,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mlc-ai/web-llm@npm:^0.2.79":
+  version: 0.2.79
+  resolution: "@mlc-ai/web-llm@npm:0.2.79"
+  dependencies:
+    loglevel: "npm:^1.9.1"
+  checksum: 10/133a54b2efaa2d6bf2cb6773fbf1bdda07d7a1ba6c30d756ee2e93fedae1b4244c0d93c273d6a69b68b4addec3141c8ae3bc92e00a9d49875f76d89fc24cd7a4
+  languageName: node
+  linkType: hard
+
 "@multiformats/dns@npm:^1.0.3, @multiformats/dns@npm:^1.0.6":
   version: 1.0.6
   resolution: "@multiformats/dns@npm:1.0.6"
@@ -2971,7 +2981,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ocap/agents@workspace:packages/agents":
+"@ocap/agents@workspace:^, @ocap/agents@workspace:packages/agents":
   version: 0.0.0-use.local
   resolution: "@ocap/agents@workspace:packages/agents"
   dependencies:
@@ -3237,6 +3247,7 @@ __metadata:
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.0"
+    "@ocap/agents": "workspace:^"
     "@ocap/cli": "workspace:^"
     "@ocap/nodejs": "workspace:^"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
@@ -10248,6 +10259,13 @@ __metadata:
     strip-ansi: "npm:^7.1.0"
     wrap-ansi: "npm:^9.0.0"
   checksum: 10/5abb4131e33b1e7f8416bb194fe17a3603d83e4657c5bf5bb81ce4187f3b00ea481643b85c3d5cefe6037a452cdcf7f1391ab8ea0d9c23e75d19589830ec4f11
+  languageName: node
+  linkType: hard
+
+"loglevel@npm:^1.9.1":
+  version: 1.9.2
+  resolution: "loglevel@npm:1.9.2"
+  checksum: 10/6153d8db308323f7ee20130bc40309e7a976c30a10379d8666b596d9c6441965c3e074c8d7ee3347fe5cfc059c0375b6f3e8a10b93d5b813cc5547f5aa412a29
   languageName: node
   linkType: hard
 
