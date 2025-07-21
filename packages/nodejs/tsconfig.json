@@ -8,6 +8,7 @@
     "types": ["node", "ses", "vitest"]
   },
   "references": [
+    { "path": "../agents" },
     { "path": "../ocap-kernel" },
     { "path": "../logger" },
     { "path": "../streams" },

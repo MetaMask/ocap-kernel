@@ -47,6 +47,8 @@
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
     "@metamask/utils": "^11.4.0",
+    "@ocap/agents": "workspace:^",
+    "ollama": "^0.5.16",
     "ses": "^1.13.0"
   },
   "devDependencies": {
