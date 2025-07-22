@@ -13,7 +13,19 @@
   },
   "type": "module",
   "exports": {
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./llm-provider/ollama": "./src/llm-provider/ollama.ts",
+    "./llm-provider/web-llm": "./src/llm-provider/web-llm.ts"
   },
   "files": [
     "dist/"
@@ -21,7 +33,6 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean && yarn build:vats",
     "build:docs": "typedoc",
-    "build:vats": "ocap bundle src/vats",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/agents",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
@@ -78,6 +89,7 @@
   "dependencies": {
     "@endo/far": "^1.1.11",
     "@metamask/streams": "workspace:^",
+    "@mlc-ai/web-llm": "^0.2.79",
     "ollama": "^0.5.16"
   }
 }

@@ -2994,6 +2994,7 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
+    "@mlc-ai/web-llm": "npm:^0.2.79"
     "@ocap/cli": "workspace:^"
     "@ocap/nodejs": "workspace:^"
     "@ocap/test-utils": "workspace:^"

@@ -10,7 +10,6 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'agents',
-        env: { NODE_ENV: args.mode === 'development' ? 'development' : 'test' },
       },
     }),
   );
