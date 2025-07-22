@@ -76,7 +76,6 @@
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.0",
-    "@mlc-ai/web-llm": "^0.2.79",
     "nanoid": "^5.1.5",
     "ses": "^1.13.0"
   },
