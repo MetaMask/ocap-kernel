@@ -24,8 +24,36 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./llm-provider/ollama": "./src/llm-provider/ollama.ts",
-    "./llm-provider/web-llm": "./src/llm-provider/web-llm.ts"
+    "./llm-provider/ollama": {
+      "import": {
+        "types": "./dist/llm-provider/ollama.d.mts",
+        "default": "./dist/llm-provider/ollama.mjs"
+      },
+      "require": {
+        "types": "./dist/llm-provider/ollama.d.cts",
+        "default": "./dist/llm-provider/ollama.cjs"
+      }
+    },
+    "./llm-provider/ollama-browser": {
+      "import": {
+        "types": "./dist/llm-provider/ollama-browser.d.mts",
+        "default": "./dist/llm-provider/ollama-browser.mjs"
+      },
+      "require": {
+        "types": "./dist/llm-provider/ollama-browser.d.cts",
+        "default": "./dist/llm-provider/ollama-browser.cjs"
+      }
+    },
+    "./llm-provider/web-llm": {
+      "import": {
+        "types": "./dist/llm-provider/web-llm.d.mts",
+        "default": "./dist/llm-provider/web-llm.mjs"
+      },
+      "require": {
+        "types": "./dist/llm-provider/web-llm.d.cts",
+        "default": "./dist/llm-provider/web-llm.cjs"
+      }
+    }
   },
   "files": [
     "dist/"
