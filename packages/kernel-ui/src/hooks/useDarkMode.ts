@@ -5,23 +5,18 @@ import { useLayoutEffect, useEffect, useState } from 'react';
  * Automatically applies/removes the 'dark' class to the document root.
  */
 export const useDarkMode = (): void => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  );
 
   // Check system preference for dark mode
   useLayoutEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDarkMode(mediaQuery.matches);
-
     const handleChange = (event: MediaQueryListEvent): void => {
       setIsDarkMode(event.matches);
     };
-
     mediaQuery.addEventListener('change', handleChange);
-    // Force a change event to ensure the initial state is set
-    mediaQuery.dispatchEvent(
-      new MediaQueryListEvent('change', { matches: true }),
-    );
-
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 

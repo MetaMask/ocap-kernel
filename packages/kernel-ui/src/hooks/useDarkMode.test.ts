@@ -4,37 +4,35 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useDarkMode } from './useDarkMode.ts';
 
 describe('useDarkMode', () => {
-  let mockMediaQuery: MediaQueryList;
   let mockAddEventListener: ReturnType<typeof vi.fn>;
   let mockRemoveEventListener: ReturnType<typeof vi.fn>;
   let mockDispatchEvent: ReturnType<typeof vi.fn>;
+  let mockClassList: {
+    add: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+  };
 
-  beforeEach(() => {
-    // Mock MediaQueryList
-    mockAddEventListener = vi.fn();
-    mockRemoveEventListener = vi.fn();
-    mockDispatchEvent = vi.fn();
-
-    mockMediaQuery = {
-      matches: false,
+  const createMockMediaQuery = (matches: boolean): MediaQueryList =>
+    ({
+      matches,
       media: '(prefers-color-scheme: dark)',
       addEventListener: mockAddEventListener,
       removeEventListener: mockRemoveEventListener,
       dispatchEvent: mockDispatchEvent,
       onchange: null,
-    } as unknown as MediaQueryList;
+    }) as unknown as MediaQueryList;
 
-    // Mock window.matchMedia
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockReturnValue(mockMediaQuery),
-    });
-
-    // Mock document.documentElement.classList
-    const mockClassList = {
+  beforeEach(() => {
+    // Reset mocks
+    mockAddEventListener = vi.fn();
+    mockRemoveEventListener = vi.fn();
+    mockDispatchEvent = vi.fn();
+    mockClassList = {
       add: vi.fn(),
       remove: vi.fn(),
     };
+
+    // Mock document.documentElement.classList
     Object.defineProperty(document.documentElement, 'classList', {
       writable: true,
       value: mockClassList,
@@ -46,26 +44,38 @@ describe('useDarkMode', () => {
   });
 
   it('should initialize with light mode when system preference is light', () => {
-    mockMediaQuery.matches = false;
+    const lightModeMock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(lightModeMock),
+    });
 
     renderHook(() => useDarkMode());
 
-    expect(document.documentElement.classList.remove).toHaveBeenCalledWith(
-      'dark',
-    );
-    expect(document.documentElement.classList.add).not.toHaveBeenCalled();
+    expect(mockClassList.remove).toHaveBeenCalledWith('dark');
+    expect(mockClassList.add).not.toHaveBeenCalled();
   });
 
   it('should initialize with dark mode when system preference is dark', () => {
-    mockMediaQuery.matches = true;
+    const darkModeMock = createMockMediaQuery(true);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(darkModeMock),
+    });
 
     renderHook(() => useDarkMode());
 
-    expect(document.documentElement.classList.add).toHaveBeenCalledWith('dark');
-    expect(document.documentElement.classList.remove).not.toHaveBeenCalled();
+    expect(mockClassList.add).toHaveBeenCalledWith('dark');
+    expect(mockClassList.remove).not.toHaveBeenCalled();
   });
 
   it('should add event listener for media query changes', () => {
+    const mock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
+
     renderHook(() => useDarkMode());
 
     expect(mockAddEventListener).toHaveBeenCalledWith(
@@ -74,24 +84,19 @@ describe('useDarkMode', () => {
     );
   });
 
-  it('should dispatch change event to ensure initial state is set', () => {
-    renderHook(() => useDarkMode());
-
-    expect(mockDispatchEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'change',
-        matches: true,
-      }),
-    );
-  });
-
   it('should handle media query change to dark mode', () => {
-    mockMediaQuery.matches = false;
+    const mock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
 
     const { rerender } = renderHook(() => useDarkMode());
 
     // Simulate media query change to dark mode
-    const changeHandler = mockAddEventListener.mock.calls[0][1];
+    const changeHandler = mockAddEventListener.mock.calls[0]?.[1];
+    expect(changeHandler).toBeDefined();
+
     const mockEvent = {
       matches: true,
     } as MediaQueryListEvent;
@@ -101,19 +106,23 @@ describe('useDarkMode', () => {
     // Re-render to trigger useEffect
     rerender();
 
-    expect(document.documentElement.classList.add).toHaveBeenCalledWith('dark');
-    expect(document.documentElement.classList.remove).toHaveBeenCalledWith(
-      'dark',
-    );
+    expect(mockClassList.add).toHaveBeenCalledWith('dark');
+    expect(mockClassList.remove).toHaveBeenCalledWith('dark');
   });
 
   it('should handle media query change to light mode', () => {
-    mockMediaQuery.matches = true;
+    const mock = createMockMediaQuery(true);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
 
     const { rerender } = renderHook(() => useDarkMode());
 
     // Simulate media query change to light mode
-    const changeHandler = mockAddEventListener.mock.calls[0][1];
+    const changeHandler = mockAddEventListener.mock.calls[0]?.[1];
+    expect(changeHandler).toBeDefined();
+
     const mockEvent = {
       matches: false,
     } as MediaQueryListEvent;
@@ -123,13 +132,17 @@ describe('useDarkMode', () => {
     // Re-render to trigger useEffect
     rerender();
 
-    expect(document.documentElement.classList.remove).toHaveBeenCalledWith(
-      'dark',
-    );
-    expect(document.documentElement.classList.add).toHaveBeenCalledWith('dark');
+    expect(mockClassList.remove).toHaveBeenCalledWith('dark');
+    expect(mockClassList.add).toHaveBeenCalledWith('dark');
   });
 
   it('should remove event listener on cleanup', () => {
+    const mock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
+
     const { unmount } = renderHook(() => useDarkMode());
 
     unmount();
@@ -141,6 +154,12 @@ describe('useDarkMode', () => {
   });
 
   it('should call matchMedia with correct query', () => {
+    const mock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
+
     renderHook(() => useDarkMode());
 
     expect(window.matchMedia).toHaveBeenCalledWith(
@@ -149,17 +168,21 @@ describe('useDarkMode', () => {
   });
 
   it('should handle multiple state changes correctly', () => {
-    mockMediaQuery.matches = false;
+    const mock = createMockMediaQuery(false);
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockReturnValue(mock),
+    });
 
     const { rerender } = renderHook(() => useDarkMode());
 
     // Initial state - light mode
-    expect(document.documentElement.classList.remove).toHaveBeenCalledWith(
-      'dark',
-    );
+    expect(mockClassList.remove).toHaveBeenCalledWith('dark');
 
     // Change to dark mode
-    const changeHandler = mockAddEventListener.mock.calls[0][1];
+    const changeHandler = mockAddEventListener.mock.calls[0]?.[1];
+    expect(changeHandler).toBeDefined();
+
     changeHandler({ matches: true } as MediaQueryListEvent);
     rerender();
 
@@ -168,7 +191,7 @@ describe('useDarkMode', () => {
     rerender();
 
     // Verify the calls
-    expect(document.documentElement.classList.remove).toHaveBeenCalledTimes(2);
-    expect(document.documentElement.classList.add).toHaveBeenCalledTimes(1);
+    expect(mockClassList.remove).toHaveBeenCalledTimes(2);
+    expect(mockClassList.add).toHaveBeenCalledTimes(1);
   });
 });

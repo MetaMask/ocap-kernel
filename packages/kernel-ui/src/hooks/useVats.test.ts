@@ -59,6 +59,23 @@ describe('useVats', () => {
     } as unknown as PanelContextType);
   });
 
+  it('should return empty array when status is not available', async () => {
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
+    vi.mocked(usePanelContext).mockReturnValue({
+      callKernelMethod: mockSendMessage,
+      status: null,
+      selectedVatId: mockVatId,
+      setSelectedVatId: mockSetSelectedVatId,
+      logMessage: mockLogMessage,
+    } as unknown as PanelContextType);
+
+    const { useVats } = await import('./useVats.ts');
+    const { result } = renderHook(() => useVats());
+
+    expect(result.current.subclusters).toStrictEqual([]);
+    expect(result.current.hasVats).toBe(false);
+  });
+
   it('should return vats data from status', async () => {
     const { useVats } = await import('./useVats.ts');
     const { result } = renderHook(() => useVats());
@@ -80,6 +97,54 @@ describe('useVats', () => {
             subclusterId: mockSubclusterId,
           },
         ],
+      },
+    ]);
+  });
+
+  it('should handle subclusters without associated vats', async () => {
+    const { usePanelContext } = await import('../context/PanelContext.tsx');
+    vi.mocked(usePanelContext).mockReturnValue({
+      callKernelMethod: mockSendMessage,
+      status: {
+        vats: [
+          {
+            id: mockVatId,
+            subclusterId: 'different-subcluster',
+            config: {
+              bundleSpec: 'test-bundle',
+              parameters: { foo: 'bar' },
+              creationOptions: { test: true },
+            },
+          },
+        ],
+        subclusters: [
+          {
+            id: mockSubclusterId,
+            name: 'Test Subcluster',
+            config: {
+              bundleSpec: 'test-bundle',
+              parameters: { foo: 'bar' },
+            },
+          },
+        ],
+      },
+      selectedVatId: mockVatId,
+      setSelectedVatId: mockSetSelectedVatId,
+      logMessage: mockLogMessage,
+    } as unknown as PanelContextType);
+
+    const { useVats } = await import('./useVats.ts');
+    const { result } = renderHook(() => useVats());
+
+    expect(result.current.subclusters).toStrictEqual([
+      {
+        id: mockSubclusterId,
+        name: 'Test Subcluster',
+        config: {
+          bundleSpec: 'test-bundle',
+          parameters: { foo: 'bar' },
+        },
+        vatRecords: [],
       },
     ]);
   });
