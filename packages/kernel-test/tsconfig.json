@@ -13,7 +13,8 @@
     { "path": "../kernel-utils" },
     { "path": "../nodejs" },
     { "path": "../ocap-kernel" },
-    { "path": "../kernel-store" }
+    { "path": "../kernel-store" },
+    { "path": "../agents" }
   ],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
 }
