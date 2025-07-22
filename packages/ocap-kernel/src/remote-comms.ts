@@ -6,7 +6,11 @@ import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from './store/index.ts';
-import type { PlatformServices, RemoteMessageHandler } from './types.ts';
+import type {
+  PlatformServices,
+  RemoteComms,
+  RemoteMessageHandler,
+} from './types.ts';
 
 export type OcapURLParts = {
   oid: string;
@@ -82,13 +86,6 @@ async function getKnownRelays(): Promise<string[]> {
   const knownRelays = [relayAddr];
   return knownRelays;
 }
-
-export type RemoteComms = {
-  getPeerId: () => string;
-  sendRemoteMessage: (peerId: string, message: string) => Promise<void>;
-  issueOcapURL: (kref: string) => Promise<string>;
-  redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
-};
 
 // XXX IMPORTANT: All the cryptography here is completely amateur and needs to
 // be vetted and most likely overhauled in its entirety by an actual competent
@@ -186,7 +183,7 @@ export async function initRemoteComms(
     const encodedKref = encoder.encode(paddedKref);
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
-    const ocapURL = `ocap:${oid}@${peerId},${knownRelays[0]}`;
+    const ocapURL = `ocap:${oid}@${peerId},${knownRelays.join(',')}`;
     return ocapURL;
   }
 

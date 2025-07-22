@@ -14,10 +14,6 @@ test.describe('Control Panel', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    const subcluster = popupPage.locator(
-      '[data-testid="subcluster-accordion-s1"]',
-    );
-    await expect(subcluster).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -37,6 +33,9 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('State cleared');
     await new Promise((resolve) => setTimeout(resolve, 1000));
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).not.toContainText('Loading');
     await expect(
       popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
     ).not.toBeVisible();

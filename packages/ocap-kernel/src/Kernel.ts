@@ -20,7 +20,6 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { initRemoteComms, parseOcapURL } from './remote-comms.ts';
-import type { RemoteComms } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
@@ -40,6 +39,7 @@ import type {
   Subcluster,
   Message,
   EndpointHandle,
+  RemoteComms,
 } from './types.ts';
 import {
   ROOT_OBJECT_VREF,

@@ -16,6 +16,8 @@ import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
+import type { SendRemoteMessage } from './types.ts';
+
 type Channel = {
   msgStream: ByteStream;
   peerId: string;
@@ -38,10 +40,6 @@ async function generateKeyInfo(seedString: string): Promise<PrivateKey> {
   return keyPair;
 }
 
-export type RemoteComms = {
-  sendRemoteMessage: (peerId: string, message: string) => Promise<void>;
-};
-
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
@@ -49,13 +47,13 @@ export type RemoteComms = {
  * @param knownRelays - PeerIds of known message relays.
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  *
- * @returns a promise for a RemoteComms object that can be used for network communications.
+ * @returns a promise for a function that can be used to send network communications.
  */
-export async function initRemoteComms(
+export async function initNetwork(
   keySeed: string,
   knownRelays: string[],
   remoteMessageHandler: RemoteMessageHandler,
-): Promise<RemoteComms> {
+): Promise<SendRemoteMessage> {
   const privateKey = await generateKeyInfo(keySeed);
   const activeChannels = new Map<string, Channel>(); // peerID -> channel info
   const logger = new Logger();
@@ -230,7 +228,5 @@ export async function initRemoteComms(
     });
   });
 
-  return {
-    sendRemoteMessage,
-  };
+  return sendRemoteMessage;
 }

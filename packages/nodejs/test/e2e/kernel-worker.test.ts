@@ -10,12 +10,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { makeKernel } from '../../src/kernel/make-kernel.ts';
 
+console.log(`#### at top`);
+
 vi.mock('node:process', () => ({
   exit: vi.fn((reason) => {
     throw new Error(`process.exit: ${reason}`);
   }),
 }));
 
+console.log(`#### before describe`);
 describe('Kernel Worker', () => {
   let kernelPort: NodePort;
   let kernel: Kernel;
@@ -94,3 +97,4 @@ describe('Kernel Worker', () => {
     expect(result).toBe('pong');
   });
 });
+console.log(`#### after describe`);

@@ -326,6 +326,18 @@ export type PlatformServices = {
   ) => Promise<void>;
 };
 
+export type SendRemoteMessage = (
+  peerId: string,
+  message: string,
+) => Promise<void>;
+
+export type RemoteComms = {
+  getPeerId: () => string;
+  sendRemoteMessage: SendRemoteMessage;
+  issueOcapURL: (kref: string) => Promise<string>;
+  redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+};
+
 // Cluster configuration
 
 export type VatConfig = UserCodeSpec & {

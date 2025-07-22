@@ -4,7 +4,6 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
-import type { RemoteComms } from './remote-comms.ts';
 import type { KernelStore } from './store/index.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
 import type {
@@ -13,6 +12,7 @@ import type {
   EndpointHandle,
   Message,
   CrankResults,
+  RemoteComms,
 } from './types.ts';
 
 type RemoteHandleConstructorProps = {

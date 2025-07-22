@@ -6,7 +6,12 @@ import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatId, VatConfig } from '@metamask/ocap-kernel';
+import type {
+  VatId,
+  VatConfig,
+  SendRemoteMessage,
+} from '@metamask/ocap-kernel';
+import { initNetwork } from '@metamask/ocap-kernel';
 import {
   kernelRemoteMethodSpecs,
   platformServicesHandlers,
@@ -19,8 +24,6 @@ import type {
 } from '@metamask/streams/browser';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
-import type { RemoteComms } from './network.ts';
-import { initRemoteComms } from './network.ts';
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { PlatformServicesClient } from './PlatformServicesClient.ts';
@@ -50,7 +53,7 @@ export class PlatformServicesServer {
 
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
-  #remoteComms: RemoteComms | null = null;
+  #sendRemoteMessageFunc: SendRemoteMessage | null = null;
 
   /**
    * **ATTN:** Prefer {@link PlatformServicesServer.make} over constructing
@@ -200,10 +203,10 @@ export class PlatformServicesServer {
     keySeed: string,
     knownRelays: string[],
   ): Promise<null> {
-    if (this.#remoteComms) {
+    if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
-    this.#remoteComms = await initRemoteComms(
+    this.#sendRemoteMessageFunc = await initNetwork(
       keySeed,
       knownRelays,
       this.#handleRemoteMessage.bind(this),
@@ -212,10 +215,10 @@ export class PlatformServicesServer {
   }
 
   async #sendRemoteMessage(peerId: string, message: string): Promise<null> {
-    if (!this.#remoteComms) {
+    if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#remoteComms.sendRemoteMessage(peerId, message);
+    await this.#sendRemoteMessageFunc(peerId, message);
     return null;
   }
 

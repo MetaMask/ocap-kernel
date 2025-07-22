@@ -1,6 +1,4 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import type { RemoteComms } from '@metamask/kernel-browser-runtime';
-import { initRemoteComms } from '@metamask/kernel-browser-runtime';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -8,7 +6,9 @@ import type {
   PlatformServices,
   VatId,
   RemoteMessageHandler,
+  SendRemoteMessage,
 } from '@metamask/ocap-kernel';
+import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -23,7 +23,7 @@ const DEFAULT_WORKER_FILE = new URL(
 export class NodejsPlatformServices implements PlatformServices {
   readonly #logger: Logger;
 
-  #remoteComms: RemoteComms | null = null;
+  #sendRemoteMessageFunc: SendRemoteMessage | null = null;
 
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
@@ -98,10 +98,10 @@ export class NodejsPlatformServices implements PlatformServices {
   }
 
   async sendRemoteMessage(from: string, message: string): Promise<void> {
-    if (!this.#remoteComms) {
+    if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#remoteComms.sendRemoteMessage(from, message);
+    await this.#sendRemoteMessageFunc(from, message);
   }
 
   async #handleRemoteMessage(from: string, message: string): Promise<string> {
@@ -121,11 +121,11 @@ export class NodejsPlatformServices implements PlatformServices {
     knownRelays: string[],
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
   ): Promise<void> {
-    if (this.#remoteComms) {
+    if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
-    this.#remoteComms = await initRemoteComms(
+    this.#sendRemoteMessageFunc = await initNetwork(
       keySeed,
       knownRelays,
       this.#handleRemoteMessage.bind(this),
