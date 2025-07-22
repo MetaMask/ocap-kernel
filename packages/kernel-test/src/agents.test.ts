@@ -13,7 +13,8 @@ describe('agents', () => {
     kernel = await makeKernel({ port });
   });
 
-  it(
+  // eslint-disable-next-line n/no-process-env
+  it.runIf(process.env.TEST_AGENTS === 'true')(
     'should be able to generate text',
     {
       timeout: 5_000,
