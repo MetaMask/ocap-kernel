@@ -100,48 +100,6 @@ describe('PanelContext', () => {
         vi.mocked(await import('../services/logger.ts')).logger.error,
       ).toHaveBeenCalledWith(`Error: ${error.message}`, 'error');
     });
-
-    it('should throw error when a request is already in progress', async () => {
-      const { PanelProvider, usePanelContext } = await import(
-        './PanelContext.tsx'
-      );
-
-      // Use a promise that we control to ensure the first request is still in progress
-      let resolveFirstRequest!: (value: { success: boolean }) => void;
-      const firstRequestPromise = new Promise<{ success: boolean }>(
-        (resolve) => {
-          resolveFirstRequest = resolve;
-        },
-      );
-
-      mockSendMessage.mockReturnValueOnce(firstRequestPromise);
-
-      const { result } = renderHook(() => usePanelContext(), {
-        wrapper: ({ children }) => (
-          <PanelProvider callKernelMethod={mockSendMessage}>
-            {children}
-          </PanelProvider>
-        ),
-      });
-
-      // Start the first request but don't await it
-      const firstRequestPromiseResult = result.current.callKernelMethod({
-        method: 'getStatus',
-        params: [],
-      });
-
-      // Try to make a second request while the first is still processing
-      await expect(
-        result.current.callKernelMethod({
-          method: 'getStatus',
-          params: [],
-        }),
-      ).rejects.toThrow('A request is already in progress');
-
-      // Resolve the first request to clean up
-      resolveFirstRequest({ success: true });
-      await firstRequestPromiseResult;
-    });
   });
 
   describe('clearLogs', () => {

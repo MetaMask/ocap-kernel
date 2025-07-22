@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import { rm } from 'fs/promises';
 import os from 'os';
@@ -62,6 +62,17 @@ export const makeLoadExtension = async (): Promise<{
 
   const popupPage = await browserContext.newPage();
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+
+  // Wait for the extension to setup and validate the UI is ready
+  const subcluster = popupPage.locator(
+    '[data-testid="subcluster-accordion-s1"]',
+  );
+  await expect(subcluster).toBeVisible({ timeout: 30000 });
+  await popupPage.locator('.accordion-header').first().click();
+  await expect(popupPage.locator('table tr')).toHaveCount(4, {
+    timeout: 30000,
+  });
+  await popupPage.locator('.accordion-header').first().click();
 
   return { browserContext, extensionId, popupPage };
 };
