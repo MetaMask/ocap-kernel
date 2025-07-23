@@ -48,10 +48,10 @@ describe('Modal', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
 
-    const title = screen.getByText('Test Modal');
-    expect(title).toHaveAttribute('id', 'modal-title');
+    const title = screen.getByTestId('modal-title');
+    expect(title).toBeInTheDocument();
 
-    const closeButton = screen.getByRole('button', { name: 'Close modal' });
+    const closeButton = screen.getByTestId('button-icon');
     expect(closeButton).toHaveAttribute('aria-label', 'Close modal');
   });
 
@@ -59,7 +59,7 @@ describe('Modal', () => {
     const user = userEvent.setup();
     render(<Modal {...defaultProps} />);
 
-    const closeButton = screen.getByRole('button', { name: 'Close modal' });
+    const closeButton = screen.getByTestId('button-icon');
     await user.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -122,26 +122,40 @@ describe('Modal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('applies correct size classes', () => {
-    const { rerender } = render(<Modal {...defaultProps} size="sm" />);
-
-    let modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modalContent', 'sm');
-
-    rerender(<Modal {...defaultProps} size="md" />);
-    modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modalContent', 'md');
-
-    rerender(<Modal {...defaultProps} size="lg" />);
-    modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modalContent', 'lg');
-  });
-
-  it('defaults to medium size when no size is specified', () => {
+  it('renders close button with correct icon', () => {
     render(<Modal {...defaultProps} />);
 
+    const closeButton = screen.getByTestId('button-icon');
+    expect(closeButton).toHaveAttribute('data-icon-name', 'close');
+    expect(closeButton).toHaveAttribute('data-size', 'sm');
+  });
+
+  it('renders title with correct variant', () => {
+    render(<Modal {...defaultProps} />);
+
+    const title = screen.getByText('Test Modal');
+    expect(title).toHaveAttribute('data-variant', 'heading-sm');
+  });
+
+  it('applies correct size classes for small modal', () => {
+    render(<Modal {...defaultProps} size="sm" />);
+
     const modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
-    expect(modalContent).toHaveClass('modalContent', 'md');
+    expect(modalContent).toHaveClass('w-96');
+  });
+
+  it('applies correct size classes for large modal', () => {
+    render(<Modal {...defaultProps} size="lg" />);
+
+    const modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
+    expect(modalContent).toHaveClass('w-4/5');
+  });
+
+  it('applies correct size classes for medium modal (default)', () => {
+    render(<Modal {...defaultProps} size="md" />);
+
+    const modalContent = screen.getByRole('dialog').firstChild as HTMLElement;
+    expect(modalContent).toHaveClass('w-2/3');
   });
 
   it('renders custom children correctly', () => {

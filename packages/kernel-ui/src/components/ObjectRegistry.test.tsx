@@ -8,12 +8,13 @@ import {
 } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { ObjectRegistry } from './ObjectRegistry.tsx';
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry as ObjectRegistryType } from '../types.ts';
-import { ObjectRegistry } from './ObjectRegistry.tsx';
 
+// Mock the hooks
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
@@ -103,6 +104,8 @@ describe('ObjectRegistry Component', () => {
   let mockCallKernelMethod: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
     const revoked = new Set();
     mockCallKernelMethod = vi.fn(async ({ method, params: { kref } }) => {
       switch (method) {
@@ -123,6 +126,13 @@ describe('ObjectRegistry Component', () => {
       objectRegistry: mockRegistry,
       callKernelMethod: mockCallKernelMethod,
       logMessage: vi.fn(),
+      messageContent: '',
+      setMessageContent: vi.fn(),
+      panelLogs: [],
+      clearLogs: vi.fn(),
+      isLoading: false,
+      status: undefined,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
   });
 
@@ -138,6 +148,15 @@ describe('ObjectRegistry Component', () => {
   it('shows loading state when objectRegistry is null', () => {
     vi.mocked(usePanelContext).mockReturnValue({
       objectRegistry: null,
+      callKernelMethod: vi.fn(),
+      logMessage: vi.fn(),
+      messageContent: '',
+      setMessageContent: vi.fn(),
+      panelLogs: [],
+      clearLogs: vi.fn(),
+      isLoading: false,
+      status: undefined,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
 
     render(<ObjectRegistry />);
@@ -158,7 +177,9 @@ describe('ObjectRegistry Component', () => {
   it('renders vat list with correct number of vats', () => {
     const { container } = render(<ObjectRegistry />);
     expect(screen.getByText('Vats')).toBeInTheDocument();
-    const vatTitles = container.querySelectorAll('.accordion-title');
+    const vatTitles = container.querySelectorAll(
+      '[data-testid="accordion-title"]',
+    );
     expect(vatTitles.length).toBeGreaterThan(0);
     const vat1Title = Array.from(vatTitles).find(
       (el) =>
@@ -176,7 +197,10 @@ describe('ObjectRegistry Component', () => {
 
   it('displays correct vat details header', () => {
     const { container } = render(<ObjectRegistry />);
-    const vatDetailsHeaders = container.querySelectorAll('.vat-details-header');
+    // Look for the vat details headers within the accordion titles
+    const vatDetailsHeaders = container.querySelectorAll(
+      '[data-testid="accordion-title"] span[data-color="text-muted"]',
+    );
     expect(vatDetailsHeaders.length).toBeGreaterThan(0);
     const vat1Header = Array.from(vatDetailsHeaders).find(
       (el) =>
@@ -331,6 +355,13 @@ describe('ObjectRegistry Component', () => {
         })(),
         callKernelMethod: vi.fn().mockResolvedValue([revoked]),
         logMessage: vi.fn(),
+        messageContent: '',
+        setMessageContent: vi.fn(),
+        panelLogs: [],
+        clearLogs: vi.fn(),
+        isLoading: false,
+        status: undefined,
+        setObjectRegistry: vi.fn(),
       } as unknown as PanelContextType);
       const { container } = render(<ObjectRegistry />);
       // Expand the vat to see the revoke button
@@ -394,6 +425,15 @@ describe('ObjectRegistry Component', () => {
 
     vi.mocked(usePanelContext).mockReturnValue({
       objectRegistry: registryWithSingular,
+      callKernelMethod: vi.fn(),
+      logMessage: vi.fn(),
+      messageContent: '',
+      setMessageContent: vi.fn(),
+      panelLogs: [],
+      clearLogs: vi.fn(),
+      isLoading: false,
+      status: undefined,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
 
     render(<ObjectRegistry />);
@@ -448,6 +488,13 @@ describe('ObjectRegistry Component', () => {
       objectRegistry: registryWithEmptyArrays,
       callKernelMethod: vi.fn().mockResolvedValue([false]),
       logMessage: vi.fn(),
+      messageContent: '',
+      setMessageContent: vi.fn(),
+      panelLogs: [],
+      clearLogs: vi.fn(),
+      isLoading: false,
+      status: undefined,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
 
     const { container } = render(<ObjectRegistry />);
@@ -470,7 +517,9 @@ function getTableByHeading(
   container: HTMLElement,
   heading: string,
 ): HTMLElement {
-  const headings = Array.from(container.querySelectorAll('h4'));
+  const headings = Array.from(
+    container.querySelectorAll('[data-testid="text"]'),
+  );
   const targetHeading = headings.find(
     (element) => element.textContent === heading,
   );
@@ -512,7 +561,9 @@ function expandVat(
   vatName: string,
   vatId: string,
 ): () => void {
-  const accordionHeaders = container.querySelectorAll('.accordion-header');
+  const accordionHeaders = container.querySelectorAll(
+    '[data-testid="accordion-header"]',
+  );
   const vatHeader = Array.from(accordionHeaders).find(
     (ele) =>
       ele.textContent?.includes(vatName) && ele.textContent?.includes(vatId),

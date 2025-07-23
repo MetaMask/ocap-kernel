@@ -50,13 +50,16 @@ export const Accordion: React.FC<AccordionProps> = ({
       <Box
         className="flex justify-between items-center p-3 cursor-pointer transition-colors select-none"
         onClick={handleToggle}
+        data-testid="accordion-header"
       >
-        <Box className="flex items-center">{title}</Box>
+        <Box className="flex items-center" data-testid="accordion-title">
+          {title}
+        </Box>
         <Box className="text-lg w-5 h-5 flex items-center justify-center text-text-muted">
           <Icon name={isExpanded ? IconName.Minus : IconName.Add} />
         </Box>
       </Box>
-      {isExpanded && <Box>{children}</Box>}
+      {isExpanded && <Box data-testid="accordion-content">{children}</Box>}
     </Box>
   );
 };

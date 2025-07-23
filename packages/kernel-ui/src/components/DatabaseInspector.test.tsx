@@ -7,6 +7,15 @@ import { usePanelContext } from '../context/PanelContext.tsx';
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 
+// Mock the hooks
+vi.mock('../context/PanelContext.tsx', () => ({
+  usePanelContext: vi.fn(),
+}));
+
+vi.mock('../hooks/useDatabase.ts', () => ({
+  useDatabase: vi.fn(),
+}));
+
 const mockUsePanelContext: PanelContextType = {
   callKernelMethod: vi.fn(),
   status: undefined,
@@ -35,7 +44,6 @@ describe('DatabaseInspector Component', () => {
       fetchTables: mockFetchTables,
       fetchTableData: mockFetchTableData,
       executeQuery: mockExecuteQuery,
-      fetchObjectRegistry: vi.fn(),
     });
   });
 
@@ -77,7 +85,9 @@ describe('DatabaseInspector Component', () => {
     await waitFor(() => {
       expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
     });
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh',
+    });
     await userEvent.click(refreshButton);
     expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
     expect(await screen.findByText('3')).toBeInTheDocument();
@@ -130,7 +140,9 @@ describe('DatabaseInspector Component', () => {
       'error',
     );
     mockLogMessage.mockClear();
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh',
+    });
     await userEvent.click(refreshButton);
     expect(mockLogMessage).toHaveBeenCalledWith(
       'Failed to fetch data for table t1: data error',

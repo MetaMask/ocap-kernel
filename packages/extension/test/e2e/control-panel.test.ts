@@ -27,7 +27,6 @@ test.describe('Control Panel', () => {
    * Clears the state of the popup page.
    */
   async function clearState(): Promise<void> {
-    await popupPage.locator('[data-testid="clear-logs-button"]').click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('');
@@ -61,12 +60,15 @@ test.describe('Control Panel', () => {
   }
 
   test('should load popup with kernel panel', async () => {
-    await expect(popupPage.locator('h2')).toHaveText('Kernel');
     await expect(
-      popupPage.locator('button:text("Clear All State")'),
+      popupPage.locator('button:text("Control Panel")'),
     ).toBeVisible();
     await expect(
-      popupPage.locator('h4:text("Launch New Subcluster")'),
+      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
+    ).toBeVisible();
+    await expect(popupPage.locator('p:text("Message History")')).toBeVisible();
+    await expect(
+      popupPage.locator('p:text("Launch New Subcluster")'),
     ).toBeVisible();
   });
 
@@ -81,7 +83,7 @@ test.describe('Control Panel', () => {
     });
     await expect(popupPage.locator('text=1 Vat')).toBeVisible();
     // Open the subcluster accordion to view vats
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').click();
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(2);
@@ -89,11 +91,14 @@ test.describe('Control Panel', () => {
 
   test('should restart a vat within subcluster', async () => {
     // Open the subcluster accordion first
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(
-      popupPage.locator('button:text("Restart")').first(),
+      popupPage.locator('[data-testid="restart-vat-button"]').first(),
     ).toBeVisible();
-    await popupPage.locator('button:text("Restart")').first().click();
+    await popupPage
+      .locator('[data-testid="restart-vat-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('Restarted vat');
@@ -101,11 +106,14 @@ test.describe('Control Panel', () => {
 
   test('should terminate a vat within subcluster', async () => {
     // Open the subcluster accordion first
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(
-      popupPage.locator('td button:text("Terminate")').first(),
+      popupPage.locator('td [data-testid="terminate-vat-button"]').first(),
     ).toBeVisible();
-    await popupPage.locator('td button:text("Terminate")').first().click();
+    await popupPage
+      .locator('td [data-testid="terminate-vat-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('Terminated vat');
@@ -113,11 +121,11 @@ test.describe('Control Panel', () => {
 
   test('should ping a vat within subcluster', async () => {
     // Open the subcluster accordion first
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(
-      popupPage.locator('td button:text("Ping")').first(),
+      popupPage.locator('[data-testid="ping-vat-button"]').first(),
     ).toBeVisible();
-    await popupPage.locator('td button:text("Ping")').first().click();
+    await popupPage.locator('[data-testid="ping-vat-button"]').first().click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('"method": "pingVat",');
@@ -128,12 +136,12 @@ test.describe('Control Panel', () => {
 
   test('should terminate a subcluster', async () => {
     // Open the subcluster accordion first
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(
-      popupPage.locator('button:text("Terminate Subcluster")').first(),
+      popupPage.locator('[data-testid="terminate-subcluster-button"]').first(),
     ).toBeVisible();
     await popupPage
-      .locator('button:text("Terminate Subcluster")')
+      .locator('[data-testid="terminate-subcluster-button"]')
       .first()
       .click();
     await expect(
@@ -143,11 +151,14 @@ test.describe('Control Panel', () => {
 
   test('should reload a subcluster', async () => {
     // Open the subcluster accordion first
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(
-      popupPage.locator('button:text("Reload Subcluster")').first(),
+      popupPage.locator('[data-testid="reload-subcluster-button"]').first(),
     ).toBeVisible();
-    await popupPage.locator('button:text("Reload Subcluster")').first().click();
+    await popupPage
+      .locator('[data-testid="reload-subcluster-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('Reloaded subcluster');
@@ -280,8 +291,11 @@ test.describe('Control Panel', () => {
       ).toContainText(value);
     }
     await popupPage.click('button:text("Control Panel")');
-    await popupPage.locator('.accordion-header').first().click();
-    await popupPage.locator('td button:text("Terminate")').last().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
+    await popupPage
+      .locator('[data-testid="terminate-vat-button"]')
+      .last()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('Terminated vat "v3"');
@@ -329,9 +343,12 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('{"key":"kp3.refCount","value":"1"}');
     await popupPage.click('button:text("Control Panel")');
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     // delete v1
-    await popupPage.locator('td button:text("Terminate")').first().click();
+    await popupPage
+      .locator('[data-testid="terminate-vat-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('Terminated vat "v1"');

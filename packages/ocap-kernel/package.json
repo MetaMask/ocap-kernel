@@ -82,7 +82,7 @@
     "@metamask/rpc-errors": "^7.0.2",
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0",
+    "@metamask/utils": "^11.4.2",
     "ses": "^1.13.0",
     "setimmediate": "^1.0.5"
   },

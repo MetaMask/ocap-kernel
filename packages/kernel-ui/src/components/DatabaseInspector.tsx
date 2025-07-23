@@ -101,6 +101,7 @@ export const DatabaseInspector: React.FC = () => {
                 onClick={refreshData}
                 isDisabled={!selectedTable}
                 className="rounded-md h-9"
+                data-testid="refresh-button"
               >
                 <TextComponent
                   variant={TextVariant.BodySm}
@@ -131,6 +132,7 @@ export const DatabaseInspector: React.FC = () => {
                     onExecuteQuery();
                   }
                 }}
+                data-testid="sql-query-input"
               />
               <Button
                 variant={ButtonVariant.Primary}
@@ -138,6 +140,7 @@ export const DatabaseInspector: React.FC = () => {
                 onClick={() => onExecuteQuery()}
                 isDisabled={!sqlQuery.trim()}
                 className="rounded-md h-9"
+                data-testid="execute-query-button"
               >
                 <TextComponent
                   variant={TextVariant.BodySm}

@@ -19,7 +19,7 @@ export const sendMessage = async (
     .selectOption(target);
   await page.locator('input[data-testid="message-method"]').fill(method);
   await page.locator('input[data-testid="message-params"]').fill(params);
-  await page.locator('button:text("Send")').click();
+  await page.locator('button[data-testid="message-send-button"]').click();
   return page.locator('[data-testid="message-response"]');
 };
 
@@ -29,7 +29,7 @@ export const revokeObject = async (
   target: string,
 ): Promise<{ button: Locator; output: Locator }> => {
   await page
-    .locator(`.accordion-header:has(.accordion-title:text("${owner}"))`)
+    .locator(`[data-testid="accordion-header"]:has(:text("${owner}"))`)
     .click();
   const button = page.locator(`[data-testid="revoke-button-${target}"]`);
   await button.click();

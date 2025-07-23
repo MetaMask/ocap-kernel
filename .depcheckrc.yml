@@ -42,6 +42,8 @@ ignores:
   - '@agoric/internal'
   - 'setimmediate'
   - '@types/setimmediate'
+  - 'autoprefixer'
+  - 'postcss'
 
   # Used by @ocap/nodejs to build the sqlite3 bindings
   - 'node-gyp'

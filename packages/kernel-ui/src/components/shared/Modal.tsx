@@ -95,7 +95,11 @@ export const Modal: React.FC<ModalProps> = ({
         tabIndex={-1}
       >
         <Box className="flex justify-between items-center bg-alternative p-4 border-b border-muted">
-          <TextComponent className="!m-0" variant={TextVariant.HeadingSm}>
+          <TextComponent
+            data-testid="modal-title"
+            className="!m-0"
+            variant={TextVariant.HeadingSm}
+          >
             {title}
           </TextComponent>
           <ButtonIcon

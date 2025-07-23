@@ -68,6 +68,7 @@ export const SubclusterAccordion: React.FC<{
           <Button
             className="h-auto flex-row justify-center rounded-md"
             onClick={() => onReloadSubcluster(id)}
+            data-testid="reload-subcluster-button"
           >
             <TextComponent
               variant={TextVariant.BodySm}
@@ -80,6 +81,7 @@ export const SubclusterAccordion: React.FC<{
           <ButtonBase
             className="h-auto flex-row justify-center rounded-md bg-error-default py-1 hover:bg-error-default-pressed active:bg-error-default-pressed"
             onClick={() => onTerminateSubcluster(id)}
+            data-testid="terminate-subcluster-button"
           >
             <TextComponent
               variant={TextVariant.BodySm}
@@ -92,6 +94,7 @@ export const SubclusterAccordion: React.FC<{
           <ButtonBase
             className="h-auto flex-row justify-center rounded-md bg-muted py-1 hover:bg-muted-hover active:bg-muted-pressed"
             onClick={() => setIsConfigModalOpen(true)}
+            data-testid="view-config-button"
           >
             <TextComponent
               variant={TextVariant.BodySm}

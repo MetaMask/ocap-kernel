@@ -108,6 +108,7 @@ export const VatTable: React.FC<{
                       size={TextButtonSize.BodyXs}
                       onClick={() => onPingVat(vat.id)}
                       className="min-w-0"
+                      data-testid="ping-vat-button"
                     >
                       Ping
                     </TextButton>
@@ -116,11 +117,13 @@ export const VatTable: React.FC<{
                     iconName={IconName.Refresh}
                     ariaLabel="Restart"
                     onClick={() => onRestartVat(vat.id)}
+                    data-testid="restart-vat-button"
                   />
                   <ButtonIcon
                     iconName={IconName.Trash}
                     ariaLabel="Terminate"
                     onClick={() => onTerminateVat(vat.id)}
+                    data-testid="terminate-vat-button"
                   />
                 </Box>
               </td>

@@ -86,7 +86,7 @@
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0"
+    "@metamask/utils": "^11.4.2"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

@@ -27,6 +27,7 @@ const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
       color={TextColor.TextMuted}
       fontWeight={FontWeight.Regular}
       className="ml-1"
+      data-testid="vat-details-header"
     >
       {objects} object{objects === 1 ? '' : 's'}, {promises} promise
       {promises === 1 ? '' : 's'}

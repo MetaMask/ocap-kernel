@@ -7,6 +7,15 @@ import { useKernelActions } from '../hooks/useKernelActions.ts';
 import { useVats } from '../hooks/useVats.ts';
 import type { VatRecord } from '../types.ts';
 
+// Mock the hooks
+vi.mock('../hooks/useKernelActions.ts', () => ({
+  useKernelActions: vi.fn(),
+}));
+
+vi.mock('../hooks/useVats.ts', () => ({
+  useVats: vi.fn(),
+}));
+
 const mockUseKernelActions = (overrides = {}): void => {
   vi.mocked(useKernelActions).mockReturnValue({
     terminateAllVats: vi.fn(),
@@ -33,14 +42,37 @@ const mockUseVats = (vats: VatRecord[] = []): void => {
 describe('KernelControls', () => {
   beforeEach(() => {
     cleanup();
+    vi.clearAllMocks();
   });
 
-  it('renders the "Clear All State" button with proper class', () => {
+  it('renders the "Collect Garbage" button', () => {
     mockUseKernelActions();
     mockUseVats();
     render(<KernelControls />);
-    const clearButton = screen.getByRole('button', { name: 'Clear All State' });
+    const garbageButton = screen.getByRole('button', {
+      name: 'trash Collect Garbage',
+    });
+    expect(garbageButton).toBeInTheDocument();
+  });
+
+  it('renders the "Clear All State" button', () => {
+    mockUseKernelActions();
+    mockUseVats();
+    render(<KernelControls />);
+    const clearButton = screen.getByRole('button', {
+      name: 'data Clear All State',
+    });
     expect(clearButton).toBeInTheDocument();
+  });
+
+  it('renders the "Reload Kernel" button', () => {
+    mockUseKernelActions();
+    mockUseVats();
+    render(<KernelControls />);
+    const reloadButton = screen.getByRole('button', {
+      name: 'refresh Reload Kernel',
+    });
+    expect(reloadButton).toBeInTheDocument();
   });
 
   it('does not render "Terminate All Vats" button when no vats exist', () => {
@@ -48,7 +80,7 @@ describe('KernelControls', () => {
     mockUseVats([]);
     render(<KernelControls />);
     expect(
-      screen.queryByRole('button', { name: 'Terminate All Vats' }),
+      screen.queryByRole('button', { name: 'ban Terminate All Vats' }),
     ).not.toBeInTheDocument();
   });
 
@@ -65,7 +97,7 @@ describe('KernelControls', () => {
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {
-      name: 'Terminate All Vats',
+      name: 'ban Terminate All Vats',
     });
     expect(terminateButton).toBeInTheDocument();
   });
@@ -84,11 +116,23 @@ describe('KernelControls', () => {
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {
-      name: 'Terminate All Vats',
+      name: 'ban Terminate All Vats',
     });
     await userEvent.click(terminateButton);
 
     expect(terminateAllVats).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls collectGarbage when "Collect Garbage" button is clicked', async () => {
+    const collectGarbage = vi.fn();
+    mockUseKernelActions({ collectGarbage });
+    mockUseVats();
+    render(<KernelControls />);
+    const garbageButton = screen.getByRole('button', {
+      name: 'trash Collect Garbage',
+    });
+    await userEvent.click(garbageButton);
+    expect(collectGarbage).toHaveBeenCalledTimes(1);
   });
 
   it('calls clearState when "Clear All State" button is clicked', async () => {
@@ -96,7 +140,9 @@ describe('KernelControls', () => {
     mockUseKernelActions({ clearState });
     mockUseVats();
     render(<KernelControls />);
-    const clearButton = screen.getByRole('button', { name: 'Clear All State' });
+    const clearButton = screen.getByRole('button', {
+      name: 'data Clear All State',
+    });
     await userEvent.click(clearButton);
     expect(clearState).toHaveBeenCalledTimes(1);
   });
@@ -107,7 +153,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const reloadButton = screen.getByRole('button', {
-      name: 'Reload Kernel',
+      name: 'refresh Reload Kernel',
     });
     await userEvent.click(reloadButton);
     expect(reload).toHaveBeenCalledTimes(1);

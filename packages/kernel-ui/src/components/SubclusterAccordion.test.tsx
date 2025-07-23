@@ -80,12 +80,14 @@ describe('SubclusterAccordion', () => {
   const mockVats: VatRecord[] = [
     {
       id: 'vat-1',
+      subclusterId: 'subcluster-1',
       source: 'source-1',
       parameters: 'params-1',
       creationOptions: 'options-1',
     },
     {
       id: 'vat-2',
+      subclusterId: 'subcluster-1',
       source: 'source-2',
       parameters: 'params-2',
       creationOptions: 'options-2',
@@ -148,16 +150,11 @@ describe('SubclusterAccordion', () => {
     // Expand the accordion
     await user.click(screen.getByText('Subcluster subcluster-1 -'));
 
-    expect(screen.getByText('Subcluster Vats')).toBeInTheDocument();
+    expect(screen.getByTestId('view-config-button')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'View Config' }),
+      screen.getByTestId('terminate-subcluster-button'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Terminate Subcluster' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Reload Subcluster' }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('reload-subcluster-button')).toBeInTheDocument();
     expect(screen.getByTestId('vat-table')).toBeInTheDocument();
   });
 
@@ -169,9 +166,7 @@ describe('SubclusterAccordion', () => {
     await user.click(screen.getByText('Subcluster subcluster-1 -'));
 
     // Click terminate button
-    await user.click(
-      screen.getByRole('button', { name: 'Terminate Subcluster' }),
-    );
+    await user.click(screen.getByTestId('terminate-subcluster-button'));
 
     expect(mockActions.onTerminateSubcluster).toHaveBeenCalledWith(
       'subcluster-1',
@@ -186,7 +181,7 @@ describe('SubclusterAccordion', () => {
     await user.click(screen.getByText('Subcluster subcluster-1 -'));
 
     // Click reload button
-    await user.click(screen.getByRole('button', { name: 'Reload Subcluster' }));
+    await user.click(screen.getByTestId('reload-subcluster-button'));
 
     expect(mockActions.onReloadSubcluster).toHaveBeenCalledWith('subcluster-1');
   });
@@ -202,7 +197,7 @@ describe('SubclusterAccordion', () => {
     expect(screen.queryByTestId('modal')).not.toBeInTheDocument();
 
     // Click View Config button
-    await user.click(screen.getByRole('button', { name: 'View Config' }));
+    await user.click(screen.getByTestId('view-config-button'));
 
     // Modal should now be visible
     expect(screen.getByTestId('modal')).toBeInTheDocument();
@@ -217,7 +212,7 @@ describe('SubclusterAccordion', () => {
 
     // Expand the accordion and open modal
     await user.click(screen.getByText('Subcluster subcluster-1 -'));
-    await user.click(screen.getByRole('button', { name: 'View Config' }));
+    await user.click(screen.getByTestId('view-config-button'));
 
     // Modal should be visible
     expect(screen.getByTestId('modal')).toBeInTheDocument();
@@ -235,7 +230,7 @@ describe('SubclusterAccordion', () => {
 
     // Expand and open modal
     await user.click(screen.getByText('Subcluster subcluster-1 -'));
-    await user.click(screen.getByRole('button', { name: 'View Config' }));
+    await user.click(screen.getByTestId('view-config-button'));
 
     const textarea = screen.getByTestId('config-textarea');
     expect(textarea).toBeInTheDocument();
