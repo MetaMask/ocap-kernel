@@ -38,7 +38,6 @@ ignores:
   - 'simple-git-hooks'
   - 'typedoc'
   - 'typescript'
-  - 'typescript-plugin-css-modules'
   - '@agoric/internal'
   - 'setimmediate'
   - '@types/setimmediate'

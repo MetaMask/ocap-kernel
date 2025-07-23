@@ -7,7 +7,6 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
-    "plugins": [{ "name": "typescript-plugin-css-modules" }],
     "types": ["chrome", "ses", "vitest", "vitest/jsdom", "react", "react-dom"]
   },
   "references": [
