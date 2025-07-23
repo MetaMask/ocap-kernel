@@ -185,7 +185,7 @@ export const SendMessageForm: React.FC = () => {
           >
             Response:
           </TextComponent>
-          <pre className="p-3 rounded overflow-auto bg-background-default">
+          <pre className="p-3 rounded overflow-auto bg-background-default text-text-default">
             {stringify(result, 0)}
           </pre>
         </Box>
