@@ -9,30 +9,29 @@ import {
 } from '@ocap/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
+import * as pkg from './package.json';
 import {
-  rootDir,
   kernelBrowserRuntimeSrcDir,
   outDir,
   sourceDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
 
-/**
- * Files that need to be statically copied to the destination directory.
- * Paths are relative from the project root directory.
- */
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(dirname, '..', '..');
 const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
-  path.resolve(sourceDir, 'manifest.json'),
+  'packages/extension/src/manifest.json',
   // Trusted prelude-related
-  path.resolve(sourceDir, 'env/dev-console.js'),
-  path.resolve(sourceDir, 'env/background-trusted-prelude.js'),
-  path.resolve(rootDir, 'kernel-shims/dist/endoify.js'),
+  'packages/extension/src/env/dev-console.js',
+  'packages/extension/src/env/background-trusted-prelude.js',
+  'packages/kernel-shims/dist/endoify.js',
 ];
 
 // https://vitejs.dev/config/
@@ -45,13 +44,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rootDir,
-
+    resolve: {
+      alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
+    },
     build: {
       assetsDir: '',
       emptyOutDir: true,
       // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
       modulePreload: false,
       outDir,
+      minify: !isDev,
+      sourcemap: isDev ? 'inline' : false,
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
@@ -71,14 +74,7 @@ export default defineConfig(({ mode }) => {
           assetFileNames: '[name].[ext]',
         },
       },
-      ...(isDev
-        ? {
-            minify: false,
-            sourcemap: 'inline',
-          }
-        : {}),
     },
-
     plugins: [
       react(),
       htmlTrustedPrelude(),
@@ -130,3 +126,41 @@ export default defineConfig(({ mode }) => {
     ],
   };
 });
+
+/**
+ * Generates Vite aliases for workspace packages to enable proper sourcemap handling in development.
+ *
+ * By default, Vite resolves workspace packages to their `dist` folders, which breaks the
+ * sourcemap chain. These aliases force Vite to use the original TypeScript source from the
+ * `src` directories instead, ensuring a complete and accurate sourcemap for debugging.
+ *
+ * A special alias for `@metamask/kernel-ui/styles.css` is included to resolve the
+ * built stylesheet correctly from its `dist` folder.
+ *
+ * @param deps - The dependencies object from the `package.json` file.
+ * @returns An array of Vite alias objects for development mode.
+ */
+function getPackageDevAliases(
+  deps: Record<string, string> = {},
+): { find: string; replacement: string }[] {
+  const workspacePackages = Object.keys(deps)
+    .filter(
+      (name) => name.startsWith('@metamask/') && deps[name] === 'workspace:^',
+    )
+    .map((pkgName) => ({
+      find: pkgName,
+      replacement: path.resolve(
+        rootDir,
+        `packages/${pkgName.replace('@metamask/', '')}/src`,
+      ),
+    }));
+
+  return [
+    // Special alias for kernel-ui styles, which are in dist
+    {
+      find: '@metamask/kernel-ui/styles.css',
+      replacement: path.resolve(rootDir, 'packages/kernel-ui/dist/styles.css'),
+    },
+    ...workspacePackages,
+  ];
+}
