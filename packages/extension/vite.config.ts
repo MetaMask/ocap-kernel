@@ -129,7 +129,7 @@ export default defineConfig(({ mode }) => {
  * @returns An array of Vite alias objects for development mode.
  */
 function getPackageDevAliases(
-  deps: Record<string, string>,
+  deps: Record<string, string> = {},
 ): { find: string; replacement: string }[] {
   const workspacePackages = Object.keys(deps)
     .filter(
