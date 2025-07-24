@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
       modulePreload: false,
       outDir,
       minify: !isDev,
-      sourcemap: isDev ? 'inline' : true,
+      sourcemap: isDev ? 'inline' : false,
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
