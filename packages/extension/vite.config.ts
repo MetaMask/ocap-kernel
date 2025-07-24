@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
       modulePreload: false,
       outDir,
       minify: !isDev,
-      sourcemap: true,
+      sourcemap: isDev ? 'inline' : true,
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
         assetFilter: (fileName) =>
           fileName.includes('sqlite3-') &&
           !fileName.includes('sqlite3-opfs-async-proxy'),
-        expectedCount: 3,
+        expectedCount: 2,
       }),
       // Would you believe that there's no other way to do this?
       {
