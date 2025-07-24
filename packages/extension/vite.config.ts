@@ -116,11 +116,17 @@ export default defineConfig(({ mode }) => {
 });
 
 /**
- * Returns a list of packages aliases for the current package.
+ * Generates Vite aliases for workspace packages to enable proper sourcemap handling in development.
  *
- * @param deps - The dependencies of the current package.
+ * By default, Vite resolves workspace packages to their `dist` folders, which breaks the
+ * sourcemap chain. These aliases force Vite to use the original TypeScript source from the
+ * `src` directories instead, ensuring a complete and accurate sourcemap for debugging.
  *
- * @returns A list of packages aliases for the current package.
+ * A special alias for `@metamask/kernel-ui/styles.css` is included to resolve the
+ * built stylesheet correctly from its `dist` folder.
+ *
+ * @param deps - The dependencies object from the `package.json` file.
+ * @returns An array of Vite alias objects for development mode.
  */
 function getPackageDevAliases(
   deps: Record<string, string>,
@@ -138,7 +144,7 @@ function getPackageDevAliases(
     }));
 
   return [
-    // Special alias for kernel-ui styles, which is in dist
+    // Special alias for kernel-ui styles, which are in dist
     {
       find: '@metamask/kernel-ui/styles.css',
       replacement: path.resolve(rootDir, 'packages/kernel-ui/dist/styles.css'),
