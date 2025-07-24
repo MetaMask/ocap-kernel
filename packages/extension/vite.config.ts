@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
   return {
     root: rootDir,
     resolve: {
-      alias: isDev ? getDevPackagesAliases(pkg.dependencies) : [],
+      alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
     },
     build: {
       assetsDir: '',
@@ -122,7 +122,7 @@ export default defineConfig(({ mode }) => {
  *
  * @returns A list of packages aliases for the current package.
  */
-function getDevPackagesAliases(
+function getPackageDevAliases(
   deps: Record<string, string>,
 ): { find: string; replacement: string }[] {
   const workspacePackages = Object.keys(deps)
