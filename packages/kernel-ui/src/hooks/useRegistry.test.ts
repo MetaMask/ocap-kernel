@@ -118,5 +118,20 @@ describe('useRegistry', () => {
         });
       });
     });
+
+    it('should log errors when revoke fails', async () => {
+      const { result } = renderHook(() => useRegistry());
+      const error = new Error('Revoke failed');
+      mockCallKernelMethod.mockRejectedValueOnce(error);
+
+      result.current.revoke('test-kref');
+
+      await waitFor(() => {
+        expect(mockLogMessage).toHaveBeenCalledWith(
+          'Failed to revoke object test-kref: Revoke failed',
+          'error',
+        );
+      });
+    });
   });
 });

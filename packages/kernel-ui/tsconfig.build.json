@@ -10,8 +10,7 @@
     "emitDeclarationOnly": true,
     "lib": ["DOM", "ES2022"],
     "rootDir": "./src",
-    "types": ["chrome", "ses", "react", "react-dom"],
-    "plugins": [{ "name": "typescript-plugin-css-modules" }]
+    "types": ["chrome", "ses", "react", "react-dom"]
   },
   "references": [
     { "path": "../kernel-browser-runtime/tsconfig.build.json" },

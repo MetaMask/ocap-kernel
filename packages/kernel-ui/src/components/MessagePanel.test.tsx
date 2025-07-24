@@ -4,12 +4,14 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { MessagePanel } from './MessagePanel.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
-import type { PanelContextType } from '../context/PanelContext.tsx';
+import type { PanelContextType, OutputType } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 
 setupOcapKernelMock();
 
+// Mock the hooks
 vi.mock('../hooks/useKernelActions.ts', () => ({
   useKernelActions: vi.fn(),
 }));
@@ -33,6 +35,7 @@ describe('MessagePanel Component', () => {
 
   beforeEach(() => {
     cleanup();
+    vi.clearAllMocks();
     vi.mocked(useKernelActions).mockReturnValue({
       terminateAllVats: vi.fn(),
       collectGarbage: vi.fn(),
@@ -46,28 +49,46 @@ describe('MessagePanel Component', () => {
       panelLogs: [],
       clearLogs,
       isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
     vi.mocked(stringify).mockImplementation((message) =>
       JSON.stringify(message),
     );
   });
 
-  it('renders initial UI elements correctly', async () => {
-    const { MessagePanel } = await import('./MessagePanel.tsx');
+  it('renders initial UI elements correctly', () => {
     render(<MessagePanel />);
     expect(screen.getByText('Message History')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+    // Clear button should not be present when there are no logs
+    expect(screen.queryByTestId('clear-logs-button')).not.toBeInTheDocument();
   });
 
   it('calls clearLogs when the "Clear" button is clicked', async () => {
-    const { MessagePanel } = await import('./MessagePanel.tsx');
+    // Set up context with logs so the clear button appears
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [{ type: 'sent', message: 'Test message' }],
+      clearLogs,
+      isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
+    } as unknown as PanelContextType);
+
     render(<MessagePanel />);
-    const clearButton = screen.getByRole('button', { name: 'Clear' });
+    const clearButton = screen.getByTestId('clear-logs-button');
     await userEvent.click(clearButton);
     expect(clearLogs).toHaveBeenCalledTimes(1);
   });
 
-  it('renders panel logs with correct icons and messages', async () => {
+  it('renders panel logs with correct icons and messages', () => {
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
       setMessageContent,
@@ -79,8 +100,12 @@ describe('MessagePanel Component', () => {
       ],
       clearLogs,
       isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     expect(screen.getByText('→')).toBeInTheDocument();
     expect(screen.getByText('Message 1')).toBeInTheDocument();
@@ -92,15 +117,39 @@ describe('MessagePanel Component', () => {
     expect(screen.getByText('Operation successful')).toBeInTheDocument();
   });
 
-  it('scrolls to bottom when panel logs change', async () => {
+  it('handles unknown output types with default styling', () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [
+        { type: 'unknown' as OutputType, message: 'Unknown type message' },
+      ],
+      clearLogs,
+      isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
+    } as unknown as PanelContextType);
+    render(<MessagePanel />);
+    expect(screen.getByText('→')).toBeInTheDocument(); // Default icon for unknown type
+    expect(screen.getByText('Unknown type message')).toBeInTheDocument();
+  });
+
+  it('scrolls to bottom when panel logs change', () => {
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
       setMessageContent,
       panelLogs: [],
       clearLogs,
       isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
     const { rerender } = render(<MessagePanel />);
     const scrollWrapper = screen.getByRole('log');
     Object.defineProperty(scrollWrapper, 'scrollHeight', {
@@ -118,34 +167,81 @@ describe('MessagePanel Component', () => {
       panelLogs: [{ type: 'sent', message: 'New message' }],
       clearLogs,
       isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
     rerender(<MessagePanel />);
     expect(scrollWrapper.scrollTop).toBe(scrollWrapper.scrollHeight);
   });
 
-  it('displays loading dots when isLoading is true', async () => {
+  it('displays loading dots when isLoading is true', () => {
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
       setMessageContent,
       panelLogs: [],
       clearLogs,
       isLoading: true,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     expect(screen.getByTestId('loading-dots')).toBeInTheDocument();
   });
 
-  it('does not display loading dots when isLoading is false', async () => {
+  it('does not display loading dots when isLoading is false', () => {
     vi.mocked(usePanelContext).mockReturnValue({
       messageContent: '',
       setMessageContent,
       panelLogs: [],
       clearLogs,
       isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
     } as unknown as PanelContextType);
-    const { MessagePanel } = await import('./MessagePanel.tsx');
     render(<MessagePanel />);
     expect(screen.queryByTestId('loading-dots')).not.toBeInTheDocument();
+  });
+
+  it('does not show clear button when there are no logs', () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [],
+      clearLogs,
+      isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
+    } as unknown as PanelContextType);
+    render(<MessagePanel />);
+    expect(screen.queryByTestId('clear-logs-button')).not.toBeInTheDocument();
+  });
+
+  it('shows clear button when there are logs', () => {
+    vi.mocked(usePanelContext).mockReturnValue({
+      messageContent: '',
+      setMessageContent,
+      panelLogs: [{ type: 'sent', message: 'Test message' }],
+      clearLogs,
+      isLoading: false,
+      callKernelMethod: vi.fn(),
+      status: undefined,
+      logMessage: vi.fn(),
+      objectRegistry: null,
+      setObjectRegistry: vi.fn(),
+    } as unknown as PanelContextType);
+    render(<MessagePanel />);
+    expect(screen.getByTestId('clear-logs-button')).toBeInTheDocument();
   });
 });

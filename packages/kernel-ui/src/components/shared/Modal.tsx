@@ -1,6 +1,12 @@
+import {
+  Box,
+  ButtonIcon,
+  ButtonIconSize,
+  IconName,
+  Text as TextComponent,
+  TextVariant,
+} from '@metamask/design-system-react';
 import { useEffect, useRef } from 'react';
-
-import styles from '../../App.module.css';
 
 export type ModalProps = {
   isOpen: boolean;
@@ -68,33 +74,44 @@ export const Modal: React.FC<ModalProps> = ({
     return null;
   }
 
+  let widthClass = 'w-2/3';
+  if (size === 'sm') {
+    widthClass = 'w-96';
+  } else if (size === 'lg') {
+    widthClass = 'w-4/5';
+  }
+
   return (
-    <div
-      className={styles.modalBackdrop}
+    <Box
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       <div
-        className={`${styles.modalContent} ${styles[size]}`}
+        className={`bg-background-default rounded-lg shadow-lg max-h-[90vh] overflow-hidden ${widthClass}`}
         ref={modalRef}
         tabIndex={-1}
       >
-        <div className={styles.modalHeader}>
-          <h3 id="modal-title" className={styles.modalTitle}>
-            {title}
-          </h3>
-          <button
-            className={styles.modalCloseButton}
-            onClick={onClose}
-            aria-label="Close modal"
+        <Box className="flex justify-between items-center bg-alternative p-4 border-b border-muted">
+          <TextComponent
+            data-testid="modal-title"
+            className="!m-0"
+            variant={TextVariant.HeadingSm}
           >
-            ×
-          </button>
-        </div>
-        <div className={styles.modalBody}>{children}</div>
+            {title}
+          </TextComponent>
+          <ButtonIcon
+            iconName={IconName.Close}
+            size={ButtonIconSize.Sm}
+            onClick={onClose}
+            ariaLabel="Close modal"
+            data-testid="modal-close-button"
+          />
+        </Box>
+        <Box className="p-4 overflow-y-auto">{children}</Box>
       </div>
-    </div>
+    </Box>
   );
 };

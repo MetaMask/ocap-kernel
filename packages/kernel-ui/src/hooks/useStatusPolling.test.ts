@@ -32,6 +32,30 @@ describe('useStatusPolling', () => {
     await waitFor(() => expect(result.current).toStrictEqual(mockStatus));
   });
 
+  it('should use default interval when no interval is provided', async () => {
+    const mockStatus = { vats: [], clusterConfig };
+    mockSendMessage.mockResolvedValue(mockStatus);
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
+
+    // Use fake timers to test the default interval
+    vi.useFakeTimers({
+      now: Date.now(),
+      toFake: ['setInterval', 'clearInterval'],
+    });
+
+    renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress),
+    );
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+
+    // Advance time by the default interval (1000ms)
+    vi.advanceTimersByTime(1000);
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+
   it('should handle error responses', async () => {
     const { useStatusPolling } = await import('./useStatusPolling.ts');
     const errorResponse = { error: 'Test error' };

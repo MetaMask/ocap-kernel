@@ -57,7 +57,9 @@ export async function setupStream(): Promise<{
     .finally(cleanup);
 
   const callKernelMethod: CallKernelMethod = async (payload) => {
-    logger.log('sending message', payload);
+    if (payload.method !== 'getStatus') {
+      logger.log('sending message', payload);
+    }
     return await rpcClient.call(payload.method, payload.params);
   };
 

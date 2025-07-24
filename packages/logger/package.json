@@ -58,7 +58,7 @@
   "dependencies": {
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/streams": "workspace:^",
-    "@metamask/utils": "^11.4.0"
+    "@metamask/utils": "^11.4.2"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

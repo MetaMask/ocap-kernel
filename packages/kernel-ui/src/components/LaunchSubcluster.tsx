@@ -1,7 +1,15 @@
+import {
+  Icon,
+  IconName,
+  Text as TextComponent,
+  TextVariant,
+  Box,
+  FontWeight,
+  TextColor,
+} from '@metamask/design-system-react';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { useCallback, useState } from 'react';
 
-import styles from '../App.module.css';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 
@@ -86,46 +94,39 @@ export const LaunchSubcluster: React.FC = () => {
   );
 
   return (
-    <div className={styles.newVatWrapper}>
-      <h4 className={styles.noMargin}>Launch New Subcluster</h4>
+    <Box className="mt-6">
       <div
-        className={`${styles.dropZone} ${isDragging ? styles.dragging : ''}`}
+        className={`border-2 border-dashed border-muted rounded-md p-8 bg-section transition-all duration-200 ease-in-out cursor-pointer select-none ${
+          isDragging ? 'border-primary-default bg-primary-muted' : ''
+        }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className={styles.dropZoneContent}>
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className={styles.uploadIcon}
-          >
-            <path
-              d="M12 16L12 8M12 8L15 11M12 8L9 11"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <p className={styles.dropZoneText}>
-            {fileName || 'Drag and drop your cluster config JSON file here'}
-          </p>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Icon name={IconName.Upload} className="text-text-muted" />
+          <Box>
+            <TextComponent
+              variant={TextVariant.BodySm}
+              fontWeight={FontWeight.Medium}
+              color={TextColor.TextAlternative}
+            >
+              Launch New Subcluster
+            </TextComponent>
+            <p className="text-text-muted text-sm m-0">
+              {fileName || 'Drag and drop your cluster config JSON file here'}
+            </p>
+          </Box>
           <label
             htmlFor="subcluster-config-input"
-            className={styles.buttonPrimary}
+            className="rounded-md bg-muted py-1 px-2 hover:bg-primary-default-pressed active:bg-primary-default-pressed cursor-pointer"
           >
-            Browse Files
+            <TextComponent
+              variant={TextVariant.BodyXs}
+              color={TextColor.PrimaryInverse}
+            >
+              Browse Files
+            </TextComponent>
           </label>
           <input
             id="subcluster-config-input"
@@ -137,6 +138,6 @@ export const LaunchSubcluster: React.FC = () => {
           />
         </div>
       </div>
-    </div>
+    </Box>
   );
 };

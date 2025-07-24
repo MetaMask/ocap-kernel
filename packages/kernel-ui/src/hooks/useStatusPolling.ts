@@ -19,7 +19,7 @@ export const useStatusPolling = (
   isRequestInProgress: React.RefObject<boolean>,
   interval: number = 1000,
 ): KernelStatus | undefined => {
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout>();
   const [status, setStatus] = useState<KernelStatus>();
 
   /**
@@ -51,9 +51,7 @@ export const useStatusPolling = (
     fetchStatus().catch(logger.error);
 
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      clearInterval(pollingRef.current);
     };
   }, [callKernelMethod, interval, isRequestInProgress]);
 
