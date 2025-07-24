@@ -24,22 +24,6 @@ test.describe('Control Panel', () => {
   });
 
   /**
-   * Clears the state of the popup page.
-   */
-  async function clearState(): Promise<void> {
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('');
-    await popupPage.click('button:text("Clear All State")');
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('State cleared');
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).not.toBeVisible();
-  }
-
-  /**
    * Launches a subcluster with the given configuration.
    *
    * @param config - The cluster configuration object to use for launching the subcluster.
@@ -73,7 +57,15 @@ test.describe('Control Panel', () => {
   });
 
   test('should launch a new subcluster and vat within it', async () => {
-    await clearState();
+    // Clear all state
+    await popupPage.click('button:text("Clear All State")');
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText('State cleared');
+    await expect(
+      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
+    ).not.toBeVisible();
+    // Launch a new subcluster
     await launchSubcluster(minimalClusterConfig);
     const subcluster = popupPage.locator(
       '[data-testid="subcluster-accordion-s1"]',
