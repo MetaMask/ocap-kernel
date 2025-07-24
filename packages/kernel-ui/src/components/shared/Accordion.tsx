@@ -55,7 +55,10 @@ export const Accordion: React.FC<AccordionProps> = ({
         <Box className="flex items-center" data-testid="accordion-title">
           {title}
         </Box>
-        <Box className="text-lg w-5 h-5 flex items-center justify-center text-text-muted">
+        <Box
+          className="text-lg w-5 h-5 flex items-center justify-center text-text-muted"
+          data-testid={`accordion-icon-${isExpanded ? 'minus' : 'add'}`}
+        >
           <Icon name={isExpanded ? IconName.Minus : IconName.Add} />
         </Box>
       </Box>

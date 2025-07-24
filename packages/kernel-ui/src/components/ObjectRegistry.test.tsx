@@ -197,9 +197,9 @@ describe('ObjectRegistry Component', () => {
 
   it('displays correct vat details header', () => {
     const { container } = render(<ObjectRegistry />);
-    // Look for the vat details headers within the accordion titles
+
     const vatDetailsHeaders = container.querySelectorAll(
-      '[data-testid="accordion-title"] span[data-color="text-muted"]',
+      '[data-testid="vat-details-header"]',
     );
     expect(vatDetailsHeaders.length).toBeGreaterThan(0);
     const vat1Header = Array.from(vatDetailsHeaders).find(
@@ -518,16 +518,15 @@ function getTableByHeading(
   heading: string,
 ): HTMLElement {
   const headings = Array.from(
-    container.querySelectorAll('[data-testid="text"]'),
+    container.querySelectorAll('[data-testid="table-heading"]'),
   );
   const targetHeading = headings.find(
     (element) => element.textContent === heading,
   );
   expect(targetHeading).toBeDefined();
-  // The table is in the tableContainer which is the parent element's only child
-  const tableContainer = targetHeading?.parentElement;
-  expect(tableContainer).toBeDefined();
-  const table = tableContainer?.querySelector('table');
+  const parentBox = targetHeading?.closest('.mt-6');
+  expect(parentBox).toBeDefined();
+  const table = parentBox?.querySelector('table');
   expect(table).toBeDefined();
   return table as HTMLElement;
 }

@@ -50,7 +50,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const garbageButton = screen.getByRole('button', {
-      name: 'trash Collect Garbage',
+      name: 'Collect Garbage',
     });
     expect(garbageButton).toBeInTheDocument();
   });
@@ -60,7 +60,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const clearButton = screen.getByRole('button', {
-      name: 'data Clear All State',
+      name: 'Clear All State',
     });
     expect(clearButton).toBeInTheDocument();
   });
@@ -70,7 +70,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const reloadButton = screen.getByRole('button', {
-      name: 'refresh Reload Kernel',
+      name: 'Reload Kernel',
     });
     expect(reloadButton).toBeInTheDocument();
   });
@@ -80,7 +80,7 @@ describe('KernelControls', () => {
     mockUseVats([]);
     render(<KernelControls />);
     expect(
-      screen.queryByRole('button', { name: 'ban Terminate All Vats' }),
+      screen.queryByRole('button', { name: 'Terminate All Vats' }),
     ).not.toBeInTheDocument();
   });
 
@@ -97,7 +97,7 @@ describe('KernelControls', () => {
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {
-      name: 'ban Terminate All Vats',
+      name: 'Terminate All Vats',
     });
     expect(terminateButton).toBeInTheDocument();
   });
@@ -116,7 +116,7 @@ describe('KernelControls', () => {
     ]);
     render(<KernelControls />);
     const terminateButton = screen.getByRole('button', {
-      name: 'ban Terminate All Vats',
+      name: 'Terminate All Vats',
     });
     await userEvent.click(terminateButton);
 
@@ -129,7 +129,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const garbageButton = screen.getByRole('button', {
-      name: 'trash Collect Garbage',
+      name: 'Collect Garbage',
     });
     await userEvent.click(garbageButton);
     expect(collectGarbage).toHaveBeenCalledTimes(1);
@@ -141,7 +141,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const clearButton = screen.getByRole('button', {
-      name: 'data Clear All State',
+      name: 'Clear All State',
     });
     await userEvent.click(clearButton);
     expect(clearState).toHaveBeenCalledTimes(1);
@@ -153,7 +153,7 @@ describe('KernelControls', () => {
     mockUseVats();
     render(<KernelControls />);
     const reloadButton = screen.getByRole('button', {
-      name: 'refresh Reload Kernel',
+      name: 'Reload Kernel',
     });
     await userEvent.click(reloadButton);
     expect(reload).toHaveBeenCalledTimes(1);

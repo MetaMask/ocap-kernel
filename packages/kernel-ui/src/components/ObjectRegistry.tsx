@@ -182,6 +182,7 @@ export const ObjectRegistry: React.FC = () => {
                   variant={TextVariant.BodySm}
                   fontWeight={FontWeight.Medium}
                   className="mb-3 px-3"
+                  data-testid="table-heading"
                 >
                   Owned Objects
                 </TextComponent>
@@ -310,6 +311,7 @@ export const ObjectRegistry: React.FC = () => {
                   variant={TextVariant.BodySm}
                   fontWeight={FontWeight.Medium}
                   className="mb-3 px-3"
+                  data-testid="table-heading"
                 >
                   Imported Objects
                 </TextComponent>
@@ -407,6 +409,7 @@ export const ObjectRegistry: React.FC = () => {
                   variant={TextVariant.BodySm}
                   fontWeight={FontWeight.Medium}
                   className="mb-3 px-3"
+                  data-testid="table-heading"
                 >
                   Imported Promises
                 </TextComponent>
@@ -545,6 +548,7 @@ export const ObjectRegistry: React.FC = () => {
                   variant={TextVariant.BodySm}
                   fontWeight={FontWeight.Medium}
                   className="mb-3 px-3"
+                  data-testid="table-heading"
                 >
                   Exported Promises
                 </TextComponent>

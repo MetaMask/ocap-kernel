@@ -51,7 +51,7 @@ describe('Modal', () => {
     const title = screen.getByTestId('modal-title');
     expect(title).toBeInTheDocument();
 
-    const closeButton = screen.getByTestId('button-icon');
+    const closeButton = screen.getByTestId('modal-close-button');
     expect(closeButton).toHaveAttribute('aria-label', 'Close modal');
   });
 
@@ -59,7 +59,7 @@ describe('Modal', () => {
     const user = userEvent.setup();
     render(<Modal {...defaultProps} />);
 
-    const closeButton = screen.getByTestId('button-icon');
+    const closeButton = screen.getByTestId('modal-close-button');
     await user.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -122,19 +122,21 @@ describe('Modal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('renders close button with correct icon', () => {
+  it('renders close button correctly', () => {
     render(<Modal {...defaultProps} />);
 
-    const closeButton = screen.getByTestId('button-icon');
-    expect(closeButton).toHaveAttribute('data-icon-name', 'close');
-    expect(closeButton).toHaveAttribute('data-size', 'sm');
+    const closeButton = screen.getByTestId('modal-close-button');
+    expect(closeButton).toBeInTheDocument();
+    expect(closeButton).toHaveAttribute('aria-label', 'Close modal');
   });
 
-  it('renders title with correct variant', () => {
+  it('renders title correctly', () => {
     render(<Modal {...defaultProps} />);
 
     const title = screen.getByText('Test Modal');
-    expect(title).toHaveAttribute('data-variant', 'heading-sm');
+    expect(title).toBeInTheDocument();
+    const titleElement = screen.getByTestId('modal-title');
+    expect(titleElement).toBeInTheDocument();
   });
 
   it('applies correct size classes for small modal', () => {

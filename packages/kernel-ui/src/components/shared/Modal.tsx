@@ -107,6 +107,7 @@ export const Modal: React.FC<ModalProps> = ({
             size={ButtonIconSize.Sm}
             onClick={onClose}
             ariaLabel="Close modal"
+            data-testid="modal-close-button"
           />
         </Box>
         <Box className="p-4 overflow-y-auto">{children}</Box>
