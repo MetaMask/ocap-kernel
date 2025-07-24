@@ -3803,7 +3803,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-slot@npm:^1.1.0":
+"@radix-ui/react-slot@npm:1.2.3":
   version: 1.2.3
   resolution: "@radix-ui/react-slot@npm:1.2.3"
   dependencies:
@@ -3815,6 +3815,21 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10/fe484c2741e31d9c20a8fb53c5790a73c0664e2bea35e27f4d484a90c42135fcfffe11a08abfcacb7a8ee2faf013471f0e856818f3ddac8ac51ceb8869e0fd08
+  languageName: node
+  linkType: hard
+
+"@radix-ui/react-slot@patch:@radix-ui/react-slot@npm%3A1.2.3#~/.yarn/patches/@radix-ui-react-slot-npm-1.2.3-6e45e6d89b.patch":
+  version: 1.2.3
+  resolution: "@radix-ui/react-slot@patch:@radix-ui/react-slot@npm%3A1.2.3#~/.yarn/patches/@radix-ui-react-slot-npm-1.2.3-6e45e6d89b.patch::version=1.2.3&hash=b1f35f"
+  dependencies:
+    "@radix-ui/react-compose-refs": "npm:1.1.2"
+  peerDependencies:
+    "@types/react": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10/5a59ffa4ef606da6fa485e4af1c59a4727384263056c8bc8921fe4e21f350375b7c887f619c5153e67d92124da6017b1b60221d076a29cda0f058fdb153c389f
   languageName: node
   linkType: hard
 

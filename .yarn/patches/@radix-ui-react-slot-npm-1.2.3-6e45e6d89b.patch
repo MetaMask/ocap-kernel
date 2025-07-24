@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 510e77fc0471abe017279f39c87ecded59c41954..f7517e6b66d010a3ae7143417a36fa2f20c93767 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,7 +1,7 @@
+ // src/slot.tsx
+ import * as React from "react";
+ import { composeRefs } from "@radix-ui/react-compose-refs";
+-import { Fragment as Fragment2, jsx } from "react/jsx-runtime";
++import { Fragment as Fragment2, jsx } from "react/jsx-runtime.js";
+ // @__NO_SIDE_EFFECTS__
+ function createSlot(ownerName) {
+   const SlotClone = /* @__PURE__ */ createSlotClone(ownerName);

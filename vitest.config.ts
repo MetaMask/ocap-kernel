@@ -118,7 +118,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 95.28,
           functions: 96.04,
-          branches: 86.97,
+          branches: 87.06,
           lines: 95.37,
         },
         'packages/kernel-utils/**': {
