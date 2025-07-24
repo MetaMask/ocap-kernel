@@ -10,23 +10,16 @@ For detailed information on how to use the OCAP Kernel, please refer to the [OCA
 
 You can launch a browser-based Kernel Control Panel to interact with and manage vats:
 
-1. Navigate to the extension package:
-
 ```bash
-cd packages/extension
+yarn workspace @ocap/extension run start
 ```
 
-2. Start the development server:
+This will:
 
-```bash
-yarn start
-```
-
-3. This will:
-   - Launch a development server serving the extension
-   - Set up a default cluster configuration
-   - Serve sample vat bundles
-   - Provide a UI for managing and interacting with the kernel and vats
+- Launch a development server serving the extension
+- Set up a default cluster configuration
+- Serve sample vat bundles
+- Provide a UI for managing and interacting with the kernel and vats
 
 The control panel allows you to:
 
