@@ -9,30 +9,29 @@ import {
 } from '@ocap/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
+import * as pkg from './package.json';
 import {
-  rootDir,
   kernelBrowserRuntimeSrcDir,
   outDir,
   sourceDir,
   trustedPreludes,
 } from './scripts/build-constants.mjs';
 
-/**
- * Files that need to be statically copied to the destination directory.
- * Paths are relative from the project root directory.
- */
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(dirname, '..', '..');
 const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
-  path.resolve(sourceDir, 'manifest.json'),
+  'packages/extension/src/manifest.json',
   // Trusted prelude-related
-  path.resolve(sourceDir, 'env/dev-console.js'),
-  path.resolve(sourceDir, 'env/background-trusted-prelude.js'),
-  path.resolve(rootDir, 'kernel-shims/dist/endoify.js'),
+  'packages/extension/src/env/dev-console.js',
+  'packages/extension/src/env/background-trusted-prelude.js',
+  'packages/kernel-shims/dist/endoify.js',
 ];
 
 // https://vitejs.dev/config/
@@ -45,13 +44,30 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rootDir,
-
+    resolve: {
+      alias: isDev
+        ? [
+            // Special alias for kernel-ui styles, which are in dist
+            {
+              find: '@metamask/kernel-ui/styles.css',
+              replacement: path.resolve(
+                rootDir,
+                'packages/kernel-ui/dist/styles.css',
+              ),
+            },
+            // Aliases for workspace packages to point to their src
+            ...getWorkspacePackages(pkg.dependencies),
+          ]
+        : [],
+    },
     build: {
       assetsDir: '',
       emptyOutDir: true,
       // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
       modulePreload: false,
       outDir,
+      minify: !isDev,
+      sourcemap: true,
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
@@ -71,21 +87,14 @@ export default defineConfig(({ mode }) => {
           assetFileNames: '[name].[ext]',
         },
       },
-      ...(isDev
-        ? {
-            minify: false,
-            sourcemap: 'inline',
-          }
-        : {}),
     },
-
     plugins: [
       react(),
       htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
-        targets: staticCopyTargets.map((src) =>
-          typeof src === 'string' ? { src, dest: './' } : src,
+        targets: staticCopyTargets.map((target) =>
+          typeof target === 'string' ? { src: target, dest: './' } : target,
         ),
         watch: { reloadPageOnChange: true },
         silent: isDev,
@@ -96,7 +105,7 @@ export default defineConfig(({ mode }) => {
         assetFilter: (fileName) =>
           fileName.includes('sqlite3-') &&
           !fileName.includes('sqlite3-opfs-async-proxy'),
-        expectedCount: 2,
+        expectedCount: 3,
       }),
       // Would you believe that there's no other way to do this?
       {
@@ -118,3 +127,26 @@ export default defineConfig(({ mode }) => {
     ],
   };
 });
+
+/**
+ * Returns a list of workspace packages that are dependencies of the current package.
+ *
+ * @param deps - The dependencies of the current package.
+ *
+ * @returns A list of workspace packages that are dependencies of the current package.
+ */
+function getWorkspacePackages(
+  deps: Record<string, string>,
+): { find: string; replacement: string }[] {
+  return Object.keys(deps)
+    .filter(
+      (name) => name.startsWith('@metamask/') && deps[name] === 'workspace:^',
+    )
+    .map((pkgName) => ({
+      find: pkgName,
+      replacement: path.resolve(
+        rootDir,
+        `packages/${pkgName.replace('@metamask/', '')}/src`,
+      ),
+    }));
+}
