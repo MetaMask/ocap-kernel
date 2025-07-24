@@ -45,20 +45,7 @@ export default defineConfig(({ mode }) => {
   return {
     root: rootDir,
     resolve: {
-      alias: isDev
-        ? [
-            // Special alias for kernel-ui styles, which are in dist
-            {
-              find: '@metamask/kernel-ui/styles.css',
-              replacement: path.resolve(
-                rootDir,
-                'packages/kernel-ui/dist/styles.css',
-              ),
-            },
-            // Aliases for workspace packages to point to their src
-            ...getWorkspacePackages(pkg.dependencies),
-          ]
-        : [],
+      alias: isDev ? getDevPackagesAliases(pkg.dependencies) : [],
     },
     build: {
       assetsDir: '',
@@ -93,8 +80,8 @@ export default defineConfig(({ mode }) => {
       htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
-        targets: staticCopyTargets.map((target) =>
-          typeof target === 'string' ? { src: target, dest: './' } : target,
+        targets: staticCopyTargets.map((src) =>
+          typeof src === 'string' ? { src, dest: './' } : src,
         ),
         watch: { reloadPageOnChange: true },
         silent: isDev,
@@ -129,16 +116,16 @@ export default defineConfig(({ mode }) => {
 });
 
 /**
- * Returns a list of workspace packages that are dependencies of the current package.
+ * Returns a list of packages aliases for the current package.
  *
  * @param deps - The dependencies of the current package.
  *
- * @returns A list of workspace packages that are dependencies of the current package.
+ * @returns A list of packages aliases for the current package.
  */
-function getWorkspacePackages(
+function getDevPackagesAliases(
   deps: Record<string, string>,
 ): { find: string; replacement: string }[] {
-  return Object.keys(deps)
+  const workspacePackages = Object.keys(deps)
     .filter(
       (name) => name.startsWith('@metamask/') && deps[name] === 'workspace:^',
     )
@@ -149,4 +136,13 @@ function getWorkspacePackages(
         `packages/${pkgName.replace('@metamask/', '')}/src`,
       ),
     }));
+
+  return [
+    // Special alias for kernel-ui styles, which is in dist
+    {
+      find: '@metamask/kernel-ui/styles.css',
+      replacement: path.resolve(rootDir, 'packages/kernel-ui/dist/styles.css'),
+    },
+    ...workspacePackages,
+  ];
 }
