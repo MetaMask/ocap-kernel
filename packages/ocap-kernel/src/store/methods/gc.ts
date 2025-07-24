@@ -92,9 +92,9 @@ export function getGCMethods(ctx: StoreContext) {
   function nextReapAction(): RunQueueItemBringOutYourDead | undefined {
     const queue = JSON.parse(ctx.reapQueue.get() ?? '[]');
     if (queue.length > 0) {
-      const vatId = queue.shift();
+      const endpointId = queue.shift();
       ctx.reapQueue.set(JSON.stringify(queue));
-      return harden({ type: 'bringOutYourDead', vatId });
+      return harden({ type: 'bringOutYourDead', endpointId });
     }
     return undefined;
   }
@@ -148,6 +148,9 @@ export function getGCMethods(ctx: StoreContext) {
         if (reachable === 0) {
           const ownerKey = getOwnerKey(kref);
           let ownerVatID = ctx.kv.get(ownerKey);
+          if (ownerVatID === 'kernel') {
+            continue;
+          }
           const terminated = isVatTerminated(ownerVatID as VatId);
 
           // Some objects that are still owned, but the owning vat

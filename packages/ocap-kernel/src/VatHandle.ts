@@ -27,6 +27,7 @@ import type {
   VRef,
   CrankResults,
   VatDeliveryResult,
+  EndpointHandle,
 } from './types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
@@ -43,7 +44,7 @@ type VatConstructorProps = {
   logger?: Logger | undefined;
 };
 
-export class VatHandle {
+export class VatHandle implements EndpointHandle {
   /** The ID of the vat this is the VatHandle for */
   readonly vatId: VatId;
 

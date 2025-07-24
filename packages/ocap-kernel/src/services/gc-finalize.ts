@@ -1,6 +1,8 @@
 import { delay } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 
+type GCFunction = () => void;
+
 /**
  * Try to get a GC function for the current environment
  *
@@ -9,7 +11,7 @@ import type { Logger } from '@metamask/logger';
  */
 async function getGCFunction(logger?: Logger): Promise<GCFunction | undefined> {
   if (typeof globalThis.gc === 'function') {
-    return globalThis.gc;
+    return globalThis.gc as GCFunction;
   }
 
   // Check if we're in Node.js
@@ -20,7 +22,7 @@ async function getGCFunction(logger?: Logger): Promise<GCFunction | undefined> {
     try {
       // Dynamic import of Node.js specific module so it's not included in browser builds
       const { engineGC } = await import('./gc-engine.ts');
-      return engineGC;
+      return engineGC as GCFunction;
     } catch (error) {
       logger?.debug('Failed to load Node.js GC implementation:', error);
     }
