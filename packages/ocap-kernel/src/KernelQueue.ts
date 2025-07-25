@@ -4,6 +4,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 
 import { processGCActionSet } from './services/garbage-collection.ts';
 import { kser } from './services/kernel-marshal.ts';
+import type { Mutex } from './services/mutex.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistVatId } from './types.ts';
 import type {
@@ -36,15 +37,20 @@ export class KernelQueue {
   /** Message results that the kernel itself has subscribed to */
   readonly subscriptions: Map<KRef, (value: CapData<KRef>) => void> = new Map();
 
+  /** The kernel's mutex. */
+  readonly #mutex: Mutex;
+
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
   constructor(
     kernelStore: KernelStore,
     terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
+    mutex: Mutex,
   ) {
     this.#kernelStore = kernelStore;
     this.#terminateVat = terminateVat;
+    this.#mutex = mutex;
     this.#wakeUpTheRunQueue = null;
   }
 
@@ -58,24 +64,26 @@ export class KernelQueue {
     deliver: (item: RunQueueItem) => Promise<CrankResults | undefined>,
   ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
-      this.#kernelStore.nextTerminatedVatCleanup();
-      const crankResults = await deliver(item);
-      if (crankResults?.abort) {
-        // Rollback the kernel state to before the failed delivery attempt.
-        // For active vats, this allows the message to be retried in a future crank.
-        // For terminated vats, the message will just go splat.
-        this.#kernelStore.rollbackCrank('start');
-        // TODO: Currently all errors terminate the vat, but instead we could
-        // restart it and terminate the vat only after a certain number of failed
-        // retries. This is probably where we should implement the vat restart logic.
-      }
-      // Vat termination during delivery is triggered by an illegal syscall
-      // or by syscall.exit().
-      if (crankResults?.terminate) {
-        const { vatId, info } = crankResults.terminate;
-        await this.#terminateVat(vatId, info);
-      }
-      this.#kernelStore.collectGarbage();
+      await this.#mutex.runExclusive(async () => {
+        this.#kernelStore.nextTerminatedVatCleanup();
+        const crankResults = await deliver(item);
+        if (crankResults?.abort) {
+          // Rollback the kernel state to before the failed delivery attempt.
+          // For active vats, this allows the message to be retried in a future crank.
+          // For terminated vats, the message will just go splat.
+          this.#kernelStore.rollbackCrank('start');
+          // TODO: Currently all errors terminate the vat, but instead we could
+          // restart it and terminate the vat only after a certain number of failed
+          // retries. This is probably where we should implement the vat restart logic.
+        }
+        // Vat termination during delivery is triggered by an illegal syscall
+        // or by syscall.exit().
+        if (crankResults?.terminate) {
+          const { vatId, info } = crankResults.terminate;
+          await this.#terminateVat(vatId, info);
+        }
+        this.#kernelStore.collectGarbage();
+      });
     }
   }
 

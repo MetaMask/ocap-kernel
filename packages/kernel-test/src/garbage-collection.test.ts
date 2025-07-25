@@ -149,7 +149,7 @@ describe('Garbage Collection', () => {
     await waitUntilQuiescent();
 
     // Schedule reap to trigger bringOutYourDead on next crank
-    kernel.reapVats((vatId) => vatId === importerVatId);
+    await kernel.reapVats((vatId) => vatId === importerVatId);
 
     // Run 3 cranks to allow bringOutYourDead to be processed
     for (let i = 0; i < 3; i++) {
@@ -168,7 +168,7 @@ describe('Garbage Collection', () => {
     await waitUntilQuiescent();
 
     // Schedule another reap
-    kernel.reapVats((vatId) => vatId === importerVatId);
+    await kernel.reapVats((vatId) => vatId === importerVatId);
 
     for (let i = 0; i < 3; i++) {
       await kernel.queueMessage(importerKRef, 'noop', []);
@@ -186,7 +186,7 @@ describe('Garbage Collection', () => {
     await waitUntilQuiescent();
 
     // Schedule a final reap
-    kernel.reapVats((vatId) => vatId === exporterVatId);
+    await kernel.reapVats((vatId) => vatId === exporterVatId);
 
     // Run a crank to ensure GC completes
     await kernel.queueMessage(exporterKRef, 'noop', []);

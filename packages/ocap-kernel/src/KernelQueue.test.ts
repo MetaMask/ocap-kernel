@@ -6,6 +6,7 @@ import type { MockInstance } from 'vitest';
 
 import { KernelQueue } from './KernelQueue.ts';
 import * as gc from './services/garbage-collection.ts';
+import type { Mutex } from './services/mutex.ts';
 import type { KernelStore } from './store/index.ts';
 import * as types from './types.ts';
 import type { KRef, Message, RunQueueItem } from './types.ts';
@@ -23,6 +24,7 @@ describe('KernelQueue', () => {
   let kernelQueue: KernelQueue;
   let mockPromiseKit: ReturnType<typeof makePromiseKit>;
   let terminateVat: (vatId: string, reason?: CapData<KRef>) => Promise<void>;
+  let mockMutex: Mutex;
 
   beforeEach(() => {
     mockPromiseKit = {
@@ -33,6 +35,10 @@ describe('KernelQueue', () => {
     (makePromiseKit as unknown as MockInstance).mockReturnValue(mockPromiseKit);
 
     terminateVat = vi.fn().mockResolvedValue(undefined);
+
+    mockMutex = {
+      runExclusive: vi.fn(async (callback) => callback()),
+    } as unknown as Mutex;
 
     kernelStore = {
       nextTerminatedVatCleanup: vi.fn(),
@@ -52,7 +58,7 @@ describe('KernelQueue', () => {
       rollbackCrank: vi.fn(),
     } as unknown as KernelStore;
 
-    kernelQueue = new KernelQueue(kernelStore, terminateVat);
+    kernelQueue = new KernelQueue(kernelStore, terminateVat, mockMutex);
   });
 
   describe('run', () => {
