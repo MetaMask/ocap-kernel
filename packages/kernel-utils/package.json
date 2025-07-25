@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./import-hook": {
+      "import": {
+        "types": "./dist/import-hook.d.mts",
+        "default": "./dist/import-hook.mjs"
+      },
+      "require": {
+        "types": "./dist/import-hook.d.cts",
+        "default": "./dist/import-hook.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

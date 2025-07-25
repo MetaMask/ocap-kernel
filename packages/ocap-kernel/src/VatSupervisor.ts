@@ -17,6 +17,11 @@ import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 
+import makeEndowments from './endowments/index.ts';
+import type {
+  EndowmentName,
+  MakeEndowmentsConfig,
+} from './endowments/index.ts';
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import { makeGCAndFinalize } from './services/gc-finalize.ts';
 import { makeDummyMeterControl } from './services/meter-control.ts';
@@ -36,19 +41,20 @@ type SupervisorRpcClient = Pick<
   'notify' | 'handleResponse'
 >;
 
-type SupervisorConstructorProps = {
+type SupervisorConstructorProps<EndowmentNames extends EndowmentName> = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
   logger: Logger;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
+  endowmentsConfig?: MakeEndowmentsConfig<EndowmentNames>;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
   serializeBodyFormat: 'smallcaps',
 });
 
-export class VatSupervisor {
+export class VatSupervisor<EndowmentNames extends EndowmentName = never> {
   /** The id of the vat being supervised */
   readonly id: VatId;
 
@@ -79,6 +85,9 @@ export class VatSupervisor {
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
 
+  /** The configuration for this vat's endowments. */
+  readonly #endowmentsConfig: MakeEndowmentsConfig<EndowmentNames>;
+
   /**
    * Construct a new VatSupervisor instance.
    *
@@ -88,6 +97,7 @@ export class VatSupervisor {
    * @param params.logger - The logger for this vat.
    * @param params.vatPowers - The external capabilities for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
+   * @param params.endowmentsConfig - The configuration for this vat's endowments.
    */
   constructor({
     id,
@@ -95,7 +105,8 @@ export class VatSupervisor {
     logger,
     vatPowers,
     fetchBlob,
-  }: SupervisorConstructorProps) {
+    endowmentsConfig,
+  }: SupervisorConstructorProps<EndowmentNames>) {
     this.id = id;
     this.#kernelStream = kernelStream;
     this.#logger = logger;
@@ -104,6 +115,8 @@ export class VatSupervisor {
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
       await fetch(bundleURL);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
+    this.#endowmentsConfig =
+      endowmentsConfig ?? ({} as MakeEndowmentsConfig<EndowmentNames>);
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -260,6 +273,7 @@ export class VatSupervisor {
     const workerEndowments = {
       console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
+      ...makeEndowments(this.#endowmentsConfig),
     };
 
     const { bundleSpec, parameters } = vatConfig;

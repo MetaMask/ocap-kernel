@@ -1,5 +1,6 @@
 import '@endo/init';
 import endoBundleSource from '@endo/bundle-source';
+import { importHook } from '@metamask/kernel-utils/import-hook';
 import { Logger } from '@metamask/logger';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
@@ -30,8 +31,10 @@ export async function bundleFile(
   const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
+  const bundleOptions = { moduleFormat: 'endoZipBase64', importHook };
   try {
-    const bundle = await endoBundleSource(sourceFullPath);
+    // @ts-expect-error no overload matches
+    const bundle = await endoBundleSource(sourceFullPath, bundleOptions);
     const bundleContent = JSON.stringify(bundle);
     await writeFile(bundlePath, bundleContent);
     logger.info(`wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
