@@ -831,7 +831,7 @@ describe('Kernel', () => {
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.isRevoked('ko1')).toBe(false);
-      kernel.revoke('ko1');
+      await kernel.revoke('ko1');
       expect(kernel.isRevoked('ko1')).toBe(true);
     });
 
@@ -842,7 +842,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
-      expect(() => kernel.revoke('kp1')).toThrow(Error);
+      await expect(kernel.revoke('kp1')).rejects.toThrow(Error);
     });
   });
 
@@ -856,13 +856,13 @@ describe('Kernel', () => {
       const config = makeSingleVatClusterConfig();
       await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe('ko1');
+      expect(await kernel.pinVatRoot('v1')).toBe('ko1');
       // Pinning non-existent vat should throw
-      expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
+      await expect(kernel.pinVatRoot('v2')).rejects.toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed
-      expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
+      await kernel.unpinVatRoot('v1');
       // Unpinning non-existent vat should throw
-      expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+      await expect(kernel.unpinVatRoot('v3')).rejects.toThrow(VatNotFoundError);
     });
   });
 });

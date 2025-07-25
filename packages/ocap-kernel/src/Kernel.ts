@@ -22,6 +22,7 @@ import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
 import { kslot, kser, kunser } from './services/kernel-marshal.ts';
 import type { SlotValue } from './services/kernel-marshal.ts';
+import { Mutex } from './services/mutex.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
@@ -49,6 +50,9 @@ export class Kernel {
   readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
 
   readonly #rpcService: RpcService<typeof kernelHandlers>;
+
+  /** The kernel's mutex. */
+  readonly #mutex: Mutex = new Mutex();
 
   /** Currently running vats, by ID */
   readonly #vats: Map<VatId, VatHandle>;
@@ -104,7 +108,8 @@ export class Kernel {
     }
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
-      this.terminateVat.bind(this),
+      this.#terminateVat.bind(this),
+      this.#mutex,
     );
     this.#kernelRouter = new KernelRouter(
       this.#kernelStore,
@@ -175,29 +180,31 @@ export class Kernel {
    * @param message - The message to handle.
    */
   async #handleCommandMessage(message: JsonRpcCall): Promise<void> {
-    try {
-      this.#rpcService.assertHasMethod(message.method);
-      const result = await this.#rpcService.execute(
-        message.method,
-        message.params,
-      );
-      if (hasProperty(message, 'id') && typeof message.id === 'string') {
-        await this.#commandStream.write({
-          id: message.id,
-          jsonrpc: '2.0',
-          result,
-        });
+    await this.#mutex.runExclusive(async () => {
+      try {
+        this.#rpcService.assertHasMethod(message.method);
+        const result = await this.#rpcService.execute(
+          message.method,
+          message.params,
+        );
+        if (hasProperty(message, 'id') && typeof message.id === 'string') {
+          await this.#commandStream.write({
+            id: message.id,
+            jsonrpc: '2.0',
+            result,
+          });
+        }
+      } catch (error) {
+        this.#logger.error('Error executing command', error);
+        if (hasProperty(message, 'id') && typeof message.id === 'string') {
+          await this.#commandStream.write({
+            id: message.id,
+            jsonrpc: '2.0',
+            error: serializeError(error),
+          });
+        }
       }
-    } catch (error) {
-      this.#logger.error('Error executing command', error);
-      if (hasProperty(message, 'id') && typeof message.id === 'string') {
-        await this.#commandStream.write({
-          id: message.id,
-          jsonrpc: '2.0',
-          error: serializeError(error),
-        });
-      }
-    }
+    });
   }
 
   /**
@@ -273,12 +280,14 @@ export class Kernel {
   async launchSubcluster(
     config: ClusterConfig,
   ): Promise<CapData<KRef> | undefined> {
-    isClusterConfig(config) || Fail`invalid cluster config`;
-    if (!config.vats[config.bootstrap]) {
-      Fail`invalid bootstrap vat name ${config.bootstrap}`;
-    }
-    const subclusterId = this.#kernelStore.addSubcluster(config);
-    return this.#launchVatsForSubcluster(subclusterId, config);
+    return this.#mutex.runExclusive(async () => {
+      isClusterConfig(config) || Fail`invalid cluster config`;
+      if (!config.vats[config.bootstrap]) {
+        Fail`invalid bootstrap vat name ${config.bootstrap}`;
+      }
+      const subclusterId = this.#kernelStore.addSubcluster(config);
+      return this.#launchVatsForSubcluster(subclusterId, config);
+    });
   }
 
   /**
@@ -288,15 +297,18 @@ export class Kernel {
    * @returns A promise that resolves when termination is complete.
    */
   async terminateSubcluster(subclusterId: string): Promise<void> {
-    if (!this.#kernelStore.getSubcluster(subclusterId)) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-    const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
-    for (const vatId of vatIdsToTerminate.reverse()) {
-      await this.terminateVat(vatId);
-      this.collectGarbage();
-    }
-    this.#kernelStore.deleteSubcluster(subclusterId);
+    await this.#mutex.runExclusive(async () => {
+      if (!this.#kernelStore.getSubcluster(subclusterId)) {
+        throw new SubclusterNotFoundError(subclusterId);
+      }
+      const vatIdsToTerminate =
+        this.#kernelStore.getSubclusterVats(subclusterId);
+      for (const vatId of vatIdsToTerminate.reverse()) {
+        await this.#terminateVat(vatId);
+        this.collectGarbage();
+      }
+      this.#kernelStore.deleteSubcluster(subclusterId);
+    });
   }
 
   /**
@@ -308,21 +320,23 @@ export class Kernel {
    * @throws If the subcluster is not found.
    */
   async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-    const subcluster = this.getSubcluster(subclusterId);
-    if (!subcluster) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-    for (const vatId of subcluster.vats.reverse()) {
-      await this.terminateVat(vatId);
-      this.collectGarbage();
-    }
-    const newId = this.#kernelStore.addSubcluster(subcluster.config);
-    await this.#launchVatsForSubcluster(newId, subcluster.config);
-    const newSubcluster = this.getSubcluster(newId);
-    if (!newSubcluster) {
-      throw new SubclusterNotFoundError(newId);
-    }
-    return newSubcluster;
+    return this.#mutex.runExclusive(async () => {
+      const subcluster = this.getSubcluster(subclusterId);
+      if (!subcluster) {
+        throw new SubclusterNotFoundError(subclusterId);
+      }
+      for (const vatId of subcluster.vats.reverse()) {
+        await this.#terminateVat(vatId);
+        this.collectGarbage();
+      }
+      const newId = this.#kernelStore.addSubcluster(subcluster.config);
+      await this.#launchVatsForSubcluster(newId, subcluster.config);
+      const newSubcluster = this.getSubcluster(subclusterId);
+      if (!newSubcluster) {
+        throw new SubclusterNotFoundError(subclusterId);
+      }
+      return newSubcluster;
+    });
   }
 
   /**
@@ -417,6 +431,23 @@ export class Kernel {
    * @returns A promise for the restarted vat.
    */
   async restartVat(vatId: VatId): Promise<VatHandle> {
+    return this.#mutex.runExclusive(async () => {
+      const vat = this.#getVat(vatId);
+      if (!vat) {
+        throw new VatNotFoundError(vatId);
+      }
+      await this.#restartVat(vatId);
+      return vat;
+    });
+  }
+
+  /**
+   * An unlocked version of `restartVat`.
+   *
+   * @param vatId - The ID of the vat.
+   * @returns A promise for the restarted vat.
+   */
+  async #restartVat(vatId: VatId): Promise<VatHandle> {
     const vat = this.#getVat(vatId);
     if (!vat) {
       throw new VatNotFoundError(vatId);
@@ -471,6 +502,18 @@ export class Kernel {
    * @param reason - If the vat is being terminated, the reason for the termination.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      await this.#terminateVat(vatId, reason);
+    });
+  }
+
+  /**
+   * An unlocked version of `terminateVat`.
+   *
+   * @param vatId - The ID of the vat.
+   * @param reason - If the vat is being terminated, the reason for the termination.
+   */
+  async #terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     await this.#stopVat(vatId, true, reason);
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
@@ -480,7 +523,9 @@ export class Kernel {
    * Clear the database.
    */
   async clearStorage(): Promise<void> {
-    this.#kernelStore.clear();
+    await this.#mutex.runExclusive(async () => {
+      this.#kernelStore.clear();
+    });
   }
 
   /**
@@ -532,8 +577,10 @@ export class Kernel {
    * @param kref - The KRef of the object to revoke.
    * @throws If the object is a promise.
    */
-  revoke(kref: KRef): void {
-    this.#kernelStore.revoke(kref);
+  async revoke(kref: KRef): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      this.#kernelStore.revoke(kref);
+    });
   }
 
   /**
@@ -564,12 +611,16 @@ export class Kernel {
    *
    * @param filter - A function that returns true if the vat should be reaped.
    */
-  reapVats(filter: (vatId: VatId) => boolean = () => true): void {
-    for (const vatID of this.getVatIds()) {
-      if (filter(vatID)) {
-        this.#kernelStore.scheduleReap(vatID);
+  async reapVats(
+    filter: (vatId: VatId) => boolean = () => true,
+  ): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      for (const vatID of this.getVatIds()) {
+        if (filter(vatID)) {
+          this.#kernelStore.scheduleReap(vatID);
+        }
       }
-    }
+    });
   }
 
   /**
@@ -578,13 +629,15 @@ export class Kernel {
    * @param vatId - The ID of the vat.
    * @returns The KRef of the vat root.
    */
-  pinVatRoot(vatId: VatId): KRef {
-    const kref = this.#kernelStore.getRootObject(vatId);
-    if (!kref) {
-      throw new VatNotFoundError(vatId);
-    }
-    this.#kernelStore.pinObject(kref);
-    return kref;
+  async pinVatRoot(vatId: VatId): Promise<KRef> {
+    return this.#mutex.runExclusive(async () => {
+      const kref = this.#kernelStore.getRootObject(vatId);
+      if (!kref) {
+        throw new VatNotFoundError(vatId);
+      }
+      this.#kernelStore.pinObject(kref);
+      return kref;
+    });
   }
 
   /**
@@ -592,12 +645,14 @@ export class Kernel {
    *
    * @param vatId - The ID of the vat.
    */
-  unpinVatRoot(vatId: VatId): void {
-    const kref = this.#kernelStore.getRootObject(vatId);
-    if (!kref) {
-      throw new VatNotFoundError(vatId);
-    }
-    this.#kernelStore.unpinObject(kref);
+  async unpinVatRoot(vatId: VatId): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      const kref = this.#kernelStore.getRootObject(vatId);
+      if (!kref) {
+        throw new VatNotFoundError(vatId);
+      }
+      this.#kernelStore.unpinObject(kref);
+    });
   }
 
   /**
@@ -625,13 +680,15 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reset(): Promise<void> {
-    try {
-      await this.terminateAllVats();
-      this.#resetKernelState();
-    } catch (error) {
-      this.#logger.error('Error resetting kernel:', error);
-      throw error;
-    }
+    await this.#mutex.runExclusive(async () => {
+      try {
+        await this.#terminateAllVats();
+        this.#resetKernelState();
+      } catch (error) {
+        this.#logger.error('Error resetting kernel:', error);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -639,8 +696,17 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async terminateAllVats(): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      await this.#terminateAllVats();
+    });
+  }
+
+  /**
+   * An unlocked version of `terminateAllVats`.
+   */
+  async #terminateAllVats(): Promise<void> {
     for (const id of this.getVatIds().reverse()) {
-      await this.terminateVat(id);
+      await this.#terminateVat(id);
       this.collectGarbage();
     }
   }
@@ -650,14 +716,16 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
-    const subclusters = this.#kernelStore.getSubclusters();
-    await this.terminateAllVats();
-    for (const subcluster of subclusters) {
-      const newId = this.#kernelStore.addSubcluster(subcluster.config);
-      await this.#launchVatsForSubcluster(newId, subcluster.config);
-      // Wait for run queue to be empty before proceeding to next subcluster
-      await delay(100);
-    }
+    await this.#mutex.runExclusive(async () => {
+      const subclusters = this.#kernelStore.getSubclusters();
+      await this.#terminateAllVats();
+      for (const subcluster of subclusters) {
+        const newId = this.#kernelStore.addSubcluster(subcluster.config);
+        await this.#launchVatsForSubcluster(newId, subcluster.config);
+        // Wait for run queue to be empty before proceeding to next subcluster
+        await delay(100);
+      }
+    });
   }
 
   /**
@@ -671,11 +739,16 @@ export class Kernel {
     this.#kernelStore.collectGarbage();
   }
 
-  registerKernelServiceObject(name: string, service: object): void {
-    const kref = this.#kernelStore.initKernelObject('kernel');
-    const kernelService = { name, kref, service };
-    this.#kernelServicesByName.set(name, kernelService);
-    this.#kernelServicesByObject.set(kref, kernelService);
+  async registerKernelServiceObject(
+    name: string,
+    service: object,
+  ): Promise<void> {
+    await this.#mutex.runExclusive(async () => {
+      const kref = this.#kernelStore.initKernelObject('kernel');
+      const kernelService = { name, kref, service };
+      this.#kernelServicesByName.set(name, kernelService);
+      this.#kernelServicesByObject.set(kref, kernelService);
+    });
   }
 
   async #invokeKernelService(target: KRef, message: Message): Promise<void> {
