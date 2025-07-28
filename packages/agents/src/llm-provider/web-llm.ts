@@ -1,9 +1,7 @@
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
 import type {
-  ChatCompletionChunk,
-  ChatCompletionRequest,
-  ChatCompletion,
   MLCEngineConfig,
+  ChatCompletionMessageParam,
 } from '@mlc-ai/web-llm';
 
 import type {
@@ -40,7 +38,7 @@ export function makeMlcLlmProvider(
   options: MlcLlmProviderOptions = {},
 ): LlmProvider {
   const archetypes = { ...defaultArchetypes, ...options.archetypes };
-  const engineParams = options.engineConfig ? [options.engineConfig] : [];
+  const { engineConfig = {} } = options;
 
   return {
     getArchetypeConfig(archetype: ModelArchetype): ModelConfig {
@@ -48,24 +46,27 @@ export function makeMlcLlmProvider(
     },
     async makeInstance(config: InstanceConfig): Promise<LlmInstance> {
       const { model } = parseInstanceConfig(config, archetypes);
-      const engine = await CreateMLCEngine(...[model, ...engineParams]);
+      const engine = await CreateMLCEngine(model, engineConfig);
       const requestParams = {
         stream: true,
         // The library is written in parselmouth.
-        // eslint-disable-next-line @typescript-eslint/naming-convention
+        /* eslint-disable @typescript-eslint/naming-convention */
         stream_options: { include_usage: false },
-      };
+        temperature: 0.6,
+        top_p: 0.7,
+        /* eslint-enable @typescript-eslint/naming-convention */
+      } as const;
       return {
         generate: async (prompt: string): Promise<AsyncGenerator<string>> => {
-          const response = (await engine.completions.create({
+          const response = await engine.completions.create({
             prompt,
             ...requestParams,
-          })) as AsyncIterable<ChatCompletion>;
+          });
           return (async function* () {
             for await (const chunk of response) {
-              const content = chunk.choices[0]?.message.content;
+              const content = chunk.choices[0]?.text;
               if (!content) {
-                throw new Error('No content in chunk');
+                return;
               }
               yield content;
             }
@@ -73,15 +74,15 @@ export function makeMlcLlmProvider(
         },
 
         chat: async (messages: Message[]): Promise<AsyncGenerator<string>> => {
-          const response = (await engine.chat.completions.create({
-            messages,
+          const response = await engine.chat.completions.create({
+            messages: messages as ChatCompletionMessageParam[],
             ...requestParams,
-          } as ChatCompletionRequest)) as AsyncIterable<ChatCompletionChunk>;
+          });
           return (async function* () {
             for await (const chunk of response) {
               const content = chunk.choices[0]?.delta.content;
               if (!content) {
-                throw new Error('No content in chunk');
+                return;
               }
               yield content;
             }
