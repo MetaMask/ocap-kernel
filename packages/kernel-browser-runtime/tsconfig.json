@@ -6,6 +6,7 @@
     "types": ["ses", "vitest"]
   },
   "references": [
+    { "path": "../agents" },
     { "path": "../kernel-errors" },
     { "path": "../kernel-rpc-methods" },
     { "path": "../kernel-shims" },

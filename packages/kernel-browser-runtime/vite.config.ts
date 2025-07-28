@@ -9,6 +9,7 @@ import { checker as viteChecker } from 'vite-plugin-checker';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
+import wasm from 'vite-plugin-wasm';
 
 // The importing files end up in `./<entrypoint>/`, and we statically copy `endoify.js`
 // to `./`.
@@ -25,6 +26,7 @@ export const trustedPreludes: PreludeRecord = {
  */
 const staticCopyTargets: readonly (string | Target)[] = [
   '../../kernel-shims/dist/endoify.js',
+  '../../agents/wasm/TinyLlama-1.1B-Chat-v0.4-q4f32_1-ctx2k_cs1k-webgpu.wasm',
 ];
 
 // We will only run this where it's available, but ESLint doesn't know that
@@ -97,6 +99,7 @@ export default defineConfig(({ mode }) => {
 
     plugins: [
       jsTrustedPrelude({ trustedPreludes }),
+      wasm(),
       viteStaticCopy({
         targets: staticCopyTargets.map((src) =>
           typeof src === 'string' ? { src, dest: './' } : src,
