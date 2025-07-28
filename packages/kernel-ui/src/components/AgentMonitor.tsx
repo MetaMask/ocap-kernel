@@ -1,5 +1,5 @@
-import { Chat } from './Chat.tsx';
 import { AgentControls } from './AgentControls.tsx';
+import { Chat } from './Chat.tsx';
 import styles from '../App.module.css';
 
 export const AgentMonitor: React.FC = () => {

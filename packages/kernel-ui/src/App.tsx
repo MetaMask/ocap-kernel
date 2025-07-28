@@ -2,11 +2,11 @@ import type { NonEmptyArray } from '@metamask/utils';
 import { useState } from 'react';
 
 import styles from './App.module.css';
+import { AgentMonitor } from './components/AgentMonitor.tsx';
 import { ControlPanel } from './components/ControlPanel.tsx';
 import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
-import { AgentMonitor } from './components/AgentMonitor.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
 import { useStream } from './hooks/useStream.ts';
