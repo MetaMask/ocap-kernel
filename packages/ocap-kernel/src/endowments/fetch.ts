@@ -15,11 +15,5 @@ export default function makeFetchEndowment({ urls }: { urls: string[] }) {
       }
       return fetch(url as string, ...rest);
     }),
-    // These could probably be empty class {} definitions.
-    /* eslint-disable n/no-unsupported-features/node-builtins */
-    Headers: harden(globalThis.Headers ?? class {}),
-    Request: harden(globalThis.Request ?? class {}),
-    Response: harden(globalThis.Response ?? class {}),
-    /* eslint-enable n/no-unsupported-features/node-builtins */
   };
 }

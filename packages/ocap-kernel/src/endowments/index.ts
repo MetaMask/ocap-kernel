@@ -1,9 +1,15 @@
 import makeAbortEndowment from './abort.ts';
+import makeFetchApiEndowment from './fetch-api.ts';
 import makeFetchEndowment from './fetch.ts';
+import makePerformanceEndowment from './performance.ts';
+import makeUrlEndowment from './url.ts';
 
 const endowmentFactories = {
   fetch: makeFetchEndowment,
+  fetchApi: makeFetchApiEndowment,
   abort: makeAbortEndowment,
+  performance: makePerformanceEndowment,
+  url: makeUrlEndowment,
 } as const;
 
 export type EndowmentName = keyof typeof endowmentFactories;

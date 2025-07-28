@@ -7,5 +7,6 @@
 export default function makeAbortEndowment() {
   return {
     AbortController: harden(globalThis.AbortController ?? class {}),
+    DOMException: harden(globalThis.DOMException ?? class {}) as unknown,
   };
 }
