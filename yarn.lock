@@ -3183,6 +3183,7 @@ __metadata:
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.0"
+    "@ocap/agents": "workspace:^"
     "@ocap/cli": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ocap/vite-plugins": "workspace:^"
