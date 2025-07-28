@@ -56,7 +56,8 @@
     }
   },
   "files": [
-    "dist/"
+    "dist/",
+    "wasm/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --clean",

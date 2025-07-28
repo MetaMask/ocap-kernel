@@ -9,5 +9,5 @@
   },
   "references": [{ "path": "../streams/tsconfig.build.json" }],
   "files": [],
-  "include": ["./src"]
+  "include": ["./src", "./wasm"]
 }
