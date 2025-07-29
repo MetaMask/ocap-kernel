@@ -208,7 +208,7 @@ test.describe('Control Panel', () => {
       '{"key":"ko5.refCount","value":"1,1"}',
       '{"key":"kp4.refCount","value":"2"}',
     ];
-    const v1ko3Values = [
+    const v1koValues = [
       '{"key":"v1.c.ko4","value":"R o-1"}',
       '{"key":"v1.c.o-1","value":"ko4"}',
       '{"key":"v1.c.ko5","value":"R o-2"}',
@@ -225,7 +225,7 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
-    for (const value of v1ko3Values) {
+    for (const value of v1koValues) {
       await expect(
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
@@ -269,8 +269,8 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).not.toContainText(value);
     }
-    // ko3 reference still exists for v1
-    for (const value of v1ko3Values) {
+    // ko3 (vat root) reference still exists for v1
+    for (const value of v1koValues) {
       await expect(
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
@@ -298,7 +298,7 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('{"key":"vats.terminated","value":"[]"}');
-    for (const value of v1ko3Values) {
+    for (const value of v1koValues) {
       await expect(
         popupPage.locator('[data-testid="message-output"]'),
       ).not.toContainText(value);
