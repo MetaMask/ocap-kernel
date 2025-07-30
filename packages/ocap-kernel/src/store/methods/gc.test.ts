@@ -35,7 +35,7 @@ describe('GC methods', () => {
 
       // Invalid vat ID
       expect(() => {
-        kernelStore.addGCActions(['x1 dropExport v1Object']);
+        kernelStore.addGCActions([`x1 dropExport ${v1Object}`]);
       }).toThrow('not a valid VatId');
 
       // Invalid action type
