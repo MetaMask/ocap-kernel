@@ -1,6 +1,7 @@
 import { AES_GCM } from '@libp2p/crypto/ciphers';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import type { KVStore } from '@metamask/kernel-store';
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
@@ -73,18 +74,36 @@ async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
  * Produce a list of known libp2p STUN and TURN servers that can be used for
  * NAT hole punching.
  *
+ * @param kv - KVStore in which known relay information is kept
+ *
  * @returns an array of multiaddrs of known relay services.
  */
-async function getKnownRelays(): Promise<string[]> {
-  // XXX TODO: This is all dummies and placeholders for developmental testing. This
-  // stuff MUST be replaced with actual relay information before distribution.
-  const RELAY_SEED = 'c8';
-  const RELAY_HOST = '/dns4/troll.fudco.com';
+export function getKnownRelays(kv: KVStore): string[] {
+  const knownRelays = kv.get('knownRelays');
+  if (knownRelays) {
+    return JSON.parse(knownRelays);
+  }
+  return [];
+}
 
-  const [, relayPeerId] = await generateKeyInfo(RELAY_SEED);
-  const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId}`;
-  const knownRelays = [relayAddr];
-  return knownRelays;
+/**
+ * Setup temporary knowledge of a placeholder relay server.
+ *
+ * XXX TODO: This is all dummies and placeholders for developmental testing. This
+ * stuff MUST be replaced with actual relay configuration before distribution.
+ *
+ * @param kv - KVStore in which known relay information is kept
+ */
+async function setupTempTestRelays(kv: KVStore): Promise<void> {
+  if (!kv.get('knownRelays')) {
+    const RELAY_SEED = 'c8';
+    const RELAY_HOST = '/dns4/troll.fudco.com';
+
+    const [, relayPeerId] = await generateKeyInfo(RELAY_SEED);
+    const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId}`;
+    const knownRelays = [relayAddr];
+    kv.set('knownRelays', JSON.stringify(knownRelays));
+  }
 }
 
 // XXX IMPORTANT: All the cryptography here is completely amateur and needs to
@@ -139,7 +158,8 @@ export async function initRemoteComms(
   }
   const cipher = AES_GCM.create();
 
-  const knownRelays = await getKnownRelays();
+  await setupTempTestRelays(kv); // XXX temporary developmental scaffolding, remove asap
+  const knownRelays = getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
   await platformServices.initializeRemoteComms(
     keySeed,
