@@ -122,10 +122,10 @@ export default defineConfig({
           lines: 94.18,
         },
         'packages/kernel-utils/**': {
-          statements: 76.38,
-          functions: 89.47,
-          branches: 92.85,
-          lines: 74.62,
+          statements: 100,
+          functions: 100,
+          branches: 96.42,
+          lines: 100,
         },
         'packages/logger/**': {
           statements: 98.46,
@@ -140,10 +140,10 @@ export default defineConfig({
           lines: 60.86,
         },
         'packages/ocap-kernel/**': {
-          statements: 79.35,
-          functions: 82.89,
-          branches: 73.92,
-          lines: 79.33,
+          statements: 82.46,
+          functions: 85.26,
+          branches: 75.81,
+          lines: 82.45,
         },
         'packages/streams/**': {
           statements: 100,
