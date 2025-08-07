@@ -13,14 +13,14 @@
   },
   "type": "module",
   "exports": {
-    ".": {
+    "./ollama/nodejs": {
       "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
+        "types": "./dist/ollama/nodejs.d.mts",
+        "default": "./dist/ollama/nodejs.mjs"
       },
       "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
+        "types": "./dist/ollama/nodejs.d.cts",
+        "default": "./dist/ollama/nodejs.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -40,6 +40,7 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
@@ -51,6 +52,7 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
+    "@metamask/streams": "workspace:^",
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
@@ -77,5 +79,8 @@
   },
   "engines": {
     "node": "^20 || >=22"
+  },
+  "dependencies": {
+    "ollama": "^0.5.16"
   }
 }

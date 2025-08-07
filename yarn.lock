@@ -3237,6 +3237,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/streams": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -3253,6 +3254,7 @@ __metadata:
     eslint-plugin-n: "npm:^17.17.0"
     eslint-plugin-prettier: "npm:^5.2.6"
     eslint-plugin-promise: "npm:^7.2.1"
+    ollama: "npm:^0.5.16"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
     typedoc: "npm:^0.28.1"
@@ -11284,6 +11286,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ollama@npm:^0.5.16":
+  version: 0.5.16
+  resolution: "ollama@npm:0.5.16"
+  dependencies:
+    whatwg-fetch: "npm:^3.6.20"
+  checksum: 10/40650813d7cc41058c25c9cb08374078b69f449e84c25dfa4b08176138db93af2f0546eb52431b538a055af30c84908330a8a5ac554595be3022e7f1fdac4a49
+  languageName: node
+  linkType: hard
+
 "on-finished@npm:2.4.1":
   version: 2.4.1
   resolution: "on-finished@npm:2.4.1"
@@ -14602,6 +14613,13 @@ __metadata:
   dependencies:
     iconv-lite: "npm:0.6.3"
   checksum: 10/bbef815eb67f91487c7f2ef96329743f5fd8357d7d62b1119237d25d41c7e452dff8197235b2d3c031365a17f61d3bb73ca49d0ed1582475aa4a670815e79534
+  languageName: node
+  linkType: hard
+
+"whatwg-fetch@npm:^3.6.20":
+  version: 3.6.20
+  resolution: "whatwg-fetch@npm:3.6.20"
+  checksum: 10/2b4ed92acd6a7ad4f626a6cb18b14ec982bbcaf1093e6fe903b131a9c6decd14d7f9c9ca3532663c2759d1bdf01d004c77a0adfb2716a5105465c20755a8c57c
   languageName: node
   linkType: hard
 

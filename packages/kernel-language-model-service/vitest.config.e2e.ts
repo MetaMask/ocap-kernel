@@ -9,8 +9,9 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'kernel-language-model-service',
-        exclude: ['./test/e2e/**'],
+        name: 'kernel-language-model-service:e2e',
+        include: ['./test/e2e/**/*.test.ts'],
+        exclude: ['./src/**/*'],
       },
     }),
   );
