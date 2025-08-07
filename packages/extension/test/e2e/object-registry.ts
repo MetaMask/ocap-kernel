@@ -1,12 +1,4 @@
-import type { Page, Expect, Locator } from 'playwright/test';
-
-export const openObjectRegistryTab = async (
-  page: Page,
-  expect?: Expect,
-): Promise<void> => {
-  await page.click('button:text("Object Registry")');
-  await expect?.(page.locator('#root')).toContainText('Object Registry');
-};
+import type { Page, Locator } from 'playwright/test';
 
 export const sendMessage = async (
   page: Page,

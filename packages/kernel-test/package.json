@@ -51,7 +51,6 @@
     "@endo/marshal": "^1.6.4",
     "@endo/patterns": "^1.5.0",
     "@endo/promise-kit": "^1.1.10",
-    "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",

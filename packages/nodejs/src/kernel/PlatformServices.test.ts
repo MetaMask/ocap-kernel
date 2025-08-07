@@ -1,42 +1,57 @@
-import '@metamask/kernel-shims/endoify';
+import '../env/endoify.ts';
 
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
-import { NodeWorkerDuplexStream } from '@metamask/streams';
 import { describe, expect, it, vi } from 'vitest';
 
-import { NodejsVatWorkerService } from '../../src/kernel/VatWorkerService.ts';
-import { getTestWorkerFile } from '../get-test-worker.ts';
+import { NodejsPlatformServices } from './PlatformServices.ts';
 
-describe('NodejsVatWorkerService', () => {
-  const testWorkerFile = getTestWorkerFile('stream-sync');
+const mocks = vi.hoisted(() => ({
+  worker: {
+    once: (_: string, callback: () => unknown) => {
+      callback();
+    },
+    terminate: vi.fn(async () => undefined),
+  },
+  stream: {
+    synchronize: vi.fn(async () => undefined).mockResolvedValue(undefined),
+    return: vi.fn(async () => ({})),
+  },
+}));
+
+vi.mock('@metamask/streams', () => ({
+  NodeWorkerDuplexStream: vi.fn(() => mocks.stream),
+}));
+
+vi.mock('node:worker_threads', () => ({
+  Worker: vi.fn(() => mocks.worker),
+}));
+
+describe('NodejsPlatformServices', () => {
+  it('constructs an instance without any arguments', () => {
+    const instance = new NodejsPlatformServices({});
+    expect(instance).toBeInstanceOf(NodejsPlatformServices);
+  });
+
+  const workerFilePath = 'unused';
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 
   describe('launch', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsVatWorkerService({
-        workerFilePath: testWorkerFile,
+      const service = new NodejsPlatformServices({
+        workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
       const stream = await service.launch(testVatId);
 
-      expect(stream).toBeInstanceOf(NodeWorkerDuplexStream);
+      expect(stream).toStrictEqual(mocks.stream);
     });
 
     it('rejects if synchronize fails', async () => {
       const rejected = 'test-reject-value';
-
-      vi.doMock('@metamask/streams', () => ({
-        NodeWorkerDuplexStream: vi.fn().mockImplementation(() => ({
-          synchronize: vi.fn(() => 'no').mockRejectedValue(rejected),
-        })),
-      }));
-      vi.resetModules();
-      const NVWS = (await import('../../src/kernel/VatWorkerService.ts'))
-        .NodejsVatWorkerService;
-
-      const service = new NVWS({ workerFilePath: testWorkerFile });
+      mocks.stream.synchronize.mockRejectedValue(rejected);
+      const service = new NodejsPlatformServices({ workerFilePath });
       const testVatId: VatId = getTestVatId();
       await expect(async () => await service.launch(testVatId)).rejects.toThrow(
         rejected,
@@ -46,8 +61,8 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsVatWorkerService({
-        workerFilePath: testWorkerFile,
+      const service = new NodejsPlatformServices({
+        workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
 
@@ -59,8 +74,8 @@ describe('NodejsVatWorkerService', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsVatWorkerService({
-        workerFilePath: testWorkerFile,
+      const service = new NodejsPlatformServices({
+        workerFilePath,
       });
       const testVatId: VatId = getTestVatId();
 
@@ -72,8 +87,8 @@ describe('NodejsVatWorkerService', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsVatWorkerService({
-        workerFilePath: testWorkerFile,
+      const service = new NodejsPlatformServices({
+        workerFilePath,
       });
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
 

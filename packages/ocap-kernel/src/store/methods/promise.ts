@@ -10,8 +10,9 @@ import type {
   PromiseState,
   RunQueueItemSend,
   VatId,
+  EndpointId,
 } from '../../types.ts';
-import { insistVatId } from '../../types.ts';
+import { insistEndpointId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -122,16 +123,16 @@ export function getPromiseMethods(ctx: StoreContext) {
   /**
    * Add a new subscriber to a kernel promise's collection of subscribers.
    *
-   * @param vatId - The vat that is subscribing.
+   * @param endpointId - The endpoint that is subscribing.
    * @param kpid - The KRef of the promise being subscribed to.
    */
-  function addPromiseSubscriber(vatId: VatId, kpid: KRef): void {
-    insistVatId(vatId);
+  function addPromiseSubscriber(endpointId: EndpointId, kpid: KRef): void {
+    insistEndpointId(endpointId);
     const kp = getKernelPromise(kpid);
     kp.state === 'unresolved' ||
       Fail`attempt to add subscriber to resolved promise ${kpid}`;
     const tempSet = new Set(kp.subscribers);
-    tempSet.add(vatId);
+    tempSet.add(endpointId);
     const newSubscribers = Array.from(tempSet).sort();
     const key = `${kpid}.subscribers`;
     ctx.kv.set(key, JSON.stringify(newSubscribers));
@@ -141,14 +142,14 @@ export function getPromiseMethods(ctx: StoreContext) {
    * Assign a kernel promise's decider.
    *
    * @param kpid - The KRef of promise whose decider is being set.
-   * @param vatId - The vat which will become the decider.
+   * @param endpointId - The endpoint which will become the decider.
    */
-  function setPromiseDecider(kpid: KRef, vatId: VatId): void {
-    if (vatId !== 'kernel') {
-      insistVatId(vatId);
+  function setPromiseDecider(kpid: KRef, endpointId: EndpointId): void {
+    if (endpointId !== 'kernel') {
+      insistEndpointId(endpointId);
     }
     if (kpid) {
-      ctx.kv.set(`${kpid}.decider`, vatId);
+      ctx.kv.set(`${kpid}.decider`, endpointId);
     }
   }
 

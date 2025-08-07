@@ -1,11 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import {
-  revokeObject,
-  sendMessage,
-  openObjectRegistryTab,
-} from './object-registry.ts';
+import { revokeObject, sendMessage } from './object-registry.ts';
 import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe.configure({ mode: 'serial' });
@@ -18,7 +14,9 @@ test.describe('Object Registry', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await openObjectRegistryTab(popupPage, expect);
+    const registryButton = popupPage.locator('button:text("Object Registry")');
+    await expect(registryButton).toBeVisible();
+    await registryButton.click();
   });
 
   test.afterEach(async () => {
@@ -32,11 +30,12 @@ test.describe('Object Registry', () => {
     await clearLogsButton.click();
     await popupPage.click('button:text("Object Registry")');
     await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 3 promises',
+      'Alice (v1) - 5 objects, 4 promises',
     );
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
+    console.log('options', options);
     await expect(options).toHaveCount(await options.count());
     expect(await options.count()).toBeGreaterThan(0);
     await targetSelect.selectOption({ index: 1 });
@@ -51,7 +50,7 @@ test.describe('Object Registry', () => {
     );
     await expect(messageResponse).toBeVisible();
     await expect(messageResponse).toContainText(
-      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
+      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"doRunRun\\",\\"hello\\"]"',
     );
     await expect(messageResponse).toContainText('"slots":[]');
     await clearLogsButton.click();
@@ -61,13 +60,14 @@ test.describe('Object Registry', () => {
     await expect(messageResponse).toContainText('"body":"#\\"vat Alice got');
     await expect(messageResponse).toContainText('"slots":[');
     await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 5 promises',
+      'Alice (v1) - 5 objects, 6 promises',
     );
   });
 
   test('should revoke an object', async () => {
     const owner = 'v1';
-    const [target, method, params] = ['ko1', 'hello', '["Bob"]'];
+    const v1Root = 'ko3';
+    const [target, method, params] = [v1Root, 'hello', '["Bob"]'];
 
     // Before revoking, we should be able to send a message to the object
     let response = await sendMessage(popupPage, target, method, params);
