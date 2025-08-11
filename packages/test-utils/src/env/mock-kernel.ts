@@ -28,14 +28,15 @@ export const setupOcapKernelMock = (): {
     const VatIdStruct = define<unknown>('VatId', () => isVatIdMock);
     const VatConfigStruct = define<unknown>('VatConfig', () => isVatConfigMock);
     const SubclusterIdStruct = define<unknown>('SubclusterId', () => true);
+    const ClusterConfigStruct = object({
+      bootstrap: string(),
+      forceReset: exactOptional(boolean()),
+      vats: record(string(), VatConfigStruct),
+      bundles: exactOptional(record(string(), VatConfigStruct)),
+    });
     const SubclusterStruct = object({
       id: SubclusterIdStruct,
-      config: object({
-        bootstrap: string(),
-        forceReset: exactOptional(boolean()),
-        vats: record(string(), VatConfigStruct),
-        bundles: exactOptional(record(string(), VatConfigStruct)),
-      }),
+      config: ClusterConfigStruct,
       vats: array(VatIdStruct),
     });
 
@@ -50,12 +51,7 @@ export const setupOcapKernelMock = (): {
         body: string(),
         slots: array(string()),
       }),
-      ClusterConfigStruct: object({
-        bootstrap: string(),
-        forceReset: exactOptional(boolean()),
-        vats: record(string(), VatConfigStruct),
-        bundles: exactOptional(record(string(), VatConfigStruct)),
-      }),
+      ClusterConfigStruct,
       KernelStatusStruct: type({
         subclusters: array(SubclusterStruct),
         vats: array(

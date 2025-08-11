@@ -17,6 +17,13 @@ import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useRegistry } from '../hooks/useRegistry.ts';
 import type { VatSnapshot } from '../types.ts';
+import {
+  Table,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableValue,
+} from './table/index.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;
@@ -187,97 +194,29 @@ export const ObjectRegistry: React.FC = () => {
                   Owned Objects
                 </TextComponent>
                 <Box className="w-full">
-                  <table className="w-full border-collapse border-t border-muted">
-                    <thead>
-                      <tr className="border-b border-muted">
-                        <th className="text-left py-2 px-3 border-r border-muted">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            KRef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            ERef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Ref Count
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            To Vat(s)
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Actions
-                          </TextComponent>
-                        </th>
-                      </tr>
-                    </thead>
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>Ref Count</TableHeader>
+                      <TableHeader>To Vat(s)</TableHeader>
+                      <TableHeader>Actions</TableHeader>
+                    </TableHead>
                     <tbody>
                       {vatData.ownedObjects.map((obj, idx) => (
                         <tr
                           key={`owned-${obj.kref}-${idx}`}
                           className="hover:bg-alternative border-b border-muted"
                         >
-                          <td className="py-1 px-3 border-r border-muted">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.kref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.eref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.refCount}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.toVats.length > 0
-                                ? obj.toVats.join(', ')
-                                : '—'}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
+                          <TableValue first>{obj.kref}</TableValue>
+                          <TableValue>{obj.eref}</TableValue>
+                          <TableValue>{obj.refCount}</TableValue>
+                          <TableValue>
+                            {obj.toVats.length > 0
+                              ? obj.toVats.join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableCell>
                             <Button
                               variant={ButtonVariant.Secondary}
                               isDanger
@@ -296,11 +235,11 @@ export const ObjectRegistry: React.FC = () => {
                                 {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
                               </TextComponent>
                             </Button>
-                          </td>
+                          </TableCell>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </Box>
               </Box>
             )}
@@ -316,89 +255,27 @@ export const ObjectRegistry: React.FC = () => {
                   Imported Objects
                 </TextComponent>
                 <Box className="w-full">
-                  <table className="w-full border-collapse border-t border-muted">
-                    <thead>
-                      <tr className="border-b border-muted">
-                        <th className="text-left py-2 px-3 border-r border-muted">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            KRef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            ERef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Ref Count
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            From Vat
-                          </TextComponent>
-                        </th>
-                      </tr>
-                    </thead>
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>Ref Count</TableHeader>
+                      <TableHeader>From Vat</TableHeader>
+                    </TableHead>
                     <tbody>
                       {vatData.importedObjects.map((obj, idx) => (
                         <tr
                           key={`imported-${obj.kref}-${idx}`}
                           className="hover:bg-alternative border-b border-muted"
                         >
-                          <td className="py-1 px-3 border-r border-muted">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.kref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.eref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.refCount}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {obj.fromVat ?? '—'}
-                            </TextComponent>
-                          </td>
+                          <TableValue first>{obj.kref}</TableValue>
+                          <TableValue>{obj.eref}</TableValue>
+                          <TableValue>{obj.refCount}</TableValue>
+                          <TableValue>{obj.fromVat ?? '—'}</TableValue>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </Box>
               </Box>
             )}
@@ -414,130 +291,40 @@ export const ObjectRegistry: React.FC = () => {
                   Imported Promises
                 </TextComponent>
                 <Box className="w-full">
-                  <table className="w-full border-collapse border-t border-muted">
-                    <thead>
-                      <tr className="border-b border-muted">
-                        <th className="text-left py-2 px-3 border-r border-muted">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            KRef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            ERef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            State
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Value
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Slots
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            From Vat
-                          </TextComponent>
-                        </th>
-                      </tr>
-                    </thead>
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>State</TableHeader>
+                      <TableHeader>Value</TableHeader>
+                      <TableHeader>Slots</TableHeader>
+                      <TableHeader>From Vat</TableHeader>
+                    </TableHead>
                     <tbody>
                       {vatData.importedPromises.map((promise, idx) => (
                         <tr
                           key={`imported-promise-${promise.kref}-${idx}`}
                           className="hover:bg-alternative border-b border-muted"
                         >
-                          <td className="py-1 px-3 border-r border-muted">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.kref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.eref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.state}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.value.body}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.value.slots.length > 0
-                                ? promise.value.slots
-                                    .map(
-                                      (slot) =>
-                                        `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                    )
-                                    .join(', ')
-                                : '—'}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.fromVat ?? '—'}
-                            </TextComponent>
-                          </td>
+                          <TableValue first>{promise.kref}</TableValue>
+                          <TableValue>{promise.eref}</TableValue>
+                          <TableValue>{promise.state}</TableValue>
+                          <TableValue>{promise.value.body}</TableValue>
+                          <TableValue>
+                            {promise.value.slots.length > 0
+                              ? promise.value.slots
+                                  .map(
+                                    (slot) =>
+                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                  )
+                                  .join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableValue>{promise.fromVat ?? '—'}</TableValue>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </Box>
               </Box>
             )}
@@ -553,132 +340,44 @@ export const ObjectRegistry: React.FC = () => {
                   Exported Promises
                 </TextComponent>
                 <Box className="w-full">
-                  <table className="w-full border-collapse border-t border-muted">
-                    <thead>
-                      <tr className="border-b border-muted">
-                        <th className="text-left py-2 px-3 border-r border-muted">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            KRef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            ERef
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            State
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Value
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            Slots
-                          </TextComponent>
-                        </th>
-                        <th className="text-left py-2 px-3">
-                          <TextComponent
-                            variant={TextVariant.BodyXs}
-                            fontWeight={FontWeight.Medium}
-                            color={TextColor.TextMuted}
-                          >
-                            To Vat(s)
-                          </TextComponent>
-                        </th>
-                      </tr>
-                    </thead>
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>State</TableHeader>
+                      <TableHeader>Value</TableHeader>
+                      <TableHeader>Slots</TableHeader>
+                      <TableHeader>To Vat(s)</TableHeader>
+                    </TableHead>
                     <tbody>
                       {vatData.exportedPromises.map((promise, idx) => (
                         <tr
                           key={`exported-promise-${promise.kref}-${idx}`}
                           className="hover:bg-alternative border-b border-muted"
                         >
-                          <td className="py-1 px-3 border-r border-muted">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.kref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.eref}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.state}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.value.body}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.value.slots.length > 0
-                                ? promise.value.slots
-                                    .map(
-                                      (slot) =>
-                                        `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                    )
-                                    .join(', ')
-                                : '—'}
-                            </TextComponent>
-                          </td>
-                          <td className="py-1 px-3">
-                            <TextComponent
-                              variant={TextVariant.BodyXs}
-                              color={TextColor.TextDefault}
-                            >
-                              {promise.toVats.length > 0
-                                ? promise.toVats.join(', ')
-                                : '—'}
-                            </TextComponent>
-                          </td>
+                          <TableValue first>{promise.kref}</TableValue>
+                          <TableValue>{promise.eref}</TableValue>
+                          <TableValue>{promise.state}</TableValue>
+                          <TableValue>{promise.value.body}</TableValue>
+                          <TableValue>
+                            {promise.value.slots.length > 0
+                              ? promise.value.slots
+                                  .map(
+                                    (slot) =>
+                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                  )
+                                  .join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableValue>
+                            {promise.toVats.length > 0
+                              ? promise.toVats.join(', ')
+                              : '—'}
+                          </TableValue>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </Box>
               </Box>
             )}

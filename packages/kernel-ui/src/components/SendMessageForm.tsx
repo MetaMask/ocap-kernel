@@ -15,6 +15,9 @@ import { useState, useMemo } from 'react';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useRegistry } from '../hooks/useRegistry.ts';
 
+const inputStyle =
+  'flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default';
+
 /**
  * Renders a form for users to queue a message to a vat.
  *
@@ -110,7 +113,7 @@ export const SendMessageForm: React.FC = () => {
             value={target}
             onChange={(event) => setTarget(event.target.value)}
             data-testid="message-target"
-            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default cursor-pointer transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
+            className={`${inputStyle} cursor-pointer`}
           >
             <option value="" disabled>
               Select target
@@ -137,7 +140,7 @@ export const SendMessageForm: React.FC = () => {
             placeholder="methodName"
             onKeyDown={handleKeyDown}
             data-testid="message-method"
-            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
+            className={inputStyle}
           />
         </Box>
         <Box className="flex flex-col flex-1">
@@ -154,7 +157,7 @@ export const SendMessageForm: React.FC = () => {
             placeholder="[arg1, arg2]"
             onKeyDown={handleKeyDown}
             data-testid="message-params"
-            className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default"
+            className={inputStyle}
           />
         </Box>
         <Box className="flex flex-none lg:w-[80px] items-end">
