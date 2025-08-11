@@ -7,26 +7,13 @@ import { usePanelContext } from '../context/PanelContext.tsx';
 import type { PanelContextType } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
 
+// Mock the hooks
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
 
 vi.mock('../hooks/useDatabase.ts', () => ({
   useDatabase: vi.fn(),
-}));
-
-vi.mock('../App.module.css', () => ({
-  default: {
-    dbInspector: 'db-inspector',
-    dbSection: 'db-section',
-    tableControls: 'table-controls',
-    select: 'select',
-    button: 'button',
-    querySection: 'query-section',
-    input: 'input',
-    buttonPrimary: 'button-primary',
-    table: 'table',
-  },
 }));
 
 const mockUsePanelContext: PanelContextType = {
@@ -53,11 +40,16 @@ describe('DatabaseInspector Component', () => {
     vi.clearAllMocks();
     mockUsePanelContext.logMessage = mockLogMessage;
     vi.mocked(usePanelContext).mockReturnValue(mockUsePanelContext);
+
+    // Set default resolved values for all mocks to prevent undefined errors
+    mockFetchTables.mockResolvedValue([]);
+    mockFetchTableData.mockResolvedValue([]);
+    mockExecuteQuery.mockResolvedValue([]);
+
     vi.mocked(useDatabase).mockReturnValue({
       fetchTables: mockFetchTables,
       fetchTableData: mockFetchTableData,
       executeQuery: mockExecuteQuery,
-      fetchObjectRegistry: vi.fn(),
     });
   });
 
@@ -99,7 +91,9 @@ describe('DatabaseInspector Component', () => {
     await waitFor(() => {
       expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
     });
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh',
+    });
     await userEvent.click(refreshButton);
     expect(mockFetchTableData).toHaveBeenCalledWith('tableB');
     expect(await screen.findByText('3')).toBeInTheDocument();
@@ -145,19 +139,37 @@ describe('DatabaseInspector Component', () => {
   it('logs error when refreshData fails', async () => {
     mockFetchTables.mockResolvedValue(['t1']);
     mockFetchTableData.mockRejectedValue(new Error('data error'));
+
     render(<DatabaseInspector />);
-    await waitFor(() => expect(mockFetchTableData).toHaveBeenCalled());
-    expect(mockLogMessage).toHaveBeenCalledWith(
-      'Failed to fetch data for table t1: data error',
-      'error',
-    );
+
+    // Wait for tables to load and first table to be selected
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toHaveValue('t1');
+    });
+
+    // Now wait for the error from the automatic data fetch
+    await waitFor(() => {
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Failed to fetch data for table t1: data error',
+        'error',
+      );
+    });
+
+    // Clear mocks before testing refresh button
     mockLogMessage.mockClear();
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+
+    const refreshButton = screen.getByRole('button', {
+      name: 'Refresh',
+    });
     await userEvent.click(refreshButton);
-    expect(mockLogMessage).toHaveBeenCalledWith(
-      'Failed to fetch data for table t1: data error',
-      'error',
-    );
+
+    // Wait for the error to be logged again
+    await waitFor(() => {
+      expect(mockLogMessage).toHaveBeenCalledWith(
+        'Failed to fetch data for table t1: data error',
+        'error',
+      );
+    });
   });
 
   it('logs error when executeQuery fails', async () => {

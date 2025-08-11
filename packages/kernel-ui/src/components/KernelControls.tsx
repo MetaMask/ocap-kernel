@@ -1,4 +1,12 @@
-import styles from '../App.module.css';
+import {
+  Box,
+  BoxFlexDirection,
+  BoxFlexWrap,
+  ButtonBase,
+  Icon,
+  IconName,
+} from '@metamask/design-system-react';
+
 import { useKernelActions } from '../hooks/useKernelActions.ts';
 import { useVats } from '../hooks/useVats.ts';
 
@@ -11,21 +19,42 @@ export const KernelControls: React.FC = () => {
   const { hasVats } = useVats();
 
   return (
-    <div className={styles.headerControls}>
+    <Box
+      flexDirection={BoxFlexDirection.Row}
+      flexWrap={BoxFlexWrap.Wrap}
+      className="mb-4"
+      gap={2}
+    >
       {hasVats && (
-        <button className={styles.buttonWarning} onClick={terminateAllVats}>
+        <ButtonBase
+          className="h-auto flex-1 flex-col justify-center rounded-lg bg-muted py-4 hover:bg-muted-hover active:bg-muted-pressed"
+          onClick={terminateAllVats}
+        >
+          <Icon name={IconName.Ban} className="mb-2" />
           Terminate All Vats
-        </button>
+        </ButtonBase>
       )}
-      <button onClick={collectGarbage} className={styles.buttonGray}>
+      <ButtonBase
+        className="h-auto flex-1 flex-col justify-center rounded-lg bg-muted py-4 hover:bg-muted-hover active:bg-muted-pressed"
+        onClick={collectGarbage}
+      >
+        <Icon name={IconName.Trash} className="mb-2" />
         Collect Garbage
-      </button>
-      <button className={styles.buttonDanger} onClick={clearState}>
+      </ButtonBase>
+      <ButtonBase
+        className="h-auto flex-1 flex-col justify-center rounded-lg bg-muted py-4 hover:bg-muted-hover active:bg-muted-pressed"
+        onClick={clearState}
+      >
+        <Icon name={IconName.Data} className="mb-2" />
         Clear All State
-      </button>
-      <button className={styles.buttonBlack} onClick={reload}>
+      </ButtonBase>
+      <ButtonBase
+        className="h-auto flex-1 flex-col justify-center rounded-lg bg-muted py-4 hover:bg-muted-hover active:bg-muted-pressed"
+        onClick={reload}
+      >
+        <Icon name={IconName.Refresh} className="mb-2" />
         Reload Kernel
-      </button>
-    </div>
+      </ButtonBase>
+    </Box>
   );
 };

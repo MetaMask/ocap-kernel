@@ -1,6 +1,5 @@
+import { Box, Icon, IconName } from '@metamask/design-system-react';
 import { useState } from 'react';
-
-import styles from '../../App.module.css';
 
 export type AccordionProps = {
   title: React.ReactNode;
@@ -44,20 +43,26 @@ export const Accordion: React.FC<AccordionProps> = ({
   };
 
   return (
-    <div className={styles.accordion} data-testid={testId}>
-      <div
-        className={`accordion-header ${styles.accordionHeader}`}
+    <Box
+      className="mb-4 border border-border-default hover:border-primary-default rounded-lg overflow-hidden"
+      data-testid={testId}
+    >
+      <Box
+        className="flex justify-between items-center p-3 cursor-pointer transition-colors select-none"
         onClick={handleToggle}
+        data-testid="accordion-header"
       >
-        <div className={`accordion-title ${styles.accordionTitle}`}>
+        <Box className="flex items-center" data-testid="accordion-title">
           {title}
-        </div>
-        <div className={styles.accordionIndicator}>
-          {isExpanded ? '−' : '+'}
-        </div>
-      </div>
-
-      {isExpanded && <div className={styles.accordionContent}>{children}</div>}
-    </div>
+        </Box>
+        <Box
+          className="text-lg w-5 h-5 flex items-center justify-center text-text-muted"
+          data-testid={`accordion-icon-${isExpanded ? 'minus' : 'add'}`}
+        >
+          <Icon name={isExpanded ? IconName.Minus : IconName.Add} />
+        </Box>
+      </Box>
+      {isExpanded && <Box data-testid="accordion-content">{children}</Box>}
+    </Box>
   );
 };

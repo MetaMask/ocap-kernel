@@ -1,14 +1,22 @@
+import {
+  Box,
+  Text as TextComponent,
+  TextColor,
+} from '@metamask/design-system-react';
 import type { NonEmptyArray } from '@metamask/utils';
 import { useState } from 'react';
 
-import styles from './App.module.css';
 import { ControlPanel } from './components/ControlPanel.tsx';
 import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
+import { useDarkMode } from './hooks/useDarkMode.ts';
 import { useStream } from './hooks/useStream.ts';
+
+const panelStyle =
+  'bg-background-default p-4 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 min-w-[650px] min-h-full';
 
 const tabs: NonEmptyArray<{
   label: string;
@@ -32,35 +40,37 @@ export const App: React.FC = () => {
   const { callKernelMethod, error } = useStream();
   const [activeTab, setActiveTab] = useState(tabs[0].value);
 
+  useDarkMode();
+
   if (error) {
     return (
-      <div className={styles.panel}>
-        <div className={styles.error}>
+      <Box className={panelStyle}>
+        <TextComponent color={TextColor.ErrorDefault}>
           Error connecting to kernel: {error.message}
-        </div>
-      </div>
+        </TextComponent>
+      </Box>
     );
   }
 
   if (!callKernelMethod) {
     return (
-      <div className={styles.panel}>
-        <div>Connecting to kernel...</div>
-      </div>
+      <Box className={panelStyle}>
+        <TextComponent>Connecting to kernel...</TextComponent>
+      </Box>
     );
   }
 
   return (
     <PanelProvider callKernelMethod={callKernelMethod}>
-      <div className={styles.panel}>
-        <div className={styles.leftPanel}>
+      <Box className={panelStyle}>
+        <Box className="min-w-0">
           <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           {tabs.find((tab) => tab.value === activeTab)?.component}
-        </div>
-        <div className={styles.rightPanel}>
+        </Box>
+        <Box className="sticky top-4 flex flex-col max-h-[calc(100vh-2rem)]">
           <MessagePanel />
-        </div>
-      </div>
+        </Box>
+      </Box>
     </PanelProvider>
   );
 };

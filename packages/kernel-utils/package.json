@@ -59,7 +59,7 @@
     "@endo/captp": "^4.4.5",
     "@endo/promise-kit": "^1.1.10",
     "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0",
+    "@metamask/utils": "^11.4.2",
     "setimmediate": "^1.0.5"
   },
   "devDependencies": {

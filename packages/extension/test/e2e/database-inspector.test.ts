@@ -14,7 +14,7 @@ test.describe('Database Inspector', () => {
     await expect(
       popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
     ).toBeVisible();
-    await popupPage.locator('.accordion-header').first().click();
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
     await popupPage.click('button:text("Database Inspector")');
     await expect(popupPage.locator('#root')).toContainText(
@@ -38,7 +38,7 @@ test.describe('Database Inspector', () => {
   });
 
   test('should refresh table data', async () => {
-    await popupPage.click('button:text("Refresh")');
+    await popupPage.click('[data-testid="refresh-button"]');
     const table = popupPage.locator('table');
     await expect(table).toBeVisible();
     await expect(table).toContainText('nextVatId');
@@ -46,10 +46,10 @@ test.describe('Database Inspector', () => {
 
   test('should execute SQL query and show results', async () => {
     await popupPage.fill(
-      'input[placeholder="Enter SQL query..."]',
+      '[data-testid="sql-query-input"]',
       "SELECT value FROM kv WHERE key = 'nextVatId'",
     );
-    await popupPage.click('button:text("Execute Query")');
+    await popupPage.click('[data-testid="execute-query-button"]');
     const queryResults = popupPage.locator('table');
     await expect(queryResults).toBeVisible();
     const resultCell = queryResults.locator('td').first();
@@ -58,10 +58,10 @@ test.describe('Database Inspector', () => {
 
   test('should handle invalid SQL queries', async () => {
     await popupPage.fill(
-      'input[placeholder="Enter SQL query..."]',
+      '[data-testid="sql-query-input"]',
       'INVALID SQL QUERY',
     );
-    await popupPage.click('button:text("Execute Query")');
+    await popupPage.click('[data-testid="execute-query-button"]');
     await expect(popupPage.locator('#root')).toContainText(
       'Failed to execute query',
     );

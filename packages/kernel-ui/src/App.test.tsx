@@ -10,14 +10,8 @@ vi.mock('./hooks/useStream.ts', () => ({
   useStream: vi.fn(),
 }));
 
-vi.mock('./App.module.css', () => ({
-  default: {
-    panel: 'panel-class',
-    error: 'error-class',
-    leftPanel: 'left-panel-class',
-    rightPanel: 'right-panel-class',
-    headerSection: 'header-section-class',
-  },
+vi.mock('./hooks/useDarkMode.ts', () => ({
+  useDarkMode: vi.fn(),
 }));
 
 describe('App', () => {
@@ -60,6 +54,6 @@ describe('App', () => {
     } as unknown as StreamState);
     const { App } = await import('./App.tsx');
     render(<App />);
-    expect(screen.getByText('Kernel')).toBeInTheDocument();
+    expect(screen.getByText('Control Panel')).toBeInTheDocument();
   });
 });

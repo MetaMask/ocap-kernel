@@ -1,20 +1,44 @@
+import {
+  Button,
+  ButtonVariant,
+  ButtonBaseSize,
+  Box,
+  Text as TextComponent,
+  TextVariant,
+  TextColor,
+  FontWeight,
+  ButtonSize,
+  IconName,
+} from '@metamask/design-system-react';
 import { useEffect, useState } from 'react';
 
-import styles from '../App.module.css';
 import { SendMessageForm } from './SendMessageForm.tsx';
 import { Accordion } from './shared/Accordion.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useRegistry } from '../hooks/useRegistry.ts';
 import type { VatSnapshot } from '../types.ts';
+import {
+  Table,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableValue,
+} from './table/index.ts';
 
 const VatDetailsHeader: React.FC<{ data: VatSnapshot }> = ({ data }) => {
   const objects = data.ownedObjects.length + data.importedObjects.length;
   const promises = data.importedPromises.length + data.exportedPromises.length;
   return (
-    <span className={styles.vatDetailsHeader}>
+    <TextComponent
+      variant={TextVariant.BodySm}
+      color={TextColor.TextMuted}
+      fontWeight={FontWeight.Regular}
+      className="ml-1"
+      data-testid="vat-details-header"
+    >
       {objects} object{objects === 1 ? '' : 's'}, {promises} promise
       {promises === 1 ? '' : 's'}
-    </span>
+    </TextComponent>
   );
 };
 
@@ -36,42 +60,109 @@ export const ObjectRegistry: React.FC = () => {
   }, [fetchObjectRegistry]);
 
   if (!objectRegistry) {
-    return <p className={styles.error}>Loading...</p>;
+    return (
+      <TextComponent color={TextColor.ErrorDefault}>Loading...</TextComponent>
+    );
   }
 
   return (
-    <div className="vat-details-header">
+    <Box>
       <SendMessageForm />
 
-      <div className={styles.headerSection}>
-        <h2 className={styles.noMargin}>Kernel Registry</h2>
-        <button
-          className={styles.buttonBlack}
-          data-testid="refresh-registry-button"
-          onClick={fetchObjectRegistry}
+      <Box className="flex justify-between items-center mb-6 mt-6">
+        <TextComponent
+          variant={TextVariant.HeadingSm}
+          fontWeight={FontWeight.Medium}
+          className="m-0"
         >
-          Refresh
-        </button>
-      </div>
+          Kernel Registry
+        </TextComponent>
+        <Button
+          variant={ButtonVariant.Secondary}
+          size={ButtonSize.Md}
+          data-testid="refresh-registry-button"
+          startIconName={IconName.Refresh}
+          onClick={fetchObjectRegistry}
+          className="rounded-md"
+        >
+          <TextComponent
+            variant={TextVariant.BodySm}
+            fontWeight={FontWeight.Medium}
+            className="select-none"
+          >
+            Refresh
+          </TextComponent>
+        </Button>
+      </Box>
 
-      <table className={`${styles.noBorder} ${styles.table}`}>
-        <tbody>
-          <tr>
-            <td width="160">GC Actions</td>
-            <td>{objectRegistry.gcActions ?? 'None'}</td>
-          </tr>
-          <tr>
-            <td width="160">Reap Queue</td>
-            <td>{objectRegistry.reapQueue ?? 'Empty'}</td>
-          </tr>
-          <tr>
-            <td width="160">Terminated Vats</td>
-            <td>{objectRegistry.terminatedVats ?? 'None'}</td>
-          </tr>
-        </tbody>
-      </table>
+      <Box className="w-full mb-6">
+        <table className="w-full border-collapse">
+          <tbody>
+            <tr className="border-b border-muted">
+              <td className="py-2 px-3 border-r border-muted w-40">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  GC Actions
+                </TextComponent>
+              </td>
+              <td className="py-2 px-3">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  {objectRegistry.gcActions ?? 'None'}
+                </TextComponent>
+              </td>
+            </tr>
+            <tr className="border-b border-muted">
+              <td className="py-2 px-3 border-r border-muted w-40">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  Reap Queue
+                </TextComponent>
+              </td>
+              <td className="py-2 px-3">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  {objectRegistry.reapQueue ?? 'Empty'}
+                </TextComponent>
+              </td>
+            </tr>
+            <tr className="border-b border-muted">
+              <td className="py-2 px-3 border-r border-muted w-40">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  Terminated Vats
+                </TextComponent>
+              </td>
+              <td className="py-2 px-3">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  color={TextColor.TextDefault}
+                >
+                  {objectRegistry.terminatedVats ?? 'None'}
+                </TextComponent>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </Box>
 
-      <h3>Vats</h3>
+      <TextComponent
+        variant={TextVariant.HeadingSm}
+        fontWeight={FontWeight.Medium}
+        className="mb-4"
+      >
+        Vats
+      </TextComponent>
 
       {Object.entries(objectRegistry.vats).map(([vatId, vatData]) => {
         return (
@@ -79,7 +170,13 @@ export const ObjectRegistry: React.FC = () => {
             key={vatId}
             title={
               <>
-                {vatData.overview.name} ({vatId}) -{' '}
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  color={TextColor.TextDefault}
+                >
+                  {vatData.overview.name} ({vatId}) -{' '}
+                </TextComponent>
                 <VatDetailsHeader data={vatData} />
               </>
             }
@@ -87,153 +184,206 @@ export const ObjectRegistry: React.FC = () => {
             onToggle={(_isExpanded) => toggleVat(vatId)}
           >
             {vatData.ownedObjects.length > 0 && (
-              <div className={styles.tableContainer}>
-                <h4>Owned Objects</h4>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>KRef</th>
-                      <th>ERef</th>
-                      <th>Ref Count</th>
-                      <th>To Vat(s)</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vatData.ownedObjects.map((obj, idx) => (
-                      <tr key={`owned-${obj.kref}-${idx}`}>
-                        <td>{obj.kref}</td>
-                        <td>{obj.eref}</td>
-                        <td>{obj.refCount}</td>
-                        <td>
-                          {obj.toVats.length > 0 ? obj.toVats.join(', ') : '—'}
-                        </td>
-                        <td>
-                          <button
-                            data-testid={`revoke-button-${obj.kref}`}
-                            onClick={() => revoke(obj.kref)}
-                            disabled={obj.revoked === 'true'}
-                          >
-                            {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Box className="mt-6">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
+                  data-testid="table-heading"
+                >
+                  Owned Objects
+                </TextComponent>
+                <Box className="w-full">
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>Ref Count</TableHeader>
+                      <TableHeader>To Vat(s)</TableHeader>
+                      <TableHeader>Actions</TableHeader>
+                    </TableHead>
+                    <tbody>
+                      {vatData.ownedObjects.map((obj, idx) => (
+                        <tr
+                          key={`owned-${obj.kref}-${idx}`}
+                          className="hover:bg-alternative border-b border-muted"
+                        >
+                          <TableValue first>{obj.kref}</TableValue>
+                          <TableValue>{obj.eref}</TableValue>
+                          <TableValue>{obj.refCount}</TableValue>
+                          <TableValue>
+                            {obj.toVats.length > 0
+                              ? obj.toVats.join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableCell>
+                            <Button
+                              variant={ButtonVariant.Secondary}
+                              isDanger
+                              size={ButtonBaseSize.Sm}
+                              data-testid={`revoke-button-${obj.kref}`}
+                              onClick={() => revoke(obj.kref)}
+                              isDisabled={obj.revoked === 'true'}
+                              className="rounded-md"
+                            >
+                              <TextComponent
+                                variant={TextVariant.BodyXs}
+                                fontWeight={FontWeight.Medium}
+                                color={TextColor.ErrorDefault}
+                                className="select-none"
+                              >
+                                {obj.revoked === 'true' ? 'Revoked' : 'Revoke'}
+                              </TextComponent>
+                            </Button>
+                          </TableCell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </Box>
+              </Box>
             )}
 
             {vatData.importedObjects.length > 0 && (
-              <div className={styles.tableContainer}>
-                <h4>Imported Objects</h4>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>KRef</th>
-                      <th>ERef</th>
-                      <th>Ref Count</th>
-                      <th>From Vat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vatData.importedObjects.map((obj, idx) => (
-                      <tr key={`imported-${obj.kref}-${idx}`}>
-                        <td>{obj.kref}</td>
-                        <td>{obj.eref}</td>
-                        <td>{obj.refCount}</td>
-                        <td>{obj.fromVat ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Box className="mt-6">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
+                  data-testid="table-heading"
+                >
+                  Imported Objects
+                </TextComponent>
+                <Box className="w-full">
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>Ref Count</TableHeader>
+                      <TableHeader>From Vat</TableHeader>
+                    </TableHead>
+                    <tbody>
+                      {vatData.importedObjects.map((obj, idx) => (
+                        <tr
+                          key={`imported-${obj.kref}-${idx}`}
+                          className="hover:bg-alternative border-b border-muted"
+                        >
+                          <TableValue first>{obj.kref}</TableValue>
+                          <TableValue>{obj.eref}</TableValue>
+                          <TableValue>{obj.refCount}</TableValue>
+                          <TableValue>{obj.fromVat ?? '—'}</TableValue>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </Box>
+              </Box>
             )}
 
             {vatData.importedPromises.length > 0 && (
-              <div className={styles.tableContainer}>
-                <h4>Imported Promises</h4>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>KRef</th>
-                      <th>ERef</th>
-                      <th>State</th>
-                      <th>Value</th>
-                      <th>Slots</th>
-                      <th>From Vat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vatData.importedPromises.map((promise, idx) => (
-                      <tr key={`imported-promise-${promise.kref}-${idx}`}>
-                        <td>{promise.kref}</td>
-                        <td>{promise.eref}</td>
-                        <td>{promise.state}</td>
-                        <td>{promise.value.body}</td>
-                        <td>
-                          {promise.value.slots.length > 0
-                            ? promise.value.slots
-                                .map(
-                                  (slot) =>
-                                    `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                )
-                                .join(', ')
-                            : '—'}
-                        </td>
-                        <td>{promise.fromVat ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Box className="mt-6">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
+                  data-testid="table-heading"
+                >
+                  Imported Promises
+                </TextComponent>
+                <Box className="w-full">
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>State</TableHeader>
+                      <TableHeader>Value</TableHeader>
+                      <TableHeader>Slots</TableHeader>
+                      <TableHeader>From Vat</TableHeader>
+                    </TableHead>
+                    <tbody>
+                      {vatData.importedPromises.map((promise, idx) => (
+                        <tr
+                          key={`imported-promise-${promise.kref}-${idx}`}
+                          className="hover:bg-alternative border-b border-muted"
+                        >
+                          <TableValue first>{promise.kref}</TableValue>
+                          <TableValue>{promise.eref}</TableValue>
+                          <TableValue>{promise.state}</TableValue>
+                          <TableValue>{promise.value.body}</TableValue>
+                          <TableValue>
+                            {promise.value.slots.length > 0
+                              ? promise.value.slots
+                                  .map(
+                                    (slot) =>
+                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                  )
+                                  .join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableValue>{promise.fromVat ?? '—'}</TableValue>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </Box>
+              </Box>
             )}
 
             {vatData.exportedPromises.length > 0 && (
-              <div className={styles.tableContainer}>
-                <h4>Exported Promises</h4>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>KRef</th>
-                      <th>ERef</th>
-                      <th>State</th>
-                      <th>Value</th>
-                      <th>Slots</th>
-                      <th>To Vat(s)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vatData.exportedPromises.map((promise, idx) => (
-                      <tr key={`exported-promise-${promise.kref}-${idx}`}>
-                        <td>{promise.kref}</td>
-                        <td>{promise.eref}</td>
-                        <td>{promise.state}</td>
-                        <td>{promise.value.body}</td>
-                        <td>
-                          {promise.value.slots.length > 0
-                            ? promise.value.slots
-                                .map(
-                                  (slot) =>
-                                    `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
-                                )
-                                .join(', ')
-                            : '—'}
-                        </td>
-                        <td>
-                          {promise.toVats.length > 0
-                            ? promise.toVats.join(', ')
-                            : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Box className="mt-6">
+                <TextComponent
+                  variant={TextVariant.BodySm}
+                  fontWeight={FontWeight.Medium}
+                  className="mb-3 px-3"
+                  data-testid="table-heading"
+                >
+                  Exported Promises
+                </TextComponent>
+                <Box className="w-full">
+                  <Table>
+                    <TableHead>
+                      <TableHeader first>KRef</TableHeader>
+                      <TableHeader>ERef</TableHeader>
+                      <TableHeader>State</TableHeader>
+                      <TableHeader>Value</TableHeader>
+                      <TableHeader>Slots</TableHeader>
+                      <TableHeader>To Vat(s)</TableHeader>
+                    </TableHead>
+                    <tbody>
+                      {vatData.exportedPromises.map((promise, idx) => (
+                        <tr
+                          key={`exported-promise-${promise.kref}-${idx}`}
+                          className="hover:bg-alternative border-b border-muted"
+                        >
+                          <TableValue first>{promise.kref}</TableValue>
+                          <TableValue>{promise.eref}</TableValue>
+                          <TableValue>{promise.state}</TableValue>
+                          <TableValue>{promise.value.body}</TableValue>
+                          <TableValue>
+                            {promise.value.slots.length > 0
+                              ? promise.value.slots
+                                  .map(
+                                    (slot) =>
+                                      `${slot.kref}${slot.eref ? ` (${slot.eref})` : ''}`,
+                                  )
+                                  .join(', ')
+                              : '—'}
+                          </TableValue>
+                          <TableValue>
+                            {promise.toVats.length > 0
+                              ? promise.toVats.join(', ')
+                              : '—'}
+                          </TableValue>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </Box>
+              </Box>
             )}
           </Accordion>
         );
       })}
-    </div>
+    </Box>
   );
 };

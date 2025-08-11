@@ -4,14 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Tabs } from './Tabs.tsx';
 
-vi.mock('../../App.module.css', () => ({
-  default: {
-    tabButtons: 'tab-buttons',
-    tabButton: 'tab-button',
-    activeTab: 'active-tab',
-  },
-}));
-
 describe('Tabs Component', () => {
   const mockTabs = [
     { label: 'Tab 1', value: 'tab1' },
@@ -31,9 +23,7 @@ describe('Tabs Component', () => {
     );
 
     mockTabs.forEach((tab) => {
-      expect(
-        screen.getByRole('button', { name: tab.label }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: tab.label })).toBeInTheDocument();
     });
   });
 
@@ -42,13 +32,16 @@ describe('Tabs Component', () => {
       <Tabs tabs={mockTabs} activeTab="tab1" onTabChange={mockOnTabChange} />,
     );
 
-    const tabButtons = screen.getAllByRole('button');
+    const tabButtons = screen.getAllByRole('tab');
     tabButtons.forEach((button) => {
-      expect(button).toHaveClass('tab-button');
+      expect(button).toHaveClass('p-2', 'mx-2', 'font-medium', 'border-b-2');
     });
 
-    const activeButton = screen.getByRole('button', { name: 'Tab 1' });
-    expect(activeButton).toHaveClass('active-tab');
+    const activeButton = screen.getByRole('tab', { name: 'Tab 1' });
+    expect(activeButton).toHaveClass(
+      'text-primary-default',
+      'border-primary-default',
+    );
   });
 
   it('applies active class only to the selected tab', () => {
@@ -56,15 +49,18 @@ describe('Tabs Component', () => {
       <Tabs tabs={mockTabs} activeTab="tab2" onTabChange={mockOnTabChange} />,
     );
 
-    const activeButton = screen.getByRole('button', { name: 'Tab 2' });
-    expect(activeButton).toHaveClass('active-tab');
+    const activeButton = screen.getByRole('tab', { name: 'Tab 2' });
+    expect(activeButton).toHaveClass(
+      'text-primary-default',
+      'border-primary-default',
+    );
 
     const inactiveButtons = [
-      screen.getByRole('button', { name: 'Tab 1' }),
-      screen.getByRole('button', { name: 'Tab 3' }),
+      screen.getByRole('tab', { name: 'Tab 1' }),
+      screen.getByRole('tab', { name: 'Tab 3' }),
     ];
     inactiveButtons.forEach((button) => {
-      expect(button).not.toHaveClass('active-tab');
+      expect(button).toHaveClass('border-transparent', 'text-default');
     });
   });
 
@@ -73,10 +69,10 @@ describe('Tabs Component', () => {
       <Tabs tabs={mockTabs} activeTab="tab1" onTabChange={mockOnTabChange} />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tab 2' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Tab 2' }));
     expect(mockOnTabChange).toHaveBeenCalledWith('tab2');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tab 3' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Tab 3' }));
     expect(mockOnTabChange).toHaveBeenCalledWith('tab3');
   });
 
@@ -85,6 +81,11 @@ describe('Tabs Component', () => {
       <Tabs tabs={mockTabs} activeTab="tab1" onTabChange={mockOnTabChange} />,
     );
 
-    expect(container.firstChild).toHaveClass('tab-buttons');
+    expect(container.firstChild).toHaveClass(
+      'flex',
+      'overflow-hidden',
+      'border-b',
+      'border-muted',
+    );
   });
 });

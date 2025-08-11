@@ -124,6 +124,7 @@
     }
   },
   "resolutions": {
-    "cookie": "^0.7.0"
+    "cookie": "^0.7.0",
+    "@radix-ui/react-slot@npm:^1.1.0": "patch:@radix-ui/react-slot@npm%3A1.2.3#~/.yarn/patches/@radix-ui-react-slot-npm-1.2.3-6e45e6d89b.patch"
   }
 }

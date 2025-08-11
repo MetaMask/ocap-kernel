@@ -1,0 +1,13 @@
+/* Tailwind CSS directives - must come first */
+@import './tailwind';
+
+/* MetaMask Design Tokens */
+@import '@metamask/design-tokens/styles.css';
+
+html,
+body,
+body > div {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}

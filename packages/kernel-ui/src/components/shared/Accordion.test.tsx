@@ -17,7 +17,7 @@ describe('Accordion', () => {
     );
 
     expect(screen.getByText('Test Title')).toBeInTheDocument();
-    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-add')).toBeInTheDocument();
     expect(screen.queryByText('Test Content')).not.toBeInTheDocument();
   });
 
@@ -31,21 +31,21 @@ describe('Accordion', () => {
 
     // Initially collapsed
     expect(screen.queryByText('Test Content')).not.toBeInTheDocument();
-    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-add')).toBeInTheDocument();
 
     // Click to expand
     await user.click(screen.getByText('Test Title'));
 
     // Should now be expanded
     expect(screen.getByText('Test Content')).toBeInTheDocument();
-    expect(screen.getByText('−')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-minus')).toBeInTheDocument();
 
     // Click to collapse
     await user.click(screen.getByText('Test Title'));
 
     // Should be collapsed again
     expect(screen.queryByText('Test Content')).not.toBeInTheDocument();
-    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-add')).toBeInTheDocument();
   });
 
   it('works in controlled mode with external state', async () => {
@@ -60,7 +60,7 @@ describe('Accordion', () => {
 
     // Should be expanded because isExpanded=true
     expect(screen.getByText('Test Content')).toBeInTheDocument();
-    expect(screen.getByText('−')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-minus')).toBeInTheDocument();
 
     // Click should call onToggle
     await user.click(screen.getByText('Test Title'));
@@ -110,6 +110,6 @@ describe('Accordion', () => {
 
     // Should be collapsed because isExpanded=false
     expect(screen.queryByText('Test Content')).not.toBeInTheDocument();
-    expect(screen.getByText('+')).toBeInTheDocument();
+    expect(screen.getByTestId('accordion-icon-add')).toBeInTheDocument();
   });
 });

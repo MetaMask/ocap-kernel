@@ -2,27 +2,24 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ControlPanel } from './ControlPanel.tsx';
-import { KernelControls } from './KernelControls.tsx';
-import { LaunchSubcluster } from './LaunchSubcluster.tsx';
-import { SubclustersTable } from './SubclustersTable.tsx';
 
+// Mock the child components
 vi.mock('./KernelControls.tsx', () => ({
-  KernelControls: vi.fn(() => <div data-testid="kernel-controls" />),
-}));
-
-vi.mock('./LaunchSubcluster.tsx', () => ({
-  LaunchSubcluster: vi.fn(() => <div data-testid="launch-subcluster" />),
+  KernelControls: () => (
+    <div data-testid="kernel-controls">Kernel Controls</div>
+  ),
 }));
 
 vi.mock('./SubclustersTable.tsx', () => ({
-  SubclustersTable: vi.fn(() => <div data-testid="subclusters-table" />),
+  SubclustersTable: () => (
+    <div data-testid="subclusters-table">Subclusters Table</div>
+  ),
 }));
 
-vi.mock('../App.module.css', () => ({
-  default: {
-    headerSection: 'header-section',
-    noMargin: 'no-margin',
-  },
+vi.mock('./LaunchSubcluster.tsx', () => ({
+  LaunchSubcluster: () => (
+    <div data-testid="launch-subcluster">Launch Subcluster</div>
+  ),
 }));
 
 describe('ControlPanel Component', () => {
@@ -31,39 +28,38 @@ describe('ControlPanel Component', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the component title', () => {
-    render(<ControlPanel />);
-    expect(screen.getByText('Kernel')).toBeInTheDocument();
-  });
-
   it('renders all child components in correct order', () => {
     render(<ControlPanel />);
 
-    const children = screen.getAllByTestId(/-controls|-table|-subcluster$/u);
-    expect(children).toHaveLength(3);
+    const kernelControls = screen.getByTestId('kernel-controls');
+    const subclustersTable = screen.getByTestId('subclusters-table');
+    const launchSubcluster = screen.getByTestId('launch-subcluster');
+
+    expect(kernelControls).toBeInTheDocument();
+    expect(subclustersTable).toBeInTheDocument();
+    expect(launchSubcluster).toBeInTheDocument();
+
+    // Check that they appear in the correct order in the DOM
+    const container = screen.getByTestId('kernel-controls').parentElement;
+    const children = Array.from(container?.children ?? []);
+
     expect(children[0]).toHaveAttribute('data-testid', 'kernel-controls');
     expect(children[1]).toHaveAttribute('data-testid', 'subclusters-table');
     expect(children[2]).toHaveAttribute('data-testid', 'launch-subcluster');
   });
 
-  it('renders header section with correct class', () => {
-    render(<ControlPanel />);
-    const headerSection = screen.getByText('Kernel').parentElement;
-    expect(headerSection).toHaveClass('header-section');
-  });
-
   it('renders KernelControls component', () => {
     render(<ControlPanel />);
-    expect(KernelControls).toHaveBeenCalled();
+    expect(screen.getByTestId('kernel-controls')).toBeInTheDocument();
   });
 
   it('renders SubclustersTable component', () => {
     render(<ControlPanel />);
-    expect(SubclustersTable).toHaveBeenCalled();
+    expect(screen.getByTestId('subclusters-table')).toBeInTheDocument();
   });
 
   it('renders LaunchSubcluster component', () => {
     render(<ControlPanel />);
-    expect(LaunchSubcluster).toHaveBeenCalled();
+    expect(screen.getByTestId('launch-subcluster')).toBeInTheDocument();
   });
 });

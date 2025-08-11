@@ -75,7 +75,7 @@
     "@metamask/snaps-utils": "^9.1.0",
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
-    "@metamask/utils": "^11.4.0",
+    "@metamask/utils": "^11.4.2",
     "nanoid": "^5.1.5",
     "ses": "^1.13.0"
   },

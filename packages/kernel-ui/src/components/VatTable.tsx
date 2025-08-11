@@ -1,5 +1,19 @@
-import styles from '../App.module.css';
+import {
+  TextButton,
+  TextButtonSize,
+  Box,
+  IconName,
+  ButtonIcon,
+} from '@metamask/design-system-react';
+
 import type { VatRecord } from '../types.ts';
+import {
+  Table,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableValue,
+} from './table/index.ts';
 
 export const VatTable: React.FC<{
   vats: VatRecord[];
@@ -12,48 +26,56 @@ export const VatTable: React.FC<{
   }
 
   return (
-    <div className={`${styles.table} ${styles.subclusterTable}`}>
-      <table data-testid="vat-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Source</th>
-            <th>Parameters</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+    <Box className="w-full mt-4">
+      <Table dataTestid="vat-table">
+        <TableHead>
+          <TableHeader first>ID</TableHeader>
+          <TableHeader>Source</TableHeader>
+          <TableHeader>Parameters</TableHeader>
+          <TableHeader>Actions</TableHeader>
+        </TableHead>
         <tbody>
-          {vats.map((vat) => (
-            <tr key={vat.id} data-vat-id={vat.id}>
-              <td>{vat.id}</td>
-              <td>{vat.source}</td>
-              <td>{vat.parameters}</td>
-              <td>
-                <div className={styles.tableActions}>
-                  <button
-                    className={styles.smallButton}
-                    onClick={() => onPingVat(vat.id)}
-                  >
-                    Ping
-                  </button>
-                  <button
-                    className={styles.smallButton}
+          {vats.map((vat, index) => (
+            <tr
+              key={vat.id}
+              data-vat-id={vat.id}
+              className={`hover:bg-alternative ${
+                index === vats.length - 1 ? '' : 'border-b border-muted'
+              }`}
+            >
+              <TableValue first>{vat.id}</TableValue>
+              <TableValue>{vat.source}</TableValue>
+              <TableValue>{vat.parameters}</TableValue>
+              <TableCell>
+                <Box className="flex gap-2">
+                  <Box className="flex flex-1">
+                    <TextButton
+                      size={TextButtonSize.BodyXs}
+                      onClick={() => onPingVat(vat.id)}
+                      className="min-w-0"
+                      data-testid="ping-vat-button"
+                    >
+                      Ping
+                    </TextButton>
+                  </Box>
+                  <ButtonIcon
+                    iconName={IconName.Refresh}
+                    ariaLabel="Restart"
                     onClick={() => onRestartVat(vat.id)}
-                  >
-                    Restart
-                  </button>
-                  <button
-                    className={styles.smallButton}
+                    data-testid="restart-vat-button"
+                  />
+                  <ButtonIcon
+                    iconName={IconName.Trash}
+                    ariaLabel="Terminate"
                     onClick={() => onTerminateVat(vat.id)}
-                  >
-                    Terminate
-                  </button>
-                </div>
-              </td>
+                    data-testid="terminate-vat-button"
+                  />
+                </Box>
+              </TableCell>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
+    </Box>
   );
 };

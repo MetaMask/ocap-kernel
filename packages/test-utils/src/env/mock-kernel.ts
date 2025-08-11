@@ -6,6 +6,8 @@ import {
   boolean,
   record,
   exactOptional,
+  array,
+  type,
 } from '@metamask/superstruct';
 import { vi } from 'vitest';
 
@@ -25,17 +27,40 @@ export const setupOcapKernelMock = (): {
   vi.doMock('@metamask/ocap-kernel', () => {
     const VatIdStruct = define<unknown>('VatId', () => isVatIdMock);
     const VatConfigStruct = define<unknown>('VatConfig', () => isVatConfigMock);
+    const SubclusterIdStruct = define<unknown>('SubclusterId', () => true);
+    const ClusterConfigStruct = object({
+      bootstrap: string(),
+      forceReset: exactOptional(boolean()),
+      vats: record(string(), VatConfigStruct),
+      bundles: exactOptional(record(string(), VatConfigStruct)),
+    });
+    const SubclusterStruct = object({
+      id: SubclusterIdStruct,
+      config: ClusterConfigStruct,
+      vats: array(VatIdStruct),
+    });
 
     return {
       isVatId: () => isVatIdMock,
       isVatConfig: () => isVatConfigMock,
       VatIdStruct,
       VatConfigStruct,
-      ClusterConfigStruct: object({
-        bootstrap: string(),
-        forceReset: exactOptional(boolean()),
-        vats: record(string(), VatConfigStruct),
-        bundles: exactOptional(record(string(), VatConfigStruct)),
+      SubclusterIdStruct,
+      SubclusterStruct,
+      CapDataStruct: object({
+        body: string(),
+        slots: array(string()),
+      }),
+      ClusterConfigStruct,
+      KernelStatusStruct: type({
+        subclusters: array(SubclusterStruct),
+        vats: array(
+          object({
+            id: VatIdStruct,
+            config: VatConfigStruct,
+            subclusterId: SubclusterIdStruct,
+          }),
+        ),
       }),
       KernelSendMessageStruct: object({
         id: literal('v0'),
