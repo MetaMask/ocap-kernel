@@ -1,35 +1,57 @@
+import '@ocap/test-utils/mock-endoify';
+
 import { fetchMock } from '@ocap/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
 import { OllamaNodejsLanguageModelService } from './nodejs.ts';
+import type { OllamaNodejsConfig } from './types.ts';
 import { mockReadableStream } from '../../test/utils.ts';
 
 describe('OllamaNodejsLanguageModelService', () => {
   let service: OllamaNodejsLanguageModelService;
   const archetype = 'fast';
+  const clientConfig = { host: 'http://127.0.0.1:11434' };
+  const archetypes = { [archetype]: 'llama3.2:latest' };
+  const endowments = { fetch: fetchMock };
 
   beforeEach(async () => {
-    service = new OllamaNodejsLanguageModelService(
-      { [archetype]: 'llama3.2:latest' },
-      // For e2e tests, we need to run Ollama locally
-      { host: 'http://127.0.0.1:11434' },
-    );
+    service = new OllamaNodejsLanguageModelService({
+      archetypes,
+      endowments,
+      clientConfig,
+    });
   });
 
   describe('constructor', () => {
-    const testArchetypes = { fast: 'llama3.2:latest' };
     it.each([
-      ['undefined config', testArchetypes, undefined],
-      ['empty config', testArchetypes, {}],
-      ['basic config', testArchetypes, { host: 'http://127.0.0.1:11434' }],
+      ['no clientConfig', { archetypes, endowments }],
+      ['empty clientConfig', { archetypes, endowments, clientConfig: {} }],
+      ['basic clientConfig', { archetypes, endowments, clientConfig }],
     ])(
       'should create a service with the correct endowments: %s',
-      (_testName, archetypes, config) => {
-        const constructedService = new OllamaNodejsLanguageModelService(
-          archetypes,
-          config,
-        );
+      (_testName, config: OllamaNodejsConfig) => {
+        const constructedService = new OllamaNodejsLanguageModelService(config);
         expect(constructedService).toBeDefined();
+      },
+    );
+
+    it.each([
+      ['no endowments', { archetypes }, 'Must endow a fetch implementation.'],
+      [
+        'no fetch',
+        { archetypes, endowments: {} },
+        'Must endow a fetch implementation.',
+      ],
+    ])(
+      'should throw an error if misconfigured: %s',
+      (_testName, config, expectedError) => {
+        expect(
+          () =>
+            new OllamaNodejsLanguageModelService(
+              // @ts-expect-error - Destructive test
+              config,
+            ),
+        ).toThrow(expectedError);
       },
     );
   });

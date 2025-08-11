@@ -3,6 +3,7 @@ import type {
   GenerateResponse,
   ListResponse,
   AbortableAsyncIterator,
+  Config,
 } from 'ollama';
 
 type OllamaClient = {
@@ -24,4 +25,10 @@ export type OllamaModelOptions = {
   seed: number;
   num_ctx: number;
   /* eslint-enable @typescript-eslint/naming-convention */
+};
+
+export type OllamaNodejsConfig = {
+  archetypes: Record<string, string>;
+  endowments: { fetch: typeof fetch };
+  clientConfig?: Partial<Omit<Config, 'fetch'>>;
 };

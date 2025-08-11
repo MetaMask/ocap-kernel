@@ -18,10 +18,11 @@ describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
   beforeEach(async () => {
     // Disable fetch mocking for this test
     fetchMock.disableMocks();
-    service = new OllamaNodejsLanguageModelService(
-      { [archetype]: testConfig.model },
-      { host: testConfig.host },
-    );
+    service = new OllamaNodejsLanguageModelService({
+      archetypes: { [archetype]: testConfig.model },
+      endowments: { fetch: global.fetch },
+      clientConfig: { host: testConfig.host },
+    });
     fetchMock.enableMocks();
   });
 
