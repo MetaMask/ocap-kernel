@@ -32,7 +32,7 @@ describe('TableHeader Component', () => {
       'text-left',
       'py-2',
       'px-3',
-      'border-l',
+      'border-r',
       'border-muted',
     );
   });
@@ -42,7 +42,7 @@ describe('TableHeader Component', () => {
 
     const header = screen.getByRole('columnheader');
     expect(header).toHaveClass('text-left', 'py-2', 'px-3');
-    expect(header).not.toHaveClass('border-l', 'border-muted');
+    expect(header).not.toHaveClass('border-r', 'border-muted');
   });
 
   it('does not apply first column styling when first prop is undefined', () => {
@@ -50,7 +50,7 @@ describe('TableHeader Component', () => {
 
     const header = screen.getByRole('columnheader');
     expect(header).toHaveClass('text-left', 'py-2', 'px-3');
-    expect(header).not.toHaveClass('border-l', 'border-muted');
+    expect(header).not.toHaveClass('border-r', 'border-muted');
   });
 
   it('uses default TextVariant.BodyXs when variant is not provided', () => {
