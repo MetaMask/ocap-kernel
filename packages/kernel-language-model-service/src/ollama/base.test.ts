@@ -11,12 +11,6 @@ describe('OllamaBaseLanguageModelService', () => {
   let mockMakeClient: () => Promise<OllamaClient>;
   let service: OllamaBaseLanguageModelService<OllamaClient>;
 
-  const archetypes = {
-    default: 'llama2:7b',
-    fast: 'llama2:3b',
-    accurate: 'llama2:13b',
-  } as const;
-
   beforeEach(() => {
     mockClient = {
       list: vi.fn(),
@@ -24,23 +18,12 @@ describe('OllamaBaseLanguageModelService', () => {
     };
 
     mockMakeClient = vi.fn().mockResolvedValue(mockClient);
-    service = new OllamaBaseLanguageModelService(archetypes, mockMakeClient);
+    service = new OllamaBaseLanguageModelService(mockMakeClient);
   });
 
   describe('constructor', () => {
-    it('should initialize with archetypes and makeClient function', () => {
+    it('should initialize with makeClient function', () => {
       expect(service).toBeInstanceOf(OllamaBaseLanguageModelService);
-    });
-
-    it('should handle empty archetypes', () => {
-      const emptyArchetypes = {};
-      const serviceWithEmptyArchetypes = new OllamaBaseLanguageModelService(
-        emptyArchetypes,
-        mockMakeClient,
-      );
-      expect(serviceWithEmptyArchetypes).toBeInstanceOf(
-        OllamaBaseLanguageModelService,
-      );
     });
   });
 
@@ -69,7 +52,7 @@ describe('OllamaBaseLanguageModelService', () => {
     it('should handle client creation errors', async () => {
       const error = new Error('Failed to create client');
       mockMakeClient = vi.fn().mockRejectedValue(error);
-      service = new OllamaBaseLanguageModelService(archetypes, mockMakeClient);
+      service = new OllamaBaseLanguageModelService(mockMakeClient);
 
       await expect(service.getModels()).rejects.toThrow(
         'Failed to create client',
@@ -87,9 +70,9 @@ describe('OllamaBaseLanguageModelService', () => {
   });
 
   describe('makeInstance', () => {
-    it('should create instance with archetype model', async () => {
+    it('should create instance with model', async () => {
       const config: InstanceConfig<OllamaModelOptions> = {
-        archetype: 'default',
+        model: 'llama2:7b',
         options: { temperature: 0.7 },
       };
 
@@ -115,19 +98,9 @@ describe('OllamaBaseLanguageModelService', () => {
       });
     });
 
-    it('should throw error for unknown archetype', async () => {
-      const config: InstanceConfig<OllamaModelOptions> = {
-        archetype: 'unknown',
-      };
-
-      await expect(service.makeInstance(config)).rejects.toThrow(
-        /^Archetype .+ not found$/u,
-      );
-    });
-
     it('should handle config with no options', async () => {
       const config: InstanceConfig<OllamaModelOptions> = {
-        archetype: 'default',
+        model: 'llama2:7b',
       };
 
       const instance = await service.makeInstance(config);
@@ -141,9 +114,8 @@ describe('OllamaBaseLanguageModelService', () => {
 
     beforeEach(async () => {
       const config: InstanceConfig<OllamaModelOptions> = {
-        archetype: 'default',
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        options: { temperature: 0.7, top_p: 0.9 },
+        model: 'llama2:7b',
+        options: { temperature: 0.7 },
       };
       instance = await service.makeInstance(config);
     });
@@ -209,8 +181,6 @@ describe('OllamaBaseLanguageModelService', () => {
 
         expect(mockClient.generate).toHaveBeenCalledWith({
           temperature: 0.5, // from options (should override config)
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          top_p: 0.9, // from config
           model: 'llama2:7b',
           stream: true,
           raw: true,
@@ -225,8 +195,6 @@ describe('OllamaBaseLanguageModelService', () => {
 
         expect(mockClient.generate).toHaveBeenCalledWith({
           temperature: 0.7,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          top_p: 0.9,
           model: 'llama2:7b',
           stream: true,
           raw: true,

@@ -9,14 +9,12 @@ import { mockReadableStream } from '../../test/utils.ts';
 
 describe('OllamaNodejsLanguageModelService', () => {
   let service: OllamaNodejsLanguageModelService;
-  const archetype = 'fast';
+  const model = 'llama3.2:latest';
   const clientConfig = { host: 'http://127.0.0.1:11434' };
-  const archetypes = { [archetype]: 'llama3.2:latest' };
   const endowments = { fetch: fetchMock };
 
   beforeEach(async () => {
     service = new OllamaNodejsLanguageModelService({
-      archetypes,
       endowments,
       clientConfig,
     });
@@ -24,9 +22,9 @@ describe('OllamaNodejsLanguageModelService', () => {
 
   describe('constructor', () => {
     it.each([
-      ['no clientConfig', { archetypes, endowments }],
-      ['empty clientConfig', { archetypes, endowments, clientConfig: {} }],
-      ['basic clientConfig', { archetypes, endowments, clientConfig }],
+      ['no clientConfig', { endowments }],
+      ['empty clientConfig', { endowments, clientConfig: {} }],
+      ['basic clientConfig', { endowments, clientConfig }],
     ])(
       'should create a service with the correct endowments: %s',
       (_testName, config: OllamaNodejsConfig) => {
@@ -36,12 +34,8 @@ describe('OllamaNodejsLanguageModelService', () => {
     );
 
     it.each([
-      ['no endowments', { archetypes }, 'Must endow a fetch implementation.'],
-      [
-        'no fetch',
-        { archetypes, endowments: {} },
-        'Must endow a fetch implementation.',
-      ],
+      ['no endowments', {}, 'Must endow a fetch implementation.'],
+      ['no fetch', { endowments: {} }, 'Must endow a fetch implementation.'],
     ])(
       'should throw an error if misconfigured: %s',
       (_testName, config, expectedError) => {
@@ -58,8 +52,8 @@ describe('OllamaNodejsLanguageModelService', () => {
 
   describe('makeInstance', () => {
     it('should create a model instance', async () => {
-      const model = await service.makeInstance({ archetype });
-      expect(model).toBeDefined();
+      const instance = await service.makeInstance({ model });
+      expect(instance).toBeDefined();
     });
   });
 
@@ -82,7 +76,7 @@ describe('OllamaNodejsLanguageModelService', () => {
         body: mockReadableStream([{ response }]),
       } as Parameters<typeof fetchMock.mockResponse>[0]);
 
-      const instance = await service.makeInstance({ archetype });
+      const instance = await service.makeInstance({ model });
       for await (const chunk of await instance.sample('Hello, ')) {
         expect(chunk).toMatchObject({
           response,

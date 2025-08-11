@@ -1,7 +1,6 @@
 export type ModelInfo<Options = unknown> = {
-  archetype?: string;
   model: string;
-  options?: Options;
+  options?: Partial<Options>;
 };
 
 export type LanguageModel<Options, Response> = {
@@ -31,17 +30,10 @@ export type LanguageModel<Options, Response> = {
   ) => Promise<AsyncIterable<Response>>;
 };
 
-export type InstanceConfig<Options> =
-  | {
-      archetype: string;
-      model?: never;
-      options?: Partial<Options>;
-    }
-  | {
-      archetype?: never;
-      model: string;
-      options?: Partial<Options>;
-    };
+export type InstanceConfig<Options> = {
+  model: string;
+  options?: Partial<Options>;
+};
 
 export type LanguageModelService<Config, Options, Response> = {
   makeInstance: (

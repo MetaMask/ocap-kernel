@@ -13,13 +13,11 @@ const testConfig = {
 
 describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
   let service: OllamaNodejsLanguageModelService;
-  const archetype = 'default';
 
   beforeEach(async () => {
     // Disable fetch mocking for this test
     fetchMock.disableMocks();
     service = new OllamaNodejsLanguageModelService({
-      archetypes: { [archetype]: testConfig.model },
       endowments: { fetch: global.fetch },
       clientConfig: { host: testConfig.host },
     });
@@ -28,7 +26,7 @@ describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
 
   describe('makeInstance', () => {
     it('should create a model instance', async () => {
-      const model = await service.makeInstance({ archetype });
+      const model = await service.makeInstance({ model: testConfig.model });
       expect(model).toBeDefined();
     });
   });
@@ -46,7 +44,7 @@ describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
     it('should return a streaming result', async () => {
       const prompt = 'A B C';
       let completion = prompt;
-      const instance = await service.makeInstance({ archetype });
+      const instance = await service.makeInstance({ model: testConfig.model });
       const response = await instance.sample(prompt);
       let exitEarly = false;
       await Promise.all([

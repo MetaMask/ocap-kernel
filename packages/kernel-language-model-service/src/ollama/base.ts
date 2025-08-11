@@ -19,15 +19,9 @@ export class OllamaBaseLanguageModelService<Ollama extends OllamaClient>
       GenerateResponse
     >
 {
-  readonly #archetypes: Record<string, string>;
-
   readonly #makeClient: () => Promise<Ollama>;
 
-  constructor(
-    archetypes: Record<string, string>,
-    makeClient: () => Promise<Ollama>,
-  ) {
-    this.#archetypes = archetypes;
+  constructor(makeClient: () => Promise<Ollama>) {
     this.#makeClient = makeClient;
   }
 
@@ -39,7 +33,7 @@ export class OllamaBaseLanguageModelService<Ollama extends OllamaClient>
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async makeInstance(config: InstanceConfig<OllamaModelOptions>) {
-    const modelInfo = parseModelConfig(config, this.#archetypes);
+    const modelInfo = parseModelConfig(config);
     const { model } = modelInfo;
     const ollama = await this.#makeClient();
     const defaultOptions = {

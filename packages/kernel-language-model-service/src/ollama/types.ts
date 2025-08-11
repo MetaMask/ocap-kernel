@@ -28,7 +28,6 @@ export type OllamaModelOptions = {
 };
 
 export type OllamaNodejsConfig = {
-  archetypes: Record<string, string>;
   endowments: { fetch: typeof fetch };
   clientConfig?: Partial<Omit<Config, 'fetch'>>;
 };
