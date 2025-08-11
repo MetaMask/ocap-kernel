@@ -39,7 +39,8 @@ export class OllamaBaseLanguageModelService<Ollama extends OllamaClient>
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async makeInstance(config: InstanceConfig<OllamaModelOptions>) {
-    const model = parseModelConfig(config, this.#archetypes);
+    const modelInfo = parseModelConfig(config, this.#archetypes);
+    const { model } = modelInfo;
     const ollama = await this.#makeClient();
     const defaultOptions = {
       ...(config.options ?? {}),
@@ -51,7 +52,7 @@ export class OllamaBaseLanguageModelService<Ollama extends OllamaClient>
     };
 
     const instance = {
-      model,
+      getInfo: async () => modelInfo,
       load: async () => {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         await ollama.generate({ model, keep_alive: -1 } as GenerateRequest);

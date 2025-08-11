@@ -1,5 +1,12 @@
-export type LanguageModel<Options, Response> = {
+export type ModelInfo<Options = unknown> = {
+  archetype?: string;
   model: string;
+  options?: Options;
+};
+
+export type LanguageModel<Options, Response> = {
+  getInfo: () => Promise<ModelInfo<Options>>;
+
   /**
    * Loads the model into memory and keeps it alive indefinitely.
    *

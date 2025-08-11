@@ -15,14 +15,14 @@ describe('parseModelConfig', () => {
     ['archetype', { archetype: 'fast' }, 'llama2:3b'],
     ['model', { model: 'custom-model:latest' }, 'custom-model:latest'],
     [
-      'archetype over model',
+      'archetype and model (model takes precedence)',
       { archetype: 'accurate', model: 'custom-model:latest' },
-      'llama2:13b',
+      'custom-model:latest',
     ],
-  ])('should return %s when %s is provided', (_, config, expected) => {
+  ])('should return expected model when provided %s', (_, config, expected) => {
     // @ts-expect-error - destructive testing
-    const result = parseModelConfig(config, mockArchetypes);
-    expect(result).toBe(expected);
+    const modelInfo = parseModelConfig(config, mockArchetypes);
+    expect(modelInfo).toMatchObject({ model: expected });
   });
 
   it('should handle empty archetypes object', () => {

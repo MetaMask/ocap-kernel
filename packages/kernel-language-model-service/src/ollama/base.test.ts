@@ -96,7 +96,7 @@ describe('OllamaBaseLanguageModelService', () => {
       const instance = await service.makeInstance(config);
 
       expect(mockMakeClient).toHaveBeenCalledOnce();
-      expect(instance.model).toBe('llama2:7b');
+      expect(await instance.getInfo()).toMatchObject({ model: 'llama2:7b' });
       expect(instance).toHaveProperty('load');
       expect(instance).toHaveProperty('unload');
       expect(instance).toHaveProperty('sample');
@@ -110,7 +110,9 @@ describe('OllamaBaseLanguageModelService', () => {
 
       const instance = await service.makeInstance(config);
 
-      expect(instance.model).toBe('custom-model:latest');
+      expect(await instance.getInfo()).toMatchObject({
+        model: 'custom-model:latest',
+      });
     });
 
     it('should throw error for unknown archetype', async () => {
@@ -130,7 +132,7 @@ describe('OllamaBaseLanguageModelService', () => {
 
       const instance = await service.makeInstance(config);
 
-      expect(instance.model).toBe('llama2:7b');
+      expect(await instance.getInfo()).toMatchObject({ model: 'llama2:7b' });
     });
   });
 
