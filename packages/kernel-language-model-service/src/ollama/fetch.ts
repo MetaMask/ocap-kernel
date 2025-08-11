@@ -23,7 +23,8 @@ export const makeOriginRestrictedFetch = (config: Config): typeof fetch => {
   const restrictedFetch = async (
     ...[url, ...args]: Parameters<typeof fetch>
   ): ReturnType<typeof fetch> => {
-    const { origin } = new URL(url);
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    const { origin } = new URL(url instanceof Request ? url.url : url);
     if (origin !== configuredOrigin) {
       throw new Error(
         `Invalid origin: ${origin}, expected: ${configuredOrigin}`,

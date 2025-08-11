@@ -56,6 +56,7 @@
     "@ocap/test-utils": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
+    "@types/chrome": "^0.0.313",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
@@ -81,6 +82,7 @@
     "node": "^20 || >=22"
   },
   "dependencies": {
-    "ollama": "^0.5.16"
+    "ollama": "^0.5.16",
+    "ses": "^1.13.0"
   }
 }

@@ -2,10 +2,10 @@
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "lib": ["ES2022"],
+    "lib": ["DOM", "ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": []
+    "types": ["chrome", "ses"]
   },
   "references": [{ "path": "../streams/tsconfig.build.json" }],
   "files": [],
