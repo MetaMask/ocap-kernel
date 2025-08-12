@@ -128,6 +128,7 @@ describe('OllamaBaseLanguageModelService', () => {
           model: 'llama2:7b',
           // eslint-disable-next-line @typescript-eslint/naming-convention
           keep_alive: -1,
+          prompt: '',
         });
       });
 
@@ -147,6 +148,7 @@ describe('OllamaBaseLanguageModelService', () => {
           model: 'llama2:7b',
           // eslint-disable-next-line @typescript-eslint/naming-convention
           keep_alive: 0,
+          prompt: '',
         });
       });
 
