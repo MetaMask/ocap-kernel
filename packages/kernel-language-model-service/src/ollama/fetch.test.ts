@@ -1,12 +1,11 @@
 import '@ocap/test-utils/mock-endoify';
-import type { Config } from 'ollama';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { makeOriginRestrictedFetch } from './fetch.ts';
+import { makeHostRestrictedFetch } from './fetch.ts';
 
-describe('makeOriginRestrictedFetch', () => {
-  const mockHost = 'http://localhost:8080';
-  const mockConfig: Config = { host: mockHost };
+describe('makeHostRestrictedFetch', () => {
+  const mockHost = 'localhost:8080';
+  const mockUrl = `http://${mockHost}/test/test`;
 
   const mockResponse = {
     ok: true,
@@ -21,8 +20,8 @@ describe('makeOriginRestrictedFetch', () => {
   beforeEach(() => {
     hardenSpy = vi.spyOn(global, 'harden');
     originalFetch = global.fetch;
-    vi.spyOn(global, 'fetch').mockImplementation();
-    restrictedFetch = makeOriginRestrictedFetch(mockConfig);
+    vi.spyOn(global, 'fetch').mockImplementation(vi.fn());
+    restrictedFetch = makeHostRestrictedFetch([mockHost]);
   });
 
   afterEach(() => {
@@ -30,7 +29,7 @@ describe('makeOriginRestrictedFetch', () => {
     vi.clearAllMocks();
   });
 
-  describe('origin validation', () => {
+  describe('host validation', () => {
     it.each([
       ['root', []],
       ['with path segment', ['test']],
@@ -39,7 +38,7 @@ describe('makeOriginRestrictedFetch', () => {
     ])(
       'should allow requests to the configured host with different paths: %s',
       async (_case, path: string[]) => {
-        const url = [mockHost, ...path].join('/');
+        const url = ['http:/', mockHost, ...path].join('/');
 
         await restrictedFetch(url);
 
@@ -48,18 +47,17 @@ describe('makeOriginRestrictedFetch', () => {
     );
 
     it.each([
-      ['wrong origin', 'http://malicious.com'],
-      ['subdomain', 'http://api.localhost:8080'],
-      ['different port', 'http://localhost:11434'],
-      ['different protocol', 'https://localhost:8080'],
+      ['wrong origin', 'malicious.com'],
+      ['subdomain', 'api.localhost:8080'],
+      ['different port', 'localhost:11434'],
     ])(
       'should throw error for unauthorized requests: %s',
-      async (_case, origin: string) => {
-        assert(origin !== mockHost, 'test of test');
-        const url = `${origin}/test/test`;
+      async (_case, host: string) => {
+        assert(host !== mockHost, 'test of test');
+        const url = `http://${host}/test/test`;
 
         await expect(restrictedFetch(url)).rejects.toThrow(
-          `Invalid origin: ${origin}, expected: ${mockHost}`,
+          `Invalid host: ${host}, expected: ${mockHost}`,
         );
 
         expect(global.fetch).not.toHaveBeenCalled();
@@ -72,9 +70,8 @@ describe('makeOriginRestrictedFetch', () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
         mockResponse,
       );
-      const url = `${mockHost}/api/generate`;
 
-      const result = await restrictedFetch(url);
+      const result = await restrictedFetch(mockUrl);
 
       expect(result).toBe(mockResponse);
     });
@@ -85,27 +82,23 @@ describe('makeOriginRestrictedFetch', () => {
         errorResponse,
       );
 
-      const url = `${mockHost}/api/generate`;
-
-      await expect(restrictedFetch(url)).rejects.toThrow('Network error');
+      await expect(restrictedFetch(mockUrl)).rejects.toThrow('Network error');
     });
 
     it('should handle multiple arguments correctly', async () => {
-      const url = `${mockHost}/api/generate`;
       const options = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       };
 
-      await restrictedFetch(url, options);
+      await restrictedFetch(mockUrl, options);
 
-      expect(global.fetch).toHaveBeenCalledWith(url, options);
+      expect(global.fetch).toHaveBeenCalledWith(mockUrl, options);
     });
 
     it('should handle Request objects correctly', async () => {
-      const url = `${mockHost}/api/generate`;
       // eslint-disable-next-line n/no-unsupported-features/node-builtins
-      const request = new Request(url);
+      const request = new Request(mockUrl);
 
       await restrictedFetch(request);
 

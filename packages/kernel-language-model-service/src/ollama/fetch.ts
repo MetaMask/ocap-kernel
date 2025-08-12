@@ -10,29 +10,30 @@
  * use the fetch function from global scope to make requests to other hosts.
  */
 
-import type { Config } from 'ollama';
-
 /**
- * Creates a fetch function that only allows requests to the specified host.
+ * Creates a fetch function that only allows requests to the specified origins.
  *
- * @param config - The configuration object containing the host to restrict requests to.
- * @returns A fetch function that only allows requests to the specified host.
+ * @param allowedHosts - The hosts to allow requests from.
+ * @param baseFetch - The fetch function to use as a base. Defaults to the global fetch function.
+ * @returns A fetch function that only allows requests to the specified hosts.
  */
-export const makeOriginRestrictedFetch = (config: Config): typeof fetch => {
-  const { host: configuredOrigin } = config;
+export const makeHostRestrictedFetch = (
+  allowedHosts: string[],
+  baseFetch: typeof fetch = global.fetch,
+): typeof fetch => {
   const restrictedFetch = async (
     ...[url, ...args]: Parameters<typeof fetch>
   ): ReturnType<typeof fetch> => {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    const { origin } = new URL(url instanceof Request ? url.url : url);
-    if (origin !== configuredOrigin) {
+    const { host } = new URL(url instanceof Request ? url.url : url);
+    if (!allowedHosts.includes(host)) {
       throw new Error(
-        `Invalid origin: ${origin}, expected: ${configuredOrigin}`,
+        `Invalid host: ${host}, expected: ${allowedHosts.join(', ')}`,
+        { cause: { url } },
       );
     }
-    const response = await fetch(url, ...args);
+    const response = await baseFetch(url, ...args);
     return response;
   };
-  harden(restrictedFetch);
-  return restrictedFetch as unknown as typeof fetch;
+  return harden(restrictedFetch);
 };

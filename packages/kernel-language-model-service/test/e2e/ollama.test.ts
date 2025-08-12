@@ -1,6 +1,7 @@
 import { fetchMock } from '@ocap/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
+import { makeHostRestrictedFetch } from '../../src/ollama/fetch.ts';
 import { OllamaNodejsService } from '../../src/ollama/nodejs.ts';
 import type { OllamaModel } from '../../src/ollama/types.ts';
 
@@ -9,7 +10,7 @@ const testConfig = {
   // Default model: 'llama3.2:latest'
   model: 'llama3.2:latest',
   // Default host: 'http://127.0.0.1:11434'
-  host: 'http://127.0.0.1:11434',
+  host: '127.0.0.1:11434',
 };
 
 describe('OllamaNodejsService E2E', { timeout: 10_000 }, () => {
@@ -20,8 +21,8 @@ describe('OllamaNodejsService E2E', { timeout: 10_000 }, () => {
     // Disable fetch mocking for this test
     fetchMock.disableMocks();
     service = new OllamaNodejsService({
-      endowments: { fetch: global.fetch },
-      clientConfig: { host },
+      endowments: { fetch: makeHostRestrictedFetch([host], fetch) },
+      clientConfig: { host: `http://${host}` },
     });
     fetchMock.enableMocks();
   });
