@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022", "DOM"],
+    "types": ["vitest", "chrome", "ses"]
+  },
+  "references": [{ "path": "../test-utils" }, { "path": "../streams" }],
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./test",
+    "./vite.config.ts",
+    "./vitest.config.ts",
+    "./vitest.config.e2e.ts"
+  ]
+}

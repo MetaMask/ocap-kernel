@@ -18,6 +18,7 @@
     { "path": "./packages/extension" },
     { "path": "./packages/kernel-browser-runtime" },
     { "path": "./packages/kernel-errors" },
+    { "path": "./packages/kernel-language-model-service" },
     { "path": "./packages/kernel-rpc-methods" },
     { "path": "./packages/kernel-shims" },
     { "path": "./packages/kernel-store" },
