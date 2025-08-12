@@ -1,7 +1,7 @@
 import { fetchMock } from '@ocap/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
-import { OllamaNodejsLanguageModelService } from '../../src/ollama/nodejs.ts';
+import { OllamaNodejsService } from '../../src/ollama/nodejs.ts';
 import type { OllamaModel } from '../../src/ollama/types.ts';
 
 // This test connects to a local Ollama instance to test sampling capabilities.
@@ -12,14 +12,14 @@ const testConfig = {
   host: 'http://127.0.0.1:11434',
 };
 
-describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
-  let service: OllamaNodejsLanguageModelService;
+describe('OllamaNodejsService E2E', { timeout: 10_000 }, () => {
+  let service: OllamaNodejsService;
   const { model, host } = testConfig;
 
   beforeEach(async () => {
     // Disable fetch mocking for this test
     fetchMock.disableMocks();
-    service = new OllamaNodejsLanguageModelService({
+    service = new OllamaNodejsService({
       endowments: { fetch: global.fetch },
       clientConfig: { host },
     });

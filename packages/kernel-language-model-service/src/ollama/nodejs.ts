@@ -1,10 +1,10 @@
 import { Ollama } from 'ollama';
 
-import { OllamaBaseLanguageModelService } from './base.ts';
+import { OllamaBaseService } from './base.ts';
 import { defaultClientConfig } from './constants.ts';
 import type { OllamaClient, OllamaNodejsConfig } from './types.ts';
 
-export class OllamaNodejsLanguageModelService extends OllamaBaseLanguageModelService<OllamaClient> {
+export class OllamaNodejsService extends OllamaBaseService<OllamaClient> {
   constructor({ endowments, clientConfig = {} }: OllamaNodejsConfig) {
     if (!endowments?.fetch) {
       throw new Error('Must endow a fetch implementation.');

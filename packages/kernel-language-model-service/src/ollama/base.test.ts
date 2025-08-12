@@ -3,13 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { OllamaClient, OllamaModelOptions } from './types.ts';
 import type { InstanceConfig, LanguageModel } from '../types.ts';
-import { OllamaBaseLanguageModelService } from './base.ts';
+import { OllamaBaseService } from './base.ts';
 import { makeMockAbortableAsyncIterator } from '../../test/utils.ts';
 
-describe('OllamaBaseLanguageModelService', () => {
+describe('OllamaBaseService', () => {
   let mockClient: OllamaClient;
   let mockMakeClient: () => Promise<OllamaClient>;
-  let service: OllamaBaseLanguageModelService<OllamaClient>;
+  let service: OllamaBaseService<OllamaClient>;
 
   beforeEach(() => {
     mockClient = {
@@ -18,12 +18,12 @@ describe('OllamaBaseLanguageModelService', () => {
     };
 
     mockMakeClient = vi.fn().mockResolvedValue(mockClient);
-    service = new OllamaBaseLanguageModelService(mockMakeClient);
+    service = new OllamaBaseService(mockMakeClient);
   });
 
   describe('constructor', () => {
     it('should initialize with makeClient function', () => {
-      expect(service).toBeInstanceOf(OllamaBaseLanguageModelService);
+      expect(service).toBeInstanceOf(OllamaBaseService);
     });
   });
 
@@ -52,7 +52,7 @@ describe('OllamaBaseLanguageModelService', () => {
     it('should handle client creation errors', async () => {
       const error = new Error('Failed to create client');
       mockMakeClient = vi.fn().mockRejectedValue(error);
-      service = new OllamaBaseLanguageModelService(mockMakeClient);
+      service = new OllamaBaseService(mockMakeClient);
 
       await expect(service.getModels()).rejects.toThrow(
         'Failed to create client',

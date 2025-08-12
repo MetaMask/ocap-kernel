@@ -12,7 +12,7 @@ import type {
 /**
  * It is recommended to create an Ollama client per model session.
  */
-export class OllamaBaseLanguageModelService<Ollama extends OllamaClient>
+export class OllamaBaseService<Ollama extends OllamaClient>
   implements
     LanguageModelService<
       OllamaModelOptions,

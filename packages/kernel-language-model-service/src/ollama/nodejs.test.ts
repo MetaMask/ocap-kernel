@@ -3,18 +3,18 @@ import '@ocap/test-utils/mock-endoify';
 import { fetchMock } from '@ocap/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
-import { OllamaNodejsLanguageModelService } from './nodejs.ts';
+import { OllamaNodejsService } from './nodejs.ts';
 import type { OllamaNodejsConfig } from './types.ts';
 import { mockReadableStream } from '../../test/utils.ts';
 
-describe('OllamaNodejsLanguageModelService', () => {
-  let service: OllamaNodejsLanguageModelService;
+describe('OllamaNodejsService', () => {
+  let service: OllamaNodejsService;
   const model = 'llama3.2:latest';
   const clientConfig = { host: 'http://127.0.0.1:11434' };
   const endowments = { fetch: fetchMock };
 
   beforeEach(async () => {
-    service = new OllamaNodejsLanguageModelService({
+    service = new OllamaNodejsService({
       endowments,
       clientConfig,
     });
@@ -28,7 +28,7 @@ describe('OllamaNodejsLanguageModelService', () => {
     ])(
       'should create a service with the correct endowments: %s',
       (_testName, config: OllamaNodejsConfig) => {
-        const constructedService = new OllamaNodejsLanguageModelService(config);
+        const constructedService = new OllamaNodejsService(config);
         expect(constructedService).toBeDefined();
       },
     );
@@ -41,7 +41,7 @@ describe('OllamaNodejsLanguageModelService', () => {
       (_testName, config, expectedError) => {
         expect(
           () =>
-            new OllamaNodejsLanguageModelService(
+            new OllamaNodejsService(
               // @ts-expect-error - Destructive test
               config,
             ),
