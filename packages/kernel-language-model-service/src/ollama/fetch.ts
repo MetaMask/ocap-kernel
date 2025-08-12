@@ -19,7 +19,7 @@
  */
 export const makeHostRestrictedFetch = (
   allowedHosts: string[],
-  baseFetch: typeof fetch = global.fetch,
+  baseFetch: typeof fetch = globalThis.fetch,
 ): typeof fetch => {
   const restrictedFetch = async (
     ...[url, ...args]: Parameters<typeof fetch>
