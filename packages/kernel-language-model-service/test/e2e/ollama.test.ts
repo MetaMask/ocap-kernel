@@ -2,6 +2,7 @@ import { fetchMock } from '@ocap/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
 import { OllamaNodejsLanguageModelService } from '../../src/ollama/nodejs.ts';
+import type { OllamaModel } from '../../src/ollama/types.ts';
 
 // This test connects to a local Ollama instance to test sampling capabilities.
 const testConfig = {
@@ -13,21 +14,22 @@ const testConfig = {
 
 describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
   let service: OllamaNodejsLanguageModelService;
+  const { model, host } = testConfig;
 
   beforeEach(async () => {
     // Disable fetch mocking for this test
     fetchMock.disableMocks();
     service = new OllamaNodejsLanguageModelService({
       endowments: { fetch: global.fetch },
-      clientConfig: { host: testConfig.host },
+      clientConfig: { host },
     });
     fetchMock.enableMocks();
   });
 
   describe('makeInstance', () => {
     it('should create a model instance', async () => {
-      const model = await service.makeInstance({ model: testConfig.model });
-      expect(model).toBeDefined();
+      const instance = await service.makeInstance({ model });
+      expect(instance).toBeDefined();
     });
   });
 
@@ -40,32 +42,55 @@ describe('OllamaNodejsLanguageModelService E2E', { timeout: 10_000 }, () => {
     });
   });
 
-  describe('complete', () => {
-    it('should return a streaming result', async () => {
-      const prompt = 'A B C';
-      let completion = prompt;
-      const instance = await service.makeInstance({ model: testConfig.model });
-      const response = await instance.sample(prompt);
-      let exitEarly = false;
-      await Promise.all([
-        (async () => {
-          for await (const chunk of response) {
-            if (exitEarly) {
-              return;
+  describe('instance', () => {
+    let instance: OllamaModel;
+
+    beforeEach(async () => {
+      instance = await service.makeInstance({ model });
+    });
+
+    describe('sample', () => {
+      it('should return a streaming result', async () => {
+        const prompt = 'A B C';
+        let completion = prompt;
+        const response = await instance.sample(prompt);
+        let exitEarly = false;
+        await Promise.all([
+          (async () => {
+            for await (const chunk of response) {
+              if (exitEarly) {
+                return;
+              }
+              completion += chunk.response;
             }
-            completion += chunk.response;
-          }
-        })(),
-        new Promise((resolve) =>
-          setTimeout(() => {
-            exitEarly = true;
-            resolve(undefined);
-          }),
-        ),
-      ]);
-      console.debug('@@@ completion: ', completion);
-      expect(completion).toContain(prompt);
-      expect(completion.length).toBeGreaterThan(prompt.length);
+          })(),
+          new Promise((resolve) =>
+            setTimeout(() => {
+              exitEarly = true;
+              resolve(undefined);
+            }),
+          ),
+        ]);
+        console.debug('@@@ sample: ', completion);
+        expect(completion).toContain(prompt);
+        expect(completion.length).toBeGreaterThan(prompt.length);
+      });
+    });
+
+    describe('load', () => {
+      it('should load a model without generating a response', async () => {
+        const response = await instance.load();
+        // ToDo: check that the model is loaded
+        expect(response).toBeUndefined();
+      });
+    });
+
+    describe('unload', () => {
+      it('should unload a model without generating a response', async () => {
+        const response = await instance.unload();
+        // ToDo: check that the model is unloaded
+        expect(response).toBeUndefined();
+      });
     });
   });
 });
