@@ -25,6 +25,6 @@ describe('parseModelConfig', () => {
 
   it('should throw when no model is provided', () => {
     const config = {} as InstanceConfig<OllamaModelOptions>;
-    expect(() => parseModelConfig(config)).toThrow('No model provided');
+    expect(() => parseModelConfig(config)).toThrow(/model/u);
   });
 });

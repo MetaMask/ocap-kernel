@@ -20,7 +20,6 @@ export type LanguageModel<Options, Response> = {
   unload: () => Promise<void>;
   /**
    * @param prompt - The prompt to complete.
-   * @param streams - The streams { internal, external } to write the response to.
    * @param options - The options to pass to the model.
    * @returns A promise that resolves when the response is complete, or rejects if an error occurs.
    */

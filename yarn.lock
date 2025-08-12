@@ -3238,6 +3238,7 @@ __metadata:
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
     "@metamask/streams": "workspace:^"
+    "@metamask/superstruct": "npm:^3.2.1"
     "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
