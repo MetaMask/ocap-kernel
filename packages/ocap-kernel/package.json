@@ -67,13 +67,13 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@agoric/swingset-liveslots": "0.10.3-u19.2",
-    "@endo/errors": "^1.2.10",
-    "@endo/far": "^1.1.11",
-    "@endo/import-bundle": "^1.5.0",
-    "@endo/marshal": "^1.6.4",
-    "@endo/pass-style": "^1.5.0",
-    "@endo/promise-kit": "^1.1.10",
+    "@agoric/swingset-liveslots": "0.10.3-u21.0.1",
+    "@endo/errors": "^1.2.13",
+    "@endo/far": "^1.1.14",
+    "@endo/import-bundle": "^1.5.2",
+    "@endo/marshal": "^1.8.0",
+    "@endo/pass-style": "^1.6.3",
+    "@endo/promise-kit": "^1.1.13",
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
@@ -83,7 +83,7 @@
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.2",
-    "ses": "^1.13.0",
+    "ses": "^1.14.0",
     "setimmediate": "^1.0.5"
   },
   "devDependencies": {
