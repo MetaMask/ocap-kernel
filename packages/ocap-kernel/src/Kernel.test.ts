@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => {
     constructor() {
       (this.constructor as typeof KernelQueue).lastInstance = this;
     }
+
+    waitForCrank = vi.fn().mockResolvedValue(undefined);
   }
   return { KernelQueue };
 });

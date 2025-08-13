@@ -87,6 +87,7 @@ export class KernelQueue {
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
       this.#kernelStore.startCrank();
+      let wakeUpPromise: Promise<void> | undefined;
       try {
         this.#kernelStore.createCrankSavepoint('start');
         const gcAction = processGCActionSet(this.#kernelStore);
@@ -116,10 +117,13 @@ export class KernelQueue {
             Fail`wakeUpTheRunQueue function already set`;
           }
           this.#wakeUpTheRunQueue = resolve;
-          await promise;
+          wakeUpPromise = promise;
         }
       } finally {
         this.#kernelStore.endCrank();
+        if (wakeUpPromise) {
+          await wakeUpPromise;
+        }
       }
     }
   }
@@ -199,6 +203,17 @@ export class KernelQueue {
     this.#enqueueRun(notifyItem);
     // Increment reference count for the promise being notified about
     this.#kernelStore.incrementRefCount(kpid, 'notify');
+  }
+
+  /**
+   * Wait for the current crank to complete.
+   * This method can be called by external operations to ensure they don't interfere
+   * with ongoing kernel operations.
+   *
+   * @returns A promise that resolves when the current crank is finished.
+   */
+  async waitForCrank(): Promise<void> {
+    return this.#kernelStore.waitForCrank();
   }
 
   /**

@@ -139,4 +139,40 @@ describe('crank methods', () => {
       expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
     });
   });
+
+  describe('waitForCrank', () => {
+    it('should resolve immediately when not in a crank', async () => {
+      context.inCrank = false;
+      const startTime = Date.now();
+      await crankMethods.waitForCrank();
+      const endTime = Date.now();
+      expect(endTime - startTime).toBeLessThan(50);
+    });
+
+    it('should wait until crank is finished', async () => {
+      context.inCrank = true;
+      setTimeout(() => {
+        context.inCrank = false;
+      }, 50);
+      const startTime = Date.now();
+      await crankMethods.waitForCrank();
+      const endTime = Date.now();
+      expect(endTime - startTime).toBeGreaterThanOrEqual(40);
+      expect(context.inCrank).toBe(false);
+    });
+
+    it('should handle multiple wait calls', async () => {
+      context.inCrank = true;
+      setTimeout(() => {
+        context.inCrank = false;
+      }, 30);
+      const promises = [
+        crankMethods.waitForCrank(),
+        crankMethods.waitForCrank(),
+        crankMethods.waitForCrank(),
+      ];
+      await Promise.all(promises);
+      expect(context.inCrank).toBe(false);
+    });
+  });
 });
