@@ -1,5 +1,6 @@
 import { Fail, q } from '@endo/errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { delay } from '@metamask/kernel-utils';
 
 import type { StoreContext } from '../types.ts';
 
@@ -71,11 +72,23 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     }
   }
 
+  /**
+   * Wait until the crank is finished.
+   *
+   * @returns A promise that resolves when the crank is finished.
+   */
+  async function waitForCrank(): Promise<void> {
+    while (ctx.inCrank) {
+      await delay(10);
+    }
+  }
+
   return {
     startCrank,
     createCrankSavepoint,
     rollbackCrank,
     endCrank,
     releaseAllSavepoints,
+    waitForCrank,
   };
 }

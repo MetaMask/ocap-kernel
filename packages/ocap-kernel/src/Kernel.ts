@@ -8,7 +8,7 @@ import {
 } from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { delay, stringify } from '@metamask/kernel-utils';
+import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger, splitLoggerStream } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -273,6 +273,7 @@ export class Kernel {
   async launchSubcluster(
     config: ClusterConfig,
   ): Promise<CapData<KRef> | undefined> {
+    await this.#kernelQueue.waitForCrank();
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
@@ -288,6 +289,7 @@ export class Kernel {
    * @returns A promise that resolves when termination is complete.
    */
   async terminateSubcluster(subclusterId: string): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     if (!this.#kernelStore.getSubcluster(subclusterId)) {
       throw new SubclusterNotFoundError(subclusterId);
     }
@@ -308,6 +310,7 @@ export class Kernel {
    * @throws If the subcluster is not found.
    */
   async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
+    await this.#kernelQueue.waitForCrank();
     const subcluster = this.getSubcluster(subclusterId);
     if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
@@ -417,6 +420,7 @@ export class Kernel {
    * @returns A promise for the restarted vat.
    */
   async restartVat(vatId: VatId): Promise<VatHandle> {
+    await this.#kernelQueue.waitForCrank();
     const vat = this.#getVat(vatId);
     if (!vat) {
       throw new VatNotFoundError(vatId);
@@ -471,6 +475,7 @@ export class Kernel {
    * @param reason - If the vat is being terminated, the reason for the termination.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     await this.#stopVat(vatId, true, reason);
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
@@ -480,6 +485,7 @@ export class Kernel {
    * Clear the database.
    */
   async clearStorage(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     this.#kernelStore.clear();
   }
 
@@ -625,6 +631,7 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reset(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     try {
       await this.terminateAllVats();
       this.#resetKernelState();
@@ -639,6 +646,7 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async terminateAllVats(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     for (const id of this.getVatIds().reverse()) {
       await this.terminateVat(id);
       this.collectGarbage();
@@ -650,13 +658,13 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
     const subclusters = this.#kernelStore.getSubclusters();
     await this.terminateAllVats();
     for (const subcluster of subclusters) {
+      await this.#kernelQueue.waitForCrank();
       const newId = this.#kernelStore.addSubcluster(subcluster.config);
       await this.#launchVatsForSubcluster(newId, subcluster.config);
-      // Wait for run queue to be empty before proceeding to next subcluster
-      await delay(100);
     }
   }
 
