@@ -23,6 +23,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     pool: 'threads',
+    projects: ['packages/*'],
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
