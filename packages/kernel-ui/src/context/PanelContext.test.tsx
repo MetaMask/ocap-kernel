@@ -24,7 +24,7 @@ describe('PanelContext', () => {
   const mockSendMessage = vi.fn();
 
   describe('sendMessageWrapper', () => {
-    it('should log outgoing message and return response on success', async () => {
+    it('should return response on success', async () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
@@ -123,6 +123,61 @@ describe('PanelContext', () => {
         expect(response).toBe(responses[index]);
       });
       expect(mockSendMessage).toHaveBeenCalledTimes(5);
+    });
+
+    it('should process queued requests added while processing', async () => {
+      const { PanelProvider, usePanelContext } = await import(
+        './PanelContext.tsx'
+      );
+      let firstRequestResolve: (() => void) | undefined;
+      const firstRequestPromise = new Promise<void>((resolve) => {
+        firstRequestResolve = resolve;
+      });
+      const responses = [
+        { success: true, id: 1 },
+        { success: true, id: 2 },
+        { success: true, id: 3 },
+      ];
+      mockSendMessage
+        .mockImplementationOnce(async () => {
+          // Simulate slow first request
+          await firstRequestPromise;
+          return responses[0];
+        })
+        .mockResolvedValueOnce(responses[1])
+        .mockResolvedValueOnce(responses[2]);
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
+      const { result } = renderHook(() => usePanelContext(), {
+        wrapper: ({ children }) => (
+          <PanelProvider callKernelMethod={mockSendMessage}>
+            {children}
+          </PanelProvider>
+        ),
+      });
+      const firstRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [1],
+      });
+      const secondRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [2],
+      });
+      const thirdRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [3],
+      });
+      firstRequestResolve?.();
+      const results = await Promise.all([
+        firstRequest,
+        secondRequest,
+        thirdRequest,
+      ]);
+      expect(results[0]).toBe(responses[0]);
+      expect(results[1]).toBe(responses[1]);
+      expect(results[2]).toBe(responses[2]);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
     });
 
     it('should throw error when response is an error', async () => {

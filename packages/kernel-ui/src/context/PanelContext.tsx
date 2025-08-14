@@ -68,14 +68,13 @@ export const PanelProvider: React.FC<{
   }, []);
 
   const processRequests = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
     while (pendingRequests.current.length > 0) {
       const request = pendingRequests.current.shift();
       if (!request) {
         break;
       }
       const { payload, resolve, reject } = request;
-      isRequestInProgress.current = true;
-      setIsLoading(true);
       try {
         logMessage(stringify(payload), 'sent');
         const response = await callKernelMethod(payload);
@@ -96,18 +95,16 @@ export const PanelProvider: React.FC<{
     async (payload) => {
       return new Promise((resolve, reject) => {
         pendingRequests.current.push({ payload, resolve, reject });
-        if (isRequestInProgress.current) {
-          return;
+        if (!isRequestInProgress.current) {
+          isRequestInProgress.current = true;
+          processRequests().catch((error) => {
+            // This should never happen as processRequests handles errors internally
+            // but if it does, log it and reset the state
+            logger.error('Unexpected error in processRequests', error);
+            isRequestInProgress.current = false;
+            setIsLoading(false);
+          });
         }
-        isRequestInProgress.current = true;
-        processRequests().catch((error) => {
-          const currentRequest = pendingRequests.current.pop();
-          if (currentRequest) {
-            currentRequest.reject(error);
-          }
-          isRequestInProgress.current = false;
-          setIsLoading(false);
-        });
       });
     },
     [processRequests],
