@@ -1,11 +1,6 @@
 import { test, expect } from '@playwright/test';
-import type { Page, BrowserContext } from '@playwright/test';
+import type { Page, BrowserContext, Locator } from '@playwright/test';
 
-import {
-  revokeObject,
-  sendMessage,
-  openObjectRegistryTab,
-} from './object-registry.ts';
 import { makeLoadExtension } from '../helpers/extension.ts';
 
 test.describe.configure({ mode: 'serial' });
@@ -14,11 +9,57 @@ test.describe('Object Registry', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 
+  /**
+   * Send a message to an object.
+   *
+   * @param page - The page to send the message on.
+   * @param target - The target of the object.
+   * @param method - The method to call.
+   * @param params - The parameters to pass to the method.
+   * @returns The message response locator.
+   */
+  const sendMessage = async (
+    page: Page,
+    target: string,
+    method: string,
+    params: string,
+  ) => {
+    await page
+      .locator('select[data-testid="message-target"]')
+      .selectOption(target);
+    await page.locator('input[data-testid="message-method"]').fill(method);
+    await page.locator('input[data-testid="message-params"]').fill(params);
+    await page.locator('button[data-testid="message-send-button"]').click();
+    return page.locator('[data-testid="message-response"]');
+  };
+
+  /**
+   * Revoke an object.
+   *
+   * @param page - The page to revoke the object on.
+   * @param owner - The owner of the object.
+   * @param target - The target of the object.
+   * @returns The button and output locator.
+   */
+  const revokeObject = async (
+    page: Page,
+    owner: string,
+    target: string,
+  ): Promise<{ button: Locator; output: Locator }> => {
+    await page
+      .locator(`[data-testid="accordion-header"]:has(:text("${owner}"))`)
+      .click();
+    const button = page.locator(`[data-testid="revoke-button-${target}"]`);
+    await button.click();
+    return { button, output: page.locator('[data-testid="message-output"]') };
+  };
+
   test.beforeEach(async () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await openObjectRegistryTab(popupPage, expect);
+    await popupPage.click('button:text("Object Registry")');
+    await expect(popupPage.locator('text=Kernel Registry')).toBeVisible();
   });
 
   test.afterEach(async () => {
