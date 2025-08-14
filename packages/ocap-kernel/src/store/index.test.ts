@@ -138,6 +138,7 @@ describe('kernel store', () => {
         'translateRefKtoV',
         'translateSyscallVtoK',
         'unpinObject',
+        'waitForCrank',
       ]);
     });
   });
