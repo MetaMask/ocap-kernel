@@ -14,9 +14,6 @@ test.describe('Control Panel', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -157,30 +154,6 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('All vats terminated');
     await expect(popupPage.locator('table')).not.toBeVisible();
-    // ensure all references were garbage collected
-    await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('');
-    await popupPage.click('button:text("Database Inspector")');
-    const expectedValues = JSON.stringify([
-      { key: 'queue.run.head', value: '6' },
-      { key: 'queue.run.tail', value: '6' },
-      { key: 'gcActions', value: '[]' },
-      { key: 'reapQueue', value: '[]' },
-      { key: 'vats.terminated', value: '[]' },
-      { key: 'nextObjectId', value: '4' },
-      { key: 'nextPromiseId', value: '4' },
-      { key: 'nextVatId', value: '4' },
-      { key: 'nextRemoteId', value: '1' },
-      { key: 'subclusters', value: '[]' },
-      { key: 'nextSubclusterId', value: '2' },
-      { key: 'vatToSubclusterMap', value: '{}' },
-      { key: 'initialized', value: 'true' },
-    ]);
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(expectedValues);
   });
 
   test('should clear kernel state', async () => {

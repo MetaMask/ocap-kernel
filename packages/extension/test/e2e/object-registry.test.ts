@@ -72,9 +72,9 @@ test.describe('Object Registry', () => {
     );
     await clearLogsButton.click();
     await popupPage.click('button:text("Object Registry")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 3 promises',
-    );
+    await expect(
+      popupPage.locator('text=Alice (v1) - 3 objects, 3 promises'),
+    ).toBeVisible();
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
@@ -101,9 +101,9 @@ test.describe('Object Registry', () => {
     await popupPage.click('[data-testid="message-send-button"]');
     await expect(messageResponse).toContainText('"body":"#\\"vat Alice got');
     await expect(messageResponse).toContainText('"slots":[');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Alice (v1) - 3 objects, 5 promises',
-    );
+    await expect(
+      popupPage.locator('text=Alice (v1) - 3 objects, 5 promises'),
+    ).toBeVisible();
   });
 
   test('should revoke an object', async () => {

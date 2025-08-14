@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import { rm } from 'fs/promises';
 import os from 'os';
@@ -62,6 +62,10 @@ export const makeLoadExtension = async (): Promise<{
 
   const popupPage = await browserContext.newPage();
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+
+  await expect(
+    popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
+  ).toBeVisible();
 
   return { browserContext, extensionId, popupPage };
 };
