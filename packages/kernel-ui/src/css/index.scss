@@ -1,8 +1,8 @@
 /* Tailwind CSS directives - must come first */
-@import './tailwind';
+@use './tailwind';
 
 /* MetaMask Design Tokens */
-@import '@metamask/design-tokens/styles.css';
+@use '@metamask/design-tokens/styles.css';
 
 html,
 body,
