@@ -80,7 +80,9 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    * @returns A promise that resolves when the crank is finished.
    */
   async function waitForCrank(): Promise<void> {
-    return ctx.inCrank ? ctx.crankSettled : Promise.resolve();
+    return ctx.inCrank
+      ? (ctx.crankSettled ?? Promise.resolve())
+      : Promise.resolve();
   }
 
   return {
