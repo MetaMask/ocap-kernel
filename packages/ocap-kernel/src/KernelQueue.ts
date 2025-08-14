@@ -87,7 +87,7 @@ export class KernelQueue {
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
       this.#kernelStore.startCrank();
-      let wakeUpPromise: Promise<void> | undefined;
+      let wakeUpPromise: Promise<void> = Promise.resolve();
       try {
         this.#kernelStore.createCrankSavepoint('start');
         const gcAction = processGCActionSet(this.#kernelStore);
@@ -121,9 +121,7 @@ export class KernelQueue {
         }
       } finally {
         this.#kernelStore.endCrank();
-        if (wakeUpPromise) {
-          await wakeUpPromise;
-        }
+        await wakeUpPromise;
       }
     }
   }
