@@ -47,25 +47,21 @@ describe('PanelContext', () => {
       expect(actualResponse).toBe(response);
     });
 
-    it('should retry when a request is already in progress', async () => {
+    it('should queue requests when one is already in progress', async () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
-      vi.useFakeTimers();
       let firstRequestResolve: (() => void) | undefined;
       const firstRequestPromise = new Promise<void>((resolve) => {
         firstRequestResolve = resolve;
       });
       const secondResponse = { success: true, second: true };
-
       mockSendMessage
         .mockImplementationOnce(async () => firstRequestPromise)
         .mockResolvedValueOnce(secondResponse);
-
       vi.mocked(
         await import('@metamask/utils'),
       ).isJsonRpcFailure.mockReturnValue(false);
-
       const { result } = renderHook(() => usePanelContext(), {
         wrapper: ({ children }) => (
           <PanelProvider callKernelMethod={mockSendMessage}>
@@ -83,11 +79,9 @@ describe('PanelContext', () => {
       });
       firstRequestResolve?.();
       await firstRequest;
-      vi.advanceTimersByTime(100);
       const actualSecondResponse = await secondRequest;
       expect(actualSecondResponse).toBe(secondResponse);
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
-      vi.useRealTimers();
     });
 
     it('should throw error when response is an error', async () => {
