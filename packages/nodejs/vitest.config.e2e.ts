@@ -4,7 +4,7 @@ import { defineConfig, defineProject } from 'vitest/config';
 import defaultConfig from '../../vitest.config.ts';
 
 export default defineConfig((args) => {
-  const config = mergeConfig(
+  return mergeConfig(
     args,
     defaultConfig,
     defineProject({
@@ -16,8 +16,4 @@ export default defineConfig((args) => {
       },
     }),
   );
-
-  delete config.test?.projects;
-
-  return config;
 });
