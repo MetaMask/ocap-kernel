@@ -67,54 +67,50 @@ export const PanelProvider: React.FC<{
     setPanelLogs([]);
   }, []);
 
-  const processNextRequest = useCallback(async (): Promise<void> => {
-    if (pendingRequests.current.length === 0) {
-      isRequestInProgress.current = false;
-      setIsLoading(false);
-      return;
-    }
-
-    const request = pendingRequests.current.shift();
-    if (!request) {
-      return;
-    }
-    const { payload, resolve, reject } = request;
-    isRequestInProgress.current = true;
-    setIsLoading(true);
-
-    try {
-      logMessage(stringify(payload), 'sent');
-      const response = await callKernelMethod(payload);
-      if (isJsonRpcFailure(response)) {
-        throw new Error(stringify((response as { error: unknown }).error, 0));
+  const processRequests = useCallback(async (): Promise<void> => {
+    while (pendingRequests.current.length > 0) {
+      const request = pendingRequests.current.shift();
+      if (!request) {
+        break;
       }
-      resolve(response);
-    } catch (error) {
-      logger.error(String(error), 'error');
-      reject(error);
-    } finally {
-      // Process next request in queue
-      await processNextRequest();
+      const { payload, resolve, reject } = request;
+      isRequestInProgress.current = true;
+      setIsLoading(true);
+      try {
+        logMessage(stringify(payload), 'sent');
+        const response = await callKernelMethod(payload);
+        if (isJsonRpcFailure(response)) {
+          throw new Error(stringify((response as { error: unknown }).error, 0));
+        }
+        resolve(response);
+      } catch (error) {
+        logger.error(String(error), 'error');
+        reject(error);
+      }
     }
+    isRequestInProgress.current = false;
+    setIsLoading(false);
   }, [callKernelMethod, logMessage]);
 
   const sendMessageWrapper: CallKernelMethod = useCallback(
     async (payload) => {
       return new Promise((resolve, reject) => {
         pendingRequests.current.push({ payload, resolve, reject });
-
-        if (!isRequestInProgress.current) {
-          processNextRequest().catch((error) => {
-            // If processNextRequest fails, reject the current request
-            const currentRequest = pendingRequests.current.pop();
-            if (currentRequest) {
-              currentRequest.reject(error);
-            }
-          });
+        if (isRequestInProgress.current) {
+          return;
         }
+        isRequestInProgress.current = true;
+        processRequests().catch((error) => {
+          const currentRequest = pendingRequests.current.pop();
+          if (currentRequest) {
+            currentRequest.reject(error);
+          }
+          isRequestInProgress.current = false;
+          setIsLoading(false);
+        });
       });
     },
-    [processNextRequest],
+    [processRequests],
   );
 
   const status = useStatusPolling(callKernelMethod, isRequestInProgress);

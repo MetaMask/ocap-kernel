@@ -84,6 +84,47 @@ describe('PanelContext', () => {
       expect(mockSendMessage).toHaveBeenCalledTimes(2);
     });
 
+    it('should handle multiple concurrent requests without race conditions', async () => {
+      const { PanelProvider, usePanelContext } = await import(
+        './PanelContext.tsx'
+      );
+      const responses = [
+        { success: true, id: 1 },
+        { success: true, id: 2 },
+        { success: true, id: 3 },
+        { success: true, id: 4 },
+        { success: true, id: 5 },
+      ];
+      mockSendMessage
+        .mockResolvedValueOnce(responses[0])
+        .mockResolvedValueOnce(responses[1])
+        .mockResolvedValueOnce(responses[2])
+        .mockResolvedValueOnce(responses[3])
+        .mockResolvedValueOnce(responses[4]);
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
+
+      const { result } = renderHook(() => usePanelContext(), {
+        wrapper: ({ children }) => (
+          <PanelProvider callKernelMethod={mockSendMessage}>
+            {children}
+          </PanelProvider>
+        ),
+      });
+      const requests = responses.map(async (_, index) =>
+        result.current.callKernelMethod({
+          method: 'getStatus',
+          params: [index],
+        }),
+      );
+      const results = await Promise.all(requests);
+      results.forEach((response, index) => {
+        expect(response).toBe(responses[index]);
+      });
+      expect(mockSendMessage).toHaveBeenCalledTimes(5);
+    });
+
     it('should throw error when response is an error', async () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
