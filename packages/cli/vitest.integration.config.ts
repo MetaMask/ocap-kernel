@@ -16,8 +16,8 @@ export default defineConfig(() => {
     }),
   );
 
-  // Integration shouldn't have coverage
   delete config.test?.coverage;
+  delete config.test?.projects;
 
   return config;
 });
