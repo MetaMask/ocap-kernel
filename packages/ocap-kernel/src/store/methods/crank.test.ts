@@ -25,9 +25,13 @@ describe('crank methods', () => {
   });
 
   describe('startCrank', () => {
-    it('should set inCrank to true', () => {
+    it('should set inCrank to true and create a settlement promise', () => {
       crankMethods.startCrank();
       expect(context.inCrank).toBe(true);
+      expect(typeof context.resolveCrank).toBe('function');
+      expect(typeof (context.crankSettled as Promise<unknown>)?.then).toBe(
+        'function',
+      );
     });
 
     it('should throw when already in a crank', () => {
@@ -89,35 +93,53 @@ describe('crank methods', () => {
         'rollbackCrank outside of crank',
       );
     });
+
+    it('reuses ordinals after rollback', () => {
+      context.inCrank = true;
+      crankMethods.createCrankSavepoint('a');
+      crankMethods.createCrankSavepoint('b');
+      crankMethods.createCrankSavepoint('c');
+      crankMethods.rollbackCrank('b');
+      crankMethods.createCrankSavepoint('b2');
+      expect(kdb.createSavepoint).toHaveBeenLastCalledWith('t1');
+      expect(context.savepoints).toStrictEqual(['a', 'b2']);
+    });
   });
 
   describe('endCrank', () => {
-    it('should set inCrank to false', () => {
-      context.inCrank = true;
+    it('should set inCrank to false and resolve the settlement promise', async () => {
+      crankMethods.startCrank();
+      const resolveSpy = vi.fn();
+      context.resolveCrank = resolveSpy as unknown as () => void;
       crankMethods.endCrank();
-
+      expect(resolveSpy).toHaveBeenCalledTimes(1);
       expect(context.inCrank).toBe(false);
+      expect(context.resolveCrank).toBeUndefined();
     });
 
     it('should release savepoints if they exist', () => {
       context.inCrank = true;
       context.savepoints = ['test'];
-
       crankMethods.endCrank();
-
       expect(kdb.releaseSavepoint).toHaveBeenCalledWith('t0');
       expect(context.savepoints).toStrictEqual([]);
     });
 
     it('should not call releaseSavepoint if no savepoints exist', () => {
       context.inCrank = true;
-
       crankMethods.endCrank();
-
       expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
     });
 
     it('should throw when not in a crank', () => {
+      expect(() => crankMethods.endCrank()).toThrow(
+        'endCrank outside of crank',
+      );
+    });
+
+    it('throws on double endCrank', () => {
+      context.inCrank = true;
+      crankMethods.endCrank();
       expect(() => crankMethods.endCrank()).toThrow(
         'endCrank outside of crank',
       );
@@ -143,36 +165,41 @@ describe('crank methods', () => {
   describe('waitForCrank', () => {
     it('should resolve immediately when not in a crank', async () => {
       context.inCrank = false;
-      const startTime = Date.now();
-      await crankMethods.waitForCrank();
-      const endTime = Date.now();
-      expect(endTime - startTime).toBeLessThan(50);
+      expect(await crankMethods.waitForCrank()).toBeUndefined();
     });
 
     it('should wait until crank is finished', async () => {
-      context.inCrank = true;
-      setTimeout(() => {
-        context.inCrank = false;
-      }, 50);
-      const startTime = Date.now();
-      await crankMethods.waitForCrank();
-      const endTime = Date.now();
-      expect(endTime - startTime).toBeGreaterThanOrEqual(40);
-      expect(context.inCrank).toBe(false);
+      crankMethods.startCrank();
+      const waiter = crankMethods.waitForCrank();
+      let done = false;
+      waiter.then(() => (done = true)).catch(console.error);
+      await Promise.resolve();
+      expect(done).toBe(false);
+      crankMethods.endCrank();
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      expect(done).toBe(true);
+      await waiter;
     });
 
     it('should handle multiple wait calls', async () => {
-      context.inCrank = true;
-      setTimeout(() => {
-        context.inCrank = false;
-      }, 30);
-      const promises = [
-        crankMethods.waitForCrank(),
-        crankMethods.waitForCrank(),
-        crankMethods.waitForCrank(),
-      ];
-      await Promise.all(promises);
+      crankMethods.startCrank();
+      const p1 = crankMethods.waitForCrank();
+      const p2 = crankMethods.waitForCrank();
+      const p3 = crankMethods.waitForCrank();
+      crankMethods.endCrank();
+      expect(await Promise.all([p1, p2, p3])).toBeDefined();
       expect(context.inCrank).toBe(false);
+    });
+
+    it('creates a fresh settlement promise for each crank', async () => {
+      crankMethods.startCrank();
+      const first = crankMethods.waitForCrank();
+      crankMethods.endCrank();
+      await first;
+      crankMethods.startCrank();
+      const second = crankMethods.waitForCrank();
+      expect(second).not.toBe(first);
+      crankMethods.endCrank();
     });
   });
 });
