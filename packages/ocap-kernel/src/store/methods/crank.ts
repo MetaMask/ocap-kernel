@@ -1,6 +1,6 @@
 import { Fail, q } from '@endo/errors';
+import { makePromiseKit } from '@endo/promise-kit';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { delay } from '@metamask/kernel-utils';
 
 import type { StoreContext } from '../types.ts';
 
@@ -19,6 +19,9 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   function startCrank(): void {
     !ctx.inCrank || Fail`startCrank while already in a crank`;
     ctx.inCrank = true;
+    const { promise, resolve } = makePromiseKit<void>();
+    ctx.crankSettled = promise;
+    ctx.resolveCrank = resolve;
   }
 
   /**
@@ -51,18 +54,6 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
-   * End a crank.
-   */
-  function endCrank(): void {
-    ctx.inCrank || Fail`endCrank outside of crank`;
-    if (ctx.savepoints.length > 0) {
-      kdb.releaseSavepoint('t0');
-      ctx.savepoints.length = 0;
-    }
-    ctx.inCrank = false;
-  }
-
-  /**
    * Release all savepoints.
    */
   function releaseAllSavepoints(): void {
@@ -73,14 +64,23 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
+   * End a crank.
+   */
+  function endCrank(): void {
+    ctx.inCrank || Fail`endCrank outside of crank`;
+    releaseAllSavepoints();
+    ctx.inCrank = false;
+    ctx.resolveCrank?.();
+    ctx.resolveCrank = undefined;
+  }
+
+  /**
    * Wait until the crank is finished.
    *
    * @returns A promise that resolves when the crank is finished.
    */
   async function waitForCrank(): Promise<void> {
-    while (ctx.inCrank) {
-      await delay(10);
-    }
+    return ctx.inCrank ? ctx.crankSettled : Promise.resolve();
   }
 
   return {
