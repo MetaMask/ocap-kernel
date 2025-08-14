@@ -84,6 +84,6 @@
   "dependencies": {
     "@metamask/superstruct": "^3.2.1",
     "ollama": "^0.5.16",
-    "ses": "^1.13.0"
+    "ses": "^1.14.0"
   }
 }

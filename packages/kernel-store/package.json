@@ -80,7 +80,7 @@
     "@metamask/logger": "workspace:^",
     "@sqlite.org/sqlite-wasm": "^3.49.1-build3",
     "better-sqlite3": "^11.9.1",
-    "ses": "^1.13.0"
+    "ses": "^1.14.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
