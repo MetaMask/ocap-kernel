@@ -187,7 +187,7 @@ describe('crank methods', () => {
       const p2 = crankMethods.waitForCrank();
       const p3 = crankMethods.waitForCrank();
       crankMethods.endCrank();
-      expect(await Promise.all([p1, p2, p3])).toBeDefined();
+      await Promise.all([p1, p2, p3]);
       expect(context.inCrank).toBe(false);
     });
 

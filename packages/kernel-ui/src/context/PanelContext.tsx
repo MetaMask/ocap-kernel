@@ -67,8 +67,10 @@ export const PanelProvider: React.FC<{
       }
 
       const cleanup = (): void => {
-        isRequestInProgress.current = false;
-        setIsLoading(false);
+        setTimeout(() => {
+          isRequestInProgress.current = false;
+          setIsLoading(false);
+        }, 100);
       };
 
       try {

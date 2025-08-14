@@ -210,7 +210,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       expect(subclusters).toHaveLength(1);
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
@@ -256,7 +256,7 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(config);
       expect(launchWorkerMock).toHaveBeenCalled();
       expect(makeVatHandleMock).toHaveBeenCalled();
-      const status = kernel.getStatus();
+      const status = await kernel.getStatus();
       expect(status.subclusters).toHaveLength(1);
       expect(status.subclusters[0]?.config).toStrictEqual(config);
     });
@@ -319,7 +319,7 @@ describe('Kernel', () => {
         },
       };
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
       const subclusterId = firstSubcluster?.id as string;
@@ -351,7 +351,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
       const subclusterId = firstSubcluster?.id as string;
@@ -380,7 +380,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
       const subclusterId = firstSubcluster?.id as string;
@@ -405,7 +405,7 @@ describe('Kernel', () => {
         },
       };
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
       const subclusterId = firstSubcluster?.id as string;
@@ -424,7 +424,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       expect(firstSubcluster).toBeDefined();
       const subclusterId = firstSubcluster?.id as string;
@@ -496,7 +496,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const { subclusters } = kernel.getStatus();
+      const { subclusters } = await kernel.getStatus();
       const [firstSubcluster] = subclusters;
       const subclusterId = firstSubcluster?.id;
 
@@ -545,7 +545,7 @@ describe('Kernel', () => {
         mockWorkerService,
         mockKernelDatabase,
       );
-      const status = kernel.getStatus();
+      const status = await kernel.getStatus();
       expect(status).toStrictEqual({
         vats: [],
         subclusters: [],
@@ -560,7 +560,7 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       await kernel.launchSubcluster(config);
-      const status = kernel.getStatus();
+      const status = await kernel.getStatus();
       expect(status.vats).toHaveLength(1);
       expect(status.subclusters).toHaveLength(1);
       expect(status.subclusters[0]?.config).toStrictEqual(config);

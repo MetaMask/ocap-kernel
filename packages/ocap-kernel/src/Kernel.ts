@@ -558,7 +558,8 @@ export class Kernel {
    *
    * @returns The current kernel status containing vats and subclusters information.
    */
-  getStatus(): KernelStatus {
+  async getStatus(): Promise<KernelStatus> {
+    await this.#kernelQueue.waitForCrank();
     return {
       vats: this.getVats(),
       subclusters: this.#kernelStore.getSubclusters(),
