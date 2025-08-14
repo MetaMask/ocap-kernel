@@ -23,6 +23,10 @@ import { mergeConfig as mergeVitestConfig } from 'vitest/config';
  */
 export const mergeConfig = (args, ...rest) => {
   const config = mergeVitestConfig(...rest);
+
+  // This breaks tests in packages if set
+  delete config.test?.projects;
+
   if (args.mode === 'development') {
     delete config.test.coverage;
   } else {

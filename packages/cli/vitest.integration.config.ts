@@ -1,12 +1,14 @@
-import { defineConfig, defineProject, mergeConfig } from 'vitest/config';
+import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';
 
-export default defineConfig(() => {
+export default defineConfig((args) => {
   delete defaultConfig.test?.setupFiles;
 
   // We do not use our custom mergeConfig here
   const config = mergeConfig(
+    args,
     defaultConfig,
     defineProject({
       test: {
@@ -17,7 +19,6 @@ export default defineConfig(() => {
   );
 
   delete config.test?.coverage;
-  delete config.test?.projects;
 
   return config;
 });
