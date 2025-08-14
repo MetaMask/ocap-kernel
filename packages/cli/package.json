@@ -33,9 +33,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@endo/bundle-source": "^4.1.0",
-    "@endo/init": "^1.1.6",
-    "@endo/promise-kit": "^1.1.10",
+    "@endo/bundle-source": "^4.1.2",
+    "@endo/init": "^1.1.12",
+    "@endo/promise-kit": "^1.1.13",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
@@ -74,7 +74,7 @@
     "jsdom": "^26.0.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
-    "ses": "^1.13.0",
+    "ses": "^1.14.0",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",

@@ -38,8 +38,8 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
-    "@endo/far": "^1.1.11",
-    "@endo/promise-kit": "^1.1.10",
+    "@endo/far": "^1.1.14",
+    "@endo/promise-kit": "^1.1.13",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
@@ -47,7 +47,7 @@
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
     "@metamask/utils": "^11.4.2",
-    "ses": "^1.13.0"
+    "ses": "^1.14.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

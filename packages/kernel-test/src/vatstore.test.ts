@@ -45,7 +45,7 @@ const referenceKVUpdates: VatCheckpoint[] = [
     // initVat initializes built-in tables and empty baggage
     [
       ['baggageID', 'o+d6/1'],
-      ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":5}'],
+      ['idCounters', '{"exportID":10,"collectionID":4,"promiseID":5}'],
       ['kindIDID', '1'],
       ['storeKindIDTable', '{"scalarMapStore":2,"scalarWeakMapStore":3,"scalarSetStore":4,"scalarWeakSetStore":5,"scalarDurableMapStore":6,"scalarDurableWeakMapStore":7,"scalarDurableSetStore":8,"scalarDurableWeakSetStore":9}'],
       ['vc.1.|entryCount', '0'],
@@ -53,18 +53,15 @@ const referenceKVUpdates: VatCheckpoint[] = [
       ['vc.1.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:string\\",\\"payload\\":[]},\\"label\\":\\"baggage\\"}","slots":[]}'],
       ['vc.2.|entryCount', '0'],
       ['vc.2.|nextOrdinal', '1'],
-      ['vc.2.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:scalar\\",\\"payload\\":\\"#undefined\\"},\\"label\\":\\"promiseRegistrations\\"}","slots":[]}'],
+      ['vc.2.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:scalar\\",\\"payload\\":\\"#undefined\\"},\\"label\\":\\"promiseWatcherByKind\\"}","slots":[]}'],
       ['vc.3.|entryCount', '0'],
       ['vc.3.|nextOrdinal', '1'],
-      ['vc.3.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:scalar\\",\\"payload\\":\\"#undefined\\"},\\"label\\":\\"promiseWatcherByKind\\"}","slots":[]}'],
-      ['vc.4.|entryCount', '0'],
-      ['vc.4.|nextOrdinal', '1'],
-      ['vc.4.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:and\\",\\"payload\\":[{\\"#tag\\":\\"match:scalar\\",\\"payload\\":\\"#undefined\\"},{\\"#tag\\":\\"match:string\\",\\"payload\\":[]}]},\\"label\\":\\"watchedPromises\\"}","slots":[]}'],
+      ['vc.3.|schemata', '{"body":"#{\\"keyShape\\":{\\"#tag\\":\\"match:and\\",\\"payload\\":[{\\"#tag\\":\\"match:scalar\\",\\"payload\\":\\"#undefined\\"},{\\"#tag\\":\\"match:string\\",\\"payload\\":[]}]},\\"label\\":\\"watchedPromises\\"}","slots":[]}'],
       ['vom.rc.o+d6/1', '1'],
+      ['vom.rc.o+d6/2', '1'],
       ['vom.rc.o+d6/3', '1'],
-      ['vom.rc.o+d6/4', '1'],
-      ['watchedPromiseTableID', 'o+d6/4'],
-      ['watcherTableID', 'o+d6/3'],
+      ['watchedPromiseTableID', 'o+d6/3'],
+      ['watcherTableID', 'o+d6/2'],
     ],
     emptyDeletes,
   ],
@@ -73,7 +70,7 @@ const referenceKVUpdates: VatCheckpoint[] = [
   // to 2).
   [
     [
-      ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":7}'],
+      ['idCounters', '{"exportID":10,"collectionID":4,"promiseID":7}'],
       ['vc.1.sgoAway', '{"body":"#\\"now you see me\\"","slots":[]}'],
       ['vc.1.sthing', '{"body":"#1","slots":[]}'],
       ['vc.1.|entryCount', '2'],
@@ -101,7 +98,7 @@ const referenceKVUpdates: VatCheckpoint[] = [
   // count to 1.  Sending 'loopback' consumes a promise ID.
   [
     [
-      ['idCounters', '{"exportID":10,"collectionID":5,"promiseID":8}'],
+      ['idCounters', '{"exportID":10,"collectionID":4,"promiseID":8}'],
       ['vc.1.|entryCount', '1'],
     ],
     ['vc.1.sgoAway'],
@@ -144,7 +141,7 @@ describe('exercise vatstore', async () => {
       vsKv.set(entry.key, entry.value);
     }
     expect(vsKv.get('idCounters')).toBe(
-      '{"exportID":10,"collectionID":5,"promiseID":8}',
+      '{"exportID":10,"collectionID":4,"promiseID":8}',
     );
     expect(vsKv.get('vc.1.sthing')).toBe('{"body":"#3","slots":[]}');
     expect(vsKv.get('vc.1.|entryCount')).toBe('1');
