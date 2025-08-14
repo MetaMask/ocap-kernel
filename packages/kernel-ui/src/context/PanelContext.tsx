@@ -62,15 +62,15 @@ export const PanelProvider: React.FC<{
 
   const sendMessageWrapper: CallKernelMethod = useCallback(
     async (payload) => {
+      // If a request is already in progress, wait for it to finish and try again
       if (isRequestInProgress.current) {
-        throw new Error('A request is already in progress');
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return sendMessageWrapper(payload);
       }
 
       const cleanup = (): void => {
-        setTimeout(() => {
-          isRequestInProgress.current = false;
-          setIsLoading(false);
-        }, 100);
+        isRequestInProgress.current = false;
+        setIsLoading(false);
       };
 
       try {
