@@ -62,10 +62,8 @@ export const makeLoadExtension = async (): Promise<{
 
   const popupPage = await browserContext.newPage();
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
-
-  await expect(
-    popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-  ).toBeVisible();
+  // Wait for the default subcluster accordion to be visible
+  await expect(popupPage.locator('text=Subcluster s1 - 3 Vats')).toBeVisible();
 
   return { browserContext, extensionId, popupPage };
 };
