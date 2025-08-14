@@ -56,26 +56,33 @@ test.describe('Control Panel', () => {
     ).toBeVisible();
   });
 
-  test('should launch a new subcluster and vat within it', async () => {
-    // Clear all state
-    await popupPage.click('button:text("Clear All State")');
+  test('should terminate a subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
+    await expect(
+      popupPage.locator('[data-testid="terminate-subcluster-button"]').first(),
+    ).toBeVisible();
+    await popupPage
+      .locator('[data-testid="terminate-subcluster-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('State cleared');
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).not.toBeVisible();
+    ).toContainText('Terminated subcluster');
+  });
+
+  test('should launch a new subcluster and vat within it', async () => {
     // Launch a new subcluster
     await launchSubcluster(minimalClusterConfig);
     const subcluster = popupPage.locator(
-      '[data-testid="subcluster-accordion-s1"]',
+      '[data-testid="subcluster-accordion-s2"]',
     );
     await expect(subcluster).toBeVisible({
       timeout: 2000,
     });
     await expect(popupPage.locator('text=1 Vat')).toBeVisible();
     // Open the subcluster accordion to view vats
-    await popupPage.locator('[data-testid="accordion-header"]').click();
+    await popupPage.locator('text=Subcluster s2 - 1 Vat').click();
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(2);
@@ -124,21 +131,6 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('pong');
-  });
-
-  test('should terminate a subcluster', async () => {
-    // Open the subcluster accordion first
-    await popupPage.locator('[data-testid="accordion-header"]').first().click();
-    await expect(
-      popupPage.locator('[data-testid="terminate-subcluster-button"]').first(),
-    ).toBeVisible();
-    await popupPage
-      .locator('[data-testid="terminate-subcluster-button"]')
-      .first()
-      .click();
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Terminated subcluster');
   });
 
   test('should reload a subcluster', async () => {
