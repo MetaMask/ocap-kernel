@@ -50,6 +50,7 @@ describe('KernelQueue', () => {
       endCrank: vi.fn(),
       createCrankSavepoint: vi.fn(),
       rollbackCrank: vi.fn(),
+      waitForCrank: vi.fn(),
     } as unknown as KernelStore;
 
     kernelQueue = new KernelQueue(kernelStore, terminateVat);
@@ -417,6 +418,27 @@ describe('KernelQueue', () => {
       expect(() => kernelQueue.resolvePromises(vatId, [resolution])).toThrow(
         '"v1" not permitted to resolve "kp123" because "its decider is v2"',
       );
+    });
+  });
+
+  describe('waitForCrank', () => {
+    it('should handle when waitForCrank returns a delayed promise', async () => {
+      let resolvePromise: ((value: void) => void) | undefined;
+      const delayedPromise = new Promise<void>((resolve) => {
+        resolvePromise = resolve;
+      });
+      (kernelStore.waitForCrank as unknown as MockInstance).mockReturnValue(
+        delayedPromise,
+      );
+      const waitPromise = kernelQueue.waitForCrank();
+      const raceResult = await Promise.race([
+        waitPromise,
+        Promise.resolve('immediate'),
+      ]);
+      expect(raceResult).toBe('immediate');
+      resolvePromise?.();
+      await waitPromise;
+      expect(kernelStore.waitForCrank).toHaveBeenCalledOnce();
     });
   });
 });

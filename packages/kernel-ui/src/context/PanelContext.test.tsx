@@ -24,7 +24,7 @@ describe('PanelContext', () => {
   const mockSendMessage = vi.fn();
 
   describe('sendMessageWrapper', () => {
-    it('should log outgoing message and return response on success', async () => {
+    it('should return response on success', async () => {
       const { PanelProvider, usePanelContext } = await import(
         './PanelContext.tsx'
       );
@@ -45,6 +45,139 @@ describe('PanelContext', () => {
         params: [],
       });
       expect(actualResponse).toBe(response);
+    });
+
+    it('should queue requests when one is already in progress', async () => {
+      const { PanelProvider, usePanelContext } = await import(
+        './PanelContext.tsx'
+      );
+      let firstRequestResolve: (() => void) | undefined;
+      const firstRequestPromise = new Promise<void>((resolve) => {
+        firstRequestResolve = resolve;
+      });
+      const secondResponse = { success: true, second: true };
+      mockSendMessage
+        .mockImplementationOnce(async () => firstRequestPromise)
+        .mockResolvedValueOnce(secondResponse);
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
+      const { result } = renderHook(() => usePanelContext(), {
+        wrapper: ({ children }) => (
+          <PanelProvider callKernelMethod={mockSendMessage}>
+            {children}
+          </PanelProvider>
+        ),
+      });
+      const firstRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [],
+      });
+      const secondRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [],
+      });
+      firstRequestResolve?.();
+      await firstRequest;
+      const actualSecondResponse = await secondRequest;
+      expect(actualSecondResponse).toBe(secondResponse);
+      expect(mockSendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle multiple concurrent requests without race conditions', async () => {
+      const { PanelProvider, usePanelContext } = await import(
+        './PanelContext.tsx'
+      );
+      const responses = [
+        { success: true, id: 1 },
+        { success: true, id: 2 },
+        { success: true, id: 3 },
+        { success: true, id: 4 },
+        { success: true, id: 5 },
+      ];
+      mockSendMessage
+        .mockResolvedValueOnce(responses[0])
+        .mockResolvedValueOnce(responses[1])
+        .mockResolvedValueOnce(responses[2])
+        .mockResolvedValueOnce(responses[3])
+        .mockResolvedValueOnce(responses[4]);
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
+
+      const { result } = renderHook(() => usePanelContext(), {
+        wrapper: ({ children }) => (
+          <PanelProvider callKernelMethod={mockSendMessage}>
+            {children}
+          </PanelProvider>
+        ),
+      });
+      const requests = responses.map(async (_, index) =>
+        result.current.callKernelMethod({
+          method: 'getStatus',
+          params: [index],
+        }),
+      );
+      const results = await Promise.all(requests);
+      results.forEach((response, index) => {
+        expect(response).toBe(responses[index]);
+      });
+      expect(mockSendMessage).toHaveBeenCalledTimes(5);
+    });
+
+    it('should process queued requests added while processing', async () => {
+      const { PanelProvider, usePanelContext } = await import(
+        './PanelContext.tsx'
+      );
+      let firstRequestResolve: (() => void) | undefined;
+      const firstRequestPromise = new Promise<void>((resolve) => {
+        firstRequestResolve = resolve;
+      });
+      const responses = [
+        { success: true, id: 1 },
+        { success: true, id: 2 },
+        { success: true, id: 3 },
+      ];
+      mockSendMessage
+        .mockImplementationOnce(async () => {
+          // Simulate slow first request
+          await firstRequestPromise;
+          return responses[0];
+        })
+        .mockResolvedValueOnce(responses[1])
+        .mockResolvedValueOnce(responses[2]);
+      vi.mocked(
+        await import('@metamask/utils'),
+      ).isJsonRpcFailure.mockReturnValue(false);
+      const { result } = renderHook(() => usePanelContext(), {
+        wrapper: ({ children }) => (
+          <PanelProvider callKernelMethod={mockSendMessage}>
+            {children}
+          </PanelProvider>
+        ),
+      });
+      const firstRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [1],
+      });
+      const secondRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [2],
+      });
+      const thirdRequest = result.current.callKernelMethod({
+        method: 'getStatus',
+        params: [3],
+      });
+      firstRequestResolve?.();
+      const results = await Promise.all([
+        firstRequest,
+        secondRequest,
+        thirdRequest,
+      ]);
+      expect(results[0]).toBe(responses[0]);
+      expect(results[1]).toBe(responses[1]);
+      expect(results[2]).toBe(responses[2]);
+      expect(mockSendMessage).toHaveBeenCalledTimes(3);
     });
 
     it('should throw error when response is an error', async () => {
@@ -99,48 +232,6 @@ describe('PanelContext', () => {
       expect(
         vi.mocked(await import('../services/logger.ts')).logger.error,
       ).toHaveBeenCalledWith(`Error: ${error.message}`, 'error');
-    });
-
-    it('should throw error when a request is already in progress', async () => {
-      const { PanelProvider, usePanelContext } = await import(
-        './PanelContext.tsx'
-      );
-
-      // Use a promise that we control to ensure the first request is still in progress
-      let resolveFirstRequest!: (value: { success: boolean }) => void;
-      const firstRequestPromise = new Promise<{ success: boolean }>(
-        (resolve) => {
-          resolveFirstRequest = resolve;
-        },
-      );
-
-      mockSendMessage.mockReturnValueOnce(firstRequestPromise);
-
-      const { result } = renderHook(() => usePanelContext(), {
-        wrapper: ({ children }) => (
-          <PanelProvider callKernelMethod={mockSendMessage}>
-            {children}
-          </PanelProvider>
-        ),
-      });
-
-      // Start the first request but don't await it
-      const firstRequestPromiseResult = result.current.callKernelMethod({
-        method: 'getStatus',
-        params: [],
-      });
-
-      // Try to make a second request while the first is still processing
-      await expect(
-        result.current.callKernelMethod({
-          method: 'getStatus',
-          params: [],
-        }),
-      ).rejects.toThrow('A request is already in progress');
-
-      // Resolve the first request to clean up
-      resolveFirstRequest({ success: true });
-      await firstRequestPromiseResult;
     });
   });
 

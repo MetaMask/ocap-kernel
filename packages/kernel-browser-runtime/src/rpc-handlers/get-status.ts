@@ -14,19 +14,18 @@ export const getStatusSpec: MethodSpec<
 };
 
 export type GetStatusHooks = {
-  kernel: Pick<Kernel, 'getVats' | 'getSubclusters'>;
+  kernel: Pick<Kernel, 'getStatus'>;
 };
 
 export const getStatusHandler: Handler<
   'getStatus',
   EmptyJsonArray,
-  KernelStatus,
+  Promise<KernelStatus>,
   GetStatusHooks
 > = {
   ...getStatusSpec,
   hooks: { kernel: true },
-  implementation: ({ kernel }: GetStatusHooks): KernelStatus => ({
-    vats: kernel.getVats(),
-    subclusters: kernel.getSubclusters(),
-  }),
+  implementation: async ({ kernel }: GetStatusHooks): Promise<KernelStatus> => {
+    return await kernel.getStatus();
+  },
 };

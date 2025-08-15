@@ -11,15 +11,10 @@ test.describe('Database Inspector', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).toBeVisible();
-    await popupPage.locator('[data-testid="accordion-header"]').first().click();
-    await expect(popupPage.locator('table tr')).toHaveCount(4); // Header + 3 rows
     await popupPage.click('button:text("Database Inspector")');
-    await expect(popupPage.locator('#root')).toContainText(
-      'SELECT name FROM sqlite_master',
-    );
+    await expect(
+      popupPage.locator('text=SELECT name FROM sqlite_master'),
+    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -62,8 +57,8 @@ test.describe('Database Inspector', () => {
       'INVALID SQL QUERY',
     );
     await popupPage.click('[data-testid="execute-query-button"]');
-    await expect(popupPage.locator('#root')).toContainText(
-      'Failed to execute query',
-    );
+    await expect(
+      popupPage.locator('text=Failed to execute query'),
+    ).toBeVisible();
   });
 });

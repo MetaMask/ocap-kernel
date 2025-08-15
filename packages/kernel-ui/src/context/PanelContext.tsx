@@ -42,6 +42,13 @@ export const PanelProvider: React.FC<{
   callKernelMethod: CallKernelMethod;
 }> = ({ children, callKernelMethod }) => {
   const isRequestInProgress = useRef(false);
+  const pendingRequests = useRef<
+    {
+      payload: Parameters<CallKernelMethod>[0];
+      resolve: (value: Awaited<ReturnType<CallKernelMethod>>) => void;
+      reject: (reason: unknown) => void;
+    }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [panelLogs, setPanelLogs] = useState<PanelLog[]>([]);
   const [messageContent, setMessageContent] = useState<string>('');
@@ -60,35 +67,47 @@ export const PanelProvider: React.FC<{
     setPanelLogs([]);
   }, []);
 
-  const sendMessageWrapper: CallKernelMethod = useCallback(
-    async (payload) => {
-      if (isRequestInProgress.current) {
-        throw new Error('A request is already in progress');
+  const processRequests = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    while (pendingRequests.current.length > 0) {
+      const request = pendingRequests.current.shift();
+      if (!request) {
+        break;
       }
-
-      const cleanup = (): void => {
-        isRequestInProgress.current = false;
-        setIsLoading(false);
-      };
-
+      const { payload, resolve, reject } = request;
       try {
-        isRequestInProgress.current = true;
-        setIsLoading(true);
         logMessage(stringify(payload), 'sent');
-
         const response = await callKernelMethod(payload);
         if (isJsonRpcFailure(response)) {
-          throw new Error(stringify(response.error, 0));
+          throw new Error(stringify((response as { error: unknown }).error, 0));
         }
-        return response;
+        resolve(response);
       } catch (error) {
         logger.error(String(error), 'error');
-        throw error;
-      } finally {
-        cleanup();
+        reject(error);
       }
+    }
+    isRequestInProgress.current = false;
+    setIsLoading(false);
+  }, [callKernelMethod, logMessage]);
+
+  const sendMessageWrapper: CallKernelMethod = useCallback(
+    async (payload) => {
+      return new Promise((resolve, reject) => {
+        pendingRequests.current.push({ payload, resolve, reject });
+        if (!isRequestInProgress.current) {
+          isRequestInProgress.current = true;
+          processRequests().catch((error) => {
+            // This should never happen as processRequests handles errors internally
+            // but if it does, log it and reset the state
+            logger.error('Unexpected error in processRequests', error);
+            isRequestInProgress.current = false;
+            setIsLoading(false);
+          });
+        }
+      });
     },
-    [callKernelMethod],
+    [processRequests],
   );
 
   const status = useStatusPolling(callKernelMethod, isRequestInProgress);

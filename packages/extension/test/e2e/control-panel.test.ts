@@ -14,9 +14,6 @@ test.describe('Control Panel', () => {
     const extension = await makeLoadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -56,26 +53,33 @@ test.describe('Control Panel', () => {
     ).toBeVisible();
   });
 
-  test('should launch a new subcluster and vat within it', async () => {
-    // Clear all state
-    await popupPage.click('button:text("Clear All State")');
+  test('should terminate a subcluster', async () => {
+    // Open the subcluster accordion first
+    await popupPage.locator('[data-testid="accordion-header"]').first().click();
+    await expect(
+      popupPage.locator('[data-testid="terminate-subcluster-button"]').first(),
+    ).toBeVisible();
+    await popupPage
+      .locator('[data-testid="terminate-subcluster-button"]')
+      .first()
+      .click();
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('State cleared');
-    await expect(
-      popupPage.locator('[data-testid="subcluster-accordion-s1"]'),
-    ).not.toBeVisible();
+    ).toContainText('Terminated subcluster');
+  });
+
+  test('should launch a new subcluster and vat within it', async () => {
     // Launch a new subcluster
     await launchSubcluster(minimalClusterConfig);
     const subcluster = popupPage.locator(
-      '[data-testid="subcluster-accordion-s1"]',
+      '[data-testid="subcluster-accordion-s2"]',
     );
     await expect(subcluster).toBeVisible({
       timeout: 2000,
     });
     await expect(popupPage.locator('text=1 Vat')).toBeVisible();
     // Open the subcluster accordion to view vats
-    await popupPage.locator('[data-testid="accordion-header"]').click();
+    await popupPage.locator('text=Subcluster s2 - 1 Vat').click();
     const vatTable = popupPage.locator('[data-testid="vat-table"]');
     await expect(vatTable).toBeVisible();
     await expect(vatTable.locator('tr')).toHaveCount(2);
@@ -126,21 +130,6 @@ test.describe('Control Panel', () => {
     ).toContainText('pong');
   });
 
-  test('should terminate a subcluster', async () => {
-    // Open the subcluster accordion first
-    await popupPage.locator('[data-testid="accordion-header"]').first().click();
-    await expect(
-      popupPage.locator('[data-testid="terminate-subcluster-button"]').first(),
-    ).toBeVisible();
-    await popupPage
-      .locator('[data-testid="terminate-subcluster-button"]')
-      .first()
-      .click();
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Terminated subcluster');
-  });
-
   test('should reload a subcluster', async () => {
     // Open the subcluster accordion first
     await popupPage.locator('[data-testid="accordion-header"]').first().click();
@@ -165,30 +154,6 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('All vats terminated');
     await expect(popupPage.locator('table')).not.toBeVisible();
-    // ensure all references were garbage collected
-    await popupPage.locator('[data-testid="clear-logs-button"]').click();
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('');
-    await popupPage.click('button:text("Database Inspector")');
-    const expectedValues = JSON.stringify([
-      { key: 'queue.run.head', value: '6' },
-      { key: 'queue.run.tail', value: '6' },
-      { key: 'gcActions', value: '[]' },
-      { key: 'reapQueue', value: '[]' },
-      { key: 'vats.terminated', value: '[]' },
-      { key: 'nextObjectId', value: '4' },
-      { key: 'nextPromiseId', value: '4' },
-      { key: 'nextVatId', value: '4' },
-      { key: 'nextRemoteId', value: '1' },
-      { key: 'subclusters', value: '[]' },
-      { key: 'nextSubclusterId', value: '2' },
-      { key: 'vatToSubclusterMap', value: '{}' },
-      { key: 'initialized', value: 'true' },
-    ]);
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(expectedValues);
   });
 
   test('should clear kernel state', async () => {

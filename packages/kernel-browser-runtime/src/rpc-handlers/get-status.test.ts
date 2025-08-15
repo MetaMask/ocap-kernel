@@ -8,48 +8,48 @@ describe('getStatusHandler', () => {
 
   beforeEach(() => {
     mockKernel = {
-      getVats: vi.fn(),
-      getSubclusters: vi.fn(),
+      getStatus: vi.fn(),
     } as unknown as Kernel;
   });
 
-  it('should return vats and subclusters status', () => {
-    const mockVats = [{ id: 'v1', config: { sourceSpec: 'test' } }];
+  it('should return vats and subclusters status', async () => {
+    const mockVats = [
+      { id: 'v1', config: { sourceSpec: 'test' }, subclusterId: 'sc1' },
+    ];
     const mockSubclusters = [
       { id: 'sc1', config: { bootstrap: 'test', vats: {} }, vats: [] },
     ];
 
-    vi.mocked(mockKernel.getVats).mockReturnValueOnce(mockVats);
-    vi.mocked(mockKernel.getSubclusters).mockReturnValueOnce(mockSubclusters);
+    vi.mocked(mockKernel.getStatus).mockResolvedValueOnce({
+      vats: mockVats,
+      subclusters: mockSubclusters,
+    });
 
-    const result = getStatusHandler.implementation({ kernel: mockKernel }, []);
+    const result = await getStatusHandler.implementation(
+      { kernel: mockKernel },
+      [],
+    );
 
-    expect(mockKernel.getVats).toHaveBeenCalledTimes(1);
-    expect(mockKernel.getSubclusters).toHaveBeenCalledTimes(1);
+    expect(mockKernel.getStatus).toHaveBeenCalledTimes(1);
     expect(result).toStrictEqual({
       vats: mockVats,
       subclusters: mockSubclusters,
     });
   });
 
-  it('should propagate errors from getVats', () => {
+  it('should propagate errors from getVats', async () => {
     const error = new Error('Status check failed');
-    vi.mocked(mockKernel.getVats).mockImplementationOnce(() => {
-      throw error;
-    });
-    expect(() =>
+    vi.mocked(mockKernel.getStatus).mockRejectedValueOnce(error);
+    await expect(
       getStatusHandler.implementation({ kernel: mockKernel }, []),
-    ).toThrow(error);
+    ).rejects.toThrow(error);
   });
 
-  it('should propagate errors from getSubclusters', () => {
+  it('should propagate errors from getSubclusters', async () => {
     const error = new Error('Subcluster status check failed');
-    vi.mocked(mockKernel.getVats).mockReturnValueOnce([]);
-    vi.mocked(mockKernel.getSubclusters).mockImplementationOnce(() => {
-      throw error;
-    });
-    expect(() =>
+    vi.mocked(mockKernel.getStatus).mockRejectedValueOnce(error);
+    await expect(
       getStatusHandler.implementation({ kernel: mockKernel }, []),
-    ).toThrow(error);
+    ).rejects.toThrow(error);
   });
 });

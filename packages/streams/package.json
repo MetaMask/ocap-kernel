@@ -114,7 +114,7 @@
     "eslint-plugin-n": "^17.17.0",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-promise": "^7.2.1",
-    "playwright": "^1.51.1",
+    "playwright": "^1.54.2",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "ses": "^1.14.0",
