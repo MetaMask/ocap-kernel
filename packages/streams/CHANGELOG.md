@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- Add remoteable iterators and generators ([#574](https://github.com/MetaMask/ocap-kernel/pull/574))
+
+### Changed
+
+- Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590), [#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Use `@metamask/logger` ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
+
 ## [0.2.0]
 
 ### Added
@@ -19,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/streams@0.2.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/streams@0.3.0...HEAD
+[0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/streams@0.2.0...@metamask/streams@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/streams@0.1.0...@metamask/streams@0.2.0
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/streams@0.1.0

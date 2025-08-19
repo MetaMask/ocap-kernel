@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-browser-runtime",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tools for running the MetaMask Ocap Kernel in a web browser",
   "keywords": [
     "MetaMask",
