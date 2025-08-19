@@ -20,14 +20,6 @@ import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
 
-// XXX Warning: Setting this flag to true causes persistent storage to be
-// cleared on extension load. This is a hack to aid development debugging,
-// wherein extension reloads are almost exclusively used for retrying from
-// scratch after tweaking the code to fix something. Setting the flag will
-// prevent the accumulation of long term persistent state, so it should be
-// cleared (or simply removed) prior to release.
-const ALWAYS_RESET_STORAGE = true;
-
 main().catch(logger.error);
 
 /**
@@ -56,7 +48,7 @@ async function main(): Promise<void> {
     vatWorkerClient,
     kernelDatabase,
     {
-      resetStorage: ALWAYS_RESET_STORAGE,
+      resetStorage: false, // Enable persistent storage
     },
   );
   const kernelEngine = new JsonRpcEngine();
@@ -68,7 +60,6 @@ async function main(): Promise<void> {
       kernelEngine.handle(request as JsonRpcRequest),
     logger,
   });
-  const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
 
   await Promise.all([
     vatWorkerClient.start(),
@@ -83,7 +74,7 @@ async function main(): Promise<void> {
     // with startup wedging and some poor soul is reading through the code
     // trying to diagnose it.
     (async () => {
-      if (launchDefaultSubcluster) {
+      if (firstTime) {
         const result = await kernel.launchSubcluster(defaultSubcluster);
         logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
       } else {
