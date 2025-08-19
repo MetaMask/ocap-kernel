@@ -670,6 +670,17 @@ export class Kernel {
   }
 
   /**
+   * Gracefully stop the kernel without terminating vats.
+   */
+  async stop(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
+    this.#logger.info('Stopping kernel gracefully...');
+    await this.#commandStream.end();
+    await this.#vatWorkerService.terminateAll();
+    this.#logger.info('Kernel stopped gracefully');
+  }
+
+  /**
    * Collect garbage.
    * This is for debugging purposes only.
    */

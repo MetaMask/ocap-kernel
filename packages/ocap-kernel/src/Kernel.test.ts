@@ -658,6 +658,26 @@ describe('Kernel', () => {
     });
   });
 
+  describe('stop()', () => {
+    it('gracefully stops the kernel without terminating vats', async () => {
+      const workerTerminateAllMock = vi
+        .spyOn(mockWorkerService, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      await kernel.stop();
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      expect(vatHandles).toHaveLength(1);
+      expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('restartVat()', () => {
     it('preserves vat state across multiple restarts', async () => {
       const kernel = await Kernel.make(
