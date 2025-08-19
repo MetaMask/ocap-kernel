@@ -9,16 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0]
 
-### Uncategorized
+### Added
 
-- feat(kernel): Wait for crank to run kernel actions ([#595](https://github.com/MetaMask/ocap-kernel/pull/595))
-- chore: Bump Vite and Vitest, silence warnings ([#592](https://github.com/MetaMask/ocap-kernel/pull/592))
-- chore: Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590))
-- chore: Bump vitest -> 3.2.4 ([#587](https://github.com/MetaMask/ocap-kernel/pull/587))
-- feat(kernel-ui): Use MetaMask extension's design system ([#577](https://github.com/MetaMask/ocap-kernel/pull/577))
-- feat(streams): Add support for remote iterators and generators between vats ([#574](https://github.com/MetaMask/ocap-kernel/pull/574))
-- feat(ocap-kernel,kernel-store): Migrate console -> logger ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
-- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Add remoteable iterators and generators ([#574](https://github.com/MetaMask/ocap-kernel/pull/574))
+
+### Changed
+
+- Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590), [#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+- Use `@metamask/logger` ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
 
 ## [0.2.0]
 
