@@ -1,7 +1,7 @@
 import { E, Far } from '@endo/far';
 // ESLint's import-x/no-unresolved rule with commonjs:false doesn't support subpath exports
 // eslint-disable-next-line import-x/no-unresolved
-import { makeEventualIterator, makeFarGenerator } from '@metamask/streams/vat';
+import { makeEventualIterator, makeFarGenerator } from '@ocap/remote-iterables';
 
 /**
  * Build function for testing async generators.

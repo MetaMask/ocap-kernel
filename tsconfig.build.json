@@ -12,6 +12,7 @@
     { "path": "./packages/logger/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
     { "path": "./packages/ocap-kernel/tsconfig.build.json" },
+    { "path": "./packages/remote-iterables/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" }
   ]
 }
