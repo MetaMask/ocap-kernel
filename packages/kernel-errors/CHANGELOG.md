@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Uncategorized
-
-- chore: Bump Vite and Vitest, silence warnings ([#592](https://github.com/MetaMask/ocap-kernel/pull/592))
-- chore: Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590))
-- chore: Bump vitest -> 3.2.4 ([#587](https://github.com/MetaMask/ocap-kernel/pull/587))
-- feat(kernel-ui): Use MetaMask extension's design system ([#577](https://github.com/MetaMask/ocap-kernel/pull/577))
-
 ## [0.2.0]
 
 ### Added
