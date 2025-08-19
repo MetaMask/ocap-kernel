@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat(kernel): Wait for crank to run kernel actions ([#595](https://github.com/MetaMask/ocap-kernel/pull/595))
+- chore: Bump Vite and Vitest, silence warnings ([#592](https://github.com/MetaMask/ocap-kernel/pull/592))
+- chore: Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590))
+- chore: Bump vitest -> 3.2.4 ([#587](https://github.com/MetaMask/ocap-kernel/pull/587))
+- feat(kernel-ui): Use MetaMask extension's design system ([#577](https://github.com/MetaMask/ocap-kernel/pull/577))
+- fix: Restore `kernel-browser-runtime` sourcemaps in extension ([#575](https://github.com/MetaMask/ocap-kernel/pull/575))
+- chore: Remove `rollup-plugin-sourcemaps2` ([#573](https://github.com/MetaMask/ocap-kernel/pull/573))
+- build: Tweak build scripts ([#570](https://github.com/MetaMask/ocap-kernel/pull/570))
+
 ## [0.2.0]
 
 ### Added
