@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: Bump Vite and Vitest, silence warnings ([#592](https://github.com/MetaMask/ocap-kernel/pull/592))
+- chore: Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590))
+- chore: Bump vitest -> 3.2.4 ([#587](https://github.com/MetaMask/ocap-kernel/pull/587))
+- feat(ocap-kernel,kernel-store): Migrate console -> logger ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
+- chore: bump endo dependencies ([#543](https://github.com/MetaMask/ocap-kernel/pull/543))
+
 ## [0.2.0]
 
 ### Added
