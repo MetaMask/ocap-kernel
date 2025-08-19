@@ -9,17 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0]
 
-### Uncategorized
+### Added
 
-- feat(kernel): Wait for crank to run kernel actions ([#595](https://github.com/MetaMask/ocap-kernel/pull/595))
-- chore: Bump Vite and Vitest, silence warnings ([#592](https://github.com/MetaMask/ocap-kernel/pull/592))
-- chore: Bump Endo and Agoric dependencies ([#590](https://github.com/MetaMask/ocap-kernel/pull/590))
-- chore: Bump vitest -> 3.2.4 ([#587](https://github.com/MetaMask/ocap-kernel/pull/587))
-- feat(kernel-ui): Use MetaMask extension's design system ([#577](https://github.com/MetaMask/ocap-kernel/pull/577))
-- feat(ocap-kernel): Throw if subcluster launch fails ([#566](https://github.com/MetaMask/ocap-kernel/pull/566))
-- fix: Remove redundant kernel promise ref count increment ([#565](https://github.com/MetaMask/ocap-kernel/pull/565))
-- feat(ocap-kernel,kernel-store): Migrate console -> logger ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
-- feat: Add kernel service object support ([#563](https://github.com/MetaMask/ocap-kernel/pull/563))
+- Wait for crank to run kernel actions ([#595](https://github.com/MetaMask/ocap-kernel/pull/595))
+- Use MetaMask extension's design system ([#577](https://github.com/MetaMask/ocap-kernel/pull/577))
+- Throw if subcluster launch fails ([#566](https://github.com/MetaMask/ocap-kernel/pull/566))
+- Add kernel service object support ([#563](https://github.com/MetaMask/ocap-kernel/pull/563))
+- Migrate console -> logger ([#559](https://github.com/MetaMask/ocap-kernel/pull/559))
+
+### Fixed
+
+- Remove redundant kernel promise ref count increment ([#565](https://github.com/MetaMask/ocap-kernel/pull/565))
 
 ## [0.3.0]
 
