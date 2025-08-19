@@ -8,12 +8,13 @@
     "types": ["vitest"]
   },
   "references": [
-    { "path": "../streams" },
-    { "path": "../test-utils" },
+    { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../nodejs" },
     { "path": "../ocap-kernel" },
-    { "path": "../kernel-store" }
+    { "path": "../remote-iterables" },
+    { "path": "../streams" },
+    { "path": "../test-utils" }
   ],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
 }

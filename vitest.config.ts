@@ -152,6 +152,12 @@ export default defineConfig({
           branches: 82.84,
           lines: 92.51,
         },
+        'packages/remote-iterables/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
         'packages/streams/**': {
           statements: 100,
           functions: 100,

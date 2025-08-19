@@ -28,6 +28,7 @@
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
     { "path": "./packages/ocap-kernel" },
+    { "path": "./packages/remote-iterables" },
     { "path": "./packages/streams" },
     { "path": "./packages/test-utils" },
     { "path": "./packages/vite-plugins" }
