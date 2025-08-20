@@ -37,7 +37,7 @@
   "files": [
     "dist/"
   ],
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "(MIT OR Apache-2.0)",
   "scripts": {
     "build": "vite build --config vite.config.ts && yarn copy:types",
     "dev": "vite build --config vite.config.ts --mode development --watch && yarn copy:types",
