@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: Migrate to MIT / Apache 2.0 license ([#601](https://github.com/MetaMask/ocap-kernel/pull/601))
+
 ## [0.4.0]
 
 ### Added

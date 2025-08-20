@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: Migrate to MIT / Apache 2.0 license ([#601](https://github.com/MetaMask/ocap-kernel/pull/601))
+- feat: Add `@ocap/remote-iterables` package ([#600](https://github.com/MetaMask/ocap-kernel/pull/600))
+
 ## [0.3.0]
 
 ### Added

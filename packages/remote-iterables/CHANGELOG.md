@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat: Add `@ocap/remote-iterables` package ([#600](https://github.com/MetaMask/ocap-kernel/pull/600))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
