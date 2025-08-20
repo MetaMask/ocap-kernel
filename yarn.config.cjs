@@ -523,10 +523,14 @@ function expectWorkspaceDescription(workspace) {
  * @param {Workspace} workspace - The workspace to check.
  */
 async function expectWorkspaceLicense(workspace) {
-  if (!(await workspaceFileExists(workspace, 'LICENSE'))) {
-    workspace.error('Could not find LICENSE file');
+  expectWorkspaceField(workspace, 'license', '(MIT OR Apache-2.0)');
+
+  if (
+    !(await workspaceFileExists(workspace, 'LICENSE.MIT')) ||
+    !(await workspaceFileExists(workspace, 'LICENSE.APACHE2'))
+  ) {
+    workspace.error('Could not find LICENSE files');
   }
-  expectWorkspaceField(workspace, 'license');
 }
 
 /**
