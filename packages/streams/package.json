@@ -1,6 +1,6 @@
 {
   "name": "@metamask/streams",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "SES-compatible streams, in the lineage of `@endo/stream`",
   "keywords": [
     "MetaMask",

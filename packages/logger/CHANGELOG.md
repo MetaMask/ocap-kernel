@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Changed
+
+- Dual-license package under MIT and/or Apache 2.0 ([#601](https://github.com/MetaMask/ocap-kernel/pull/601))
+
 ## [0.4.0]
 
 ### Changed
@@ -31,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.4.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.5.0...HEAD
+[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.4.0...@metamask/logger@0.5.0
 [0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.3.0...@metamask/logger@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.2.0...@metamask/logger@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/logger@0.1.0...@metamask/logger@0.2.0
