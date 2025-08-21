@@ -114,9 +114,9 @@ describe('bundle', async () => {
       mocks.endoBundleSource.mockImplementationOnce(() => {
         throw new Error('test error');
       });
-      await expect(
-        bundleSource(resolveBundlePath('test'), logger),
-      ).rejects.toThrow('test error');
+      await expect(bundleDir(testBundleRoot, { logger })).rejects.toThrow(
+        'test error',
+      );
     });
   });
 
