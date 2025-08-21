@@ -48,20 +48,25 @@ test.describe('Kernel Persistence', () => {
     await newPopupPage.close();
     const extensionsPage = await extensionContext.newPage();
     await extensionsPage.goto(`chrome://extensions/?id=${extensionId}`);
+    await extensionsPage.waitForLoadState('networkidle');
     const devModeToggle = extensionsPage.locator('#devMode');
+    await devModeToggle.waitFor({ state: 'visible' });
     await devModeToggle.click();
     const enableToggle = extensionsPage.locator(
       '#enableToggle[aria-describedby="name enable-toggle-tooltip"]',
     );
+    await enableToggle.waitFor({ state: 'visible' });
     await enableToggle.click();
     await enableToggle.click();
     await extensionsPage.waitForTimeout(1000);
     await enableToggle.click();
+    await extensionsPage.waitForLoadState('domcontentloaded');
     const reloadButton = extensionsPage.locator(
       '[class="cr-title-text"] + #dev-reload-button',
     );
+    await reloadButton.waitFor({ state: 'visible', timeout: 5000 });
     await reloadButton.click();
-    await extensionsPage.waitForTimeout(2000);
+    await extensionsPage.waitForTimeout(3000);
     await extensionsPage.close();
     const reloadedPopupPage = await extensionContext.newPage();
     await reloadedPopupPage.goto(
