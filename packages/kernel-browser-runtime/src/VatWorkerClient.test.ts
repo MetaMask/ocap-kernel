@@ -69,6 +69,104 @@ describe('VatWorkerClient', () => {
     expect(client).toBeDefined();
   });
 
+  describe('waitUntilReady', () => {
+    it('resolves when start is called', async () => {
+      const stream = await TestDuplexStream.make(() => undefined);
+      const client = new VatWorkerClient(
+        stream as unknown as VatWorkerClientStream,
+      );
+
+      // Start the client (but don't wait for it to complete)
+      client.start().catch((error) => {
+        throw error;
+      });
+
+      // waitUntilReady should resolve once synchronize completes
+      expect(await client.waitUntilReady()).toBeUndefined();
+    });
+
+    it('can be called multiple times and returns same promise', async () => {
+      const stream = await TestDuplexStream.make(() => undefined);
+      const client = new VatWorkerClient(
+        stream as unknown as VatWorkerClientStream,
+      );
+
+      const ready1 = client.waitUntilReady();
+      const ready2 = client.waitUntilReady();
+
+      // Should be the same promise instance
+      expect(ready1).toStrictEqual(ready2);
+
+      client.start().catch((error) => {
+        throw error;
+      });
+
+      expect(await ready1).toBeUndefined();
+      expect(await ready2).toBeUndefined();
+    });
+
+    it('resolves after synchronize but before drain completes', async () => {
+      const stream = await TestDuplexStream.make(() => undefined);
+      const client = new VatWorkerClient(
+        stream as unknown as VatWorkerClientStream,
+      );
+
+      let readyResolved = false;
+
+      const readyPromise = client
+        .waitUntilReady()
+        .then(() => (readyResolved = true))
+        .catch(() => {
+          // ignore
+        });
+
+      // Start will never complete because drain runs indefinitely
+      const startPromise = client.start();
+
+      // Don't wait for start to complete
+      startPromise.catch((error) => {
+        throw error;
+      });
+
+      // Wait for ready to resolve
+      await readyPromise;
+
+      // Ready should be resolved
+      expect(readyResolved).toBe(true);
+    });
+
+    it('can be awaited before start is called', async () => {
+      const stream = await TestDuplexStream.make(() => undefined);
+      const client = new VatWorkerClient(
+        stream as unknown as VatWorkerClientStream,
+      );
+
+      // Call waitUntilReady before start
+      const readyPromise = client.waitUntilReady();
+
+      // Give it a moment to ensure it doesn't resolve prematurely
+      await delay(10);
+
+      // Should still be pending
+      let resolved = false;
+      readyPromise
+        .then(() => (resolved = true))
+        .catch(() => {
+          // ignore
+        });
+      await delay(10);
+      expect(resolved).toBe(false);
+
+      // Now start the client
+      client.start().catch((error) => {
+        throw error;
+      });
+
+      // Now it should resolve
+      expect(await readyPromise).toBeUndefined();
+    });
+  });
+
   describe('message handling', () => {
     let stream: TestDuplexStream;
     let clientLogger: Logger;
@@ -81,7 +179,11 @@ describe('VatWorkerClient', () => {
         stream as unknown as VatWorkerClientStream,
         clientLogger,
       );
-      client.start().catch((error) => {
+      const startPromise = client.start();
+      // Wait for client to be ready before running tests
+      await client.waitUntilReady();
+      // Don't wait for start to complete (it runs indefinitely)
+      startPromise.catch((error) => {
         throw error;
       });
     });
@@ -134,6 +236,32 @@ describe('VatWorkerClient', () => {
         await expect(launchP).rejects.toThrow(
           `No port found for launch of: ${stringify({ vatId, vatConfig })}`,
         );
+      });
+
+      it('can be called before client is started', async () => {
+        const newStream = await TestDuplexStream.make(() => undefined);
+        const newClient = new VatWorkerClient(
+          newStream as unknown as VatWorkerClientStream,
+        );
+
+        // Call launch before starting the client
+        const launchPromise = newClient.launch('v0', makeVatConfig());
+
+        // Start the client
+        const startPromise = newClient.start();
+        startPromise.catch((error) => {
+          throw error;
+        });
+
+        // Wait for client to be ready
+        await newClient.waitUntilReady();
+
+        // Now send the launch reply
+        await delay(10);
+        await newStream.receiveInput(makeLaunchReply('m1'));
+
+        // Launch should resolve successfully
+        expect(await launchPromise).toBeInstanceOf(TestDuplexStream);
       });
     });
 

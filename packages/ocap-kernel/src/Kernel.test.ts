@@ -83,6 +83,7 @@ describe('Kernel', () => {
         ({}) as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
+      waitUntilReady: async () => Promise.resolve(),
     } as unknown as VatWorkerService;
 
     launchWorkerMock = vi
@@ -193,11 +194,40 @@ describe('Kernel', () => {
       // Clear spies
       launchWorkerMock.mockClear();
       makeVatHandleMock.mockClear();
+
+      // Create a promise that we can resolve when waitUntilReady is called
+      let resolveWaitUntilReady: () => void;
+      const waitUntilReadyPromise = new Promise<void>((resolve) => {
+        resolveWaitUntilReady = resolve;
+      });
+
+      // Mock waitUntilReady to control when vat recovery happens
+      const waitUntilReadySpy = vi
+        .spyOn(mockWorkerService, 'waitUntilReady')
+        .mockImplementation(async () => waitUntilReadyPromise);
+
       // New kernel should recover existing vat
       const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
-      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
-      expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
+
+      // At this point, vat recovery is pending on waitUntilReady
+      expect(launchWorkerMock).not.toHaveBeenCalled();
+      expect(makeVatHandleMock).not.toHaveBeenCalled();
+
+      // @ts-expect-error Resolve waitUntilReady to trigger vat recovery
+      resolveWaitUntilReady();
+
+      // Wait for the recovery to complete
+      await waitUntilReadyPromise;
+      // Give the async recovery process time to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Now the vat should be recovered
+      expect(launchWorkerMock).toHaveBeenCalledOnce();
+      expect(makeVatHandleMock).toHaveBeenCalledOnce();
       expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+
+      // Clean up the spy
+      waitUntilReadySpy.mockRestore();
     });
   });
 

@@ -61,7 +61,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    await waitUntilQuiescent();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const resumeResult = await runResume(kernel2, 'ko1');
     expect(resumeResult).toBe('Counter incremented to: 3');
   });
@@ -102,7 +102,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    await waitUntilQuiescent();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const workResult2 = await runResume(kernel2, 'ko1');
     expect(workResult2).toBe('Work completed: Worker1(2), Worker2(2)');
   });

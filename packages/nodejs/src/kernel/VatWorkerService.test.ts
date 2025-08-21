@@ -103,4 +103,46 @@ describe('NodejsVatWorkerService', () => {
       expect(Array.from(service.workers.values())).toHaveLength(0);
     });
   });
+
+  describe('waitUntilReady', () => {
+    it('resolves immediately since service is ready on construction', async () => {
+      const service = new NodejsVatWorkerService({
+        workerFilePath,
+      });
+      expect(await service.waitUntilReady()).toBeUndefined();
+    });
+
+    it('can be called multiple times and returns the same promise', async () => {
+      const service = new NodejsVatWorkerService({
+        workerFilePath,
+      });
+      const ready1 = service.waitUntilReady();
+      const ready2 = service.waitUntilReady();
+      expect(ready1).toStrictEqual(ready2);
+      expect(await ready1).toBeUndefined();
+      expect(await ready2).toBeUndefined();
+    });
+
+    it('is ready before launching any vats', async () => {
+      const service = new NodejsVatWorkerService({
+        workerFilePath,
+      });
+      expect(await service.waitUntilReady()).toBeUndefined();
+      const testVatId: VatId = getTestVatId();
+      const stream = await service.launch(testVatId);
+      expect(stream).toStrictEqual(mocks.stream);
+    });
+
+    it('remains ready after launching and terminating vats', async () => {
+      const service = new NodejsVatWorkerService({
+        workerFilePath,
+      });
+      expect(await service.waitUntilReady()).toBeUndefined();
+      const testVatId: VatId = getTestVatId();
+      await service.launch(testVatId);
+      expect(await service.waitUntilReady()).toBeUndefined();
+      await service.terminate(testVatId);
+      expect(await service.waitUntilReady()).toBeUndefined();
+    });
+  });
 });
