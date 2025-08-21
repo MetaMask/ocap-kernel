@@ -1,4 +1,4 @@
-import { mkdir } from 'fs/promises';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { glob } from 'glob';
 import { tmpdir } from 'os';
 import { resolve, join, basename, format } from 'path';
@@ -7,32 +7,33 @@ import { cp } from '../src/file.ts';
 
 export const validTestBundleNames = ['sample-vat', 'sample-vat-esp'];
 
-export const invalidTestBundleNames = ['bad-vat.fails'];
-
 const testRoot = new URL('.', import.meta.url).pathname;
 
 const makeTestBundleRoot = async () => {
-  const stageRoot = resolve(tmpdir(), 'test');
+  const stageRoot = resolve(tmpdir(), await mkdtemp('ocap-cli-test-'));
 
   // copy bundle targets to staging area
   const testBundleRoot = resolve(testRoot, 'bundles');
   const stageBundleRoot = resolve(stageRoot, 'bundles');
   await mkdir(stageBundleRoot, { recursive: true });
-  const ext = '.js';
   await Promise.all(
-    (await glob(join(testBundleRoot, `*${ext}`))).map(async (filePath) => {
-      const name = basename(filePath, ext);
-      await cp(filePath, format({ dir: stageBundleRoot, name, ext }));
+    (await glob(join(testBundleRoot, '*.js'))).map(async (filePath) => {
+      const name = basename(filePath, '.js');
+      await cp(filePath, format({ dir: stageBundleRoot, name, ext: '.js' }));
     }),
   );
   await cp(join(testRoot, 'test.bundle'), join(stageRoot, 'test.bundle'));
 
+  const cleanup = async () => {
+    await rm(stageRoot, { recursive: true, force: true });
+  };
+
   // return the staging area, ready for testing
-  return stageBundleRoot;
+  return { stageBundleRoot, cleanup };
 };
 
 export const makeTestBundleStage = async () => {
-  const stageBundleRoot = await makeTestBundleRoot();
+  const { stageBundleRoot, cleanup } = await makeTestBundleRoot();
 
   const resolveBundlePath = (bundleName: string): string => {
     return join(stageBundleRoot, `${bundleName}.bundle`);
@@ -52,11 +53,18 @@ export const makeTestBundleStage = async () => {
   const globBundles = async (): Promise<string[]> =>
     await glob(join(stageBundleRoot, '*.bundle'));
 
+  const deleteTestBundles = async (): Promise<void[]> =>
+    Promise.all(
+      (await globBundles()).map(async (bundle) => rm(bundle, { force: true })),
+    );
+
   return {
     testBundleRoot: stageBundleRoot,
     getTestBundleSpecs,
     resolveBundlePath,
     resolveSourcePath,
     globBundles,
+    deleteTestBundles,
+    cleanup,
   };
 };

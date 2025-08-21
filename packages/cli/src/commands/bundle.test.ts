@@ -1,5 +1,5 @@
 import type { Logger } from '@metamask/logger';
-import { readFile, rm } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { basename } from 'path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
@@ -43,16 +43,17 @@ vi.mock('../file.ts', async (importOriginal) => ({
 describe('bundle', async () => {
   let logger: Logger;
 
-  const { testBundleRoot, getTestBundleSpecs, globBundles, resolveBundlePath } =
-    await makeTestBundleStage();
+  const {
+    cleanup,
+    deleteTestBundles,
+    getTestBundleSpecs,
+    globBundles,
+    resolveBundlePath,
+    testBundleRoot,
+  } = await makeTestBundleStage();
   const testBundleSpecs = getTestBundleSpecs(validTestBundleNames);
 
-  const deleteTestBundles = async (): Promise<void[]> =>
-    Promise.all(
-      (await globBundles()).map(async (bundle) => rm(bundle, { force: true })),
-    );
-
-  afterAll(deleteTestBundles);
+  afterAll(cleanup);
 
   beforeEach(async () => {
     await deleteTestBundles();
@@ -82,11 +83,13 @@ describe('bundle', async () => {
       },
     );
 
-    it('calls logger.error if bundling fails', async () => {
-      const loggerErrorSpy = vi.spyOn(logger, 'error');
-      const badBundle = resolveBundlePath('bad-vat.fails');
-      await bundleFile(badBundle, { logger });
-      expect(loggerErrorSpy).toHaveBeenCalledOnce();
+    it('throws if bundling fails', async () => {
+      mocks.endoBundleSource.mockImplementationOnce(() => {
+        throw new Error('test error');
+      });
+      await expect(
+        bundleFile(resolveBundlePath('test'), { logger }),
+      ).rejects.toThrow('test error');
     });
   });
 
@@ -94,11 +97,7 @@ describe('bundle', async () => {
     it('bundles a directory', async () => {
       expect(await globBundles()).toStrictEqual([]);
 
-      // mocked bundleSource fails iff the target filename has '.fails.'
-      mocks.endoBundleSource.mockImplementation((bundlePath) => {
-        if (bundlePath.includes('.fails.')) {
-          throw new Error(`Failed to bundle ${bundlePath}`);
-        }
+      mocks.endoBundleSource.mockImplementation(() => {
         return 'test content';
       });
 
@@ -108,23 +107,27 @@ describe('bundle', async () => {
         basename(bundlePath, '.bundle'),
       );
 
-      expect(bundledOutputs.length).toBeGreaterThan(0);
-
       expect(bundledOutputs).toStrictEqual(validTestBundleNames);
+    });
+
+    it('throws if bundling fails', async () => {
+      mocks.endoBundleSource.mockImplementationOnce(() => {
+        throw new Error('test error');
+      });
+      await expect(
+        bundleSource(resolveBundlePath('test'), logger),
+      ).rejects.toThrow('test error');
     });
   });
 
   describe('bundleSource', () => {
-    it('calls logger.error if bundling fails', async () => {
+    it('throws if bundling fails', async () => {
       mocks.isDirectory.mockImplementationOnce(() => {
         throw new Error('test error');
       });
-      const loggerErrorSpy = vi.spyOn(logger, 'error');
-      await bundleSource(resolveBundlePath('test'), logger);
-      expect(loggerErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('error bundling target'),
-        expect.any(Error),
-      );
+      await expect(
+        bundleSource(resolveBundlePath('test'), logger),
+      ).rejects.toThrow('test error');
     });
   });
 });

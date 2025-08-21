@@ -19,7 +19,6 @@
     "build:source": "ts-bridge --project tsconfig.build.json --verbose",
     "build:special": "yarn workspace @ocap/vite-plugins run build && yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:vite && yarn workspace @metamask/kernel-ui run build && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build",
     "build:special:dev": "yarn workspace @ocap/vite-plugins run build && yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:vite && yarn workspace @metamask/kernel-ui run build && yarn workspace @ocap/extension run build:dev && yarn workspace @ocap/kernel-test run build",
-    "bundle": "node ./scripts/bundle-vat.js",
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
     "changelog:validate": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:validate",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage && yarn workspaces foreach --all --parallel --interlaced --verbose run clean",
