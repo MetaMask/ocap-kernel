@@ -8,20 +8,68 @@ import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
-
 const logger = new Logger('background');
+let bootPromise: Promise<void> | null = null;
 
-main().catch(logger.error);
+// Install/update
+chrome.runtime.onInstalled.addListener(() => {
+  start();
+});
+
+// Browser restart / profile startup
+chrome.runtime.onStartup.addListener(() => {
+  start();
+});
+
+// Messages or connections can also kick us awake
+chrome.runtime.onMessage.addListener((_msg, _sender, sendResponse) => {
+  start();
+  sendResponse(true);
+  return false;
+});
+chrome.runtime.onConnect.addListener(() => {
+  start();
+});
+
+/** Idempotent starter used by all triggers */
+function start(): void {
+  bootPromise ??= main()
+    .catch((error) => {
+      logger.error(error);
+    })
+    .finally(() => {
+      // Let future triggers re-run main() if needed
+      bootPromise = null;
+    });
+}
 
 /**
- * The main function for the background script.
+ * Ensure that the offscreen document is created and avoid duplicate creation.
  */
-async function main(): Promise<void> {
+async function ensureOffscreen(): Promise<void> {
+  try {
+    if (
+      chrome.offscreen.hasDocument &&
+      (await chrome.offscreen.hasDocument())
+    ) {
+      return;
+    }
+  } catch {
+    // ignore and attempt creation
+  }
+
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_DOCUMENT_PATH,
     reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
     justification: `Surely you won't object to our capabilities?`,
   });
+}
+
+/**
+ * The main function for the background script.
+ */
+async function main(): Promise<void> {
+  await ensureOffscreen();
 
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
@@ -61,8 +109,16 @@ async function main(): Promise<void> {
     ping().catch(logger.error);
   });
 
-  await offscreenStream.drain(async (message) =>
-    rpcClient.handleResponse(message.id as string, message),
-  );
-  throw new Error('Offscreen connection closed unexpectedly');
+  try {
+    // Pipe responses back to the RpcClient
+    await offscreenStream.drain(async (message) =>
+      rpcClient.handleResponse(message.id as string, message),
+    );
+  } catch (error) {
+    throw new Error('Offscreen connection closed unexpectedly', {
+      cause: error,
+    });
+  } finally {
+    logger.warn('Offscreen connection closed; will re-init on next trigger.');
+  }
 }

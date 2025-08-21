@@ -141,7 +141,7 @@ export class Kernel {
       kernelDatabase,
       options,
     );
-    await kernel.#init();
+    kernel.#init();
     return kernel;
   }
 
@@ -149,22 +149,37 @@ export class Kernel {
    * Start the kernel running. Sets it up to actually receive command messages
    * and then begin processing the run queue.
    */
-  async #init(): Promise<void> {
+  #init(): void {
     this.#commandStream
       .drain(this.#handleCommandMessage.bind(this))
       .catch((error) => {
         this.#logger.error('Stream read error:', error);
         throw new StreamReadError({ kernelId: 'kernel' }, error);
       });
-    const starts: Promise<void>[] = [];
-    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
-      starts.push(this.#runVat(vatID, vatConfig));
-    }
-    await Promise.all(starts);
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
         this.#logger.error('Run loop error:', error);
+        throw error;
+      });
+    this.#vatWorkerService
+      .waitUntilReady()
+      .then(async () => {
+        // Start all vats that were previously running
+        const starts: Promise<void>[] = [];
+        for (const {
+          vatID,
+          vatConfig,
+        } of this.#kernelStore.getAllVatRecords()) {
+          starts.push(this.#runVat(vatID, vatConfig));
+        }
+        return Promise.all(starts);
+      })
+      .catch((error) => {
+        this.#logger.error(
+          'Error waiting for vat worker service to be ready',
+          error,
+        );
         throw error;
       });
   }

@@ -19,6 +19,8 @@ export class NodejsVatWorkerService implements VatWorkerService {
 
   readonly #workerFilePath: string;
 
+  readonly #readyKit = makePromiseKit<void>();
+
   workers = new Map<
     VatId,
     { worker: NodeWorker; stream: DuplexStream<JsonRpcMessage, JsonRpcMessage> }
@@ -38,6 +40,7 @@ export class NodejsVatWorkerService implements VatWorkerService {
   }) {
     this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
     this.#logger = args.logger ?? new Logger('vat-worker-service');
+    this.#readyKit.resolve();
   }
 
   async launch(
@@ -85,6 +88,10 @@ export class NodejsVatWorkerService implements VatWorkerService {
     for (const vatId of this.workers.keys()) {
       await this.terminate(vatId);
     }
+  }
+
+  async waitUntilReady(): Promise<void> {
+    return this.#readyKit.promise;
   }
 }
 harden(NodejsVatWorkerService);

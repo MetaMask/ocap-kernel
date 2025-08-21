@@ -1,3 +1,4 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
@@ -33,6 +34,8 @@ export class VatWorkerClient implements VatWorkerService {
   readonly #rpcClient: RpcClient<typeof vatWorkerServiceMethodSpecs>;
 
   readonly #portMap: Map<JsonRpcId, MessagePort | undefined>;
+
+  readonly #readyKit = makePromiseKit<void>();
 
   /**
    * **ATTN:** Prefer {@link VatWorkerClient.make} over constructing
@@ -96,9 +99,20 @@ export class VatWorkerClient implements VatWorkerService {
    * @returns A promise that fulfills when the client has stopped.
    */
   async start(): Promise<void> {
-    return this.#stream
-      .synchronize()
-      .then(async () => this.#stream.drain(this.#handleMessage.bind(this)));
+    return this.#stream.synchronize().then(async () => {
+      // Signal that the client is ready to handle vat launches
+      this.#readyKit.resolve();
+      return this.#stream.drain(this.#handleMessage.bind(this));
+    });
+  }
+
+  /**
+   * Wait for the client to be ready to handle vat launches.
+   *
+   * @returns A promise that resolves when the client is ready.
+   */
+  async waitUntilReady(): Promise<void> {
+    return this.#readyKit.promise;
   }
 
   async launch(

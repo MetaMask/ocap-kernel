@@ -47,9 +47,6 @@ async function main(): Promise<void> {
     kernelStream,
     vatWorkerClient,
     kernelDatabase,
-    {
-      resetStorage: false, // Enable persistent storage
-    },
   );
   const kernelEngine = new JsonRpcEngine();
   kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
