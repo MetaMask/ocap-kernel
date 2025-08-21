@@ -10,7 +10,7 @@ export const validTestBundleNames = ['sample-vat', 'sample-vat-esp'];
 const testRoot = new URL('.', import.meta.url).pathname;
 
 const makeTestBundleRoot = async () => {
-  const stageRoot = resolve(tmpdir(), await mkdtemp('ocap-cli-test-'));
+  const stageRoot = await mkdtemp(join(tmpdir(), 'ocap-cli-test-'));
 
   // copy bundle targets to staging area
   const testBundleRoot = resolve(testRoot, 'bundles');
