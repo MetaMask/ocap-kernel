@@ -30,14 +30,10 @@ export async function bundleFile(
   const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
-  try {
-    const bundle = await endoBundleSource(sourceFullPath);
-    const bundleContent = JSON.stringify(bundle);
-    await writeFile(bundlePath, bundleContent);
-    logger.info(`wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
-  } catch (problem) {
-    logger.error(`error bundling file ${sourceFullPath}`, problem);
-  }
+  const bundle = await endoBundleSource(sourceFullPath);
+  const bundleContent = JSON.stringify(bundle);
+  await writeFile(bundlePath, bundleContent);
+  logger.info(`wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
 }
 
 /**
@@ -73,10 +69,6 @@ export async function bundleSource(
   target: string,
   logger: Logger,
 ): Promise<void> {
-  try {
-    const targetIsDirectory = await isDirectory(target);
-    await (targetIsDirectory ? bundleDir : bundleFile)(target, { logger });
-  } catch (problem) {
-    logger.error(`error bundling target ${target}`, problem);
-  }
+  const targetIsDirectory = await isDirectory(target);
+  await (targetIsDirectory ? bundleDir : bundleFile)(target, { logger });
 }
