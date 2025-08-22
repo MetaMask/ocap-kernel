@@ -52,19 +52,13 @@ test.describe('Kernel Persistence', () => {
     const devModeToggle = extensionsPage.locator('#devMode');
     await devModeToggle.waitFor({ state: 'visible' });
     await devModeToggle.click();
-    const enableToggle = extensionsPage.locator(
-      '#enableToggle[aria-describedby="name enable-toggle-tooltip"]',
-    );
+    const enableToggle = extensionsPage.locator('#enableToggle').last();
     await enableToggle.waitFor({ state: 'visible' });
     await enableToggle.click();
     await enableToggle.click();
     await extensionsPage.waitForTimeout(1000);
     await enableToggle.click();
-    await extensionsPage.waitForLoadState('domcontentloaded');
-    const reloadButton = extensionsPage.locator(
-      '[class="cr-title-text"] + #dev-reload-button',
-    );
-    await reloadButton.waitFor({ state: 'visible', timeout: 5000 });
+    const reloadButton = extensionsPage.locator('#dev-reload-button').last();
     await reloadButton.click();
     await extensionsPage.waitForTimeout(3000);
     await extensionsPage.close();
