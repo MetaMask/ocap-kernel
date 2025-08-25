@@ -33,7 +33,7 @@ export async function bundleFile(
   const bundle = await endoBundleSource(sourceFullPath);
   const bundleContent = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleContent);
-  logger.info(`wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
+  logger.info(`Wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
 }
 
 /**
@@ -49,7 +49,7 @@ export async function bundleDir(
   options: { logger: Logger },
 ): Promise<void> {
   const { logger } = options;
-  logger.info('bundling dir', sourceDir);
+  logger.info('Bundling directory:', sourceDir);
   await Promise.all(
     (await glob(join(sourceDir, '*.js'))).map(
       async (source) => await bundleFile(source, { logger }),
