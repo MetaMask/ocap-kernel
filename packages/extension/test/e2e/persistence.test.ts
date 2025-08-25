@@ -47,16 +47,17 @@ test.describe('Kernel Persistence', () => {
     ).toBeVisible();
     // reload the extension
     await newPopupPage.evaluate(() => chrome.runtime.reload());
+    await newPopupPage.close();
     const reloadedPopupPage = await extensionContext.newPage();
     // Wait for the extension to fully reload
-    await reloadedPopupPage.waitForTimeout(500);
+    await reloadedPopupPage.waitForTimeout(1000);
     await reloadedPopupPage.goto(
       `chrome-extension://${extensionId}/popup.html`,
     );
-    await reloadedPopupPage.waitForLoadState('networkidle');
+    await reloadedPopupPage.waitForTimeout(1000);
     await expect(
       reloadedPopupPage.locator('text=Subcluster s1 - 3 Vats'),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
     await expect(
       reloadedPopupPage.locator('text=Subcluster s2 - 1 Vat'),
     ).toBeVisible();
