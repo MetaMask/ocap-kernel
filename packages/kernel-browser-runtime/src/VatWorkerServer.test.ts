@@ -88,8 +88,8 @@ describe('VatWorkerServer', () => {
     expect(server).toBeDefined();
   });
 
-  it('constructs using static factory method', () => {
-    const server = VatWorkerServer.make(
+  it('constructs using static factory method', async () => {
+    const server = await VatWorkerServer.make(
       makeMockMessageTarget(),
       () => ({}) as unknown as VatWorker,
     );
