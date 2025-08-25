@@ -45,27 +45,15 @@ test.describe('Kernel Persistence', () => {
     await expect(
       newPopupPage.locator('text=Subcluster s2 - 1 Vat'),
     ).toBeVisible();
-    await newPopupPage.close();
-    const extensionsPage = await extensionContext.newPage();
-    await extensionsPage.goto(`chrome://extensions/?id=${extensionId}`);
-    await extensionsPage.waitForLoadState('networkidle');
-    const devModeToggle = extensionsPage.locator('#devMode');
-    await devModeToggle.waitFor({ state: 'visible' });
-    await devModeToggle.click();
-    const enableToggle = extensionsPage.locator('#enableToggle').last();
-    await enableToggle.waitFor({ state: 'visible' });
-    await enableToggle.click();
-    await enableToggle.click();
-    await extensionsPage.waitForTimeout(1000);
-    await enableToggle.click();
-    const reloadButton = extensionsPage.locator('#dev-reload-button').last();
-    await reloadButton.click();
-    await extensionsPage.waitForTimeout(3000);
-    await extensionsPage.close();
+    // reload the extension
+    await newPopupPage.evaluate(() => chrome.runtime.reload());
     const reloadedPopupPage = await extensionContext.newPage();
+    // Wait for the extension to fully reload
+    await reloadedPopupPage.waitForTimeout(500);
     await reloadedPopupPage.goto(
       `chrome-extension://${extensionId}/popup.html`,
     );
+    await reloadedPopupPage.waitForLoadState('networkidle');
     await expect(
       reloadedPopupPage.locator('text=Subcluster s1 - 3 Vats'),
     ).toBeVisible();
