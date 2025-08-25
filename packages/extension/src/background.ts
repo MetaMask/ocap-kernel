@@ -118,7 +118,5 @@ async function main(): Promise<void> {
     throw new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
-  } finally {
-    logger.warn('Offscreen connection closed; will re-init on next trigger.');
   }
 }

@@ -682,7 +682,7 @@ export class Kernel {
   }
 
   /**
-   * Gracefully stop the kernel without terminating vats.
+   * Gracefully stop the kernel without deleting vats.
    */
   async stop(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
