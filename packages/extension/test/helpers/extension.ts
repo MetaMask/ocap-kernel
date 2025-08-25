@@ -30,6 +30,7 @@ export const makeLoadExtension = async (): Promise<{
   );
 
   const browserArgs = [
+    `--disable-features=ExtensionDisableUnsupportedDeveloper`,
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,
     '--lang=en-US',

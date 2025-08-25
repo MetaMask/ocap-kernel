@@ -36,12 +36,7 @@ Here's a basic example for browser environments:
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { MessagePortDuplexStream } from '@metamask/streams/browser';
-
-// Initialize kernel dependencies
-const vatWorkerService = YourVatWorkerService.make();
-const kernelDatabase = await makeSQLKernelDatabase({
-  dbFilename: 'store.db',
-});
+import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
 
 // Create a message stream for communicating with the kernel
 const kernelStream = await MessagePortDuplexStream.make(
@@ -49,7 +44,13 @@ const kernelStream = await MessagePortDuplexStream.make(
   isJsonRpcCall,
 );
 
-// Initialize the kernel
+// Initialize kernel dependencies
+const vatWorkerService = await VatWorkerClient.make(globalThis);
+const kernelDatabase = await makeSQLKernelDatabase({
+  dbFilename: 'store.db',
+});
+
+// Initialize the kernel - it's ready to use immediately
 const kernel = await Kernel.make(
   kernelStream,
   vatWorkerService,
@@ -87,7 +88,7 @@ import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import { MessageChannel, MessagePort } from 'node:worker_threads';
-import { NodejsVatWorkerManager } from '@ocap/nodejs';
+import { NodejsVatWorkerService } from '@ocap/nodejs';
 
 // Create a message port for kernel communication
 const { port1: kernelPort } = new MessageChannel();
@@ -96,7 +97,7 @@ const { port1: kernelPort } = new MessageChannel();
 const nodeStream = new NodeWorkerDuplexStream(kernelPort);
 
 // Initialize vat worker manager for Node.js
-const vatWorkerService = new NodejsVatWorkerManager({
+const vatWorkerService = new NodejsVatWorkerService({
   workerFilePath: './path/to/vat-worker.js',
 });
 
@@ -515,7 +516,12 @@ Here's a complete example of implementing the OCAP Kernel in both browser and No
 import { Kernel, ClusterConfigStruct } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { fetchValidatedJson } from '@metamask/kernel-utils';
-import { MessagePortDuplexStream } from '@metamask/streams/browser';
+import {
+  MessagePortDuplexStream,
+  receiveMessagePort,
+} from '@metamask/streams/browser';
+import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
+import { isJsonRpcCall } from '@metamask/kernel-utils';
 
 async function initBrowserKernel() {
   // Create a message port for communication
@@ -527,10 +533,8 @@ async function initBrowserKernel() {
   // Create a message stream
   const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
 
-  // Initialize kernel dependencies
-  const vatWorkerService = YourBrowserVatWorkerService.make(
-    globalThis as PostMessageTarget,
-  );
+  // Create client end of the vat worker service
+  const vatWorkerService = await VatWorkerClient.make(globalThis);
 
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: 'store.db',

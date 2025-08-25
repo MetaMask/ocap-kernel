@@ -70,40 +70,34 @@ export class VatWorkerServer {
     this.#stream = stream;
     this.#makeWorker = makeWorker;
     this.#logger = logger ?? new Logger('vat-worker-server');
+
+    // Start draining messages immediately after construction
+    this.#stream.drain(this.#handleMessage.bind(this)).catch((error) => {
+      this.#logger.error('Error draining stream:', error);
+    });
   }
 
   /**
-   * Create a new {@link VatWorkerServer}. Does not start the server.
+   * Create a new {@link VatWorkerServer}.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param makeWorker - A method for making a {@link VatWorker}.
    * @param logger - An optional {@link Logger}.
    * @returns A new {@link VatWorkerServer}.
    */
-  static make(
+  static async make(
     messageTarget: PostMessageTarget,
     makeWorker: (vatId: VatId) => VatWorker,
     logger?: Logger,
-  ): VatWorkerServer {
+  ): Promise<VatWorkerServer> {
     const stream: VatWorkerServiceStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
       validateInput: (message): message is MessageEvent<JsonRpcRequest> =>
         message instanceof MessageEvent && isJsonRpcRequest(message.data),
     });
-
+    await stream.synchronize();
     return new VatWorkerServer(stream, makeWorker, logger);
-  }
-
-  /**
-   * Start the server. Must be called after construction.
-   *
-   * @returns A promise that fulfills when the server has stopped.
-   */
-  async start(): Promise<void> {
-    return this.#stream
-      .synchronize()
-      .then(async () => this.#stream.drain(this.#handleMessage.bind(this)));
   }
 
   #assertHasMethod(method: string): asserts method is VatWorkerServiceMethod {

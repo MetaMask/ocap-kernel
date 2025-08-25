@@ -135,6 +135,7 @@ describe('restarting vats', async () => {
     await waitUntilQuiescent();
     const { logger: logger2, entries: entries2 } = makeTestLogger();
     const kernel2 = await makeKernel(kernelDatabase, false, logger2);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     const resumeResultA = await runResume(kernel2, 'ko1');
     expect(resumeResultA).toBe('resume Alice');
     const resumeResultB = await runResume(kernel2, 'ko2');
