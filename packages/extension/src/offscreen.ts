@@ -32,11 +32,10 @@ async function main(): Promise<void> {
     JsonRpcResponse
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcCall);
 
-  const { kernelStream, vatWorkerService } = await makeKernelWorker();
+  const kernelStream = await makeKernelWorker();
 
   // Handle messages from the background script / kernel
   await Promise.all([
-    vatWorkerService.start(),
     kernelStream.pipe(backgroundStream),
     backgroundStream.pipe(kernelStream),
   ]);
@@ -47,10 +46,9 @@ async function main(): Promise<void> {
  *
  * @returns The message port stream for worker communication
  */
-async function makeKernelWorker(): Promise<{
-  kernelStream: DuplexStream<JsonRpcResponse, JsonRpcCall>;
-  vatWorkerService: VatWorkerServer;
-}> {
+async function makeKernelWorker(): Promise<
+  DuplexStream<JsonRpcResponse, JsonRpcCall>
+> {
   const worker = new Worker('kernel-worker.js', {
     type: 'module',
   });
@@ -64,21 +62,16 @@ async function makeKernelWorker(): Promise<{
     JsonRpcCall
   >(port, isJsonRpcResponse);
 
-  const vatWorkerService = VatWorkerServer.make(
-    worker as PostMessageTarget,
-    (vatId) =>
-      makeIframeVatWorker({
-        id: vatId,
-        iframeUri: 'iframe.html',
-        getPort: initializeMessageChannel,
-        logger: logger.subLogger({
-          tags: ['iframe-vat-worker', vatId],
-        }),
+  await VatWorkerServer.make(worker as PostMessageTarget, (vatId) =>
+    makeIframeVatWorker({
+      id: vatId,
+      iframeUri: 'iframe.html',
+      getPort: initializeMessageChannel,
+      logger: logger.subLogger({
+        tags: ['iframe-vat-worker', vatId],
       }),
+    }),
   );
 
-  return {
-    kernelStream,
-    vatWorkerService,
-  };
+  return kernelStream;
 }

@@ -6,7 +6,7 @@ import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
-import type { PostMessageTarget } from '@metamask/streams/browser';
+import { makeMockMessageTarget } from '@metamask/test-utils';
 import type { JsonRpcRequest } from '@metamask/utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -80,21 +80,17 @@ describe('VatWorkerServer', () => {
 
   it('constructs with default logger', async () => {
     const stream = await TestDuplexStream.make(() => undefined);
-    expect(
-      new VatWorkerServer(
-        stream as unknown as VatWorkerServiceStream,
-        () => ({}) as unknown as VatWorker,
-      ),
-    ).toBeDefined();
+    await stream.synchronize();
+    const server = new VatWorkerServer(
+      stream as unknown as VatWorkerServiceStream,
+      () => ({}) as unknown as VatWorker,
+    );
+    expect(server).toBeDefined();
   });
 
   it('constructs using static factory method', () => {
     const server = VatWorkerServer.make(
-      {
-        postMessage: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      } as unknown as PostMessageTarget,
+      makeMockMessageTarget(),
       () => ({}) as unknown as VatWorker,
     );
     expect(server).toBeDefined();
@@ -104,7 +100,6 @@ describe('VatWorkerServer', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
-    let server: VatWorkerServer;
 
     const makeMockVatWorker = (
       _id: string,
@@ -129,14 +124,13 @@ describe('VatWorkerServer', () => {
       workers = [];
       logger = new Logger('test-server');
       stream = await TestDuplexStream.make(() => undefined);
-      server = new VatWorkerServer(
+      await stream.synchronize();
+      // eslint-disable-next-line no-new
+      new VatWorkerServer(
         stream as unknown as VatWorkerServiceStream,
         makeMockVatWorker,
         logger,
       );
-      server.start().catch((error) => {
-        throw error;
-      });
 
       addCleanup(async () => {
         await stream.return?.();

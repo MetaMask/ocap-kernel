@@ -2,6 +2,7 @@ import { delay, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
+import { makeMockMessageTarget } from '@metamask/test-utils';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -52,33 +53,6 @@ const makeNullReply = (messageId: `m${number}`): MessageEvent =>
   makeMessageEvent(messageId, {
     result: null,
   });
-
-const makeMockMessageTarget = () => {
-  const listeners: ((payload: unknown) => void)[] = [];
-  const postMessage = vi.fn((message: unknown, _transfer?: Transferable[]) => {
-    listeners.forEach((listener) =>
-      listener(
-        message instanceof MessageEvent
-          ? message
-          : new MessageEvent('message', { data: message }),
-      ),
-    );
-  });
-  const addEventListener = vi.fn(
-    (_type: 'message', listener: (event: MessageEvent) => void) => {
-      listeners.push(listener as (payload: unknown) => void);
-    },
-  );
-  const removeEventListener = vi.fn(
-    (_type: 'message', listener: (event: MessageEvent) => void) => {
-      listeners.splice(
-        listeners.indexOf(listener as (payload: unknown) => void),
-        1,
-      );
-    },
-  );
-  return { postMessage, addEventListener, removeEventListener, listeners };
-};
 
 describe('VatWorkerClient', () => {
   it('constructs with default logger', async () => {
