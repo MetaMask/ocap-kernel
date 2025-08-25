@@ -5,7 +5,7 @@ import type { FSWatcher, MatchFunction } from 'chokidar';
 import { unlink } from 'fs/promises';
 import { resolve } from 'path';
 
-import { bundleFile } from './bundle.ts';
+import { bundleFile as rawBundleFile } from './bundle.ts';
 import { resolveBundlePath } from '../path.ts';
 
 type CloseWatcher = () => Promise<void>;
@@ -26,35 +26,39 @@ export const makeWatchEvents = (
   change: (path: string) => void;
   unlink: (path: string) => void;
   error: (error: Error) => void;
-} => ({
-  ready: () => readyResolve(watcher.close.bind(watcher)),
-  add: (path) => {
-    logger.info(`Source file added:`, path);
-    bundleFile(path, { logger, targetPath: resolveBundlePath(path) }).catch(
-      throwError,
+} => {
+  const bundleFile = (path: string): void => {
+    rawBundleFile(path, { logger, targetPath: resolveBundlePath(path) }).catch(
+      (error) => logger.error(`Failed to bundle file:`, error),
     );
-  },
-  change: (path) => {
-    logger.info(`Source file changed:`, path);
-    bundleFile(path, { logger, targetPath: resolveBundlePath(path) }).catch(
-      throwError,
-    );
-  },
-  unlink: (path) => {
-    logger.info('Source file removed:', path);
-    const bundlePath = resolveBundlePath(path);
-    unlink(bundlePath)
-      .then(() => logger.info(`removed ${bundlePath}`))
-      .catch((reason: unknown) => {
-        if (reason instanceof Error && reason.message.match(/ENOENT/u)) {
-          // If associated bundle does not exist, do nothing.
-          return;
-        }
-        throwError(reason);
-      });
-  },
-  error: (error: Error) => throwError(error),
-});
+  };
+
+  return {
+    ready: () => readyResolve(watcher.close.bind(watcher)),
+    add: (path) => {
+      logger.info(`Source file added:`, path);
+      bundleFile(path);
+    },
+    change: (path) => {
+      logger.info(`Source file changed:`, path);
+      bundleFile(path);
+    },
+    unlink: (path) => {
+      logger.info('Source file removed:', path);
+      const bundlePath = resolveBundlePath(path);
+      unlink(bundlePath)
+        .then(() => logger.info(`Removed:`, bundlePath))
+        .catch((reason: unknown) => {
+          if (reason instanceof Error && reason.message.match(/ENOENT/u)) {
+            // If associated bundle does not exist, do nothing.
+            return;
+          }
+          throwError(reason);
+        });
+    },
+    error: (error: Error) => throwError(error),
+  };
+};
 
 export const shouldIgnore: MatchFunction = (file, stats): boolean =>
   // Ignore files and directories in `node_modules`.
