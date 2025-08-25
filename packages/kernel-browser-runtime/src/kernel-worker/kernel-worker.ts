@@ -20,14 +20,6 @@ import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
 
-// XXX Warning: Setting this flag to true causes persistent storage to be
-// cleared on extension load. This is a hack to aid development debugging,
-// wherein extension reloads are almost exclusively used for retrying from
-// scratch after tweaking the code to fix something. Setting the flag will
-// prevent the accumulation of long term persistent state, so it should be
-// cleared (or simply removed) prior to release.
-const ALWAYS_RESET_STORAGE = true;
-
 main().catch(logger.error);
 
 /**
@@ -39,26 +31,23 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  const kernelStream = await MessagePortDuplexStream.make<
-    JsonRpcCall,
-    JsonRpcResponse
-  >(port, isJsonRpcCall);
-
   // Initialize kernel dependencies
-  const vatWorkerClient = VatWorkerClient.make(globalThis as PostMessageTarget);
-  const kernelDatabase = await makeSQLKernelDatabase({
-    dbFilename: DB_FILENAME,
-  });
+  const [kernelStream, vatWorkerClient, kernelDatabase] = await Promise.all([
+    MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
+      port,
+      isJsonRpcCall,
+    ),
+    VatWorkerClient.make(globalThis as PostMessageTarget),
+    makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
+  ]);
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
 
   const kernel = await Kernel.make(
     kernelStream,
     vatWorkerClient,
     kernelDatabase,
-    {
-      resetStorage: ALWAYS_RESET_STORAGE,
-    },
   );
+
   const kernelEngine = new JsonRpcEngine();
   kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
   kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
@@ -68,27 +57,10 @@ async function main(): Promise<void> {
       kernelEngine.handle(request as JsonRpcRequest),
     logger,
   });
-  const launchDefaultSubcluster = firstTime || ALWAYS_RESET_STORAGE;
 
-  await Promise.all([
-    vatWorkerClient.start(),
-    // XXX We are mildly concerned that there's a small chance that a race here
-    // could cause startup to flake non-deterministically. If the invocation
-    // here of `launchSubcluster` turns out to depend on aspects of the IPC
-    // setup completing successfully but those pieces aren't ready in time, then
-    // it could get stuck.  Current experience suggests this is not a problem,
-    // but as yet we have only an intuitive sense (i.e., promises, yay) why this
-    // might be true rather than a principled explanation that it is necessarily
-    // true. Hence this comment to serve as a marker if some problem crops up
-    // with startup wedging and some poor soul is reading through the code
-    // trying to diagnose it.
-    (async () => {
-      if (launchDefaultSubcluster) {
-        const result = await kernel.launchSubcluster(defaultSubcluster);
-        logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
-      } else {
-        logger.info(`Resuming kernel execution`);
-      }
-    })(),
-  ]);
+  // Launch the default subcluster if this is the first time
+  if (firstTime) {
+    const result = await kernel.launchSubcluster(defaultSubcluster);
+    logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
+  }
 }

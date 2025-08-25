@@ -119,10 +119,12 @@ describe('Kernel', () => {
 
   describe('constructor()', () => {
     it('initializes the kernel without errors', async () => {
-      expect(
-        async () =>
-          await Kernel.make(mockStream, mockWorkerService, mockKernelDatabase),
-      ).not.toThrow();
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      expect(kernel).toBeDefined();
     });
 
     it('honors resetStorage option and clears persistent state', async () => {
@@ -171,19 +173,6 @@ describe('Kernel', () => {
       expect(queueInstance.run).toHaveBeenCalledTimes(1);
     });
 
-    it('throws if the stream throws', async () => {
-      const streamError = new Error('Stream error');
-      const throwingMockStream = {
-        drain: () => {
-          throw streamError;
-        },
-        write: vi.fn().mockResolvedValue(undefined),
-      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
-      await expect(
-        Kernel.make(throwingMockStream, mockWorkerService, mockKernelDatabase),
-      ).rejects.toThrow('Stream error');
-    });
-
     it('recovers vats from persistent storage on startup', async () => {
       const db = makeMapKernelDatabase();
       // Launch initial kernel and vat
@@ -193,10 +182,13 @@ describe('Kernel', () => {
       // Clear spies
       launchWorkerMock.mockClear();
       makeVatHandleMock.mockClear();
-      // New kernel should recover existing vat
+
+      // New kernel should recover existing vat immediately during make()
       const kernel2 = await Kernel.make(mockStream, mockWorkerService, db);
-      expect(launchWorkerMock).toHaveBeenCalledTimes(1);
-      expect(makeVatHandleMock).toHaveBeenCalledTimes(1);
+
+      // The vat should be recovered immediately
+      expect(launchWorkerMock).toHaveBeenCalledOnce();
+      expect(makeVatHandleMock).toHaveBeenCalledOnce();
       expect(kernel2.getVatIds()).toStrictEqual(['v1']);
     });
   });
@@ -655,6 +647,26 @@ describe('Kernel', () => {
       expect(vatHandles[1]?.terminate).toHaveBeenCalledOnce();
       expect(workerTerminateMock).toHaveBeenCalledTimes(2);
       expect(kernel.getVatIds()).toStrictEqual([]);
+    });
+  });
+
+  describe('stop()', () => {
+    it('gracefully stops the kernel without terminating vats', async () => {
+      const workerTerminateAllMock = vi
+        .spyOn(mockWorkerService, 'terminateAll')
+        .mockResolvedValue(undefined);
+      const kernel = await Kernel.make(
+        mockStream,
+        mockWorkerService,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      await kernel.stop();
+      expect(kernel.getVatIds()).toStrictEqual(['v1']);
+      expect(vatHandles).toHaveLength(1);
+      expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
+      expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
   });
 

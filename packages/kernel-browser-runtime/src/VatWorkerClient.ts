@@ -43,9 +43,6 @@ export class VatWorkerClient implements VatWorkerService {
    * server and wraps the launch response in a DuplexStream for consumption
    * by the kernel.
    *
-   * Note that {@link VatWorkerClient.start} must be called to start
-   * the client.
-   *
    * @see {@link VatWorkerServer} for the other end of the service.
    *
    * @param stream - The stream to use for communication with the server.
@@ -68,37 +65,36 @@ export class VatWorkerClient implements VatWorkerService {
       'm',
       this.#logger,
     );
+
+    // Start draining messages immediately after construction
+    // This runs for the lifetime of the client
+    this.#stream.drain(this.#handleMessage.bind(this)).catch((error) => {
+      this.#logger.error('Error draining stream:', error);
+    });
   }
 
   /**
-   * Create a new {@link VatWorkerClient}. Does not start the client.
+   * Create and initialize a new {@link VatWorkerClient}.
+   * The client will be ready to handle vat launches after this completes.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param logger - An optional {@link Logger}.
-   * @returns A new {@link VatWorkerClient}.
+   * @returns A promise for the initialized {@link VatWorkerClient}.
    */
-  static make(
+  static async make(
     messageTarget: PostMessageTarget,
     logger?: Logger,
-  ): VatWorkerClient {
+  ): Promise<VatWorkerClient> {
     const stream: VatWorkerClientStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
       validateInput: (message): message is MessageEvent<JsonRpcResponse> =>
         message instanceof MessageEvent && isJsonRpcResponse(message.data),
     });
+    // Synchronize the stream before creating the client
+    await stream.synchronize();
+    // Now create the client which will start draining immediately
     return new VatWorkerClient(stream, logger);
-  }
-
-  /**
-   * Start the client. Must be called after construction.
-   *
-   * @returns A promise that fulfills when the client has stopped.
-   */
-  async start(): Promise<void> {
-    return this.#stream
-      .synchronize()
-      .then(async () => this.#stream.drain(this.#handleMessage.bind(this)));
   }
 
   async launch(

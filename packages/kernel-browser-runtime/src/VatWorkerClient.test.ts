@@ -2,8 +2,8 @@ import { delay, stringify } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
-import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
+import { makeMockMessageTarget } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -55,18 +55,20 @@ const makeNullReply = (messageId: `m${number}`): MessageEvent =>
   });
 
 describe('VatWorkerClient', () => {
-  it('constructs with default logger', () => {
-    const client = new VatWorkerClient({} as unknown as VatWorkerClientStream);
+  it('constructs with default logger', async () => {
+    const stream = await TestDuplexStream.make(() => undefined);
+    await stream.synchronize();
+    const client = new VatWorkerClient(
+      stream as unknown as VatWorkerClientStream,
+    );
     expect(client).toBeDefined();
   });
 
-  it('constructs using static factory method', () => {
-    const client = VatWorkerClient.make({
-      postMessage: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    } as unknown as PostMessageTarget);
+  it('constructs using static factory method', async () => {
+    const mockMessageTarget = makeMockMessageTarget();
+    const client = await VatWorkerClient.make(mockMessageTarget);
     expect(client).toBeDefined();
+    expect(client).toBeInstanceOf(VatWorkerClient);
   });
 
   describe('message handling', () => {
@@ -76,14 +78,12 @@ describe('VatWorkerClient', () => {
 
     beforeEach(async () => {
       stream = await TestDuplexStream.make(() => undefined);
+      await stream.synchronize();
       clientLogger = new Logger('test-client');
       client = new VatWorkerClient(
         stream as unknown as VatWorkerClientStream,
         clientLogger,
       );
-      client.start().catch((error) => {
-        throw error;
-      });
     });
 
     it('rejects pending promises for error replies', async () => {
@@ -134,6 +134,24 @@ describe('VatWorkerClient', () => {
         await expect(launchP).rejects.toThrow(
           `No port found for launch of: ${stringify({ vatId, vatConfig })}`,
         );
+      });
+
+      it('can be called before client is started', async () => {
+        const newStream = await TestDuplexStream.make(() => undefined);
+        await newStream.synchronize();
+        const newClient = new VatWorkerClient(
+          newStream as unknown as VatWorkerClientStream,
+        );
+
+        // Call launch before starting the client
+        const launchPromise = newClient.launch('v0', makeVatConfig());
+
+        // Now send the launch reply
+        await delay(10);
+        await newStream.receiveInput(makeLaunchReply('m1'));
+
+        // Launch should resolve successfully
+        expect(await launchPromise).toBeInstanceOf(TestDuplexStream);
       });
     });
 

@@ -1,6 +1,5 @@
 import type { CapData } from '@endo/marshal';
 import {
-  StreamReadError,
   VatAlreadyExistsError,
   VatDeletedError,
   VatNotFoundError,
@@ -150,23 +149,36 @@ export class Kernel {
    * and then begin processing the run queue.
    */
   async #init(): Promise<void> {
+    // Start the command stream handler (non-blocking)
+    // This runs for the entire lifetime of the kernel
     this.#commandStream
       .drain(this.#handleCommandMessage.bind(this))
       .catch((error) => {
-        this.#logger.error('Stream read error:', error);
-        throw new StreamReadError({ kernelId: 'kernel' }, error);
+        this.#logger.error(
+          'Stream read error (kernel may be non-functional):',
+          error,
+        );
+        // Don't re-throw to avoid unhandled rejection in this long-running task
       });
+
+    // Start the kernel queue processing (non-blocking)
+    // This runs for the entire lifetime of the kernel
+    this.#kernelQueue
+      .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
+      .catch((error) => {
+        this.#logger.error(
+          'Run loop error (kernel may be non-functional):',
+          error,
+        );
+        // Don't re-throw to avoid unhandled rejection in this long-running task
+      });
+
+    // Start all vats that were previously running
     const starts: Promise<void>[] = [];
     for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
       starts.push(this.#runVat(vatID, vatConfig));
     }
     await Promise.all(starts);
-    this.#kernelQueue
-      .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
-      .catch((error) => {
-        this.#logger.error('Run loop error:', error);
-        throw error;
-      });
   }
 
   /**
@@ -667,6 +679,17 @@ export class Kernel {
       const newId = this.#kernelStore.addSubcluster(subcluster.config);
       await this.#launchVatsForSubcluster(newId, subcluster.config);
     }
+  }
+
+  /**
+   * Gracefully stop the kernel without deleting vats.
+   */
+  async stop(): Promise<void> {
+    await this.#kernelQueue.waitForCrank();
+    this.#logger.info('Stopping kernel gracefully...');
+    await this.#commandStream.end();
+    await this.#vatWorkerService.terminateAll();
+    this.#logger.info('Kernel stopped gracefully');
   }
 
   /**

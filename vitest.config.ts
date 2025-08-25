@@ -81,16 +81,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 3.03,
+          statements: 1.96,
           functions: 0,
-          branches: 100,
-          lines: 3.03,
+          branches: 0,
+          lines: 1.96,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 78,
-          functions: 75,
-          branches: 66.66,
-          lines: 78,
+          statements: 79.32,
+          functions: 72.13,
+          branches: 69.38,
+          lines: 79.32,
         },
         'packages/kernel-errors/**': {
           statements: 98.73,
@@ -147,10 +147,10 @@ export default defineConfig({
           lines: 73.58,
         },
         'packages/ocap-kernel/**': {
-          statements: 92.54,
-          functions: 95.31,
+          statements: 92.67,
+          functions: 95.33,
           branches: 82.84,
-          lines: 92.51,
+          lines: 92.64,
         },
         'packages/remote-iterables/**': {
           statements: 100,
