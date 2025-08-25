@@ -85,15 +85,10 @@ export async function makeKernel(
   const vatWorkerClient = new NodejsVatWorkerService({
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
   });
-  const kernel = await Kernel.make(
-    nodeStream,
-    vatWorkerClient,
-    kernelDatabase,
-    {
-      resetStorage,
-      logger,
-    },
-  );
+  const kernel = Kernel.make(nodeStream, vatWorkerClient, kernelDatabase, {
+    resetStorage,
+    logger,
+  });
   return kernel;
 }
 

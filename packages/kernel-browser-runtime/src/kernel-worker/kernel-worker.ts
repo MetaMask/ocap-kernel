@@ -43,11 +43,7 @@ async function main(): Promise<void> {
   });
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
 
-  const kernel = await Kernel.make(
-    kernelStream,
-    vatWorkerClient,
-    kernelDatabase,
-  );
+  const kernel = Kernel.make(kernelStream, vatWorkerClient, kernelDatabase);
   const kernelEngine = new JsonRpcEngine();
   kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
   kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));

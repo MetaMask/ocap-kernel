@@ -45,15 +45,10 @@ export async function makeKernel({
   const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
 
   // Create and start kernel.
-  const kernel = await Kernel.make(
-    nodeStream,
-    vatWorkerClient,
-    kernelDatabase,
-    {
-      resetStorage,
-      logger: rootLogger.subLogger({ tags: ['kernel'] }),
-    },
-  );
+  const kernel = Kernel.make(nodeStream, vatWorkerClient, kernelDatabase, {
+    resetStorage,
+    logger: rootLogger.subLogger({ tags: ['kernel'] }),
+  });
 
   return kernel;
 }
