@@ -62,7 +62,7 @@ await yargs(hideBin(process.argv))
         },
         dir: resolvedDir,
       };
-      logger.info(`starting ${appName} in ${resolvedDir} on ${url}`);
+      logger.info(`Starting ${appName} in ${resolvedDir} on ${url}`);
       const server = getServer(config);
       await server.listen();
     },
@@ -144,7 +144,7 @@ await yargs(hideBin(process.argv))
       const { close: closeServer, port } = await server.listen();
       closeHandlers.push(closeServer);
 
-      logger.info(`bundling and serving ${resolvedDir} on localhost:${port}`);
+      logger.info(`Bundling and serving ${resolvedDir} on localhost:${port}`);
     },
   )
   .help('help')
