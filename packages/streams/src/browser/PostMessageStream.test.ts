@@ -1,5 +1,5 @@
 import { delay } from '@metamask/kernel-utils';
-import { makeMockMessageTarget } from '@metamask/test-utils';
+import { makeMockMessageTarget } from '@ocap/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import {
