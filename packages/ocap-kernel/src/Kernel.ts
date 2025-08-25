@@ -125,7 +125,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @returns A promise for the new kernel instance.
    */
-  static make(
+  static async make(
     commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
     vatWorkerService: VatWorkerService,
     kernelDatabase: KernelDatabase,
@@ -133,14 +133,14 @@ export class Kernel {
       resetStorage?: boolean;
       logger?: Logger;
     } = {},
-  ): Kernel {
+  ): Promise<Kernel> {
     const kernel = new Kernel(
       commandStream,
       vatWorkerService,
       kernelDatabase,
       options,
     );
-    kernel.#init();
+    await kernel.#init();
     return kernel;
   }
 
@@ -148,19 +148,17 @@ export class Kernel {
    * Start the kernel running. Sets it up to actually receive command messages
    * and then begin processing the run queue.
    */
-  #init(): void {
+  async #init(): Promise<void> {
     // Start the command stream handler (non-blocking)
     // This runs for the entire lifetime of the kernel
     this.#commandStream
       .drain(this.#handleCommandMessage.bind(this))
       .catch((error) => {
-        // Log the error but don't re-throw to avoid unhandled rejection
-        // The stream failure is critical but there's no good way to propagate it
         this.#logger.error(
           'Stream read error (kernel may be non-functional):',
           error,
         );
-        throw error;
+        // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
     // Start the kernel queue processing (non-blocking)
@@ -168,34 +166,19 @@ export class Kernel {
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
-        // Log the error but don't re-throw to avoid unhandled rejection
-        // The queue failure is critical but there's no good way to propagate it
         this.#logger.error(
           'Run loop error (kernel may be non-functional):',
           error,
         );
+        // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
-    // Wait for the vat worker service to be ready, then start vats
-    // This promise chain is intentionally not awaited here because
-    // vatWorkerService.start() must be called after Kernel.make() returns
-    this.#vatWorkerService
-      .waitUntilReady()
-      .then(async () => {
-        // Start all vats that were previously running
-        const starts: Promise<void>[] = [];
-        for (const {
-          vatID,
-          vatConfig,
-        } of this.#kernelStore.getAllVatRecords()) {
-          starts.push(this.#runVat(vatID, vatConfig));
-        }
-        return Promise.all(starts);
-      })
-      .catch((error) => {
-        // Log the error but don't re-throw to avoid unhandled rejection
-        this.#logger.error('Error during vat startup:', error);
-      });
+    // Start all vats that were previously running
+    const starts: Promise<void>[] = [];
+    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
+      starts.push(this.#runVat(vatID, vatConfig));
+    }
+    await Promise.all(starts);
   }
 
   /**

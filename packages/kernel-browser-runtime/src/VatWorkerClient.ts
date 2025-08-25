@@ -1,4 +1,3 @@
-import { makePromiseKit } from '@endo/promise-kit';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
 import type { JsonRpcCall, JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
@@ -35,8 +34,6 @@ export class VatWorkerClient implements VatWorkerService {
 
   readonly #portMap: Map<JsonRpcId, MessagePort | undefined>;
 
-  readonly #readyKit = makePromiseKit<void>();
-
   /**
    * **ATTN:** Prefer {@link VatWorkerClient.make} over constructing
    * this class directly.
@@ -45,9 +42,6 @@ export class VatWorkerClient implements VatWorkerService {
    * the kernel worker. Sends launch and terminate worker requests to the
    * server and wraps the launch response in a DuplexStream for consumption
    * by the kernel.
-   *
-   * Note that {@link VatWorkerClient.start} must be called to start
-   * the client.
    *
    * @see {@link VatWorkerServer} for the other end of the service.
    *
@@ -71,48 +65,36 @@ export class VatWorkerClient implements VatWorkerService {
       'm',
       this.#logger,
     );
+
+    // Start draining messages immediately after construction
+    // This runs for the lifetime of the client
+    this.#stream.drain(this.#handleMessage.bind(this)).catch((error) => {
+      this.#logger.error('Error draining stream:', error);
+    });
   }
 
   /**
-   * Create a new {@link VatWorkerClient}. Does not start the client.
+   * Create and initialize a new {@link VatWorkerClient}.
+   * The client will be ready to handle vat launches after this completes.
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param logger - An optional {@link Logger}.
-   * @returns A new {@link VatWorkerClient}.
+   * @returns A promise for the initialized {@link VatWorkerClient}.
    */
-  static make(
+  static async make(
     messageTarget: PostMessageTarget,
     logger?: Logger,
-  ): VatWorkerClient {
+  ): Promise<VatWorkerClient> {
     const stream: VatWorkerClientStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
       validateInput: (message): message is MessageEvent<JsonRpcResponse> =>
         message instanceof MessageEvent && isJsonRpcResponse(message.data),
     });
+    // Synchronize the stream before creating the client
+    await stream.synchronize();
+    // Now create the client which will start draining immediately
     return new VatWorkerClient(stream, logger);
-  }
-
-  /**
-   * Start the client. Must be called after construction.
-   *
-   * @returns A promise that fulfills when the client has stopped.
-   */
-  async start(): Promise<void> {
-    return this.#stream.synchronize().then(async () => {
-      // Signal that the client is ready to handle vat launches
-      this.#readyKit.resolve();
-      return this.#stream.drain(this.#handleMessage.bind(this));
-    });
-  }
-
-  /**
-   * Wait for the client to be ready to handle vat launches.
-   *
-   * @returns A promise that resolves when the client is ready.
-   */
-  async waitUntilReady(): Promise<void> {
-    return this.#readyKit.promise;
   }
 
   async launch(

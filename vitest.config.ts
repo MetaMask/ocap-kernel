@@ -87,10 +87,10 @@ export default defineConfig({
           lines: 1.92,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 78.92,
-          functions: 75.38,
+          statements: 79.66,
+          functions: 74.19,
           branches: 69.38,
-          lines: 78.92,
+          lines: 79.66,
         },
         'packages/kernel-errors/**': {
           statements: 98.73,
@@ -141,16 +141,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 73.68,
-          functions: 78.57,
+          statements: 72.22,
+          functions: 76.92,
           branches: 69.23,
-          lines: 75,
+          lines: 73.58,
         },
         'packages/ocap-kernel/**': {
-          statements: 92.57,
-          functions: 95.03,
+          statements: 92.67,
+          functions: 95.33,
           branches: 82.84,
-          lines: 92.54,
+          lines: 92.64,
         },
         'packages/remote-iterables/**': {
           statements: 100,

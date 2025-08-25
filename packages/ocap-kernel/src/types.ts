@@ -273,12 +273,6 @@ export type VatWorkerService = {
    * or rejects if there was an error during termination.
    */
   terminateAll: () => Promise<void>;
-  /**
-   * Wait for the service to be ready to handle vat launches.
-   *
-   * @returns A promise that resolves when the service is ready.
-   */
-  waitUntilReady: () => Promise<void>;
 };
 
 // Cluster configuration
