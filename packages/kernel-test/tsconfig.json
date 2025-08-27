@@ -16,5 +16,5 @@
     { "path": "../streams" },
     { "path": "../test-utils" }
   ],
-  "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
+  "include": ["../../vitest.config.ts", "./src/**/*.ts", "./vitest.config.ts"]
 }

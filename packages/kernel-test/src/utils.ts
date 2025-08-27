@@ -83,7 +83,9 @@ export async function makeKernel(
     JsonRpcResponse
   >(kernelPort);
   const vatWorkerClient = new NodejsVatWorkerService({
-    logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
+    workerFilePath: new URL('../dist/vat-worker-mock.mjs', import.meta.url)
+      .pathname,
+    logger: logger.subLogger({ tags: ['vat-worker-service'] }),
   });
   const kernel = await Kernel.make(
     nodeStream,
