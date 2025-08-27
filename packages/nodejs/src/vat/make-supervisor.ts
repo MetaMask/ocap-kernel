@@ -1,6 +1,7 @@
 import { makeStreamTransport, Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { VatSupervisor } from '@metamask/ocap-kernel';
+import { makePlatform } from '@ocap/kernel-platforms/nodejs';
 
 import { fetchBlob } from './fetch-blob.ts';
 import { makeStreams } from './streams.ts';
@@ -10,11 +11,13 @@ import { makeStreams } from './streams.ts';
  *
  * @param vatId - The ID of the vat to create a supervisor for.
  * @param logTag - The tag to use for the logger.
+ * @param platformOptions - Options to pass to the makePlatform function.
  * @returns A pair of the kernel-connected logger and the supervisor.
  */
 export async function makeNodeJsVatSupervisor(
   vatId: VatId,
   logTag: string,
+  platformOptions: Record<string, unknown> = {},
 ): Promise<{ logger: Logger; supervisor: VatSupervisor }> {
   const { kernelStream, loggerStream } = await makeStreams();
   const logger = new Logger({
@@ -26,6 +29,8 @@ export async function makeNodeJsVatSupervisor(
     id: vatId,
     kernelStream,
     logger,
+    makePlatform,
+    platformOptions,
     fetchBlob,
     vatPowers: { logger },
   });
