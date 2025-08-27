@@ -9,7 +9,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'rpc-methods',
+        name: 'kernel-rpc-methods',
         setupFiles: ['./test/setup.ts'],
       },
     }),
