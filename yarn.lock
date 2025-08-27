@@ -3413,6 +3413,7 @@ __metadata:
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.2"
     "@ocap/cli": "workspace:^"
+    "@ocap/kernel-platforms": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
