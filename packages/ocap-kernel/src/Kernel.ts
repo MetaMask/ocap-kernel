@@ -161,6 +161,14 @@ export class Kernel {
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
+    // Start all vats that were previously running before starting the queue
+    // This ensures that any messages in the queue have their target vats ready
+    const starts: Promise<void>[] = [];
+    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
+      starts.push(this.#runVat(vatID, vatConfig));
+    }
+    await Promise.all(starts);
+
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
     this.#kernelQueue
@@ -172,13 +180,6 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
-
-    // Start all vats that were previously running
-    const starts: Promise<void>[] = [];
-    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
-      starts.push(this.#runVat(vatID, vatConfig));
-    }
-    await Promise.all(starts);
   }
 
   /**
