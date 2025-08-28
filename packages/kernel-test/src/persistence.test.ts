@@ -174,9 +174,9 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       'queue.run.3',
       '{"type":"send","target":"ko1","message":{"methargs":{"body":"#[\\"resume\\",[]]","slots":[]},"result":"kp3"}}',
     );
+    await kernel1.stop();
     // verify that the message is in the database
     expect(kernelStore.kv.get('queue.run.3')).toBeDefined();
-    await kernel1.stop();
     // restart the kernel
     const kernel2 = await makeKernel(
       database,
