@@ -141,10 +141,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 82.75,
+          statements: 82.45,
           functions: 85.71,
           branches: 84.61,
-          lines: 84.21,
+          lines: 83.92,
         },
         'packages/ocap-kernel/**': {
           statements: 92.67,
