@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { PlatformFactory } from './types.ts';
 
@@ -36,7 +36,10 @@ export const createPlatformTestSuite = (
     ])(
       'creates platform with $name',
       async ({ config, expectedFetch, expectedFs }) => {
-        const platform = await makePlatform(config);
+        const options = config.fetch
+          ? { fetch: { fromFetch: vi.fn() } }
+          : undefined;
+        const platform = await makePlatform(config, options as never);
 
         expect(typeof platform.fetch).toBe(expectedFetch.type);
         expect(typeof platform.fs).toBe(expectedFs.type);
@@ -45,7 +48,8 @@ export const createPlatformTestSuite = (
 
     it('creates platform with partial config', async () => {
       const config = { fetch: {} };
-      const platform = await makePlatform(config);
+      const options = { fetch: { fromFetch: vi.fn() } };
+      const platform = await makePlatform(config, options as never);
 
       expect(platform.fetch).toBeDefined();
       expect(platform.fs).toBeUndefined();
@@ -54,9 +58,9 @@ export const createPlatformTestSuite = (
 
     it('passes options to capability factories', async () => {
       const config = { fetch: {} };
-      const options = { fetch: { timeout: 5000 } };
+      const options = { fetch: { fromFetch: vi.fn() } };
 
-      await makePlatform(config, options);
+      await makePlatform(config, options as never);
 
       // The actual capability factory calls are mocked, but we can verify
       // that the platform factory handles options correctly

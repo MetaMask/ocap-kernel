@@ -1,97 +1,76 @@
-import { object, string, number } from '@metamask/superstruct';
 import { describe, expect, it, vi } from 'vitest';
 
+import { superstructValidationError } from '../test/utils.ts';
+import { fetchConfigStruct } from './capabilities/fetch/types.ts';
+import type { FetchConfig } from './capabilities/fetch/types.ts';
 import { makeCapabilitySpecification } from './specification.ts';
-import type { CapabilitySpecification } from './specification.ts';
 
 describe('makeCapabilitySpecification', () => {
-  const createTestStruct = () =>
-    object({
-      url: string(),
-      timeout: number(),
-    });
-
-  const createTestFactory = () => vi.fn().mockReturnValue({ request: vi.fn() });
-
-  it('creates a capability specification', () => {
-    const configStruct = createTestStruct();
-    const capabilityFactory = createTestFactory();
-
+  it('creates specification with configStruct and capabilityFactory', () => {
+    const mockCapabilityFactory = vi.fn();
     const specification = makeCapabilitySpecification(
-      configStruct,
-      capabilityFactory,
+      fetchConfigStruct,
+      mockCapabilityFactory,
     );
 
-    expect(specification).toBeDefined();
-    expect(specification.configStruct).toBe(configStruct);
-    expect(specification.capabilityFactory).toBe(capabilityFactory);
+    expect(specification).toHaveProperty('configStruct');
+    expect(specification).toHaveProperty('capabilityFactory');
+    expect(specification.configStruct).toBe(fetchConfigStruct);
+    expect(specification.capabilityFactory).toBe(mockCapabilityFactory);
   });
 
-  it('creates capability using specification', () => {
-    const configStruct = createTestStruct();
-    const mockCapability = { request: vi.fn() };
-    const capabilityFactory = vi.fn().mockReturnValue(mockCapability);
-
+  it('validates config using configStruct', () => {
+    const mockCapabilityFactory = vi.fn();
     const specification = makeCapabilitySpecification(
-      configStruct,
-      capabilityFactory,
-    );
-    const config = { url: 'https://example.com', timeout: 5000 };
-    const capability = specification.capabilityFactory(config);
-
-    expect(capability).toBe(mockCapability);
-    expect(capabilityFactory).toHaveBeenCalledWith(config);
-  });
-
-  it('supports optional options parameter', () => {
-    const configStruct = object({
-      url: string(),
-    });
-    const capabilityFactory = vi.fn().mockReturnValue({ request: vi.fn() });
-
-    const specification = makeCapabilitySpecification(
-      configStruct,
-      capabilityFactory,
-    );
-    const config = { url: 'https://example.com' };
-    const options = { retries: 3 };
-
-    specification.capabilityFactory(config, options);
-
-    expect(capabilityFactory).toHaveBeenCalledWith(config, options);
-  });
-
-  it('validates config using specification', () => {
-    const configStruct = object({
-      url: string(),
-      timeout: number(),
-    });
-    const capabilityFactory = createTestFactory();
-    const specification = makeCapabilitySpecification(
-      configStruct,
-      capabilityFactory,
+      fetchConfigStruct,
+      mockCapabilityFactory,
     );
 
-    const validConfig = { url: 'https://example.com', timeout: 5000 };
-    const invalidConfig = { url: 'https://example.com', timeout: 'invalid' };
-
+    const validConfig: FetchConfig = { allowedHosts: ['example.test'] };
     expect(() => specification.configStruct.create(validConfig)).not.toThrow();
+  });
+
+  it('rejects invalid config using configStruct', () => {
+    const mockCapabilityFactory = vi.fn();
+    const specification = makeCapabilitySpecification(
+      fetchConfigStruct,
+      mockCapabilityFactory,
+    );
+
+    const invalidConfig = { allowedHosts: 'not-an-array' };
     expect(() => specification.configStruct.create(invalidConfig)).toThrow(
-      /At path: .* -- Expected .*, but received: .*/u,
+      superstructValidationError,
     );
   });
 
-  it('has correct type structure', () => {
-    const configStruct = createTestStruct();
-    const capabilityFactory = createTestFactory();
+  it('calls capabilityFactory with config and options', () => {
+    const mockCapabilityFactory = vi.fn().mockReturnValue('mock-capability');
+    const specification = makeCapabilitySpecification(
+      fetchConfigStruct,
+      mockCapabilityFactory,
+    );
 
-    const specification: CapabilitySpecification<
-      typeof configStruct,
-      ReturnType<typeof capabilityFactory>
-    > = makeCapabilitySpecification(configStruct, capabilityFactory);
+    const config: FetchConfig = { allowedHosts: ['example.test'] };
+    const options = { timeout: 5000 };
 
-    expect(specification.configStruct).toBeDefined();
-    expect(specification.capabilityFactory).toBeDefined();
-    expect(typeof specification.capabilityFactory).toBe('function');
+    const result = specification.capabilityFactory(config, options);
+
+    expect(mockCapabilityFactory).toHaveBeenCalledWith(config, options);
+    expect(result).toBe('mock-capability');
+  });
+
+  it('calls capabilityFactory with config only', () => {
+    const mockCapabilityFactory = vi.fn().mockReturnValue('mock-capability');
+    const specification = makeCapabilitySpecification(
+      fetchConfigStruct,
+      mockCapabilityFactory,
+    );
+
+    const config: FetchConfig = { allowedHosts: ['example.test'] };
+
+    const result = specification.capabilityFactory(config);
+
+    expect(mockCapabilityFactory).toHaveBeenCalledWith(config);
+    expect(result).toBe('mock-capability');
   });
 });

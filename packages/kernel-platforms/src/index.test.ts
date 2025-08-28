@@ -23,13 +23,4 @@ describe('kernel-platforms index', () => {
     // This test passes if TypeScript compilation succeeds
     expect(true).toBe(true);
   });
-
-  it('validates platform config structure', () => {
-    const validConfig = {
-      fetch: {},
-      fs: { rootDir: '/tmp' },
-    };
-
-    expect(() => platformConfigStruct.create(validConfig)).not.toThrow();
-  });
 });

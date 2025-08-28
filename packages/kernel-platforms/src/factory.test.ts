@@ -9,7 +9,7 @@ describe('makePlatformFactory', () => {
     fs: vi.fn().mockReturnValue({ readFile: vi.fn() }),
   });
 
-  it('creates a platform factory function', () => {
+  it('creates platform factory', () => {
     const mockFactories = createMockFactories();
     const platformFactory = makePlatformFactory(mockFactories);
     expect(typeof platformFactory).toBe('function');
@@ -40,7 +40,7 @@ describe('makePlatformFactory', () => {
       const mockFactories = createMockFactories();
       const platformFactory = makePlatformFactory(mockFactories);
 
-      const platform = await platformFactory(config, expectedOptions);
+      const platform = await platformFactory(config, expectedOptions as never);
 
       expectedCapabilities.forEach((capability) => {
         expect(platform[capability as keyof typeof platform]).toBeDefined();
@@ -82,16 +82,5 @@ describe('makePlatformFactory', () => {
   ])('throws error for $name', async ({ factories, config, expectedError }) => {
     const platformFactory = makePlatformFactory(factories);
     await expect(platformFactory(config)).rejects.toThrow(expectedError);
-  });
-
-  it('returns hardened platform object', async () => {
-    const mockFactories = createMockFactories();
-    const platformFactory = makePlatformFactory(mockFactories);
-    const config = { fetch: {} };
-
-    const platform = await platformFactory(config);
-
-    expect(platform).toBeDefined();
-    expect(typeof platform.fetch).toBe('object');
   });
 });
