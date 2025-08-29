@@ -105,10 +105,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/kernel-platforms/**': {
-          statements: 98.46,
-          functions: 97.61,
-          branches: 96.77,
-          lines: 98.44,
+          statements: 99.27,
+          functions: 100,
+          branches: 96.96,
+          lines: 99.25,
         },
         'packages/kernel-rpc-methods/**': {
           statements: 100,
