@@ -4,15 +4,20 @@ import * as indexModule from './index.ts';
 
 describe('index', () => {
   it('has the expected exports', () => {
-    expect(Object.keys(indexModule).sort()).toStrictEqual(
-      expect.arrayContaining([
-        'delay',
-        'isPrimitive',
-        'isTypedArray',
-        'isTypedObject',
-        'makeCounter',
-        'stringify',
-      ]),
-    );
+    expect(Object.keys(indexModule).sort()).toStrictEqual([
+      'EmptyJsonArray',
+      'delay',
+      'fetchValidatedJson',
+      'isJsonRpcCall',
+      'isJsonRpcMessage',
+      'isPrimitive',
+      'isTypedArray',
+      'isTypedObject',
+      'makeCounter',
+      'makeDefaultExo',
+      'makeDefaultInterface',
+      'stringify',
+      'waitUntilQuiescent',
+    ]);
   });
 });
