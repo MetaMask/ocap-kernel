@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for simple test vat.
@@ -11,7 +11,7 @@ import { Far } from '@endo/marshal';
 export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   console.log(`buildRootObject "${name}"`);
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap() {
       console.log(`vat ${name}  bootstrap() called`);
     },

@@ -1,7 +1,7 @@
 import { makeScalarMapStore, makeScalarSetStore } from '@agoric/store';
 import { makeExo, defineExoClass, defineExoClassKit } from '@endo/exo';
-import { Far } from '@endo/marshal';
 import { M } from '@endo/patterns';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for testing exo objects and liveslots virtual object functionality.
@@ -158,7 +158,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
     },
   });
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap() {
       tlog(`bootstrap()`);
 

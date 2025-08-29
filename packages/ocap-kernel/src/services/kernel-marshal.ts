@@ -1,8 +1,8 @@
 import { assert, Fail } from '@endo/errors';
-import { Far, passStyleOf } from '@endo/far';
-import { makeMarshal } from '@endo/marshal';
+import { passStyleOf, makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import type { Passable } from '@endo/pass-style';
+import { makeDefaultExo } from '@metamask/kernel-utils';
 
 import type { KRef } from '../types.ts';
 
@@ -74,7 +74,7 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
   if (kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp')) {
     return makeStandinPromise(kref);
   }
-  const standinObject = Far(iface, {
+  const standinObject = makeDefaultExo(iface, {
     iface: () => iface,
     getKref: () => `${kref}`,
   });
@@ -96,12 +96,13 @@ export function krefOf(obj: SlotValue): string {
     case 'remotable': {
       const { getKref } = obj as ObjectStandin;
       assert.typeof(getKref, 'function', 'object lacks getKref function');
-      return getKref();
+      // `obj` is an exo, and its passable guards throw if its called without a `this`
+      return Reflect.apply(getKref, obj, []);
     }
     default:
       // When krefOf() is called as part of kmarshal.serialize, marshal
       // will only give it things that are 'remotable' (Promises and the
-      // Far objects created by kslot()).  When krefOf() is called by
+      // Exo objects created by kslot()).  When krefOf() is called by
       // kernel code, it ought to throw if 'obj' is not one of the
       // objects created by our kslot().
       return Fail`krefOf requires a promise or remotable`;

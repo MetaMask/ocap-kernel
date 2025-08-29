@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./exo": {
+      "import": {
+        "types": "./dist/exo.d.mts",
+        "default": "./dist/exo.mjs"
+      },
+      "require": {
+        "types": "./dist/exo.d.cts",
+        "default": "./dist/exo.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

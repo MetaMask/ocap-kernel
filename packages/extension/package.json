@@ -42,7 +42,6 @@
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",
-    "@endo/marshal": "^1.8.0",
     "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",

@@ -6,7 +6,7 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'makeEventualIterator',
-      'makeFarGenerator',
+      'makeRemoteGenerator',
     ]);
   });
 });

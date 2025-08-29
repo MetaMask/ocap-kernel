@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for running a test of kernel service objects.
@@ -14,10 +14,10 @@ export function buildRootObject(vatPowers, parameters) {
   const tlog = (...args) => logger.log(...args);
   console.log(`buildRootObject "${name}"`);
 
-  const thing = Far('thing', {});
+  const thing = makeDefaultExo('thing', {});
   let testService;
 
-  const mainVatRoot = Far('root', {
+  const mainVatRoot = makeDefaultExo('root', {
     async bootstrap(_vats, services) {
       console.log(`vat ${name} is bootstrap`);
       testService = services.testService;

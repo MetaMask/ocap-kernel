@@ -228,11 +228,12 @@ const config = createConfig([
 
   {
     files: [
+      'packages/*/src/vats/**/*',
+      'packages/*/test/vats/**/*',
       'packages/nodejs/test/workers/**/*',
       'packages/logger/test/workers/**/*',
     ],
     rules: {
-      // Test worker files can resolve these imports, even if eslint cannot.
       'import-x/no-unresolved': 'off',
     },
   },
