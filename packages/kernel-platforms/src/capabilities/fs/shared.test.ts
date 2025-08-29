@@ -1,150 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  makeNoSymlinksCaveat,
-  makeRootCaveat,
-  makePathCaveat,
   makeCaveatedFsOperation,
+  makeCaveatedSyncFsOperation,
   makeFsSpecification,
 } from './shared.ts';
-import type { ResolvePath, ReadFile, WriteFile, Readdir } from './types.ts';
-
-describe('makeNoSymlinksCaveat', () => {
-  it('allows real paths', async () => {
-    const resolvePath: ResolvePath = vi.fn().mockResolvedValue('/real/path');
-    const caveat = makeNoSymlinksCaveat(resolvePath);
-
-    expect(await caveat('/real/path')).toBeUndefined();
-    expect(resolvePath).toHaveBeenCalledWith('/real/path');
-  });
-
-  it('rejects symlinks', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValue('/resolved/symlink/path');
-    const caveat = makeNoSymlinksCaveat(resolvePath);
-
-    await expect(caveat('/symlink/path')).rejects.toThrow(
-      'Symlinks are prohibited: /symlink/path',
-    );
-    expect(resolvePath).toHaveBeenCalledWith('/symlink/path');
-  });
-
-  it('handles string input', async () => {
-    const input = '/path';
-    const mockReturn = '/path';
-    const resolvePath: ResolvePath = vi.fn().mockResolvedValue(mockReturn);
-    const caveat = makeNoSymlinksCaveat(resolvePath);
-
-    expect(await caveat(input)).toBeUndefined();
-  });
-
-  it('handles Buffer input', async () => {
-    const input = Buffer.from('/path');
-    const mockReturn = '/resolved/path';
-    const resolvePath: ResolvePath = vi.fn().mockResolvedValue(mockReturn);
-    const caveat = makeNoSymlinksCaveat(resolvePath);
-
-    await expect(caveat(input)).rejects.toThrow(
-      'Symlinks are prohibited: /path',
-    );
-  });
-});
-
-describe('makeRootCaveat', () => {
-  it('allows paths within root', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/root/subdir/file.txt')
-      .mockResolvedValueOnce('/root');
-    const caveat = makeRootCaveat('/root', resolvePath);
-
-    expect(await caveat('/root/subdir/file.txt')).toBeUndefined();
-    expect(resolvePath).toHaveBeenCalledWith('/root/subdir/file.txt');
-    expect(resolvePath).toHaveBeenCalledWith('/root');
-  });
-
-  it('rejects paths outside root', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/outside/file.txt')
-      .mockResolvedValueOnce('/root');
-    const caveat = makeRootCaveat('/root', resolvePath);
-
-    await expect(caveat('/outside/file.txt')).rejects.toThrow(
-      'Path /outside/file.txt is outside allowed root /root',
-    );
-  });
-
-  it('allows root directory', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/root')
-      .mockResolvedValueOnce('/root');
-    const caveat = makeRootCaveat('/root', resolvePath);
-
-    expect(await caveat('/root')).toBeUndefined();
-  });
-
-  it('rejects paths starting with root but outside', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/root-other/file.txt')
-      .mockResolvedValueOnce('/different-root');
-    const caveat = makeRootCaveat('/root', resolvePath);
-
-    await expect(caveat('/root-other/file.txt')).rejects.toThrow(
-      'Path /root-other/file.txt is outside allowed root /root',
-    );
-  });
-});
-
-describe('makePathCaveat', () => {
-  it('combines symlink and root restrictions', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/root/subdir/file.txt')
-      .mockResolvedValueOnce('/root/subdir/file.txt')
-      .mockResolvedValueOnce('/root');
-    const caveat = makePathCaveat('/root', resolvePath);
-
-    await expect(caveat('/root/subdir/file.txt')).rejects.toThrow(
-      'Path /root is outside allowed root /root',
-    );
-    expect(resolvePath).toHaveBeenCalledTimes(4);
-  });
-
-  it('rejects symlinks within root', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/resolved/symlink/path')
-      .mockResolvedValueOnce('/resolved/symlink/path')
-      .mockResolvedValueOnce('/root');
-    const caveat = makePathCaveat('/root', resolvePath);
-
-    await expect(caveat('/symlink/path')).rejects.toThrow(
-      'Symlinks are prohibited: /symlink/path',
-    );
-  });
-
-  it('rejects paths outside root', async () => {
-    const resolvePath: ResolvePath = vi
-      .fn()
-      .mockResolvedValueOnce('/outside/file.txt')
-      .mockResolvedValueOnce('/outside/file.txt')
-      .mockResolvedValueOnce('/root');
-    const caveat = makePathCaveat('/root', resolvePath);
-
-    await expect(caveat('/outside/file.txt')).rejects.toThrow(
-      'Path /root is outside allowed root /root',
-    );
-  });
-});
+import type { ReadFile, Access, ExistsSync, SyncPathCaveat } from './types.ts';
 
 describe('makeCaveatedFsOperation', () => {
   it('applies caveat before operation', async () => {
     const mockOperation = vi.fn().mockResolvedValue('result');
-    const mockCaveat = vi.fn().mockResolvedValue(undefined);
+    const mockCaveat = vi.fn().mockReturnValue(undefined);
 
     const caveatedOperation = makeCaveatedFsOperation(
       mockOperation,
@@ -160,7 +26,9 @@ describe('makeCaveatedFsOperation', () => {
 
   it('throws on caveat rejection', async () => {
     const mockOperation = vi.fn();
-    const mockCaveat = vi.fn().mockRejectedValue(new Error('Path not allowed'));
+    const mockCaveat = vi.fn().mockImplementation(() => {
+      throw new Error('Path not allowed');
+    });
 
     const caveatedOperation = makeCaveatedFsOperation(
       mockOperation,
@@ -176,7 +44,7 @@ describe('makeCaveatedFsOperation', () => {
 
   it('handles void operations', async () => {
     const mockOperation = vi.fn().mockResolvedValue(undefined);
-    const mockCaveat = vi.fn().mockResolvedValue(undefined);
+    const mockCaveat = vi.fn().mockReturnValue(undefined);
 
     const caveatedOperation = makeCaveatedFsOperation(
       mockOperation,
@@ -189,23 +57,74 @@ describe('makeCaveatedFsOperation', () => {
   });
 });
 
+describe('makeCaveatedSyncFsOperation', () => {
+  it('applies caveat before operation', () => {
+    const mockOperation = vi.fn().mockReturnValue('result');
+    const mockCaveat = vi.fn().mockReturnValue(undefined);
+
+    const caveatedOperation = makeCaveatedSyncFsOperation(
+      mockOperation,
+      mockCaveat,
+    );
+
+    const result = caveatedOperation('/path', 'arg2', 'arg3');
+
+    expect(mockCaveat).toHaveBeenCalledWith('/path');
+    expect(mockOperation).toHaveBeenCalledWith('/path', 'arg2', 'arg3');
+    expect(result).toBe('result');
+  });
+
+  it('throws on caveat rejection', () => {
+    const mockOperation = vi.fn();
+    const mockCaveat = vi.fn().mockImplementation(() => {
+      throw new Error('Path not allowed');
+    });
+
+    const caveatedOperation = makeCaveatedSyncFsOperation(
+      mockOperation,
+      mockCaveat,
+    );
+
+    expect(() => caveatedOperation('/path')).toThrow('Path not allowed');
+    expect(mockCaveat).toHaveBeenCalledWith('/path');
+    expect(mockOperation).not.toHaveBeenCalled();
+  });
+
+  it('handles void operations', () => {
+    const mockOperation = vi.fn().mockReturnValue(undefined);
+    const mockCaveat = vi.fn().mockReturnValue(undefined);
+
+    const caveatedOperation = makeCaveatedSyncFsOperation(
+      mockOperation,
+      mockCaveat,
+    );
+
+    expect(caveatedOperation('/path')).toBeUndefined();
+    expect(mockCaveat).toHaveBeenCalledWith('/path');
+    expect(mockOperation).toHaveBeenCalledWith('/path');
+  });
+});
+
 describe('makeFsSpecification', () => {
   const createMockSpecification = () => {
     const mockReadFile: ReadFile = vi.fn();
-    const mockWriteFile: WriteFile = vi.fn();
-    const mockReaddir: Readdir = vi.fn();
-    const resolvePath: ResolvePath = vi.fn().mockResolvedValue('/path');
+    const mockAccess: Access = vi.fn();
+    const mockExistsSync: ExistsSync = vi.fn();
+    const mockPathCaveat: SyncPathCaveat = vi.fn();
 
     return {
       specification: makeFsSpecification({
-        resolvePath,
-        makeReadFile: () => mockReadFile,
-        makeWriteFile: () => mockWriteFile,
-        makeReaddir: () => mockReaddir,
+        makeExistsSync: () => mockExistsSync,
+        promises: {
+          makeReadFile: () => mockReadFile,
+          makeAccess: () => mockAccess,
+        },
+        makePathCaveat: () => mockPathCaveat,
       }),
       mockReadFile,
-      mockWriteFile,
-      mockReaddir,
+      mockAccess,
+      mockExistsSync,
+      mockPathCaveat,
     };
   };
 
@@ -216,49 +135,53 @@ describe('makeFsSpecification', () => {
     expect(specification).toHaveProperty('capabilityFactory');
   });
 
-  it('creates capability with readFile', () => {
+  it('creates capability with existsSync', () => {
     const { specification } = createMockSpecification();
-    const config = { rootDir: '/root', readFile: true };
+    const config = { rootDir: '/root', existsSync: true };
     const capability = specification.capabilityFactory(config);
 
-    expect(capability).toHaveProperty('readFile');
-    expect(capability).not.toHaveProperty('writeFile');
-    expect(capability).not.toHaveProperty('readdir');
+    expect(capability).toHaveProperty('existsSync');
+    expect(capability).not.toHaveProperty('promises');
   });
 
-  it('creates capability with writeFile', () => {
+  it('creates capability with promises.readFile', () => {
     const { specification } = createMockSpecification();
-    const config = { rootDir: '/root', writeFile: true };
+    const config = { rootDir: '/root', promises: { readFile: true } };
     const capability = specification.capabilityFactory(config);
 
-    expect(capability).not.toHaveProperty('readFile');
-    expect(capability).toHaveProperty('writeFile');
-    expect(capability).not.toHaveProperty('readdir');
+    expect(capability).not.toHaveProperty('existsSync');
+    expect(capability).toHaveProperty('promises');
+    expect(capability.promises).toHaveProperty('readFile');
+    expect(capability.promises).not.toHaveProperty('access');
   });
 
-  it('creates capability with readdir', () => {
+  it('creates capability with promises.access', () => {
     const { specification } = createMockSpecification();
-    const config = { rootDir: '/root', readdir: true };
+    const config = { rootDir: '/root', promises: { access: true } };
     const capability = specification.capabilityFactory(config);
 
-    expect(capability).not.toHaveProperty('readFile');
-    expect(capability).not.toHaveProperty('writeFile');
-    expect(capability).toHaveProperty('readdir');
+    expect(capability).not.toHaveProperty('existsSync');
+    expect(capability).toHaveProperty('promises');
+    expect(capability.promises).not.toHaveProperty('readFile');
+    expect(capability.promises).toHaveProperty('access');
   });
 
   it('creates capability with all operations', () => {
     const { specification } = createMockSpecification();
     const config = {
       rootDir: '/root',
-      readFile: true,
-      writeFile: true,
-      readdir: true,
+      existsSync: true,
+      promises: {
+        readFile: true,
+        access: true,
+      },
     };
     const capability = specification.capabilityFactory(config);
 
-    expect(capability).toHaveProperty('readFile');
-    expect(capability).toHaveProperty('writeFile');
-    expect(capability).toHaveProperty('readdir');
+    expect(capability).toHaveProperty('existsSync');
+    expect(capability).toHaveProperty('promises');
+    expect(capability.promises).toHaveProperty('readFile');
+    expect(capability.promises).toHaveProperty('access');
   });
 
   it('creates capability with no operations', () => {
@@ -266,8 +189,7 @@ describe('makeFsSpecification', () => {
     const config = { rootDir: '/root' };
     const capability = specification.capabilityFactory(config);
 
-    expect(capability).not.toHaveProperty('readFile');
-    expect(capability).not.toHaveProperty('writeFile');
-    expect(capability).not.toHaveProperty('readdir');
+    expect(capability).not.toHaveProperty('existsSync');
+    expect(capability).not.toHaveProperty('promises');
   });
 });

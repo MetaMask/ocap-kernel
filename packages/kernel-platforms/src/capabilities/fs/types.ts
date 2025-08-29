@@ -1,32 +1,36 @@
 import { exactOptional, object, string, boolean } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { PathLike } from 'fs';
-import type { readFile, writeFile, readdir } from 'fs/promises';
+import type { PathLike, existsSync } from 'fs';
+import type { readFile, access } from 'fs/promises';
 
 export type { PathLike };
 
-// Throws if the path argument violates expectations.
+// Throws if the path argument violates expectations (async version).
 export type PathCaveat = (path: PathLike) => Promise<void>;
-// As above, but expects a resolved path.
-export type ResolvedPathCaveat = (resolvedPath: string) => Promise<void>;
+// Throws if the path argument violates expectations (sync version).
+export type SyncPathCaveat = (path: PathLike) => void;
 
 export type ReadFile = typeof readFile;
-export type WriteFile = typeof writeFile;
-export type Readdir = typeof readdir;
-
-export type ResolvePath = (path: PathLike) => Promise<string>;
+export type Access = typeof access;
+export type ExistsSync = typeof existsSync;
 
 export const fsConfigStruct = object({
   rootDir: string(),
-  readFile: exactOptional(boolean()),
-  writeFile: exactOptional(boolean()),
-  readdir: exactOptional(boolean()),
+  existsSync: exactOptional(boolean()),
+  promises: exactOptional(
+    object({
+      readFile: exactOptional(boolean()),
+      access: exactOptional(boolean()),
+    }),
+  ),
 });
 
 export type FsCapability = Partial<{
-  readFile: ReadFile;
-  writeFile: WriteFile;
-  readdir: Readdir;
+  existsSync: ExistsSync;
+  promises: Partial<{
+    readFile: ReadFile;
+    access: Access;
+  }>;
 }>;
 
 export type FsConfig = Infer<typeof fsConfigStruct>;

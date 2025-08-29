@@ -9,33 +9,37 @@ describe('fs types', () => {
     it.each([
       { name: 'minimal config with rootDir', config: { rootDir: '/root' } },
       {
-        name: 'config with rootDir and readFile enabled',
-        config: { rootDir: '/root', readFile: true },
+        name: 'config with rootDir and existsSync enabled',
+        config: { rootDir: '/root', existsSync: true },
       },
       {
-        name: 'config with rootDir and writeFile enabled',
-        config: { rootDir: '/root', writeFile: true },
+        name: 'config with rootDir and promises.readFile enabled',
+        config: { rootDir: '/root', promises: { readFile: true } },
       },
       {
-        name: 'config with rootDir and readdir enabled',
-        config: { rootDir: '/root', readdir: true },
+        name: 'config with rootDir and promises.access enabled',
+        config: { rootDir: '/root', promises: { access: true } },
       },
       {
         name: 'config with all operations enabled',
         config: {
           rootDir: '/root',
-          readFile: true,
-          writeFile: true,
-          readdir: true,
+          existsSync: true,
+          promises: {
+            readFile: true,
+            access: true,
+          },
         },
       },
       {
         name: 'config with some operations disabled',
         config: {
           rootDir: '/root',
-          readFile: false,
-          writeFile: true,
-          readdir: false,
+          existsSync: false,
+          promises: {
+            readFile: true,
+            access: false,
+          },
         },
       },
       { name: 'config with empty string rootDir', config: { rootDir: '' } },
@@ -47,16 +51,16 @@ describe('fs types', () => {
       { name: 'config without rootDir', config: {} },
       { name: 'config with non-string rootDir', config: { rootDir: 123 } },
       {
-        name: 'config with non-boolean readFile',
-        config: { rootDir: '/root', readFile: 'true' },
+        name: 'config with non-boolean existsSync',
+        config: { rootDir: '/root', existsSync: 'true' },
       },
       {
-        name: 'config with non-boolean writeFile',
-        config: { rootDir: '/root', writeFile: 'true' },
+        name: 'config with non-boolean promises.readFile',
+        config: { rootDir: '/root', promises: { readFile: 'true' } },
       },
       {
-        name: 'config with non-boolean readdir',
-        config: { rootDir: '/root', readdir: 'true' },
+        name: 'config with non-boolean promises.access',
+        config: { rootDir: '/root', promises: { access: 'true' } },
       },
       {
         name: 'config with additional properties',
@@ -73,24 +77,27 @@ describe('fs types', () => {
       const validated = fsConfigStruct.create(config);
 
       expect(validated.rootDir).toBe('/root');
-      expect(validated.readFile).toBeUndefined();
-      expect(validated.writeFile).toBeUndefined();
-      expect(validated.readdir).toBeUndefined();
+      // eslint-disable-next-line n/no-sync
+      expect(validated.existsSync).toBeUndefined();
+      expect(validated.promises).toBeUndefined();
     });
 
     it('preserves boolean values', () => {
       const config: FsConfig = {
         rootDir: '/root',
-        readFile: true,
-        writeFile: false,
-        readdir: true,
+        existsSync: true,
+        promises: {
+          readFile: false,
+          access: true,
+        },
       };
       const validated = fsConfigStruct.create(config);
 
       expect(validated.rootDir).toBe('/root');
-      expect(validated.readFile).toBe(true);
-      expect(validated.writeFile).toBe(false);
-      expect(validated.readdir).toBe(true);
+      // eslint-disable-next-line n/no-sync
+      expect(validated.existsSync).toBe(true);
+      expect(validated.promises?.readFile).toBe(false);
+      expect(validated.promises?.access).toBe(true);
     });
   });
 });

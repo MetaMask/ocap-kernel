@@ -5,17 +5,32 @@ import type { FsConfig } from './types.ts';
 
 describe('fs browser capability', () => {
   describe('capabilityFactory', () => {
+    it('existsSync returns false', () => {
+      const config: FsConfig = { rootDir: '/root', existsSync: true };
+      const capability = capabilityFactory(config);
+
+      // eslint-disable-next-line n/no-sync
+      expect(capability.existsSync?.('/path')).toBe(false);
+    });
+
     it.each([
-      { name: 'readFile', config: { rootDir: '/root', readFile: true } },
-      { name: 'writeFile', config: { rootDir: '/root', writeFile: true } },
-      { name: 'readdir', config: { rootDir: '/root', readdir: true } },
+      {
+        name: 'promises.readFile',
+        config: { rootDir: '/root', promises: { readFile: true } },
+      },
+      {
+        name: 'promises.access',
+        config: { rootDir: '/root', promises: { access: true } },
+      },
       {
         name: 'all operations',
         config: {
           rootDir: '/root',
-          readFile: true,
-          writeFile: true,
-          readdir: true,
+          existsSync: true,
+          promises: {
+            readFile: true,
+            access: true,
+          },
         },
       },
     ])('throws not implemented error for $name', ({ config }) => {
@@ -28,9 +43,8 @@ describe('fs browser capability', () => {
       const config: FsConfig = { rootDir: '/root' };
       const capability = capabilityFactory(config);
 
-      expect(capability).not.toHaveProperty('readFile');
-      expect(capability).not.toHaveProperty('writeFile');
-      expect(capability).not.toHaveProperty('readdir');
+      expect(capability).not.toHaveProperty('existsSync');
+      expect(capability).not.toHaveProperty('promises');
     });
   });
 });
