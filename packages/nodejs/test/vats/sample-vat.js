@@ -1,4 +1,4 @@
-import { Far } from '@endo/far';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a sample vat.
@@ -10,7 +10,7 @@ import { Far } from '@endo/far';
  * @returns {object} The root object for the new vat.
  */
 export function buildRootObject(_, { name = 'unknown' }) {
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap: () => {
       console.log(`bootstrap ${name}`);
     },

@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for generic test vat.
@@ -13,7 +13,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   console.log(`buildRootObject "${name}"`);
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap(vats) {
       console.log(`vat ${name} is bootstrap`);
       const pb = E(vats.bob).hello(name);

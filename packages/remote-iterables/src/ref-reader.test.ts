@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 
 import { makeRefIterator } from './ref-reader.ts';
 
-vi.mock('@endo/far', () => ({
+vi.mock('@endo/eventual-send', () => ({
   E: vi.fn((ref) => ref),
 }));
 

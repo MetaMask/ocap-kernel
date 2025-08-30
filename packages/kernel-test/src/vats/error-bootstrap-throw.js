@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 console.log('bootstrap throw');
 
@@ -9,7 +9,7 @@ console.log('bootstrap throw');
  */
 export function buildRootObject() {
   console.log('buildRootObject');
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap: () => {
       console.log('bootstrap');
       throw new Error('from bootstrap');

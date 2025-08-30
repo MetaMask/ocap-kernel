@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for running a test of the vatstore.
@@ -9,7 +9,7 @@ import { Far } from '@endo/marshal';
  * @returns {unknown} The root object for the new vat.
  */
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  return Far('root', {
+  return makeDefaultExo('root', {
     async fizz() {
       return await vatPowers.foo?.(parameters.bar);
     },

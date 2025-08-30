@@ -1,3 +1,5 @@
+export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
+export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export type {
@@ -15,5 +17,4 @@ export {
   isJsonRpcCall,
   isJsonRpcMessage,
 } from './types.ts';
-export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { waitUntilQuiescent } from './wait-quiescent.ts';

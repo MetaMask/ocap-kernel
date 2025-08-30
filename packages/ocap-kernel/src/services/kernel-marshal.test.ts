@@ -1,4 +1,4 @@
-import { passStyleOf } from '@endo/far';
+import { passStyleOf } from '@endo/marshal';
 import { describe, it, expect } from 'vitest';
 
 import { kslot, krefOf, kser, kunser, makeError } from './kernel-marshal.ts';

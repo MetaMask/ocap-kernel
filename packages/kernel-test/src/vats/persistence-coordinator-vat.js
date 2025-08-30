@@ -1,6 +1,6 @@
 /* global harden */
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a persistent coordinator vat.
@@ -29,7 +29,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
     tlog(`initialized`);
   }
 
-  return Far('coordinator', {
+  return makeDefaultExo('coordinator', {
     async bootstrap(vats) {
       tlog(`bootstrap called`);
       if (!baggage.has('workers')) {

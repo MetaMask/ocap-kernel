@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for vats that will run various tests.
@@ -27,14 +27,14 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   log(`buildRootObject`);
   log(`configuration parameters: ${JSON.stringify(parameters)}`);
 
-  const thing = Far('thing', {
+  const thing = makeDefaultExo('thing', {
     second() {
       tlog(`thing.second`);
       return `Bob's second answer`;
     },
   });
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap(vats) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);

@@ -1,5 +1,4 @@
 import { makeExo } from '@endo/exo';
-import type { FarRef } from '@endo/far';
 import { M } from '@endo/patterns';
 
 export const AsyncIteratorInterface = M.interface(
@@ -42,18 +41,11 @@ export const asyncIterate = <Item>(
  * Make a remotable AsyncIterator.
  *
  * @param iterable - The iterable object.
- * @returns A FarRef for the iterator.
+ * @returns An exo for the iterator.
  */
-export const makeIteratorRef = <Item>(
-  iterable: SomehowAsyncIterable<Item>,
-): FarRef<AsyncIterator<Item>> & {
-  next: () => Promise<IteratorResult<Item>>;
-  return: (value: Item) => Promise<IteratorResult<Item>>;
-  throw: (error: unknown) => Promise<IteratorResult<Item>>;
-  [Symbol.asyncIterator]: () => AsyncIterator<Item>;
-} => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const makeIteratorRef = <Item>(iterable: SomehowAsyncIterable<Item>) => {
   const iterator = asyncIterate(iterable);
-  // @ts-expect-error while switching from Far
   return makeExo('AsyncIterator', AsyncIteratorInterface, {
     async next() {
       return iterator.next(undefined);

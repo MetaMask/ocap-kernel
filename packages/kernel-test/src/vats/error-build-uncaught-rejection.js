@@ -1,5 +1,5 @@
-import { Far } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 console.log('build uncaught rejection');
 
@@ -14,7 +14,7 @@ export function buildRootObject() {
   const { reject } = makePromiseKit();
   reject('from buildRootObject');
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap: () => {
       console.log('bootstrap');
     },

@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for vats that will run various tests.
@@ -12,7 +12,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   const name = parameters?.name ?? 'anonymous';
   const logger = vatPowers.logger.subLogger({ tags: ['test'] });
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap() {
       // do nothing
     },

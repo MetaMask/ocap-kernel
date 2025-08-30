@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a persistent worker vat.
@@ -27,7 +27,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
     tlog(`initialized with id: ${id}`);
   }
 
-  return Far('worker', {
+  return makeDefaultExo('worker', {
     async bootstrap() {
       tlog(`bootstrap called`);
       return `Worker${id} initialized`;

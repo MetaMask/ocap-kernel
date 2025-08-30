@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./exo": {
+      "import": {
+        "types": "./dist/exo.d.mts",
+        "default": "./dist/exo.mjs"
+      },
+      "require": {
+        "types": "./dist/exo.d.cts",
+        "default": "./dist/exo.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -57,6 +67,8 @@
   },
   "dependencies": {
     "@endo/captp": "^4.4.8",
+    "@endo/exo": "^1.5.12",
+    "@endo/patterns": "^1.7.0",
     "@endo/promise-kit": "^1.1.13",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.2",

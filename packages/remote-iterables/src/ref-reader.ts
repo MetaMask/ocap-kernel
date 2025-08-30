@@ -1,5 +1,5 @@
-import { E } from '@endo/far';
-import type { ERef } from '@endo/far';
+import { E } from '@endo/eventual-send';
+import type { ERef } from '@endo/eventual-send';
 /**
  * Make an iterator from a remote reference.
  *

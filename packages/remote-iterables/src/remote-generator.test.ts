@@ -1,13 +1,13 @@
-import { E } from '@endo/far';
+import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { Reader, Writer } from '@endo/stream';
 import { makePipe } from '@endo/stream';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mocked } from 'vitest';
 
-import { makeFarGenerator } from './far-generator.ts';
+import { makeRemoteGenerator } from './remote-generator.ts';
 
-vi.mock('@endo/far', () => ({
+vi.mock('@endo/eventual-send', () => ({
   E: vi.fn((obj) => obj),
 }));
 
@@ -37,9 +37,9 @@ describe('far-generator', () => {
     vi.mocked(makePipe).mockReturnValue([mockWriter, mockReader]);
   });
 
-  describe('makeFarGenerator', () => {
+  describe('makeRemoteGenerator', () => {
     it('should wrap a generator', async () => {
-      const result = makeFarGenerator(
+      const result = makeRemoteGenerator(
         (async function* () {
           // Empty generator
         })(),
@@ -53,7 +53,7 @@ describe('far-generator', () => {
 
     it('should pipe values from the generator to the writer', async () => {
       const generated = makePromiseKit<string>();
-      const result = makeFarGenerator(
+      const result = makeRemoteGenerator(
         (async function* () {
           yield 'test';
           generated.resolve('yielded');
@@ -71,7 +71,7 @@ describe('far-generator', () => {
     it('calls writer.throw if the generator throws', async () => {
       const generated = makePromiseKit<string>();
       const error = new Error('test');
-      const result = makeFarGenerator(
+      const result = makeRemoteGenerator(
         // eslint-disable-next-line require-yield
         (async function* () {
           generated.resolve('threw');

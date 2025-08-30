@@ -1,6 +1,6 @@
 /* global harden */
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for generic test vat.
@@ -42,7 +42,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
   }
   tlog(`start count: ${startCount}`);
 
-  const me = Far('root', {
+  const me = makeDefaultExo('root', {
     async bootstrap(vats) {
       tlog(`bootstrap()`);
       // Explanation for the following bit of gymnastics: we'd like to save
