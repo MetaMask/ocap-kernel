@@ -26,5 +26,9 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       console.log(message);
       return message;
     },
+    async fetch(url) {
+      const response = await fetch(url);
+      return await response.json();
+    },
   });
 }
