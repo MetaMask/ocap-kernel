@@ -16,6 +16,7 @@
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
     { "path": "./packages/extension" },
+    { "path": "./packages/kernel-agents" },
     { "path": "./packages/kernel-browser-runtime" },
     { "path": "./packages/kernel-errors" },
     { "path": "./packages/kernel-language-model-service" },
