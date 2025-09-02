@@ -9,7 +9,6 @@ import { describe, it, expect, vi } from 'vitest';
 async function setupTestDb() {
   const db = await makeSQLKernelDatabase({
     dbFilename: ':memory:',
-    label: 'savepoint-test',
   });
   const { kernelKVStore } = db;
   kernelKVStore.set('key1', 'value1');
