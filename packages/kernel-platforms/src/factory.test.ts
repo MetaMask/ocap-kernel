@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { makePlatformFactory } from './factory.ts';
-import type { PlatformConfig } from './types.ts';
+import type { PlatformConfig, PlatformFactory } from './types.ts';
 
 describe('makePlatformFactory', () => {
   const createMockFactories = () => ({
@@ -40,7 +40,10 @@ describe('makePlatformFactory', () => {
       const mockFactories = createMockFactories();
       const platformFactory = makePlatformFactory(mockFactories);
 
-      const platform = await platformFactory(config, expectedOptions as never);
+      const platform = await platformFactory(
+        config,
+        expectedOptions as Parameters<PlatformFactory>[1],
+      );
 
       expectedCapabilities.forEach((capability) => {
         expect(platform[capability as keyof typeof platform]).toBeDefined();

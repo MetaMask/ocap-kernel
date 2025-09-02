@@ -55,16 +55,5 @@ export const createPlatformTestSuite = (
       expect(platform.fs).toBeUndefined();
       expect(typeof platform.fetch).toBe('function');
     });
-
-    it('passes options to capability factories', async () => {
-      const config = { fetch: {} };
-      const options = { fetch: { fromFetch: vi.fn() } };
-
-      await makePlatform(config, options as never);
-
-      // The actual capability factory calls are mocked, but we can verify
-      // that the platform factory handles options correctly
-      expect(true).toBe(true);
-    });
   });
 };

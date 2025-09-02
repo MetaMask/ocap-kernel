@@ -23,8 +23,7 @@ const validatePlatformConfig = (
       { cause: { configured, known } },
     );
   }
-  // Validate the config structure - we need to cast to the full config type for validation
-  assert(config as PlatformConfig, platformConfigStruct);
+  assert(config, platformConfigStruct);
 };
 
 /**
