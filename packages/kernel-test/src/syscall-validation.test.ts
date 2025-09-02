@@ -39,13 +39,13 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       bootstrap: 'test',
       vats: {
         test: {
-          bundleSpec: getBundleSpec('observer-vat'),
+          bundleSpec: getBundleSpec('subcluster-vat'),
           parameters: { name: 'TestVat' },
         },
       },
     };
     const result = await runTestVats(kernel, workingSubcluster);
-    expect(result).toBe('observer-bootstrap-complete');
+    expect(result).toBe('bootstrap complete');
     expect(kernel.getVats()).toHaveLength(1);
   });
 
