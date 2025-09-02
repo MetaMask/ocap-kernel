@@ -14,18 +14,24 @@ import { makeCapabilitySpecification } from '../../specification.ts';
  * Cross-platform FS operation wrapper with validation (async version)
  *
  * @param operation - The underlying operation to wrap
- * @param pathCaveat - The caveat to apply to path arguments
+ * @param syncPathCaveat - The caveat to apply to path arguments
  * @returns The operation restricted by the provided caveat
  */
 export const makeCaveatedFsOperation = <
-  Operation extends (...args: never[]) => unknown,
+  Operation extends (...args: never[]) => Promise<unknown>,
 >(
   operation: Operation,
-  pathCaveat: SyncPathCaveat,
+  syncPathCaveat: SyncPathCaveat,
 ): Operation => {
   return harden(async (...args: Parameters<Operation>) => {
-    // Assuming first argument is always the path
-    pathCaveat(args[0] as unknown as PathLike);
+    try {
+      // Assuming first argument is always the path
+      syncPathCaveat(args[0] as unknown as PathLike);
+      // We don't need async caveats yet, but we could await one here.
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Caveat failed';
+      throw new Error(`fs.${operation.name}: ${message}`, { cause });
+    }
     return operation(...args);
   }) as Operation;
 };
@@ -34,18 +40,23 @@ export const makeCaveatedFsOperation = <
  * Cross-platform synchronous FS operation wrapper with validation
  *
  * @param operation - The underlying synchronous operation to wrap
- * @param pathCaveat - The caveat to apply to path arguments
+ * @param syncPathCaveat - The caveat to apply to path arguments
  * @returns The operation restricted by the provided caveat
  */
 export const makeCaveatedSyncFsOperation = <
   Operation extends (...args: never[]) => unknown,
 >(
   operation: Operation,
-  pathCaveat: SyncPathCaveat,
+  syncPathCaveat: SyncPathCaveat,
 ): Operation => {
   return harden((...args: Parameters<Operation>) => {
-    // Assuming first argument is always the path
-    pathCaveat(args[0] as unknown as PathLike);
+    try {
+      // Assuming first argument is always the path
+      syncPathCaveat(args[0] as unknown as PathLike);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Caveat failed';
+      throw new Error(`fs.${operation.name}: ${message}`, { cause });
+    }
     return operation(...args);
   }) as Operation;
 };
