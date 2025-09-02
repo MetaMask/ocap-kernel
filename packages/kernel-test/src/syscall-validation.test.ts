@@ -18,7 +18,28 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     logger = makeTestLogger();
   });
 
-  it('should maintain kernel stability during malformed KRef scenarios', async () => {
+  it.each([
+    ['invalid-kref' as KRef, 'invalid reference context'],
+    ['' as KRef, 'incrementRefCount called with empty kref'],
+  ])(
+    'should throw "%s" error for malformed KRef "%s"',
+    async (kref, expectedError) => {
+      const kernelDatabase = await makeSQLKernelDatabase({
+        dbFilename: ':memory:',
+      });
+      const kernel = await makeKernel(
+        kernelDatabase,
+        true,
+        logger.logger.subLogger({ tags: ['test'] }),
+      );
+
+      await expect(
+        kernel.queueMessage(kref, 'testMethod', ['test']),
+      ).rejects.toThrow(expectedError);
+    },
+  );
+
+  it('should maintain kernel stability after malformed KRef scenarios', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
@@ -27,13 +48,6 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       true,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    // Test that truly malformed krefs cause kernel to throw (correct behavior)
-    await expect(
-      kernel.queueMessage('invalid-kref' as KRef, 'testMethod', ['test']),
-    ).rejects.toThrow('invalid reference context');
-    await expect(
-      kernel.queueMessage('' as KRef, 'testMethod', ['test']),
-    ).rejects.toThrow('incrementRefCount called with empty kref');
     // Verify kernel is still operational after malformed requests
     const workingSubcluster = {
       bootstrap: 'test',

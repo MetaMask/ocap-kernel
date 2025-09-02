@@ -46,6 +46,7 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
       ({ config }) => config.parameters?.name === 'CrashTestVat',
     );
     const crasherVatId = crasherVat?.id as string;
+    expect(crasherVatId).toBeDefined();
 
     // Manually terminate the vat (simulating actual crash recovery)
     await kernel.terminateVat(crasherVatId);
