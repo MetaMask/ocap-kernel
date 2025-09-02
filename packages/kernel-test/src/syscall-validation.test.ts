@@ -36,32 +36,22 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       await expect(
         kernel.queueMessage(kref, 'testMethod', ['test']),
       ).rejects.toThrow(expectedError);
+
+      // Verify kernel is still operational after malformed requests
+      const workingSubcluster = {
+        bootstrap: 'test',
+        vats: {
+          test: {
+            bundleSpec: getBundleSpec('subcluster-vat'),
+            parameters: { name: 'TestVat' },
+          },
+        },
+      };
+      const result = await runTestVats(kernel, workingSubcluster);
+      expect(result).toBe('bootstrap complete');
+      expect(kernel.getVats()).toHaveLength(1);
     },
   );
-
-  it('should maintain kernel stability after malformed KRef scenarios', async () => {
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const kernel = await makeKernel(
-      kernelDatabase,
-      true,
-      logger.logger.subLogger({ tags: ['test'] }),
-    );
-    // Verify kernel is still operational after malformed requests
-    const workingSubcluster = {
-      bootstrap: 'test',
-      vats: {
-        test: {
-          bundleSpec: getBundleSpec('subcluster-vat'),
-          parameters: { name: 'TestVat' },
-        },
-      },
-    };
-    const result = await runTestVats(kernel, workingSubcluster);
-    expect(result).toBe('bootstrap complete');
-    expect(kernel.getVats()).toHaveLength(1);
-  });
 
   it('should handle message delivery to revoked objects', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
