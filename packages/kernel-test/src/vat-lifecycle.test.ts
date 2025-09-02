@@ -29,10 +29,10 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     const kernelStore = makeKernelStore(kernelDatabase);
 
     const subcluster = {
-      bootstrap: 'crasher',
+      bootstrap: 'main',
       vats: {
-        crasher: {
-          bundleSpec: getBundleSpec('crash-test-vat'),
+        main: {
+          bundleSpec: getBundleSpec('logger-vat'),
           parameters: { name: 'CrashTestVat' },
         },
       },
