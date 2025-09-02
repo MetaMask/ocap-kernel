@@ -1,0 +1,59 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import type { PlatformFactory } from './types.ts';
+
+export const createPlatformTestSuite = (
+  makePlatform: PlatformFactory,
+  platformName: string,
+): void => {
+  describe(`${platformName} platform`, () => {
+    it('exports makePlatform function', () => {
+      expect(typeof makePlatform).toBe('function');
+    });
+
+    it.each([
+      {
+        name: 'fetch capability',
+        config: { fetch: {} },
+        expectedFetch: { type: 'function' },
+        expectedFs: { type: 'undefined' },
+      },
+      {
+        name: 'fs capability',
+        config: { fs: { rootDir: '/tmp' } },
+        expectedFetch: { type: 'undefined' },
+        expectedFs: { type: 'object' },
+      },
+      {
+        name: 'both capabilities',
+        config: {
+          fetch: {},
+          fs: { rootDir: '/tmp' },
+        },
+        expectedFetch: { type: 'function' },
+        expectedFs: { type: 'object' },
+      },
+    ])(
+      'creates platform with $name',
+      async ({ config, expectedFetch, expectedFs }) => {
+        const options = config.fetch
+          ? { fetch: { fromFetch: vi.fn() } }
+          : undefined;
+        const platform = await makePlatform(config, options as never);
+
+        expect(typeof platform.fetch).toBe(expectedFetch.type);
+        expect(typeof platform.fs).toBe(expectedFs.type);
+      },
+    );
+
+    it('creates platform with partial config', async () => {
+      const config = { fetch: {} };
+      const options = { fetch: { fromFetch: vi.fn() } };
+      const platform = await makePlatform(config, options as never);
+
+      expect(platform.fetch).toBeDefined();
+      expect(platform.fs).toBeUndefined();
+      expect(typeof platform.fetch).toBe('function');
+    });
+  });
+};
