@@ -93,6 +93,57 @@ describe('isVatConfig', () => {
   ])('rejects $name', ({ value }) => {
     expect(isVatConfig(value)).toBe(false);
   });
+
+  it.each([
+    {
+      name: 'with valid platformConfig',
+      config: {
+        bundleSpec: 'bundle.js',
+        platformConfig: {
+          fetch: { allowedHosts: ['api.github.com'] },
+        },
+      },
+      expected: true,
+    },
+    {
+      name: 'with valid platformConfig and other options',
+      config: {
+        bundleSpec: 'bundle.js',
+        creationOptions: { foo: 'bar' },
+        parameters: { baz: 123 },
+        platformConfig: {
+          fetch: { allowedHosts: ['api.github.test'] },
+          fs: { rootDir: '/tmp', existsSync: true },
+        },
+      },
+      expected: true,
+    },
+  ])('validates $name', ({ config, expected }) => {
+    expect(isVatConfig(config)).toBe(expected);
+  });
+
+  it.each([
+    {
+      name: 'invalid platformConfig structure',
+      config: {
+        bundleSpec: 'bundle.js',
+        platformConfig: {
+          fetch: { allowedHosts: 'not-an-array' },
+        },
+      },
+    },
+    {
+      name: 'invalid platformConfig fetch config',
+      config: {
+        bundleSpec: 'bundle.js',
+        platformConfig: {
+          fetch: { invalidField: 'value' },
+        },
+      },
+    },
+  ])('rejects configs with $name', ({ config }) => {
+    expect(isVatConfig(config)).toBe(false);
+  });
 });
 
 describe('insistMessage', () => {
