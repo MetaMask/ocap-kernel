@@ -6,11 +6,6 @@
       "bundleSpec": "http://localhost:3000/sample-vat.bundle",
       "parameters": {
         "name": "Alice"
-      },
-      "platformConfig": {
-        "fetch": {
-          "allowedHosts": ["api.github.com"]
-        }
       }
     },
     "bob": {
