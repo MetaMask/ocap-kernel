@@ -16,10 +16,11 @@ export function buildRootObject(vatPowers, parameters) {
 
   const thing = makeDefaultExo('thing', {});
   let testService;
+  tlog(`buildRootObject "${name}"`);
 
   const mainVatRoot = makeDefaultExo('root', {
     async bootstrap(_vats, services) {
-      console.log(`vat ${name} is bootstrap`);
+      tlog(`vat ${name} is bootstrap`);
       testService = services.testService;
     },
     async go() {

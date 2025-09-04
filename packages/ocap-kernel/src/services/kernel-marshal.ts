@@ -96,9 +96,7 @@ export function krefOf(obj: SlotValue): string {
     case 'remotable': {
       const { getKref } = obj as ObjectStandin;
       assert.typeof(getKref, 'function', 'object lacks getKref function');
-      // `obj` is an exo, and its passable guards throw if its methods are called without
-      // a `this` value
-      return Reflect.apply(getKref, obj, []);
+      return getKref.apply(obj, []);
     }
     default:
       // When krefOf() is called as part of kmarshal.serialize, marshal
