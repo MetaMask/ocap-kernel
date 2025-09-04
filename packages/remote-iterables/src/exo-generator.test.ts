@@ -5,7 +5,7 @@ import { makePipe } from '@endo/stream';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mocked } from 'vitest';
 
-import { makeRemoteGenerator } from './remote-generator.ts';
+import { makeExoGenerator } from './exo-generator.ts';
 
 vi.mock('@endo/eventual-send', () => ({
   E: vi.fn((obj) => obj),
@@ -37,9 +37,9 @@ describe('far-generator', () => {
     vi.mocked(makePipe).mockReturnValue([mockWriter, mockReader]);
   });
 
-  describe('makeRemoteGenerator', () => {
+  describe('makeExoGenerator', () => {
     it('should wrap a generator', async () => {
-      const result = makeRemoteGenerator(
+      const result = makeExoGenerator(
         (async function* () {
           // Empty generator
         })(),
@@ -53,7 +53,7 @@ describe('far-generator', () => {
 
     it('should pipe values from the generator to the writer', async () => {
       const generated = makePromiseKit<string>();
-      const result = makeRemoteGenerator(
+      const result = makeExoGenerator(
         (async function* () {
           yield 'test';
           generated.resolve('yielded');
@@ -71,7 +71,7 @@ describe('far-generator', () => {
     it('calls writer.throw if the generator throws', async () => {
       const generated = makePromiseKit<string>();
       const error = new Error('test');
-      const result = makeRemoteGenerator(
+      const result = makeExoGenerator(
         // eslint-disable-next-line require-yield
         (async function* () {
           generated.resolve('threw');

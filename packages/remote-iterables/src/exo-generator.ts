@@ -15,7 +15,7 @@ import { makeIteratorRef } from './reader-ref.ts';
  * @returns A remotable reference to the generator.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const makeRemoteGenerator = <Item>(generator: AsyncGenerator<Item>) => {
+export const makeExoGenerator = <Item>(generator: AsyncGenerator<Item>) => {
   const [writer, reader] = makePipe<Item>() as unknown as [
     Writer<Item>,
     Reader<Item>,

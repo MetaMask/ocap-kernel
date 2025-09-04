@@ -1,9 +1,6 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import {
-  makeEventualIterator,
-  makeRemoteGenerator,
-} from '@ocap/remote-iterables';
+import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
 
 /**
  * Build function for testing async generators.
@@ -27,7 +24,7 @@ export function buildRootObject({ logger }, { name }) {
     },
 
     generate: async (stop) =>
-      makeRemoteGenerator(
+      makeExoGenerator(
         (async function* () {
           for (let i = 0; i < stop; i++) {
             tlog(`${name} generating ${i}`);

@@ -1,11 +1,11 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { makeExoGenerator } from './exo-generator.ts';
 // This type is used in the docs.
 import { makeRefIterator } from './ref-reader.ts';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { makeRemoteGenerator } from './remote-generator.ts';
 
 /**
  * Make an iterator from a remote generator. Intended to be used in conjunction
- * with {@link makeRemoteGenerator}. This is the consuming end of the pair.
+ * with {@link makeExoGenerator}. This is the consuming end of the pair.
  *
  * Enables async iterator syntax like below.
  * ```ts

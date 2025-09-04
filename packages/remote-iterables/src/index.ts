@@ -6,4 +6,4 @@
  * The github source gives the appearance that these are exported from the daemon package, but npm does not.
  */
 export { makeEventualIterator } from './eventual-iterator.ts';
-export { makeRemoteGenerator } from './remote-generator.ts';
+export { makeExoGenerator } from './exo-generator.ts';
