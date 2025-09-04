@@ -4,7 +4,7 @@ import type { VatConfig } from '@metamask/ocap-kernel';
 import { VatSupervisor, kser } from '@metamask/ocap-kernel';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { getBundleSpec, makeMockLogger } from './utils.ts';
 import { TestDuplexStream } from '../../streams/test/stream-mocks.ts';
@@ -27,6 +27,7 @@ const makeVatSupervisor = async ({
       kernelStream,
       logger: makeMockLogger(),
       vatPowers,
+      makePlatform: vi.fn().mockResolvedValue({}),
       // eslint-disable-next-line n/no-unsupported-features/node-builtins
       fetchBlob: async (url: string): Promise<Response> => {
         if (!url.endsWith('.bundle')) {

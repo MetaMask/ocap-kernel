@@ -2,6 +2,7 @@ import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { rpcErrors } from '@metamask/rpc-errors';
+import type { PlatformFactory } from '@ocap/kernel-platforms';
 import '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
@@ -26,10 +27,14 @@ const makeVatSupervisor = async ({
   dispatch,
   logger,
   vatPowers,
+  makePlatform,
+  platformOptions,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
   vatPowers?: Record<string, unknown>;
+  makePlatform?: PlatformFactory;
+  platformOptions?: Record<string, unknown>;
 } = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -38,12 +43,18 @@ const makeVatSupervisor = async ({
     JsonRpcMessage,
     JsonRpcMessage
   >(dispatch ?? (() => undefined), { validateInput: isJsonRpcMessage });
+
+  // Provide a default makePlatform if none is specified
+  const defaultMakePlatform: PlatformFactory = vi.fn().mockResolvedValue({});
+
   return {
     supervisor: new VatSupervisor({
       id: 'test-id',
       kernelStream,
       logger: logger ?? new Logger(),
       vatPowers: vatPowers ?? {},
+      makePlatform: makePlatform ?? defaultMakePlatform,
+      platformOptions: platformOptions ?? {},
     }),
     stream: kernelStream,
   };
@@ -125,6 +136,32 @@ describe('VatSupervisor', () => {
         done: true,
         value: undefined,
       });
+    });
+  });
+
+  describe('platform configuration', () => {
+    it('accepts makePlatform and platformOptions parameters', async () => {
+      const makePlatform = vi.fn().mockResolvedValue({});
+      const platformOptions = { fetch: { fromFetch: globalThis.fetch } };
+
+      const { supervisor } = await makeVatSupervisor({
+        makePlatform,
+        platformOptions,
+      });
+
+      expect(supervisor).toBeInstanceOf(VatSupervisor);
+      expect(supervisor.id).toBe('test-id');
+    });
+
+    it('provides default platformOptions when not specified', async () => {
+      const makePlatform = vi.fn().mockResolvedValue({});
+
+      const { supervisor } = await makeVatSupervisor({
+        makePlatform,
+        // platformOptions omitted
+      });
+
+      expect(supervisor).toBeInstanceOf(VatSupervisor);
     });
   });
 });

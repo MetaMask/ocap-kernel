@@ -149,14 +149,14 @@ export default defineConfig({
         'packages/nodejs/**': {
           statements: 82.45,
           functions: 85.71,
-          branches: 84.61,
+          branches: 85.71,
           lines: 83.92,
         },
         'packages/ocap-kernel/**': {
-          statements: 92.67,
+          statements: 92.68,
           functions: 95.33,
-          branches: 82.84,
-          lines: 92.64,
+          branches: 82.85,
+          lines: 92.66,
         },
         'packages/remote-iterables/**': {
           statements: 100,
