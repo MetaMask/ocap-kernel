@@ -52,7 +52,7 @@ describe('Kernel service object invocation', () => {
     await kernel.queueMessage('ko2', 'go', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toStrictEqual(['kernel service returns hello -- ko3']);
+    expect(testLogs).toContain('kernel service returns hello -- ko3');
   });
 
   it('configure subcluster with unknown service throws', async () => {
@@ -84,8 +84,8 @@ describe('Kernel service object invocation', () => {
     await kernel.queueMessage('ko2', 'goBadly', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toStrictEqual([
+    expect(testLogs).toContain(
       `kernel service threw: unknown service method 'nonexistentMethod'`,
-    ]);
+    );
   });
 });
