@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * This vat is used to test that throwing from a remotable method rejects the
@@ -11,7 +11,7 @@ import { Far } from '@endo/marshal';
  */
 export function buildRootObject({ logger }) {
   const { log } = logger.subLogger({ tags: ['test'] });
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap({ rejector }) {
       await E(rejector).foo(false).then(log);
       await E(rejector)

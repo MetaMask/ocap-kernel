@@ -1,7 +1,6 @@
-import { E, Far } from '@endo/far';
-// ESLint's import-x/no-unresolved rule with commonjs:false doesn't support subpath exports
-// eslint-disable-next-line import-x/no-unresolved
-import { makeEventualIterator, makeFarGenerator } from '@ocap/remote-iterables';
+import { E } from '@endo/eventual-send';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
 
 /**
  * Build function for testing async generators.
@@ -18,14 +17,14 @@ export function buildRootObject({ logger }, { name }) {
 
   tlog(`${name} buildRootObject`);
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap({ consumer, producer }, _services) {
       tlog(`${name} is bootstrap`);
       await E(consumer).iterate(producer);
     },
 
     generate: async (stop) =>
-      makeFarGenerator(
+      makeExoGenerator(
         (async function* () {
           for (let i = 0; i < stop; i++) {
             tlog(`${name} generating ${i}`);

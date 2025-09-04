@@ -1,5 +1,4 @@
-import { E } from '@endo/far';
-import type { FarRef } from '@endo/far';
+import { E } from '@endo/eventual-send';
 import { makePipe } from '@endo/stream';
 import type { Writer, Reader } from '@endo/stream';
 
@@ -15,9 +14,8 @@ import { makeIteratorRef } from './reader-ref.ts';
  * @param generator - The generator to make remotable.
  * @returns A remotable reference to the generator.
  */
-export const makeFarGenerator = <Item>(
-  generator: AsyncGenerator<Item>,
-): FarRef<AsyncIterator<Item>> => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const makeExoGenerator = <Item>(generator: AsyncGenerator<Item>) => {
   const [writer, reader] = makePipe<Item>() as unknown as [
     Writer<Item>,
     Reader<Item>,

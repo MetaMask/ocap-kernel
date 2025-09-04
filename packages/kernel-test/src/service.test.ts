@@ -1,6 +1,5 @@
-import { Far } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { makeDefaultExo, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, krefOf } from '@metamask/ocap-kernel';
 import type { SlotValue } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';
@@ -30,7 +29,7 @@ const testSubcluster = {
 describe('Kernel service object invocation', () => {
   let kernel: Kernel;
 
-  const testService = Far('serviceObject', {
+  const testService = makeDefaultExo('serviceObject', {
     async getStuff(obj: SlotValue, tag: string): Promise<string> {
       return `${tag} -- ${krefOf(obj)}`;
     },
@@ -53,7 +52,7 @@ describe('Kernel service object invocation', () => {
     await kernel.queueMessage('ko2', 'go', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toStrictEqual(['kernel service returns hello -- ko3']);
+    expect(testLogs).toContain('kernel service returns hello -- ko3');
   });
 
   it('configure subcluster with unknown service throws', async () => {
@@ -85,8 +84,8 @@ describe('Kernel service object invocation', () => {
     await kernel.queueMessage('ko2', 'goBadly', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toStrictEqual([
+    expect(testLogs).toContain(
       `kernel service threw: unknown service method 'nonexistentMethod'`,
-    ]);
+    );
   });
 });

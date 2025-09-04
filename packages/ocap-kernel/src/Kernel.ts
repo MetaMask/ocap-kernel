@@ -738,8 +738,7 @@ export class Kernel {
     assert.typeof(methodFunction, 'function');
     assert(Array.isArray(args));
     try {
-      // eslint-disable-next-line prefer-spread
-      const resultValue = await methodFunction.apply(null, args);
+      const resultValue = await methodFunction.apply(service, args);
       if (result) {
         this.#kernelQueue.resolvePromises('kernel', [
           [result, false, kser(resultValue)],

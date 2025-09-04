@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for vats that will run various tests.
@@ -32,7 +32,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
 
   const exportedObjects = new Map();
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     bootstrap() {
       log(`bootstrap`);
       return `bootstrap-${name}`;
@@ -40,7 +40,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
 
     // Create an object in our maps
     createObject(id) {
-      const obj = Far('SharedObject', {
+      const obj = makeDefaultExo('SharedObject', {
         getValue() {
           return id;
         },

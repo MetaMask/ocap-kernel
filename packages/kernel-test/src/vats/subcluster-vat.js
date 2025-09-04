@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for testing subcluster functionality.
@@ -24,7 +24,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
   log(`buildRootObject`);
   log(`configuration parameters: ${JSON.stringify(parameters)}`);
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap() {
       log(`bootstrap() in ${subcluster}`);
       return 'bootstrap complete';

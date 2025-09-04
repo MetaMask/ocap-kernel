@@ -1,4 +1,4 @@
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a persistent counter vat.
@@ -25,7 +25,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
     tlog(`initialized with count: ${count}`);
   }
 
-  return Far('counter', {
+  return makeDefaultExo('counter', {
     async bootstrap() {
       tlog(`bootstrap called`);
       return `Counter initialized with count: ${count}`;

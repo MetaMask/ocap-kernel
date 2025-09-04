@@ -69,7 +69,6 @@
   "dependencies": {
     "@agoric/swingset-liveslots": "0.10.3-u21.0.1",
     "@endo/errors": "^1.2.13",
-    "@endo/far": "^1.1.14",
     "@endo/import-bundle": "^1.5.2",
     "@endo/marshal": "^1.8.0",
     "@endo/pass-style": "^1.6.3",

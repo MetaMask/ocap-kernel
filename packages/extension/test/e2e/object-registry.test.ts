@@ -92,7 +92,7 @@ test.describe('Object Registry', () => {
     );
     await expect(messageResponse).toBeVisible();
     await expect(messageResponse).toContainText(
-      '"body":"#[\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
+      '"body":"#[\\"__getInterfaceGuard__\\",\\"__getMethodNames__\\",\\"bootstrap\\",\\"hello\\"]"',
     );
     await expect(messageResponse).toContainText('"slots":[]');
     await clearLogsButton.click();

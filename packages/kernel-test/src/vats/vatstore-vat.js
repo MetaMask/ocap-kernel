@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { Far } from '@endo/marshal';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for running a test of the vatstore.
@@ -16,7 +16,7 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
   const testKey1 = 'thing';
   const testKey2 = 'goAway';
 
-  return Far('root', {
+  return makeDefaultExo('root', {
     async bootstrap(vats) {
       console.log(`vat ${name} is bootstrap`);
       if (!baggage.has(testKey1)) {
