@@ -11,6 +11,7 @@ import type {
   EndpointId,
   KRef,
   VRef,
+  RRef,
   ERef,
 } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
@@ -30,6 +31,20 @@ import { Fail, assert } from '../../utils/assert.ts';
 export function getTranslators(ctx: StoreContext) {
   const { krefToEref, erefToKref, allocateErefForKref } = getCListMethods(ctx);
   const { exportFromEndpoint } = getVatMethods(ctx);
+
+  /**
+   * Reverse the direction indicator in an RRef.
+   *
+   * @param rref - The ref in question.
+   *
+   * @returns a copy of `rref` with '+'/'-' changed to '-'/'+'.
+   */
+  function invertRRef(rref: RRef): RRef {
+    // eslint-disable-next-line require-unicode-regexp
+    const parts = rref.match(/^(r[op])([-+])(\d+)$/);
+    assert(parts?.length === 4);
+    return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}`;
+  }
 
   /**
    * Translate a reference from kernel space into endpoint space.
@@ -75,10 +90,7 @@ export function getTranslators(ctx: StoreContext) {
       // whereas for a VRef the functional composition KtoE(EtoK(ref)) is an
       // identity function, for an RRef it is not, because KtoE reverses the
       // polarity of the RRef but EtoK doesn't.
-      // eslint-disable-next-line require-unicode-regexp
-      const parts = eref.match(/^(r[op])([-+])(\d+)$/);
-      assert(parts?.length === 4);
-      eref = `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}`;
+      eref = invertRRef(eref);
     }
     return eref;
   }
@@ -274,5 +286,6 @@ export function getTranslators(ctx: StoreContext) {
     translateMessageKtoE,
     translateMessageEtoK,
     translateSyscallVtoK,
+    invertRRef,
   };
 }

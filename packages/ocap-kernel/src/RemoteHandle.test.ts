@@ -6,6 +6,7 @@ import type { KernelQueue } from './KernelQueue.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
+import { parseRef } from './store/utils/parse-ref.ts';
 import type { Message, RemoteComms, RRef } from './types.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
@@ -14,6 +15,8 @@ let mockRemoteComms: RemoteComms;
 let mockKernelQueue: KernelQueue;
 const mockRemoteId = 'r0';
 const mockRemotePeerId = 'remotePeerId';
+
+/* eslint-disable vitest/no-conditional-expect */
 
 /**
  * Fabricate a mock remote for testing purposes
@@ -68,7 +71,7 @@ describe('RemoteHandle', () => {
         params: ['message', target, message],
       }),
     );
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('deliverNotify calls sendRemoteMessage with correct delivery message', async () => {
@@ -85,7 +88,7 @@ describe('RemoteHandle', () => {
         params: ['notify', resolutions],
       }),
     );
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('deliverDropExports calls sendRemoteMessage with correct delivery message', async () => {
@@ -100,7 +103,7 @@ describe('RemoteHandle', () => {
         params: ['dropExports', rrefs],
       }),
     );
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('deliverRetireExports calls sendRemoteMessage with correct delivery message', async () => {
@@ -115,7 +118,7 @@ describe('RemoteHandle', () => {
         params: ['retireExports', rrefs],
       }),
     );
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('deliverRetireImports calls sendRemoteMessage with correct delivery message', async () => {
@@ -130,7 +133,7 @@ describe('RemoteHandle', () => {
         params: ['retireImports', rrefs],
       }),
     );
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('deliverBringOutYourDead does not call sendRemoteMessage', async () => {
@@ -138,7 +141,7 @@ describe('RemoteHandle', () => {
 
     const crankResult = await remote.deliverBringOutYourDead();
     expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
-    expect(crankResult).toStrictEqual({ didDelivery: mockRemoteId });
+    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
   it('redeemOcapURL calls sendRemoteMessage correctly and handles expected reply (success)', async () => {
@@ -164,7 +167,7 @@ describe('RemoteHandle', () => {
     const kref = await urlPromise;
     expect(kref).toBe(mockURLResolutionKRef);
     expect(
-      mockKernelStore.translateRefEtoK(mockRemoteId, mockURLResolutionRRef),
+      mockKernelStore.translateRefEtoK(remote.remoteId, mockURLResolutionRRef),
     ).toBe(mockURLResolutionKRef);
   });
 
@@ -211,10 +214,10 @@ describe('RemoteHandle', () => {
       methargs: message.methargs,
       result: resultKRef,
     });
-    expect(mockKernelStore.translateRefEtoK(mockRemoteId, targetRRef)).toBe(
+    expect(mockKernelStore.translateRefEtoK(remote.remoteId, targetRRef)).toBe(
       targetKRef,
     );
-    expect(mockKernelStore.translateRefEtoK(mockRemoteId, resultRRef)).toBe(
+    expect(mockKernelStore.translateRefEtoK(remote.remoteId, resultRRef)).toBe(
       resultKRef,
     );
   });
@@ -232,9 +235,148 @@ describe('RemoteHandle', () => {
     });
     const reply = await remote.handleRemoteMessage(notify);
     expect(reply).toBe('');
-    expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith(mockRemoteId, [
-      [promiseKRef, false, { body: '"resolved value"', slots: [] }],
-    ]);
+    expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith(
+      remote.remoteId,
+      [[promiseKRef, false, { body: '"resolved value"', slots: [] }]],
+    );
+  });
+
+  it('handleRemoteMessage handles deliver dropExports', async () => {
+    const remote = makeRemote();
+
+    // Note that vat v1 does not exist; we're just pretending the test object
+    // came from there (because it had to come from *somewhere*).
+    const koref = mockKernelStore.initKernelObject('v1');
+    const [kpref] = mockKernelStore.initKernelPromise();
+
+    // Pretend these refs had earlier been imported into the test remote from
+    // our kernel (as if they had, say, appeared in message slots) and thence were
+    // exported at the remote end.  This way they'll be here to be dropped when
+    // a request to do so is "received".
+    const roref = mockKernelStore.translateRefKtoE(
+      remote.remoteId,
+      koref,
+      true,
+    );
+    const rpref = mockKernelStore.translateRefKtoE(
+      remote.remoteId,
+      kpref,
+      true,
+    );
+
+    const drops = [
+      mockKernelStore.invertRRef(roref),
+      mockKernelStore.invertRRef(rpref),
+    ];
+
+    const krefs = drops.map((rref) => {
+      const result = mockKernelStore.translateRefEtoK(remote.remoteId, rref);
+      return result;
+    });
+    for (const kref of krefs) {
+      const { isPromise } = parseRef(kref);
+      if (isPromise) {
+        expect(mockKernelStore.getRefCount(kref)).toBe(1);
+      } else {
+        expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
+          reachable: 1,
+          recognizable: 1,
+        });
+      }
+    }
+
+    // Now have the "other end" drop them.
+    const dropExports = JSON.stringify({
+      method: 'deliver',
+      params: ['dropExports', drops],
+    });
+    const reply = await remote.handleRemoteMessage(dropExports);
+
+    expect(reply).toBe('');
+    for (const kref of krefs) {
+      const { isPromise } = parseRef(kref);
+      if (isPromise) {
+        expect(mockKernelStore.getRefCount(kref)).toBe(1);
+      } else {
+        expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
+          reachable: 0,
+          recognizable: 1,
+        });
+      }
+    }
+  });
+
+  it('handleRemoteMessage handles deliver retireExports', async () => {
+    const remote = makeRemote();
+
+    // Note that vat v1 does not exist; we're just pretending the test object
+    // came from there (because it had to come from *somewhere*).
+    const koref = mockKernelStore.initKernelObject('v1');
+
+    // Pretend this ref had earlier been imported into the test remote from our
+    // kernel (as if it had, say, appeared in message slots) and thence wwas
+    // exported at the remote end.  This way it'll be here to be retired when a
+    // request to do so is "received".
+    const roref = mockKernelStore.translateRefKtoE(
+      remote.remoteId,
+      koref,
+      true,
+    );
+
+    const toRetireRRef = mockKernelStore.invertRRef(roref);
+
+    const kref = mockKernelStore.translateRefEtoK(
+      remote.remoteId,
+      toRetireRRef,
+    );
+    expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
+      reachable: 1,
+      recognizable: 1,
+    });
+
+    // Before we can retire, we have to drop, so pretend that happened too
+    mockKernelStore.clearReachableFlag(remote.remoteId, kref);
+
+    // Now have the "other end" retire them.
+    const retireExports = JSON.stringify({
+      method: 'deliver',
+      params: ['retireExports', [toRetireRRef]],
+    });
+    const reply = await remote.handleRemoteMessage(retireExports);
+
+    expect(reply).toBe('');
+    expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
+      reachable: 0,
+      recognizable: 0,
+    });
+  });
+
+  it('handleRemoteMessage handles deliver retireImports', async () => {
+    const remote = makeRemote();
+
+    // An object, as if it had been imported from the other end (and thus exported here)
+    const roref = 'ro+1';
+    const koref = mockKernelStore.translateRefEtoK(remote.remoteId, roref);
+
+    // As if we're no longer using it (which, in fact, we weren't), which is a
+    // prequisite for a valid 'retireImports' delivery
+    mockKernelStore.decrementRefCount(koref, 'test');
+    mockKernelStore.clearReachableFlag(remote.remoteId, koref);
+
+    // Now have the "other end" retire the import.
+    const retireImports = JSON.stringify({
+      method: 'deliver',
+      params: ['retireImports', [roref]],
+    });
+    const reply = await remote.handleRemoteMessage(retireImports);
+
+    expect(reply).toBe('');
+
+    // Object should have disappeared from the clists
+    expect(() =>
+      mockKernelStore.translateRefKtoE(remote.remoteId, koref, false),
+    ).toThrow(`unmapped kref "${koref}" endpoint="${remote.remoteId}"`);
+    expect(mockKernelStore.erefToKref(remote.remoteId, roref)).toBeUndefined();
   });
 
   it('handleRemoteMessage handles bogus deliver', async () => {
@@ -270,7 +412,7 @@ describe('RemoteHandle', () => {
       }),
     );
     expect(
-      mockKernelStore.translateRefKtoE(mockRemoteId, replyKRef, false),
+      mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
   });
 

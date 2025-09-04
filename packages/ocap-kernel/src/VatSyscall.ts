@@ -6,10 +6,14 @@ import type {
 } from '@agoric/swingset-liveslots';
 import { Logger } from '@metamask/logger';
 
+import {
+  performDropImports,
+  performRetireImports,
+  performExportCleanup,
+} from './gc-handlers.ts';
 import type { KernelQueue } from './KernelQueue.ts';
 import { makeError } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
 import { coerceMessage } from './types.ts';
 import type { Message, VatId, KRef } from './types.ts';
 
@@ -105,16 +109,7 @@ export class VatSyscall {
    * @param krefs - The KRefs of the imports to be dropped.
    */
   #handleSyscallDropImports(krefs: KRef[]): void {
-    for (const kref of krefs) {
-      const { direction, isPromise } = parseRef(kref);
-      // We validate it's an import - meaning this vat received this object from somewhere else
-      if (direction === 'export' || isPromise) {
-        throw Error(
-          `vat ${this.vatId} issued invalid syscall dropImports for ${kref}`,
-        );
-      }
-      this.#kernelStore.clearReachableFlag(this.vatId, kref);
-    }
+    performDropImports(krefs, this.vatId, this.#kernelStore);
   }
 
   /**
@@ -123,47 +118,23 @@ export class VatSyscall {
    * @param krefs - The KRefs of the imports to be retired.
    */
   #handleSyscallRetireImports(krefs: KRef[]): void {
-    for (const kref of krefs) {
-      const { direction, isPromise } = parseRef(kref);
-      // We validate it's an import - meaning this vat received this object from somewhere else
-      if (direction === 'export' || isPromise) {
-        throw Error(
-          `vat ${this.vatId} issued invalid syscall retireImports for ${kref}`,
-        );
-      }
-      if (this.#kernelStore.getReachableFlag(this.vatId, kref)) {
-        throw Error(`syscall.retireImports but ${kref} is still reachable`);
-      }
-      // deleting the clist entry will decrement the recognizable count, but
-      // not the reachable count (because it was unreachable, as we asserted)
-      this.#kernelStore.forgetKref(this.vatId, kref);
-    }
+    performRetireImports(krefs, this.vatId, this.#kernelStore);
   }
 
   /**
    * Handle retiring or abandoning exports syscall from the vat.
    *
    * @param krefs - The KRefs of the exports to be retired/abandoned.
-   * @param checkReachable - If true, verify the object is not reachable (retire). If false, ignore reachability (abandon).
+   * @param checkReachable - If true, verify the object is not reachable
+   *   (retire). If false, ignore reachability (abandon).
    */
   #handleSyscallExportCleanup(krefs: KRef[], checkReachable: boolean): void {
+    performExportCleanup(krefs, checkReachable, this.vatId, this.#kernelStore);
+
+    // XXX This log output is only here for the benefit of a couple of the
+    // tests.  Arguably, those tests should be revised not to need it, but for now...
     const action = checkReachable ? 'retire' : 'abandon';
     for (const kref of krefs) {
-      const { direction, isPromise } = parseRef(kref);
-      // We validate it's an export - meaning this vat created/owns this object
-      if (direction === 'import' || isPromise) {
-        throw Error(
-          `vat ${this.vatId} issued invalid syscall ${action}Exports for ${kref}`,
-        );
-      }
-      if (checkReachable) {
-        if (this.#kernelStore.getReachableFlag(this.vatId, kref)) {
-          throw Error(
-            `syscall.${action}Exports but ${kref} is still reachable`,
-          );
-        }
-      }
-      this.#kernelStore.forgetKref(this.vatId, kref);
       this.#logger?.debug(`${action}Exports: deleted object ${kref}`);
     }
   }
