@@ -41,7 +41,7 @@ type SupervisorConstructorProps = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
   logger: Logger;
-  makePlatform?: PlatformFactory;
+  makePlatform: PlatformFactory;
   platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
@@ -118,13 +118,7 @@ export class VatSupervisor {
       await fetch(bundleURL);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
-    this.#makePlatform =
-      makePlatform ??
-      (() => {
-        throw new Error(
-          'A makePlatform routine was not provided during VatSupervisor construction',
-        );
-      });
+    this.#makePlatform = makePlatform;
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
