@@ -3,9 +3,13 @@ import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 import { Logger } from '@metamask/logger';
 
+import {
+  performDropImports,
+  performRetireImports,
+  performExportCleanup,
+} from './gc-handlers.ts';
 import type { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
 import type {
   RemoteId,
   ERef,
@@ -62,6 +66,7 @@ export class RemoteHandle implements EndpointHandle {
   readonly #peerId: string;
 
   /** Logger for outputting messages (such as errors) to the console */
+  // eslint-disable-next-line no-unused-private-class-members
   readonly #logger: Logger;
 
   /** Storage holding the kernel's persistent state. */
@@ -112,6 +117,7 @@ export class RemoteHandle implements EndpointHandle {
     this.#kernelQueue = kernelQueue;
     this.#remoteComms = remoteComms;
     this.#myCrankResult = { didDelivery: remoteId };
+    kernelStore.initEndpoint(remoteId);
   }
 
   /**
@@ -228,26 +234,40 @@ export class RemoteHandle implements EndpointHandle {
     return this.#myCrankResult;
   }
 
+  // Warning: The handling of the GC deliveries ('dropExports', 'retireExports',
+  // and 'dropImports') is very confusing.
+  //
+  // For example, in the context of this RemoteHandle, 'dropExports' means the
+  // RemoteHandle at the other end of the network was delivered a 'dropExports'
+  // by *its* kernel, telling it that references which that RemoteHandle had
+  // been exporting to its kernel are no longer referenced by that kernel. But
+  // exports from the remote end to its kernel are imports from the local kernel
+  // into this RemoteHandle (which is to say, this end had to import them from
+  // the local kernel here in order to have them so they could be exported at
+  // the other end). This in turn means that receiving a 'dropExports' message
+  // over the network tells this RemoteHandle to stop importing the indicated
+  // references. A vat in these circumstances would use a 'dropImports' syscall
+  // to accomplish this, and we use the same code that underpins the
+  // 'dropImports' syscall to do that job here.  But it's definitely confusing
+  // that we use 'dropImports' code to implement 'dropExports'. Analogous
+  // reasoning applies to the other GC deliveries:
+  //
+  //      DELIVERY | "SYSCALL"
+  // --------------+--------------
+  //   dropExports | dropImports
+  // retireExports | retireImports
+  // retireImports | retireExports
+
   /**
-   * Handle a 'retireImports' delivery from the remote end.
+   * Handle a 'dropExports' delivery from the remote end.
    *
-   * @param erefs - The refs of the imports to be retired.
+   * @param erefs - The refs of the exports to be dropped.
    */
-  #retireImports(erefs: ERef[]): void {
-    for (const eref of erefs) {
-      const kref = this.#kernelStore.translateRefEtoK(this.remoteId, eref);
-      const { direction, isPromise } = parseRef(kref);
-      if (direction === 'import' || isPromise) {
-        throw Error(
-          `vat ${this.remoteId} send invalid retireImports for ${kref}`,
-        );
-      }
-      if (this.#kernelStore.getReachableFlag(this.remoteId, kref)) {
-        throw Error(`retireImports but ${kref} is still reachable`);
-      }
-      this.#kernelStore.forgetKref(this.remoteId, kref);
-      this.#logger.debug(`retireImports: deleted object ${kref}`);
-    }
+  #dropExports(erefs: ERef[]): void {
+    const krefs = erefs.map((ref) =>
+      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
+    );
+    performDropImports(krefs, this.remoteId, this.#kernelStore);
   }
 
   /**
@@ -256,44 +276,22 @@ export class RemoteHandle implements EndpointHandle {
    * @param erefs - The refs of the exports to be retired.
    */
   #retireExports(erefs: ERef[]): void {
-    for (const eref of erefs) {
-      const kref = this.#kernelStore.translateRefEtoK(this.remoteId, eref);
-      const { direction, isPromise } = parseRef(kref);
-      if (direction === 'import' || isPromise) {
-        throw Error(
-          `vat ${this.remoteId} issued invalid retireExports for ${kref}`,
-        );
-      }
-      if (this.#kernelStore.getReachableFlag(this.remoteId, kref)) {
-        throw Error(`retireExports but ${kref} is still reachable`);
-      }
-      // deleting the clist entry will decrement the recognizable count, but
-      // not the reachable count (because it was unreachable, as we asserted)
-      this.#kernelStore.forgetKref(this.remoteId, kref);
-    }
+    const krefs = erefs.map((ref) =>
+      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
+    );
+    performRetireImports(krefs, this.remoteId, this.#kernelStore);
   }
 
   /**
-   * Handle a 'dropExports' delivery from the remote end.
+   * Handle a 'retireImports' delivery from the remote end.
    *
-   * @param erefs - The refs of the exports to be dropped.
+   * @param erefs - The refs of the imports to be retired.
    */
-  #dropExports(erefs: ERef[]): void {
-    for (const eref of erefs) {
-      const kref = this.#kernelStore.translateRefEtoK(this.remoteId, eref);
-      const { direction, isPromise } = parseRef(kref);
-      if (direction === 'import' || isPromise) {
-        throw Error(
-          `vat ${this.remoteId} received invalid dropExports for ${kref}`,
-        );
-      }
-      if (this.#kernelStore.getReachableFlag(this.remoteId, kref)) {
-        throw Error(`remote dropExports but ${kref} is still reachable`);
-      }
-      // deleting the clist entry will decrement the recognizable count, but
-      // not the reachable count (because it was unreachable, as we asserted)
-      this.#kernelStore.forgetKref(this.remoteId, kref);
-    }
+  #retireImports(erefs: ERef[]): void {
+    const krefs = erefs.map((ref) =>
+      this.#kernelStore.translateRefEtoK(this.remoteId, ref),
+    );
+    performExportCleanup(krefs, true, this.remoteId, this.#kernelStore);
   }
 
   /**
@@ -332,26 +330,17 @@ export class RemoteHandle implements EndpointHandle {
       }
       case 'dropExports': {
         const [, erefs] = params;
-        const krefs = erefs.map((ref) =>
-          this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-        );
-        this.#dropExports(krefs);
+        this.#dropExports(erefs);
         break;
       }
       case 'retireExports': {
         const [, erefs] = params;
-        const krefs = erefs.map((ref) =>
-          this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-        );
-        this.#retireExports(krefs);
+        this.#retireExports(erefs);
         break;
       }
       case 'retireImports': {
         const [, erefs] = params;
-        const krefs = erefs.map((ref) =>
-          this.#kernelStore.translateRefEtoK(this.remoteId, ref),
-        );
-        this.#retireImports(krefs);
+        this.#retireImports(erefs);
         break;
       }
       default:

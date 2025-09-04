@@ -137,7 +137,7 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
       'resume',
       [],
     );
-    expect(kunser(messageResult)).toBe('no vat');
+    expect(kunser(messageResult)).toBe('no endpoint');
 
     // Verify that messaging works as expected
     expect(await runResume(kernel, liveRootObject)).toBe(

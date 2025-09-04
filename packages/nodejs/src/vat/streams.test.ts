@@ -30,15 +30,17 @@ describe('vat/streams', () => {
   describe('getPort', () => {
     it('returns a port', async () => {
       doMockParentPort(mocks.parentPort);
+      vi.resetModules();
 
       const { getPort } = await import('./streams.ts');
       const port = getPort();
 
       expect(port).toStrictEqual(mocks.parentPort);
-    }, 4000); // Extra time is needed when running yarn test from monorepo root.
+    });
 
     it('throws if parentPort is not defined', async () => {
       doMockParentPort(undefined);
+      vi.resetModules();
 
       const { getPort } = await import('./streams.ts');
 
@@ -49,6 +51,7 @@ describe('vat/streams', () => {
   describe('makeStreams', () => {
     it('returns two NodeWorkerDuplexStreams', async () => {
       doMockParentPort(mocks.parentPort);
+      vi.resetModules();
 
       const { makeStreams } = await import('./streams.ts');
       const { kernelStream, loggerStream } = await makeStreams();

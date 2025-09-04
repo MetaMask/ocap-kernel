@@ -10,7 +10,6 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'nodejs',
-        pool: 'forks',
         include: ['./src/**/*.test.ts'],
         exclude: ['./test/e2e/'],
       },

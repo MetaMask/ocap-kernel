@@ -143,7 +143,7 @@ export class RpcClient<
     });
 
     await this.#sendMessage(payload);
-    return await promise;
+    return promise;
   }
 
   /**

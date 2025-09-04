@@ -154,10 +154,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const crank = getCrankMethods(context, kdb);
   const subclusters = getSubclusterMethods(context);
 
-  if (!kv.get('initialized')) {
-    kv.set('initialized', 'true');
-  }
-
   /**
    * Create a new VatStore for a vat.
    *
