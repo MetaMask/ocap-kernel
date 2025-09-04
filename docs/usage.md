@@ -122,7 +122,8 @@ Vats execute JavaScript code bundled into a specific format. To create a vat bun
 Example vat code:
 
 ```javascript
-import { Far } from '@endo/marshal';
+import { makeExo } from '@endo/exo';
+import { M } from '@endo/patterns';
 
 /**
  * Build function for a vat.
@@ -135,15 +136,19 @@ import { Far } from '@endo/marshal';
 export function buildRootObject(vatPowers, parameters, _baggage) {
   const { name } = parameters;
 
-  return Far('root', {
-    greet() {
-      return `Greeting from ${name}`;
-    },
+  return makeExo(
+    'root',
+    M.interface('root', {}, { defaultGuards: 'passable' }),
+    {
+      greet() {
+        return `Greeting from ${name}`;
+      },
 
-    async processMessage(message) {
-      return `${name} processed: ${message}`;
+      async processMessage(message) {
+        return `${name} processed: ${message}`;
+      },
     },
-  });
+  );
 }
 ```
 
@@ -302,10 +307,11 @@ The OCAP Kernel builds on the [Endo project](https://github.com/endojs/endo), wh
 
 ### Object Capability Model
 
-Vats use Endo's implementation of the object capability security model through the `Far` function to create shareable objects:
+Vats use Endo's implementation of the object capability security model through the `makeExo` function to create shareable objects:
 
 ```javascript
-import { Far } from '@endo/marshal';
+import { makeExo } from '@endo/exo';
+import { M } from '@endo/patterns';
 
 /**
  * Build function for a vat.
@@ -324,24 +330,32 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   }
 
   // Creating a capability-based service object
-  const service = Far('service', {
-    getData() {
-      log('getData called');
-      return { value: 'some data' };
+  const service = makeExo(
+    'service',
+    M.interface('service', {}, { defaultGuards: 'passable' }),
+    {
+      getData() {
+        log('getData called');
+        return { value: 'some data' };
+      },
     },
-  });
+  );
 
-  // The root object must be created with Far
-  return Far('root', {
-    getService() {
-      return service;
-    },
+  // The root object must be created with makeExo
+  return makeExo(
+    'root',
+    M.interface('root', {}, { defaultGuards: 'passable' }),
+    {
+      getService() {
+        return service;
+      },
 
-    bootstrap() {
-      log('bootstrap called');
-      return 'bootstrap complete';
+      bootstrap() {
+        log('bootstrap called');
+        return 'bootstrap complete';
+      },
     },
-  });
+  );
 }
 ```
 
@@ -352,17 +366,21 @@ Vats communicate asynchronously using the `E()` notation for eventual sends:
 ```javascript
 // In another vat that wants to use the service
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  return Far('root', {
-    async useRemoteService(serviceProvider) {
-      // Get a reference to the service
-      const service = await E(serviceProvider).getService();
+  return makeExo(
+    'root',
+    M.interface('root', {}, { defaultGuards: 'passable' }),
+    {
+      async useRemoteService(serviceProvider) {
+        // Get a reference to the service
+        const service = await E(serviceProvider).getService();
 
-      // Call a method on the remote service
-      const data = await E(service).getData();
+        // Call a method on the remote service
+        const data = await E(service).getData();
 
-      return data;
+        return data;
+      },
     },
-  });
+  );
 }
 ```
 
