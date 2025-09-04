@@ -343,7 +343,6 @@ export class Kernel {
   #establishRemote(peerId: string): RemoteHandle {
     const remoteComms = this.#getRemoteComms();
     const remoteId = this.#kernelStore.getNextRemoteId();
-    this.#kernelStore.initEndpoint(remoteId);
     const remote = RemoteHandle.make({
       remoteId,
       peerId,
