@@ -8,6 +8,7 @@ describe('index', () => {
       'EmptyJsonArray',
       'delay',
       'fetchValidatedJson',
+      'fromHex',
       'isJsonRpcCall',
       'isJsonRpcMessage',
       'isPrimitive',
@@ -17,6 +18,7 @@ describe('index', () => {
       'makeDefaultExo',
       'makeDefaultInterface',
       'stringify',
+      'toHex',
       'waitUntilQuiescent',
     ]);
   });

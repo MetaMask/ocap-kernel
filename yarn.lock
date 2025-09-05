@@ -2343,6 +2343,7 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/captp": "npm:^4.4.8"
+    "@endo/errors": "npm:^1.2.13"
     "@endo/exo": "npm:^1.5.12"
     "@endo/patterns": "npm:^1.7.0"
     "@endo/promise-kit": "npm:^1.1.13"
