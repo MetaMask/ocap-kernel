@@ -18,3 +18,4 @@ export {
   isJsonRpcMessage,
 } from './types.ts';
 export { waitUntilQuiescent } from './wait-quiescent.ts';
+export { objectDisjointUnion } from './object-disjoint-union.ts';
