@@ -107,7 +107,6 @@ describe('PlatformServicesServer', () => {
     let workers: ReturnType<typeof makeMockVatWorker>[] = [];
     let stream: TestDuplexStream;
     let logger: Logger;
-    //let server: PlatformServicesServer;
 
     const makeMockVatWorker = (
       _id: string,

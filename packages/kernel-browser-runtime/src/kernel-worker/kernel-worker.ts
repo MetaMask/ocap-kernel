@@ -32,14 +32,15 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel dependencies
-  const [kernelStream, platformServicesClient, kernelDatabase] = await Promise.all([
-    MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
-      port,
-      isJsonRpcCall,
-    ),
-    PlatformServicesClient.make(globalThis as PostMessageTarget),
-    makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
-  ]);
+  const [kernelStream, platformServicesClient, kernelDatabase] =
+    await Promise.all([
+      MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
+        port,
+        isJsonRpcCall,
+      ),
+      PlatformServicesClient.make(globalThis as PostMessageTarget),
+      makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
+    ]);
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
 
   const kernel = await Kernel.make(
