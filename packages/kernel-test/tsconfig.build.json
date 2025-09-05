@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2022"],
+    "types": ["vitest"]
+  },
+  "references": [
+    { "path": "../kernel-store/tsconfig.build.json" },
+    { "path": "../kernel-utils/tsconfig.build.json" },
+    { "path": "../logger/tsconfig.build.json" },
+    { "path": "../ocap-kernel/tsconfig.build.json" },
+    { "path": "../streams/tsconfig.build.json" },
+    { "path": "../nodejs/tsconfig.build.json" },
+    { "path": "../remote-iterables/tsconfig.build.json" }
+  ],
+  "include": ["./src"]
+}

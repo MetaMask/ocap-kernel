@@ -3317,6 +3317,8 @@ __metadata:
     "@ocap/nodejs": "workspace:^"
     "@ocap/remote-iterables": "workspace:^"
     "@ocap/test-utils": "workspace:^"
+    "@ts-bridge/cli": "npm:^0.6.3"
+    "@ts-bridge/shims": "npm:^0.1.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
