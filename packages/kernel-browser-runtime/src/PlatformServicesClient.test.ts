@@ -65,7 +65,7 @@ describe('PlatformServicesClient', () => {
   });
 
   it('constructs using static factory method', async () => {
-    const client = PlatformServicesClient.make({
+    const client = await PlatformServicesClient.make({
       postMessage: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),

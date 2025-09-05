@@ -11061,14 +11061,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"multiformats@npm:^13.0.0, multiformats@npm:^13.1.0, multiformats@npm:^13.3.1":
-  version: 13.3.2
-  resolution: "multiformats@npm:13.3.2"
-  checksum: 10/457bcf4f1c14c59a553adad234fb1f0d82d15877b2d1c265e7f306d69824473c74b6e7a489eb88968b0db1f2c688ef64d9332a4485ef154cd2a68150ea61028c
-  languageName: node
-  linkType: hard
-
-"multiformats@npm:^13.3.7":
+"multiformats@npm:^13.0.0, multiformats@npm:^13.1.0, multiformats@npm:^13.3.1, multiformats@npm:^13.3.7":
   version: 13.4.0
   resolution: "multiformats@npm:13.4.0"
   checksum: 10/95a796c0c7d99862d588263ebaa2285aa66a5c1d8915356c17d6863749f7fee28407fb9e16b78411c3d2977780c8e87a37a3f88716894dbda63c18a32e229347
