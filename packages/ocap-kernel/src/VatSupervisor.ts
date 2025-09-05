@@ -10,7 +10,10 @@ import type { CapData } from '@endo/marshal';
 import { StreamReadError } from '@metamask/kernel-errors';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore } from '@metamask/kernel-store';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import {
+  objectDisjointUnion,
+  waitUntilQuiescent,
+} from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
@@ -294,14 +297,34 @@ export class VatSupervisor {
       lsEndowments: object,
       inescapableGlobalProperties: object,
     ): Promise<Record<string, unknown>> => {
+      let endowments: object;
+      try {
+        // Ensure there are no endowment name collisions.
+        endowments = objectDisjointUnion(
+          workerEndowments,
+          platformEndowments,
+          lsEndowments,
+        );
+      } catch (error) {
+        // If the error is caused by a duplicate endowment name, throw a more specific error.
+        if (error instanceof Error && error.cause) {
+          const { collidingIndex, key } = error.cause as {
+            collidingIndex: number;
+            key: string;
+          };
+          if (collidingIndex === 1) {
+            throw new Error(
+              `Internal error: Duplicate endowment names for worker and platform: ${key}`,
+            );
+          }
+          throw new Error(`Forbidden endowment name: ${key}`);
+        }
+        // Otherwise, just rethrow the error.
+        throw error;
+      }
       const vatNS = await importBundle(bundle, {
         filePrefix: `vat-${this.id}/...`,
-        endowments: {
-          ...workerEndowments,
-          ...platformEndowments,
-          // Important, liveslots endowments should be last so they override
-          ...lsEndowments,
-        },
+        endowments,
         inescapableGlobalProperties,
       });
       return vatNS;
