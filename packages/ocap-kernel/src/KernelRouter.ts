@@ -145,7 +145,7 @@ export class KernelRouter {
       if (this.#kernelStore.isRevoked(targetObject)) {
         return routeAsSplat(kser('revoked object'));
       }
-      const vatId = this.#kernelStore.getOwner(targetObject);
+      const vatId = this.#kernelStore.getOwner(targetObject, false);
       if (!vatId) {
         return routeAsSplat(kser('no vat'));
       }
