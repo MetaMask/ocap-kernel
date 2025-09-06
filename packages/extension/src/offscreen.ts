@@ -1,6 +1,6 @@
 import {
   makeIframeVatWorker,
-  VatWorkerServer,
+  PlatformServicesServer,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
@@ -62,7 +62,7 @@ async function makeKernelWorker(): Promise<
     JsonRpcCall
   >(port, isJsonRpcResponse);
 
-  await VatWorkerServer.make(worker as PostMessageTarget, (vatId) =>
+  await PlatformServicesServer.make(worker as PostMessageTarget, (vatId) =>
     makeIframeVatWorker({
       id: vatId,
       iframeUri: 'iframe.html',

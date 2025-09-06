@@ -9,7 +9,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'shims',
+        name: 'kernel-shims',
       },
     }),
   );

@@ -67,6 +67,7 @@
   },
   "dependencies": {
     "@endo/captp": "^4.4.8",
+    "@endo/errors": "^1.2.13",
     "@endo/exo": "^1.5.12",
     "@endo/patterns": "^1.7.0",
     "@endo/promise-kit": "^1.1.13",

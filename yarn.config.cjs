@@ -648,7 +648,8 @@ function expectValidVersionRanges(Yarn, workspace) {
     return (
       semver.validRange(range) ||
       range === 'workspace:^' ||
-      range === 'workspace:~'
+      range === 'workspace:~' ||
+      range.startsWith('patch:')
     );
   };
   const dependencies = Yarn.dependencies({ workspace });

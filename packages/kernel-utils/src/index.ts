@@ -18,3 +18,4 @@ export {
   isJsonRpcMessage,
 } from './types.ts';
 export { waitUntilQuiescent } from './wait-quiescent.ts';
+export { fromHex, toHex } from './hex.ts';
