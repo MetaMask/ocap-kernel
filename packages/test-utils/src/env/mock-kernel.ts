@@ -69,7 +69,7 @@ export const setupOcapKernelMock = (): {
           params: literal(null),
         }),
       }),
-      VatWorkerServiceCommandMethod: {
+      PlatformServicesCommandMethod: {
         launch: 'launch',
         terminate: 'terminate',
         terminateAll: 'terminateAll',

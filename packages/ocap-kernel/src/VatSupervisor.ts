@@ -65,7 +65,7 @@ export class VatSupervisor {
   readonly #rpcClient: SupervisorRpcClient;
 
   /** RPC service for handling requests from the kernel */
-  readonly #rpcService: RpcService<typeof vatHandlers>;
+  readonly #rpcServer: RpcService<typeof vatHandlers>;
 
   /** Flag that the user code has been loaded */
   #loaded: boolean = false;
@@ -131,7 +131,7 @@ export class VatSupervisor {
       this.#logger.subLogger({ tags: ['rpc-client'] }),
     );
 
-    this.#rpcService = new RpcService(vatHandlers, {
+    this.#rpcServer = new RpcService(vatHandlers, {
       initVat: this.#initVat.bind(this),
       handleDelivery: this.#deliver.bind(this),
     });
@@ -166,8 +166,8 @@ export class VatSupervisor {
       this.#rpcClient.handleResponse(message.id as string, message);
     } else if (isJsonRpcRequest(message)) {
       try {
-        this.#rpcService.assertHasMethod(message.method);
-        const result = await this.#rpcService.execute(
+        this.#rpcServer.assertHasMethod(message.method);
+        const result = await this.#rpcServer.execute(
           message.method,
           message.params,
         );

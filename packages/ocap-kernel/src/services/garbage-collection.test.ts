@@ -35,7 +35,7 @@ describe('garbage-collection', () => {
       // Verify result
       expect(result).toStrictEqual({
         type: 'dropExports',
-        vatId: 'v1',
+        endpointId: 'v1',
         krefs: [ko1],
       });
 
@@ -56,7 +56,7 @@ describe('garbage-collection', () => {
       // Verify result
       expect(result).toStrictEqual({
         type: 'retireExports',
-        vatId: 'v1',
+        endpointId: 'v1',
         krefs: [ko1],
       });
 
@@ -76,7 +76,7 @@ describe('garbage-collection', () => {
       // Verify result
       expect(result).toStrictEqual({
         type: 'retireImports',
-        vatId: 'v2',
+        endpointId: 'v2',
         krefs: [ko1],
       });
 
@@ -106,7 +106,7 @@ describe('garbage-collection', () => {
       let result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
         type: 'dropExports',
-        vatId: 'v1',
+        endpointId: 'v1',
         krefs: [ko1],
       });
 
@@ -114,7 +114,7 @@ describe('garbage-collection', () => {
       result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
         type: 'retireExports',
-        vatId: 'v1',
+        endpointId: 'v1',
         krefs: [ko2],
       });
     });
@@ -141,7 +141,7 @@ describe('garbage-collection', () => {
       let result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
         type: 'dropExports',
-        vatId: 'v1',
+        endpointId: 'v1',
         krefs: [ko2],
       });
 
@@ -149,7 +149,7 @@ describe('garbage-collection', () => {
       result = processGCActionSet(kernelStore);
       expect(result).toStrictEqual({
         type: 'dropExports',
-        vatId: 'v2',
+        endpointId: 'v2',
         krefs: [ko1],
       });
     });

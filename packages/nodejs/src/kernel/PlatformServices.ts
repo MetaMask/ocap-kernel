@@ -2,7 +2,13 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { VatWorkerService, VatId } from '@metamask/ocap-kernel';
+import type {
+  PlatformServices,
+  VatId,
+  RemoteMessageHandler,
+  SendRemoteMessage,
+} from '@metamask/ocap-kernel';
+import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { Worker as NodeWorker } from 'node:worker_threads';
@@ -14,8 +20,12 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
-export class NodejsVatWorkerService implements VatWorkerService {
+export class NodejsPlatformServices implements PlatformServices {
   readonly #logger: Logger;
+
+  #sendRemoteMessageFunc: SendRemoteMessage | null = null;
+
+  #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
   readonly #workerFilePath: string;
 
@@ -86,5 +96,40 @@ export class NodejsVatWorkerService implements VatWorkerService {
       await this.terminate(vatId);
     }
   }
+
+  async sendRemoteMessage(from: string, message: string): Promise<void> {
+    if (!this.#sendRemoteMessageFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#sendRemoteMessageFunc(from, message);
+  }
+
+  async #handleRemoteMessage(from: string, message: string): Promise<string> {
+    if (!this.#remoteMessageHandler) {
+      // This can't actually happen, but TypeScript can't infer it
+      throw Error('remote comms not initialized');
+    }
+    const possibleReply = await this.#remoteMessageHandler(from, message);
+    if (possibleReply !== '') {
+      await this.sendRemoteMessage(from, possibleReply);
+    }
+    return '';
+  }
+
+  async initializeRemoteComms(
+    keySeed: string,
+    knownRelays: string[],
+    remoteMessageHandler: (from: string, message: string) => Promise<string>,
+  ): Promise<void> {
+    if (this.#sendRemoteMessageFunc) {
+      throw Error('remote comms already initialized');
+    }
+    this.#remoteMessageHandler = remoteMessageHandler;
+    this.#sendRemoteMessageFunc = await initNetwork(
+      keySeed,
+      knownRelays,
+      this.#handleRemoteMessage.bind(this),
+    );
+  }
 }
-harden(NodejsVatWorkerService);
+harden(NodejsPlatformServices);

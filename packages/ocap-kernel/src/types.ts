@@ -3,6 +3,7 @@ import type {
   Message as SwingsetMessage,
   VatSyscallObject,
   VatSyscallSend,
+  VatOneResolution,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { VatCheckpoint } from '@metamask/kernel-store';
@@ -106,7 +107,7 @@ export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
 
 const RunQueueItemNotifyStruct = object({
   type: literal('notify'),
-  vatId: string(),
+  endpointId: string(),
   kpid: string(),
 });
 
@@ -129,7 +130,7 @@ export const actionTypePriorities: GCActionType[] = [
 
 const RunQueueItemGCActionStruct = object({
   type: GCRunQueueTypeStruct,
-  vatId: string(), // VatId
+  endpointId: string(), // EndpointId
   krefs: array(string()), // KRefs
 });
 
@@ -137,7 +138,7 @@ export type RunQueueItemGCAction = Infer<typeof RunQueueItemGCActionStruct>;
 
 const RunQueueItemBringOutYourDeadStruct = object({
   type: literal('bringOutYourDead'),
-  vatId: string(),
+  endpointId: string(),
 });
 
 export type RunQueueItemBringOutYourDead = Infer<
@@ -208,6 +209,16 @@ export const isVatId = (value: unknown): value is VatId =>
   value.at(0) === 'v' &&
   value.slice(1) === String(Number(value.slice(1)));
 
+export const isRemoteId = (value: unknown): value is RemoteId =>
+  typeof value === 'string' &&
+  value.at(0) === 'r' &&
+  value.slice(1) === String(Number(value.slice(1)));
+
+export const isEndpointId = (value: unknown): value is EndpointId =>
+  typeof value === 'string' &&
+  (value.at(0) === 'v' || value.at(0) === 'r') &&
+  value.slice(1) === String(Number(value.slice(1)));
+
 /**
  * Assert that a value is a valid vat id.
  *
@@ -215,7 +226,17 @@ export const isVatId = (value: unknown): value is VatId =>
  * @throws if the value is not a valid vat id.
  */
 export function insistVatId(value: unknown): asserts value is VatId {
-  isVatId(value) || Fail`not a valid VatId`;
+  isVatId(value) || Fail`not a valid VatId ${value}`;
+}
+
+/**
+ * Assert that a value is a valid endpoint id.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid endpoint id.
+ */
+export function insistEndpointId(value: unknown): asserts value is EndpointId {
+  isEndpointId(value) || Fail`not a valid EndpointId`;
 }
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
@@ -242,11 +263,16 @@ export const VatMessageIdStruct = define<VatMessageId>(
   isVatMessageId,
 );
 
+export type RemoteMessageHandler = (
+  from: string,
+  message: string,
+) => Promise<string>;
+
 /**
- * A "service" for managing vat workers. Abstracts platform-specific details of
- * how vat workers are launched, terminated, and connected to the kernel.
+ * A service for things the kernel worker can't do itself. Abstracts platform-specific details of
+ * how vat workers are launched, terminated, and connected to the kernel, and for network communications.
  */
-export type VatWorkerService = {
+export type PlatformServices = {
   /**
    * Launch a new worker with a specific vat id.
    *
@@ -275,6 +301,43 @@ export type VatWorkerService = {
    * or rejects if there was an error during termination.
    */
   terminateAll: () => Promise<void>;
+
+  /**
+   * Send a message over the network to another kernel.
+   *
+   * @param to - The network peer to whom to send the message.
+   * @param message - The message itself.
+   * @returns A promise that resolves when the message has been transmitted or
+   *   rejects if there is some problem doing so.
+   */
+  sendRemoteMessage: (to: string, message: string) => Promise<void>;
+  /**
+   * Initialize network communications.
+   *
+   * @param keySeed - The seed for generating this kernel's secret key.
+   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   *   connections from other kernels.
+   * @param remoteMessageHandler - A handler function to receive remote messages.
+   * @returns A promise that resolves once network access has been established
+   *   or rejects if there is some problem doing so.
+   */
+  initializeRemoteComms: (
+    keySeed: string,
+    knownRelays: string[],
+    remoteMessageHandler: RemoteMessageHandler,
+  ) => Promise<void>;
+};
+
+export type SendRemoteMessage = (
+  peerId: string,
+  message: string,
+) => Promise<void>;
+
+export type RemoteComms = {
+  getPeerId: () => string;
+  sendRemoteMessage: SendRemoteMessage;
+  issueOcapURL: (kref: string) => Promise<string>;
+  redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
 };
 
 // Cluster configuration
@@ -381,14 +444,14 @@ export function insistGCActionType(
   isGCActionType(value) || Fail`not a valid GCActionType ${value}`;
 }
 
-export type GCAction = `${VatId} ${GCActionType} ${KRef}`;
+export type GCAction = `${EndpointId} ${GCActionType} ${KRef}`;
 
 export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
   if (typeof value !== 'string') {
     return false;
   }
-  const [vatId, actionType, kref] = value.split(' ');
-  if (!isVatId(vatId)) {
+  const [endpointId, actionType, kref] = value.split(' ');
+  if (!isEndpointId(endpointId)) {
     return false;
   }
   if (!isGCActionType(actionType)) {
@@ -404,9 +467,18 @@ export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
 
 export type CrankResults = {
-  didDelivery?: VatId; // the vat on which we made a delivery
+  didDelivery?: EndpointId; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
   terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
 };
 
 export type VatDeliveryResult = [VatCheckpoint, string | null];
+
+export type EndpointHandle = {
+  deliverMessage: (target: ERef, message: Message) => Promise<CrankResults>;
+  deliverNotify: (resolutions: VatOneResolution[]) => Promise<CrankResults>;
+  deliverDropExports: (erefs: ERef[]) => Promise<CrankResults>;
+  deliverRetireExports: (erefs: ERef[]) => Promise<CrankResults>;
+  deliverRetireImports: (erefs: ERef[]) => Promise<CrankResults>;
+  deliverBringOutYourDead: () => Promise<CrankResults>;
+};

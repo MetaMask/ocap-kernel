@@ -26,6 +26,9 @@ const testSubcluster = {
   },
 };
 
+// First vat root object is ko3 due to kernel service objects being created before any vats.
+const exoTestRoot: KRef = 'ko3';
+
 describe('virtual objects functionality', async () => {
   let kernel: Kernel;
   let logEntries: LogEntry[];
@@ -75,7 +78,11 @@ describe('virtual objects functionality', async () => {
   it('tests scalar store functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const storeResult = await kernel.queueMessage('ko1', 'testScalarStore', []);
+    const storeResult = await kernel.queueMessage(
+      exoTestRoot,
+      'testScalarStore',
+      [],
+    );
     await waitUntilQuiescent(100);
     expect(kunser(storeResult)).toBe('scalar-store-tests-complete');
     const vatLogs = extractTestLogs(logEntries, 'ExoTest');
@@ -91,9 +98,11 @@ describe('virtual objects functionality', async () => {
   it('can create and use objects through messaging', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const counterResult = await kernel.queueMessage('ko1', 'createCounter', [
-      42,
-    ]);
+    const counterResult = await kernel.queueMessage(
+      exoTestRoot,
+      'createCounter',
+      [42],
+    );
     await waitUntilQuiescent();
     const counterRef = counterResult.slots[0] as KRef;
     const incrementResult = await kernel.queueMessage(counterRef, 'increment', [
@@ -102,26 +111,29 @@ describe('virtual objects functionality', async () => {
     // Verify the increment result
     expect(kunser(incrementResult)).toBe(47);
     await waitUntilQuiescent();
-    const personResult = await kernel.queueMessage('ko1', 'createPerson', [
-      'Dave',
-      35,
-    ]);
+    const personResult = await kernel.queueMessage(
+      exoTestRoot,
+      'createPerson',
+      ['Dave', 35],
+    );
     await waitUntilQuiescent();
     const personRef = personResult.slots[0] as KRef;
-    await kernel.queueMessage('ko1', 'createOrUpdateInMap', [
+    await kernel.queueMessage(exoTestRoot, 'createOrUpdateInMap', [
       'dave',
       personRef,
     ]);
     await waitUntilQuiescent();
 
     // Get object from map store
-    const retrievedPerson = await kernel.queueMessage('ko1', 'getFromMap', [
-      'dave',
-    ]);
+    const retrievedPerson = await kernel.queueMessage(
+      exoTestRoot,
+      'getFromMap',
+      ['dave'],
+    );
     await waitUntilQuiescent();
     // Verify the retrieved person object
     expect(kunser(retrievedPerson)).toBe(personRef);
-    await kernel.queueMessage('ko1', 'createOrUpdateInMap', [
+    await kernel.queueMessage(exoTestRoot, 'createOrUpdateInMap', [
       'dave',
       personRef,
     ]);
@@ -140,7 +152,11 @@ describe('virtual objects functionality', async () => {
   it('tests exoClass type validation and behavior', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
-    const exoClassResult = await kernel.queueMessage('ko1', 'testExoClass', []);
+    const exoClassResult = await kernel.queueMessage(
+      exoTestRoot,
+      'testExoClass',
+      [],
+    );
     await waitUntilQuiescent(100);
     expect(kunser(exoClassResult)).toBe('exoClass-tests-complete');
     const vatLogs = extractTestLogs(logEntries, 'ExoTest');
@@ -155,7 +171,7 @@ describe('virtual objects functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
     const exoClassKitResult = await kernel.queueMessage(
-      'ko1',
+      exoTestRoot,
       'testExoClassKit',
       [],
     );
@@ -173,9 +189,11 @@ describe('virtual objects functionality', async () => {
     expect(bootstrapResult).toBe('exo-test-complete');
     clearLogEntries();
     // Create a temperature converter starting at 100°C
-    const tempResult = await kernel.queueMessage('ko1', 'createTemperature', [
-      100,
-    ]);
+    const tempResult = await kernel.queueMessage(
+      exoTestRoot,
+      'createTemperature',
+      [100],
+    );
     await waitUntilQuiescent();
     // Get both facets from the result
     const tempKit = tempResult;

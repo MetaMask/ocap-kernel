@@ -13,6 +13,8 @@ import {
   runTestVats,
 } from './utils.ts';
 
+const v1Root = 'ko3';
+
 describe('persistent storage', { timeout: 10_000 }, () => {
   let logger: ReturnType<typeof makeTestLogger>;
   let databasePath: string;
@@ -54,7 +56,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     const result1 = await runTestVats(kernel1, testSubcluster);
     expect(result1).toBe('Counter initialized with count: 1');
     await waitUntilQuiescent();
-    const incrementResult1 = await runResume(kernel1, 'ko1');
+    const incrementResult1 = await runResume(kernel1, v1Root);
     expect(incrementResult1).toBe('Counter incremented to: 2');
     await waitUntilQuiescent();
     await kernel1.stop();
@@ -64,7 +66,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const resumeResult = await runResume(kernel2, 'ko1');
+    const resumeResult = await runResume(kernel2, v1Root);
     expect(resumeResult).toBe('Counter incremented to: 3');
   });
 
@@ -95,7 +97,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     const result1 = await runTestVats(kernel1, multiVatCluster);
     expect(result1).toBe('Coordinator initialized with 2 workers');
     await waitUntilQuiescent();
-    const workResult1 = await runResume(kernel1, 'ko1');
+    const workResult1 = await runResume(kernel1, v1Root);
     expect(workResult1).toBe('Work completed: Worker1(1), Worker2(1)');
     await waitUntilQuiescent();
     await kernel1.stop();
@@ -105,7 +107,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const workResult2 = await runResume(kernel2, 'ko1');
+    const workResult2 = await runResume(kernel2, v1Root);
     expect(workResult2).toBe('Work completed: Worker1(2), Worker2(2)');
   });
 
@@ -118,7 +120,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     );
     await runTestVats(kernel1, testSubcluster);
     await waitUntilQuiescent();
-    await runResume(kernel1, 'ko1');
+    await runResume(kernel1, v1Root);
     await waitUntilQuiescent();
     await kernel1.stop();
     const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
@@ -139,9 +141,9 @@ describe('persistent storage', { timeout: 10_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await runTestVats(kernel, testSubcluster);
-    await runResume(kernel, 'ko1');
+    await runResume(kernel, v1Root);
     await kernel.restartVat('v1');
-    const resumeResult = await runResume(kernel, 'ko1');
+    const resumeResult = await runResume(kernel, v1Root);
     expect(resumeResult).toBe('Counter incremented to: 3');
   });
 
@@ -159,12 +161,12 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     );
     await waitUntilQuiescent();
     // Process one message to verify the vat is working
-    const result1 = await kernel1.queueMessage('ko1', 'resume', []);
+    const result1 = await kernel1.queueMessage(v1Root, 'resume', []);
     expect(kunser(result1)).toBe('Counter incremented to: 2');
     // Enqueue a send message into the database
     kernelStore.kv.set('queue.run.head', '4');
     kernelStore.kv.set('nextPromiseId', '4');
-    kernelStore.kv.set('ko1.refCount', '3,3');
+    kernelStore.kv.set(`${v1Root}.refCount`, '3,3');
     kernelStore.kv.set('queue.kp3.head', '1');
     kernelStore.kv.set('queue.kp3.tail', '1');
     kernelStore.kv.set('kp3.state', 'unresolved');
@@ -172,7 +174,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     kernelStore.kv.set('kp3.refCount', '2');
     kernelStore.kv.set(
       'queue.run.3',
-      '{"type":"send","target":"ko1","message":{"methargs":{"body":"#[\\"resume\\",[]]","slots":[]},"result":"kp3"}}',
+      `{"type":"send","target":"${v1Root}","message":{"methargs":{"body":"#[\\"resume\\",[]]","slots":[]},"result":"kp3"}}`,
     );
     await kernel1.stop();
     // verify that the message is in the database
@@ -186,7 +188,7 @@ describe('persistent storage', { timeout: 10_000 }, () => {
     // verify that the run queue is empty
     expect(kernelStore.kv.get('queue.run.3')).toBeUndefined();
     // verify that the message is processed and the counter is incremented
-    const result2 = await kernel2.queueMessage('ko1', 'resume', []);
+    const result2 = await kernel2.queueMessage(v1Root, 'resume', []);
     expect(kunser(result2)).toBe('Counter incremented to: 4');
   });
 });

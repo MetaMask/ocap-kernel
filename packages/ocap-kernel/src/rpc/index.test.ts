@@ -7,11 +7,14 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'kernelHandlers',
       'kernelMethodSpecs',
+      'kernelRemoteHandlers',
+      'kernelRemoteMethodSpecs',
+      'platformServicesHandlers',
+      'platformServicesMethodSpecs',
       'vatHandlers',
       'vatMethodSpecs',
       'vatSyscallHandlers',
       'vatSyscallMethodSpecs',
-      'vatWorkerServiceMethodSpecs',
     ]);
   });
 });

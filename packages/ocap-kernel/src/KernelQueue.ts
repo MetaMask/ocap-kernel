@@ -5,7 +5,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { processGCActionSet } from './services/garbage-collection.ts';
 import { kser } from './services/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { insistVatId } from './types.ts';
+import { insistEndpointId } from './types.ts';
 import type {
   CrankResults,
   KRef,
@@ -14,6 +14,7 @@ import type {
   RunQueueItemNotify,
   RunQueueItemSend,
   VatId,
+  EndpointId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
@@ -143,7 +144,7 @@ export class KernelQueue {
   }
 
   /**
-   * Queue a message to be delivered from the kernel to an object in a vat.
+   * Queue a message to be delivered from the kernel to an object in an endpoint.
    *
    * @param target - The object to which the message is directed.
    * @param method - The method to be invoked.
@@ -170,7 +171,7 @@ export class KernelQueue {
   }
 
   /**
-   * Enqueue a send message to be delivered to a vat.
+   * Enqueue a send message to be delivered to an endpoint.
    *
    * @param target - The object to which the message is directed.
    * @param message - The message to be delivered.
@@ -192,14 +193,14 @@ export class KernelQueue {
   }
 
   /**
-   * Enqueue for delivery a notification to a vat about the resolution of a
+   * Enqueue for delivery a notification to an endpoint about the resolution of a
    * promise.
    *
-   * @param vatId - The vat that will be notified.
+   * @param endpointId - The endpoint that will be notified.
    * @param kpid - The promise of interest.
    */
-  enqueueNotify(vatId: VatId, kpid: KRef): void {
-    const notifyItem: RunQueueItemNotify = { type: 'notify', vatId, kpid };
+  enqueueNotify(endpointId: EndpointId, kpid: KRef): void {
+    const notifyItem: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
     this.#enqueueRun(notifyItem);
     // Increment reference count for the promise being notified about
     this.#kernelStore.incrementRefCount(kpid, 'notify');
@@ -217,17 +218,17 @@ export class KernelQueue {
   }
 
   /**
-   * Process a set of promise resolutions coming from a vat.
+   * Process a set of promise resolutions coming from an endpoint.
    *
-   * @param vatId - The vat doing the resolving, if there is one.
+   * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.
    */
   resolvePromises(
-    vatId: VatId | undefined,
+    endpointId: EndpointId | undefined,
     resolutions: VatOneResolution[],
   ): void {
-    if (vatId && vatId !== 'kernel') {
-      insistVatId(vatId);
+    if (endpointId && endpointId !== 'kernel') {
+      insistEndpointId(endpointId);
     }
     for (const resolution of resolutions) {
       const [kpid, rejected, dataRaw] = resolution;
@@ -243,9 +244,9 @@ export class KernelQueue {
       if (state !== 'unresolved') {
         Fail`${kpid} was already resolved`;
       }
-      if (decider !== vatId) {
+      if (decider !== endpointId) {
         const why = decider ? `its decider is ${decider}` : `it has no decider`;
-        Fail`${vatId} not permitted to resolve ${kpid} because ${why}`;
+        Fail`${endpointId} not permitted to resolve ${kpid} because ${why}`;
       }
       if (!subscribers) {
         throw Fail`${kpid} subscribers not set`;

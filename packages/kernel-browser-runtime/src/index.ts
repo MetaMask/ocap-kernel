@@ -8,5 +8,5 @@ export type {
   KernelControlStream,
 } from './ui-connections.ts';
 export * from './makeIframeVatWorker.ts';
-export * from './VatWorkerClient.ts';
-export * from './VatWorkerServer.ts';
+export * from './PlatformServicesClient.ts';
+export * from './PlatformServicesServer.ts';

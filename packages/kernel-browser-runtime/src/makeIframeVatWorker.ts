@@ -3,7 +3,7 @@ import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { createWindow } from '@metamask/snaps-utils';
 import type { initializeMessageChannel } from '@metamask/streams/browser';
 
-import type { VatWorker } from './VatWorkerServer.ts';
+import type { VatWorker } from './PlatformServicesServer.ts';
 
 type Options = {
   id: VatId;
@@ -45,16 +45,16 @@ export const makeIframeVatWorker = ({
 
       return [port, newWindow];
     },
-    terminate: async (): Promise<void> => {
+    terminate: async (): Promise<null> => {
       const iframe = document.getElementById(vatHtmlId);
       if (iframe === null) {
         logger.error(
           `iframe of vat with id "${id}" already removed from DOM (#${vatHtmlId})`,
         );
-        return undefined;
+        return null;
       }
       iframe.remove();
-      return undefined;
+      return null;
     },
   };
 };

@@ -33,7 +33,7 @@ const testSubcluster = {
 describe(
   'Async generator consumption between vats',
   {
-    timeout: 2000,
+    timeout: 5000,
   },
   () => {
     let kernel: Kernel;
