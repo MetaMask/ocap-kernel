@@ -77,10 +77,8 @@ describe('object-methods', () => {
       expect(objectStore.getOwner(koId2)).toBe(owner2);
     });
 
-    it('throws for unknown kernel objects', () => {
-      expect(() => objectStore.getOwner('ko99')).toThrow(
-        'unknown kernel object ko99',
-      );
+    it('returns undefined for unknown kernel objects', () => {
+      expect(objectStore.getOwner('ko99')).toBeUndefined();
     });
   });
 
@@ -157,9 +155,7 @@ describe('object-methods', () => {
       expect(kv.get(`${koId}.refCount`)).toBeUndefined();
 
       // getOwner should throw
-      expect(() => objectStore.getOwner(koId)).toThrow(
-        `unknown kernel object ${koId}`,
-      );
+      expect(objectStore.getOwner(koId)).toBeUndefined();
     });
   });
 
@@ -305,9 +301,7 @@ describe('object-methods', () => {
       objectStore.deleteKernelObject(koId);
 
       // Object should be gone
-      expect(() => objectStore.getOwner(koId)).toThrow(
-        `unknown kernel object ${koId}`,
-      );
+      expect(objectStore.getOwner(koId)).toBeUndefined();
       expect(objectStore.getObjectRefCount(koId)).toStrictEqual({
         reachable: 0,
         recognizable: 0,
@@ -341,9 +335,7 @@ describe('object-methods', () => {
       objectStore.deleteKernelObject(koId1);
 
       // First object should be gone, second still exists
-      expect(() => objectStore.getOwner(koId1)).toThrow(
-        `unknown kernel object ${koId1}`,
-      );
+      expect(objectStore.getOwner(koId1)).toBeUndefined();
       expect(objectStore.getOwner(koId2)).toBe('r2');
     });
 
