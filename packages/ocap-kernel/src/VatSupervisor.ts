@@ -41,7 +41,7 @@ type SupervisorConstructorProps = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
   logger: Logger;
-  makePlatform: PlatformFactory;
+  makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
@@ -105,7 +105,9 @@ export class VatSupervisor {
     kernelStream,
     logger,
     vatPowers,
-    makePlatform,
+    makePlatform = () => {
+      throw new Error('No platform capabilities provided');
+    },
     platformOptions,
     fetchBlob,
   }: SupervisorConstructorProps) {
