@@ -6,6 +6,7 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
+import { makePlatform } from '@ocap/kernel-platforms/browser';
 
 const logger = new Logger('vat-iframe');
 
@@ -33,6 +34,7 @@ async function main(): Promise<void> {
     id: vatId,
     kernelStream,
     logger: logger.subLogger(vatId),
+    makePlatform,
   });
 
   logger.info('VatSupervisor initialized with vatId:', vatId);

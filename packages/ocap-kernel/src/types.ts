@@ -25,6 +25,8 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
+import type { PlatformConfig } from '@ocap/kernel-platforms';
+import { platformConfigStruct } from '@ocap/kernel-platforms';
 
 import { Fail } from './utils/assert.ts';
 
@@ -280,6 +282,7 @@ export type VatWorkerService = {
 export type VatConfig = UserCodeSpec & {
   creationOptions?: Record<string, Json>;
   parameters?: Record<string, Json>;
+  platformConfig?: Partial<PlatformConfig>;
 };
 
 const UserCodeSpecStruct = union([
@@ -301,15 +304,14 @@ export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
     return false;
   }
 
-  const { creationOptions, parameters, ...specOnly } = value as Record<
-    string,
-    unknown
-  >;
+  const { creationOptions, parameters, platformConfig, ...specOnly } =
+    value as Record<string, unknown>;
 
   return (
     is(specOnly, UserCodeSpecStruct) &&
     (!creationOptions || is(creationOptions, UnsafeJsonStruct)) &&
-    (!parameters || is(parameters, UnsafeJsonStruct))
+    (!parameters || is(parameters, UnsafeJsonStruct)) &&
+    (!platformConfig || is(platformConfig, platformConfigStruct))
   );
 });
 

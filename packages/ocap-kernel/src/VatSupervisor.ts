@@ -16,6 +16,7 @@ import type { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import type { PlatformFactory } from '@ocap/kernel-platforms';
 
 import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
 import { makeGCAndFinalize } from './services/gc-finalize.ts';
@@ -40,6 +41,8 @@ type SupervisorConstructorProps = {
   id: VatId;
   kernelStream: DuplexStream<JsonRpcMessage, JsonRpcMessage>;
   logger: Logger;
+  makePlatform?: PlatformFactory;
+  platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
 };
@@ -79,6 +82,12 @@ export class VatSupervisor {
   /** Capability to fetch the bundle of code to run in this vat. */
   readonly #fetchBlob: FetchBlob;
 
+  /** Function to create endowments for this vat. */
+  readonly #makePlatform: PlatformFactory;
+
+  /** Options to pass to the makePlatform function. */
+  readonly #platformOptions: Record<string, unknown>;
+
   /**
    * Construct a new VatSupervisor instance.
    *
@@ -88,12 +97,18 @@ export class VatSupervisor {
    * @param params.logger - The logger for this vat.
    * @param params.vatPowers - The external capabilities for this vat.
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
+   * @param params.makePlatform - Function to create the platform for this vat.
+   * @param params.platformOptions - Options to pass to the makePlatform function.
    */
   constructor({
     id,
     kernelStream,
     logger,
     vatPowers,
+    makePlatform = () => {
+      throw new Error('No platform capabilities provided');
+    },
+    platformOptions,
     fetchBlob,
   }: SupervisorConstructorProps) {
     this.id = id;
@@ -104,6 +119,8 @@ export class VatSupervisor {
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
       await fetch(bundleURL);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
+    this.#platformOptions = platformOptions ?? {};
+    this.#makePlatform = makePlatform;
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -262,7 +279,11 @@ export class VatSupervisor {
       assert: globalThis.assert,
     };
 
-    const { bundleSpec, parameters } = vatConfig;
+    const { bundleSpec, parameters, platformConfig } = vatConfig;
+
+    const platformEndowments = platformConfig
+      ? await this.#makePlatform(platformConfig, this.#platformOptions)
+      : {};
 
     const fetched = await this.#fetchBlob(bundleSpec);
     if (!fetched.ok) {
@@ -275,7 +296,12 @@ export class VatSupervisor {
     ): Promise<Record<string, unknown>> => {
       const vatNS = await importBundle(bundle, {
         filePrefix: `vat-${this.id}/...`,
-        endowments: { ...workerEndowments, ...lsEndowments },
+        endowments: {
+          ...workerEndowments,
+          ...platformEndowments,
+          // Important, liveslots endowments should be last so they override
+          ...lsEndowments,
+        },
         inescapableGlobalProperties,
       });
       return vatNS;
