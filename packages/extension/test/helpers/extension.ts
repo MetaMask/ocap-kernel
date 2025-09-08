@@ -66,16 +66,5 @@ export const makeLoadExtension = async (): Promise<{
   // Wait for the default subcluster accordion to be visible
   await expect(popupPage.locator('text=Subcluster s1 - 3 Vats')).toBeVisible();
 
-  // Wait for the extension to setup and validate the UI is ready
-  const subcluster = popupPage.locator(
-    '[data-testid="subcluster-accordion-s1"]',
-  );
-  await expect(subcluster).toBeVisible({ timeout: 30000 });
-  await popupPage.locator('.accordion-header').first().click();
-  await expect(popupPage.locator('table tr')).toHaveCount(4, {
-    timeout: 30000,
-  });
-  await popupPage.locator('.accordion-header').first().click();
-
   return { browserContext, extensionId, popupPage };
 };

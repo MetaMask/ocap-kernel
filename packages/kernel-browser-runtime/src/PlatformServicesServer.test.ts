@@ -6,8 +6,8 @@ import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
-import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcRequest } from '@metamask/utils';
+import { makeMockMessageTarget } from '@ocap/test-utils';
 import { TestDuplexStream } from '@ocap/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
@@ -93,11 +93,7 @@ describe('PlatformServicesServer', () => {
 
   it('constructs using static factory method', async () => {
     const server = await PlatformServicesServer.make(
-      {
-        postMessage: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      } as unknown as PostMessageTarget,
+      makeMockMessageTarget(),
       () => ({}) as unknown as VatWorker,
     );
     expect(server).toBeDefined();

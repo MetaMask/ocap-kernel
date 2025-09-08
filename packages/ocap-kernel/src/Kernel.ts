@@ -130,6 +130,10 @@ export class Kernel {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase);
+    if (!this.#kernelStore.kv.get('initialized')) {
+      this.#kernelStore.kv.set('initialized', 'true');
+    }
+
     if (options.resetStorage) {
       this.#resetKernelState();
     }

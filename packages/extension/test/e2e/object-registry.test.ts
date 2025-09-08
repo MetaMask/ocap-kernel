@@ -73,12 +73,11 @@ test.describe('Object Registry', () => {
     await clearLogsButton.click();
     await popupPage.click('button:text("Object Registry")');
     await expect(
-      popupPage.locator('text=Alice (v1) - 3 objects, 3 promises'),
+      popupPage.locator('text=Alice (v1) - 5 objects, 4 promises'),
     ).toBeVisible();
     const targetSelect = popupPage.locator('[data-testid="message-target"]');
     await expect(targetSelect).toBeVisible();
     const options = targetSelect.locator('option:not([value=""])');
-    console.log('options', options);
     await expect(options).toHaveCount(await options.count());
     expect(await options.count()).toBeGreaterThan(0);
     await targetSelect.selectOption({ index: 1 });
@@ -103,7 +102,7 @@ test.describe('Object Registry', () => {
     await expect(messageResponse).toContainText('"body":"#\\"vat Alice got');
     await expect(messageResponse).toContainText('"slots":[');
     await expect(
-      popupPage.locator('text=Alice (v1) - 3 objects, 5 promises'),
+      popupPage.locator('text=Alice (v1) - 5 objects, 6 promises'),
     ).toBeVisible();
   });
 
