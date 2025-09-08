@@ -194,8 +194,8 @@ describe('kernel store', () => {
 
       // Delete an object
       ks.deleteKernelObject('ko1');
-      expect(() => ks.getOwner('ko1')).toThrow('unknown kernel object ko1');
-      expect(() => ks.getOwner('ko99')).toThrow('unknown kernel object ko99');
+      expect(ks.getOwner('ko1')).toBeUndefined();
+      expect(ks.getOwner('ko99')).toBeUndefined();
     });
     it('manages kernel promises', () => {
       const ks = makeKernelStore(mockKernelDatabase);
@@ -324,7 +324,7 @@ describe('kernel store', () => {
       ks.reset();
       expect(ks.getNextVatId()).toBe('v1');
       expect(ks.getNextRemoteId()).toBe('r1');
-      expect(() => ks.getOwner(koId)).toThrow(`unknown kernel object ${koId}`);
+      expect(ks.getOwner(koId)).toBeUndefined();
       expect(() => ks.getKernelPromise(kpId)).toThrow(
         `unknown kernel promise ${kpId}`,
       );

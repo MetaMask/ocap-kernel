@@ -41,15 +41,10 @@ export function getObjectMethods(ctx: StoreContext) {
    * Get a kernel object's owner.
    *
    * @param koId - The KRef of the kernel object of interest.
-   * @param throwIfUnknown - Whether to throw an error if the owner is unknown.
    * @returns The identity of the vat or remote that owns the object.
    */
-  function getOwner(koId: KRef, throwIfUnknown = true): EndpointId | undefined {
-    const owner = ctx.kv.get(getOwnerKey(koId));
-    if (throwIfUnknown && owner === undefined) {
-      throw Error(`unknown kernel object ${koId}`);
-    }
-    return owner;
+  function getOwner(koId: KRef): EndpointId | undefined {
+    return ctx.kv.get(getOwnerKey(koId));
   }
 
   /**
