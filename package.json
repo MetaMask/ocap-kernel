@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "build": "yarn build:source && yarn build:special",
+    "build:turbo": "turbo build",
     "build:dev": "yarn build:source && yarn build:special:dev",
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",
@@ -95,6 +96,7 @@
     "rimraf": "^6.0.1",
     "semver": "^7.7.1",
     "simple-git-hooks": "^2.12.1",
+    "turbo": "^2.5.6",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
