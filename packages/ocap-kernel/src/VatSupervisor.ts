@@ -11,7 +11,7 @@ import { StreamReadError } from '@metamask/kernel-errors';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore } from '@metamask/kernel-store';
 import {
-  objectDisjointUnion,
+  mergeDisjointRecords,
   waitUntilQuiescent,
 } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -300,7 +300,7 @@ export class VatSupervisor {
       let endowments: object;
       try {
         // Ensure there are no endowment name collisions.
-        endowments = objectDisjointUnion(
+        endowments = mergeDisjointRecords(
           workerEndowments,
           platformEndowments,
           lsEndowments,

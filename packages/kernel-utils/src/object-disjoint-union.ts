@@ -1,30 +1,30 @@
 /**
- * Create a new object that is the disjoint union of the given objects.
+ * Create a new record that is the disjoint union of the given records.
  *
- * @param objects - The objects to union.
- * @returns The disjoint union of the given objects.
- * @throws If a key is found in multiple objects.
+ * @param records - The records to union.
+ * @returns The disjoint union of the given records.
+ * @throws If a key is found in multiple records.
  */
-export const objectDisjointUnion = (
-  ...objects: Record<PropertyKey, unknown>[]
+export const mergeDisjointRecords = (
+  ...records: Record<PropertyKey, unknown>[]
 ): Record<PropertyKey, unknown> => {
   const keys = new Map<PropertyKey, number>();
   const out: Record<PropertyKey, unknown> = Object.create(null);
-  objects.forEach((obj, collidingIndex) => {
-    for (const key of Reflect.ownKeys(obj)) {
+  records.forEach((record, collidingIndex) => {
+    for (const key of Reflect.ownKeys(record)) {
       if (keys.has(key)) {
         const originalIndex = keys.get(key);
         throw new Error(
-          `Duplicate keys in objects: ${String(key)}, found in entries ${originalIndex} and ${collidingIndex}`,
+          `Duplicate keys in records: ${String(key)}, found in entries ${originalIndex} and ${collidingIndex}`,
           { cause: { originalIndex, collidingIndex, key } },
         );
       }
       keys.set(key, collidingIndex);
-      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      const desc = Object.getOwnPropertyDescriptor(record, key);
       if (desc) {
         Object.defineProperty(out, key, desc);
       } else {
-        out[key] = obj[key];
+        out[key] = record[key];
       }
     }
   });

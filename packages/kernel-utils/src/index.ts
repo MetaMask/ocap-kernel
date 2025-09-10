@@ -19,4 +19,4 @@ export {
 } from './types.ts';
 export { waitUntilQuiescent } from './wait-quiescent.ts';
 export { fromHex, toHex } from './hex.ts';
-export { objectDisjointUnion } from './object-disjoint-union.ts';
+export { mergeDisjointRecords } from './object-disjoint-union.ts';
