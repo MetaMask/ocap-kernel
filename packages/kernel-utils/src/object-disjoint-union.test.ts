@@ -3,54 +3,49 @@ import { describe, it, expect } from 'vitest';
 import { objectDisjointUnion } from './object-disjoint-union.ts';
 
 describe('objectDisjointUnion', () => {
-  it('combines objects with no overlapping keys', () => {
-    const obj1 = { a: 1, b: 2 };
-    const obj2 = { c: 3, d: 4 };
-    const obj3 = { e: 5 };
-
-    const result = objectDisjointUnion(obj1, obj2, obj3);
-
-    expect(result).toStrictEqual({
-      a: 1,
-      b: 2,
-      c: 3,
-      d: 4,
-      e: 5,
-    });
-  });
-
-  it('handles single object', () => {
-    const obj = { a: 1, b: 2 };
-
-    const result = objectDisjointUnion(obj);
-
-    expect(result).toStrictEqual({ a: 1, b: 2 });
-  });
-
-  it('handles empty objects', () => {
-    const result = objectDisjointUnion({}, { a: 1 }, {});
-
-    expect(result).toStrictEqual({ a: 1 });
-  });
-
-  it('handles no arguments', () => {
-    const result = objectDisjointUnion();
-
-    expect(result).toStrictEqual({});
-  });
-
-  it('preserves object values including functions and nested objects', () => {
-    const fn = () => 'test';
-    const nested = { inner: 'value' };
-    const obj1 = { a: fn };
-    const obj2 = { b: nested };
-
-    const result = objectDisjointUnion(obj1, obj2);
-
-    expect(result).toStrictEqual({
-      a: fn,
-      b: nested,
-    });
+  it.each([
+    [
+      'objects with no overlapping keys',
+      [{ a: 1, b: 2 }, { c: 3, d: 4 }, { e: 5 }],
+      { a: 1, b: 2, c: 3, d: 4, e: 5 },
+    ],
+    ['single object', [{ a: 1, b: 2 }], { a: 1, b: 2 }],
+    ['empty objects', [{}, { a: 1 }, {}], { a: 1 }],
+    ['no arguments', [], {}],
+    [
+      'object values including functions and nested objects',
+      [{ a: () => 'test' }, { b: { inner: 'value' } }],
+      { a: expect.any(Function), b: { inner: 'value' } },
+    ],
+    [
+      'objects with Symbol keys',
+      [{ [Symbol.for('key1')]: 'value1' }, { [Symbol.for('key2')]: 'value2' }],
+      { [Symbol.for('key1')]: 'value1', [Symbol.for('key2')]: 'value2' },
+    ],
+    [
+      'objects with mixed string and Symbol keys',
+      [{ a: 1, [Symbol.for('sym')]: 'symbol' }, { b: 2 }],
+      { a: 1, [Symbol.for('sym')]: 'symbol', b: 2 },
+    ],
+    [
+      'objects with properties added via simple assignment',
+      [
+        Object.assign(Object.create(null), { a: 1 }),
+        Object.assign(Object.create(null), { b: 2 }),
+      ],
+      { a: 1, b: 2 },
+    ],
+    [
+      'objects with Proxy that returns undefined descriptor',
+      [
+        new Proxy({ a: 1 }, { getOwnPropertyDescriptor: () => undefined }),
+        { b: 2 },
+      ],
+      { a: 1, b: 2 },
+    ],
+  ])('handles %s', (_, objects, expected) => {
+    const result = objectDisjointUnion(...objects);
+    expect(result).toStrictEqual(Object.assign(Object.create(null), expected));
   });
 
   it.each([
@@ -72,8 +67,110 @@ describe('objectDisjointUnion', () => {
       'Duplicate keys in objects: c, found in entries 1 and 2',
       { originalIndex: 1, collidingIndex: 2, key: 'c' },
     ],
+    [
+      'duplicate Symbol key in first two objects',
+      [{ [Symbol.for('key')]: 1 }, { [Symbol.for('key')]: 2 }],
+      'Duplicate keys in objects: Symbol(key), found in entries 0 and 1',
+      { originalIndex: 0, collidingIndex: 1, key: Symbol.for('key') },
+    ],
+    [
+      'duplicate Symbol key in mixed objects',
+      [
+        { a: 1, [Symbol.for('sym')]: 'value1' },
+        { b: 2, [Symbol.for('sym')]: 'value2' },
+      ],
+      'Duplicate keys in objects: Symbol(sym), found in entries 0 and 1',
+      { originalIndex: 0, collidingIndex: 1, key: Symbol.for('sym') },
+    ],
   ])('throws error when %s', (_, objects, expectedMessage, expectedCause) => {
-    const expectedError = new Error(expectedMessage, { cause: expectedCause });
-    expect(() => objectDisjointUnion(...objects)).toThrow(expectedError);
+    expect(() => objectDisjointUnion(...objects)).toThrow(
+      new Error(expectedMessage, { cause: expectedCause }),
+    );
+  });
+
+  describe('property descriptor preservation', () => {
+    it('preserves non-enumerable properties', () => {
+      const result = objectDisjointUnion(
+        Object.create(null, { a: { value: 1, enumerable: false } }),
+        Object.create(null, { b: { value: 2, enumerable: true } }),
+      );
+      expect(Object.getOwnPropertyDescriptor(result, 'a')).toStrictEqual({
+        value: 1,
+        writable: false,
+        enumerable: false,
+        configurable: false,
+      });
+      expect(Object.getOwnPropertyDescriptor(result, 'b')).toStrictEqual({
+        value: 2,
+        writable: false,
+        enumerable: true,
+        configurable: false,
+      });
+    });
+
+    it('preserves non-writable properties', () => {
+      const result = objectDisjointUnion(
+        Object.create(null, { a: { value: 1, writable: false } }),
+        Object.create(null, { b: { value: 2, writable: true } }),
+      );
+      expect(() => {
+        result.a = 999;
+      }).toThrow(/Cannot assign to read only property/u);
+      expect(result.a).toBe(1);
+      result.b = 999;
+      expect(result.b).toBe(999);
+    });
+
+    it('preserves non-configurable properties', () => {
+      const result = objectDisjointUnion(
+        Object.create(null, { a: { value: 1, configurable: false } }),
+        Object.create(null, { b: { value: 2, configurable: true } }),
+      );
+      expect(() => {
+        delete result.a;
+      }).toThrow(/Cannot delete property/u);
+      expect(result.a).toBe(1);
+      delete result.b;
+      expect(result.b).toBeUndefined();
+    });
+
+    it('preserves getter/setter properties', () => {
+      let getterValue = 42;
+      const result = objectDisjointUnion(
+        Object.create(null, {
+          a: {
+            get: () => getterValue,
+            set: (value: number) => {
+              getterValue = value * 2;
+            },
+            enumerable: true,
+            configurable: true,
+          },
+        }),
+        { b: 2 },
+      );
+      expect(result.a).toBe(42);
+      result.a = 10;
+      expect(result.a).toBe(20);
+      expect(getterValue).toBe(20);
+      expect(result.b).toBe(2);
+    });
+
+    it('preserves Symbol property descriptors', () => {
+      const sym = Symbol('test');
+      const result = objectDisjointUnion(
+        Object.create(null, {
+          [sym]: { value: 'symbol value', writable: false, enumerable: false },
+        }),
+        { a: 1 },
+      );
+      expect(Object.getOwnPropertyDescriptor(result, sym)).toStrictEqual({
+        value: 'symbol value',
+        writable: false,
+        enumerable: false,
+        configurable: false,
+      });
+      expect(result[sym]).toBe('symbol value');
+    });
   });
 });
