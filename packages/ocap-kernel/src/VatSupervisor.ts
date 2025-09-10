@@ -313,9 +313,9 @@ export class VatSupervisor {
         if (error instanceof Error && error.cause) {
           const { collidingIndex, key } = error.cause as {
             collidingIndex: number;
-            key: string;
+            key: PropertyKey;
           };
-          throw new DuplicateEndowmentError(key, collidingIndex === 1);
+          throw new DuplicateEndowmentError(String(key), collidingIndex === 1);
         }
         // Otherwise, just rethrow the error.
         throw error;
