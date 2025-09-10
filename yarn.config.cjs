@@ -8,9 +8,9 @@
 /* global RegExpMatchArray */
 
 const { defineConfig } = require('@yarnpkg/types');
-const { readFile } = require('fs/promises');
+const { readFile, writeFile } = require('fs/promises');
 const { get } = require('lodash');
-const { basename, resolve } = require('path');
+const { basename, resolve, join } = require('path');
 const semver = require('semver');
 const { inspect } = require('util');
 
@@ -331,7 +331,21 @@ module.exports = defineConfig({
 
     // All version ranges in `dependencies` and `devDependencies` for the same
     // dependency across the monorepo must be the same.
-    expectConsistentDependenciesAndDevDependencies(Yarn);
+    const consistentDependencies =
+      expectConsistentDependenciesAndDevDependencies(Yarn);
+    // Update template to match monorepo versions
+    const templatePath = join(
+      __dirname,
+      'packages/create-package/src/package-template/package.json',
+    );
+    const templateDependencies = new Map(
+      Array.from(consistentDependencies.entries()).filter(
+        // Ignore workspace and patch dependencies for template updates
+        ([_ident, range]) =>
+          !['workspace:', 'patch:'].some((prefix) => range.startsWith(prefix)),
+      ),
+    );
+    await updateTemplateVersions(templatePath, templateDependencies);
   },
 });
 
@@ -752,11 +766,14 @@ function expectUniqueDependencyTypes(Yarn, workspace) {
  * Leaves conflict resolution to the user. `peerDependencies` are handled separately.
  *
  * @param {Yarn} Yarn - The Yarn "global".
+ * @returns {Map<string, string>} Map of dependency ident to consistent version range.
  */
 function expectConsistentDependenciesAndDevDependencies(Yarn) {
   const nonPeerDependenciesByIdent = getNonPeerDependenciesByIdent(
     Yarn.dependencies(),
   );
+
+  const consistentDependencies = new Map();
 
   for (const [
     dependencyIdent,
@@ -775,8 +792,14 @@ function expectConsistentDependenciesAndDevDependencies(Yarn) {
           );
         }
       }
+    } else {
+      // All versions are consistent, add to the map
+      const [consistentRange] = dependencyRanges;
+      consistentDependencies.set(dependencyIdent, consistentRange);
     }
   }
+
+  return consistentDependencies;
 }
 
 /**
@@ -814,4 +837,40 @@ async function expectReadme(workspace, workspaceBasename) {
       `The README.md does not contain an example of how to install the package using npm (\`npm install @metamask/${workspaceBasename}\`). Please add an example.`,
     );
   }
+}
+
+/**
+ * Update template package.json to match monorepo versions.
+ *
+ * @param {string} templatePath - Path to the template package.json.
+ * @param {Map<string, string>} consistentDependencies - Map of consistent dependency versions.
+ * @returns {Promise<boolean>} True if the template was updated, false otherwise.
+ */
+async function updateTemplateVersions(templatePath, consistentDependencies) {
+  const templateContent = await readFile(templatePath, 'utf8');
+  const template = JSON.parse(templateContent);
+  let updated = false;
+
+  // Update template dependencies
+  for (const depType of ['dependencies', 'devDependencies']) {
+    if (template[depType]) {
+      for (const [depName, currentVersion] of Object.entries(
+        template[depType],
+      )) {
+        const monorepoVersion = consistentDependencies.get(depName);
+        if (
+          monorepoVersion &&
+          versionRangeCompare(monorepoVersion, currentVersion)
+        ) {
+          template[depType][depName] = monorepoVersion;
+          updated = true;
+        }
+      }
+    }
+  }
+
+  if (updated) {
+    await writeFile(templatePath, `${JSON.stringify(template, null, 2)}\n`);
+  }
+  return updated;
 }
