@@ -7,7 +7,10 @@ import type {
 import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
-import { StreamReadError } from '@metamask/kernel-errors';
+import {
+  DuplicateEndowmentError,
+  StreamReadError,
+} from '@metamask/kernel-errors';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore } from '@metamask/kernel-store';
 import {
@@ -312,12 +315,7 @@ export class VatSupervisor {
             collidingIndex: number;
             key: string;
           };
-          if (collidingIndex === 1) {
-            throw new Error(
-              `Internal error: Duplicate endowment names for worker and platform: ${key}`,
-            );
-          }
-          throw new Error(`Forbidden endowment name: ${key}`);
+          throw new DuplicateEndowmentError(key, collidingIndex === 1);
         }
         // Otherwise, just rethrow the error.
         throw error;
