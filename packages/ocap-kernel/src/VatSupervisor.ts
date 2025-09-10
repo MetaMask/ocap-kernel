@@ -294,7 +294,7 @@ export class VatSupervisor {
     }
     const bundle = await fetched.json();
     const buildVatNamespace = async (
-      lsEndowments: object,
+      lsEndowments: Record<PropertyKey, unknown>,
       inescapableGlobalProperties: object,
     ): Promise<Record<string, unknown>> => {
       let endowments: object;
