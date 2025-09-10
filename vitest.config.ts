@@ -15,9 +15,7 @@ export default defineConfig({
   plugins: [
     // Resolve imports using the "paths" property of the relevant tsconfig.json,
     // if possible.
-    tsconfigPathsPlugin({
-      skip: (dir) => dir === 'package-template',
-    }),
+    tsconfigPathsPlugin(),
   ],
 
   test: {
@@ -60,10 +58,6 @@ export default defineConfig({
         '**/test/**',
         '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
-        path.join(
-          __dirname,
-          './packages/create-package/src/package-template/**',
-        ),
         path.join(__dirname, './packages/brow-2-brow/**'),
       ],
       thresholds: {
@@ -165,6 +159,12 @@ export default defineConfig({
           lines: 100,
         },
         'packages/streams/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
+        'packages/template-package/**': {
           statements: 100,
           functions: 100,
           branches: 100,

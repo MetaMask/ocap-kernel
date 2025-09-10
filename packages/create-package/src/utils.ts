@@ -12,11 +12,10 @@ import { readAllFiles, writeFiles } from './fs-utils.ts';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
-const PACKAGE_TEMPLATE_DIR = path.join(currentDir, 'package-template');
+const PACKAGE_TEMPLATE_DIR = path.join(currentDir, '../../template-package');
 const REPO_ROOT = path.join(currentDir, '..', '..', '..');
 const REPO_TS_CONFIG = path.join(REPO_ROOT, MonorepoFile.TsConfig);
 const REPO_TS_CONFIG_BUILD = path.join(REPO_ROOT, MonorepoFile.TsConfigBuild);
-const REPO_PACKAGE_JSON = path.join(REPO_ROOT, MonorepoFile.PackageJson);
 const PACKAGES_PATH = path.join(REPO_ROOT, 'packages');
 
 const allPlaceholdersRegex = new RegExp(
@@ -36,7 +35,6 @@ export type PackageData = Readonly<{
   name: string;
   description: string;
   directoryName: string;
-  nodeVersions: string;
   currentYear: string;
 }>;
 
@@ -46,7 +44,6 @@ export type PackageData = Readonly<{
 export type MonorepoFileData = {
   tsConfig: Tsconfig;
   tsConfigBuild: Tsconfig;
-  nodeVersions: string;
 };
 
 /**
@@ -58,29 +55,19 @@ type Tsconfig = {
 };
 
 /**
- * A parsed package.json file.
- */
-type PackageJson = {
-  engines: { node: string };
-  [key: string]: unknown;
-};
-
-/**
  * Reads the monorepo files that need to be parsed or modified.
  *
  * @returns A map of file paths to file contents.
  */
 export async function readMonorepoFiles(): Promise<MonorepoFileData> {
-  const [tsConfig, tsConfigBuild, packageJson] = await Promise.all([
+  const [tsConfig, tsConfigBuild] = await Promise.all([
     fs.readFile(REPO_TS_CONFIG, 'utf-8'),
     fs.readFile(REPO_TS_CONFIG_BUILD, 'utf-8'),
-    fs.readFile(REPO_PACKAGE_JSON, 'utf-8'),
   ]);
 
   return {
     tsConfig: JSON.parse(tsConfig) as Tsconfig,
     tsConfigBuild: JSON.parse(tsConfigBuild) as Tsconfig,
-    nodeVersions: (JSON.parse(packageJson) as PackageJson).engines.node,
   };
 }
 
@@ -231,14 +218,12 @@ function processTemplateContent(
   packageData: PackageData,
   content: string,
 ): string {
-  const { name, description, nodeVersions, currentYear } = packageData;
+  const { name, description, currentYear } = packageData;
 
   return content.replace(allPlaceholdersRegex, (match) => {
     switch (match as Placeholder) {
       case Placeholder.CurrentYear:
         return currentYear;
-      case Placeholder.NodeVersions:
-        return nodeVersions;
       case Placeholder.PackageName:
         return name;
       case Placeholder.PackageDescription:

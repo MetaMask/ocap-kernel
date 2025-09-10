@@ -27,7 +27,6 @@ describe('create-package/commands', () => {
         tsConfigBuild: {
           references: [{ path: '../packages/foo' }],
         },
-        nodeVersions: '>=18.0.0',
       });
 
       const args: Arguments<CreatePackageOptions> = {
@@ -47,7 +46,6 @@ describe('create-package/commands', () => {
           name: '@ocap/new-package',
           description: 'A new MetaMask package.',
           directoryName: 'new-package',
-          nodeVersions: '>=18.0.0',
           currentYear: '2023',
         },
         {
@@ -57,7 +55,6 @@ describe('create-package/commands', () => {
           tsConfigBuild: {
             references: [{ path: '../packages/foo' }],
           },
-          nodeVersions: '>=18.0.0',
         },
       );
     });

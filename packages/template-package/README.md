@@ -1,14 +1,14 @@
-# `PACKAGE_NAME`
+# `@ocap/template-package`
 
 PACKAGE_DESCRIPTION
 
 ## Installation
 
-`yarn add PACKAGE_NAME`
+`yarn add @ocap/template-package`
 
 or
 
-`npm install PACKAGE_NAME`
+`npm install @ocap/template-package`
 
 ## Contributing
 

@@ -73,7 +73,6 @@ describe('create-package/cli', () => {
       vi.spyOn(utils, 'readMonorepoFiles').mockResolvedValue({
         tsConfig: {},
         tsConfigBuild: {},
-        nodeVersions: '>=18.0.0',
       } as utils.MonorepoFileData);
       vi.spyOn(utils, 'finalizeAndWriteData').mockResolvedValue();
 
@@ -97,7 +96,6 @@ describe('create-package/cli', () => {
       vi.spyOn(utils, 'readMonorepoFiles').mockResolvedValue({
         tsConfig: {},
         tsConfigBuild: {},
-        nodeVersions: '>=18.0.0',
       } as utils.MonorepoFileData);
       vi.spyOn(utils, 'finalizeAndWriteData').mockResolvedValue();
 

@@ -88,7 +88,6 @@ export async function createPackageHandler(
     name: args.name,
     description: args.description,
     directoryName: args.name.slice('@ocap/'.length),
-    nodeVersions: monorepoFileData.nodeVersions,
     currentYear: new Date().getFullYear().toString(),
   };
 
