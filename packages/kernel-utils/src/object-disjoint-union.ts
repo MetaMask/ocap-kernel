@@ -10,8 +10,7 @@ export const objectDisjointUnion = (
 ): Record<PropertyKey, unknown> => {
   const keys = new Map<PropertyKey, number>();
   const out: Record<PropertyKey, unknown> = Object.create(null);
-  let collidingIndex = 0;
-  for (const obj of objects) {
+  objects.forEach((obj, collidingIndex) => {
     for (const key of Reflect.ownKeys(obj)) {
       if (keys.has(key)) {
         const originalIndex = keys.get(key);
@@ -28,7 +27,6 @@ export const objectDisjointUnion = (
         out[key] = obj[key];
       }
     }
-    collidingIndex += 1;
-  }
+  });
   return out;
 };
