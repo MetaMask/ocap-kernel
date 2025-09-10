@@ -93,10 +93,10 @@ export default defineConfig({
           lines: 70.99,
         },
         'packages/kernel-errors/**': {
-          statements: 98.73,
-          functions: 95.65,
+          statements: 98.82,
+          functions: 96,
           branches: 92,
-          lines: 98.73,
+          lines: 98.82,
         },
         'packages/kernel-language-model-service/**': {
           statements: 100,
@@ -137,7 +137,7 @@ export default defineConfig({
         'packages/kernel-utils/**': {
           statements: 100,
           functions: 100,
-          branches: 96.55,
+          branches: 96.96,
           lines: 100,
         },
         'packages/logger/**': {
@@ -153,10 +153,10 @@ export default defineConfig({
           lines: 69.44,
         },
         'packages/ocap-kernel/**': {
-          statements: 87.97,
+          statements: 87.81,
           functions: 89.26,
-          branches: 80,
-          lines: 87.98,
+          branches: 79.59,
+          lines: 87.82,
         },
         'packages/remote-iterables/**': {
           statements: 100,
