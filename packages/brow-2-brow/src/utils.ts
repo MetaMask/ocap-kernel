@@ -4,6 +4,7 @@ import {
   WebRTC,
   WebSockets,
   WebSocketsSecure,
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   WebTransport,
   Circuit,
 } from '@multiformats/multiaddr-matcher';
@@ -123,7 +124,7 @@ export function getPeerDetails(libp2p: Libp2p): string {
  * @param element - The element to update.
  * @param newContent - The new value to update it to.
  */
-export function update(element: HTMLDataElement, newContent: string): void {
+export function update(element: HTMLElement, newContent: string): void {
   if (element.innerHTML !== newContent) {
     element.innerHTML = newContent;
   }
