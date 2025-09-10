@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { mergeDisjointRecords } from './object-disjoint-union.ts';
+import { mergeDisjointRecords } from './merge-disjoint-records.ts';
 
 describe('mergeDisjointRecords', () => {
   it.each([
