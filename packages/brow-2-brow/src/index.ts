@@ -117,21 +117,26 @@ const App = async (): Promise<void> => {
   globalThis.libp2p = libp2p;
 
   const DOM = {
-    nodePeerId: () => document.getElementById('output-node-peer-id'),
-    nodeStatus: () => document.getElementById('output-node-status'),
-    nodePeerCount: () => document.getElementById('output-peer-count'),
-    nodePeerTypes: () => document.getElementById('output-peer-types'),
-    nodeAddressCount: () => document.getElementById('output-address-count'),
-    nodeAddresses: () => document.getElementById('output-addresses'),
-    nodePeerDetails: () => document.getElementById('output-peer-details'),
+    /* eslint-disable @typescript-eslint/no-non-null-assertion */
+    nodePeerId: () => document.getElementById('output-node-peer-id')!,
+    nodeStatus: () => document.getElementById('output-node-status')!,
+    nodePeerCount: () => document.getElementById('output-peer-count')!,
+    nodePeerTypes: () => document.getElementById('output-peer-types')!,
+    nodeAddressCount: () => document.getElementById('output-address-count')!,
+    nodeAddresses: () => document.getElementById('output-addresses')!,
+    nodePeerDetails: () => document.getElementById('output-peer-details')!,
 
-    inputMultiaddr: () => document.getElementById('input-multiaddr'),
-    inputTarget: () => document.getElementById('input-target'),
-    inputMessage: () => document.getElementById('input-message'),
-    connectButton: () => document.getElementById('button-connect'),
-    sendButton: () => document.getElementById('button-send'),
-    outputMessages: () => document.getElementById('output-messages'),
-  };
+    inputMultiaddr: () =>
+      document.getElementById('input-multiaddr') as HTMLInputElement,
+    inputTarget: () =>
+      document.getElementById('input-target') as HTMLInputElement,
+    inputMessage: () =>
+      document.getElementById('input-message') as HTMLInputElement,
+    connectButton: () => document.getElementById('button-connect')!,
+    sendButton: () => document.getElementById('button-send')!,
+    outputMessages: () => document.getElementById('output-messages')!,
+    /* eslint-enable @typescript-eslint/no-non-null-assertion */
+  } satisfies Record<string, () => HTMLElement | HTMLInputElement>;
 
   outputLine(`I am id:${localId} peerId:${peerId.toString()}`);
 
