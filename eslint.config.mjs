@@ -16,13 +16,7 @@ const config = createConfig([
   },
 
   {
-    ignores: [
-      '**/coverage',
-      '**/dist',
-      '**/docs',
-      '**/node_modules',
-      '**/packages/create-package/src/package-template',
-    ],
+    ignores: ['**/coverage', '**/dist', '**/docs', '**/node_modules'],
   },
 
   {

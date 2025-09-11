@@ -41,9 +41,6 @@ describe('create-package/utils', () => {
     const tsConfigBuild = JSON.stringify({
       references: [{ path: '../packages/foo' }],
     });
-    const packageJson = JSON.stringify({
-      engines: { node: '>=18.0.0' },
-    });
 
     it('should read the expected monorepo files', async () => {
       (fs.readFile as Mock).mockImplementation(async (filePath: string) => {
@@ -52,8 +49,6 @@ describe('create-package/utils', () => {
             return tsConfig;
           case MonorepoFile.TsConfigBuild:
             return tsConfigBuild;
-          case MonorepoFile.PackageJson:
-            return packageJson;
           default:
             throw new Error(`Unexpected file: ${path.basename(filePath)}`);
         }
@@ -64,7 +59,6 @@ describe('create-package/utils', () => {
       expect(monorepoFileData).toStrictEqual({
         tsConfig: JSON.parse(tsConfig),
         tsConfigBuild: JSON.parse(tsConfigBuild),
-        nodeVersions: '>=18.0.0',
       });
     });
   });
@@ -74,7 +68,6 @@ describe('create-package/utils', () => {
       name: '@ocap/foo',
       description: 'A foo package.',
       directoryName: 'foo',
-      nodeVersions: '>=18.0.0',
       currentYear: '2023',
     });
 
@@ -85,16 +78,15 @@ describe('create-package/utils', () => {
       tsConfigBuild: {
         references: [{ path: './packages/bar' }],
       },
-      nodeVersions: '>=18.0.0',
     });
 
     const getReadFilesResult = (): FileMap => ({
       'src/index.ts': 'export default 42;',
       'src/index.test.ts': 'export default 42;',
       'mock1.file':
-        'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
-      'mock2.file': 'CURRENT_YEAR NODE_VERSIONS PACKAGE_NAME',
-      'mock3.file': 'PACKAGE_DESCRIPTION PACKAGE_DIRECTORY_NAME',
+        'CURRENT_YEAR @ocap/template-package PACKAGE_DESCRIPTION template-package',
+      'mock2.file': 'CURRENT_YEAR @ocap/template-package',
+      'mock3.file': 'PACKAGE_DESCRIPTION template-package',
     });
 
     let consoleErrorSpy: MockInstance;
@@ -125,7 +117,7 @@ describe('create-package/utils', () => {
       // processTemplateFiles and writeFiles
       expect(fsUtils.readAllFiles).toHaveBeenCalledTimes(1);
       expect(fsUtils.readAllFiles).toHaveBeenCalledWith(
-        expect.stringMatching(/\/package-template$/u),
+        expect.stringMatching(/packages\/template-package$/u),
       );
 
       expect(fsUtils.writeFiles).toHaveBeenCalledTimes(1);
@@ -134,8 +126,8 @@ describe('create-package/utils', () => {
         {
           'src/index.ts': 'export default 42;',
           'src/index.test.ts': 'export default 42;',
-          'mock1.file': '2023 >=18.0.0 @ocap/foo A foo package. foo',
-          'mock2.file': '2023 >=18.0.0 @ocap/foo',
+          'mock1.file': '2023 @ocap/foo A foo package. foo',
+          'mock2.file': '2023 @ocap/foo',
           'mock3.file': 'A foo package. foo',
         },
       );
@@ -214,7 +206,6 @@ describe('create-package/utils', () => {
         name: '@ocap/foo',
         description: 'A foo package.',
         directoryName: 'foo',
-        nodeVersions: '20.0.0',
         currentYear: '2023',
       };
 
@@ -225,7 +216,6 @@ describe('create-package/utils', () => {
         tsConfigBuild: {
           references: [{ path: './packages/bar' }],
         },
-        nodeVersions: '20.0.0',
       };
 
       (fs.access as Mock).mockResolvedValueOnce(undefined);

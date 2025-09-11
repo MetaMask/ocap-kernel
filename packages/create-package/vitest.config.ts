@@ -8,12 +8,8 @@ export default defineConfig((args) => {
     args,
     defaultConfig,
     defineProject({
-      esbuild: {
-        exclude: ['./src/package-template/**'],
-      },
       test: {
         name: 'create-package',
-        exclude: ['./src/package-template/**'],
       },
     }),
   );

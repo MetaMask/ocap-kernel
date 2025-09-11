@@ -2,7 +2,6 @@
  * The monorepo files that need to be parsed or modified.
  */
 export const MonorepoFile = {
-  PackageJson: 'package.json',
   TsConfig: 'tsconfig.json',
   TsConfigBuild: 'tsconfig.build.json',
 } as const;
@@ -15,10 +14,9 @@ export type MonorepoFile = (typeof MonorepoFile)[keyof typeof MonorepoFile];
  */
 export const Placeholder = {
   CurrentYear: 'CURRENT_YEAR',
-  NodeVersions: 'NODE_VERSIONS',
-  PackageName: 'PACKAGE_NAME',
+  PackageName: '@ocap/template-package',
   PackageDescription: 'PACKAGE_DESCRIPTION',
-  PackageDirectoryName: 'PACKAGE_DIRECTORY_NAME',
+  PackageDirectoryName: 'template-package',
 } as const;
 
 export type Placeholder = (typeof Placeholder)[keyof typeof Placeholder];
