@@ -40,9 +40,9 @@
     "default-cluster.js"
   ],
   "scripts": {
-    "build": "yarn build:ts && yarn build:vite",
-    "build:dev": "yarn build:ts && yarn build:vite:dev",
-    "build:ts": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "yarn build:lib && yarn build:vite",
+    "build:dev": "yarn build:lib && yarn build:vite:dev",
+    "build:lib": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:vite": "vite build --config vite.config.ts && yarn test:build",
     "build:vite:dev": "vite build --config vite.config.ts --mode development",
     "build:docs": "typedoc",
