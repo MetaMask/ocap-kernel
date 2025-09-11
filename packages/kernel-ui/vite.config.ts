@@ -31,7 +31,6 @@ export default defineConfig(({ mode }) => {
       cssMinify: !isDev,
       lib: {
         entry: './src/index.ts',
-        name: 'KernelUI',
         formats: ['es', 'cjs'],
         fileName: (format, entryName) => {
           const ext = format === 'es' ? 'mjs' : 'cjs';
@@ -39,23 +38,7 @@ export default defineConfig(({ mode }) => {
         },
       },
       rollupOptions: {
-        external: [
-          'react',
-          'react-dom',
-          '@endo/eventual-send',
-          '@endo/marshal',
-          '@metamask/kernel-browser-runtime',
-          '@metamask/kernel-rpc-methods',
-          '@metamask/kernel-shims',
-          '@metamask/kernel-utils',
-          '@metamask/logger',
-          '@metamask/ocap-kernel',
-          '@metamask/streams',
-          '@metamask/utils',
-          'react/jsx-runtime',
-          'react/jsx-dev-runtime',
-          'ses',
-        ],
+        external: [/node_modules\/((?!tailwindcss).)+/u],
         output: {
           globals: {
             react: 'React',
