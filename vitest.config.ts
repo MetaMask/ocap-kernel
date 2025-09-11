@@ -146,6 +146,12 @@ export default defineConfig({
           branches: 54.54,
           lines: 69.44,
         },
+        'packages/nodejs-test-workers/**': {
+          statements: 0,
+          functions: 0,
+          branches: 0,
+          lines: 0,
+        },
         'packages/ocap-kernel/**': {
           statements: 87.81,
           functions: 89.26,

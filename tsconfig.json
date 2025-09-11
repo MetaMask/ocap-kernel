@@ -27,11 +27,12 @@
     { "path": "./packages/kernel-utils" },
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs" },
+    { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/remote-iterables" },
     { "path": "./packages/streams" },
-    { "path": "./packages/test-utils" },
     { "path": "./packages/template-package" },
+    { "path": "./packages/test-utils" },
     { "path": "./packages/vite-plugins" }
   ]
 }
