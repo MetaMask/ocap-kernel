@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 
@@ -40,18 +41,22 @@ export default defineConfig({
       tsconfigPath: 'tsconfig.build.json',
       outDir: 'dist',
       copyDtsFiles: true,
-      // @ts-expect-error - TODO: Fix
-      beforeWriteFile: (filePath, content) => {
-        if (filePath.endsWith('.d.ts')) {
-          // Generate both .d.mts and .d.cts
-          const mtsPath = filePath.replace('.d.ts', '.d.mts');
-          const ctsPath = filePath.replace('.d.ts', '.d.cts');
-          return [
-            { filePath: mtsPath, content },
-            { filePath: ctsPath, content },
-          ];
-        }
-        return { filePath, content };
+      afterBuild: async (emittedFiles) => {
+        await Promise.all(
+          Array.from(emittedFiles.entries()).map(async ([dtsPath, content]) => {
+            if (!dtsPath.endsWith('.d.ts') && !dtsPath.endsWith('.d.ts.map')) {
+              return undefined;
+            }
+
+            const mtsPath = dtsPath.replace('.d.ts', '.d.mts');
+            const ctsPath = dtsPath.replace('.d.ts', '.d.cts');
+            return Promise.all([
+              fs.unlink(dtsPath),
+              fs.writeFile(mtsPath, content),
+              fs.writeFile(ctsPath, content),
+            ]);
+          }),
+        );
       },
     }),
   ],
