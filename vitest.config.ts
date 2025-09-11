@@ -147,16 +147,16 @@ export default defineConfig({
           lines: 69.44,
         },
         'packages/nodejs-test-workers/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 23.52,
+          functions: 25,
+          branches: 25,
+          lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 87.81,
+          statements: 88.3,
           functions: 89.26,
-          branches: 79.59,
-          lines: 87.82,
+          branches: 80.22,
+          lines: 88.31,
         },
         'packages/remote-iterables/**': {
           statements: 100,

@@ -69,6 +69,7 @@ export async function runResume(
  * @param kernelDatabase - The database that will hold the persistent state.
  * @param resetStorage - If true, reset the database as part of setting up.
  * @param logger - The logger to use for the kernel.
+ * @param workerFilePath - The path to the worker file to use for the vat workers.
  *
  * @returns the new kernel instance.
  */
@@ -76,15 +77,22 @@ export async function makeKernel(
   kernelDatabase: KernelDatabase,
   resetStorage: boolean,
   logger: Logger,
+  workerFilePath?: string,
 ): Promise<Kernel> {
   const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
   const nodeStream = new NodeWorkerDuplexStream<
     JsonRpcRequest,
     JsonRpcResponse
   >(kernelPort);
-  const platformServicesClient = new NodejsPlatformServices({
+  const platformServicesConfig: { logger: Logger; workerFilePath?: string } = {
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
-  });
+  };
+  if (workerFilePath) {
+    platformServicesConfig.workerFilePath = workerFilePath;
+  }
+  const platformServicesClient = new NodejsPlatformServices(
+    platformServicesConfig,
+  );
   const kernel = await Kernel.make(
     nodeStream,
     platformServicesClient,

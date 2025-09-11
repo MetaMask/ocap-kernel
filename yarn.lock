@@ -3359,6 +3359,7 @@ __metadata:
     "@metamask/utils": "npm:^11.4.2"
     "@ocap/cli": "workspace:^"
     "@ocap/nodejs": "workspace:^"
+    "@ocap/nodejs-test-workers": "workspace:^"
     "@ocap/remote-iterables": "workspace:^"
     "@ocap/test-utils": "workspace:^"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
@@ -3442,7 +3443,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/nodejs-test-workers@workspace:packages/nodejs-test-workers":
+"@ocap/nodejs-test-workers@workspace:^, @ocap/nodejs-test-workers@workspace:packages/nodejs-test-workers":
   version: 0.0.0-use.local
   resolution: "@ocap/nodejs-test-workers@workspace:packages/nodejs-test-workers"
   dependencies:
