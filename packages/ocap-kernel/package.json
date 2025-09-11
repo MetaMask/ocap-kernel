@@ -49,7 +49,7 @@
     "rpc.js"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/ocap-kernel",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/ocap-kernel",

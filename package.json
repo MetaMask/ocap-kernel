@@ -12,8 +12,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn build:source && yarn build:special",
-    "build:turbo": "turbo build",
+    "build": "turbo build",
     "build:dev": "yarn build:source && yarn build:special:dev",
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",

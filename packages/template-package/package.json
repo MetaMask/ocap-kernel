@@ -29,7 +29,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/template-package",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
