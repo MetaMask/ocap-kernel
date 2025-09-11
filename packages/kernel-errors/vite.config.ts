@@ -5,10 +5,9 @@ export default defineConfig({
   build: {
     lib: {
       entry: './src/index.ts',
-      name: '@metamask/kernel-errors',
-      formats: ['es', 'cjs'],
-      fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`,
     },
+    minify: false,
+    sourcemap: true,
     rollupOptions: {
       external: [
         'ses',
@@ -17,8 +16,24 @@ export default defineConfig({
         /^@metamask\//u,
         /^@ocap\//u,
       ],
+      output: [
+        {
+          format: 'es',
+          dir: 'dist',
+          preserveModules: true,
+          preserveModulesRoot: 'src',
+          entryFileNames: '[name].mjs',
+        },
+        {
+          format: 'cjs',
+          dir: 'dist',
+          preserveModules: true,
+          preserveModulesRoot: 'src',
+          entryFileNames: '[name].cjs',
+          exports: 'named',
+        },
+      ],
     },
-    sourcemap: true,
   },
   plugins: [
     dts({
