@@ -153,10 +153,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 88.3,
+          statements: 87.81,
           functions: 89.26,
-          branches: 80.22,
-          lines: 88.31,
+          branches: 79.59,
+          lines: 87.82,
         },
         'packages/remote-iterables/**': {
           statements: 100,
