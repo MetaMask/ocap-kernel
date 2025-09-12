@@ -1,13 +1,22 @@
+import type { Message, VatSyscallObject } from '@agoric/swingset-liveslots';
 import { describe, it, expect } from 'vitest';
 
 import {
   isVatConfig,
   insistMessage,
+  coerceMessage,
+  coerceVatSyscallObject,
   queueTypeFromActionType,
   isGCActionType,
   insistGCActionType,
   isGCAction,
   isVatMessageId,
+  isSubclusterId,
+  isVatId,
+  isRemoteId,
+  isEndpointId,
+  insistVatId,
+  insistEndpointId,
 } from './types.ts';
 
 describe('isVatConfig', () => {
@@ -233,6 +242,161 @@ describe('isGCAction', () => {
     { name: 'missing spaces', value: 'v1dropExportko123' },
   ])('returns false for $name', ({ value }) => {
     expect(isGCAction(value)).toBe(false);
+  });
+});
+
+describe('coerceMessage', () => {
+  it('removes undefined result field', () => {
+    const messageWithUndefined = {
+      methargs: { body: 'test', slots: [] },
+      result: undefined,
+    };
+
+    const coerced = coerceMessage(messageWithUndefined as unknown as Message);
+    expect(coerced).not.toHaveProperty('result');
+    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
+  });
+
+  it('preserves defined result field', () => {
+    const messageWithResult = {
+      methargs: { body: 'test', slots: [] },
+      result: 'kp1',
+    };
+
+    const coerced = coerceMessage(messageWithResult);
+    expect(coerced.result).toBe('kp1');
+    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
+  });
+});
+
+describe('coerceVatSyscallObject', () => {
+  it('coerces send syscalls to use coerced message', () => {
+    const sendSyscall = [
+      'send',
+      'target',
+      { methargs: { body: 'test', slots: [] }, result: undefined },
+    ] as unknown as VatSyscallObject;
+
+    const coerced = coerceVatSyscallObject(sendSyscall);
+    expect(coerced[0]).toBe('send');
+    expect(coerced[1]).toBe('target');
+    expect(coerced[2]).not.toHaveProperty('result');
+  });
+
+  it('passes through non-send syscalls unchanged', () => {
+    const resolveSyscall = [
+      'resolve',
+      [['kp1', false, { body: 'data', slots: [] }]],
+    ] as unknown as VatSyscallObject;
+
+    const coerced = coerceVatSyscallObject(resolveSyscall);
+    expect(coerced).toBe(resolveSyscall);
+  });
+});
+
+describe('isVatId', () => {
+  it.each(['v0', 'v1', 'v42', 'v123456789'])(
+    'returns true for valid vat ID %s',
+    (id) => {
+      expect(isVatId(id)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'wrong prefix r', value: 'r1' },
+    { name: 'wrong prefix x', value: 'x1' },
+    { name: 'missing number part', value: 'v' },
+    { name: 'non-numeric suffix', value: 'va' },
+    { name: 'mixed suffix', value: 'v1a' },
+    { name: 'number', value: 123 },
+    { name: 'null', value: null },
+  ])('returns false for $name', ({ value }) => {
+    expect(isVatId(value)).toBe(false);
+  });
+});
+
+describe('isRemoteId', () => {
+  it.each(['r0', 'r1', 'r42', 'r123456789'])(
+    'returns true for valid remote ID %s',
+    (id) => {
+      expect(isRemoteId(id)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'wrong prefix v', value: 'v1' },
+    { name: 'wrong prefix x', value: 'x1' },
+    { name: 'missing number part', value: 'r' },
+    { name: 'non-numeric suffix', value: 'ra' },
+    { name: 'mixed suffix', value: 'r1a' },
+  ])('returns false for $name', ({ value }) => {
+    expect(isRemoteId(value)).toBe(false);
+  });
+});
+
+describe('isEndpointId', () => {
+  it.each(['v0', 'v1', 'r0', 'r1', 'v42', 'r123456789'])(
+    'returns true for valid endpoint ID %s',
+    (id) => {
+      expect(isEndpointId(id)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'wrong prefix x', value: 'x1' },
+    { name: 'missing number part', value: 'v' },
+    { name: 'non-numeric suffix', value: 'va' },
+  ])('returns false for $name', ({ value }) => {
+    expect(isEndpointId(value)).toBe(false);
+  });
+});
+
+describe('isSubclusterId', () => {
+  it.each(['s0', 's1', 's42', 's123456789'])(
+    'returns true for valid subcluster ID %s',
+    (id) => {
+      expect(isSubclusterId(id)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'wrong prefix v', value: 'v1' },
+    { name: 'wrong prefix x', value: 'x1' },
+    { name: 'missing number part', value: 's' },
+    { name: 'non-numeric suffix', value: 'sa' },
+  ])('returns false for $name', ({ value }) => {
+    expect(isSubclusterId(value)).toBe(false);
+  });
+});
+
+describe('insistVatId', () => {
+  it.each(['v0', 'v1', 'v42'])('does not throw for valid vat ID %s', (id) => {
+    expect(() => insistVatId(id)).not.toThrow();
+  });
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'wrong prefix', value: 'r1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistVatId(value)).toThrow('not a valid VatId');
+  });
+});
+
+describe('insistEndpointId', () => {
+  it.each(['v0', 'v1', 'r0', 'r1'])(
+    'does not throw for valid endpoint ID %s',
+    (id) => {
+      expect(() => insistEndpointId(id)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'wrong prefix', value: 'x1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistEndpointId(value)).toThrow('not a valid EndpointId');
   });
 });
 
