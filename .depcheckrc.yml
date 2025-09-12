@@ -27,6 +27,7 @@ ignores:
   - 'cookie'
 
   # miscellaneous
+  - '@agoric/internal'
   - '@arethetypeswrong/cli'
   - '@lavamoat/allow-scripts'
   - '@lavamoat/preinstall-always-fail'
@@ -34,15 +35,15 @@ ignores:
   - '@metamask/create-release-branch'
   - '@types/chrome'
   - '@types/lodash'
-  - 'rimraf'
-  - 'simple-git-hooks'
-  - 'typedoc'
-  - 'typescript'
-  - '@agoric/internal'
-  - 'setimmediate'
   - '@types/setimmediate'
   - 'autoprefixer'
   - 'postcss'
+  - 'rimraf'
+  - 'setimmediate'
+  - 'simple-git-hooks'
+  - 'turbo'
+  - 'typedoc'
+  - 'typescript'
 
   # Used by @ocap/nodejs to build the sqlite3 bindings
   - 'node-gyp'

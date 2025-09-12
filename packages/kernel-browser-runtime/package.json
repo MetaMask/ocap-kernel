@@ -40,9 +40,9 @@
     "default-cluster.js"
   ],
   "scripts": {
-    "build": "yarn build:ts && yarn build:vite",
-    "build:dev": "yarn build:ts && yarn build:vite:dev",
-    "build:ts": "ts-bridge --project tsconfig.build.json --clean",
+    "build": "yarn build:lib && yarn build:vite",
+    "build:dev": "yarn build:lib && yarn build:vite:dev",
+    "build:lib": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:vite": "vite build --config vite.config.ts && yarn test:build",
     "build:vite:dev": "vite build --config vite.config.ts --mode development",
     "build:docs": "typedoc",
@@ -105,6 +105,7 @@
     "eslint-plugin-promise": "^7.2.1",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
+    "turbo": "^2.5.6",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",

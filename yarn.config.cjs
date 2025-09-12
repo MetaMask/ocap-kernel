@@ -262,9 +262,18 @@ module.exports = defineConfig({
         }
       }
 
-      // Add all packages must have a "build" script
       if (!noBuild.includes(workspaceBasename)) {
-        expectWorkspaceField(workspace, 'scripts.build');
+        const enforceTsBridge = (currentValue) =>
+          typeof currentValue === 'string' && currentValue.includes('ts-bridge')
+            ? 'ts-bridge --project tsconfig.build.json --no-references --clean'
+            : currentValue;
+
+        expectWorkspaceField(workspace, 'scripts.build', enforceTsBridge);
+        expectOptionalWorkspaceField(
+          workspace,
+          'scripts.build:lib',
+          enforceTsBridge,
+        );
       }
 
       if (!isChildWorkspace) {
@@ -468,20 +477,46 @@ async function workspaceFileExists(workspace, path) {
  * value. If the field is not present, or is null, this will log an error, and
  * cause the constraint to fail.
  *
- * If a value is provided, this will also verify that the field is equal to the
- * given value.
+ * If a value or enforcer function is provided, set the field to the value or
+ * result of the enforcer function.
  *
  * @param {Workspace} workspace - The workspace to check.
  * @param {string} fieldName - The field to check.
- * @param {unknown} [expectedValue] - The value to check.
+ * @param {unknown} [enforcedValueOrFunction] - The value to set the field to, or
+ * a function returning the value to set the field to.
  */
-function expectWorkspaceField(workspace, fieldName, expectedValue = undefined) {
+function expectWorkspaceField(
+  workspace,
+  fieldName,
+  enforcedValueOrFunction = undefined,
+) {
   const fieldValue = get(workspace.manifest, fieldName);
 
-  if (expectedValue) {
-    workspace.set(fieldName, expectedValue);
+  if (enforcedValueOrFunction !== undefined) {
+    workspace.set(
+      fieldName,
+      typeof enforcedValueOrFunction === 'function'
+        ? enforcedValueOrFunction(fieldValue)
+        : enforcedValueOrFunction,
+    );
   } else if (fieldValue === undefined || fieldValue === null) {
     workspace.error(`Missing required field "${fieldName}".`);
+  }
+}
+
+/**
+ * If the workspace has the given field, set it to the result of the enforcer
+ * function.
+ *
+ * @param {Workspace} workspace - The workspace to check.
+ * @param {string} fieldName - The field to check.
+ * @param {(value: unknown) => unknown} enforcerFunction -
+ */
+function expectOptionalWorkspaceField(workspace, fieldName, enforcerFunction) {
+  const fieldValue = get(workspace.manifest, fieldName);
+
+  if (fieldValue !== undefined && fieldValue !== null) {
+    workspace.set(fieldName, enforcerFunction(fieldValue));
   }
 }
 

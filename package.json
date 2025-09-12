@@ -12,13 +12,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "yarn build:source && yarn build:special",
-    "build:dev": "yarn build:source && yarn build:special:dev",
+    "build": "turbo run build",
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",
-    "build:source": "ts-bridge --project tsconfig.build.json --verbose",
-    "build:special": "yarn workspace @ocap/vite-plugins run build && yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:vite && yarn workspace @metamask/kernel-ui run build && yarn workspace @ocap/extension run build && yarn workspace @ocap/kernel-test run build",
-    "build:special:dev": "yarn workspace @ocap/vite-plugins run build && yarn workspace @metamask/kernel-shims run build && yarn workspace @metamask/kernel-browser-runtime run build:vite && yarn workspace @metamask/kernel-ui run build && yarn workspace @ocap/extension run build:dev && yarn workspace @ocap/kernel-test run build",
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
     "changelog:validate": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:validate",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage && yarn workspaces foreach --all --parallel --interlaced --verbose run clean",
@@ -95,6 +91,7 @@
     "rimraf": "^6.0.1",
     "semver": "^7.7.1",
     "simple-git-hooks": "^2.12.1",
+    "turbo": "^2.5.6",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
