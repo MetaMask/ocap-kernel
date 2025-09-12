@@ -68,9 +68,11 @@ module.exports = defineConfig({
 
       if (isChildWorkspace) {
         // All non-root packages must have a name that matches its directory
-        expectWorkspaceField(workspace, 'name', {
-          enforcedValue: `@${isPrivate ? 'ocap' : 'metamask'}/${workspaceBasename}`,
-        });
+        expectWorkspaceField(
+          workspace,
+          'name',
+          `@${isPrivate ? 'ocap' : 'metamask'}/${workspaceBasename}`,
+        );
 
         // All non-root packages must have a version.
         expectWorkspaceField(workspace, 'version');
@@ -80,30 +82,36 @@ module.exports = defineConfig({
 
         if (!isPrivate) {
           // All non-root packages must have the same set of NPM keywords.
-          expectWorkspaceField(workspace, 'keywords', {
-            enforcedValue: ['MetaMask', 'object capabilities', 'ocap'],
-          });
+          expectWorkspaceField(workspace, 'keywords', [
+            'MetaMask',
+            'object capabilities',
+            'ocap',
+          ]);
 
           // All non-root packages must have a homepage URL that includes its name.
-          expectWorkspaceField(workspace, 'homepage', {
-            enforcedValue: `${repositoryUri}/tree/main/packages/${workspaceBasename}#readme`,
-          });
+          expectWorkspaceField(
+            workspace,
+            'homepage',
+            `${repositoryUri}/tree/main/packages/${workspaceBasename}#readme`,
+          );
 
           // All non-root packages must have a URL for reporting bugs that points
           // to the Issues page for the repository.
-          expectWorkspaceField(workspace, 'bugs.url', {
-            enforcedValue: `${repositoryUri}/issues`,
-          });
+          expectWorkspaceField(
+            workspace,
+            'bugs.url',
+            `${repositoryUri}/issues`,
+          );
         }
 
         // All non-root packages must specify a Git repository within the
         // MetaMask GitHub organization.
-        expectWorkspaceField(workspace, 'repository.type', {
-          enforcedValue: 'git',
-        });
-        expectWorkspaceField(workspace, 'repository.url', {
-          enforcedValue: `${repositoryUri}.git`,
-        });
+        expectWorkspaceField(workspace, 'repository.type', 'git');
+        expectWorkspaceField(
+          workspace,
+          'repository.url',
+          `${repositoryUri}.git`,
+        );
 
         if (isPrivate) {
           // Non-published packages should not have a license.
@@ -115,41 +123,43 @@ module.exports = defineConfig({
 
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
           // The entrypoints for all published packages must be the same.
-          expectWorkspaceField(workspace, 'module', {
-            enforcedValue: './dist/index.mjs',
-          });
-          expectWorkspaceField(workspace, 'main', {
-            enforcedValue: './dist/index.cjs',
-          });
-          expectWorkspaceField(workspace, 'types', {
-            enforcedValue: './dist/index.d.cts',
-          });
+          expectWorkspaceField(workspace, 'module', './dist/index.mjs');
+          expectWorkspaceField(workspace, 'main', './dist/index.cjs');
+          expectWorkspaceField(workspace, 'types', './dist/index.d.cts');
 
           // The exports for all published packages must be the same.
           // CommonJS
-          expectWorkspaceField(workspace, 'exports["."].require.default', {
-            enforcedValue: './dist/index.cjs',
-          });
-          expectWorkspaceField(workspace, 'exports["."].require.types', {
-            enforcedValue: './dist/index.d.cts',
-          });
+          expectWorkspaceField(
+            workspace,
+            'exports["."].require.default',
+            './dist/index.cjs',
+          );
+          expectWorkspaceField(
+            workspace,
+            'exports["."].require.types',
+            './dist/index.d.cts',
+          );
           // ESM
-          expectWorkspaceField(workspace, 'exports["."].import.default', {
-            enforcedValue: './dist/index.mjs',
-          });
-          expectWorkspaceField(workspace, 'exports["."].import.types', {
-            enforcedValue: './dist/index.d.mts',
-          });
+          expectWorkspaceField(
+            workspace,
+            'exports["."].import.default',
+            './dist/index.mjs',
+          );
+          expectWorkspaceField(
+            workspace,
+            'exports["."].import.types',
+            './dist/index.d.mts',
+          );
 
           // Published packages must not have side effects.
-          expectWorkspaceField(workspace, 'sideEffects', {
-            enforcedValue: false,
-          });
+          expectWorkspaceField(workspace, 'sideEffects', false);
 
           // All published packages must have the same "publish:preview" script.
-          expectWorkspaceField(workspace, 'scripts.publish:preview', {
-            enforcedValue: 'yarn npm publish --tag preview',
-          });
+          expectWorkspaceField(
+            workspace,
+            'scripts.publish:preview',
+            'yarn npm publish --tag preview',
+          );
 
           // All non-root package must have valid "changelog:update" and
           // "changelog:validate" scripts.
@@ -166,9 +176,11 @@ module.exports = defineConfig({
 
         // All non-root packages must export a `package.json` file except for the ones that are exempted
         if (!noPackageJson.includes(workspaceBasename)) {
-          expectWorkspaceField(workspace, 'exports["./package.json"]', {
-            enforcedValue: './package.json',
-          });
+          expectWorkspaceField(
+            workspace,
+            'exports["./package.json"]',
+            './package.json',
+          );
         }
 
         if (filesExceptions.includes(workspaceBasename)) {
@@ -179,16 +191,12 @@ module.exports = defineConfig({
         ) {
           // The list of files included in all non-root packages must only include
           // files generated during the build process.
-          expectWorkspaceField(workspace, 'files', {
-            enforcedValue: ['dist/'],
-          });
+          expectWorkspaceField(workspace, 'files', ['dist/']);
         }
 
         if (!typedocExceptions.includes(workspaceBasename)) {
           // All non-root packages must have the same "build:docs" script.
-          expectWorkspaceField(workspace, 'scripts.build:docs', {
-            enforcedValue: 'typedoc',
-          });
+          expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
         }
 
         // All packages except the root must have a "clean" script.
@@ -198,73 +206,86 @@ module.exports = defineConfig({
         workspace.unset('scripts.prepack');
 
         // All packages except the root must have the same "lint" scripts.
-        expectWorkspaceField(workspace, 'scripts.lint', {
-          enforcedValue:
-            'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
-        });
-        expectWorkspaceField(workspace, 'scripts.lint:dependencies', {
-          enforcedValue: 'depcheck',
-        });
-        expectWorkspaceField(workspace, 'scripts.lint:eslint', {
-          enforcedValue: 'eslint . --cache',
-        });
-        expectWorkspaceField(workspace, 'scripts.lint:fix', {
-          enforcedValue:
-            'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
-        });
-        expectWorkspaceField(workspace, 'scripts.lint:misc', {
-          enforcedValue:
-            "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
-        });
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint',
+          'yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:dependencies',
+          'depcheck',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:eslint',
+          'eslint . --cache',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:fix',
+          'yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies',
+        );
+        expectWorkspaceField(
+          workspace,
+          'scripts.lint:misc',
+          "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+        );
 
         // All non-root packages must have the same "test" script.
         if (!noTests.includes(workspaceBasename)) {
-          expectWorkspaceField(workspace, 'scripts.test', {
-            enforcedValue: 'vitest run --config vitest.config.ts',
-          });
-          expectWorkspaceField(workspace, 'scripts.test:clean', {
-            enforcedValue: 'yarn test --no-cache --coverage.clean',
-          });
-          expectWorkspaceField(workspace, 'scripts.test:dev', {
-            enforcedValue: 'yarn test --mode development',
-          });
-          expectWorkspaceField(workspace, 'scripts.test:verbose', {
-            enforcedValue: 'yarn test --reporter verbose',
-          });
-          expectWorkspaceField(workspace, 'scripts.test:watch', {
-            enforcedValue: 'vitest --config vitest.config.ts',
-          });
+          expectWorkspaceField(
+            workspace,
+            'scripts.test',
+            'vitest run --config vitest.config.ts',
+          );
+          expectWorkspaceField(
+            workspace,
+            'scripts.test:clean',
+            'yarn test --no-cache --coverage.clean',
+          );
+          expectWorkspaceField(
+            workspace,
+            'scripts.test:dev',
+            'yarn test --mode development',
+          );
+          expectWorkspaceField(
+            workspace,
+            'scripts.test:verbose',
+            'yarn test --reporter verbose',
+          );
+          expectWorkspaceField(
+            workspace,
+            'scripts.test:watch',
+            'vitest --config vitest.config.ts',
+          );
         }
       }
 
       if (!noBuild.includes(workspaceBasename)) {
         /**
-         * Asserts that build scripts, if they include "ts-bridge", are set to
+         * Enforces that build scripts, if they include "ts-bridge", are set to
          * the expected value for ts-bridge build scripts.
          *
-         * @param {unknown} value - The value of the field to check.
-         * @param {string} fieldName - The name of the field to check.
+         * @param {unknown} currentValue - The current value of the field to check.
+         * @returns {unknown} The updated value of the field.
          */
-        const assertTsBridge = (value, fieldName) => {
+        const enforceTsBridge = (currentValue) => {
           if (
-            typeof value !== 'string' ||
-            (value.includes('ts-bridge') &&
-              value !==
-                'ts-bridge --project tsconfig.build.json --no-references --clean')
+            typeof currentValue === 'string' &&
+            currentValue.includes('ts-bridge')
           ) {
-            workspace.error(
-              `Expected script ${fieldName} script to be "ts-bridge --project tsconfig.build.json --no-references --clean", but got "${value}".`,
-            );
+            return 'ts-bridge --project tsconfig.build.json --no-references --clean';
           }
+          return currentValue;
         };
 
-        expectWorkspaceField(workspace, 'scripts.build', {
-          assertValue: (value) => assertTsBridge(value, 'scripts.build'),
-        });
-        expectWorkspaceField(workspace, 'scripts.build:lib', {
-          required: false,
-          assertValue: (value) => assertTsBridge(value, 'scripts.build:lib'),
-        });
+        expectWorkspaceField(workspace, 'scripts.build', enforceTsBridge);
+        expectOptionalWorkspaceField(
+          workspace,
+          'scripts.build:lib',
+          enforceTsBridge,
+        );
       }
 
       if (!isChildWorkspace) {
@@ -275,7 +296,7 @@ module.exports = defineConfig({
         // is required in order to be able to import anything in
         // development-only scripts, as otherwise the
         // `node/no-unpublished-require` ESLint rule will disallow it.)
-        expectWorkspaceField(workspace, 'files', { enforcedValue: [] });
+        expectWorkspaceField(workspace, 'files', []);
       }
 
       // Ensure all dependency ranges are recognizable
@@ -304,27 +325,23 @@ module.exports = defineConfig({
       if (isChildWorkspace) {
         workspace.unset('packageManager');
       } else {
-        expectWorkspaceField(workspace, 'packageManager', {
-          enforcedValue: 'yarn@4.2.2',
-        });
+        expectWorkspaceField(workspace, 'packageManager', 'yarn@4.2.2');
       }
 
       // All packages must specify a minimum Node.js version of 20
-      expectWorkspaceField(workspace, 'engines.node', {
-        enforcedValue: '^20 || >=22',
-      });
+      expectWorkspaceField(workspace, 'engines.node', '^20 || >=22');
 
       // All non-root public packages should be published to the NPM registry;
       // all non-root private packages should not.
       if (isPrivate) {
         workspace.unset('publishConfig');
       } else {
-        expectWorkspaceField(workspace, 'publishConfig.access', {
-          enforcedValue: 'public',
-        });
-        expectWorkspaceField(workspace, 'publishConfig.registry', {
-          enforcedValue: 'https://registry.npmjs.org/',
-        });
+        expectWorkspaceField(workspace, 'publishConfig.access', 'public');
+        expectWorkspaceField(
+          workspace,
+          'publishConfig.registry',
+          'https://registry.npmjs.org/',
+        );
       }
 
       if (!isPrivate) {
@@ -468,39 +485,50 @@ async function workspaceFileExists(workspace, path) {
 }
 
 /**
- * @typedef {object} ExpectWorkspaceFieldOptions
- * @property {unknown} [enforcedValue] - The value to enforce.
- * @property {(value: unknown) => void} [assertValue] - The assertion function to use.
- * @property {boolean} [required] - Whether the field is required. Defaults to true.
- */
-
-/**
  * Expect that the workspace has the given field, and that it is a non-null
  * value. If the field is not present, or is null, this will log an error, and
  * cause the constraint to fail.
  *
- * If a value is provided, this will also verify that the field is equal to the
- * given value.
+ * If a value or enforcer function is provided, set the field to the value or
+ * result of the enforcer function.
  *
  * @param {Workspace} workspace - The workspace to check.
  * @param {string} fieldName - The field to check.
- * @param {ExpectWorkspaceFieldOptions} options - The options for validating the field.
+ * @param {unknown} [enforcedValueOrFunction] - The value to set the field to, or
+ * a function returning the value to set the field to.
  */
-function expectWorkspaceField(workspace, fieldName, options = {}) {
-  const { enforcedValue, assertValue, required = true } = options;
+function expectWorkspaceField(
+  workspace,
+  fieldName,
+  enforcedValueOrFunction = undefined,
+) {
   const fieldValue = get(workspace.manifest, fieldName);
 
-  if (enforcedValue) {
-    workspace.set(fieldName, enforcedValue);
-    return;
+  if (enforcedValueOrFunction !== undefined) {
+    workspace.set(
+      fieldName,
+      typeof enforcedValueOrFunction === 'function'
+        ? enforcedValueOrFunction(fieldValue)
+        : enforcedValueOrFunction,
+    );
+  } else if (fieldValue === undefined || fieldValue === null) {
+    workspace.error(`Missing required field "${fieldName}".`);
   }
+}
 
-  if (fieldValue === undefined || fieldValue === null) {
-    if (required) {
-      workspace.error(`Missing required field "${fieldName}".`);
-    }
-  } else if (assertValue !== undefined) {
-    assertValue(fieldValue);
+/**
+ * If the workspace has the given field, set it to the result of the enforcer
+ * function.
+ *
+ * @param {Workspace} workspace - The workspace to check.
+ * @param {string} fieldName - The field to check.
+ * @param {(value: unknown) => unknown} enforcerFunction -
+ */
+function expectOptionalWorkspaceField(workspace, fieldName, enforcerFunction) {
+  const fieldValue = get(workspace.manifest, fieldName);
+
+  if (fieldValue !== undefined && fieldValue !== null) {
+    workspace.set(fieldName, enforcerFunction(fieldValue));
   }
 }
 
@@ -542,9 +570,7 @@ function expectWorkspaceDescription(workspace) {
  * @param {Workspace} workspace - The workspace to check.
  */
 async function expectWorkspaceLicense(workspace) {
-  expectWorkspaceField(workspace, 'license', {
-    enforcedValue: '(MIT OR Apache-2.0)',
-  });
+  expectWorkspaceField(workspace, 'license', '(MIT OR Apache-2.0)');
 
   if (
     !(await workspaceFileExists(workspace, 'LICENSE.MIT')) ||
@@ -624,7 +650,7 @@ function expectUpToDateWorkspacePeerDependencies(Yarn, workspace) {
         expectWorkspaceField(
           workspace,
           `peerDependencies["${dependency.ident}"]`,
-          { enforcedValue: `^${dependencyWorkspaceVersion.major}.0.0` },
+          `^${dependencyWorkspaceVersion.major}.0.0`,
         );
       }
     }
