@@ -263,22 +263,10 @@ module.exports = defineConfig({
       }
 
       if (!noBuild.includes(workspaceBasename)) {
-        /**
-         * Enforces that build scripts, if they include "ts-bridge", are set to
-         * the expected value for ts-bridge build scripts.
-         *
-         * @param {unknown} currentValue - The current value of the field to check.
-         * @returns {unknown} The updated value of the field.
-         */
-        const enforceTsBridge = (currentValue) => {
-          if (
-            typeof currentValue === 'string' &&
-            currentValue.includes('ts-bridge')
-          ) {
-            return 'ts-bridge --project tsconfig.build.json --no-references --clean';
-          }
-          return currentValue;
-        };
+        const enforceTsBridge = (currentValue) =>
+          typeof currentValue === 'string' && currentValue.includes('ts-bridge')
+            ? 'ts-bridge --project tsconfig.build.json --no-references --clean'
+            : currentValue;
 
         expectWorkspaceField(workspace, 'scripts.build', enforceTsBridge);
         expectOptionalWorkspaceField(
