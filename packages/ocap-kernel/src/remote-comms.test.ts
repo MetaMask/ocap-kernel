@@ -54,7 +54,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
 
-      const keySeed = mockKernelStore.kv.get('keySeed');
+      const keySeed = mockKernelStore.kv.get('keySeed') ?? '';
       expect(keySeed).toBe(
         '0100000000000000000000000000000000000000000000000000000000000000',
       );
@@ -148,12 +148,86 @@ describe('remote-comms', () => {
       expect(() => parseOcapURL('yuck:oid@peerid')).toThrow('not an ocap URL');
     });
 
-    it('rejects badly formatted ocap URL', () => {
-      expect(() => parseOcapURL('ocap:oid')).toThrow('bad ocap URL');
-      expect(() => parseOcapURL('ocap:oid@peerid@another')).toThrow(
-        'bad ocap URL',
+    it.each([
+      ['ocap:oid', 'missing @ separator'],
+      ['ocap:oid@peerid@another', 'multiple @ separators'],
+      ['ocap:oid@,peerless', 'empty host'],
+      ['ocap:@peerid', 'empty oid'],
+      ['ocap:oid@', 'empty where part'],
+    ])('rejects badly formatted ocap URL: %s', (url, _description) => {
+      expect(() => parseOcapURL(url)).toThrow('bad ocap URL');
+    });
+  });
+
+  describe('getKnownRelays', () => {
+    it('returns empty array when no relays are stored', () => {
+      const mockKV = {
+        get: vi.fn(() => undefined),
+        set: vi.fn(),
+        getRequired: vi.fn(),
+        delete: vi.fn(),
+        getNextKey: vi.fn(),
+      };
+
+      const relays = getKnownRelays(mockKV);
+      expect(relays).toStrictEqual([]);
+      expect(mockKV.get).toHaveBeenCalledWith('knownRelays');
+    });
+
+    it('returns parsed relays when they exist', () => {
+      const storedRelays = [
+        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+      const mockKV = {
+        get: vi.fn(() => JSON.stringify(storedRelays)),
+        set: vi.fn(),
+        getRequired: vi.fn(),
+        delete: vi.fn(),
+        getNextKey: vi.fn(),
+      };
+
+      const relays = getKnownRelays(mockKV);
+      expect(relays).toStrictEqual(storedRelays);
+      expect(mockKV.get).toHaveBeenCalledWith('knownRelays');
+    });
+  });
+
+  describe('edge cases and error handling', () => {
+    it('handles redeemLocalOcapURL with wrong host', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
       );
-      expect(() => parseOcapURL('ocap:oid@,peerless')).toThrow('bad ocap URL');
+
+      const wrongHostURL = 'ocap:someoid@different-peer-id';
+
+      await expect(
+        remoteComms.redeemLocalOcapURL(wrongHostURL),
+      ).rejects.toThrow("ocapURL from a host that's not me");
+    });
+
+    it('handles redeemLocalOcapURL with decryption errors', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      // First create a valid URL
+      const validURL = await remoteComms.issueOcapURL('test-kref');
+      const peerId = remoteComms.getPeerId();
+
+      // Then corrupt the encrypted part while keeping valid base58btc format
+      // Take the valid oid and modify it slightly to make decryption fail
+      const { oid } = parseOcapURL(validURL);
+      const corruptedOid = `${oid.slice(0, -5)}zzzzz`; // Change last 5 chars
+      const corruptedURL = `ocap:${corruptedOid}@${peerId}`;
+
+      await expect(
+        remoteComms.redeemLocalOcapURL(corruptedURL),
+      ).rejects.toThrow('ocapURL has bad object reference');
     });
   });
 });
