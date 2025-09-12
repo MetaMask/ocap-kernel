@@ -78,11 +78,14 @@ node_modules/
 !.yarn/sdks
 !.yarn/versions
 
-# Ignore bundle files
+# Bundle files
 *.bundle
 
-# Ignore playwright reports
+# Playwright reports
 playwright-report
 
-# Ignore test results
+# Test results
 test-results
+
+# Turborepo
+.turbo
