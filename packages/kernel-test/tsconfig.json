@@ -11,6 +11,7 @@
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../nodejs" },
+    { "path": "../nodejs-test-workers" },
     { "path": "../ocap-kernel" },
     { "path": "../remote-iterables" },
     { "path": "../streams" },
