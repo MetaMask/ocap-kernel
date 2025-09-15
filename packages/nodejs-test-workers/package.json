@@ -29,7 +29,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --clean",
+    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/nodejs-test-workers",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
@@ -69,6 +69,7 @@
     "eslint-plugin-promise": "^7.2.1",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
+    "turbo": "^2.5.6",
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
