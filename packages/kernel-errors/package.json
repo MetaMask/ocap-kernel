@@ -38,7 +38,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "vite build --config vite.config.ts",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-errors",
     "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-errors",
@@ -66,8 +66,6 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/test-utils": "workspace:^",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",

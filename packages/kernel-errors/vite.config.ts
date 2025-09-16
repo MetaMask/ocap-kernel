@@ -3,6 +3,13 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 
+// TODO
+// 1. Extract default config to helper function accessible to all packages
+// 2. Use helper function here
+// 3. Migrate all packages to use Vite instead of ts-bridge
+// 4. Verify that the packages can still be consumed by the MetaMask legacy build system
+//    - Probably by using `npm pack` and installing the tarballs
+
 export default defineConfig({
   build: {
     emptyOutDir: true,
