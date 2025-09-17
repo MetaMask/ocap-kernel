@@ -59,6 +59,13 @@ UI and styling:
 - Create responsive designs for UI components like popups or settings.
 - Use Flexbox or CSS Grid for layout consistency.
 - Use plain CSS, HTML, and JavaScript for UI components. Do not use React or other frameworks.
+- For React UI components, prefer CSS classes (e.g., `className="bg-section p-4 rounded mb-4"`) over inline styles.
+- Use inline styles only for dynamic values or when CSS classes are not available.
+- Structure layouts with semantic containers and proper spacing.
+- Use design system components (BadgeStatus, TextComponent, etc.) consistently.
+- Group related UI elements in logical sections with descriptive comments.
+- Maintain consistent spacing patterns (e.g., `gap-12`, `mb-4`, `mt-2`).
+- Use responsive classes and proper flex layouts for different screen sizes.
 
 Cross-environment compatibility:
 

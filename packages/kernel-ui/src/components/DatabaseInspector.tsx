@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback } from 'react';
 
 import { usePanelContext } from '../context/PanelContext.tsx';
 import { useDatabase } from '../hooks/useDatabase.ts';
+import { Input } from './shared/Input.tsx';
 
 /**
  * @returns - The DatabaseInspector component
@@ -122,8 +123,7 @@ export const DatabaseInspector: React.FC = () => {
               SQL Query
             </TextComponent>
             <Box className="flex gap-3">
-              <input
-                className="flex items-center h-9 px-3 rounded border border-border-default text-sm bg-background-default text-text-default transition-colors hover:bg-background-hover focus:outline-none focus:ring-2 focus:ring-primary-default flex-1"
+              <Input
                 value={sqlQuery}
                 onChange={(event) => setSqlQuery(event.target.value)}
                 placeholder="Enter SQL query..."
