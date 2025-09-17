@@ -1,7 +1,5 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
-import type { ChildProcess } from 'child_process';
-import { spawn } from 'child_process';
 import { rm } from 'fs/promises';
 
 import { makeLoadExtension, sessionPath } from '../helpers/extension.ts';
@@ -25,28 +23,10 @@ test.describe('Remote Communications', () => {
   let extensionContext2: BrowserContext;
   let popupPage1: Page;
   let popupPage2: Page;
-  let relayProcess: ChildProcess | null = null;
 
   test.beforeAll(async () => {
     // Clean up any existing test data
     await rm(sessionPath, { recursive: true, force: true });
-
-    // Start the relay server for testing
-    relayProcess = spawn('node', ['dist/src/relay.mjs'], {
-      cwd: '/Users/dimitrismarl/Projects/ocap-kernel/packages/brow-2-brow',
-      stdio: 'pipe',
-    });
-
-    // Wait for relay to start
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  });
-
-  test.afterAll(async () => {
-    // Stop the relay server
-    if (relayProcess) {
-      relayProcess.kill();
-      relayProcess = null;
-    }
   });
 
   test.beforeEach(async () => {
