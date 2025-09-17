@@ -131,7 +131,7 @@ export default defineConfig({
         'packages/kernel-utils/**': {
           statements: 100,
           functions: 100,
-          branches: 96.96,
+          branches: 100,
           lines: 100,
         },
         'packages/logger/**': {
@@ -153,10 +153,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 87.81,
-          functions: 89.26,
-          branches: 79.59,
-          lines: 87.82,
+          statements: 89.13,
+          functions: 90.11,
+          branches: 80.53,
+          lines: 89.15,
         },
         'packages/remote-iterables/**': {
           statements: 100,

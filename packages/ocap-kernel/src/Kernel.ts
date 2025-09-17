@@ -251,6 +251,12 @@ export class Kernel {
       });
   }
 
+  /**
+   * Get the remote comms object.
+   *
+   * @returns the remote comms object.
+   * @throws if the remote comms object is not initialized.
+   */
   #getRemoteComms(): RemoteComms {
     if (this.#remoteComms) {
       return this.#remoteComms;
@@ -258,6 +264,11 @@ export class Kernel {
     throw Error(`remote comms not initialized`);
   }
 
+  /**
+   * Initialize the remote comms object.
+   *
+   * @returns a promise for the remote comms object.
+   */
   async initRemoteComms(): Promise<void> {
     this.#remoteComms = await initRemoteComms(
       this.#kernelStore,
@@ -266,10 +277,23 @@ export class Kernel {
     );
   }
 
+  /**
+   * Send a message to a remote kernel.
+   *
+   * @param peerId - The peer ID of the remote kernel.
+   * @param message - The message to send.
+   * @returns a promise for the result of the message send.
+   */
   async sendRemoteMessage(peerId: string, message: string): Promise<void> {
     await this.#getRemoteComms().sendRemoteMessage(peerId, message);
   }
 
+  /**
+   * Redeem an ocap URL.
+   *
+   * @param url - The ocap URL to redeem.
+   * @returns a promise for the kref of the object referenced by the ocap URL.
+   */
   async #redeemOcapURL(url: string): Promise<string> {
     const { host } = parseOcapURL(url);
     if (host === this.#getRemoteComms().getPeerId()) {
@@ -280,6 +304,12 @@ export class Kernel {
     return remote.redeemOcapURL(url);
   }
 
+  /**
+   * Issue an ocap URL.
+   *
+   * @param kref - The kref of the object to issue an ocap URL for.
+   * @returns a promise for the ocap URL.
+   */
   async #issueOcapURL(kref: KRef): Promise<string> {
     return this.#getRemoteComms().issueOcapURL(kref);
   }
@@ -741,6 +771,12 @@ export class Kernel {
     return {
       vats: this.getVats(),
       subclusters: this.#kernelStore.getSubclusters(),
+      remoteComms: this.#remoteComms
+        ? {
+            isInitialized: true,
+            peerId: this.#remoteComms.getPeerId(),
+          }
+        : { isInitialized: false },
     };
   }
 
@@ -917,6 +953,12 @@ export class Kernel {
     this.#kernelServicesByObject.set(kref, kernelService);
   }
 
+  /**
+   * Invoke a kernel service.
+   *
+   * @param target - The target of the service.
+   * @param message - The message to invoke the service with.
+   */
   async #invokeKernelService(target: KRef, message: Message): Promise<void> {
     const kernelService = this.#kernelServicesByObject.get(target);
     if (!kernelService) {

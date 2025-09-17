@@ -6,7 +6,7 @@ import { stringify, waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger, makeArrayTransport } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { NodejsPlatformServices } from '@ocap/nodejs';
@@ -70,6 +70,7 @@ export async function runResume(
  * @param resetStorage - If true, reset the database as part of setting up.
  * @param logger - The logger to use for the kernel.
  * @param workerFilePath - The path to the worker file to use for the vat workers.
+ * @param platformServices - The platform services client to use for the kernel.
  *
  * @returns the new kernel instance.
  */
@@ -78,6 +79,7 @@ export async function makeKernel(
   resetStorage: boolean,
   logger: Logger,
   workerFilePath?: string,
+  platformServices?: PlatformServices,
 ): Promise<Kernel> {
   const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
   const nodeStream = new NodeWorkerDuplexStream<
@@ -90,9 +92,8 @@ export async function makeKernel(
   if (workerFilePath) {
     platformServicesConfig.workerFilePath = workerFilePath;
   }
-  const platformServicesClient = new NodejsPlatformServices(
-    platformServicesConfig,
-  );
+  const platformServicesClient =
+    platformServices ?? new NodejsPlatformServices(platformServicesConfig);
   const kernel = await Kernel.make(
     nodeStream,
     platformServicesClient,
