@@ -38,13 +38,16 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     },
     async doRunRun(url) {
       console.log(`in doRunRun redeemer=${redeemer}`);
-      if (redeemer) {
-        const remote = await E(redeemer).redeem(url);
-        console.log(`redeemed ${url} successfully (?)`);
-        await E(remote).hello(`remote ${name}`);
-      } else {
-        console.log('no ocapURLRedemptionService found');
+      if (!redeemer) {
+        console.log(`no ocapURLRedemptionService found`);
+        throw new Error('ocapURLRedemptionService not available');
       }
+
+      const remote = await E(redeemer).redeem(url);
+      console.log(`redeemed ${url} successfully (?)`);
+      const result = await E(remote).hello(`remote ${name}`);
+      console.log(`got result from remote: ${result}`);
+      return result;
     },
   });
 }
