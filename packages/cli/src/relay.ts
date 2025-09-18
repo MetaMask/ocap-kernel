@@ -4,7 +4,7 @@ import { autoNAT } from '@libp2p/autonat';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
-import type { PrivateKey } from '@libp2p/interface';
+import type { Libp2p, PrivateKey } from '@libp2p/interface';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
 import type { Logger } from '@metamask/logger';
@@ -16,8 +16,9 @@ const RELAY_LOCAL_ID = 200;
  * Start the relay server.
  *
  * @param logger - The logger to use.
+ * @returns The libp2p instance.
  */
-export async function startRelay(logger: Logger | Console): Promise<void> {
+export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
   const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
   const libp2p = await createLibp2p({
     privateKey,
@@ -110,6 +111,8 @@ export async function startRelay(logger: Logger | Console): Promise<void> {
   logger.log('PeerID: ', libp2p.peerId.toString());
   logger.log('Multiaddrs: ', libp2p.getMultiaddrs());
   logger.log('========================================');
+
+  return libp2p;
 }
 
 /**
