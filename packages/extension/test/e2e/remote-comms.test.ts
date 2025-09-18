@@ -24,13 +24,12 @@ test.describe('Remote Communications', () => {
   let extensionContext2: BrowserContext;
   let popupPage1: Page;
   let popupPage2: Page;
-  let libp2p: Libp2p;
 
   test.beforeAll(async () => {
     // Clean up any existing test data
     await rm(sessionPath, { recursive: true, force: true });
     // Start the relay
-    libp2p = await startRelay(console);
+    await startRelay(console);
   });
 
   test.beforeEach(async () => {
@@ -55,11 +54,6 @@ test.describe('Remote Communications', () => {
   test.afterEach(async () => {
     await extensionContext1.close();
     await extensionContext2.close();
-  });
-
-  test.afterAll(async () => {
-    // Stop the relay
-    await libp2p.stop();
   });
 
   /**
