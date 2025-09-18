@@ -2,19 +2,22 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { autoNAT } from '@libp2p/autonat';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
+import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
+import type { PrivateKey } from '@libp2p/interface';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
+import type { Logger } from '@metamask/logger';
 import { createLibp2p } from 'libp2p';
-
-import { generateKeyPair } from './key-manglage.ts';
 
 const RELAY_LOCAL_ID = 200;
 
 /**
- * Main.
+ * Start the relay server.
+ *
+ * @param logger - The logger to use.
  */
-async function main(): Promise<void> {
+export async function startRelay(logger: Logger | Console): Promise<void> {
   const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
   const libp2p = await createLibp2p({
     privateKey,
@@ -48,9 +51,7 @@ async function main(): Promise<void> {
 
   // Register the protocol handler that the kernel uses
   await libp2p.handle('whatever', ({ stream, connection }) => {
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
+    logger.log(
       `[PROTOCOL] Incoming 'whatever' protocol from ${connection.remotePeer.toString()}`,
     );
     // For relay purposes, we don't need to do anything special
@@ -69,24 +70,17 @@ async function main(): Promise<void> {
   // Set up connection event listeners for logging
   libp2p.addEventListener('connection:open', (evt) => {
     const connection = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
+    logger.log(
       `[CONNECTION] New connection from ${connection.remotePeer.toString()}`,
     );
-    // eslint-disable-next-line no-console
-    console.log(`  Remote addr: ${connection.remoteAddr.toString()}`);
-    // eslint-disable-next-line no-console
-    console.log(`  Direction: ${connection.direction}`);
-    // eslint-disable-next-line no-console
-    console.log(`  Status: ${connection.status}`);
+    logger.log(`  Remote addr: ${connection.remoteAddr.toString()}`);
+    logger.log(`  Direction: ${connection.direction}`);
+    logger.log(`  Status: ${connection.status}`);
   });
 
   libp2p.addEventListener('connection:close', (evt) => {
     const connection = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
+    logger.log(
       `[CONNECTION] Closed connection with ${connection.remotePeer.toString()}`,
     );
   });
@@ -94,9 +88,7 @@ async function main(): Promise<void> {
   // Log peer discovery events
   libp2p.addEventListener('peer:discovery', (evt) => {
     const peerInfo = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(`[DISCOVERY] Found peer ${peerInfo.id.toString()}`);
+    logger.log(`[DISCOVERY] Found peer ${peerInfo.id.toString()}`);
   });
 
   // Log circuit relay specific events
@@ -104,33 +96,37 @@ async function main(): Promise<void> {
     // Log when a reservation is made
     libp2p.addEventListener('peer:connect', (evt) => {
       const peerId = evt.detail;
-      // TODO(#562): Use logger instead.
-      // eslint-disable-next-line no-console
-      console.log(`[RELAY] Peer connected: ${peerId.toString()}`);
+      logger.log(`[RELAY] Peer connected: ${peerId.toString()}`);
     });
 
     libp2p.addEventListener('peer:disconnect', (evt) => {
       const peerId = evt.detail;
-      // TODO(#562): Use logger instead.
-      // eslint-disable-next-line no-console
-      console.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);
+      logger.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);
     });
   }
 
-  // TODO(#562): Use logger instead.
-  // eslint-disable-next-line no-console
-  console.log('========================================');
-  // eslint-disable-next-line no-console
-  console.log('Relay Server Started');
-  // eslint-disable-next-line no-console
-  console.log('PeerID: ', libp2p.peerId.toString());
-  // TODO(#562): Use logger instead.
-  // eslint-disable-next-line no-console
-  console.log('Multiaddrs: ', libp2p.getMultiaddrs());
-  // eslint-disable-next-line no-console
-  console.log('========================================');
+  logger.log('========================================');
+  logger.log('Relay Server Started');
+  logger.log('PeerID: ', libp2p.peerId.toString());
+  logger.log('Multiaddrs: ', libp2p.getMultiaddrs());
+  logger.log('========================================');
 }
 
-main().catch(() => {
-  /* do nothing on error; it's a PoC */
-});
+/**
+ * Generate the private key for a given localID.
+ *
+ * @param localId - The localID whose peerID is sought.
+ *
+ * @returns the private key for `localID`.
+ */
+async function generateKeyPair(localId: number): Promise<PrivateKey> {
+  let seed;
+  if (localId > 0 && localId < 256) {
+    seed = new Uint8Array(32);
+    seed[0] = localId;
+  } else {
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    seed = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  }
+  return await generateKeyPairFromSeed('Ed25519', seed);
+}

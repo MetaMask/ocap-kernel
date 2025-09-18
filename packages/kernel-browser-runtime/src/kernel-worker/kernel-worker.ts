@@ -60,7 +60,10 @@ async function main(): Promise<void> {
   });
 
   await Promise.all([
-    kernel.initRemoteComms(),
+    // Initialize remote communications with the relay server from @ocap/cli
+    kernel.initRemoteComms([
+      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    ]),
     (async () => {
       // Launch the default subcluster if this is the first time
       if (firstTime) {

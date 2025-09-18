@@ -10,6 +10,7 @@ import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
+import { startRelay } from './relay.ts';
 import { withTimeout } from './utils.ts';
 
 const logger = new Logger('cli');
@@ -145,6 +146,14 @@ await yargs(hideBin(process.argv))
       closeHandlers.push(closeServer);
 
       logger.info(`Bundling and serving ${resolvedDir} on localhost:${port}`);
+    },
+  )
+  .command(
+    'relay',
+    'Start a relay server',
+    (_yargs) => _yargs,
+    async () => {
+      await startRelay(logger);
     },
   )
   .help('help')
