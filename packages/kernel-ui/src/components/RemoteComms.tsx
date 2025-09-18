@@ -113,12 +113,6 @@ export const RemoteComms: React.FC = () => {
                 style={{ width: '100%' }}
                 readOnly
               />
-              <TextComponent
-                color={TextColor.TextMuted}
-                variant={TextVariant.BodyXs}
-              >
-                Share this peer ID with other kernels to enable communication.
-              </TextComponent>
             </Box>
           )}
         </Box>
