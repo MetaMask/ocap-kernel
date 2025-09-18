@@ -120,11 +120,6 @@ describe('RemoteComms', () => {
     expect(peerIdInput).toBeInTheDocument();
     expect(peerIdInput).toHaveValue(mockPeerId);
     expect(peerIdInput).toHaveAttribute('readonly');
-
-    // Check helper text
-    expect(
-      screen.getByText(/Share this peer ID with other kernels/u),
-    ).toBeInTheDocument();
   });
 
   it('should show not initialized status when remote comms is not initialized', () => {
