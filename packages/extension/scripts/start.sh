@@ -4,6 +4,9 @@ set -x
 set -e
 set -o pipefail
 
+yarn ocap relay &
+RELAY_PID=$!
+
 yarn ocap start "./src/vats" &
 OCAP_PID=$!
 
