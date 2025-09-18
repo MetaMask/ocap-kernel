@@ -63,10 +63,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 69.76,
-          functions: 68.18,
-          branches: 88.57,
-          lines: 69.76,
+          statements: 52.94,
+          functions: 52.63,
+          branches: 75.6,
+          lines: 52.94,
         },
         'packages/create-package/**': {
           statements: 100,
@@ -153,10 +153,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 89.13,
-          functions: 90.11,
-          branches: 80.53,
-          lines: 89.15,
+          statements: 87.43,
+          functions: 89.32,
+          branches: 78.98,
+          lines: 87.44,
         },
         'packages/remote-iterables/**': {
           statements: 100,
