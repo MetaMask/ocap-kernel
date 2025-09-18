@@ -10,17 +10,22 @@ export const sessionPath = path.resolve(os.tmpdir(), 'ocap-test');
 /**
  * Creates an extension context, extension ID, and popup page.
  *
+ * @param contextId - Optional context identifier to create separate browser contexts.
+ *                    If not provided, uses the TEST_WORKER_INDEX environment variable.
  * @returns The extension context, extension ID, and popup page
  */
-export const makeLoadExtension = async (): Promise<{
+export const makeLoadExtension = async (
+  contextId?: string,
+): Promise<{
   browserContext: BrowserContext;
   extensionId: string;
   popupPage: Page;
 }> => {
   // eslint-disable-next-line n/no-process-env
   const workerIndex = process.env.TEST_WORKER_INDEX ?? '0';
-  // Separate user data dir for each worker to avoid conflicts
-  const userDataDir = path.join(sessionPath, workerIndex);
+  // Use provided contextId or fall back to workerIndex for separate user data dirs
+  const effectiveContextId = contextId ?? workerIndex;
+  const userDataDir = path.join(sessionPath, effectiveContextId);
   await rm(userDataDir, { recursive: true, force: true });
 
   // Get the absolute path to the extension

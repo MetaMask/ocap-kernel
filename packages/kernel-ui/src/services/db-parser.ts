@@ -1,4 +1,9 @@
-import type { ObjectRegistry, VatSnapshot, SlotInfo } from '../types.ts';
+import type {
+  ObjectRegistry,
+  VatSnapshot,
+  SlotInfo,
+  ExportedOcapURL,
+} from '../types.ts';
 
 /**
  * Parse a flat kernel DB dump into per-vat grouped info
@@ -23,6 +28,7 @@ export function parseObjectRegistry(
   let gcActions = '';
   let reapQueue = '';
   let terminatedVats = '';
+  const ocapUrls: ExportedOcapURL[] = [];
 
   // 1) Collect
   for (const { key, value } of entries) {
@@ -152,6 +158,19 @@ export function parseObjectRegistry(
     }
     const raw = kpValueRaw[kref] ?? { body: '', slots: [] };
     const slots = raw.slots.map(resolveSlot);
+
+    // Extract ocap URL if present in the promise body
+    if (raw.body && typeof raw.body === 'string') {
+      const ocapMatch = raw.body.match(/^#"(ocap:[^"]+)"/u);
+      if (ocapMatch) {
+        ocapUrls.push({
+          vatId: vat,
+          promiseId: kref,
+          ocapUrl: ocapMatch[1] ?? '',
+        });
+      }
+    }
+
     const base = {
       kref,
       eref,
@@ -190,5 +209,6 @@ export function parseObjectRegistry(
     reapQueue,
     terminatedVats,
     vats,
+    ocapUrls,
   };
 }

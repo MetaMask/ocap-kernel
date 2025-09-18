@@ -558,6 +558,9 @@ describe('Kernel', () => {
       expect(status).toStrictEqual({
         vats: [],
         subclusters: [],
+        remoteComms: {
+          isInitialized: false,
+        },
       });
     });
 
@@ -573,6 +576,9 @@ describe('Kernel', () => {
       expect(status.vats).toHaveLength(1);
       expect(status.subclusters).toHaveLength(1);
       expect(status.subclusters[0]?.config).toStrictEqual(config);
+      expect(status.remoteComms).toStrictEqual({
+        isInitialized: false,
+      });
     });
   });
 

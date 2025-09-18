@@ -16,6 +16,13 @@ export type ObjectRegistry = {
   reapQueue: string;
   terminatedVats: string;
   vats: Record<string, VatSnapshot>;
+  ocapUrls: ExportedOcapURL[];
+};
+
+export type ExportedOcapURL = {
+  vatId: string;
+  promiseId: string;
+  ocapUrl: string;
 };
 
 /**

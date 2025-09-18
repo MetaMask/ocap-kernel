@@ -56,4 +56,20 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByText('Control Panel')).toBeInTheDocument();
   });
+
+  it('renders all tab labels including the new Remote Comms tab', async () => {
+    const { useStream } = await import('./hooks/useStream.ts');
+    vi.mocked(useStream).mockReturnValue({
+      callKernelMethod: vi.fn(),
+      error: undefined,
+    } as unknown as StreamState);
+    const { App } = await import('./App.tsx');
+    render(<App />);
+
+    // Check that all tabs are rendered
+    expect(screen.getByText('Control Panel')).toBeInTheDocument();
+    expect(screen.getByText('Object Registry')).toBeInTheDocument();
+    expect(screen.getByText('Database Inspector')).toBeInTheDocument();
+    expect(screen.getByText('Remote Comms')).toBeInTheDocument();
+  });
 });
