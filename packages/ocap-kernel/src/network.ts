@@ -4,7 +4,9 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
-import type { PrivateKey } from '@libp2p/interface';
+import { MuxerClosedError } from '@libp2p/interface';
+import type { PrivateKey, DialOptions } from '@libp2p/interface';
+import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
@@ -54,6 +56,8 @@ export async function initNetwork(
   knownRelays: string[],
   remoteMessageHandler: RemoteMessageHandler,
 ): Promise<SendRemoteMessage> {
+  localStorage.debug = 'libp2p:transports*,libp2p:components*'; // XXX expunge
+
   const privateKey = await generateKeyInfo(keySeed);
   const activeChannels = new Map<string, Channel>(); // peerID -> channel info
   const logger = new Logger();
@@ -101,8 +105,63 @@ export async function initNetwork(
     ],
     services: {
       identify: identify(),
+      ping: ping(),
     },
   });
+
+  // Detailed logging for libp2p events. Uncomment as needed. Arguably this
+  // should be controlled by an environment variable or some similar kind of
+  // runtime flag, but probably not worth the effort since when you're debugging
+  // you're likely going to be tweaking with the code a lot anyway.
+  /*
+  const eventTypes = [
+    'certificate:provision',
+    'certificate:renew',
+    'connection:close',
+    'connection:open',
+    'connection:prune',
+    'peer:connect',
+    'peer:disconnect',
+    'peer:discovery',
+    'peer:identify',
+    'peer:reconnect-failure',
+    'peer:update',
+    'self:peer:update',
+    'start',
+    'stop',
+    'transport:close',
+    'transport:listening',
+  ];
+  for (const et of eventTypes) {
+    libp2p.addEventListener(et as keyof Libp2pEvents, (event) => {
+      if (et === 'connection:open' || et === 'connection:close') {
+        const legible = (raw: any): string => JSON.stringify({
+          direction: raw.direction,
+          encryption: raw.encryption,
+          id: raw.id,
+          remoteAddr: raw.remoteAddr.toString(),
+          remotePeer: raw.remotePeer.toString(),
+        });
+        logger.log(`@@@@ libp2p ${et} ${legible(event.detail)}`, event.detail);
+      } else if (et === 'peer:identify') {
+        const legible = (raw: any): string => JSON.stringify({
+          peerId: raw.peerId ? raw.peerId.toString() : 'undefined',
+          protocolVersion: raw.protocolVersion,
+          agentVersion: raw.agentVersion,
+          observedAddr: raw.observedAddr ? raw.observedAddr.toString() : 'undefined',
+          listenAddrs: raw.listenAddrs.map((addr: object) => addr ? addr.toString() : 'undefined'),
+          protocols: raw.protocols,
+        });
+        logger.log(`@@@@ libp2p ${et} ${legible(event.detail)}`, event.detail);
+      } else if (et === 'transport:listening') {
+        const legible = (raw: any): string => JSON.stringify(raw.getAddrs());
+        logger.log(`@@@@ libp2p ${et} ${legible(event.detail)}`, event.detail);
+      } else {
+        logger.log(`@@@@ libp2p ${et} ${JSON.stringify(event.detail)}`, event.detail);
+      }
+    });
+  }
+  */
 
   /**
    * Output information about an error that happened.
@@ -136,30 +195,32 @@ export async function initNetwork(
    *
    * @param targetPeerId - The peerId of the intended message destination.
    * @param message - The message itself.
+   * @param hints - Possible addresses at which the target peer might be contacted.
    */
   async function sendRemoteMessage(
     targetPeerId: string,
     message: string,
+    hints: string[] = [],
   ): Promise<void> {
     let channel = activeChannels.get(targetPeerId);
     if (!channel) {
       try {
-        channel = await openChannel(targetPeerId);
+        channel = await openChannel(targetPeerId, hints);
       } catch (problem) {
-        outputError(targetPeerId, 'opening connection', problem);
+        outputError(targetPeerId, `opening connection`, problem);
       }
       if (!channel) {
         return;
       }
       readChannel(channel).catch((problem) => {
-        outputError(targetPeerId, 'reading channel', problem);
+        outputError(targetPeerId, `reading channel to`, problem);
       });
     }
     try {
       logger.log(`${targetPeerId}:: send ${message}`);
       await channel.msgStream.write(fromString(message));
     } catch (problem) {
-      outputError(targetPeerId, 'sending message', problem);
+      outputError(targetPeerId, `sending message`, problem);
     }
   }
 
@@ -183,7 +244,11 @@ export async function initNetwork(
         ) {
           logger.log(`${channel.peerId}:: remote disconnected`);
         } else {
-          outputError(channel.peerId, 'reading message', problem);
+          outputError(
+            channel.peerId,
+            `reading message from ${channel.peerId}`,
+            problem,
+          );
         }
         logger.log(`closed channel to ${channel.peerId}`);
         activeChannels.delete(channel.peerId);
@@ -199,18 +264,35 @@ export async function initNetwork(
    * Open a channel to the node with the given target peerId.
    *
    * @param peerId - The network node to connect to.
+   * @param hints - Possible addresses at which the peer might be contacted.
    *
    * @returns a Channel to `peerId`.
    */
-  async function openChannel(peerId: string): Promise<Channel> {
+  async function openChannel(
+    peerId: string,
+    hints: string[] = [],
+  ): Promise<Channel> {
     logger.log(`connecting to ${peerId}`);
     const signal = AbortSignal.timeout(30_000);
+
+    // try the hints first, followed by any known relays that aren't already in the hints
+    const possibleContacts = hints.concat();
+    for (const known of knownRelays) {
+      // n.b., yes, this is an N^2 algorithm, but I think it should be OK
+      // because `hints` and `knownRelays` should generally both be very short
+      // (I'm guessing fewer than 3 entries each in the typical case).  Note
+      // also that we append to the list, so that addresses in the hints array
+      // will be tried first.
+      if (!possibleContacts.includes(known)) {
+        possibleContacts.push(known);
+      }
+    }
 
     let stream;
     let lastError: Error | undefined;
 
     // Try multiple connection strategies
-    const addressStrings: string[] = knownRelays.flatMap((relay) => [
+    const addressStrings: string[] = possibleContacts.flatMap((relay) => [
       // Browser: try WebRTC first
       `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
       // Both environments can use WebSocket through relay
@@ -224,18 +306,34 @@ export async function initNetwork(
     for (const addressString of addressStrings) {
       try {
         const connectToAddr = multiaddr(addressString);
-        logger.log(`trying address: ${addressString}`);
-        stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
+        logger.log(`attempting to contact ${peerId} via ${addressString}`);
+        const conn = await libp2p.dial(connectToAddr, {
           signal,
-        });
+          runOnTransientConnection: true, // Allow transient connections
+        } as unknown as DialOptions);
+        stream = await conn.newStream('whatever');
         if (stream) {
-          logger.log(`successfully connected via ${addressString}`);
+          logger.log(
+            `successfully connected to ${peerId} via ${addressString}`,
+          );
           break;
         }
       } catch (problem) {
         lastError = problem as Error;
-        outputError(peerId, `failed with address ${addressString}`, problem);
-        // Continue to next address
+        if (problem instanceof MuxerClosedError) {
+          outputError(
+            peerId,
+            `yamux muxer issue contacting via ${addressString}`,
+            problem,
+          );
+        } else if (signal.aborted) {
+          outputError(peerId, `timed out opening channel`, problem);
+        } else {
+          outputError(peerId, `issue opening channel`, problem);
+        }
+      }
+      if (stream) {
+        break;
       }
     }
 
@@ -249,7 +347,7 @@ export async function initNetwork(
           lastError,
         );
       }
-      throw lastError ?? Error('Failed to connect');
+      throw lastError ?? Error(`unable to open channel to ${peerId}`);
     }
     const msgStream = byteStream(stream);
     const channel: Channel = { msgStream, peerId };
@@ -278,6 +376,7 @@ export async function initNetwork(
   libp2p.addEventListener('self:peer:update', (evt) => {
     logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
   });
+  await libp2p.start();
 
   return sendRemoteMessage;
 }

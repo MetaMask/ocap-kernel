@@ -307,10 +307,15 @@ export type PlatformServices = {
    *
    * @param to - The network peer to whom to send the message.
    * @param message - The message itself.
+   * @param hints - Possible addresses at which the `to` peer might be contacted.
    * @returns A promise that resolves when the message has been transmitted or
    *   rejects if there is some problem doing so.
    */
-  sendRemoteMessage: (to: string, message: string) => Promise<void>;
+  sendRemoteMessage: (
+    to: string,
+    message: string,
+    hints?: string[],
+  ) => Promise<void>;
   /**
    * Initialize network communications.
    *
@@ -331,6 +336,7 @@ export type PlatformServices = {
 export type SendRemoteMessage = (
   peerId: string,
   message: string,
+  hints?: string[],
 ) => Promise<void>;
 
 export type RemoteComms = {

@@ -1,10 +1,11 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { object, literal, string } from '@metamask/superstruct';
+import { object, literal, array, string } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 
 const sendRemoteMessageParamsStruct = object({
   to: string(),
   message: string(),
+  hints: array(string()),
 });
 
 type SendRemoteMessageParams = Infer<typeof sendRemoteMessageParamsStruct>;
@@ -21,7 +22,11 @@ export const sendRemoteMessageSpec: SendRemoteMessageSpec = {
   result: literal(null),
 };
 
-export type SendRemoteMessage = (to: string, message: string) => Promise<null>;
+export type SendRemoteMessage = (
+  to: string,
+  message: string,
+  hints: string[],
+) => Promise<null>;
 
 type SendRemoteMessageHooks = {
   sendRemoteMessage: SendRemoteMessage;
@@ -38,6 +43,6 @@ export const sendRemoteMessageHandler: SendRemoteMessageHandler = {
   ...sendRemoteMessageSpec,
   hooks: { sendRemoteMessage: true },
   implementation: async ({ sendRemoteMessage }, params) => {
-    return await sendRemoteMessage(params.to, params.message);
+    return await sendRemoteMessage(params.to, params.message, params.hints);
   },
 };
