@@ -6,20 +6,27 @@ import { identify } from '@libp2p/identify';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
 import { createLibp2p } from 'libp2p';
+import { argv } from 'node:process';
 
 import { generateKeyPair } from './key-manglage.ts';
 
-const RELAY_LOCAL_ID = 200;
+const RELAY_OFFSET = 200; // for historical reasons, don't ask
 
 /**
  * Main.
  */
 async function main(): Promise<void> {
-  const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
+  const localId = argv.length > 2 ? Number(argv[2]) : 0;
+  const privateKey = await generateKeyPair(localId + RELAY_OFFSET);
+  const port = 9001 + localId * 2;
+
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
-      listen: ['/ip4/0.0.0.0/tcp/9001/ws', '/ip4/0.0.0.0/tcp/9002'],
+      listen: [
+        `/ip4/0.0.0.0/tcp/${port}/ws`,
+        `/ip4/0.0.0.0/tcp/${port + 1}`,
+      ],
     },
     transports: [webSockets(), tcp()],
     connectionEncrypters: [noise()],
