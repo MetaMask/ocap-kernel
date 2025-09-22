@@ -97,11 +97,15 @@ export class NodejsPlatformServices implements PlatformServices {
     }
   }
 
-  async sendRemoteMessage(from: string, message: string): Promise<void> {
+  async sendRemoteMessage(
+    from: string,
+    message: string,
+    hints: string[] = [],
+  ): Promise<void> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(from, message);
+    await this.#sendRemoteMessageFunc(from, message, hints);
   }
 
   async #handleRemoteMessage(from: string, message: string): Promise<string> {

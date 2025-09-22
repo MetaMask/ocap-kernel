@@ -96,12 +96,15 @@ export function getKnownRelays(kv: KVStore): string[] {
  */
 async function setupTempTestRelays(kv: KVStore): Promise<void> {
   if (!kv.get('knownRelays')) {
-    const RELAY_SEED = 'c8';
+    const RELAY_SEEDS = ['c8', 'c9'];
     const RELAY_HOST = '/dns4/troll.fudco.com';
 
-    const [, relayPeerId] = await generateKeyInfo(RELAY_SEED);
-    const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId}`;
-    const knownRelays = [relayAddr];
+    const knownRelays: string[] = [];
+    for (let i = 0; i < RELAY_SEEDS.length; i += 1) {
+      const [, relayPeerId] = await generateKeyInfo(RELAY_SEEDS[i]);
+      const relayAddr = `${RELAY_HOST}/tcp/${9001 + i * 2}/ws/p2p/${relayPeerId}`;
+      knownRelays.push(relayAddr);
+    }
     kv.set('knownRelays', JSON.stringify(knownRelays));
   }
 }
@@ -183,9 +186,14 @@ export async function initRemoteComms(
    * @param message - The message to send; it is the caller's responsibility to
    *   ensure that the string properly encodes something that the recipient will
    *   understand.
+   * @param hints - Possible addresses at which the `to` peer might be contacted.
    */
-  async function sendRemoteMessage(to: string, message: string): Promise<void> {
-    await platformServices.sendRemoteMessage(to, message);
+  async function sendRemoteMessage(
+    to: string,
+    message: string,
+    hints: string[] = [],
+  ): Promise<void> {
+    await platformServices.sendRemoteMessage(to, message, hints);
   }
 
   const KREF_MIN_LEN = 16;

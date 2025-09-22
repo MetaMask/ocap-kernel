@@ -35,12 +35,8 @@ type Channel = {
 };
 
 declare global {
-  // TypeScript requires you to use `var` here for these declarations to work.
-  // eslint-disable-next-line no-var
   var libp2p: Libp2p;
-  // eslint-disable-next-line no-var
   var location: Location;
-  // eslint-disable-next-line no-var
   var document: Document;
 }
 
@@ -125,9 +121,12 @@ const App = async (): Promise<void> => {
     nodeAddresses: () => document.getElementById('output-addresses'),
     nodePeerDetails: () => document.getElementById('output-peer-details'),
 
-    inputMultiaddr: () => document.getElementById('input-multiaddr'),
-    inputTarget: () => document.getElementById('input-target'),
-    inputMessage: () => document.getElementById('input-message'),
+    inputMultiaddr: () =>
+      document.getElementById('input-multiaddr') as HTMLDataElement,
+    inputTarget: () =>
+      document.getElementById('input-target') as HTMLDataElement,
+    inputMessage: () =>
+      document.getElementById('input-message') as HTMLDataElement,
     connectButton: () => document.getElementById('button-connect'),
     sendButton: () => document.getElementById('button-send'),
     outputMessages: () => document.getElementById('output-messages'),
@@ -147,7 +146,7 @@ const App = async (): Promise<void> => {
     const line = document.createElement('div');
     line.setAttribute('class', 'text-sm break-all');
     line.appendChild(document.createTextNode(text));
-    DOM.outputMessages().append(line);
+    DOM.outputMessages()?.append(line);
   }
 
   /**
@@ -289,31 +288,37 @@ const App = async (): Promise<void> => {
     update(DOM.nodePeerDetails(), getPeerDetails(libp2p));
   }, 1000);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DOM.connectButton().onclick = async (event: any) => {
-    event.preventDefault();
-    const maddr = multiaddr(DOM.inputMultiaddr().value);
+  const connectButton = DOM.connectButton();
+  if (connectButton) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    connectButton.onclick = async (event: any) => {
+      event.preventDefault();
+      const maddr = multiaddr(DOM.inputMultiaddr()?.value);
 
-    outputLine(`connect to ${maddr.toString()}`);
-    try {
-      await libp2p.dial(maddr);
-    } catch (problem) {
-      outputLine(
-        `error connecting to ${maddr.toString()}: ${(problem as Error).toString()}`,
-      );
-    }
-  };
+      outputLine(`connect to ${maddr.toString()}`);
+      try {
+        await libp2p.dial(maddr);
+      } catch (problem) {
+        outputLine(
+          `error connecting to ${maddr.toString()}: ${(problem as Error).toString()}`,
+        );
+      }
+    };
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DOM.sendButton().onclick = async (event: any) => {
-    event.preventDefault();
-    const target = DOM.inputTarget().value;
-    const message = DOM.inputMessage().value;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(`send to ${target}: '${message}'`);
-    await sendMsg(Number(target), message);
-  };
+  const sendButton = DOM.sendButton();
+  if (sendButton) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sendButton.onclick = async (event: any) => {
+      event.preventDefault();
+      const target = DOM.inputTarget()?.value;
+      const message = DOM.inputMessage()?.value;
+      // TODO(#562): Use logger instead.
+      // eslint-disable-next-line no-console
+      console.log(`send to ${target}: '${message}'`);
+      await sendMsg(Number(target), message);
+    };
+  }
 
   /**
    * Act upon a message received from another network node.

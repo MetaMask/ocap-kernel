@@ -266,17 +266,20 @@ export class Kernel {
     );
   }
 
-  async sendRemoteMessage(peerId: string, message: string): Promise<void> {
-    await this.#getRemoteComms().sendRemoteMessage(peerId, message);
+  async sendRemoteMessage(
+    peerId: string,
+    message: string,
+    hints: string[] = [],
+  ): Promise<void> {
+    await this.#getRemoteComms().sendRemoteMessage(peerId, message, hints);
   }
 
   async #redeemOcapURL(url: string): Promise<string> {
-    const { host } = parseOcapURL(url);
+    const { host, hints } = parseOcapURL(url);
     if (host === this.#getRemoteComms().getPeerId()) {
       return this.#getRemoteComms().redeemLocalOcapURL(url);
     }
-    // XXX TODO ignoring hints for now, just use known relay
-    const remote = this.#remoteFor(host);
+    const remote = this.#remoteFor(host, hints);
     return remote.redeemOcapURL(url);
   }
 
@@ -341,10 +344,11 @@ export class Kernel {
    * Set up bookkeeping for a newly established remote connection.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
+   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    *
    * @returns the RemoteHandle that was set up.
    */
-  #establishRemote(peerId: string): RemoteHandle {
+  #establishRemote(peerId: string, hints: string[] = []): RemoteHandle {
     const remoteComms = this.#getRemoteComms();
     const remoteId = this.#kernelStore.getNextRemoteId();
     const remote = RemoteHandle.make({
@@ -353,6 +357,7 @@ export class Kernel {
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       remoteComms,
+      locationHints: hints,
     });
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);
@@ -363,12 +368,13 @@ export class Kernel {
    * Get or create a RemoteHandle for a given peer ID.
    *
    * @param peerId - The libp2p peer for which a handle is sought.
+   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    *
    * @returns an existing or new RemoteHandle to communicate with `peerId`.
    */
-  #remoteFor(peerId: string): RemoteHandle {
+  #remoteFor(peerId: string, hints: string[] = []): RemoteHandle {
     const remote =
-      this.#remotesByPeer.get(peerId) ?? this.#establishRemote(peerId);
+      this.#remotesByPeer.get(peerId) ?? this.#establishRemote(peerId, hints);
     return remote;
   }
 
@@ -910,8 +916,13 @@ export class Kernel {
   }
 
   registerKernelServiceObject(name: string, service: object): void {
-    const kref = this.#kernelStore.initKernelObject('kernel');
-    this.#kernelStore.pinObject(kref);
+    const serviceKey = `kernelService.${name}`;
+    let kref = this.#kernelStore.kv.get(serviceKey);
+    if (!kref) {
+      kref = this.#kernelStore.initKernelObject('kernel');
+      this.#kernelStore.kv.set(serviceKey, kref);
+      this.#kernelStore.pinObject(kref);
+    }
     const kernelService = { name, kref, service };
     this.#kernelServicesByName.set(name, kernelService);
     this.#kernelServicesByObject.set(kref, kernelService);

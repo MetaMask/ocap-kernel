@@ -13,6 +13,5 @@ describe('endoified', () => {
 });
 
 declare global {
-  // eslint-disable-next-line no-var
   var HandledPromise: HandledPromiseConstructor;
 }

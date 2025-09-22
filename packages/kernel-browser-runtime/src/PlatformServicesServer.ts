@@ -208,11 +208,15 @@ export class PlatformServicesServer {
     return null;
   }
 
-  async #sendRemoteMessage(peerId: string, message: string): Promise<null> {
+  async #sendRemoteMessage(
+    peerId: string,
+    message: string,
+    hints: string[] = [],
+  ): Promise<null> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(peerId, message);
+    await this.#sendRemoteMessageFunc(peerId, message, hints);
     return null;
   }
 

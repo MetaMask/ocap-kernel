@@ -154,8 +154,12 @@ export class PlatformServicesClient implements PlatformServices {
     });
   }
 
-  async sendRemoteMessage(to: string, message: string): Promise<void> {
-    await this.#rpcClient.call('sendRemoteMessage', { to, message });
+  async sendRemoteMessage(
+    to: string,
+    message: string,
+    hints: string[] = [],
+  ): Promise<void> {
+    await this.#rpcClient.call('sendRemoteMessage', { to, message, hints });
   }
 
   async #remoteDeliver(from: string, message: string): Promise<string> {
