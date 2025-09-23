@@ -126,7 +126,7 @@ type BootstrapResult = {
  * @param name - The name of the sender vat.
  * @returns Cluster configuration for the sender.
  */
-function makeSenderSubcluster(name: string): ClusterConfig {
+function makeReceiverSubclusterConfigConfig(name: string): ClusterConfig {
   return {
     bootstrap: 'sender',
     forceReset: true,
@@ -154,7 +154,7 @@ function makeSenderSubcluster(name: string): ClusterConfig {
  * @param name - The name of the receiver vat.
  * @returns Cluster configuration for the receiver.
  */
-function makeReceiverSubcluster(name: string): ClusterConfig {
+function makeReceiverSubclusterConfig(name: string): ClusterConfig {
   return {
     bootstrap: 'receiver',
     forceReset: true,
@@ -236,7 +236,7 @@ describe('Remote Communications (Integration Tests)', () => {
 
   it('should create vats with ocap URL services', async () => {
     // Launch sender vat on kernel1
-    const senderConfig = makeSenderSubcluster('Sender1');
+    const senderConfig = makeReceiverSubclusterConfigConfig('Sender1');
     const senderResult = await runTestVats(kernel1, senderConfig);
 
     expect(senderResult).toBeDefined();
@@ -244,7 +244,7 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(senderResult).toHaveProperty('ocapURL');
 
     // Launch receiver vat on kernel2
-    const receiverConfig = makeReceiverSubcluster('Receiver2');
+    const receiverConfig = makeReceiverSubclusterConfig('Receiver2');
     const receiverResult = await runTestVats(kernel2, receiverConfig);
 
     expect(receiverResult).toBeDefined();
@@ -262,12 +262,12 @@ describe('Remote Communications (Integration Tests)', () => {
 
   it('should send remote message between kernels via ocap URLs', async () => {
     // Launch sender vat on kernel1
-    const senderConfig = makeSenderSubcluster('Sender1');
+    const senderConfig = makeReceiverSubclusterConfigConfig('Sender1');
     await runTestVats(kernel1, senderConfig);
     const senderRootRef = kernelStore1.getRootObject('v1') as KRef;
 
     // Launch receiver vat on kernel2
-    const receiverConfig = makeReceiverSubcluster('Receiver2');
+    const receiverConfig = makeReceiverSubclusterConfig('Receiver2');
     const receiverResult = await runTestVats(kernel2, receiverConfig);
 
     // Get the receiver's ocap URL from bootstrap result

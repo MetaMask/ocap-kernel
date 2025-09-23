@@ -22,6 +22,21 @@ const mockUseRegistry = vi.mocked(useRegistry);
 describe('RemoteComms', () => {
   const mockFetchObjectRegistry = vi.fn();
 
+  // Helper function to create mock panel context
+  const createMockPanelContext = (overrides = {}) => ({
+    status: undefined,
+    callKernelMethod: vi.fn(),
+    logMessage: vi.fn(),
+    messageContent: '',
+    setMessageContent: vi.fn(),
+    panelLogs: [],
+    clearLogs: vi.fn(),
+    isLoading: false,
+    objectRegistry: null,
+    setObjectRegistry: vi.fn(),
+    ...overrides,
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -39,18 +54,7 @@ describe('RemoteComms', () => {
   });
 
   it('should show loading state when status is not available', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: undefined,
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+    mockUsePanelContext.mockReturnValue(createMockPanelContext());
 
     render(<RemoteComms />);
 
@@ -60,22 +64,15 @@ describe('RemoteComms', () => {
   });
 
   it('should show warning when remoteComms is not available in status', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        // remoteComms not included
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          // remoteComms not included
+        },
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -86,25 +83,18 @@ describe('RemoteComms', () => {
   it('should show initialized status with peer ID when remote comms is available', () => {
     const mockPeerId = '12D3KooWTest123456789';
 
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: mockPeerId,
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: mockPeerId,
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -123,24 +113,17 @@ describe('RemoteComms', () => {
   });
 
   it('should show not initialized status when remote comms is not initialized', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: false,
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: false,
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -156,25 +139,18 @@ describe('RemoteComms', () => {
   });
 
   it('should not show peer ID section when peerId is not available', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          // peerId not included
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            // peerId not included
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -190,25 +166,18 @@ describe('RemoteComms', () => {
   });
 
   it('should apply correct CSS classes to the container', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -218,25 +187,18 @@ describe('RemoteComms', () => {
   });
 
   it('should render BadgeStatus component with correct status', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -248,25 +210,18 @@ describe('RemoteComms', () => {
   });
 
   it('should handle empty peer ID gracefully', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: '',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: '',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -281,42 +236,36 @@ describe('RemoteComms', () => {
   });
 
   it('should display exported ocap URLs when available', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: {
-        gcActions: '[]',
-        reapQueue: '[]',
-        terminatedVats: '[]',
-        vats: {},
-        ocapUrls: [
-          {
-            vatId: 'v1',
-            promiseId: 'kp1',
-            ocapUrl: 'ocap://example.com/capability1',
-          },
-          {
-            vatId: 'v2',
-            promiseId: 'kp2',
-            ocapUrl: 'ocap://example.com/capability2',
-          },
-        ],
-      },
-      setObjectRegistry: vi.fn(),
-    });
+        objectRegistry: {
+          gcActions: '[]',
+          reapQueue: '[]',
+          terminatedVats: '[]',
+          vats: {},
+          ocapUrls: [
+            {
+              vatId: 'v1',
+              promiseId: 'kp1',
+              ocapUrl: 'ocap://example.com/capability1',
+            },
+            {
+              vatId: 'v2',
+              promiseId: 'kp2',
+              ocapUrl: 'ocap://example.com/capability2',
+            },
+          ],
+        },
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -344,31 +293,25 @@ describe('RemoteComms', () => {
   });
 
   it('should not display exported ocap URLs section when empty', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: {
-        gcActions: '[]',
-        reapQueue: '[]',
-        terminatedVats: '[]',
-        vats: {},
-        ocapUrls: [],
-      },
-      setObjectRegistry: vi.fn(),
-    });
+        objectRegistry: {
+          gcActions: '[]',
+          reapQueue: '[]',
+          terminatedVats: '[]',
+          vats: {},
+          ocapUrls: [],
+        },
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -377,25 +320,18 @@ describe('RemoteComms', () => {
   });
 
   it('should fetch object registry on mount when not available', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: null,
-      setObjectRegistry: vi.fn(),
-    });
+      }),
+    );
 
     render(<RemoteComms />);
 
@@ -404,31 +340,25 @@ describe('RemoteComms', () => {
   });
 
   it('should not fetch object registry on mount when already available', () => {
-    mockUsePanelContext.mockReturnValue({
-      status: {
-        vats: [],
-        subclusters: [],
-        remoteComms: {
-          isInitialized: true,
-          peerId: 'test-peer-id',
+    mockUsePanelContext.mockReturnValue(
+      createMockPanelContext({
+        status: {
+          vats: [],
+          subclusters: [],
+          remoteComms: {
+            isInitialized: true,
+            peerId: 'test-peer-id',
+          },
         },
-      },
-      callKernelMethod: vi.fn(),
-      logMessage: vi.fn(),
-      messageContent: '',
-      setMessageContent: vi.fn(),
-      panelLogs: [],
-      clearLogs: vi.fn(),
-      isLoading: false,
-      objectRegistry: {
-        gcActions: '[]',
-        reapQueue: '[]',
-        terminatedVats: '[]',
-        vats: {},
-        ocapUrls: [],
-      },
-      setObjectRegistry: vi.fn(),
-    });
+        objectRegistry: {
+          gcActions: '[]',
+          reapQueue: '[]',
+          terminatedVats: '[]',
+          vats: {},
+          ocapUrls: [],
+        },
+      }),
+    );
 
     render(<RemoteComms />);
 
