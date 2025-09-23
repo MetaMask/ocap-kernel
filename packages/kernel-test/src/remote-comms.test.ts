@@ -126,7 +126,7 @@ type BootstrapResult = {
  * @param name - The name of the sender vat.
  * @returns Cluster configuration for the sender.
  */
-function makeReceiverSubclusterConfigConfig(name: string): ClusterConfig {
+function makeSenderSubclusterConfig(name: string): ClusterConfig {
   return {
     bootstrap: 'sender',
     forceReset: true,
@@ -236,7 +236,7 @@ describe('Remote Communications (Integration Tests)', () => {
 
   it('should create vats with ocap URL services', async () => {
     // Launch sender vat on kernel1
-    const senderConfig = makeReceiverSubclusterConfigConfig('Sender1');
+    const senderConfig = makeSenderSubclusterConfig('Sender1');
     const senderResult = await runTestVats(kernel1, senderConfig);
 
     expect(senderResult).toBeDefined();
@@ -262,7 +262,7 @@ describe('Remote Communications (Integration Tests)', () => {
 
   it('should send remote message between kernels via ocap URLs', async () => {
     // Launch sender vat on kernel1
-    const senderConfig = makeReceiverSubclusterConfigConfig('Sender1');
+    const senderConfig = makeSenderSubclusterConfig('Sender1');
     await runTestVats(kernel1, senderConfig);
     const senderRootRef = kernelStore1.getRootObject('v1') as KRef;
 
