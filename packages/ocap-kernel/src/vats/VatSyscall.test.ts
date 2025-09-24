@@ -7,9 +7,9 @@ import type { Logger } from '@metamask/logger';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelQueue } from './KernelQueue.ts';
-import type { KernelStore } from './store/index.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
 import { VatSyscall } from './VatSyscall.ts';
+import type { KernelStore } from '../store/index.ts';
 
 describe('VatSyscall', () => {
   let kernelQueue: KernelQueue;

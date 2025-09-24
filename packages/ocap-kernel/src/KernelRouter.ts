@@ -3,7 +3,7 @@ import type { CapData } from '@endo/marshal';
 import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
-import { kser } from './services/kernel-marshal.ts';
+import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { extractSingleRef } from './store/utils/extract-ref.ts';
 import { parseRef } from './store/utils/parse-ref.ts';

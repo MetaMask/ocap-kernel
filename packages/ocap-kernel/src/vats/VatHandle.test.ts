@@ -8,12 +8,12 @@ import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
-import type { KernelQueue } from './KernelQueue.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
-import type { VRef, Message, VatDeliveryResult } from './types.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
+import { makeKernelStore } from '../store/index.ts';
+import type { KernelStore } from '../store/index.ts';
+import type { VRef, Message, VatDeliveryResult } from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
-import { makeMapKernelDatabase } from '../test/storage.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
 
 vi.mock('@endo/eventual-send', () => ({
   E: () => ({

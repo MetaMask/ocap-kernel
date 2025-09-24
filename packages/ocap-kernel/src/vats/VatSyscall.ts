@@ -10,12 +10,12 @@ import {
   performDropImports,
   performRetireImports,
   performExportCleanup,
-} from './gc-handlers.ts';
-import type { KernelQueue } from './KernelQueue.ts';
-import { makeError } from './services/kernel-marshal.ts';
-import type { KernelStore } from './store/index.ts';
-import { coerceMessage } from './types.ts';
-import type { Message, VatId, KRef } from './types.ts';
+} from '../garbage-collection/gc-handlers.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
+import { makeError } from '../liveslots/kernel-marshal.ts';
+import type { KernelStore } from '../store/index.ts';
+import { coerceMessage } from '../types.ts';
+import type { Message, VatId, KRef } from '../types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;

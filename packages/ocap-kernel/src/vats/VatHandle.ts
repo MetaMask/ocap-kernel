@@ -15,11 +15,11 @@ import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcNotification, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 
-import type { KernelQueue } from './KernelQueue.ts';
-import { vatMethodSpecs, vatSyscallHandlers } from './rpc/index.ts';
-import type { PingVatResult, VatMethod } from './rpc/index.ts';
-import { kser, makeError } from './services/kernel-marshal.ts';
-import type { KernelStore } from './store/index.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
+import { kser, makeError } from '../liveslots/kernel-marshal.ts';
+import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
+import type { PingVatResult, VatMethod } from '../rpc/index.ts';
+import type { KernelStore } from '../store/index.ts';
 import type {
   Message,
   VatId,
@@ -28,7 +28,7 @@ import type {
   CrankResults,
   VatDeliveryResult,
   EndpointHandle,
-} from './types.ts';
+} from '../types.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type MessageFromVat = JsonRpcResponse | JsonRpcNotification;

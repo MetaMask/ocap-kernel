@@ -1,6 +1,6 @@
 export { Kernel } from './Kernel.ts';
-export { VatHandle } from './VatHandle.ts';
-export { VatSupervisor } from './VatSupervisor.ts';
+export { VatHandle } from './vats/VatHandle.ts';
+export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { initNetwork } from './network.ts';
 export type {
   ClusterConfig,
@@ -26,8 +26,8 @@ export {
   KernelStatusStruct,
   SubclusterStruct,
 } from './types.ts';
-export { kunser, kser, kslot, krefOf } from './services/kernel-marshal.ts';
-export type { SlotValue } from './services/kernel-marshal.ts';
+export { kunser, kser, kslot, krefOf } from './liveslots/kernel-marshal.ts';
+export type { SlotValue } from './liveslots/kernel-marshal.ts';
 export { makeKernelStore } from './store/index.ts';
 export type { KernelStore } from './store/index.ts';
 export { parseRef } from './store/utils/parse-ref.ts';

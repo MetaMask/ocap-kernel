@@ -1,8 +1,8 @@
 import type { CapData } from '@endo/marshal';
 import { passStyleOf } from '@endo/pass-style';
 
-import { kunser, krefOf } from '../../services/kernel-marshal.ts';
-import type { SlotValue } from '../../services/kernel-marshal.ts';
+import { kunser, krefOf } from '../../liveslots/kernel-marshal.ts';
+import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
 import type { KRef } from '../../types.ts';
 
 /**
