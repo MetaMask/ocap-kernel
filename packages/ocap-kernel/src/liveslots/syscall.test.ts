@@ -9,7 +9,7 @@ import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeSupervisorSyscall } from './syscall.ts';
-import type { VatSupervisor } from '../VatSupervisor.ts';
+import type { VatSupervisor } from '../vats/VatSupervisor.ts';
 
 describe('syscall', () => {
   // Mock supervisor that records syscalls and returns predefined results

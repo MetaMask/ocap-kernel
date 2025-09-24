@@ -1,6 +1,6 @@
-import type { KernelStore } from './store/index.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
-import type { KRef, EndpointId } from './types.ts';
+import type { KernelStore } from '../store/index.ts';
+import { parseRef } from '../store/utils/parse-ref.ts';
+import type { KRef, EndpointId } from '../types.ts';
 
 /**
  * Do the work of a 'dropImports' syscall.

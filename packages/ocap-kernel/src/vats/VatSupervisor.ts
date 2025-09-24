@@ -24,14 +24,18 @@ import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { PlatformFactory } from '@ocap/kernel-platforms';
 
-import { vatSyscallMethodSpecs, vatHandlers } from './rpc/index.ts';
-import { makeGCAndFinalize } from './services/gc-finalize.ts';
-import { makeDummyMeterControl } from './services/meter-control.ts';
-import { makeSupervisorSyscall } from './services/syscall.ts';
-import type { DispatchFn, MakeLiveSlotsFn, GCTools } from './services/types.ts';
-import { makeVatKVStore } from './store/vat-kv-store.ts';
-import type { VatConfig, VatDeliveryResult, VatId } from './types.ts';
-import { isVatConfig, coerceVatSyscallObject } from './types.ts';
+import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
+import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
+import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
+import type {
+  DispatchFn,
+  MakeLiveSlotsFn,
+  GCTools,
+} from '../liveslots/types.ts';
+import { vatSyscallMethodSpecs, vatHandlers } from '../rpc/index.ts';
+import { makeVatKVStore } from '../store/vat-kv-store.ts';
+import type { VatConfig, VatDeliveryResult, VatId } from '../types.ts';
+import { isVatConfig, coerceVatSyscallObject } from '../types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 

@@ -15,7 +15,7 @@ import type {
   PlatformServices,
   ClusterConfig,
 } from './types.ts';
-import { VatHandle } from './VatHandle.ts';
+import { VatHandle } from './vats/VatHandle.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
 const mocks = vi.hoisted(() => {

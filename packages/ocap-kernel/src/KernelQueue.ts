@@ -2,8 +2,8 @@ import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 
-import { processGCActionSet } from './services/garbage-collection.ts';
-import { kser } from './services/kernel-marshal.ts';
+import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
+import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistEndpointId } from './types.ts';
 import type {
