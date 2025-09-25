@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/vite-plugins",
+  "name": "@ocap/repo-tools",
   "version": "0.0.0",
   "private": true,
   "description": "Vite plugins for Ocap Kernel development",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/vite-plugins#readme",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/repo-tools#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },

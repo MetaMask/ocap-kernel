@@ -1,4 +1,4 @@
-# `@ocap/vite-plugins`
+# `@ocap/repo-tools`
 
 Vite plugins for Ocap Kernel development
 

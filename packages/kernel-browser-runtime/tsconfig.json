@@ -15,7 +15,7 @@
     { "path": "../ocap-kernel" },
     { "path": "../streams" },
     { "path": "../test-utils" },
-    { "path": "../vite-plugins" }
+    { "path": "../repo-tools" }
   ],
   "include": [
     "../../vitest.config.ts",

@@ -1,8 +1,8 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
-import { deduplicateAssets, jsTrustedPrelude } from '@ocap/vite-plugins';
-import type { PreludeRecord } from '@ocap/vite-plugins';
+import { deduplicateAssets, jsTrustedPrelude } from '@ocap/repo-tools';
+import type { PreludeRecord } from '@ocap/repo-tools';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
