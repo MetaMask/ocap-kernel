@@ -24,7 +24,7 @@ const DB_FILENAME = 'store.db';
 main().catch(logger.error);
 
 /**
- *
+ * Run the kernel.
  */
 async function main(): Promise<void> {
   const port = await receiveMessagePort(
@@ -42,12 +42,18 @@ async function main(): Promise<void> {
       PlatformServicesClient.make(globalThis as PostMessageTarget),
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
+
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
+  const resetStorage =
+    globalThis.location.search.includes('reset-storage=true');
 
   const kernel = await Kernel.make(
     kernelStream,
     platformServicesClient,
     kernelDatabase,
+    {
+      resetStorage,
+    },
   );
 
   const kernelEngine = new JsonRpcEngine();
@@ -60,14 +66,14 @@ async function main(): Promise<void> {
     logger,
   });
 
-  const relays: string[] = getRelaysFromCurrentLocation();
+  const relays = getRelaysFromCurrentLocation();
 
   await Promise.all([
     // Initialize remote communications with the relay server passed in the query string
     kernel.initRemoteComms(relays),
     (async () => {
       // Launch the default subcluster if this is the first time
-      if (firstTime) {
+      if (firstTime || resetStorage) {
         const result = await kernel.launchSubcluster(defaultSubcluster);
         logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
       }

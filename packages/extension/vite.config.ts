@@ -8,8 +8,8 @@ import {
   jsTrustedPrelude,
 } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -42,8 +42,13 @@ export default defineConfig(({ mode }) => {
     throw new Error('Cannot watch in non-development mode');
   }
 
+  const resetStorage = process.env.RESET_STORAGE ?? 'false';
+
   return {
     root: rootDir,
+    define: {
+      'process.env.RESET_STORAGE': JSON.stringify(String(resetStorage)),
+    },
     resolve: {
       alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
     },

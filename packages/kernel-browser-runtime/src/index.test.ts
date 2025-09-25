@@ -8,7 +8,6 @@ describe('index', () => {
       'PlatformServicesClient',
       'PlatformServicesServer',
       'createRelayQueryString',
-      'createWorkerUrlWithRelays',
       'establishKernelConnection',
       'getRelaysFromCurrentLocation',
       'makeIframeVatWorker',
