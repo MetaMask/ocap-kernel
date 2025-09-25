@@ -6,7 +6,7 @@ import {
   extensionDev,
   htmlTrustedPrelude,
   jsTrustedPrelude,
-} from '@ocap/repo-tools';
+} from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';

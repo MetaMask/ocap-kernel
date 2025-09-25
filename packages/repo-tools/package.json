@@ -13,12 +13,7 @@
   },
   "type": "module",
   "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    },
+    "./vite-plugins": "./src/vite-plugins/index.ts",
     "./vitest-config": "./src/vitest-config.js",
     "./package.json": "./package.json"
   },
