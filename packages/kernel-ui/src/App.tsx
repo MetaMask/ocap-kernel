@@ -10,6 +10,7 @@ import { ControlPanel } from './components/ControlPanel.tsx';
 import { DatabaseInspector } from './components/DatabaseInspector.tsx';
 import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
+import { RemoteComms } from './components/RemoteComms.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
 import { useDarkMode } from './hooks/useDarkMode.ts';
@@ -33,6 +34,11 @@ const tabs: NonEmptyArray<{
     label: 'Database Inspector',
     value: 'database',
     component: <DatabaseInspector />,
+  },
+  {
+    label: 'Remote Comms',
+    value: 'remote-comms',
+    component: <RemoteComms />,
   },
 ];
 

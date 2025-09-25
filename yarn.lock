@@ -3348,6 +3348,8 @@ __metadata:
     "@endo/marshal": "npm:^1.8.0"
     "@endo/patterns": "npm:^1.7.0"
     "@endo/promise-kit": "npm:^1.1.13"
+    "@libp2p/crypto": "npm:^5.1.1"
+    "@libp2p/peer-id": "npm:^5.1.2"
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"

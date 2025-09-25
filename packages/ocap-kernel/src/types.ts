@@ -413,6 +413,12 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
+  remoteComms: exactOptional(
+    object({
+      isInitialized: boolean(),
+      peerId: exactOptional(string()),
+    }),
+  ),
 });
 
 export type KernelStatus = Infer<typeof KernelStatusStruct>;
