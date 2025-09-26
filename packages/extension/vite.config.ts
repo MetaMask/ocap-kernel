@@ -42,12 +42,10 @@ export default defineConfig(({ mode }) => {
     throw new Error('Cannot watch in non-development mode');
   }
 
-  const resetStorage = process.env.RESET_STORAGE ?? 'false';
-
   return {
     root: rootDir,
     define: {
-      'process.env.RESET_STORAGE': JSON.stringify(String(resetStorage)),
+      ...getDefines(isDev),
     },
     resolve: {
       alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
@@ -168,4 +166,28 @@ function getPackageDevAliases(
     },
     ...workspacePackages,
   ];
+}
+
+type Defines = {
+  'process.env.RESET_STORAGE': 'true' | 'false';
+};
+
+/**
+ * Gets the Vite / esbuild defines for the extension build process.
+ *
+ * @see https://vite.dev/config/shared-options.html#define
+ * @param isDev - Whether the extension is in development mode.
+ * @returns The Vite / esbuild defines.
+ */
+function getDefines(isDev: boolean): Defines {
+  const rawVars = [
+    ['RESET_STORAGE', process.env.RESET_STORAGE ?? (isDev ? 'true' : 'false')],
+  ];
+
+  return Object.fromEntries(
+    rawVars.map(([key, value]) => [
+      `process.env.${key}`,
+      JSON.stringify(value),
+    ]),
+  ) as Defines;
 }
