@@ -1,4 +1,5 @@
 import { mergeConfig } from '@ocap/repo-tools/vitest-config';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';
@@ -10,7 +11,11 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'logger',
-        setupFiles: ['../repo-tools/src/test-utils/env/mock-endoify.ts'],
+        setupFiles: [
+          fileURLToPath(
+            import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),
+          ),
+        ],
       },
     }),
   );

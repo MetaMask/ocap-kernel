@@ -1,8 +1,6 @@
+import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import '@ocap/repo-tools/test-utils/mock-endoify';
-
 import { describe, expect, it, vi } from 'vitest';
-
-import { fetchMock } from '../../../repo-tools/src/test-utils/env/fetch-mock.ts';
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
