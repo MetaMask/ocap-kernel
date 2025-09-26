@@ -62,10 +62,10 @@ export async function initNetwork(
     privateKey,
     addresses: {
       listen: [
-        // Node.js
-        '/ip4/0.0.0.0/tcp/0/ws',
-        '/ip4/0.0.0.0/tcp/0',
-        // Browser
+        // TODO: Listen on tcp addresses for Node.js
+        // '/ip4/0.0.0.0/tcp/0/ws',
+        // '/ip4/0.0.0.0/tcp/0',
+        // Browser: listen on WebRTC and circuit relay
         '/webrtc',
         '/p2p-circuit',
       ],
@@ -212,15 +212,16 @@ export async function initNetwork(
     let lastError: Error | undefined;
 
     // Try multiple connection strategies
-    const addressStrings: string[] = [
+    const addressStrings: string[] = knownRelays.flatMap((relay) => [
       // Browser: try WebRTC first
-      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/${peerId}`,
+      `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
       // Both environments can use WebSocket through relay
-      `${knownRelays[0]}/p2p-circuit/p2p/${peerId}`,
-      // Node.js: can also try direct connection
-      `/dns4/localhost/tcp/0/ws/p2p/${peerId}`,
-      `/ip4/127.0.0.1/tcp/0/ws/p2p/${peerId}`,
-    ];
+      `${relay}/p2p-circuit/p2p/${peerId}`,
+    ]);
+
+    // TODO: Try direct tcp connection without relay for Node.js
+    // `/dns4/localhost/tcp/0/ws/p2p/${peerId}`,
+    // `/ip4/127.0.0.1/tcp/0/ws/p2p/${peerId}`,
 
     for (const addressString of addressStrings) {
       try {
