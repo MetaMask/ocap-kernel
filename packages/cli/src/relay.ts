@@ -135,7 +135,7 @@ async function generateKeyPair(
   // eslint-disable-next-line no-negated-condition
   if (localId !== undefined) {
     if (localId < 1 || localId > 255) {
-      throw new Error(`localId must be a Uint8. Received: ${localId}`);
+      throw new Error(`localId must be a Uint8 1<=255. Received: ${localId}`);
     }
 
     seed = new Uint8Array(32);
