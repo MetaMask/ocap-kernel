@@ -6,7 +6,7 @@
     "types": ["ses", "vitest"]
   },
   "references": [
-    { "path": "../test-utils" },
+    { "path": "../repo-tools" },
     { "path": "../streams" },
     { "path": "../kernel-shims" }
   ],

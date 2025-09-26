@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/vite-plugins",
+  "name": "@ocap/repo-tools",
   "version": "0.0.0",
   "private": true,
   "description": "Vite plugins for Ocap Kernel development",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/vite-plugins#readme",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/repo-tools#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -13,21 +13,18 @@
   },
   "type": "module",
   "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    },
+    "./test-utils": "./src/test-utils/index.ts",
+    "./test-utils/fetch-mock": "./src/test-utils/env/fetch-mock.ts",
+    "./test-utils/mock-endoify": "./src/test-utils/env/mock-endoify.ts",
+    "./test-utils/streams": "./src/test-utils/streams.ts",
+    "./vite-plugins": "./src/vite-plugins/index.ts",
+    "./vitest-config": "./src/vitest-config.js",
     "./package.json": "./package.json"
   },
   "files": [
     "dist/"
   ],
   "scripts": {
-    "build": "yarn clean && tsc --project tsconfig.build.json",
-    "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/streams",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -41,15 +38,11 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.17.4",
-    "@metamask/auto-changelog": "^5.0.1",
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/test-utils": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
     "@playwright/test": "^1.54.2",
-    "@ts-bridge/cli": "^0.6.3",
-    "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
@@ -71,9 +64,10 @@
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
     "vite": "^7.1.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vitest-fetch-mock": "^0.4.5"
   },
   "engines": {
-    "node": "^20 || >=22"
+    "node": "^20.6 || >=22"
   }
 }

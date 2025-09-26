@@ -1,9 +1,9 @@
+import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { capabilityFactory } from './nodejs.ts';
 import type { FetchConfig } from './types.ts';
-import { fetchMock } from '../../../../test-utils/src/env/fetch-mock.ts';
 import { createMockResponse } from '../../../test/utils.ts';
 
 // Mock fs/promises

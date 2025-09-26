@@ -5,7 +5,7 @@
     "lib": ["ES2022"],
     "types": ["vitest"]
   },
-  "references": [{ "path": "../test-utils" }],
+  "references": [{ "path": "../repo-tools" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

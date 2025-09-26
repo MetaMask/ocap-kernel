@@ -1,4 +1,4 @@
-import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { makeErrorMatcherFactory } from '@ocap/repo-tools/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseReader, BaseWriter } from './BaseStream.ts';

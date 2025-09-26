@@ -86,8 +86,7 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@ocap/test-utils": "workspace:^",
-    "@ocap/vite-plugins": "workspace:^",
+    "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
@@ -115,7 +114,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": "^20 || >=22"
+    "node": "^20.6 || >=22"
   },
   "publishConfig": {
     "access": "public",

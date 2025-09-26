@@ -2,7 +2,7 @@ import '../env/endoify.ts';
 
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
-import { makePromiseKitMock } from '@ocap/test-utils';
+import { makePromiseKitMock } from '@ocap/repo-tools/test-utils';
 import { describe, expect, it } from 'vitest';
 import { Worker as NodeWorker } from 'worker_threads';
 

@@ -1,5 +1,5 @@
 import { delay, stringify } from '@metamask/kernel-utils';
-import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { makeErrorMatcherFactory } from '@ocap/repo-tools/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseDuplexStream, makeAck, makeSyn } from './BaseDuplexStream.ts';

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import path from 'path';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
@@ -34,7 +35,9 @@ export default defineConfig({
       ],
     ],
     setupFiles: [
-      path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
+      fileURLToPath(
+        import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
+      ),
     ],
     alias: [
       {

@@ -1,7 +1,7 @@
-import { mergeConfig } from '@ocap/test-utils/vitest-config';
 import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';
+import { mergeConfig } from '@ocap/repo-tools/vitest-config';
 
 export default defineConfig((args) => {
   return mergeConfig(
@@ -9,7 +9,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'vite-plugins',
+        name: 'repo-tools',
       },
     }),
   );

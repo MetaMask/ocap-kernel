@@ -4,7 +4,7 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { JsonRpcResponse, JsonRpcRequest } from '@metamask/utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

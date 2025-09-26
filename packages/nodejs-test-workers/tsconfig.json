@@ -6,7 +6,7 @@
     "types": ["vitest"]
   },
   "references": [
-    { "path": "../test-utils" },
+    { "path": "../repo-tools" },
     { "path": "../nodejs" },
     { "path": "../ocap-kernel" },
     { "path": "../logger" }

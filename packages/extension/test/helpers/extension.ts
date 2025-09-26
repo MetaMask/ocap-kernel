@@ -1,9 +1,9 @@
 import { chromium, expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import { rm } from 'fs/promises';
+import { fileURLToPath } from 'node:url';
 import os from 'os';
 import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
 
 export const sessionPath = path.resolve(os.tmpdir(), 'ocap-test');
 

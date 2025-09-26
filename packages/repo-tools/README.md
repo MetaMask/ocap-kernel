@@ -1,6 +1,6 @@
-# `@ocap/vite-plugins`
+# `@ocap/repo-tools`
 
-Vite plugins for Ocap Kernel development
+Internal tools for the Ocap Kernel monorepo. Must not depend on internal packages.
 
 ## Contributing
 

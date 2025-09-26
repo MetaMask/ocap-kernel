@@ -10,7 +10,7 @@
     { "path": "../kernel-store" },
     { "path": "../streams" },
     { "path": "../kernel-utils" },
-    { "path": "../test-utils" },
+    { "path": "../repo-tools" },
     { "path": "../kernel-platforms" }
   ],
   "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]

@@ -1,5 +1,5 @@
 import type { DuplexStream } from '@metamask/streams';
-import { delay } from '@ocap/test-utils';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 import { Logger } from './logger.ts';

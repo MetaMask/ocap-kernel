@@ -7,7 +7,7 @@
   },
   "references": [
     { "path": "../logger" },
-    { "path": "../test-utils" },
+    { "path": "../repo-tools" },
     { "path": "../kernel-utils" }
   ],
   "include": [

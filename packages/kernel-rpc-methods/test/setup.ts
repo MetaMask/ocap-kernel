@@ -1,1 +1,1 @@
-import '@ocap/test-utils/mock-endoify';
+import '@ocap/repo-tools/test-utils/mock-endoify';

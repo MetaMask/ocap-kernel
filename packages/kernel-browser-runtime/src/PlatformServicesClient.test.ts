@@ -3,8 +3,8 @@ import { Logger } from '@metamask/logger';
 import type { VatId, VatConfig } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { makeMockMessageTarget } from '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { makeMockMessageTarget } from '@ocap/repo-tools/test-utils';
+import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { PlatformServicesClientStream } from './PlatformServicesClient.ts';
@@ -12,7 +12,9 @@ import { PlatformServicesClient } from './PlatformServicesClient.ts';
 
 vi.mock('@metamask/streams/browser', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { TestDuplexStream } = await import('@ocap/test-utils/streams');
+  const { TestDuplexStream } = await import(
+    '@ocap/repo-tools/test-utils/streams'
+  );
 
   class MockStream extends TestDuplexStream {
     constructor() {

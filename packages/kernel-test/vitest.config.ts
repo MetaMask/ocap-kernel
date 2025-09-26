@@ -1,4 +1,4 @@
-import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { mergeConfig } from '@ocap/repo-tools/vitest-config';
 import path from 'node:path';
 import { defineConfig, defineProject } from 'vitest/config';
 

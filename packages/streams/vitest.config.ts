@@ -1,4 +1,5 @@
-import { mergeConfig } from '@ocap/test-utils/vitest-config';
+import { mergeConfig } from '@ocap/repo-tools/vitest-config';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';
@@ -15,7 +16,13 @@ export default defineConfig((args) => {
         ...(args.mode === 'development'
           ? {
               environment: 'jsdom',
-              setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
+              setupFiles: [
+                fileURLToPath(
+                  import.meta.resolve(
+                    '@ocap/repo-tools/test-utils/mock-endoify',
+                  ),
+                ),
+              ],
             }
           : {
               setupFiles: '../kernel-shims/src/endoify.js',

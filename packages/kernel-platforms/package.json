@@ -72,7 +72,7 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@metamask/utils": "^11.4.2",
-    "@ocap/test-utils": "workspace:^",
+    "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
     "@types/node": "^22.13.1",
@@ -99,7 +99,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": "^20 || >=22"
+    "node": "^20.6 || >=22"
   },
   "dependencies": {
     "@metamask/superstruct": "^3.2.1",

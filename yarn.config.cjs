@@ -17,11 +17,11 @@ const { inspect } = require('util');
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
-const typedocExceptions = ['extension', 'kernel-test', 'test-utils'];
+const typedocExceptions = ['extension', 'kernel-test', 'repo-tools'];
 // Packages that do not have builds
-const noBuild = ['create-package', 'test-utils'];
+const noBuild = ['create-package', 'repo-tools'];
 // Packages that do not have tests
-const noTests = ['test-utils'];
+const noTests = [];
 // Packages that do not export a `package.json` file
 const noPackageJson = ['extension'];
 // Packages that have weird exports
@@ -317,7 +317,7 @@ module.exports = defineConfig({
       }
 
       // All packages must specify a minimum Node.js version of 20
-      expectWorkspaceField(workspace, 'engines.node', '^20 || >=22');
+      expectWorkspaceField(workspace, 'engines.node', '^20.6 || >=22');
 
       // All non-root public packages should be published to the NPM registry;
       // all non-root private packages should not.

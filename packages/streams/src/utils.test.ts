@@ -1,5 +1,5 @@
 import { stringify } from '@metamask/kernel-utils';
-import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { makeErrorMatcherFactory } from '@ocap/repo-tools/test-utils';
 import { describe, expect, it } from 'vitest';
 
 import type { Dispatchable, Writable } from './utils.ts';

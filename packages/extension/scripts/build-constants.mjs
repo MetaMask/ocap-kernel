@@ -13,7 +13,7 @@ export const kernelBrowserRuntimeSrcDir = path.resolve(
 );
 
 /**
- * @type {import('@ocap/vite-plugins').PreludeRecord}
+ * @type {import('@ocap/repo-tools/vite-plugins').PreludeRecord}
  */
 export const trustedPreludes = {
   background: {

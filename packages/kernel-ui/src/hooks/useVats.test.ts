@@ -1,5 +1,5 @@
 import type { VatConfig } from '@metamask/ocap-kernel';
-import { setupOcapKernelMock } from '@ocap/test-utils';
+import { setupOcapKernelMock } from '@ocap/repo-tools/test-utils';
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
