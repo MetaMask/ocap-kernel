@@ -45,7 +45,8 @@ async function main(): Promise<void> {
 
   const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
   const resetStorage =
-    globalThis.location.search.includes('reset-storage=true');
+    new URLSearchParams(globalThis.location.search).get('reset-storage') ===
+    'true';
 
   const kernel = await Kernel.make(
     kernelStream,
