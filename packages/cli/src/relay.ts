@@ -10,6 +10,12 @@ import { webSockets } from '@libp2p/websockets';
 import type { Logger } from '@metamask/logger';
 import { createLibp2p } from 'libp2p';
 
+/**
+ * Fixed local ID for the relay server.
+ * This ensures the relay server always has the same PeerID across restarts,
+ * making it easier for clients to connect to a known relay address.
+ * The ID must be between 1-255 to generate a deterministic keypair.
+ */
 const RELAY_LOCAL_ID = 200;
 
 /**
@@ -122,9 +128,11 @@ export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
  *
  * @returns the private key for `localID`.
  */
-async function generateKeyPair(localId: number): Promise<PrivateKey> {
+async function generateKeyPair(
+  localId: number | undefined,
+): Promise<PrivateKey> {
   let seed;
-  if (localId > 0 && localId < 256) {
+  if (localId !== undefined && localId > 0 && localId < 256) {
     seed = new Uint8Array(32);
     seed[0] = localId;
   } else {

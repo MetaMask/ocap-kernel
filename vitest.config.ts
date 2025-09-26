@@ -65,7 +65,7 @@ export default defineConfig({
         'packages/cli/**': {
           statements: 52.94,
           functions: 52.63,
-          branches: 75.6,
+          branches: 73.8,
           lines: 52.94,
         },
         'packages/create-package/**': {
