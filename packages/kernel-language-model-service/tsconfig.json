@@ -5,7 +5,7 @@
     "lib": ["ES2022", "DOM"],
     "types": ["vitest", "chrome", "ses"]
   },
-  "references": [{ "path": "../test-utils" }, { "path": "../streams" }],
+  "references": [{ "path": "../repo-tools" }, { "path": "../streams" }],
   "include": [
     "../../vitest.config.ts",
     "./src",

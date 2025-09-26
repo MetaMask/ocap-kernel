@@ -51,7 +51,6 @@
   },
   "devDependencies": {
     "@ocap/repo-tools": "workspace:^",
-    "@ocap/test-utils": "workspace:^",
     "@types/node": "^22.13.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",

@@ -3,8 +3,7 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { PlatformFactory } from '@ocap/kernel-platforms';
-import '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatSupervisor } from './VatSupervisor.ts';

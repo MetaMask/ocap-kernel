@@ -1,4 +1,4 @@
-import '@ocap/test-utils/mock-endoify';
+import '@ocap/repo-tools/test-utils/mock-endoify';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@metamask/logger', () => ({

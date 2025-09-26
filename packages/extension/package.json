@@ -63,7 +63,6 @@
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/cli": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
-    "@ocap/test-utils": "workspace:^",
     "@playwright/test": "^1.54.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@types/chrome": "^0.0.313",

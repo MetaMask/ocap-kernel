@@ -13,7 +13,7 @@
     { "path": "../logger" },
     { "path": "../streams" },
     { "path": "../kernel-utils" },
-    { "path": "../test-utils" },
+    { "path": "../repo-tools" },
     { "path": "../kernel-store" }
   ],
   "include": [

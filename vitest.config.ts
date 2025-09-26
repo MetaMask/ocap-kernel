@@ -34,7 +34,10 @@ export default defineConfig({
       ],
     ],
     setupFiles: [
-      path.join(__dirname, './packages/test-utils/src/env/fetch-mock.ts'),
+      path.join(
+        __dirname,
+        './packages/repo-tools/src/test-utils/env/fetch-mock.ts',
+      ),
     ],
     alias: [
       {

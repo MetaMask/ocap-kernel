@@ -2,8 +2,8 @@ import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { PostMessageTarget } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
-import { delay } from '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { delay } from '@ocap/repo-tools/test-utils';
+import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -18,7 +18,9 @@ vi.mock('nanoid', () => ({
 
 vi.mock('@metamask/streams/browser', async () => {
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { TestDuplexStream } = await import('@ocap/test-utils/streams');
+  const { TestDuplexStream } = await import(
+    '@ocap/repo-tools/test-utils/streams'
+  );
 
   type MockPostMessageTarget = PostMessageTarget & {
     onmessage: (event: MessageEvent) => void;

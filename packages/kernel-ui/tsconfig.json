@@ -18,7 +18,7 @@
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
     { "path": "../streams" },
-    { "path": "../test-utils" }
+    { "path": "../repo-tools" }
   ],
   "include": [
     "../../vitest.config.ts",

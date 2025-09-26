@@ -3,7 +3,6 @@ ignores:
   # monorepo
   - '@ocap/cli'
   - '@ocap/repo-tools'
-  - '@ocap/test-utils'
 
   # eslint and prettier
   - '@*/eslint-*'

@@ -1,5 +1,5 @@
 import { object, string } from '@metamask/superstruct';
-import { fetchMock } from '@ocap/test-utils';
+import { fetchMock } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect } from 'vitest';
 
 import { fetchValidatedJson } from './fetchValidatedJson.ts';

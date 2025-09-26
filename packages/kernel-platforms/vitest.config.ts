@@ -10,7 +10,7 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'kernel-platforms',
-        setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
+        setupFiles: ['../repo-tools/src/test-utils/env/mock-endoify.ts'],
       },
     }),
   );

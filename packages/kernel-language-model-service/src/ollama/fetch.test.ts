@@ -1,4 +1,4 @@
-import '@ocap/test-utils/mock-endoify';
+import '@ocap/repo-tools/test-utils/mock-endoify';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { makeHostRestrictedFetch } from './fetch.ts';

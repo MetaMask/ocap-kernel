@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.packages.json",
-  "compilerOptions": {
-    "baseUrl": "./"
-  },
-  "references": [],
-  "types": ["ses", "vitest"],
-  "include": ["./src", "./vite.config.ts", "./vitest.config.ts"]
-}

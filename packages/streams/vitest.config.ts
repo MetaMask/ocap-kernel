@@ -15,7 +15,7 @@ export default defineConfig((args) => {
         ...(args.mode === 'development'
           ? {
               environment: 'jsdom',
-              setupFiles: ['../test-utils/src/env/mock-endoify.ts'],
+              setupFiles: ['../repo-tools/src/test-utils/env/mock-endoify.ts'],
             }
           : {
               setupFiles: '../kernel-shims/src/endoify.js',

@@ -1,4 +1,4 @@
-import { makeErrorMatcherFactory } from '@ocap/test-utils';
+import { makeErrorMatcherFactory } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect } from 'vitest';
 
 import { unmarshalError, unmarshalErrorOptions } from './unmarshalError.ts';

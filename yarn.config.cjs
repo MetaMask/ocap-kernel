@@ -17,16 +17,11 @@ const { inspect } = require('util');
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
-const typedocExceptions = [
-  'extension',
-  'kernel-test',
-  'repo-tools',
-  'test-utils',
-];
+const typedocExceptions = ['extension', 'kernel-test', 'repo-tools'];
 // Packages that do not have builds
-const noBuild = ['create-package', 'repo-tools', 'test-utils'];
+const noBuild = ['create-package', 'repo-tools'];
 // Packages that do not have tests
-const noTests = ['test-utils'];
+const noTests = [];
 // Packages that do not export a `package.json` file
 const noPackageJson = ['extension'];
 // Packages that have weird exports

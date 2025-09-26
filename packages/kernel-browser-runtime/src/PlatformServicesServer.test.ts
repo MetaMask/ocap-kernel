@@ -7,8 +7,8 @@ import { Logger } from '@metamask/logger';
 import type { VatConfig, VatId } from '@metamask/ocap-kernel';
 import { rpcErrors } from '@metamask/rpc-errors';
 import type { JsonRpcRequest } from '@metamask/utils';
-import { makeMockMessageTarget } from '@ocap/test-utils';
-import { TestDuplexStream } from '@ocap/test-utils/streams';
+import { makeMockMessageTarget } from '@ocap/repo-tools/test-utils';
+import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 

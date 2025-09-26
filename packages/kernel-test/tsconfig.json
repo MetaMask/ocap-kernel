@@ -15,7 +15,7 @@
     { "path": "../ocap-kernel" },
     { "path": "../remote-iterables" },
     { "path": "../streams" },
-    { "path": "../test-utils" }
+    { "path": "../repo-tools" }
   ],
   "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
 }

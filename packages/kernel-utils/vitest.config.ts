@@ -13,7 +13,7 @@ export default defineConfig((args) => {
         name: 'utils',
         setupFiles: path.resolve(
           __dirname,
-          '../test-utils/src/env/mock-endoify.ts',
+          '../repo-tools/src/test-utils/env/mock-endoify.ts',
         ),
       },
     }),

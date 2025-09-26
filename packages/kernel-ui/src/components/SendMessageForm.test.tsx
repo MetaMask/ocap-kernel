@@ -1,5 +1,5 @@
 import { stringify } from '@metamask/kernel-utils';
-import { setupOcapKernelMock } from '@ocap/test-utils';
+import { setupOcapKernelMock } from '@ocap/repo-tools/test-utils';
 import {
   render,
   screen,

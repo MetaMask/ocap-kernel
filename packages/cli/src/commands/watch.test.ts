@@ -1,7 +1,7 @@
 import '@metamask/kernel-shims/endoify';
 
 import { Logger } from '@metamask/logger';
-import { delay } from '@ocap/test-utils';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { watch } from 'chokidar';
 import type { FSWatcher } from 'chokidar';
 import type { Stats } from 'fs';

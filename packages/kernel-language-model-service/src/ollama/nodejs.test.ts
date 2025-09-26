@@ -1,6 +1,6 @@
-import '@ocap/test-utils/mock-endoify';
+import '@ocap/repo-tools/test-utils/mock-endoify';
 
-import { fetchMock } from '@ocap/test-utils';
+import { fetchMock } from '@ocap/repo-tools/test-utils';
 import { expect, describe, it, beforeEach } from 'vitest';
 
 import { OllamaNodejsService } from './nodejs.ts';

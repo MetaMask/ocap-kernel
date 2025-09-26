@@ -80,7 +80,6 @@
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/repo-tools": "workspace:^",
-    "@ocap/test-utils": "workspace:^",
     "@solana/addresses": "^2.0.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^12.1.5",

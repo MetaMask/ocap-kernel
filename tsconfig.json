@@ -32,7 +32,6 @@
     { "path": "./packages/remote-iterables" },
     { "path": "./packages/streams" },
     { "path": "./packages/template-package" },
-    { "path": "./packages/test-utils" },
     { "path": "./packages/repo-tools" }
   ]
 }
