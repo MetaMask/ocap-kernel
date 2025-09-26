@@ -69,6 +69,7 @@ export async function initNetwork(
         '/webrtc',
         '/p2p-circuit',
       ],
+      appendAnnounce: ['/webrtc'],
     },
     transports: [
       webSockets(),
