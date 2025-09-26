@@ -86,26 +86,6 @@ export function getKnownRelays(kv: KVStore): string[] {
   return [];
 }
 
-/**
- * Setup temporary knowledge of a placeholder relay server.
- *
- * XXX TODO: This is all dummies and placeholders for developmental testing. This
- * stuff MUST be replaced with actual relay configuration before distribution.
- *
- * @param kv - KVStore in which known relay information is kept
- */
-async function setupTempTestRelays(kv: KVStore): Promise<void> {
-  if (!kv.get('knownRelays')) {
-    const RELAY_SEED = 'c8';
-    const RELAY_HOST = '/dns4/troll.fudco.com';
-
-    const [, relayPeerId] = await generateKeyInfo(RELAY_SEED);
-    const relayAddr = `${RELAY_HOST}/tcp/9001/ws/p2p/${relayPeerId}`;
-    const knownRelays = [relayAddr];
-    kv.set('knownRelays', JSON.stringify(knownRelays));
-  }
-}
-
 // XXX IMPORTANT: All the cryptography here is completely amateur and needs to
 // be vetted and most likely overhauled in its entirety by an actual competent
 // cryptography expert before being unleashed on an unsuspecting public.
@@ -117,6 +97,7 @@ async function setupTempTestRelays(kv: KVStore): Promise<void> {
  * @param platformServices - The platform services, for accessing network I/O
  *   operations that are not available within the web worker that the kernel runs in.
  * @param remoteMessageHandler - Handler to process received inbound communcations.
+ * @param relays - The known relays to use for the remote comms object.
  * @param logger - The logger to use.
  *
  * @returns the initialized remote comms object.
@@ -125,6 +106,7 @@ export async function initRemoteComms(
   kernelStore: KernelStore,
   platformServices: PlatformServices,
   remoteMessageHandler: RemoteMessageHandler,
+  relays?: string[],
   logger?: Logger,
 ): Promise<RemoteComms> {
   let peerId: string;
@@ -133,6 +115,9 @@ export async function initRemoteComms(
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const { kv } = kernelStore;
+  if (relays && relays.length > 0) {
+    kv.set('knownRelays', JSON.stringify(relays));
+  }
 
   const possiblePeerId = kv.get('peerId');
   if (possiblePeerId) {
@@ -158,8 +143,7 @@ export async function initRemoteComms(
   }
   const cipher = AES_GCM.create();
 
-  await setupTempTestRelays(kv); // XXX temporary developmental scaffolding, remove asap
-  const knownRelays = getKnownRelays(kv);
+  const knownRelays = relays ?? getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
   await platformServices.initializeRemoteComms(
     keySeed,

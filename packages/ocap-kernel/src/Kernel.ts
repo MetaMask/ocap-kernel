@@ -267,13 +267,15 @@ export class Kernel {
   /**
    * Initialize the remote comms object.
    *
+   * @param relays - The relays to use for the remote comms object.
    * @returns a promise for the remote comms object.
    */
-  async initRemoteComms(): Promise<void> {
+  async initRemoteComms(relays?: string[]): Promise<void> {
     this.#remoteComms = await initRemoteComms(
       this.#kernelStore,
       this.#platformServices,
       this.#handleRemoteMessage.bind(this),
+      relays,
     );
   }
 

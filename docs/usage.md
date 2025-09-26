@@ -36,7 +36,7 @@ Here's a basic example for browser environments:
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { MessagePortDuplexStream } from '@metamask/streams/browser';
-import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
+import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
 
 // Create a message stream for communicating with the kernel
 const kernelStream = await MessagePortDuplexStream.make(
@@ -45,7 +45,7 @@ const kernelStream = await MessagePortDuplexStream.make(
 );
 
 // Initialize kernel dependencies
-const vatWorkerService = await VatWorkerClient.make(globalThis);
+const platformServices = await PlatformServicesClient.make(globalThis);
 const kernelDatabase = await makeSQLKernelDatabase({
   dbFilename: 'store.db',
 });
@@ -53,12 +53,38 @@ const kernelDatabase = await makeSQLKernelDatabase({
 // Initialize the kernel - it's ready to use immediately
 const kernel = await Kernel.make(
   kernelStream,
-  vatWorkerService,
+  platformServices,
   kernelDatabase,
   {
     resetStorage: false, // Set to true to reset storage on startup
   },
 );
+```
+
+#### Configuring Relay Addresses for Workers
+
+When creating kernel workers with relay configuration, use the utilities from `@metamask/kernel-browser-runtime`:
+
+```typescript
+import {
+  createWorkerUrlWithRelays,
+  getRelaysFromCurrentLocation,
+} from '@metamask/kernel-browser-runtime';
+
+// Define relay addresses (libp2p multiaddrs)
+const relays = [
+  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+];
+
+// Create a worker with relay configuration
+const worker = new Worker(
+  createWorkerUrlWithRelays('kernel-worker.js', relays),
+  { type: 'module' },
+);
+
+// Inside the worker, retrieve relay configuration
+const relays = getRelaysFromCurrentLocation();
+await kernel.initRemoteComms(relays);
 ```
 
 ### Node.js Environment
@@ -197,14 +223,14 @@ The kernel exposes several methods for managing vats and sending messages:
 ### Launching Vats and Clusters
 
 ```typescript
-// Launch a single vat
-const vatId = await kernel.launchVat({
-  bundleSpec: 'http://localhost:3000/my-vat.bundle',
-  parameters: { name: 'MyVat' },
-});
-
-// Launch a cluster of vats
+// Launch a cluster of vats (individual vat launching is not directly exposed)
 const result = await kernel.launchSubcluster(clusterConfig);
+
+// Reload a subcluster (terminates and restarts all its vats)
+const newSubcluster = await kernel.reloadSubcluster(subclusterId);
+
+// Terminate a subcluster and all its vats
+await kernel.terminateSubcluster(subclusterId);
 ```
 
 ### Sending Messages
@@ -239,17 +265,56 @@ await kernel.terminateVat(vatId);
 await kernel.restartVat(vatId);
 ```
 
+### Remote Communications
+
+The `initRemoteComms` method enables peer-to-peer communication between kernels using libp2p relay servers. This allows kernels to communicate across different machines or networks, even when behind NATs or firewalls.
+
+```typescript
+//... initialize kernel
+
+// Initialize remote communications with relay servers
+const relays = [
+  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+];
+await kernel.initRemoteComms(relays);
+
+//... launch subcluster
+
+// The kernel can now:
+// - Connect to other kernels through the relay
+// - Accept incoming connections from remote kernels
+// - Exchange messages with remote vats
+```
+
+**Note:** Relay addresses must be libp2p multiaddrs that include the relay server's peer ID. For browser environments, only WebSocket transports (`/ws`) are supported.
+
+After initialization, you can check the remote communications status via `getStatus()`:
+
+```typescript
+const status = await kernel.getStatus();
+// status.remoteComms will contain:
+// { isInitialized: true, peerId: '12D3KooW...' } if initialized
+// { isInitialized: false } if not initialized
+```
+
 ### State and Configuration
 
 ```typescript
-// Get current status
+// Get current status (includes vats, subclusters, and remote comms info)
 const status = await kernel.getStatus();
+// Returns: {
+//   vats: Array of { id, config, subclusterId }
+//   subclusters: Array of { id, config, vats }
+//   remoteComms: { isInitialized, peerId? }
+// }
 
-// Update cluster configuration
-kernel.clusterConfig = newClusterConfig;
+// Get information about subclusters
+const subclusters = kernel.getSubclusters();
+const subcluster = kernel.getSubcluster(subclusterId);
 
-// Get current cluster configuration
-const config = kernel.clusterConfig;
+// Check vat-subcluster relationships
+const isInSubcluster = kernel.isVatInSubcluster(vatId, subclusterId);
+const vatIds = kernel.getSubclusterVats(subclusterId);
 ```
 
 ### Testing and Debugging Methods
@@ -263,8 +328,8 @@ await kernel.pinVatRoot(vatId);
 // Unpin an object to allow garbage collection
 await kernel.unpinVatRoot(vatId);
 
-// Clear kernel state
-await kernel.clearState();
+// Clear kernel storage
+await kernel.clearStorage();
 
 // Reset the kernel (stops all vats and resets state)
 await kernel.reset();
@@ -538,7 +603,7 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
+import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
 import { isJsonRpcCall } from '@metamask/kernel-utils';
 
 async function initBrowserKernel() {
@@ -551,15 +616,15 @@ async function initBrowserKernel() {
   // Create a message stream
   const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
 
-  // Create client end of the vat worker service
-  const vatWorkerService = await VatWorkerClient.make(globalThis);
+  // Create client end of the platform services
+  const platformServices = await PlatformServicesClient.make(globalThis);
 
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: 'store.db',
   });
 
   // Initialize the kernel
-  return await Kernel.make(kernelStream, vatWorkerService, kernelDatabase, {
+  return await Kernel.make(kernelStream, platformServices, kernelDatabase, {
     resetStorage: true, // For development purposes
   });
 }

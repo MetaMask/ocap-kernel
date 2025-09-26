@@ -14,6 +14,7 @@ import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import defaultSubcluster from '../default-cluster.json';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { receiveUiConnections } from '../ui-connections.ts';
+import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 
@@ -59,8 +60,11 @@ async function main(): Promise<void> {
     logger,
   });
 
+  const relays: string[] = getRelaysFromCurrentLocation();
+
   await Promise.all([
-    kernel.initRemoteComms(),
+    // Initialize remote communications with the relay server passed in the query string
+    kernel.initRemoteComms(relays),
     (async () => {
       // Launch the default subcluster if this is the first time
       if (firstTime) {

@@ -39,10 +39,15 @@ describe('remote-comms', () => {
 
   describe('initRemoteComms', () => {
     it('creates a working remote comms object with expected state', async () => {
+      const testRelays = [
+        '/dns4/relay1.example.com/tcp/443/wss/p2p-circuit',
+        '/dns4/relay2.example.com/tcp/443/wss/p2p-circuit',
+      ];
       const remoteComms = await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        testRelays,
       );
       expect(remoteComms).toHaveProperty('getPeerId');
       expect(remoteComms).toHaveProperty('issueOcapURL');
@@ -73,7 +78,8 @@ describe('remote-comms', () => {
       const knownRelays = getKnownRelays(mockKernelStore.kv);
       expect(Array.isArray(knownRelays)).toBe(true);
       expect(knownRelays.length).toBeGreaterThan(0);
-      const referenceURL = `ocap:${oid}@${peerId},${knownRelays.join(',')}`;
+      expect(knownRelays).toStrictEqual(testRelays);
+      const referenceURL = `ocap:${oid}@${peerId},${testRelays.join(',')}`;
       expect(ocapURL).toBe(referenceURL);
 
       const kref = await remoteComms.redeemLocalOcapURL(ocapURL);

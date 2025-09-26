@@ -20,6 +20,10 @@ Serve the `.bundle` files in `dir` on `localhost:<port>`.
 
 Bundle all `.js` files in the target dir, watch for changes to `.js` files and rebundle, and serve bundles from the target dir on the provided port.
 
+### `ocap relay`
+
+Starts a libp2p relay.
+
 ## Contributing
 
 This package is part of a monorepo. Instructions for contributing can be found in the [monorepo README](https://github.com/MetaMask/ocap-kernel#readme).
