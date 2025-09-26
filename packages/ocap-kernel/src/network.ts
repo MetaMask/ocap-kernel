@@ -206,7 +206,7 @@ export async function initNetwork(
    */
   async function openChannel(peerId: string): Promise<Channel> {
     logger.log(`connecting to ${peerId}`);
-    const signal = AbortSignal.timeout(5000000);
+    const signal = AbortSignal.timeout(30_000);
 
     let stream;
     let lastError: Error | undefined;

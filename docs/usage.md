@@ -36,7 +36,7 @@ Here's a basic example for browser environments:
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { MessagePortDuplexStream } from '@metamask/streams/browser';
-import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
+import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
 
 // Create a message stream for communicating with the kernel
 const kernelStream = await MessagePortDuplexStream.make(
@@ -45,7 +45,7 @@ const kernelStream = await MessagePortDuplexStream.make(
 );
 
 // Initialize kernel dependencies
-const vatWorkerService = await VatWorkerClient.make(globalThis);
+const platformServices = await PlatformServicesClient.make(globalThis);
 const kernelDatabase = await makeSQLKernelDatabase({
   dbFilename: 'store.db',
 });
@@ -53,7 +53,7 @@ const kernelDatabase = await makeSQLKernelDatabase({
 // Initialize the kernel - it's ready to use immediately
 const kernel = await Kernel.make(
   kernelStream,
-  vatWorkerService,
+  platformServices,
   kernelDatabase,
   {
     resetStorage: false, // Set to true to reset storage on startup
@@ -223,14 +223,14 @@ The kernel exposes several methods for managing vats and sending messages:
 ### Launching Vats and Clusters
 
 ```typescript
-// Launch a single vat
-const vatId = await kernel.launchVat({
-  bundleSpec: 'http://localhost:3000/my-vat.bundle',
-  parameters: { name: 'MyVat' },
-});
-
-// Launch a cluster of vats
+// Launch a cluster of vats (individual vat launching is not directly exposed)
 const result = await kernel.launchSubcluster(clusterConfig);
+
+// Reload a subcluster (terminates and restarts all its vats)
+const newSubcluster = await kernel.reloadSubcluster(subclusterId);
+
+// Terminate a subcluster and all its vats
+await kernel.terminateSubcluster(subclusterId);
 ```
 
 ### Sending Messages
@@ -300,14 +300,21 @@ const status = await kernel.getStatus();
 ### State and Configuration
 
 ```typescript
-// Get current status
+// Get current status (includes vats, subclusters, and remote comms info)
 const status = await kernel.getStatus();
+// Returns: {
+//   vats: Array of { id, config, subclusterId }
+//   subclusters: Array of { id, config, vats }
+//   remoteComms: { isInitialized, peerId? }
+// }
 
-// Update cluster configuration
-kernel.clusterConfig = newClusterConfig;
+// Get information about subclusters
+const subclusters = kernel.getSubclusters();
+const subcluster = kernel.getSubcluster(subclusterId);
 
-// Get current cluster configuration
-const config = kernel.clusterConfig;
+// Check vat-subcluster relationships
+const isInSubcluster = kernel.isVatInSubcluster(vatId, subclusterId);
+const vatIds = kernel.getSubclusterVats(subclusterId);
 ```
 
 ### Testing and Debugging Methods
@@ -321,8 +328,8 @@ await kernel.pinVatRoot(vatId);
 // Unpin an object to allow garbage collection
 await kernel.unpinVatRoot(vatId);
 
-// Clear kernel state
-await kernel.clearState();
+// Clear kernel storage
+await kernel.clearStorage();
 
 // Reset the kernel (stops all vats and resets state)
 await kernel.reset();
@@ -596,7 +603,7 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import { VatWorkerClient } from '@metamask/kernel-browser-runtime';
+import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
 import { isJsonRpcCall } from '@metamask/kernel-utils';
 
 async function initBrowserKernel() {
@@ -609,15 +616,15 @@ async function initBrowserKernel() {
   // Create a message stream
   const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
 
-  // Create client end of the vat worker service
-  const vatWorkerService = await VatWorkerClient.make(globalThis);
+  // Create client end of the platform services
+  const platformServices = await PlatformServicesClient.make(globalThis);
 
   const kernelDatabase = await makeSQLKernelDatabase({
     dbFilename: 'store.db',
   });
 
   // Initialize the kernel
-  return await Kernel.make(kernelStream, vatWorkerService, kernelDatabase, {
+  return await Kernel.make(kernelStream, platformServices, kernelDatabase, {
     resetStorage: true, // For development purposes
   });
 }
