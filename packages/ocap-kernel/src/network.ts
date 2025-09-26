@@ -86,10 +86,7 @@ export async function initNetwork(
           ],
         },
       }),
-      circuitRelayTransport({
-        // Automatically make reservations on connected relays
-        reservationConcurrency: 1,
-      }),
+      circuitRelayTransport(),
     ],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
