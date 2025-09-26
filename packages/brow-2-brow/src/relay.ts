@@ -19,15 +19,9 @@ async function main(): Promise<void> {
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
-      listen: [
-        '/ip4/0.0.0.0/tcp/9001/ws', // WebSocket for browser connections
-        '/ip4/0.0.0.0/tcp/9002', // TCP for server-to-server
-      ],
+      listen: ['/ip4/0.0.0.0/tcp/9001/ws', '/ip4/0.0.0.0/tcp/9002'],
     },
-    transports: [
-      webSockets(), // Required for browser connections
-      tcp(), // Optional for server connections
-    ],
+    transports: [webSockets(), tcp()],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     connectionGater: {
@@ -37,98 +31,16 @@ async function main(): Promise<void> {
     services: {
       identify: identify(),
       autoNat: autoNAT(),
-      relay: circuitRelayServer({
-        // Allow unlimited reservations for testing
-        reservations: {
-          maxReservations: Infinity,
-        },
-      }),
+      relay: circuitRelayServer(),
     },
   });
 
-  // Register the protocol handler that the kernel uses
-  await libp2p.handle('whatever', ({ stream, connection }) => {
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[PROTOCOL] Incoming 'whatever' protocol from ${connection.remotePeer.toString()}`,
-    );
-    // For relay purposes, we don't need to do anything special
-    // The relay will forward the stream automatically
-    stream
-      .close()
-      .then(() => {
-        return undefined;
-      })
-      .catch(() => {
-        // Ignore close errors - relay will handle cleanup
-        return undefined;
-      });
-  });
-
-  // Set up connection event listeners for logging
-  libp2p.addEventListener('connection:open', (evt) => {
-    const connection = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[CONNECTION] New connection from ${connection.remotePeer.toString()}`,
-    );
-    // eslint-disable-next-line no-console
-    console.log(`  Remote addr: ${connection.remoteAddr.toString()}`);
-    // eslint-disable-next-line no-console
-    console.log(`  Direction: ${connection.direction}`);
-    // eslint-disable-next-line no-console
-    console.log(`  Status: ${connection.status}`);
-  });
-
-  libp2p.addEventListener('connection:close', (evt) => {
-    const connection = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[CONNECTION] Closed connection with ${connection.remotePeer.toString()}`,
-    );
-  });
-
-  // Log peer discovery events
-  libp2p.addEventListener('peer:discovery', (evt) => {
-    const peerInfo = evt.detail;
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.log(`[DISCOVERY] Found peer ${peerInfo.id.toString()}`);
-  });
-
-  // Log circuit relay specific events
-  if (libp2p.services.relay) {
-    // Log when a reservation is made
-    libp2p.addEventListener('peer:connect', (evt) => {
-      const peerId = evt.detail;
-      // TODO(#562): Use logger instead.
-      // eslint-disable-next-line no-console
-      console.log(`[RELAY] Peer connected: ${peerId.toString()}`);
-    });
-
-    libp2p.addEventListener('peer:disconnect', (evt) => {
-      const peerId = evt.detail;
-      // TODO(#562): Use logger instead.
-      // eslint-disable-next-line no-console
-      console.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);
-    });
-  }
-
   // TODO(#562): Use logger instead.
-  // eslint-disable-next-line no-console
-  console.log('========================================');
-  // eslint-disable-next-line no-console
-  console.log('Relay Server Started');
   // eslint-disable-next-line no-console
   console.log('PeerID: ', libp2p.peerId.toString());
   // TODO(#562): Use logger instead.
   // eslint-disable-next-line no-console
   console.log('Multiaddrs: ', libp2p.getMultiaddrs());
-  // eslint-disable-next-line no-console
-  console.log('========================================');
 }
 
 main().catch(() => {
