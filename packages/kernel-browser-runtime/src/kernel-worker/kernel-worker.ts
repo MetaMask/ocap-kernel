@@ -14,6 +14,7 @@ import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import defaultSubcluster from '../default-cluster.json';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { receiveUiConnections } from '../ui-connections.ts';
+import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
 
@@ -59,7 +60,7 @@ async function main(): Promise<void> {
     logger,
   });
 
-  const relays: string[] = getRelaysFromQueryString();
+  const relays: string[] = getRelaysFromCurrentLocation();
 
   await Promise.all([
     // Initialize remote communications with the relay server passed in the query string
@@ -72,22 +73,4 @@ async function main(): Promise<void> {
       }
     })(),
   ]);
-}
-
-/**
- * Get the relays from the query string.
- *
- * @returns the relays from the query string.
- */
-function getRelaysFromQueryString(): string[] {
-  try {
-    return JSON.parse(
-      decodeURIComponent(
-        globalThis.location.search.split('relays=')[1] ?? '[]',
-      ),
-    );
-  } catch (error) {
-    logger.error('Error parsing relays:', error);
-    return [];
-  }
 }

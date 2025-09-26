@@ -10,3 +10,4 @@ export type {
 export * from './makeIframeVatWorker.ts';
 export * from './PlatformServicesClient.ts';
 export * from './PlatformServicesServer.ts';
+export * from './utils/index.ts';

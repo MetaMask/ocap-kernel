@@ -61,6 +61,32 @@ const kernel = await Kernel.make(
 );
 ```
 
+#### Configuring Relay Addresses for Workers
+
+When creating kernel workers with relay configuration, use the utilities from `@metamask/kernel-browser-runtime`:
+
+```typescript
+import {
+  createWorkerUrlWithRelays,
+  getRelaysFromCurrentLocation,
+} from '@metamask/kernel-browser-runtime';
+
+// Define relay addresses (libp2p multiaddrs)
+const relays = [
+  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+];
+
+// Create a worker with relay configuration
+const worker = new Worker(
+  createWorkerUrlWithRelays('kernel-worker.js', relays),
+  { type: 'module' },
+);
+
+// Inside the worker, retrieve relay configuration
+const relays = getRelaysFromCurrentLocation();
+await kernel.initRemoteComms(relays);
+```
+
 ### Node.js Environment
 
 For Node.js environments, you can use the provided utility function:
@@ -238,6 +264,29 @@ await kernel.terminateVat(vatId);
 // Restart a specific vat
 await kernel.restartVat(vatId);
 ```
+
+### Remote Communications
+
+The `initRemoteComms` method enables peer-to-peer communication between kernels using libp2p relay servers. This allows kernels to communicate across different machines or networks, even when behind NATs or firewalls.
+
+```typescript
+//... initialize kernel
+
+// Initialize remote communications with relay servers
+const relays = [
+  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+];
+await kernel.initRemoteComms(relays);
+
+//... launch subcluster
+
+// The kernel can now:
+// - Connect to other kernels through the relay
+// - Accept incoming connections from remote kernels
+// - Exchange messages with remote vats
+```
+
+**Note:** Relay addresses must be libp2p multiaddrs that include the relay server's peer ID. For browser environments, only WebSocket transports (`/ws`) are supported.
 
 ### State and Configuration
 
