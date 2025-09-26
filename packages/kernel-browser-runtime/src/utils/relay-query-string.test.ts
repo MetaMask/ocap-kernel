@@ -104,13 +104,25 @@ describe('relay-query-string', () => {
         name: 'worker path with existing query parameters',
         workerPath: 'worker.js?debug=true',
         relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        expectedPrefix: 'worker.js?debug=true?relays=',
+        expectedPrefix: 'worker.js?debug=true&relays=',
       },
       {
         name: 'empty relays array',
         workerPath: 'worker.js',
         relays: [],
         expectedPrefix: 'worker.js?relays=',
+      },
+      {
+        name: 'worker path with multiple existing query parameters',
+        workerPath: 'worker.js?debug=true&verbose=1',
+        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
+        expectedPrefix: 'worker.js?debug=true&verbose=1&relays=',
+      },
+      {
+        name: 'worker path ending with question mark',
+        workerPath: 'worker.js?',
+        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
+        expectedPrefix: 'worker.js?&relays=',
       },
     ])('should handle $name', ({ workerPath, relays, expectedPrefix }) => {
       const result = createWorkerUrlWithRelays(workerPath, relays);

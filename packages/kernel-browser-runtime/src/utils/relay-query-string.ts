@@ -46,7 +46,8 @@ export function createWorkerUrlWithRelays(
   workerPath: string,
   relays: string[],
 ): string {
-  return `${workerPath}?${createRelayQueryString(relays)}`;
+  const separator = workerPath.includes('?') ? '&' : '?';
+  return `${workerPath}${separator}${createRelayQueryString(relays)}`;
 }
 
 /**

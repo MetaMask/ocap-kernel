@@ -81,10 +81,10 @@ export default defineConfig({
           lines: 1.92,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 72.2,
+          statements: 72.3,
           functions: 69.56,
-          branches: 56.92,
-          lines: 72.2,
+          branches: 58.2,
+          lines: 72.3,
         },
         'packages/kernel-errors/**': {
           statements: 98.82,
