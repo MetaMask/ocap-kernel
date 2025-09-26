@@ -27,11 +27,11 @@ This allows you to e.g. evaluate arbitrary strings in a SES compartment:
 ### Environment variables
 
 The Vite CLI does not accept custom command line options. Instead it is parameterized via environment variables.
-The following environment variables are available:
+The following environment variables are available. Their default values may depend on the build type. See `vite.config.ts`:
 
-|   Variable    |  Type   | Default | Description                                                                   |
-| :-----------: | :-----: | :-----: | :---------------------------------------------------------------------------- |
-| RESET_STORAGE | boolean | `false` | `true` if the kernel should reset its state on restart, and `false` otherwise |
+|   Variable    |  Type   | Description                                                                   |
+| :-----------: | :-----: | :---------------------------------------------------------------------------- |
+| RESET_STORAGE | boolean | `true` if the kernel should reset its state on restart, and `false` otherwise |
 
 ## Development Setup
 
