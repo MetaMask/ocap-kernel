@@ -1,6 +1,7 @@
 import {
   makeIframeVatWorker,
   PlatformServicesServer,
+  createWorkerUrlWithRelays,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
@@ -49,9 +50,17 @@ async function main(): Promise<void> {
 async function makeKernelWorker(): Promise<
   DuplexStream<JsonRpcResponse, JsonRpcCall>
 > {
-  const worker = new Worker('kernel-worker.js', {
-    type: 'module',
-  });
+  // Assign local relay address generated from `yarn ocap relay`
+  const relays = [
+    '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+  ];
+
+  const worker = new Worker(
+    createWorkerUrlWithRelays('kernel-worker.js', relays),
+    {
+      type: 'module',
+    },
+  );
 
   const port = await initializeMessageChannel((message, transfer) =>
     worker.postMessage(message, transfer),

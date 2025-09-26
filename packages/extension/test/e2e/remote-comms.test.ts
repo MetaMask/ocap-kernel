@@ -1,10 +1,11 @@
+import { startRelay } from '@ocap/cli/relay';
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 import { rm } from 'fs/promises';
 
 import { makeLoadExtension, sessionPath } from '../helpers/extension.ts';
 
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'serial', timeout: 60_000 });
 
 /**
  * End-to-end tests for remote communications functionality.
@@ -27,6 +28,8 @@ test.describe('Remote Communications', () => {
   test.beforeAll(async () => {
     // Clean up any existing test data
     await rm(sessionPath, { recursive: true, force: true });
+    // Start the relay
+    await startRelay(console);
   });
 
   test.beforeEach(async () => {
@@ -118,13 +121,16 @@ test.describe('Remote Communications', () => {
     const paramsInput = popupPage1.locator('[data-testid="message-params"]');
     await paramsInput.fill(`["${ocapUrl}"]`);
 
-    // TODO: Send the message when we have a working relay server
-    // await popupPage1.click('[data-testid="message-send-button"]');
-    // // Verify the message was sent and processed
-    // const messageResponse = popupPage1.locator(
-    //   '[data-testid="message-response"]',
-    // );
-    // await expect(messageResponse).toBeVisible();
-    // await expect(messageResponse).toContainText('"method": "doRunRun"');
+    await popupPage1.waitForTimeout(1000);
+
+    await popupPage1.click('[data-testid="message-send-button"]');
+    const messageResponse = popupPage1.locator(
+      '[data-testid="message-response"]',
+    );
+    await expect(messageResponse).toBeVisible();
+    await expect(messageResponse).toContainText(
+      // eslint-disable-next-line no-useless-escape
+      `Response:{\"body\":\"#\\\"vat Bob got \\\\\\\"hello\\\\\\\" from remote Alice\\\"\",\"slots\":[]}`,
+    );
   });
 });

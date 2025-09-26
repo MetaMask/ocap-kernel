@@ -61,13 +61,31 @@ export async function initNetwork(
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
-      listen: ['/webrtc', '/p2p-circuit'],
+      listen: [
+        // TODO: Listen on tcp addresses for Node.js
+        // '/ip4/0.0.0.0/tcp/0/ws',
+        // '/ip4/0.0.0.0/tcp/0',
+        // Browser: listen on WebRTC and circuit relay
+        '/webrtc',
+        '/p2p-circuit',
+      ],
       appendAnnounce: ['/webrtc'],
     },
     transports: [
       webSockets(),
       webTransport(),
-      webRTC(),
+      webRTC({
+        rtcConfiguration: {
+          iceServers: [
+            {
+              urls: [
+                'stun:stun.l.google.com:19302',
+                'stun:global.stun.twilio.com:3478',
+              ],
+            },
+          ],
+        },
+      }),
       circuitRelayTransport(),
     ],
     connectionEncrypters: [noise()],
@@ -87,15 +105,6 @@ export async function initNetwork(
   });
 
   /**
-   * Output a line of text.
-   *
-   * @param text - The text to output.
-   */
-  function outputLine(text: string): void {
-    logger.log(text);
-  }
-
-  /**
    * Output information about an error that happened.
    *
    * @param peerId - The network node the error was associated with.
@@ -105,9 +114,9 @@ export async function initNetwork(
   function outputError(peerId: string, task: string, problem: unknown): void {
     if (problem) {
       const realProblem: Error = problem as Error; // to make eslint stfu
-      outputLine(`${peerId}:: error ${task}: ${realProblem}`);
+      logger.log(`${peerId}:: error ${task}: ${realProblem}`);
     } else {
-      outputLine(`${peerId}:: error ${task}`);
+      logger.log(`${peerId}:: error ${task}`);
     }
   }
 
@@ -118,7 +127,7 @@ export async function initNetwork(
    * @param message - The message that was received.
    */
   async function receiveMsg(from: string, message: string): Promise<void> {
-    outputLine(`${from}:: recv ${message}`);
+    logger.log(`${from}:: recv ${message}`);
     await remoteMessageHandler(from, message);
   }
 
@@ -147,7 +156,7 @@ export async function initNetwork(
       });
     }
     try {
-      outputLine(`${targetPeerId}:: send ${message}`);
+      logger.log(`${targetPeerId}:: send ${message}`);
       await channel.msgStream.write(fromString(message));
     } catch (problem) {
       outputError(targetPeerId, 'sending message', problem);
@@ -172,11 +181,11 @@ export async function initNetwork(
           rtcProblem.errorDetail === 'sctp-failure' &&
           rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
         ) {
-          outputLine(`${channel.peerId}:: remote disconnected`);
+          logger.log(`${channel.peerId}:: remote disconnected`);
         } else {
           outputError(channel.peerId, 'reading message', problem);
         }
-        outputLine(`closed channel to ${channel.peerId}`);
+        logger.log(`closed channel to ${channel.peerId}`);
         activeChannels.delete(channel.peerId);
         throw problem;
       }
@@ -194,38 +203,80 @@ export async function initNetwork(
    * @returns a Channel to `peerId`.
    */
   async function openChannel(peerId: string): Promise<Channel> {
-    outputLine(`connecting to ${peerId}`);
-    const signal = AbortSignal.timeout(5000000);
-    const addressString = `${knownRelays[0]}/p2p-circuit/webrtc/p2p/${peerId}`;
-    const connectToAddr = multiaddr(addressString);
+    logger.log(`connecting to ${peerId}`);
+    const signal = AbortSignal.timeout(30_000);
 
     let stream;
-    try {
-      stream = await libp2p.dialProtocol(connectToAddr, 'whatever', { signal });
-    } catch (problem) {
-      if (signal.aborted) {
-        outputError(peerId, `timed out opening channel`, problem);
-      } else {
-        outputError(peerId, `opening channel`, problem);
+    let lastError: Error | undefined;
+
+    // Try multiple connection strategies
+    const addressStrings: string[] = knownRelays.flatMap((relay) => [
+      // Browser: try WebRTC first
+      `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
+      // Both environments can use WebSocket through relay
+      `${relay}/p2p-circuit/p2p/${peerId}`,
+    ]);
+
+    // TODO: Try direct tcp connection without relay for Node.js
+    // `/dns4/localhost/tcp/0/ws/p2p/${peerId}`,
+    // `/ip4/127.0.0.1/tcp/0/ws/p2p/${peerId}`,
+
+    for (const addressString of addressStrings) {
+      try {
+        const connectToAddr = multiaddr(addressString);
+        logger.log(`trying address: ${addressString}`);
+        stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
+          signal,
+        });
+        if (stream) {
+          logger.log(`successfully connected via ${addressString}`);
+          break;
+        }
+      } catch (problem) {
+        lastError = problem as Error;
+        outputError(peerId, `failed with address ${addressString}`, problem);
+        // Continue to next address
       }
-      throw problem;
+    }
+
+    if (!stream) {
+      if (signal.aborted) {
+        outputError(peerId, `timed out opening channel`, lastError);
+      } else {
+        outputError(
+          peerId,
+          `opening channel after trying all addresses`,
+          lastError,
+        );
+      }
+      throw lastError ?? Error('Failed to connect');
     }
     const msgStream = byteStream(stream);
     const channel: Channel = { msgStream, peerId };
     activeChannels.set(peerId, channel);
-    outputLine(`opened channel to ${peerId}`);
+    logger.log(`opened channel to ${peerId}`);
     return channel;
   }
 
   await libp2p.handle('whatever', ({ connection, stream }) => {
     const msgStream = byteStream(stream);
     const remotePeerId = connection.remotePeer.toString();
-    outputLine(`inbound connection from peerId:${remotePeerId}`);
+    logger.log(`inbound connection from peerId:${remotePeerId}`);
     const channel: Channel = { msgStream, peerId: remotePeerId };
     activeChannels.set(remotePeerId, channel);
-    readChannel(channel).catch(() => {
-      /* Nothing to do here. */
+    readChannel(channel).catch((error) => {
+      outputError(remotePeerId, 'error in inbound channel read', error);
+      activeChannels.delete(remotePeerId);
     });
+  });
+
+  // Start the libp2p node
+  logger.log(`Starting libp2p node with peerId: ${libp2p.peerId.toString()}`);
+  logger.log(`Connecting to relays: ${knownRelays.join(', ')}`);
+
+  // Wait for relay connection and reservation
+  libp2p.addEventListener('self:peer:update', (evt) => {
+    logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
   });
 
   return sendRemoteMessage;

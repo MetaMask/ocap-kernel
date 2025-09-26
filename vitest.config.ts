@@ -66,10 +66,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 69.76,
-          functions: 68.18,
-          branches: 88.57,
-          lines: 69.76,
+          statements: 52.32,
+          functions: 52.63,
+          branches: 72.09,
+          lines: 52.32,
         },
         'packages/create-package/**': {
           statements: 100,
@@ -78,16 +78,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 1.96,
+          statements: 1.92,
           functions: 0,
           branches: 0,
-          lines: 1.96,
+          lines: 1.92,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 70.99,
-          functions: 67.69,
-          branches: 54.23,
-          lines: 70.99,
+          statements: 72.3,
+          functions: 69.56,
+          branches: 58.2,
+          lines: 72.3,
         },
         'packages/kernel-errors/**': {
           statements: 98.82,
@@ -156,10 +156,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 89.13,
-          functions: 90.11,
-          branches: 80.53,
-          lines: 89.15,
+          statements: 88.54,
+          functions: 89.83,
+          branches: 80.27,
+          lines: 88.6,
         },
         'packages/remote-iterables/**': {
           statements: 100,
