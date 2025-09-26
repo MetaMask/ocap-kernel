@@ -132,7 +132,12 @@ async function generateKeyPair(
   localId: number | undefined,
 ): Promise<PrivateKey> {
   let seed;
-  if (localId !== undefined && localId > 0 && localId < 256) {
+  // eslint-disable-next-line no-negated-condition
+  if (localId !== undefined) {
+    if (localId < 1 || localId > 255) {
+      throw new Error(`localId must be a Uint8. Received: ${localId}`);
+    }
+
     seed = new Uint8Array(32);
     seed[0] = localId;
   } else {
