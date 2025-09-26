@@ -20,7 +20,6 @@
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
     { "path": "../streams" },
-    { "path": "../repo-tools" },
     { "path": "../repo-tools" }
   ],
   "include": [
