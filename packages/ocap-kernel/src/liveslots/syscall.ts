@@ -11,7 +11,7 @@ import type { KVStore } from '@metamask/kernel-store';
 import type { Logger } from '@metamask/logger';
 
 import type { Syscall, SyscallResult } from './types.ts';
-import type { VatSupervisor } from '../VatSupervisor.ts';
+import type { VatSupervisor } from '../vats/VatSupervisor.ts';
 
 /**
  * This returns a function that is provided to liveslots as the 'syscall'

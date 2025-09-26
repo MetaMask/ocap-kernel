@@ -7,7 +7,7 @@ import {
   performDropImports,
   performRetireImports,
   performExportCleanup,
-} from './gc-handlers.ts';
+} from './garbage-collection/gc-handlers.ts';
 import type { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import type {

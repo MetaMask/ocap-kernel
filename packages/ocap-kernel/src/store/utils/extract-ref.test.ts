@@ -3,7 +3,7 @@ import { passStyleOf } from '@endo/pass-style';
 import { describe, it, expect, vi } from 'vitest';
 
 import { extractSingleRef } from './extract-ref.ts';
-import { kunser, krefOf } from '../../services/kernel-marshal.ts';
+import { kunser, krefOf } from '../../liveslots/kernel-marshal.ts';
 import type { KRef } from '../../types.ts';
 
 vi.mock('@endo/pass-style', async () => {
@@ -14,7 +14,7 @@ vi.mock('@endo/pass-style', async () => {
   };
 });
 
-vi.mock('../../services/kernel-marshal.ts', () => ({
+vi.mock('../../liveslots/kernel-marshal.ts', () => ({
   kunser: vi.fn(),
   krefOf: vi.fn(),
 }));

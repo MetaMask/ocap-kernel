@@ -4,13 +4,13 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
 
+import * as gc from './garbage-collection/garbage-collection.ts';
 import { KernelQueue } from './KernelQueue.ts';
-import * as gc from './services/garbage-collection.ts';
 import type { KernelStore } from './store/index.ts';
 import * as types from './types.ts';
 import type { KRef, Message, RunQueueItem } from './types.ts';
 
-vi.mock('./services/garbage-collection.ts', () => ({
+vi.mock('./garbage-collection/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
 }));
 

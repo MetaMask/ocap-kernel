@@ -18,12 +18,12 @@ import type { JsonRpcResponse } from '@metamask/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
+import { kslot, kser, kunser, krefOf } from './liveslots/kernel-marshal.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
 import { initRemoteComms, parseOcapURL } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
-import { kslot, kser, kunser, krefOf } from './services/kernel-marshal.ts';
-import type { SlotValue } from './services/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
@@ -47,7 +47,7 @@ import {
   isRemoteId,
 } from './types.ts';
 import { Fail, assert } from './utils/assert.ts';
-import { VatHandle } from './VatHandle.ts';
+import { VatHandle } from './vats/VatHandle.ts';
 
 type KernelService = {
   name: string;
