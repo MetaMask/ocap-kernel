@@ -59,11 +59,11 @@ async function main(): Promise<void> {
     logger,
   });
 
+  const relays: string[] = getRelaysFromQueryString();
+
   await Promise.all([
-    // Initialize remote communications with the relay server from @ocap/cli
-    kernel.initRemoteComms([
-      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-    ]),
+    // Initialize remote communications with the relay server passed in the query string
+    kernel.initRemoteComms(relays),
     (async () => {
       // Launch the default subcluster if this is the first time
       if (firstTime) {
@@ -72,4 +72,22 @@ async function main(): Promise<void> {
       }
     })(),
   ]);
+}
+
+/**
+ * Get the relays from the query string.
+ *
+ * @returns the relays from the query string.
+ */
+function getRelaysFromQueryString(): string[] {
+  try {
+    return JSON.parse(
+      decodeURIComponent(
+        globalThis.location.search.split('relays=')[1] ?? '[]',
+      ),
+    );
+  } catch (error) {
+    logger.error('Error parsing relays:', error);
+    return [];
+  }
 }
