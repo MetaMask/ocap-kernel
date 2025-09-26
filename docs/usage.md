@@ -288,6 +288,15 @@ await kernel.initRemoteComms(relays);
 
 **Note:** Relay addresses must be libp2p multiaddrs that include the relay server's peer ID. For browser environments, only WebSocket transports (`/ws`) are supported.
 
+After initialization, you can check the remote communications status via `getStatus()`:
+
+```typescript
+const status = await kernel.getStatus();
+// status.remoteComms will contain:
+// { isInitialized: true, peerId: '12D3KooW...' } if initialized
+// { isInitialized: false } if not initialized
+```
+
 ### State and Configuration
 
 ```typescript
