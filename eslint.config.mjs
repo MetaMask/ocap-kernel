@@ -211,7 +211,9 @@ const config = createConfig([
 
   {
     files: [
+      '**/vite.config.ts',
       '**/vitest.config.ts',
+      'packages/extension/**/*',
       'packages/nodejs/**/*-worker.ts',
       'packages/nodejs/test/workers/**/*',
     ],

@@ -8,8 +8,8 @@ import {
   jsTrustedPrelude,
 } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -44,6 +44,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rootDir,
+    define: {
+      ...getDefines(isDev),
+    },
     resolve: {
       alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
     },
@@ -163,4 +166,28 @@ function getPackageDevAliases(
     },
     ...workspacePackages,
   ];
+}
+
+type Defines = {
+  'process.env.RESET_STORAGE': 'true' | 'false';
+};
+
+/**
+ * Gets the Vite / esbuild defines for the extension build process.
+ *
+ * @see https://vite.dev/config/shared-options.html#define
+ * @param isDev - Whether the extension is in development mode.
+ * @returns The Vite / esbuild defines.
+ */
+function getDefines(isDev: boolean): Defines {
+  const rawVars = [
+    ['RESET_STORAGE', process.env.RESET_STORAGE ?? (isDev ? 'true' : 'false')],
+  ];
+
+  return Object.fromEntries(
+    rawVars.map(([key, value]) => [
+      `process.env.${key}`,
+      JSON.stringify(value),
+    ]),
+  ) as Defines;
 }

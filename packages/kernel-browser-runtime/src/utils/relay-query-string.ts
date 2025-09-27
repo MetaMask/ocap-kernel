@@ -36,21 +36,6 @@ export function parseRelayQueryString(queryString: string): string[] {
 }
 
 /**
- * Creates a Worker URL with relay query parameters.
- *
- * @param workerPath - Path to the worker script (e.g., 'kernel-worker.js')
- * @param relays - Array of relay addresses
- * @returns Complete URL for creating a Worker with relay parameters
- */
-export function createWorkerUrlWithRelays(
-  workerPath: string,
-  relays: string[],
-): string {
-  const separator = workerPath.includes('?') ? '&' : '?';
-  return `${workerPath}${separator}${createRelayQueryString(relays)}`;
-}
-
-/**
  * Gets relay addresses from the current global location's query string.
  * This is intended to be used within a worker context.
  *

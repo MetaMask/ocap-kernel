@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   createRelayQueryString,
   parseRelayQueryString,
-  createWorkerUrlWithRelays,
   getRelaysFromCurrentLocation,
 } from './relay-query-string.ts';
 
@@ -87,51 +86,6 @@ describe('relay-query-string', () => {
     ])('should handle $name', ({ queryString, expected }) => {
       const result = parseRelayQueryString(queryString);
       expect(result).toStrictEqual(expected);
-    });
-  });
-
-  describe('createWorkerUrlWithRelays', () => {
-    it.each([
-      {
-        name: 'standard worker path',
-        workerPath: 'kernel-worker.js',
-        relays: [
-          '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-        ],
-        expectedPrefix: 'kernel-worker.js?relays=',
-      },
-      {
-        name: 'worker path with existing query parameters',
-        workerPath: 'worker.js?debug=true',
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        expectedPrefix: 'worker.js?debug=true&relays=',
-      },
-      {
-        name: 'empty relays array',
-        workerPath: 'worker.js',
-        relays: [],
-        expectedPrefix: 'worker.js?relays=',
-      },
-      {
-        name: 'worker path with multiple existing query parameters',
-        workerPath: 'worker.js?debug=true&verbose=1',
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        expectedPrefix: 'worker.js?debug=true&verbose=1&relays=',
-      },
-      {
-        name: 'worker path ending with question mark',
-        workerPath: 'worker.js?',
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        expectedPrefix: 'worker.js?&relays=',
-      },
-    ])('should handle $name', ({ workerPath, relays, expectedPrefix }) => {
-      const result = createWorkerUrlWithRelays(workerPath, relays);
-      expect(result).toContain(expectedPrefix);
-
-      // Verify the relays are properly encoded
-      const queryPart = result.split('relays=')[1] ?? '';
-      const decodedRelays = JSON.parse(decodeURIComponent(queryPart));
-      expect(decodedRelays).toStrictEqual(relays);
     });
   });
 

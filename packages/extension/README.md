@@ -24,6 +24,15 @@ This allows you to e.g. evaluate arbitrary strings in a SES compartment:
 "1, 2, 3"
 ```
 
+### Environment variables
+
+The Vite CLI does not accept custom command line options. Instead it is parameterized via environment variables.
+The following environment variables are available. Their default values may depend on the build type. See `vite.config.ts`:
+
+|   Variable    |  Type   | Description                                                                   |
+| :-----------: | :-----: | :---------------------------------------------------------------------------- |
+| RESET_STORAGE | boolean | `true` if the kernel should reset its state on restart, and `false` otherwise |
+
 ## Development Setup
 
 ### CSS Modules TypeScript Support
@@ -32,9 +41,9 @@ This project uses CSS Modules with TypeScript integration.
 To ensure proper type checking and autocompletion configure your IDE to use the workspace TypeScript version:
 
 - VSCode:
-  1.  Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-  2.  Type "TypeScript: Select TypeScript Version"
-  3.  Choose "Use Workspace Version"
+  1. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+  2. Type "TypeScript: Select TypeScript Version"
+  3. Choose "Use Workspace Version"
 
 ## Contributing
 

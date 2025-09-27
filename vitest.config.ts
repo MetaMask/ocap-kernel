@@ -78,16 +78,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 1.92,
+          statements: 1.78,
           functions: 0,
           branches: 0,
-          lines: 1.92,
+          lines: 1.78,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 72.3,
-          functions: 69.56,
-          branches: 58.2,
-          lines: 72.3,
+          statements: 71.84,
+          functions: 69.11,
+          branches: 55.22,
+          lines: 71.84,
         },
         'packages/kernel-errors/**': {
           statements: 98.82,
