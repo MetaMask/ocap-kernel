@@ -102,12 +102,6 @@ jobs:
           is-high-risk-environment: false
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-      - name: Rebuild SQLite3
-        run: |
-          cd node_modules/better-sqlite3
-          yarn build-release
-          cd -
-      - run: npm rebuild @ipshipyard/node-datachannel
       - run: yarn build
       - run: yarn test:ci
       - name: Require clean working directory
@@ -153,12 +147,6 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
-      - name: Rebuild SQLite3
-        run: |
-          cd node_modules/better-sqlite3
-          yarn build-release
-          cd -
-      - run: npm rebuild @ipshipyard/node-datachannel
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
