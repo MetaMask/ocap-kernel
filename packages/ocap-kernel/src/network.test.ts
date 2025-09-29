@@ -102,6 +102,10 @@ vi.mock('it-byte-stream', () => ({
 vi.mock('libp2p', () => ({
   createLibp2p: vi.fn(async () => {
     return {
+      peerId: {
+        toString: () => 'test-peer-id-12345',
+      },
+      addEventListener: vi.fn(),
       dialProtocol: vi.fn(
         async (
           addr: string,
@@ -204,25 +208,86 @@ describe('network.initNetwork', () => {
     });
   });
 
-  it('swallows dial errors and does not throw from send', async () => {
+  it('tries fallback addresses when first connection fails', async () => {
     const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
     const remoteHandler = vi.fn(async () => 'ok');
 
-    // Override createLibp2p to throw on dial
+    // Track dial attempts
+    const dialAttempts: string[] = [];
+
+    // Override createLibp2p to fail first attempt but succeed on second
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        peerId: {
+          toString: () => 'test-peer-id-fallback',
+        },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(
+          async (
+            addr: string,
+            protocol: string,
+            options: { signal: AbortSignal },
+          ) => {
+            dialAttempts.push(addr);
+
+            // Fail WebRTC attempt
+            if (addr.includes('/webrtc/')) {
+              throw new Error('WebRTC connection failed');
+            }
+
+            // Succeed on regular circuit relay
+            const stream = {};
+            libp2pState.dials.push({ addr, protocol, options, stream });
+            return stream;
+          },
+        ),
+        handle: vi.fn(async () => {
+          // do nothing
+        }),
+      }),
+    );
+
+    const { initNetwork } = await import('./network.ts');
+    const send = await initNetwork('0xfallback', knownRelays, remoteHandler);
+
+    await send('peer-fallback', 'msg');
+
+    // Should have tried WebRTC first, then regular circuit
+    expect(dialAttempts).toHaveLength(2);
+    expect(dialAttempts[0]).toBe(
+      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/peer-fallback`,
+    );
+    expect(dialAttempts[1]).toBe(
+      `${knownRelays[0]}/p2p-circuit/p2p/peer-fallback`,
+    );
+
+    // Only the successful dial should be recorded
+    expect(libp2pState.dials).toHaveLength(1);
+    expect(libp2pState.dials[0]?.addr).toBe(
+      `${knownRelays[0]}/p2p-circuit/p2p/peer-fallback`,
+    );
+  });
+
+  it('swallows dial errors and does not throw from send when all attempts fail', async () => {
+    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+    const remoteHandler = vi.fn(async () => 'ok');
+
+    // Override createLibp2p to throw on all dial attempts
+    const { createLibp2p } = await import('libp2p');
+    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async () => ({
+        peerId: {
+          toString: () => 'test-peer-id-fail-all',
+        },
+        addEventListener: vi.fn(),
         dialProtocol: vi.fn(
           async (
             _addr: string,
             _p: string,
-            options: { signal: AbortSignal },
+            _options: { signal: AbortSignal },
           ) => {
-            // Simulate an abort scenario
-            options?.signal?.throwIfAborted?.();
-            throw Object.assign(new Error('dial failed'), {
-              name: 'AbortError',
-            });
+            throw new Error('All connections failed');
           },
         ),
         handle: vi.fn(async () => {
@@ -247,6 +312,10 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        peerId: {
+          toString: () => 'test-peer-id-no-problem',
+        },
+        addEventListener: vi.fn(),
         dialProtocol: vi.fn(async () => {
           // eslint-disable-next-line @typescript-eslint/only-throw-error
           throw undefined; // Test outputError with no problem
@@ -295,11 +364,20 @@ describe('network.initNetwork', () => {
     const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
     const remoteHandler = vi.fn(async () => 'ok');
 
+    // Track attempts to help verify timeout behavior
+    let attemptCount = 0;
+
     // Create a mock aborted signal
     const abortedSignal = {
       aborted: true,
       throwIfAborted: vi.fn(() => {
-        throw Object.assign(new Error('Timeout'), { name: 'AbortError' });
+        throw Object.assign(
+          new Error('The operation was aborted due to timeout'),
+          {
+            name: 'AbortError',
+            code: 'ABORT_ERR',
+          },
+        );
       }),
     };
 
@@ -311,12 +389,24 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        peerId: {
+          toString: () => 'test-peer-id-timeout',
+        },
+        addEventListener: vi.fn(),
         dialProtocol: vi.fn(async (_addr, _protocol, options) => {
-          // Check if signal is aborted and throw timeout error
+          attemptCount += 1;
+          // All attempts should fail with timeout due to aborted signal
           if (options.signal.aborted) {
-            throw Object.assign(new Error('Timeout'), { name: 'AbortError' });
+            throw Object.assign(
+              new Error('The operation was aborted due to timeout'),
+              {
+                name: 'AbortError',
+                code: 'ABORT_ERR',
+              },
+            );
           }
-          throw Object.assign(new Error('Timeout'), { name: 'AbortError' });
+          // Shouldn't reach here, but throw anyway
+          throw new Error('Connection failed');
         }),
         handle: vi.fn(async () => {
           // do nothing
@@ -327,6 +417,78 @@ describe('network.initNetwork', () => {
     const { initNetwork } = await import('./network.ts');
     const send = await initNetwork('0xtimeout', knownRelays, remoteHandler);
 
+    // Send should not throw even with timeout
     expect(await send('peer-timeout', 'msg')).toBeUndefined();
+
+    // Should have tried both connection strategies before timing out
+    expect(attemptCount).toBe(2); // WebRTC and regular circuit relay
+
+    // Restore the mock
+    vi.restoreAllMocks();
+  });
+
+  it('tries multiple relays when provided', async () => {
+    const knownRelays = [
+      '/dns4/relay1.example/tcp/443/wss/p2p/relay1Peer',
+      '/dns4/relay2.example/tcp/443/wss/p2p/relay2Peer',
+    ];
+    const remoteHandler = vi.fn(async () => 'ok');
+
+    // Track all dial attempts
+    const dialAttempts: string[] = [];
+
+    const { createLibp2p } = await import('libp2p');
+    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async () => ({
+        peerId: {
+          toString: () => 'test-peer-id-multi-relays',
+        },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(
+          async (
+            addr: string,
+            protocol: string,
+            options: { signal: AbortSignal },
+          ) => {
+            dialAttempts.push(addr);
+
+            // Fail all attempts except the last one to test all paths
+            if (dialAttempts.length < 4) {
+              throw new Error(
+                `Connection attempt ${dialAttempts.length} failed`,
+              );
+            }
+
+            // Succeed on the 4th attempt
+            const stream = {};
+            libp2pState.dials.push({ addr, protocol, options, stream });
+            return stream;
+          },
+        ),
+        handle: vi.fn(async () => {
+          // do nothing
+        }),
+      }),
+    );
+
+    const { initNetwork } = await import('./network.ts');
+    const send = await initNetwork('0xmultirelays', knownRelays, remoteHandler);
+
+    await send('peer-multi', 'test');
+
+    // Should have tried both WebRTC and regular for each relay
+    expect(dialAttempts).toHaveLength(4);
+    expect(dialAttempts).toStrictEqual([
+      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/peer-multi`,
+      `${knownRelays[0]}/p2p-circuit/p2p/peer-multi`,
+      `${knownRelays[1]}/p2p-circuit/webrtc/p2p/peer-multi`,
+      `${knownRelays[1]}/p2p-circuit/p2p/peer-multi`,
+    ]);
+
+    // Only the successful dial should be recorded
+    expect(libp2pState.dials).toHaveLength(1);
+    expect(libp2pState.dials[0]?.addr).toBe(
+      `${knownRelays[1]}/p2p-circuit/p2p/peer-multi`,
+    );
   });
 });
