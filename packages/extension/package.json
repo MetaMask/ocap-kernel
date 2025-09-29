@@ -20,7 +20,7 @@
     "build:watch": "yarn build:dev --watch",
     "build:vite": "vite build --config vite.config.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
