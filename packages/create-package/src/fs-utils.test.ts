@@ -1,15 +1,22 @@
 import { createSandbox, writeFile, readFile } from '@metamask/utils/node';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { readAllFiles, writeFiles } from './fs-utils.ts';
+import { filterGitIgnored } from './git-utils.ts';
 
 const { withinSandbox } = createSandbox('create-package/fs-utils');
 
+vi.mock('./git-utils.ts', () => ({
+  filterGitIgnored: vi.fn((absoluteFileMap) => absoluteFileMap),
+}));
+
 describe('create-package/fs-utils', () => {
+  const filterGitIgnoredMock = vi.mocked(filterGitIgnored);
+
   describe('readAllFiles', () => {
-    it('should read all files and sub-directories in the specified directory', async () => {
+    it('reads all files and sub-directories in the specified directory', async () => {
       expect.assertions(1);
 
       await withinSandbox(async (sandbox) => {
@@ -38,7 +45,7 @@ describe('create-package/fs-utils', () => {
       });
     });
 
-    it('should read all files and sub-directories in the specified directory (deeply nested)', async () => {
+    it('reads all files and sub-directories in the specified directory (deeply nested)', async () => {
       expect.assertions(1);
 
       await withinSandbox(async (sandbox) => {
@@ -69,7 +76,7 @@ describe('create-package/fs-utils', () => {
       });
     });
 
-    it('should ignore file system entities that are neither files nor directories', async () => {
+    it('ignores file system entities that are neither files nor directories', async () => {
       expect.assertions(1);
 
       await withinSandbox(async (sandbox) => {
@@ -87,10 +94,39 @@ describe('create-package/fs-utils', () => {
         });
       });
     });
+
+    it('ignores files that are ignored by git', async () => {
+      expect.assertions(1);
+
+      await withinSandbox(async (sandbox) => {
+        const dirPath = path.join(sandbox.directoryPath, 'dir/');
+        await Promise.all(
+          (
+            [
+              ['file1.txt', 'foo'],
+              ['file2.txt', 'bar'],
+              ['file3.txt', 'baz'],
+            ] as const
+          ).map(async ([filePath, content]) => {
+            await writeFile(path.join(dirPath, filePath), content);
+          }),
+        );
+
+        filterGitIgnoredMock.mockResolvedValueOnce({
+          [path.join(dirPath, 'file1.txt')]: 'foo',
+        });
+
+        const files = await readAllFiles(dirPath);
+
+        expect(files).toStrictEqual({
+          'file1.txt': 'foo',
+        });
+      });
+    });
   });
 
   describe('writeFiles', () => {
-    it('should write all files to the specified directory', async () => {
+    it('writes all files to the specified directory', async () => {
       expect.assertions(4);
 
       await withinSandbox(async (sandbox) => {
@@ -119,7 +155,7 @@ describe('create-package/fs-utils', () => {
       });
     });
 
-    it('should write all files to the specified directory (deeply nested)', async () => {
+    it('writes all files to the specified directory (deeply nested)', async () => {
       expect.assertions(5);
 
       await withinSandbox(async (sandbox) => {
