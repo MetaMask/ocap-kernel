@@ -12,11 +12,20 @@ export async function filterGitIgnored(
   absoluteFileMap: FileMap,
 ): Promise<FileMap> {
   // See: https://git-scm.com/docs/git-check-ignore
-  const checkIgnoreOutput = await execa('git', ['check-ignore', '--stdin'], {
+  const execaResult = await execa('git', ['check-ignore', '--stdin'], {
     input: Object.keys(absoluteFileMap).join('\n'),
+    reject: false,
   });
+
+  let checkIgnoreOutput = '';
+  if (execaResult.failed && execaResult.exitCode !== 1) {
+    throw execaResult as Error;
+  } else {
+    checkIgnoreOutput = execaResult.stdout;
+  }
+
   const gitIgnoredFiles = new Set(
-    checkIgnoreOutput.stdout
+    checkIgnoreOutput
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean),

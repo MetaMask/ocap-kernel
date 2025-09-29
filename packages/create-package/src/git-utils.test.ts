@@ -1,9 +1,10 @@
-import { execa } from 'execa';
+import { execa, ExecaError } from 'execa';
 import { describe, expect, it, vi } from 'vitest';
 
 import { filterGitIgnored } from './git-utils.ts';
 
-vi.mock('execa', () => ({
+vi.mock('execa', async (importOriginal) => ({
+  ...(await importOriginal()),
   execa: vi.fn(),
 }));
 
@@ -40,13 +41,51 @@ describe('create-package/git-utils', () => {
     it('returns a structurally equivalent map if no files are ignored by git', async () => {
       // @ts-expect-error - We only need stdout
       execaMock.mockResolvedValueOnce({ stdout: '\n' });
-      const getFiles = () => ({
+      const files = await filterGitIgnored({
         '/file1.txt': 'foo',
         '/file2.txt': 'bar',
         '/file3.txt': 'baz',
       });
-      const files = await filterGitIgnored(getFiles());
-      expect(files).toStrictEqual(getFiles());
+      expect(files).toStrictEqual({
+        '/file1.txt': 'foo',
+        '/file2.txt': 'bar',
+        '/file3.txt': 'baz',
+      });
+    });
+
+    it('handles "git check-ignore" failing with exit code 1', async () => {
+      // @ts-expect-error - Only defining the properties we need
+      execaMock.mockResolvedValueOnce({
+        failed: true,
+        exitCode: 1,
+        stdout: '',
+      });
+      const files = await filterGitIgnored({
+        '/file1.txt': 'foo',
+        '/file2.txt': 'bar',
+        '/file3.txt': 'baz',
+      });
+      expect(files).toStrictEqual({
+        '/file1.txt': 'foo',
+        '/file2.txt': 'bar',
+        '/file3.txt': 'baz',
+      });
+    });
+
+    it('throws if "git check-ignore" fails with an unknown exit code', async () => {
+      const error = new ExecaError();
+      error.message = 'git check-ignore failed';
+      error.exitCode = 2;
+      error.stdout = '';
+      error.failed = true;
+
+      // @ts-expect-error - This is actually fine
+      execaMock.mockResolvedValueOnce(error);
+      await expect(
+        filterGitIgnored({
+          '/file1.txt': 'foo',
+        }),
+      ).rejects.toThrow('git check-ignore failed');
     });
   });
 });
