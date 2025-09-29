@@ -11,6 +11,7 @@ import {
   htmlTrustedPrelude,
   jsTrustedPrelude,
 } from '@ocap/repo-tools/vite-plugins';
+import type { PreludeRecord } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,23 +21,30 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import type { Target } from 'vite-plugin-static-copy';
 
 import * as pkg from './package.json';
-import {
-  kernelBrowserRuntimeSrcDir,
-  outDir,
-  sourceDir,
-  trustedPreludes,
-} from './scripts/build-constants.mjs';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(dirname, '..', '..');
+const sourceDir = path.resolve(dirname, 'src');
+const outDir = path.resolve(dirname, 'dist');
+export const kernelBrowserRuntimeSrcDir = path.resolve(
+  rootDir,
+  'packages/kernel-browser-runtime/src',
+);
+
 const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
-  'packages/extension/src/manifest.json',
+  'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
-  'packages/extension/src/env/dev-console.js',
-  'packages/extension/src/env/background-trusted-prelude.js',
   'packages/kernel-shims/dist/endoify.js',
 ];
+
+const endoifyImportStatement = `import './endoify.js';`;
+const trustedPreludes: PreludeRecord = {
+  background: {
+    content: endoifyImportStatement,
+  },
+  'kernel-worker': { content: endoifyImportStatement },
+};
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -65,6 +73,8 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
+          devtools: path.resolve(sourceDir, 'devtools/devtools.html'),
+          'kernel-panel': path.resolve(sourceDir, 'devtools/kernel-panel.html'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
           // kernel-browser-runtime
@@ -126,7 +136,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'watch-kernel-ui',
         configureServer(server) {
-          server.watcher.add(path.resolve(rootDir, 'kernel-ui/dist'));
+          server.watcher.add(path.resolve(rootDir, 'packages/kernel-ui/dist'));
           server.watcher.on('change', (file) => {
             if (file.includes('kernel-ui/dist')) {
               server.moduleGraph.invalidateAll();

@@ -161,6 +161,12 @@ export default defineConfig({
           branches: 84.29,
           lines: 94.12,
         },
+        'packages/omnium-gatherum/**': {
+          statements: 5.26,
+          functions: 5.55,
+          branches: 0,
+          lines: 5.26,
+        },
         'packages/remote-iterables/**': {
           statements: 100,
           functions: 100,

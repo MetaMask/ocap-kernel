@@ -89,8 +89,7 @@ const config = createConfig([
   },
 
   {
-    // Tests can use the console for now.
-    files: ['**/*.test.*'],
+    files: ['**/*.test.*', '**/build/**/*', '**/scripts/**/*', '**/test/**/*'],
     rules: {
       'no-console': 'off',
     },
@@ -189,6 +188,19 @@ const config = createConfig([
       // currently use both in our codebase, so this rule is disabled.
       'no-restricted-globals': 'off',
 
+      // Equivalent to the MetaMask config except that we allow the "in" operator.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'WithStatement',
+          message: 'With statements are not allowed',
+        },
+        {
+          selector: 'SequenceExpression',
+          message: 'Sequence expressions are not allowed',
+        },
+      ],
+
       // The fetch builtin has been supported since node 18.
       'n/no-unsupported-features/node-builtins': [
         'error',
@@ -219,6 +231,8 @@ const config = createConfig([
       'packages/extension/**/*',
       'packages/nodejs/**/*-worker.ts',
       'packages/nodejs/test/workers/**/*',
+      'packages/omnium-gatherum/**/*',
+      'packages/repo-tools/**/*',
     ],
     rules: {
       'n/no-process-env': 'off',

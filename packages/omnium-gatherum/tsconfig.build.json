@@ -1,29 +1,30 @@
 {
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "allowJs": true,
     "baseUrl": "./",
+    "emitDeclarationOnly": false,
     "lib": ["DOM", "ES2022"],
-    "outDir": "./dist",
+    "noEmit": true,
     "rootDir": "./src",
-    "types": ["ses"]
+    "types": ["chrome", "ses", "react-dom"]
   },
   "references": [
-    { "path": "../kernel-errors/tsconfig.build.json" },
+    { "path": "../kernel-browser-runtime/tsconfig.build.json" },
     { "path": "../kernel-rpc-methods/tsconfig.build.json" },
+    { "path": "../kernel-ui/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
     { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" }
   ],
-  "files": ["./src/default-cluster.json"],
-  "include": ["./src"],
-  "exclude": [
-    "**/vite.config.ts",
-    "**/vitest.config.ts",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "./src/kernel-worker",
-    "./src/vat"
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
+    "./src/**/*-trusted-prelude.js",
+    "./src/env/dev-console.js"
   ]
 }

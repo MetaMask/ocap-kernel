@@ -1,8 +1,12 @@
 {
-  "name": "@ocap/extension",
+  "name": "@ocap/omnium-gatherum",
   "version": "0.0.0",
   "private": true,
-  "description": "For running Ocap Kernel experiments in an extension environment",
+  "description": "noun: a miscellaneous collection (as of things or persons)",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/omnium-gatherum#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
@@ -11,15 +15,12 @@
   "files": [
     "dist/"
   ],
-  "workspaces": [
-    "vats"
-  ],
   "scripts": {
     "build": "yarn build:vite && yarn test:build",
     "build:dev": "yarn build:vite --mode development",
     "build:watch": "yarn build:dev --watch",
     "build:vite": "vite build --config vite.config.ts",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/extension",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/omnium-gatherum",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -68,6 +69,7 @@
     "@types/chrome": "^0.0.313",
     "@types/react": "^17.0.11",
     "@types/react-dom": "^17.0.11",
+    "@types/webextension-polyfill": "^0",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",

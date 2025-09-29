@@ -3,12 +3,13 @@
 import path from 'node:path';
 
 const dirname = path.dirname(new URL(import.meta.url).pathname);
-export const rootDir = path.resolve(dirname, '../..');
-const extensionDir = path.resolve(rootDir, 'extension');
+const packagesDir = path.resolve(dirname, '../..');
+const extensionDir = path.resolve(packagesDir, 'extension');
+
 export const sourceDir = path.resolve(extensionDir, 'src');
 export const outDir = path.resolve(extensionDir, 'dist');
 export const kernelBrowserRuntimeSrcDir = path.resolve(
-  rootDir,
+  packagesDir,
   'kernel-browser-runtime/src',
 );
 
