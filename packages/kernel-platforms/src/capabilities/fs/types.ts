@@ -1,7 +1,7 @@
 import { exactOptional, object, string, boolean } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
-import type { PathLike, existsSync } from 'fs';
-import type { readFile, access } from 'fs/promises';
+import type { PathLike, existsSync } from 'node:fs';
+import type { readFile, access } from 'node:fs/promises';
 
 export type { PathLike };
 

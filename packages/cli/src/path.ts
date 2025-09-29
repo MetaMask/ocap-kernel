@@ -1,4 +1,4 @@
-import { format, parse, resolve } from 'path';
+import { format, parse, resolve } from 'node:path';
 
 /**
  * Given a source file path, resolve its associated bundle file path.

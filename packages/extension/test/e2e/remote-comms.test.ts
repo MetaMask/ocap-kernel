@@ -1,7 +1,7 @@
 import { startRelay } from '@ocap/cli/relay';
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
-import { rm } from 'fs/promises';
+import { rm } from 'node:fs/promises';
 
 import { makeLoadExtension, sessionPath } from '../helpers/extension.ts';
 

@@ -1,7 +1,7 @@
 // @ts-check
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 // eslint-disable-next-line n/no-unsupported-features/node-builtins
 const buildDir = path.resolve(import.meta.dirname, '../dist/static');

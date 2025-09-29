@@ -4,8 +4,8 @@ import { Logger } from '@metamask/logger';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { watch } from 'chokidar';
 import type { FSWatcher } from 'chokidar';
-import type { Stats } from 'fs';
-import { unlink } from 'fs/promises';
+import type { Stats } from 'node:fs';
+import { unlink } from 'node:fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { bundleFile } from './bundle.ts';

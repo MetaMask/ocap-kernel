@@ -1,4 +1,4 @@
-import { dirname, join } from 'path';
+import { dirname, join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 
 import { cp, fileExists, isDirectory } from './file.ts';

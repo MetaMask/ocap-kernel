@@ -3,8 +3,8 @@ import '../env/endoify.ts';
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
 import { makePromiseKitMock } from '@ocap/repo-tools/test-utils';
+import { Worker as NodeWorker } from 'node:worker_threads';
 import { describe, expect, it } from 'vitest';
-import { Worker as NodeWorker } from 'worker_threads';
 
 import { getTestWorkerFile } from '../../test/get-test-worker.ts';
 

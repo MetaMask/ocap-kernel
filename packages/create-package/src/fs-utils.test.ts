@@ -1,6 +1,6 @@
 import { createSandbox, writeFile, readFile } from '@metamask/utils/node';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { readAllFiles, writeFiles } from './fs-utils.ts';

@@ -6,7 +6,7 @@ import {
   jsTrustedPrelude,
 } from '@ocap/repo-tools/vite-plugins';
 import type { PreludeRecord } from '@ocap/repo-tools/vite-plugins';
-import path from 'path';
+import path from 'node:path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
