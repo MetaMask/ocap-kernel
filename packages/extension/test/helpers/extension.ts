@@ -1,9 +1,9 @@
 import { chromium, expect } from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
-import { rm } from 'fs/promises';
+import { rm } from 'node:fs/promises';
+import os from 'node:os';
+import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import os from 'os';
-import path, { dirname } from 'path';
 
 export const sessionPath = path.resolve(os.tmpdir(), 'ocap-test');
 
@@ -21,7 +21,6 @@ export const makeLoadExtension = async (
   extensionId: string;
   popupPage: Page;
 }> => {
-  // eslint-disable-next-line n/no-process-env
   const workerIndex = process.env.TEST_WORKER_INDEX ?? '0';
   // Use provided contextId or fall back to workerIndex for separate user data dirs
   const effectiveContextId = contextId ?? workerIndex;
@@ -41,7 +40,6 @@ export const makeLoadExtension = async (
     '--lang=en-US',
   ];
 
-  // eslint-disable-next-line n/no-process-env
   const isHeadless = process.env.npm_lifecycle_event === 'test:e2e';
   if (isHeadless) {
     browserArgs.push(`--headless=new`);

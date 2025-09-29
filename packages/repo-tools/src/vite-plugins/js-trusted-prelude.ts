@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite';
 
 type PreludeDesignator = { path: string } | { content: string };

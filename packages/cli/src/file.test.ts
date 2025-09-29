@@ -1,4 +1,4 @@
-import { dirname, join } from 'path';
+import { dirname, join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 
 import { cp, fileExists, isDirectory } from './file.ts';
@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   copyFile: vi.fn(),
 }));
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   access: mocks.access,
   lstat: mocks.lstat,
   copyFile: mocks.copyFile,

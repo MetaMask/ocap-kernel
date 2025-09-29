@@ -1,8 +1,7 @@
 import { execa } from 'execa';
-import { promises as fs } from 'fs';
-import { dirname } from 'node:path';
+import { promises as fs } from 'node:fs';
+import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import path from 'path';
 import { format as prettierFormat } from 'prettier';
 import type { Options as PrettierOptions } from 'prettier';
 

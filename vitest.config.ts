@@ -1,5 +1,5 @@
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import path from 'path';
 import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 

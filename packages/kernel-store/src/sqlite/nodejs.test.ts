@@ -1,4 +1,4 @@
-import { mkdir } from 'fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.ts';
@@ -35,11 +35,11 @@ vi.mock('better-sqlite3', () => ({
   default: vi.fn(() => mockDb),
 }));
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(),
 }));
 
-vi.mock('os', () => ({
+vi.mock('node:os', () => ({
   tmpdir: vi.fn(() => '/mock-tmpdir'),
 }));
 

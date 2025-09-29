@@ -1,6 +1,6 @@
-import { existsSync, lstatSync, Stats } from 'fs';
-import fs from 'fs/promises';
-import { relative } from 'path';
+import { existsSync, lstatSync, Stats } from 'node:fs';
+import fs from 'node:fs/promises';
+import { relative } from 'node:path';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { capabilityFactory } from './nodejs.ts';
@@ -9,7 +9,7 @@ import type { FsConfig, PathLike } from './types.ts';
 /* eslint-disable n/no-sync */
 
 // Mock fs/promises
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   default: {
     readFile: vi.fn(),
     access: vi.fn(),
@@ -19,13 +19,13 @@ vi.mock('fs/promises', () => ({
 }));
 
 // Mock fs
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
   lstatSync: vi.fn(),
 }));
 
 // Mock path
-vi.mock('path', () => ({
+vi.mock('node:path', () => ({
   relative: vi.fn(),
 }));
 

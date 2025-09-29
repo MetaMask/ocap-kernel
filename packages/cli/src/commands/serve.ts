@@ -1,10 +1,10 @@
 import { logError } from '@metamask/snaps-utils/node';
-import type { IncomingMessage, Server, ServerResponse } from 'http';
-import { createServer } from 'http';
-import type { AddressInfo } from 'net';
-import { resolve as resolvePath } from 'path';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { resolve as resolvePath } from 'node:path';
+import { promisify } from 'node:util';
 import serveMiddleware from 'serve-handler';
-import { promisify } from 'util';
 
 import type { Config } from '../config.ts';
 

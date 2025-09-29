@@ -8,11 +8,11 @@
 /* global RegExpMatchArray */
 
 const { defineConfig } = require('@yarnpkg/types');
-const { readFile } = require('fs/promises');
 const { get } = require('lodash');
-const { basename, resolve } = require('path');
+const { readFile } = require('node:fs/promises');
+const { basename, resolve } = require('node:path');
+const { inspect } = require('node:util');
 const semver = require('semver');
-const { inspect } = require('util');
 
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];

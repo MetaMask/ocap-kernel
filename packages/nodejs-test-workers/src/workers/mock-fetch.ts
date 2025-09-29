@@ -1,4 +1,3 @@
-// eslint-disable-next-line import-x/extensions
 import '../../../nodejs/dist/env/endoify.mjs';
 import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';

@@ -1,7 +1,7 @@
-import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { glob } from 'glob';
-import { tmpdir } from 'os';
-import { resolve, join, basename, format } from 'path';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve, join, basename, format } from 'node:path';
 
 import { cp } from '../src/file.ts';
 

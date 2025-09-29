@@ -1,6 +1,6 @@
 import { execa } from 'execa';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { format as prettierFormat } from 'prettier';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
@@ -11,7 +11,7 @@ import type { FileMap } from './fs-utils.ts';
 import type { MonorepoFileData, PackageData } from './utils.ts';
 import { finalizeAndWriteData, readMonorepoFiles } from './utils.ts';
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   promises: {
     mkdir: vi.fn(),
     readFile: vi.fn(),

@@ -1,8 +1,8 @@
 import '@metamask/kernel-shims/endoify';
 
 import { makeCounter } from '@metamask/kernel-utils';
-import { createServer } from 'http';
-import type { IncomingMessage, Server, ServerResponse } from 'http';
+import { createServer } from 'node:http';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import serveMiddleware from 'serve-handler';
 import { describe, it, expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
@@ -10,7 +10,7 @@ import type { Mock } from 'vitest';
 import { getServer } from './serve.ts';
 import { defaultConfig } from '../config.ts';
 
-vi.mock('http', () => ({
+vi.mock('node:http', () => ({
   createServer: vi.fn((handler) => ({
     listen: vi.fn((_port, handle) => handle()),
     close: vi.fn((handle) => handle()),

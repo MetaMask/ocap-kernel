@@ -1,6 +1,6 @@
-import { existsSync, lstatSync } from 'fs';
-import fs from 'fs/promises';
-import { relative } from 'path';
+import { existsSync, lstatSync } from 'node:fs';
+import fs from 'node:fs/promises';
+import { relative } from 'node:path';
 
 import { makeFsSpecification } from './shared.ts';
 import type { PathLike, SyncPathCaveat } from './types.ts';

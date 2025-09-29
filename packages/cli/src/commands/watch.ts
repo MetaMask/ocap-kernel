@@ -2,8 +2,8 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { Logger } from '@metamask/logger';
 import { watch } from 'chokidar';
 import type { FSWatcher, MatchFunction } from 'chokidar';
-import { unlink } from 'fs/promises';
-import { resolve } from 'path';
+import { unlink } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { bundleFile as rawBundleFile } from './bundle.ts';
 import { resolveBundlePath } from '../path.ts';
