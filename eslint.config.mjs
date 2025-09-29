@@ -7,8 +7,8 @@ import metamaskVitestConfig from '@metamask/eslint-config-vitest';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'path';
 
 const config = createConfig([
   {
@@ -196,6 +196,9 @@ const config = createConfig([
           ignores: ['fetch'],
         },
       ],
+
+      // Use the "node:" protocol for imports of Node.js built-in modules.
+      'n/prefer-node-protocol': 'error',
 
       // e.g. (0 < x && x < 47) is OK.
       yoda: ['error', 'never', { exceptRange: true }],
