@@ -4,16 +4,16 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { readAllFiles, writeFiles } from './fs-utils.ts';
-import { filterGitIgnored } from './git-utils.ts';
+import { excludeGitIgnored } from './git-utils.ts';
 
 const { withinSandbox } = createSandbox('create-package/fs-utils');
 
 vi.mock('./git-utils.ts', () => ({
-  filterGitIgnored: vi.fn((absoluteFileMap) => absoluteFileMap),
+  excludeGitIgnored: vi.fn((absoluteFileMap) => absoluteFileMap),
 }));
 
 describe('create-package/fs-utils', () => {
-  const filterGitIgnoredMock = vi.mocked(filterGitIgnored);
+  const excludeGitIgnoredMock = vi.mocked(excludeGitIgnored);
 
   describe('readAllFiles', () => {
     it('reads all files and sub-directories in the specified directory', async () => {
@@ -112,7 +112,7 @@ describe('create-package/fs-utils', () => {
           }),
         );
 
-        filterGitIgnoredMock.mockResolvedValueOnce({
+        excludeGitIgnoredMock.mockResolvedValueOnce({
           [path.join(dirPath, 'file1.txt')]: 'foo',
         });
 

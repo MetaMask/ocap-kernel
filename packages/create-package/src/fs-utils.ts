@@ -6,7 +6,7 @@ import { writeFile } from '@metamask/utils/node';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { filterGitIgnored } from './git-utils.ts';
+import { excludeGitIgnored } from './git-utils.ts';
 
 /**
  * A map of file paths to file contents.
@@ -41,7 +41,7 @@ export async function readAllFiles(baseDir: string): Promise<FileMap> {
   };
 
   const absoluteFileMap = await readAllFilesRecur(baseDir);
-  const filteredFileMap = await filterGitIgnored(absoluteFileMap);
+  const filteredFileMap = await excludeGitIgnored(absoluteFileMap);
   const relativeFileMap = Object.fromEntries(
     Object.entries(filteredFileMap).map(([filePath, content]) => [
       path.relative(baseDir, filePath),

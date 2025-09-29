@@ -8,7 +8,7 @@ import type { FileMap } from './fs-utils.ts';
  * @param absoluteFileMap - A map of absolute file paths to file contents.
  * @returns A map of file paths to file contents.
  */
-export async function filterGitIgnored(
+export async function excludeGitIgnored(
   absoluteFileMap: FileMap,
 ): Promise<FileMap> {
   // See: https://git-scm.com/docs/git-check-ignore

@@ -1,7 +1,7 @@
 import { execa, ExecaError } from 'execa';
 import { describe, expect, it, vi } from 'vitest';
 
-import { filterGitIgnored } from './git-utils.ts';
+import { excludeGitIgnored } from './git-utils.ts';
 
 vi.mock('execa', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -9,13 +9,13 @@ vi.mock('execa', async (importOriginal) => ({
 }));
 
 describe('create-package/git-utils', () => {
-  describe('filterGitIgnored', () => {
+  describe('excludeGitIgnored', () => {
     const execaMock = vi.mocked(execa);
 
     it('filters out files that are ignored by git', async () => {
       // @ts-expect-error - We only need stdout
       execaMock.mockResolvedValueOnce({ stdout: '/file1.txt\n/file2.txt\n' });
-      const files = await filterGitIgnored({
+      const files = await excludeGitIgnored({
         '/file1.txt': 'foo',
         '/file2.txt': 'bar',
         '/file3.txt': 'baz',
@@ -30,7 +30,7 @@ describe('create-package/git-utils', () => {
       execaMock.mockResolvedValueOnce({
         stdout: '/file1.txt\n/file2.txt\n/file3.txt\n',
       });
-      const files = await filterGitIgnored({
+      const files = await excludeGitIgnored({
         '/file1.txt': 'foo',
         '/file2.txt': 'bar',
         '/file3.txt': 'baz',
@@ -41,7 +41,7 @@ describe('create-package/git-utils', () => {
     it('returns a structurally equivalent map if no files are ignored by git', async () => {
       // @ts-expect-error - We only need stdout
       execaMock.mockResolvedValueOnce({ stdout: '\n' });
-      const files = await filterGitIgnored({
+      const files = await excludeGitIgnored({
         '/file1.txt': 'foo',
         '/file2.txt': 'bar',
         '/file3.txt': 'baz',
@@ -60,7 +60,7 @@ describe('create-package/git-utils', () => {
         exitCode: 1,
         stdout: '',
       });
-      const files = await filterGitIgnored({
+      const files = await excludeGitIgnored({
         '/file1.txt': 'foo',
         '/file2.txt': 'bar',
         '/file3.txt': 'baz',
@@ -82,7 +82,7 @@ describe('create-package/git-utils', () => {
       // @ts-expect-error - This is actually fine
       execaMock.mockResolvedValueOnce(error);
       await expect(
-        filterGitIgnored({
+        excludeGitIgnored({
           '/file1.txt': 'foo',
         }),
       ).rejects.toThrow('git check-ignore failed');
