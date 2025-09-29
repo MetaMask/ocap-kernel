@@ -54,7 +54,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
 
-      const keySeed = mockKernelStore.kv.get('keySeed') ?? '';
+      const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBe(
         '0100000000000000000000000000000000000000000000000000000000000000',
       );
@@ -67,7 +67,7 @@ describe('remote-comms', () => {
       const peerId = mockKernelStore.kv.get('peerId');
       const keyPair = await generateKeyPairFromSeed(
         'Ed25519',
-        fromHex(keySeed),
+        fromHex(keySeed as string),
       );
       expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
 
