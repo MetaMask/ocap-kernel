@@ -11,7 +11,7 @@ import type { FileMap } from './fs-utils.ts';
 import type { MonorepoFileData, PackageData } from './utils.ts';
 import { finalizeAndWriteData, readMonorepoFiles } from './utils.ts';
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   promises: {
     mkdir: vi.fn(),
     readFile: vi.fn(),

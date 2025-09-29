@@ -35,11 +35,11 @@ vi.mock('better-sqlite3', () => ({
   default: vi.fn(() => mockDb),
 }));
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(),
 }));
 
-vi.mock('os', () => ({
+vi.mock('node:os', () => ({
   tmpdir: vi.fn(() => '/mock-tmpdir'),
 }));
 

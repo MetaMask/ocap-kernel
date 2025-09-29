@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   copyFile: vi.fn(),
 }));
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   access: mocks.access,
   lstat: mocks.lstat,
   copyFile: mocks.copyFile,

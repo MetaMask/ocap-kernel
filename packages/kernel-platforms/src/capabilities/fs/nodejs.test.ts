@@ -9,7 +9,7 @@ import type { FsConfig, PathLike } from './types.ts';
 /* eslint-disable n/no-sync */
 
 // Mock fs/promises
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   default: {
     readFile: vi.fn(),
     access: vi.fn(),
@@ -19,13 +19,13 @@ vi.mock('fs/promises', () => ({
 }));
 
 // Mock fs
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
   lstatSync: vi.fn(),
 }));
 
 // Mock path
-vi.mock('path', () => ({
+vi.mock('node:path', () => ({
   relative: vi.fn(),
 }));
 

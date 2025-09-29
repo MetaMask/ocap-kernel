@@ -10,7 +10,7 @@ import type { Mock } from 'vitest';
 import { getServer } from './serve.ts';
 import { defaultConfig } from '../config.ts';
 
-vi.mock('http', () => ({
+vi.mock('node:http', () => ({
   createServer: vi.fn((handler) => ({
     listen: vi.fn((_port, handle) => handle()),
     close: vi.fn((handle) => handle()),

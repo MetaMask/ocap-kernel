@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { bundleFile } from './bundle.ts';
 import { watchDir, makeWatchEvents, shouldIgnore } from './watch.ts';
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   unlink: vi.fn(async () => Promise.resolve()),
 }));
 
