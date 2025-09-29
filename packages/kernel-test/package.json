@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "ocap bundle src/vats",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist './src/**/*.bundle'",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo './src/**/*.bundle'",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
     "lint:eslint": "eslint . --cache",
