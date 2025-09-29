@@ -1,5 +1,5 @@
 import { isErrorWithCode } from '@metamask/utils';
-import { copyFile, lstat, access } from 'fs/promises';
+import { copyFile, lstat, access } from 'node:fs/promises';
 
 /**
  * Check if the target path is a directory.

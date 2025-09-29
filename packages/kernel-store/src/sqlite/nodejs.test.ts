@@ -1,4 +1,4 @@
-import { mkdir } from 'fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { SQL_QUERIES } from './common.ts';

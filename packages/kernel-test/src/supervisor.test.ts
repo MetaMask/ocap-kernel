@@ -2,8 +2,8 @@ import { delay } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { VatConfig } from '@metamask/ocap-kernel';
 import { VatSupervisor, kser } from '@metamask/ocap-kernel';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 
 import { getBundleSpec, makeMockLogger } from './utils.ts';

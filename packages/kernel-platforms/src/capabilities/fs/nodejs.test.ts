@@ -1,6 +1,6 @@
-import { existsSync, lstatSync, Stats } from 'fs';
-import fs from 'fs/promises';
-import { relative } from 'path';
+import { existsSync, lstatSync, Stats } from 'node:fs';
+import fs from 'node:fs/promises';
+import { relative } from 'node:path';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { capabilityFactory } from './nodejs.ts';

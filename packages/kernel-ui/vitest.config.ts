@@ -1,5 +1,5 @@
 import { mergeConfig } from '@ocap/repo-tools/vitest-config';
-import path from 'path';
+import path from 'node:path';
 import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';

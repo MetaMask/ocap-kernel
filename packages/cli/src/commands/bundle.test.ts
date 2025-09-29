@@ -1,6 +1,6 @@
 import type { Logger } from '@metamask/logger';
-import { readFile } from 'fs/promises';
-import { basename } from 'path';
+import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 import { bundleFile, bundleDir, bundleSource } from './bundle.ts';

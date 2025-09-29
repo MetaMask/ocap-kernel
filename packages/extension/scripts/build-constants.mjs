@@ -1,6 +1,6 @@
 // @ts-check
 
-import path from 'path';
+import path from 'node:path';
 
 const dirname = path.dirname(new URL(import.meta.url).pathname);
 export const rootDir = path.resolve(dirname, '../..');

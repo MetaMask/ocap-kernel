@@ -3,8 +3,8 @@
  */
 
 import { writeFile } from '@metamask/utils/node';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 /**
  * A map of file paths to file contents.

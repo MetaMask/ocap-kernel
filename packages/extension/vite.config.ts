@@ -8,8 +8,8 @@ import {
   jsTrustedPrelude,
 } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import path from 'path';
 import { defineConfig } from 'vite';
 import { checker as viteChecker } from 'vite-plugin-checker';
 import { viteStaticCopy } from 'vite-plugin-static-copy';

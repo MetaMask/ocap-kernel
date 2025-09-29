@@ -2,9 +2,9 @@ import '@metamask/kernel-shims/endoify';
 import type { BundleSourceResult } from '@endo/bundle-source';
 import { makeCounter, stringify } from '@metamask/kernel-utils';
 import { isObject, hasProperty } from '@metamask/utils';
-import { createHash } from 'crypto';
-import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { getServer } from '../../src/commands/serve.ts';
