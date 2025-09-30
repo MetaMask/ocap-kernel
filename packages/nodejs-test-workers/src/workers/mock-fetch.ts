@@ -1,4 +1,4 @@
-import '../../../nodejs/dist/env/endoify.mjs';
+import '@ocap/nodejs/endoify-ts';
 import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { makeNodeJsVatSupervisor } from '@ocap/nodejs';

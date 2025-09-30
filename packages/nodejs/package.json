@@ -23,6 +23,8 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./endoify-mjs": "./dist/env/endoify.mjs",
+    "./endoify-ts": "./src/env/endoify.ts",
     "./package.json": "./package.json"
   },
   "files": [
