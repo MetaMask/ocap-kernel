@@ -1,6 +1,7 @@
 ---
 ignores:
   # monorepo
+  - '@metamask/kernel-shims'
   - '@ocap/cli'
   - '@ocap/repo-tools'
 
