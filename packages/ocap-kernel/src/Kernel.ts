@@ -1,4 +1,3 @@
-import { Far } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
@@ -11,17 +10,15 @@ import type { JsonRpcResponse } from '@metamask/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
-import { kslot, kser, kunser, krefOf } from './liveslots/kernel-marshal.ts';
-import type { SlotValue } from './liveslots/kernel-marshal.ts';
-import { initRemoteComms, parseOcapURL } from './remote-comms.ts';
-import { RemoteHandle } from './RemoteHandle.ts';
+import { KernelServiceManager } from './KernelServiceManager.ts';
+import { OcapURLManager } from './remotes/OcapURLManager.ts';
+import { RemoteManager } from './remotes/RemoteManager.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
-  RemoteId,
   EndpointId,
   KRef,
   PlatformServices,
@@ -29,21 +26,12 @@ import type {
   VatConfig,
   KernelStatus,
   Subcluster,
-  Message,
   EndpointHandle,
-  RemoteComms,
 } from './types.ts';
 import { isVatId, isRemoteId } from './types.ts';
-import { assert } from './utils/assert.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
-
-type KernelService = {
-  name: string;
-  kref: string;
-  service: object;
-};
 
 // XXX See #egregiousDebugHack below
 let foolTheCompiler: string = 'start';
@@ -60,11 +48,14 @@ export class Kernel {
   /** Manages subcluster operations */
   readonly #subclusterManager: SubclusterManager;
 
-  /** Currently active remote kernel connections, by ID */
-  readonly #remotes: Map<RemoteId, RemoteHandle>;
+  /** Manages remote kernel connections */
+  readonly #remoteManager: RemoteManager;
 
-  /** Currently active remote kernel connections, by remote Peer ID */
-  readonly #remotesByPeer: Map<string, RemoteHandle>;
+  /** Manages OCAP URL issuing and redemption */
+  readonly #ocapURLManager: OcapURLManager;
+
+  /** Manages kernel service registration and invocation */
+  readonly #kernelServiceManager: KernelServiceManager;
 
   /**
    * Service to to things the kernel worker can't do: network communications
@@ -83,14 +74,6 @@ export class Kernel {
 
   /** The kernel's router */
   readonly #kernelRouter: KernelRouter;
-
-  /** Objects providing custom or kernel-privileged services to vats. */
-  readonly #kernelServicesByName: Map<string, KernelService> = new Map();
-
-  readonly #kernelServicesByObject: Map<string, KernelService> = new Map();
-
-  /** My network access */
-  #remoteComms: RemoteComms | undefined;
 
   /**
    * Construct a new kernel instance.
@@ -117,8 +100,6 @@ export class Kernel {
 
     this.#commandStream = commandStream;
     this.#rpcService = new RpcService(kernelHandlers, {});
-    this.#remotes = new Map();
-    this.#remotesByPeer = new Map();
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase);
@@ -141,11 +122,29 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['VatManager'] }),
     });
 
+    this.#remoteManager = new RemoteManager({
+      platformServices,
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      logger: this.#logger.subLogger({ tags: ['RemoteManager'] }),
+    });
+
+    this.#ocapURLManager = new OcapURLManager({
+      remoteManager: this.#remoteManager,
+    });
+
+    this.#kernelServiceManager = new KernelServiceManager({
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      logger: this.#logger.subLogger({ tags: ['KernelServiceManager'] }),
+    });
+
     this.#subclusterManager = new SubclusterManager({
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       vatManager: this.#vatManager,
-      getKernelService: (name) => this.#kernelServicesByName.get(name),
+      getKernelService: (name) =>
+        this.#kernelServiceManager.getKernelService(name),
       queueMessage: this.queueMessage.bind(this),
     });
 
@@ -153,34 +152,22 @@ export class Kernel {
       this.#kernelStore,
       this.#kernelQueue,
       this.#getEndpoint.bind(this),
-      this.#invokeKernelService.bind(this),
+      this.#kernelServiceManager.invokeKernelService.bind(
+        this.#kernelServiceManager,
+      ),
       this.#logger,
     );
 
-    const ocapURLIssuerService = Far('serviceObject', {
-      issue: async (obj: SlotValue): Promise<string> => {
-        let kref: string;
-        try {
-          kref = krefOf(obj);
-        } catch {
-          throw Error(`argument must be a remotable`);
-        }
-        return await this.#issueOcapURL(kref);
-      },
-    });
-    this.registerKernelServiceObject(
-      'ocapURLIssuerService',
-      ocapURLIssuerService,
+    // Register OCAP URL services
+    const { issuerService, redemptionService } =
+      this.#ocapURLManager.getServices();
+    this.#kernelServiceManager.registerKernelServiceObject(
+      issuerService.name,
+      issuerService.service,
     );
-
-    const ocapURLRedemptionService = Far('serviceObject', {
-      redeem: async (url: string): Promise<SlotValue> => {
-        return kslot(await this.#redeemOcapURL(url));
-      },
-    });
-    this.registerKernelServiceObject(
-      'ocapURLRedemptionService',
-      ocapURLRedemptionService,
+    this.#kernelServiceManager.registerKernelServiceObject(
+      redemptionService.name,
+      redemptionService.service,
     );
 
     harden(this);
@@ -216,16 +203,17 @@ export class Kernel {
     return kernel;
   }
 
-  async #handleRemoteMessage(from: string, message: string): Promise<string> {
-    const remote = this.#remoteFor(from);
-    return await remote.handleRemoteMessage(message);
-  }
-
   /**
    * Start the kernel running. Sets it up to actually receive command messages
    * and then begin processing the run queue.
    */
   async #init(): Promise<void> {
+    // Set up the remote message handler
+    this.#remoteManager.setMessageHandler(
+      async (from: string, message: string) =>
+        this.#remoteManager.handleRemoteMessage(from, message),
+    );
+
     // Start the command stream handler (non-blocking)
     // This runs for the entire lifetime of the kernel
     this.#commandStream
@@ -256,31 +244,13 @@ export class Kernel {
   }
 
   /**
-   * Get the remote comms object.
-   *
-   * @returns the remote comms object.
-   * @throws if the remote comms object is not initialized.
-   */
-  #getRemoteComms(): RemoteComms {
-    if (this.#remoteComms) {
-      return this.#remoteComms;
-    }
-    throw Error(`remote comms not initialized`);
-  }
-
-  /**
    * Initialize the remote comms object.
    *
    * @param relays - The relays to use for the remote comms object.
-   * @returns a promise for the remote comms object.
+   * @returns a promise that resolves when initialization is complete.
    */
   async initRemoteComms(relays?: string[]): Promise<void> {
-    this.#remoteComms = await initRemoteComms(
-      this.#kernelStore,
-      this.#platformServices,
-      this.#handleRemoteMessage.bind(this),
-      relays,
-    );
+    await this.#remoteManager.initRemoteComms(relays);
   }
 
   /**
@@ -289,7 +259,6 @@ export class Kernel {
    * @param to - The peer ID of the remote kernel.
    * @param message - The message to send.
    * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
    * @returns a promise for the result of the message send.
    */
   async sendRemoteMessage(
@@ -297,32 +266,7 @@ export class Kernel {
     message: string,
     hints: string[] = [],
   ): Promise<void> {
-    await this.#getRemoteComms().sendRemoteMessage(to, message, hints);
-  }
-
-  /**
-   * Redeem an ocap URL.
-   *
-   * @param url - The ocap URL to redeem.
-   * @returns a promise for the kref of the object referenced by the ocap URL.
-   */
-  async #redeemOcapURL(url: string): Promise<string> {
-    const { host, hints } = parseOcapURL(url);
-    if (host === this.#getRemoteComms().getPeerId()) {
-      return this.#getRemoteComms().redeemLocalOcapURL(url);
-    }
-    const remote = this.#remoteFor(host, hints);
-    return remote.redeemOcapURL(url);
-  }
-
-  /**
-   * Issue an ocap URL.
-   *
-   * @param kref - The kref of the object to issue an ocap URL for.
-   * @returns a promise for the ocap URL.
-   */
-  async #issueOcapURL(kref: KRef): Promise<string> {
-    return this.#getRemoteComms().issueOcapURL(kref);
+    await this.#remoteManager.sendRemoteMessage(to, message, hints);
   }
 
   /**
@@ -357,50 +301,11 @@ export class Kernel {
   }
 
   /**
-   * Set up bookkeeping for a newly established remote connection.
-   *
-   * @param peerId - Peer ID of the kernel at the other end of the connection.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
-   * @returns the RemoteHandle that was set up.
-   */
-  #establishRemote(peerId: string, hints: string[] = []): RemoteHandle {
-    const remoteComms = this.#getRemoteComms();
-    const remoteId = this.#kernelStore.getNextRemoteId();
-    const remote = RemoteHandle.make({
-      remoteId,
-      peerId,
-      kernelStore: this.#kernelStore,
-      kernelQueue: this.#kernelQueue,
-      remoteComms,
-      locationHints: hints,
-    });
-    this.#remotes.set(remoteId, remote);
-    this.#remotesByPeer.set(peerId, remote);
-    return remote;
-  }
-
-  /**
-   * Get or create a RemoteHandle for a given peer ID.
-   *
-   * @param peerId - The libp2p peer for which a handle is sought.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
-   * @returns an existing or new RemoteHandle to communicate with `peerId`.
-   */
-  #remoteFor(peerId: string, hints: string[] = []): RemoteHandle {
-    const remote =
-      this.#remotesByPeer.get(peerId) ?? this.#establishRemote(peerId, hints);
-    return remote;
-  }
-
-  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
    * @param method - The method to be invoked.
    * @param args - Message arguments.
-   *
    * @returns a promise for the (CapData encoded) result of the message invocation.
    */
   async queueMessage(
@@ -519,24 +424,10 @@ export class Kernel {
       return this.#vatManager.getVat(endpointId);
     }
     if (isRemoteId(endpointId)) {
-      return this.#getRemote(endpointId);
+      return this.#remoteManager.getRemote(endpointId);
     }
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     throw Error(`invalid endpoint ID ${endpointId}`);
-  }
-
-  /**
-   * Get a remote.
-   *
-   * @param remoteId - The ID of the remote.
-   * @returns the remote's RemoteHandle.
-   */
-  #getRemote(remoteId: RemoteId): RemoteHandle {
-    const remote = this.#remotes.get(remoteId);
-    if (remote === undefined) {
-      throw Error(`remote not found ${remoteId}`);
-    }
-    return remote;
   }
 
   /**
@@ -592,10 +483,10 @@ export class Kernel {
     return {
       vats: this.getVats(),
       subclusters: this.#subclusterManager.getSubclusters(),
-      remoteComms: this.#remoteComms
+      remoteComms: this.#remoteManager.isRemoteCommsInitialized()
         ? {
             isInitialized: true,
-            peerId: this.#remoteComms.getPeerId(),
+            peerId: this.#remoteManager.getPeerId(),
           }
         : { isInitialized: false },
     };
@@ -689,7 +580,7 @@ export class Kernel {
   }
 
   async #egregiousDebugHack(): Promise<void> {
-    if (this.#remoteComms) {
+    if (this.#remoteManager.isRemoteCommsInitialized()) {
       // We deliberately use `let` rather than `const` for the URL string. It is
       // stored in a variable specifically to enable it to be modified in the
       // debugger.  Unfortunately, we have to jump through some hoops to prevent
@@ -736,69 +627,6 @@ export class Kernel {
     // Garbage' button turns out to be a super convenient one-click "hey kernel
     // please do something" hook to parasitize for this purpose.
     this.#egregiousDebugHack().catch(() => undefined);
-  }
-
-  registerKernelServiceObject(name: string, service: object): void {
-    const serviceKey = `kernelService.${name}`;
-    let kref = this.#kernelStore.kv.get(serviceKey);
-    if (!kref) {
-      kref = this.#kernelStore.initKernelObject('kernel');
-      this.#kernelStore.kv.set(serviceKey, kref);
-      this.#kernelStore.pinObject(kref);
-    }
-    const kernelService = { name, kref, service };
-    this.#kernelServicesByName.set(name, kernelService);
-    this.#kernelServicesByObject.set(kref, kernelService);
-  }
-
-  /**
-   * Invoke a kernel service.
-   *
-   * @param target - The target of the service.
-   * @param message - The message to invoke the service with.
-   */
-  async #invokeKernelService(target: KRef, message: Message): Promise<void> {
-    const kernelService = this.#kernelServicesByObject.get(target);
-    if (!kernelService) {
-      throw Error(`no registered service for ${target}`);
-    }
-    const { methargs, result } = message;
-    const [method, args] = kunser(methargs) as [string, unknown[]];
-    assert.typeof(method, 'string');
-    if (result) {
-      assert.typeof(result, 'string');
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    const service = kernelService.service as Record<string, Function>;
-    const methodFunction = service[method];
-    if (methodFunction === undefined) {
-      if (result) {
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(Error(`unknown service method '${method}'`))],
-        ]);
-      } else {
-        this.#logger.error(`unknown service method '${method}'`);
-      }
-      return;
-    }
-    assert.typeof(methodFunction, 'function');
-    assert(Array.isArray(args));
-    try {
-      const resultValue = await methodFunction.apply(service, args);
-      if (result) {
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, false, kser(resultValue)],
-        ]);
-      }
-    } catch (problem) {
-      if (result) {
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(problem)],
-        ]);
-      } else {
-        this.#logger.error('error in kernel service method:', problem);
-      }
-    }
   }
 }
 harden(Kernel);

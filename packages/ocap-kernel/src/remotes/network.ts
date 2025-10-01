@@ -18,7 +18,7 @@ import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import type { SendRemoteMessage } from './types.ts';
+import type { SendRemoteMessage } from '../types.ts';
 
 type Channel = {
   msgStream: ByteStream;

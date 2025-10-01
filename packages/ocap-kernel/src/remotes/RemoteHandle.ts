@@ -7,9 +7,9 @@ import {
   performDropImports,
   performRetireImports,
   performExportCleanup,
-} from './garbage-collection/gc-handlers.ts';
-import type { KernelQueue } from './KernelQueue.ts';
-import type { KernelStore } from './store/index.ts';
+} from '../garbage-collection/gc-handlers.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
+import type { KernelStore } from '../store/index.ts';
 import type {
   RemoteId,
   ERef,
@@ -17,7 +17,7 @@ import type {
   Message,
   CrankResults,
   RemoteComms,
-} from './types.ts';
+} from '../types.ts';
 
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;
