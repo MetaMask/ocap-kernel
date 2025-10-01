@@ -2,13 +2,13 @@ import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelQueue } from './KernelQueue.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
-import type { Message, RemoteComms, RRef } from './types.ts';
-import { makeMapKernelDatabase } from '../test/storage.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
+import { makeKernelStore } from '../store/index.ts';
+import type { KernelStore } from '../store/index.ts';
+import { parseRef } from '../store/utils/parse-ref.ts';
+import type { Message, RemoteComms, RRef } from '../types.ts';
 
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;

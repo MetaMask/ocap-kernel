@@ -1,7 +1,7 @@
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
-export { initNetwork } from './network.ts';
+export { initNetwork } from './remotes/network.ts';
 export type {
   ClusterConfig,
   KRef,
