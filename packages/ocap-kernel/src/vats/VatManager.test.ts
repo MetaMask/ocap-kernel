@@ -301,7 +301,8 @@ describe('VatManager', () => {
       expect(originalHandle?.terminate).toHaveBeenCalledWith(false, undefined);
       expect(mockPlatformServices.launch).toHaveBeenCalledTimes(2);
       expect(makeVatHandleMock).toHaveBeenCalledTimes(2);
-      expect(result).toBe(originalHandle);
+      expect(result).not.toBe(originalHandle);
+      expect(result).toBe(vatHandles[1]);
       expect(vatManager.hasVat('v1')).toBe(true);
     });
 

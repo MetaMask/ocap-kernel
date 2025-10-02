@@ -776,7 +776,7 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual([]);
     });
 
-    it('returns the original vat handle', async () => {
+    it('returns the new vat handle', async () => {
       const kernel = await Kernel.make(
         mockStream,
         mockPlatformServices,
@@ -785,7 +785,9 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const originalHandle = vatHandles[0];
       const returnedHandle = await kernel.restartVat('v1');
-      expect(returnedHandle).toBe(originalHandle);
+      expect(returnedHandle).not.toBe(originalHandle);
+      expect(returnedHandle).toBe(vatHandles[1]);
+      expect(returnedHandle.vatId).toBe('v1');
     });
   });
 
