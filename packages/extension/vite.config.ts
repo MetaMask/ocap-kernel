@@ -73,7 +73,13 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           entryFileNames: '[name].js',
-          chunkFileNames: '[name].js',
+          chunkFileNames: (chunkInfo) => {
+            // Rename _commonjsHelpers to avoid underscore prefix extension issues
+            if (chunkInfo.name === '_commonjsHelpers') {
+              return 'commonjsHelpers.js';
+            }
+            return '[name].js';
+          },
           assetFileNames: '[name].[ext]',
         },
       },
