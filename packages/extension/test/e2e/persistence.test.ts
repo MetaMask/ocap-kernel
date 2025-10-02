@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
 import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
-import { makeLoadExtension } from '../helpers/extension.ts';
+import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -12,7 +12,7 @@ test.describe('Kernel Persistence', () => {
   let popupPage: Page;
 
   test.beforeEach(async () => {
-    const extension = await makeLoadExtension();
+    const extension = await loadExtension();
     extensionContext = extension.browserContext;
     extensionId = extension.extensionId;
     popupPage = extension.popupPage;
