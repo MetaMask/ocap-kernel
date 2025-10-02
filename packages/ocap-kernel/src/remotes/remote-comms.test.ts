@@ -8,10 +8,10 @@ import {
   parseOcapURL,
   getKnownRelays,
 } from './remote-comms.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
-import type { PlatformServices, RemoteMessageHandler } from './types.ts';
-import { makeMapKernelDatabase } from '../test/storage.ts';
+import { makeMapKernelDatabase } from '../../test/storage.ts';
+import { makeKernelStore } from '../store/index.ts';
+import type { KernelStore } from '../store/index.ts';
+import type { PlatformServices, RemoteMessageHandler } from '../types.ts';
 
 describe('remote-comms', () => {
   let mockKernelStore: KernelStore;
