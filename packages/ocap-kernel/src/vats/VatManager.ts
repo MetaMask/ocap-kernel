@@ -183,7 +183,7 @@ export class VatManager {
     const { config } = vat;
     await this.stopVat(vatId, false);
     await this.runVat(vatId, config);
-    return vat;
+    return this.getVat(vatId);
   }
 
   /**
