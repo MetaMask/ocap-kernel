@@ -45,15 +45,12 @@ updates:
           - 'react-dom'
           - '@types/react'
           - '@types/react-dom'
-      eslint:
-        # Group ESLint and related packages
+      linting-and-typing:
+        # Group ESLint, TypeScript, and related packages
         patterns:
           - 'eslint'
           - 'eslint-*'
           - '@typescript-eslint/*'
-      typescript:
-        # Group TypeScript core packages
-        patterns:
           - 'typescript'
           - 'typescript-*'
       prettier:
