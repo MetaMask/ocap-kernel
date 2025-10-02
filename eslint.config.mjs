@@ -199,6 +199,11 @@ const config = createConfig([
           selector: 'SequenceExpression',
           message: 'Sequence expressions are not allowed',
         },
+        {
+          selector:
+            "PropertyDefinition[accessibility='private'], MethodDefinition[accessibility='private'], TSParameterProperty[accessibility='private']",
+          message: 'Use a hash name instead.',
+        },
       ],
 
       // The fetch builtin has been supported since node 18.
