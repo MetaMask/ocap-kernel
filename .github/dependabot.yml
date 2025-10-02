@@ -15,7 +15,6 @@ updates:
     groups:
       vite:
         # Group all Vite-related dependencies
-        dependency-type: 'all'
         patterns:
           - 'vite'
           - 'vite-*'
@@ -25,26 +24,22 @@ updates:
           - 'jsdom'
       metamask:
         # Group MetaMask packages excluding ESLint configs
-        dependency-type: 'all'
         patterns:
           - '@metamask/*'
         exclude-patterns:
           - '@metamask/eslint-*'
       metamask-eslint:
         # Separate group for MetaMask ESLint configs
-        dependency-type: 'all'
         patterns:
           - '@metamask/eslint-*'
       agoric:
         # Group Agoric and Endo packages
-        dependency-type: 'all'
         patterns:
           - '@agoric/*'
           - '@endo/*'
           - 'ses'
       react:
         # Group React and its type definitions
-        dependency-type: 'all'
         patterns:
           - 'react'
           - 'react-dom'
@@ -52,31 +47,26 @@ updates:
           - '@types/react-dom'
       eslint:
         # Group ESLint and related packages
-        dependency-type: 'all'
         patterns:
           - 'eslint'
           - 'eslint-*'
           - '@typescript-eslint/*'
       typescript:
         # Group TypeScript core packages
-        dependency-type: 'all'
         patterns:
           - 'typescript'
           - 'typescript-*'
       prettier:
         # Group Prettier and its plugins
-        dependency-type: 'all'
         patterns:
           - 'prettier'
           - 'prettier-*'
       testing-library:
         # Group Testing Library packages
-        dependency-type: 'all'
         patterns:
           - '@testing-library/*'
       playwright:
         # Group Playwright packages
-        dependency-type: 'all'
         patterns:
           - '@playwright/*'
           - 'playwright'
