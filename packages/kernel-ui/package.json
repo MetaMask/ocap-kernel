@@ -66,6 +66,7 @@
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
     "@metamask/utils": "^11.4.2",
     "tailwindcss": "^3.0.0"
   },
@@ -79,7 +80,6 @@
     "@metamask/eslint-config": "^14.0.0",
     "@metamask/eslint-config-nodejs": "^14.0.0",
     "@metamask/eslint-config-typescript": "^14.0.0",
-    "@metamask/ocap-kernel": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
     "@solana/addresses": "^2.0.0",
     "@testing-library/jest-dom": "^6.6.3",
