@@ -4,10 +4,10 @@ set -x
 set -e
 set -o pipefail
 
-yarn ocap bundle "./src/vats"
+yarn ocap bundle "../kernel-test/src/vats/default"
 
 # Start the server in background and capture its PID
-yarn ocap serve "./src/vats" & 
+yarn ocap serve "../kernel-test/src/vats/default" & 
 SERVER_PID=$!
 
 function cleanup() {

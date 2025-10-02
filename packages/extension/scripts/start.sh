@@ -5,9 +5,8 @@ set -e
 set -o pipefail
 
 yarn ocap relay &
-RELAY_PID=$!
 
-yarn ocap start "./src/vats" &
+yarn ocap start "../kernel-test/src/vats/default" &
 OCAP_PID=$!
 
 function cleanup() {

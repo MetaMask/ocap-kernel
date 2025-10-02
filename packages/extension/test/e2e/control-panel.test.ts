@@ -1,7 +1,7 @@
+import minimalClusterConfig from '@ocap/kernel-test/minimal-cluster' assert { type: 'json' };
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import minimalClusterConfig from '../../src/vats/minimal-cluster.json' assert { type: 'json' };
 import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });

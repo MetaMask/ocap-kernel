@@ -246,8 +246,8 @@ const config = createConfig([
 
   {
     files: [
-      'packages/*/src/vats/**/*',
-      'packages/*/test/vats/**/*',
+      'packages/*/src/**/vats/**/*',
+      'packages/*/test/**/vats/**/*',
       'packages/nodejs/test/workers/**/*',
       'packages/logger/test/workers/**/*',
     ],

@@ -23,6 +23,7 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./minimal-cluster": "./src/vats/default/minimal-cluster.json",
     "./package.json": "./package.json"
   },
   "files": [
