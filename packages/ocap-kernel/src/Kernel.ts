@@ -317,6 +317,20 @@ export class Kernel {
   }
 
   /**
+   * Register a kernel service object.
+   *
+   * @param name - The name of the service.
+   * @param object - The service object to register.
+   * @returns The registration details including the kref.
+   */
+  registerKernelServiceObject(
+    name: string,
+    object: object,
+  ): { name: string; kref: KRef } {
+    return this.#kernelServiceManager.registerKernelServiceObject(name, object);
+  }
+
+  /**
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.

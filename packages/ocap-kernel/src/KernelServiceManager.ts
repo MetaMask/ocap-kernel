@@ -121,10 +121,10 @@ export class KernelServiceManager {
     if (methodFunction === undefined) {
       if (result) {
         this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(Error(`Unknown service method '${method}'`))],
+          [result, true, kser(Error(`unknown service method '${method}'`))],
         ]);
       } else {
-        this.#logger?.error(`Unknown service method '${method}'`);
+        this.#logger?.error(`unknown service method '${method}'`);
       }
       return;
     }

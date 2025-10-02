@@ -270,7 +270,7 @@ describe('KernelServiceManager', () => {
       await serviceManager.invokeKernelService(registered.kref, message);
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp123', true, kser(Error("Unknown service method 'unknownMethod'"))],
+        ['kp123', true, kser(Error("unknown service method 'unknownMethod'"))],
       ]);
     });
 
@@ -292,7 +292,7 @@ describe('KernelServiceManager', () => {
       await serviceManager.invokeKernelService(registered.kref, message);
 
       expect(loggerErrorSpy).toHaveBeenCalledWith(
-        "Unknown service method 'unknownMethod'",
+        "unknown service method 'unknownMethod'",
       );
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
@@ -315,7 +315,7 @@ describe('KernelServiceManager', () => {
       await serviceManager.invokeKernelService(registered.kref, message);
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp123', true, kser(Error("Unknown service method 'anyMethod'"))],
+        ['kp123', true, kser(Error("unknown service method 'anyMethod'"))],
       ]);
     });
 
