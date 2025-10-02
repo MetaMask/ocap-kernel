@@ -13,5 +13,11 @@
     { "path": "../repo-tools" },
     { "path": "../kernel-platforms" }
   ],
-  "include": ["./src", "./test", "./vite.config.ts", "./vitest.config.ts"]
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./test",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
 }

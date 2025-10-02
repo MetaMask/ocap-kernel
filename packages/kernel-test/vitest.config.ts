@@ -1,5 +1,5 @@
 import { mergeConfig } from '@ocap/repo-tools/vitest-config';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, defineProject } from 'vitest/config';
 
 import defaultConfig from '../../vitest.config.ts';
@@ -11,7 +11,9 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'kernel-test',
-        setupFiles: path.resolve(__dirname, '../nodejs/src/env/endoify.ts'),
+        setupFiles: [
+          fileURLToPath(import.meta.resolve('@ocap/nodejs/endoify-ts')),
+        ],
         testTimeout: 30_000,
       },
     }),
