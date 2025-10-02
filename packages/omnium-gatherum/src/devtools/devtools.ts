@@ -1,5 +1,5 @@
 chrome.devtools.panels.create(
   'Kernel Panel',
-  'images/icon-16.png',
+  '', // The icon would go here if we had one
   'kernel-panel.html',
 );
