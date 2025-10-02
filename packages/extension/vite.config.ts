@@ -10,6 +10,8 @@ import {
   extensionDev,
   htmlTrustedPrelude,
   jsTrustedPrelude,
+  moveHtmlFilesToRoot,
+  watchInternalPackages,
 } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
@@ -107,33 +109,8 @@ export default defineConfig(({ mode }) => {
           !fileName.includes('sqlite3-opfs-async-proxy'),
         expectedCount: 2,
       }),
-      // Would you believe that there's no other way to do this?
-      {
-        name: 'move-html-files-to-root',
-        generateBundle: {
-          order: 'post',
-          handler(_, bundle) {
-            for (const chunk of Object.values(bundle)) {
-              if (!chunk.fileName.endsWith('.html')) {
-                continue;
-              }
-              chunk.fileName = path.basename(chunk.fileName);
-            }
-          },
-        },
-      },
-      // Watch kernel-ui dist folder and trigger rebuilds
-      {
-        name: 'watch-kernel-ui',
-        configureServer(server) {
-          server.watcher.add(path.resolve(rootDir, 'kernel-ui/dist'));
-          server.watcher.on('change', (file) => {
-            if (file.includes('kernel-ui/dist')) {
-              server.moduleGraph.invalidateAll();
-            }
-          });
-        },
-      },
+      moveHtmlFilesToRoot(),
+      watchInternalPackages({ rootDir, packages: ['kernel-ui'] }),
       // Open the extension in the browser when watching
       isWatching && extensionDev({ extensionPath: outDir }),
     ],
