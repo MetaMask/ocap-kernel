@@ -10,7 +10,7 @@
     "emitDeclarationOnly": true,
     "lib": ["DOM", "ES2022"],
     "rootDir": "./src",
-    "types": ["chrome", "ses", "react", "react-dom"]
+    "types": ["chrome", "react", "react-dom"]
   },
   "references": [
     { "path": "../kernel-browser-runtime/tsconfig.build.json" },
@@ -18,8 +18,7 @@
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
-    { "path": "../ocap-kernel/tsconfig.build.json" },
-    { "path": "../streams/tsconfig.build.json" }
+    { "path": "../ocap-kernel/tsconfig.build.json" }
   ],
   "include": ["./src/**/*.ts", "./src/**/*.tsx", "./src/**/*.module.css"]
 }

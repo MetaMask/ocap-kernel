@@ -7,17 +7,15 @@
     "baseUrl": "./",
     "isolatedModules": true,
     "lib": ["DOM", "ES2022"],
-    "types": ["chrome", "ses", "vitest", "vitest/jsdom", "react", "react-dom"]
+    "types": ["chrome", "vitest", "vitest/jsdom", "react", "react-dom"]
   },
   "references": [
     { "path": "../kernel-browser-runtime" },
     { "path": "../kernel-rpc-methods" },
-    { "path": "../kernel-shims" },
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../logger" },
     { "path": "../ocap-kernel" },
-    { "path": "../streams" },
     { "path": "../repo-tools" }
   ],
   "include": [

@@ -42,19 +42,8 @@ export default defineConfig(({ mode }) => {
         external: [
           'react',
           'react-dom',
-          '@endo/eventual-send',
-          '@endo/marshal',
-          '@metamask/kernel-browser-runtime',
-          '@metamask/kernel-rpc-methods',
-          '@metamask/kernel-shims',
-          '@metamask/kernel-utils',
-          '@metamask/logger',
-          '@metamask/ocap-kernel',
-          '@metamask/streams',
-          '@metamask/utils',
           'react/jsx-runtime',
           'react/jsx-dev-runtime',
-          'ses',
         ],
         output: {
           globals: {
