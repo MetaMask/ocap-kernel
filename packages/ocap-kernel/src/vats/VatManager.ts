@@ -172,9 +172,6 @@ export class VatManager {
   async restartVat(vatId: VatId): Promise<VatHandle> {
     await this.#kernelQueue.waitForCrank();
     const vat = this.getVat(vatId);
-    if (!vat) {
-      throw new VatNotFoundError(vatId);
-    }
     const { config } = vat;
     await this.stopVat(vatId, false);
     await this.runVat(vatId, config);
