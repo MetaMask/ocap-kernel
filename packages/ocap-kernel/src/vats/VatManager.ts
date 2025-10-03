@@ -137,17 +137,12 @@ export class VatManager {
     reason?: CapData<KRef>,
   ): Promise<void> {
     const vat = this.getVat(vatId);
-    if (!vat) {
-      throw new VatNotFoundError(vatId);
-    }
-
     let terminationError: Error | undefined;
     if (reason) {
       terminationError = new Error(`Vat termination: ${reason.body}`);
     } else if (terminating) {
       terminationError = new VatDeletedError(vatId);
     }
-
     await this.#platformServices
       .terminate(vatId, terminationError)
       .catch(this.#logger.error);
