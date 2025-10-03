@@ -28,14 +28,18 @@ export function htmlTrustedPrelude(): VitePlugin {
         );
       }
 
-      if (htmlDoc('head').length !== 1 || htmlDoc('head > script').length < 1) {
+      if (htmlDoc('head').length !== 1) {
         throw new Error(
-          `Expected HTML document with a single <head> containing at least one <script>. Received:\n${htmlString}`,
+          `Expected HTML document with a single <head>. Received:\n${htmlString}`,
         );
       }
 
       const endoifyElement = `<script src="/endoify.js" type="module"></script>`;
-      htmlDoc(endoifyElement).insertBefore('head:first script:first');
+      if (htmlDoc('head > script').length >= 1) {
+        htmlDoc(endoifyElement).insertBefore('head:first script:first');
+      } else {
+        htmlDoc(endoifyElement).appendTo('head:first');
+      }
 
       return await prettierFormat(htmlDoc.html(), {
         parser: 'html',

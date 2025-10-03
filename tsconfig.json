@@ -29,9 +29,10 @@
     { "path": "./packages/nodejs" },
     { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },
+    { "path": "./packages/omnium-gatherum" },
     { "path": "./packages/remote-iterables" },
+    { "path": "./packages/repo-tools" },
     { "path": "./packages/streams" },
-    { "path": "./packages/template-package" },
-    { "path": "./packages/repo-tools" }
+    { "path": "./packages/template-package" }
   ]
 }

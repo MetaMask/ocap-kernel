@@ -18,6 +18,7 @@
   ],
   "include": [
     "../../vitest.config.ts",
+    "./test/**/*.ts",
     "./src",
     "./vite.config.ts",
     "./vitest.config.ts"

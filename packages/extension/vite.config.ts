@@ -2,10 +2,16 @@
 /// <reference types="vitest" />
 
 import {
+  getDefines,
+  getPackageDevAliases,
+} from '@ocap/repo-tools/build-utils/vite';
+import {
   deduplicateAssets,
   extensionDev,
   htmlTrustedPrelude,
   jsTrustedPrelude,
+  moveHtmlFilesToRoot,
+  watchInternalPackages,
 } from '@ocap/repo-tools/vite-plugins';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
@@ -48,7 +54,7 @@ export default defineConfig(({ mode }) => {
       ...getDefines(isDev),
     },
     resolve: {
-      alias: isDev ? getPackageDevAliases(pkg.dependencies) : [],
+      alias: isDev ? getPackageDevAliases(rootDir, pkg.dependencies) : [],
     },
     build: {
       assetsDir: '',
@@ -103,97 +109,10 @@ export default defineConfig(({ mode }) => {
           !fileName.includes('sqlite3-opfs-async-proxy'),
         expectedCount: 2,
       }),
-      // Would you believe that there's no other way to do this?
-      {
-        name: 'move-html-files-to-root',
-        generateBundle: {
-          order: 'post',
-          handler(_, bundle) {
-            for (const chunk of Object.values(bundle)) {
-              if (!chunk.fileName.endsWith('.html')) {
-                continue;
-              }
-              chunk.fileName = path.basename(chunk.fileName);
-            }
-          },
-        },
-      },
-      // Watch kernel-ui dist folder and trigger rebuilds
-      {
-        name: 'watch-kernel-ui',
-        configureServer(server) {
-          server.watcher.add(path.resolve(rootDir, 'kernel-ui/dist'));
-          server.watcher.on('change', (file) => {
-            if (file.includes('kernel-ui/dist')) {
-              server.moduleGraph.invalidateAll();
-            }
-          });
-        },
-      },
+      moveHtmlFilesToRoot(),
+      watchInternalPackages({ rootDir, packages: ['kernel-ui'] }),
       // Open the extension in the browser when watching
       isWatching && extensionDev({ extensionPath: outDir }),
     ],
   };
 });
-
-/**
- * Generates Vite aliases for workspace packages to enable proper sourcemap handling in development.
- *
- * By default, Vite resolves workspace packages to their `dist` folders, which breaks the
- * sourcemap chain. These aliases force Vite to use the original TypeScript source from the
- * `src` directories instead, ensuring a complete and accurate sourcemap for debugging.
- *
- * A special alias for `@metamask/kernel-ui/styles.css` is included to resolve the
- * built stylesheet correctly from its `dist` folder.
- *
- * @param deps - The dependencies object from the `package.json` file.
- * @returns An array of Vite alias objects for development mode.
- */
-function getPackageDevAliases(
-  deps: Record<string, string> = {},
-): { find: string; replacement: string }[] {
-  const workspacePackages = Object.keys(deps)
-    .filter(
-      (name) => name.startsWith('@metamask/') && deps[name] === 'workspace:^',
-    )
-    .map((pkgName) => ({
-      find: pkgName,
-      replacement: path.resolve(
-        rootDir,
-        `packages/${pkgName.replace('@metamask/', '')}/src`,
-      ),
-    }));
-
-  return [
-    // Special alias for kernel-ui styles, which are in dist
-    {
-      find: '@metamask/kernel-ui/styles.css',
-      replacement: path.resolve(rootDir, 'packages/kernel-ui/dist/styles.css'),
-    },
-    ...workspacePackages,
-  ];
-}
-
-type Defines = {
-  'process.env.RESET_STORAGE': 'true' | 'false';
-};
-
-/**
- * Gets the Vite / esbuild defines for the extension build process.
- *
- * @see https://vite.dev/config/shared-options.html#define
- * @param isDev - Whether the extension is in development mode.
- * @returns The Vite / esbuild defines.
- */
-function getDefines(isDev: boolean): Defines {
-  const rawVars = [
-    ['RESET_STORAGE', process.env.RESET_STORAGE ?? (isDev ? 'true' : 'false')],
-  ];
-
-  return Object.fromEntries(
-    rawVars.map(([key, value]) => [
-      `process.env.${key}`,
-      JSON.stringify(value),
-    ]),
-  ) as Defines;
-}
