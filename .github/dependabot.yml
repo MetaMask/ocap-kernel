@@ -14,49 +14,56 @@ updates:
     open-pull-requests-limit: 10
     groups:
       vite:
+        # Group all Vite-related dependencies
         patterns:
           - 'vite'
+          - 'vite-*'
           - 'vitest'
           - '@vitest/*'
           - '@vitejs/*'
-          - 'vite-*'
           - 'jsdom'
       metamask:
+        # Group MetaMask packages excluding ESLint configs
         patterns:
           - '@metamask/*'
         exclude-patterns:
           - '@metamask/eslint-*'
       metamask-eslint:
+        # Separate group for MetaMask ESLint configs
         patterns:
           - '@metamask/eslint-*'
       agoric:
+        # Group Agoric and Endo packages
         patterns:
           - '@agoric/*'
           - '@endo/*'
           - 'ses'
       react:
+        # Group React and its type definitions
         patterns:
           - 'react'
           - 'react-dom'
           - '@types/react'
           - '@types/react-dom'
-      eslint:
+      linting-and-typing:
+        # Group ESLint, TypeScript, and related packages
         patterns:
           - 'eslint'
           - 'eslint-*'
           - '@typescript-eslint/*'
-      typescript:
-        patterns:
           - 'typescript'
           - 'typescript-*'
       prettier:
+        # Group Prettier and its plugins
         patterns:
           - 'prettier'
           - 'prettier-*'
       testing-library:
+        # Group Testing Library packages
         patterns:
           - '@testing-library/*'
       playwright:
+        # Group Playwright packages
         patterns:
           - '@playwright/*'
           - 'playwright'
