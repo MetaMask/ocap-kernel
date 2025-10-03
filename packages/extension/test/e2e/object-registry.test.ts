@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext, Locator } from '@playwright/test';
 
-import { makeLoadExtension } from '../helpers/extension.ts';
+import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -55,7 +55,7 @@ test.describe('Object Registry', () => {
   };
 
   test.beforeEach(async () => {
-    const extension = await makeLoadExtension();
+    const extension = await loadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
     await popupPage.click('button:text("Object Registry")');

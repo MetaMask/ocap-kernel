@@ -9,6 +9,8 @@ describe('index', () => {
       'extensionDev',
       'htmlTrustedPrelude',
       'jsTrustedPrelude',
+      'moveHtmlFilesToRoot',
+      'watchInternalPackages',
     ]);
   });
 });

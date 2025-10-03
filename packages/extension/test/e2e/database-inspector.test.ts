@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import { makeLoadExtension } from '../helpers/extension.ts';
+import { loadExtension } from '../helpers.ts';
 
 test.describe('Database Inspector', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 
   test.beforeEach(async () => {
-    const extension = await makeLoadExtension();
+    const extension = await loadExtension();
     extensionContext = extension.browserContext;
     popupPage = extension.popupPage;
     await popupPage.click('button:text("Database Inspector")');

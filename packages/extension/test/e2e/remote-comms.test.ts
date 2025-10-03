@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 import { rm } from 'node:fs/promises';
 
-import { makeLoadExtension, sessionPath } from '../helpers/extension.ts';
+import { loadExtension, sessionPath } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 });
 
@@ -34,8 +34,8 @@ test.describe('Remote Communications', () => {
 
   test.beforeEach(async () => {
     // Create two independent extension instances with separate contexts to simulate separate kernels
-    const extension1 = await makeLoadExtension('kernel1');
-    const extension2 = await makeLoadExtension('kernel2');
+    const extension1 = await loadExtension('kernel1');
+    const extension2 = await loadExtension('kernel2');
 
     extensionContext1 = extension1.browserContext;
     extensionContext2 = extension2.browserContext;

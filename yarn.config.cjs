@@ -17,13 +17,18 @@ const semver = require('semver');
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
-const typedocExceptions = ['extension', 'kernel-test', 'repo-tools'];
+const typedocExceptions = [
+  'extension',
+  'kernel-test',
+  'omnium-gatherum',
+  'repo-tools',
+];
 // Packages that do not have builds
 const noBuild = ['create-package', 'repo-tools'];
 // Packages that do not have tests
 const noTests = [];
 // Packages that do not export a `package.json` file
-const noPackageJson = ['extension'];
+const noPackageJson = ['extension', 'omnium-gatherum'];
 // Packages that have weird exports
 const exportsExceptions = ['kernel-shims'];
 // Packages that have weird files
@@ -462,7 +467,7 @@ async function workspaceFileExists(workspace, path) {
     await getWorkspaceFile(workspace, path);
   } catch (error) {
     // No hasProperty() in here.
-    // eslint-disable-next-line no-restricted-syntax
+
     if ('code' in error && error.code === 'ENOENT') {
       return false;
     }

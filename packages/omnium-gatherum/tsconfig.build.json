@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "allowJs": true,
+    "baseUrl": "./",
+    "emitDeclarationOnly": false,
+    "lib": ["DOM", "ES2022"],
+    "noEmit": true,
+    "rootDir": "./src",
+    "types": ["chrome", "ses", "react-dom"]
+  },
+  "references": [
+    { "path": "../kernel-browser-runtime/tsconfig.build.json" },
+    { "path": "../kernel-rpc-methods/tsconfig.build.json" },
+    { "path": "../kernel-ui/tsconfig.build.json" },
+    { "path": "../kernel-store/tsconfig.build.json" },
+    { "path": "../kernel-utils/tsconfig.build.json" },
+    { "path": "../logger/tsconfig.build.json" },
+    { "path": "../ocap-kernel/tsconfig.build.json" },
+    { "path": "../streams/tsconfig.build.json" }
+  ],
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
+    "./src/**/*-trusted-prelude.js",
+    "./src/env/dev-console.js"
+  ]
+}

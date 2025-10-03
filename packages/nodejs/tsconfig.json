@@ -18,7 +18,6 @@
   ],
   "include": [
     "../../vitest.config.packages.ts",
-    "../../vitest.workspace.ts",
     "./src/**/*.ts",
     "./src/**/*-trusted-prelude.js",
     "./test/**/*.ts",

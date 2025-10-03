@@ -15,7 +15,6 @@
   },
   "exclude": [
     "**/vite.config.ts",
-    "vitest.workspace.ts",
     "**/vitest.config.ts",
     "**/*.test.ts",
     "**/*.test.tsx"

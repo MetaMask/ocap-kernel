@@ -24,7 +24,6 @@
   ],
   "include": [
     "../../vitest.config.ts",
-    "../../vitest.workspace.ts",
     "./scripts/build-constants.mjs",
     "./playwright.config.ts",
     "./src/**/*.ts",

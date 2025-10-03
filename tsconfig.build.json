@@ -14,6 +14,7 @@
     { "path": "./packages/nodejs-test-workers/tsconfig.build.json" },
     { "path": "./packages/nodejs/tsconfig.build.json" },
     { "path": "./packages/ocap-kernel/tsconfig.build.json" },
+    { "path": "./packages/omnium-gatherum/tsconfig.build.json" },
     { "path": "./packages/remote-iterables/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" },
     { "path": "./packages/template-package/tsconfig.build.json" }
