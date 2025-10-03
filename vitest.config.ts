@@ -156,10 +156,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 94.34,
+          statements: 94.38,
           functions: 96.08,
-          branches: 84.94,
-          lines: 94.37,
+          branches: 85.03,
+          lines: 94.41,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.26,
