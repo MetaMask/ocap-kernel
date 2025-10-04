@@ -56,8 +56,6 @@ export async function initNetwork(
   knownRelays: string[],
   remoteMessageHandler: RemoteMessageHandler,
 ): Promise<SendRemoteMessage> {
-  localStorage.debug = 'libp2p:transports*,libp2p:components*'; // XXX expunge
-
   const privateKey = await generateKeyInfo(keySeed);
   const activeChannels = new Map<string, Channel>(); // peerID -> channel info
   const logger = new Logger();
