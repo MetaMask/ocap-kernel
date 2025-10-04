@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["vitest"]
+  },
+  "references": [
+    { "path": "../repo-tools" },
+    { "path": "../logger" },
+    { "path": "../streams" },
+    { "path": "../kernel-utils" },
+    { "path": "../kernel-store" },
+    { "path": "../ocap-kernel" },
+    { "path": "../kernel-platforms" }
+  ],
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
+}
