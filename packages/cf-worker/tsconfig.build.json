@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.packages.build.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022", "WebWorker"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": []
+  },
+  "references": [
+    { "path": "../kernel-store/tsconfig.build.json" }
+  ],
+  "files": [],
+  "include": ["./src"]
+}

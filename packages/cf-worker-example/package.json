@@ -1,0 +1,24 @@
+{
+  "name": "@ocap/cf-worker-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Example Cloudflare Worker using the Ocap Kernel",
+  "type": "module",
+  "scripts": {
+    "build": "ts-bridge --project tsconfig.build.json --no-references --clean"
+  },
+  "dependencies": {
+    "@metamask/kernel-store": "workspace:^",
+    "@metamask/kernel-utils": "workspace:^",
+    "@metamask/logger": "workspace:^",
+    "@metamask/ocap-kernel": "workspace:^",
+    "@metamask/streams": "workspace:^",
+    "@ocap/cf-worker": "workspace:^"
+  },
+  "devDependencies": {
+    "@ts-bridge/cli": "^0.6.3",
+    "@ts-bridge/shims": "^0.1.1",
+    "typescript": "~5.8.2",
+    "wrangler": "^4.42.0"
+  }
+}

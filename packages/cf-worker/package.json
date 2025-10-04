@@ -1,13 +1,9 @@
 {
-  "name": "@metamask/kernel-store",
-  "version": "0.4.0",
-  "description": "Ocap Kernel storage abstractions and implementations",
-  "keywords": [
-    "MetaMask",
-    "object capabilities",
-    "ocap"
-  ],
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-store#readme",
+  "name": "@ocap/cf-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "For running Ocap Kernel experiments in a Cloudflare Worker environment",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/cf-worker#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -15,8 +11,6 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
-  "license": "(MIT OR Apache-2.0)",
-  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
@@ -29,50 +23,17 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./sqlite/d1": {
-      "import": {
-        "types": "./dist/sqlite/d1.d.mts",
-        "default": "./dist/sqlite/d1.mjs"
-      },
-      "require": {
-        "types": "./dist/sqlite/d1.d.cts",
-        "default": "./dist/sqlite/d1.cjs"
-      }
-    },
-    "./sqlite/nodejs": {
-      "import": {
-        "types": "./dist/sqlite/nodejs.d.mts",
-        "default": "./dist/sqlite/nodejs.mjs"
-      },
-      "require": {
-        "types": "./dist/sqlite/nodejs.d.cts",
-        "default": "./dist/sqlite/nodejs.cjs"
-      }
-    },
-    "./sqlite/wasm": {
-      "import": {
-        "types": "./dist/sqlite/wasm.d.mts",
-        "default": "./dist/sqlite/wasm.mjs"
-      },
-      "require": {
-        "types": "./dist/sqlite/wasm.d.cts",
-        "default": "./dist/sqlite/wasm.cjs"
-      }
-    },
+    "./endoify-mjs": "./dist/env/endoify.mjs",
+    "./endoify-ts": "./src/env/endoify.ts",
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
   "files": [
-    "dist/",
-    "sqlite/"
+    "dist/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
-    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-store",
-    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-store",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/cf-worker",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck",
@@ -87,9 +48,14 @@
     "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
+    "@endo/promise-kit": "^1.1.13",
+    "@metamask/kernel-shims": "workspace:^",
+    "@metamask/kernel-store": "workspace:^",
+    "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
-    "@sqlite.org/sqlite-wasm": "^3.49.1-build3",
-    "better-sqlite3": "^11.9.1",
+    "@metamask/ocap-kernel": "workspace:^",
+    "@metamask/streams": "workspace:^",
+    "@ocap/kernel-platforms": "workspace:^",
     "ses": "^1.14.0"
   },
   "devDependencies": {
@@ -101,7 +67,6 @@
     "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
-    "@types/better-sqlite3": "^7.6.12",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
@@ -126,9 +91,5 @@
   },
   "engines": {
     "node": "^20.6 || >=22"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
   }
 }

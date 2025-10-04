@@ -99,7 +99,8 @@
     "vite": "^7.1.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4",
-    "vitest-fetch-mock": "^0.4.5"
+    "vitest-fetch-mock": "^0.4.5",
+    "wrangler": "^4.42.0"
   },
   "packageManager": "yarn@4.2.2",
   "engines": {
