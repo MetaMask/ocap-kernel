@@ -5,7 +5,10 @@
   "description": "Example Cloudflare Worker using the Ocap Kernel",
   "type": "module",
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean"
+    "bundle:vats": "node ../cli/dist/app.mjs bundle src/counter-vat.js && node scripts/generate-bundles.mjs",
+    "build": "yarn bundle:vats && ts-bridge --project tsconfig.build.json --no-references --clean",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@metamask/kernel-store": "workspace:^",
@@ -16,6 +19,7 @@
     "@ocap/cf-worker": "workspace:^"
   },
   "devDependencies": {
+    "@ocap/cli": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
     "typescript": "~5.8.2",

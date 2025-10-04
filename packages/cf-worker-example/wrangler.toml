@@ -2,13 +2,9 @@ name = "ocap-cf-worker-example"
 main = "src/worker.ts"
 compatibility_date = "2025-10-03"
 compatibility_flags = ["nodejs_compat"]
-
-[build]
-command = "true"
+keep_names = true
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ocap_kernel"
 database_id = "local-d1"
-
-

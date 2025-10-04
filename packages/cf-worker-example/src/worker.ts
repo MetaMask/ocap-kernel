@@ -10,7 +10,9 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { makeKernel } from '@ocap/cf-worker';
 import { makeD1KernelDatabase } from '@metamask/kernel-store/sqlite/d1';
 import type { D1Database } from '@metamask/kernel-store/sqlite/d1';
-
+import { kunser, makeKernelStore } from '@metamask/ocap-kernel';
+import { counterBundleUri } from './bundles.ts';
+""
 // no-op
 
 export type Env = {
@@ -43,56 +45,66 @@ export default {
       const kernelPromise = makeKernel({ port: kernelPort, logger, database });
 
       // Wait for both to be ready
-      const [controllerStream] = await Promise.all([
+      const [controllerStream, kernel] = await Promise.all([
         controllerStreamPromise,
         kernelPromise,
       ]);
       console.log('kernel ready');
 
-      // Send ping to test kernel is responding
-      console.log('sending ping request');
-      const pingId = '1';
-      await controllerStream.write({ 
-        jsonrpc: '2.0', 
-        id: pingId, 
-        method: 'ping',
-        params: []
-      });
-      console.log('ping request sent');
-
-      // Read ping response with timeout
-      let pingResult: unknown = null;
-      const timeoutMs = 5000;
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Ping timeout')), timeoutMs);
-      });
+      // Launch counter vat subcluster directly (not via RPC!)
+      console.log('launching counter vat subcluster...');
+      let bootstrapMessage: unknown = null;
+      let counterRootRef: string | null = null;
+      let vatCountBefore: unknown = null;
+      let vatCountAfter: unknown = null;
 
       try {
-        const responsePromise = (async () => {
-          for await (const message of controllerStream) {
-            console.log('received message:', JSON.stringify(message));
-            if ('id' in message && message.id === pingId) {
-              if ('result' in message) {
-                pingResult = message.result;
-              } else if ('error' in message) {
-                pingResult = { error: message.error };
-              }
-              break;
-            }
-          }
-        })();
+        // Launch the subcluster
+        const bootstrapResult = await kernel.launchSubcluster({
+          bootstrap: 'counter',
+          forceReset: false,
+          vats: {
+            counter: {
+              bundleSpec: counterBundleUri,
+              parameters: {
+                name: 'CFWorkerCounter',
+              },
+            },
+          },
+        });
+        
+        // Deserialize the bootstrap result to get the actual return value
+        if (bootstrapResult) {
+          bootstrapMessage = kunser(bootstrapResult);
+          console.log('bootstrap result:', bootstrapMessage);
+        }
 
-        await Promise.race([responsePromise, timeoutPromise]);
-        console.log('ping response received:', pingResult);
+        // Get the root object reference using KernelStore
+        const kernelStore = makeKernelStore(database);
+        counterRootRef = kernelStore.getRootObject('v1') as string;
+        console.log('counter root ref:', counterRootRef);
+
+        if (counterRootRef) {
+          // Get the current count
+          const getCountResult = await kernel.queueMessage(counterRootRef, 'getCount', []);
+          vatCountBefore = kunser(getCountResult);
+          console.log('current count:', vatCountBefore);
+
+          // Increment the counter
+          console.log('incrementing counter...');
+          const incrementRawResult = await kernel.queueMessage(counterRootRef, 'increment', [1]);
+          vatCountAfter = kunser(incrementRawResult);
+          console.log('new count after increment:', vatCountAfter);
+        }
       } catch (error) {
-        console.error('error waiting for ping response:', error);
-        pingResult = { error: String(error) };
+        console.error('error during vat operations:', error);
+        bootstrapMessage = { error: String(error), stack: error instanceof Error ? error.stack : undefined };
       }
 
       // Test database persistence by reading/writing a simple counter
       const counterKey = 'cf-worker-request-count';
-      const currentCount = database.kernelKVStore.get(counterKey);
-      const nextCount = currentCount ? parseInt(currentCount, 10) + 1 : 1;
+      const dbCountStr = database.kernelKVStore.get(counterKey);
+      const nextCount = dbCountStr ? parseInt(dbCountStr, 10) + 1 : 1;
       database.kernelKVStore.set(counterKey, String(nextCount));
       console.log(`request count: ${nextCount}`);
 
@@ -105,9 +117,12 @@ export default {
       console.log('controller stream returned');
 
       return new Response(JSON.stringify({ 
-        ping: pingResult,
+        bootstrap: bootstrapMessage,
+        counterRef: counterRootRef,
+        vatCountBefore: vatCountBefore,
+        vatCountAfter: vatCountAfter,
         requestCount: nextCount,
-        message: 'Kernel is running with D1 persistence!',
+        message: 'Counter vat launched and incremented!',
         timestamp: new Date().toISOString()
       }, null, 2), {
         headers: { 'content-type': 'application/json' },
