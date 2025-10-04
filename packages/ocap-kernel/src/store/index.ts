@@ -53,6 +53,8 @@
  *   nextRemoteId = NN                        // allocation counter for remote IDs
  *   k.nextObjectId = NN                      // allocation counter for object KRefs
  *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
+ *   pinnedObjects = ${kref}[,${kref}]*       // pinned object list
+ *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';

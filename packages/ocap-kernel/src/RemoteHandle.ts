@@ -25,6 +25,7 @@ type RemoteHandleConstructorProps = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   remoteComms: RemoteComms;
+  locationHints?: string[] | undefined;
   logger?: Logger | undefined;
 };
 
@@ -78,6 +79,9 @@ export class RemoteHandle implements EndpointHandle {
   /** Connectivity to the network. */
   readonly #remoteComms: RemoteComms;
 
+  /** Possible contact points for reaching the remote peer. */
+  readonly #locationHints: string[] | undefined;
+
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
     string,
@@ -99,6 +103,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.kernelStore - The kernel's persistent state store.
    * @param params.kernelQueue - The kernel's queue.
    * @param params.remoteComms - Remote comms object to access the network.
+   * @param params.locationHints - Possible contact points to reach the other end.
    * @param params.logger - Optional logger for error and diagnostic output.
    */
   // eslint-disable-next-line no-restricted-syntax
@@ -108,6 +113,7 @@ export class RemoteHandle implements EndpointHandle {
     kernelStore,
     kernelQueue,
     remoteComms,
+    locationHints,
     logger,
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
@@ -116,6 +122,7 @@ export class RemoteHandle implements EndpointHandle {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#remoteComms = remoteComms;
+    this.#locationHints = locationHints;
     this.#myCrankResult = { didDelivery: remoteId };
     kernelStore.initEndpoint(remoteId);
   }
@@ -147,6 +154,7 @@ export class RemoteHandle implements EndpointHandle {
     await this.#remoteComms.sendRemoteMessage(
       this.#peerId,
       JSON.stringify(message),
+      this.#locationHints,
     );
   }
 

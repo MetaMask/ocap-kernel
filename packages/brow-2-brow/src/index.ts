@@ -294,8 +294,9 @@ const App = async (): Promise<void> => {
     update(DOM.nodePeerDetails(), getPeerDetails(libp2p));
   }, 1000);
 
+  const connectButton = DOM.connectButton();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DOM.connectButton().onclick = async (event: any) => {
+  connectButton.onclick = async (event: any) => {
     event.preventDefault();
     const maddr = multiaddr(DOM.inputMultiaddr().value);
 
@@ -309,8 +310,9 @@ const App = async (): Promise<void> => {
     }
   };
 
+  const sendButton = DOM.sendButton();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DOM.sendButton().onclick = async (event: any) => {
+  sendButton.onclick = async (event: any) => {
     event.preventDefault();
     const target = DOM.inputTarget().value;
     const message = DOM.inputMessage().value;
