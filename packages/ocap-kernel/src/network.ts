@@ -5,7 +5,7 @@ import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import { MuxerClosedError } from '@libp2p/interface';
-import type { PrivateKey, DialOptions } from '@libp2p/interface';
+import type { PrivateKey } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
@@ -305,11 +305,9 @@ export async function initNetwork(
       try {
         const connectToAddr = multiaddr(addressString);
         logger.log(`attempting to contact ${peerId} via ${addressString}`);
-        const conn = await libp2p.dial(connectToAddr, {
+        stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
           signal,
-          runOnTransientConnection: true, // Allow transient connections
-        } as unknown as DialOptions);
-        stream = await conn.newStream('whatever');
+        });
         if (stream) {
           logger.log(
             `successfully connected to ${peerId} via ${addressString}`,
