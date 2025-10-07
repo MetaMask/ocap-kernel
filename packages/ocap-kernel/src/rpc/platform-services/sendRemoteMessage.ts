@@ -25,7 +25,7 @@ export const sendRemoteMessageSpec: SendRemoteMessageSpec = {
 export type SendRemoteMessage = (
   to: string,
   message: string,
-  hints: string[],
+  hints?: string[],
 ) => Promise<null>;
 
 type SendRemoteMessageHooks = {

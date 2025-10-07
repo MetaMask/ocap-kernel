@@ -102,6 +102,7 @@ vi.mock('it-byte-stream', () => ({
 vi.mock('libp2p', () => ({
   createLibp2p: vi.fn(async () => {
     return {
+      start: vi.fn(),
       peerId: {
         toString: () => 'test-peer-id-12345',
       },
@@ -219,6 +220,7 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        start: vi.fn(),
         peerId: {
           toString: () => 'test-peer-id-fallback',
         },
@@ -277,6 +279,7 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        start: vi.fn(),
         peerId: {
           toString: () => 'test-peer-id-fail-all',
         },
@@ -312,6 +315,7 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        start: vi.fn(),
         peerId: {
           toString: () => 'test-peer-id-no-problem',
         },
@@ -389,6 +393,7 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        start: vi.fn(),
         peerId: {
           toString: () => 'test-peer-id-timeout',
         },
@@ -440,6 +445,7 @@ describe('network.initNetwork', () => {
     const { createLibp2p } = await import('libp2p');
     (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async () => ({
+        start: vi.fn(),
         peerId: {
           toString: () => 'test-peer-id-multi-relays',
         },
