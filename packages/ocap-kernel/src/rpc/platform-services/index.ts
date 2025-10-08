@@ -56,14 +56,4 @@ export const platformServicesMethodSpecs = {
   initializeRemoteComms: InitializeRemoteCommsSpec;
 };
 
-/*
-export const platformServicesMethodSpecs: MethodSpecRecord<PlatformServicesMethodSpecs> =
-  {
-    launch: launchSpec,
-    terminate: terminateSpec,
-    terminateAll: terminateAllSpec,
-    sendRemoteMessage: sendRemoteMessageSpec,
-    initializeRemoteComms: initializeRemoteCommsSpec,
-  } as const;
-*/
 export type PlatformServicesMethod = PlatformServicesMethodSpecs['method'];

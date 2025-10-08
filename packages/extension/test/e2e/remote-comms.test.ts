@@ -30,6 +30,7 @@ test.describe('Remote Communications', () => {
     await rm(sessionPath, { recursive: true, force: true });
     // Start the relay
     await startRelay(console);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
   test.beforeEach(async () => {

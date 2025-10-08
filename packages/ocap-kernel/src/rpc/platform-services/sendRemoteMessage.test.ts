@@ -300,6 +300,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'async-peer',
         message: 'async-message',
+        hints: [],
       };
 
       const result = await sendRemoteMessageHandler.implementation(
