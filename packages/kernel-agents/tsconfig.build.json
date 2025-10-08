@@ -5,9 +5,13 @@
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": []
+    "types": ["node"]
   },
-  "references": [],
+  "references": [
+    { "path": "../kernel-language-model-service/tsconfig.build.json" },
+    { "path": "../kernel-utils/tsconfig.build.json" },
+    { "path": "../logger/tsconfig.build.json" }
+  ],
   "files": [],
   "include": ["./src"]
 }

@@ -3,13 +3,20 @@
   "compilerOptions": {
     "baseUrl": "./",
     "lib": ["ES2022"],
-    "types": ["vitest"]
+    "types": ["vitest", "node"]
   },
-  "references": [{ "path": "../repo-tools" }],
+  "references": [
+    { "path": "../kernel-language-model-service" },
+    { "path": "../kernel-utils" },
+    { "path": "../logger" },
+    { "path": "../repo-tools" }
+  ],
   "include": [
     "../../vitest.config.ts",
     "./src",
+    "./test",
     "./vite.config.ts",
-    "./vitest.config.ts"
+    "./vitest.config.ts",
+    "./vitest.config.e2e.ts"
   ]
 }
