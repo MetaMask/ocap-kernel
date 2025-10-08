@@ -310,7 +310,11 @@ export type PlatformServices = {
    * @returns A promise that resolves when the message has been transmitted or
    *   rejects if there is some problem doing so.
    */
-  sendRemoteMessage: (to: string, message: string) => Promise<void>;
+  sendRemoteMessage: (
+    to: string,
+    message: string,
+    hints?: string[],
+  ) => Promise<void>;
   /**
    * Initialize network communications.
    *
@@ -329,8 +333,9 @@ export type PlatformServices = {
 };
 
 export type SendRemoteMessage = (
-  peerId: string,
+  to: string,
   message: string,
+  hints?: string[],
 ) => Promise<void>;
 
 export type RemoteComms = {
