@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import '@ocap/repo-tools/test-utils/mock-endoify';
+import { describe, it, expect } from 'vitest';
 
-import greet from './index.ts';
+import * as indexModule from './index.ts';
 
-describe('Test', () => {
-  it('greets', () => {
-    const name = 'Huey';
-    const result = greet(name);
-    expect(result).toBe('Hello, Huey!');
+describe('index', () => {
+  it('has the expected exports', () => {
+    expect(Object.keys(indexModule).sort()).toStrictEqual(
+      expect.arrayContaining(['makeAgent']),
+    );
   });
 });

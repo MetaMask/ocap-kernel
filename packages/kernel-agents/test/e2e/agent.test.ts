@@ -5,11 +5,7 @@ import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { makeAgent } from '../../src/agent.ts';
-import {
-  getWordLength,
-  multiply,
-  search,
-} from '../../src/example-capabilities.ts';
+import { count, add, multiply } from '../../src/example-capabilities.ts';
 import { DEFAULT_MODEL } from '../constants.ts';
 
 /**
@@ -61,15 +57,15 @@ describe('agent', () => {
     async () => {
       const llm = await llmService.makeInstance({ model: DEFAULT_MODEL });
       const word = 'xf9147qsdhdkj';
-      const getWordLengthSpy = vi.spyOn(getWordLength, 'func');
-      // const getWordLength = vi.fn().mockResolvedValue(word.length.toString());
-      const agent = makeAgent({ llm, capabilities: { getWordLength }, logger });
+      const countSpy = vi.spyOn(count, 'func');
+      // const count = vi.fn().mockResolvedValue(word.length.toString());
+      const agent = makeAgent({ llm, capabilities: { count }, logger });
       expect(agent).toBeDefined();
       const result = await agent.task(
         `What is the length of the word "${word}"?`,
       );
       expect(result).toBeDefined();
-      expect(getWordLengthSpy).toHaveBeenCalled();
+      expect(countSpy).toHaveBeenCalled();
       expect(result).includes(word.length.toString());
     },
   );
@@ -85,9 +81,9 @@ describe('agent', () => {
       const agent = makeAgent({
         llm,
         capabilities: {
-          search,
+          count,
+          add,
           multiply,
-          getWordLength,
         },
         logger,
       });
