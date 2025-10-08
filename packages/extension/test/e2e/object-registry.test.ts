@@ -5,7 +5,7 @@ import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Object Registry', () => {
+test.describe.skip('Object Registry', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 

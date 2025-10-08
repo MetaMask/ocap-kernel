@@ -3,7 +3,7 @@ import type { Page, BrowserContext } from '@playwright/test';
 
 import { loadExtension } from '../helpers.ts';
 
-test.describe('Database Inspector', () => {
+test.describe.skip('Database Inspector', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 

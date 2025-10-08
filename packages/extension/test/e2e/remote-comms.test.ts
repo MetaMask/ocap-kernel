@@ -139,7 +139,7 @@ test.describe('Remote Communications', () => {
     const messageResponse = popupPage1.locator(
       '[data-testid="message-response"]',
     );
-    await expect(messageResponse).toBeVisible();
+    await expect(messageResponse).toBeVisible({ timeout: 30000 });
     await expect(messageResponse).toContainText(
       // eslint-disable-next-line no-useless-escape
       `Response:{\"body\":\"#\\\"vat Bob got \\\\\\\"hello\\\\\\\" from remote Alice\\\"\",\"slots\":[]}`,

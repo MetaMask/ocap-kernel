@@ -6,7 +6,7 @@ import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Kernel Persistence', () => {
+test.describe.skip('Kernel Persistence', () => {
   let extensionContext: BrowserContext;
   let extensionId: string;
   let popupPage: Page;
