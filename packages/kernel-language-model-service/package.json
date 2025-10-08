@@ -13,6 +13,16 @@
   },
   "type": "module",
   "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
     "./ollama/nodejs": {
       "import": {
         "types": "./dist/ollama/nodejs.d.mts",
