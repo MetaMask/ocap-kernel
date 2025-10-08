@@ -334,7 +334,7 @@ export type PlatformServices = {
 };
 
 export type SendRemoteMessage = (
-  peerId: string,
+  to: string,
   message: string,
   hints?: string[],
 ) => Promise<void>;

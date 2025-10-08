@@ -209,14 +209,14 @@ export class PlatformServicesServer {
   }
 
   async #sendRemoteMessage(
-    peerId: string,
+    to: string,
     message: string,
     hints: string[] = [],
   ): Promise<null> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(peerId, message, hints);
+    await this.#sendRemoteMessageFunc(to, message, hints);
     return null;
   }
 

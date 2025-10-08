@@ -282,18 +282,18 @@ export class Kernel {
   /**
    * Send a message to a remote kernel.
    *
-   * @param peerId - The peer ID of the remote kernel.
+   * @param to - The peer ID of the remote kernel.
    * @param message - The message to send.
    * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    *
    * @returns a promise for the result of the message send.
    */
   async sendRemoteMessage(
-    peerId: string,
+    to: string,
     message: string,
     hints: string[] = [],
   ): Promise<void> {
-    await this.#getRemoteComms().sendRemoteMessage(peerId, message, hints);
+    await this.#getRemoteComms().sendRemoteMessage(to, message, hints);
   }
 
   /**
