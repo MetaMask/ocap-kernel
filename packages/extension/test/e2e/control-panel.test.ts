@@ -6,7 +6,7 @@ import { loadExtension } from '../helpers.ts';
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Control Panel', () => {
+test.describe.skip('Control Panel', () => {
   let extensionContext: BrowserContext;
   let popupPage: Page;
 

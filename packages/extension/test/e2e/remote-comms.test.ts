@@ -24,12 +24,15 @@ test.describe('Remote Communications', () => {
   let extensionContext2: BrowserContext;
   let popupPage1: Page;
   let popupPage2: Page;
+  let offscreenPage1: Page | null = null;
+  let offscreenPage2: Page | null = null;
 
   test.beforeAll(async () => {
     // Clean up any existing test data
     await rm(sessionPath, { recursive: true, force: true });
     // Start the relay
     await startRelay(console);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
   test.beforeEach(async () => {
@@ -41,6 +44,101 @@ test.describe('Remote Communications', () => {
     extensionContext2 = extension2.browserContext;
     popupPage1 = extension1.popupPage;
     popupPage2 = extension2.popupPage;
+
+    // Wait a bit for offscreen documents to be created
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Navigate directly to the offscreen documents to capture their logs
+    try {
+      offscreenPage1 = await extensionContext1.newPage();
+      await offscreenPage1.goto(
+        `chrome-extension://${extension1.extensionId}/offscreen.html`,
+      );
+
+      // Attach console listener to offscreen page 1
+      offscreenPage1.on('console', (message) => {
+        console.log(`[Kernel1-OFFSCREEN] ${message.type()}: ${message.text()}`);
+      });
+      offscreenPage1.on('pageerror', (error) => {
+        console.error('[Kernel1-OFFSCREEN Error]', error);
+      });
+
+      console.log('Successfully connected to Kernel1 offscreen document');
+    } catch (error) {
+      console.log('Could not connect to Kernel1 offscreen document:', error);
+    }
+
+    try {
+      offscreenPage2 = await extensionContext2.newPage();
+      await offscreenPage2.goto(
+        `chrome-extension://${extension2.extensionId}/offscreen.html`,
+      );
+
+      // Attach console listener to offscreen page 2
+      offscreenPage2.on('console', (message) => {
+        console.log(`[Kernel2-OFFSCREEN] ${message.type()}: ${message.text()}`);
+      });
+      offscreenPage2.on('pageerror', (error) => {
+        console.error('[Kernel2-OFFSCREEN Error]', error);
+      });
+
+      console.log('Successfully connected to Kernel2 offscreen document');
+    } catch (error) {
+      console.log('Could not connect to Kernel2 offscreen document:', error);
+    }
+
+    // Also inject console interceptors into the offscreen context via evaluate
+    if (offscreenPage1) {
+      await offscreenPage1.evaluate(() => {
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        const originalDebug = console.debug;
+
+        console.log = (...args) => {
+          originalLog('[OffscreenInternal1]', ...args);
+        };
+        console.error = (...args) => {
+          originalError('[OffscreenInternal1-ERROR]', ...args);
+        };
+        console.warn = (...args) => {
+          originalWarn('[OffscreenInternal1-WARN]', ...args);
+        };
+        console.info = (...args) => {
+          originalInfo('[OffscreenInternal1-INFO]', ...args);
+        };
+        console.debug = (...args) => {
+          originalDebug('[OffscreenInternal1-DEBUG]', ...args);
+        };
+      });
+    }
+
+    if (offscreenPage2) {
+      await offscreenPage2.evaluate(() => {
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        const originalDebug = console.debug;
+
+        console.log = (...args) => {
+          originalLog('[OffscreenInternal2]', ...args);
+        };
+        console.error = (...args) => {
+          originalError('[OffscreenInternal2-ERROR]', ...args);
+        };
+        console.warn = (...args) => {
+          originalWarn('[OffscreenInternal2-WARN]', ...args);
+        };
+        console.info = (...args) => {
+          originalInfo('[OffscreenInternal2-INFO]', ...args);
+        };
+        console.debug = (...args) => {
+          originalDebug('[OffscreenInternal2-DEBUG]', ...args);
+        };
+      });
+    }
 
     // Wait for both kernels to be fully loaded
     await expect(
@@ -106,12 +204,19 @@ test.describe('Remote Communications', () => {
     expect(ocapUrl).toMatch(/^ocap:/u);
     expect(ocapUrl).toContain(peerId2); // Should contain kernel2's peer ID
 
+    // focus on kernel1
+    await popupPage1.bringToFront();
+
     // Go to Object Registry tab on kernel1 to send the remote message
     await popupPage1.click('button:text("Object Registry")');
 
     // Select the first target (alice vat)
     const targetSelect = popupPage1.locator('[data-testid="message-target"]');
-    await targetSelect.selectOption({ index: 1 }); // Skip empty option
+    await expect(targetSelect).toBeVisible();
+    const options = await targetSelect.locator('option').all();
+    expect(options.length).toBeGreaterThan(1);
+    await targetSelect.selectOption({ value: 'ko3' });
+    expect(await targetSelect.inputValue()).toBe('ko3');
 
     // Set method to doRunRun (the remote communication method)
     const methodInput = popupPage1.locator('[data-testid="message-method"]');
@@ -123,11 +228,32 @@ test.describe('Remote Communications', () => {
 
     await popupPage1.waitForTimeout(1000);
 
-    await popupPage1.click('[data-testid="message-send-button"]');
+    const sendButton = popupPage1.locator(
+      '[data-testid="message-send-button"]',
+    );
+    await expect(sendButton).toBeVisible();
+
+    console.log('=== SENDING REMOTE MESSAGE ===');
+    console.log(`Target: ko3 (alice vat)`);
+    console.log(`Method: doRunRun`);
+    console.log(`Params: ["${ocapUrl}"]`);
+    console.log('Clicking send button...');
+
+    await sendButton.click();
+
+    console.log('Send button clicked, waiting for response...');
+
     const messageResponse = popupPage1.locator(
       '[data-testid="message-response"]',
     );
-    await expect(messageResponse).toBeVisible();
+    await expect(messageResponse).toBeVisible({ timeout: 30000 });
+
+    // Log the actual response to help debug CI failures
+    const responseText = await messageResponse.textContent();
+    console.log('=== ACTUAL RESPONSE ===');
+    console.log(responseText);
+    console.log('=== END RESPONSE ===');
+
     await expect(messageResponse).toContainText(
       // eslint-disable-next-line no-useless-escape
       `Response:{\"body\":\"#\\\"vat Bob got \\\\\\\"hello\\\\\\\" from remote Alice\\\"\",\"slots\":[]}`,
