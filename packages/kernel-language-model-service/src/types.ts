@@ -46,7 +46,10 @@ export type LanguageModel<Options, Response> = {
   sample: (
     prompt: string,
     options?: Partial<Options>,
-  ) => Promise<AsyncIterable<Response>>;
+  ) => Promise<{
+    stream: AsyncIterable<Response>;
+    abort: () => Promise<void>;
+  }>;
 };
 
 /**
