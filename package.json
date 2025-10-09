@@ -109,6 +109,7 @@
     "allowScripts": {
       "$root$": true,
       "@ocap/cli>@metamask/logger>@metamask/streams": true,
+      "@ocap/cli>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
       "@lavamoat/preinstall-always-fail": false,
       "eslint-import-resolver-typescript>unrs-resolver": false,
       "eslint-plugin-import-x>unrs-resolver": false,
