@@ -114,6 +114,14 @@ export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
     });
   }
 
+  await new Promise<void>((resolve) => {
+    if (libp2p.status === 'started') {
+      resolve();
+    } else {
+      libp2p.addEventListener('start', resolve);
+    }
+  });
+
   logger.log('========================================');
   logger.log('Relay Server Started');
   logger.log('PeerID: ', libp2p.peerId.toString());
