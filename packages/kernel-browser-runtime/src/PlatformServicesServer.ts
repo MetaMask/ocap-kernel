@@ -226,7 +226,7 @@ export class PlatformServicesServer {
       message,
     });
     if (possibleReply !== '') {
-      await this.#sendRemoteMessage(from, possibleReply);
+      await this.#sendRemoteMessage(from, possibleReply, []);
     }
     return '';
   }

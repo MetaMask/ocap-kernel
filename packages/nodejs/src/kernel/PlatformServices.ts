@@ -115,7 +115,7 @@ export class NodejsPlatformServices implements PlatformServices {
     }
     const possibleReply = await this.#remoteMessageHandler(from, message);
     if (possibleReply !== '') {
-      await this.sendRemoteMessage(from, possibleReply);
+      await this.sendRemoteMessage(from, possibleReply, []);
     }
     return '';
   }
