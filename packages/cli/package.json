@@ -43,6 +43,7 @@
     "@libp2p/crypto": "^5.1.1",
     "@libp2p/identify": "^3.0.29",
     "@libp2p/interface": "^2.9.0",
+    "@libp2p/ping": "2.0.29",
     "@libp2p/tcp": "^10.1.10",
     "@libp2p/websockets": "^9.2.10",
     "@metamask/kernel-shims": "workspace:^",

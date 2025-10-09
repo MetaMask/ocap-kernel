@@ -6,7 +6,7 @@ import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import { MuxerClosedError } from '@libp2p/interface';
 import type { PrivateKey } from '@libp2p/interface';
-// import { ping } from '@libp2p/ping';
+import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
@@ -103,7 +103,7 @@ export async function initNetwork(
     ],
     services: {
       identify: identify(),
-      // ping: ping(),
+      ping: ping(),
     },
   });
 

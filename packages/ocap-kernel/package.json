@@ -81,6 +81,7 @@
     "@libp2p/identify": "^3.0.29",
     "@libp2p/interface": "^2.9.0",
     "@libp2p/peer-id": "^5.1.2",
+    "@libp2p/ping": "2.0.29",
     "@libp2p/webrtc": "^5.2.12",
     "@libp2p/websockets": "^9.2.10",
     "@libp2p/webtransport": "^5.0.40",
