@@ -8,9 +8,10 @@ describe('capability', () => {
       description: 'a test capability',
       args: {},
     });
-    expect(testCapability).toBeDefined();
-    expect(testCapability.func).toBeDefined();
-    expect(testCapability.schema).toBeDefined();
+    expect(testCapability).toStrictEqual({
+      func: expect.any(Function),
+      schema: { description: 'a test capability', args: {} },
+    });
   });
 });
 

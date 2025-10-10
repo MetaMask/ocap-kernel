@@ -58,7 +58,6 @@ describe('agent', () => {
       const llm = await llmService.makeInstance({ model: DEFAULT_MODEL });
       const word = 'xf9147qsdhdkj';
       const countSpy = vi.spyOn(count, 'func');
-      // const count = vi.fn().mockResolvedValue(word.length.toString());
       const agent = makeAgent({ llm, capabilities: { count }, logger });
       expect(agent).toBeDefined();
       const result = await agent.task(
