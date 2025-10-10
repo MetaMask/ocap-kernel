@@ -53,6 +53,8 @@ async function makeKernelWorker(): Promise<
   // Assign local relay address generated from `yarn ocap relay`
   const relayQueryString = createRelayQueryString([
     '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    // '/dns4/troll.fudco.com/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    // '/dns4/troll.fudco.com/tcp/9003/ws/p2p/12D3KooWL9PaFePyNg2hFLpaWPFEPVYGzTvrWAFU9Lk2KoiKqJqR',
   ]);
 
   const workerUrlParams = new URLSearchParams(relayQueryString);

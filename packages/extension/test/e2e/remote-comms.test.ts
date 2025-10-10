@@ -30,6 +30,7 @@ test.describe('Remote Communications', () => {
     await rm(sessionPath, { recursive: true, force: true });
     // Start the relay
     await startRelay(console);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
   test.beforeEach(async () => {
@@ -106,12 +107,19 @@ test.describe('Remote Communications', () => {
     expect(ocapUrl).toMatch(/^ocap:/u);
     expect(ocapUrl).toContain(peerId2); // Should contain kernel2's peer ID
 
+    // focus on kernel1
+    await popupPage1.bringToFront();
+
     // Go to Object Registry tab on kernel1 to send the remote message
     await popupPage1.click('button:text("Object Registry")');
 
     // Select the first target (alice vat)
     const targetSelect = popupPage1.locator('[data-testid="message-target"]');
-    await targetSelect.selectOption({ index: 1 }); // Skip empty option
+    await expect(targetSelect).toBeVisible();
+    const options = await targetSelect.locator('option').all();
+    expect(options.length).toBeGreaterThan(1);
+    await targetSelect.selectOption({ value: 'ko3' });
+    expect(await targetSelect.inputValue()).toBe('ko3');
 
     // Set method to doRunRun (the remote communication method)
     const methodInput = popupPage1.locator('[data-testid="message-method"]');
@@ -123,11 +131,16 @@ test.describe('Remote Communications', () => {
 
     await popupPage1.waitForTimeout(1000);
 
-    await popupPage1.click('[data-testid="message-send-button"]');
+    const sendButton = popupPage1.locator(
+      '[data-testid="message-send-button"]',
+    );
+    await expect(sendButton).toBeVisible();
+
+    await sendButton.click();
     const messageResponse = popupPage1.locator(
       '[data-testid="message-response"]',
     );
-    await expect(messageResponse).toBeVisible();
+    await expect(messageResponse).toBeVisible({ timeout: 30_000 });
     await expect(messageResponse).toContainText(
       // eslint-disable-next-line no-useless-escape
       `Response:{\"body\":\"#\\\"vat Bob got \\\\\\\"hello\\\\\\\" from remote Alice\\\"\",\"slots\":[]}`,

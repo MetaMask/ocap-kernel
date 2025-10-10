@@ -26,6 +26,7 @@ describe('sendRemoteMessage', () => {
         const validParams = {
           to: 'peer-123',
           message: 'hello world',
+          hints: [],
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -95,6 +96,7 @@ describe('sendRemoteMessage', () => {
         const validParams = {
           to: '',
           message: '',
+          hints: [],
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -104,6 +106,7 @@ describe('sendRemoteMessage', () => {
         const validParams = {
           to: '🌟peer-123🌟',
           message: 'hello 世界 🌍',
+          hints: [],
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -114,6 +117,7 @@ describe('sendRemoteMessage', () => {
         const validParams = {
           to: longString,
           message: longString,
+          hints: [],
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -127,6 +131,7 @@ describe('sendRemoteMessage', () => {
             data: { nested: { value: 42 } },
             array: [1, 2, 3],
           }),
+          hints: [],
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -155,6 +160,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'peer-123',
         message: 'hello world',
+        hints: [],
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -166,6 +172,7 @@ describe('sendRemoteMessage', () => {
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         'peer-123',
         'hello world',
+        [],
       );
       expect(result).toBeNull();
     });
@@ -180,6 +187,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'test-peer',
         message: 'test-message',
+        hints: [],
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -202,6 +210,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'failing-peer',
         message: 'failing-message',
+        hints: [],
       };
 
       await expect(
@@ -219,11 +228,12 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: '',
         message: '',
+        hints: [],
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', '');
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', '', []);
     });
 
     it('should handle unicode characters in parameters', async () => {
@@ -236,6 +246,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: '🌟peer-123🌟',
         message: 'hello 世界 🌍',
+        hints: [],
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
@@ -243,6 +254,7 @@ describe('sendRemoteMessage', () => {
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         '🌟peer-123🌟',
         'hello 世界 🌍',
+        [],
       );
     });
 
@@ -262,6 +274,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'json-peer',
         message: jsonMessage,
+        hints: [],
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
@@ -269,6 +282,7 @@ describe('sendRemoteMessage', () => {
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         'json-peer',
         jsonMessage,
+        [],
       );
     });
 
@@ -286,6 +300,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'async-peer',
         message: 'async-message',
+        hints: [],
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -315,13 +330,18 @@ describe('sendRemoteMessage', () => {
         const params = {
           to,
           message: 'test-message',
+          hints: [],
         };
 
         await expect(
           sendRemoteMessageHandler.implementation(hooks, params),
         ).rejects.toThrow(error);
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(to, 'test-message');
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
+          to,
+          'test-message',
+          [],
+        );
       },
     );
 
@@ -336,6 +356,7 @@ describe('sendRemoteMessage', () => {
       const params = {
         to: 'large-message-peer',
         message: largeMessage,
+        hints: [],
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
@@ -343,6 +364,7 @@ describe('sendRemoteMessage', () => {
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         'large-message-peer',
         largeMessage,
+        [],
       );
     });
   });

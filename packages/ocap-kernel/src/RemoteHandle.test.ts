@@ -70,6 +70,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['message', target, message],
       }),
+      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -87,6 +88,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', resolutions],
       }),
+      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -102,6 +104,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['dropExports', rrefs],
       }),
+      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -117,6 +120,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['retireExports', rrefs],
       }),
+      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -132,6 +136,7 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['retireImports', rrefs],
       }),
+      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -158,6 +163,7 @@ describe('RemoteHandle', () => {
         method: 'redeemURL',
         params: [mockOcapURL, expectedReplyKey],
       }),
+      undefined,
     );
     const redeemURLReply = {
       method: 'redeemURLReply',
@@ -183,6 +189,7 @@ describe('RemoteHandle', () => {
         method: 'redeemURL',
         params: [mockOcapURL, expectedReplyKey],
       }),
+      undefined,
     );
     const redeemURLReply = {
       method: 'redeemURLReply',

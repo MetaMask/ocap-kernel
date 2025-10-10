@@ -5,6 +5,7 @@ import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import type { Libp2p, PrivateKey } from '@libp2p/interface';
+import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
 import type { Logger } from '@metamask/logger';
@@ -46,6 +47,7 @@ export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
     },
     services: {
       identify: identify(),
+      ping: ping(),
       autoNat: autoNAT(),
       relay: circuitRelayServer({
         // Allow unlimited reservations for testing
@@ -111,6 +113,14 @@ export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
       logger.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);
     });
   }
+
+  await new Promise<void>((resolve) => {
+    if (libp2p.status === 'started') {
+      resolve();
+    } else {
+      libp2p.addEventListener('start', () => resolve());
+    }
+  });
 
   logger.log('========================================');
   logger.log('Relay Server Started');

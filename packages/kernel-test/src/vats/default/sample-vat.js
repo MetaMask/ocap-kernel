@@ -6,19 +6,19 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
  *
  * @param {unknown} _vatPowers - Special powers granted to this vat (not used here).
  * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} _baggage - Root of vat's persistent state (not used here).
+ * @param {unknown} baggage - Root of vat's persistent state.
  * @returns {unknown} The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, _baggage) {
+export function buildRootObject(_vatPowers, parameters, baggage) {
   const name = parameters?.name ?? 'anonymous';
   console.log(`buildRootObject "${name}"`);
-  let redeemer;
 
   return makeDefaultExo('root', {
     async bootstrap(vats, services) {
       console.log(`vat ${name} is bootstrap`);
       const issuer = services.ocapURLIssuerService;
-      redeemer = services.ocapURLRedemptionService;
+      const redeemer = services.ocapURLRedemptionService;
+      baggage.init('redeemer', redeemer);
       console.log(`in bootstrap redeemer=${redeemer}`);
       if (issuer) {
         const url = await E(issuer).issue(vats.bob);
@@ -37,17 +37,17 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
       return message;
     },
     async doRunRun(url) {
-      console.log(`in doRunRun redeemer=${redeemer}`);
-      if (!redeemer) {
-        console.log(`no ocapURLRedemptionService found`);
-        throw new Error('ocapURLRedemptionService not available');
+      const redeemer = baggage.get('redeemer');
+      console.log(`in doRunRun loaded redeemer=${redeemer}`);
+      if (redeemer) {
+        const remote = await E(redeemer).redeem(url);
+        console.log(`redeemed ${url} successfully (?)`);
+        const result = await E(remote).hello(`remote ${name}`);
+        console.log(`got result from remote: ${result}`);
+        return result;
       }
-
-      const remote = await E(redeemer).redeem(url);
-      console.log(`redeemed ${url} successfully (?)`);
-      const result = await E(remote).hello(`remote ${name}`);
-      console.log(`got result from remote: ${result}`);
-      return result;
+      console.log('no ocapURLRedemptionService found');
+      throw new Error('ocapURLRedemptionService not available');
     },
   });
 }
