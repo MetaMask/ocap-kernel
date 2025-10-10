@@ -19,8 +19,8 @@ export class Message<
 
   toJSON(): string {
     return JSON.stringify({
-      messageType: this.messageType,
       ...this.messageBody,
+      messageType: this.messageType,
     });
   }
 }

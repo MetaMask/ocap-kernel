@@ -11,6 +11,7 @@ describe.sequential('test suite', () => {
     const response = await fetch(OLLAMA_API_BASE);
     expect(response.ok).toBe(true);
   });
+
   it(`can access ${DEFAULT_MODEL} model`, async () => {
     const response = await fetch(OLLAMA_TAGS_ENDPOINT);
     expect(response.ok).toBe(true);
