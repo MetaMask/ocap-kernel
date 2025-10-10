@@ -83,11 +83,14 @@ export class OllamaBaseService<Ollama extends OllamaClient>
           ...mandatoryOptions,
           prompt,
         });
-        return (async function* () {
-          for await (const chunk of response) {
-            yield chunk;
-          }
-        })();
+        return {
+          stream: (async function* () {
+            for await (const chunk of response) {
+              yield chunk;
+            }
+          })(),
+          abort: async () => response.abort(),
+        };
       },
     };
     return harden(instance);

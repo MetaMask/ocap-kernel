@@ -175,10 +175,14 @@ describe('OllamaBaseService', () => {
           makeMockAbortableAsyncIterator([mockResponse]),
         );
 
-        const result = await instance.sample(prompt, options);
+        const { stream, abort } = await instance.sample(prompt, options);
 
-        for await (const chunk of result) {
-          expect(chunk).toMatchObject(mockResponse);
+        try {
+          for await (const chunk of stream) {
+            expect(chunk).toMatchObject(mockResponse);
+          }
+        } finally {
+          await abort();
         }
 
         expect(mockClient.generate).toHaveBeenCalledWith({
