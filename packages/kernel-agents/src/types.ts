@@ -17,7 +17,7 @@ type ArrayJsonSchema = {
 };
 
 type ObjectJsonSchemaProperty = {
-  type: 'string' | 'number' | 'boolean';
+  type: 'object';
   description?: string;
   properties: {
     [key: string]: JsonSchema;
