@@ -2,7 +2,16 @@ import '@ocap/repo-tools/test-utils/mock-endoify';
 
 import { Logger } from '@metamask/logger';
 import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { makeAgent } from '../../src/agent.ts';
 import { count, add, multiply } from '../../src/example-capabilities.ts';
@@ -20,6 +29,14 @@ function randomLetter(): string {
 const logger = new Logger('test');
 
 describe('agent', () => {
+  beforeAll(() => {
+    fetchMock.disableMocks();
+  });
+
+  afterAll(() => {
+    fetchMock.enableMocks();
+  });
+
   let llmService: OllamaNodejsService;
   beforeEach(() => {
     llmService = new OllamaNodejsService({ endowments: { fetch } });

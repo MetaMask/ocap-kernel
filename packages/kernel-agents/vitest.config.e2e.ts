@@ -14,9 +14,6 @@ export default defineConfig((args) => {
         testTimeout: 30000,
         hookTimeout: 10000,
 
-        // Setup file for E2E tests
-        setupFiles: ['./test/setup-e2e.ts'],
-
         // Include only E2E tests
         include: ['./test/e2e/**/*.test.ts'],
       },
