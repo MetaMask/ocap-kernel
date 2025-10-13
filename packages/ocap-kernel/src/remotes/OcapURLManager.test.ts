@@ -123,6 +123,19 @@ describe('OcapURLManager', () => {
       expect(mockRemoteComms.redeemLocalOcapURL).not.toHaveBeenCalled();
       expect(mockRemoteManager.remoteFor).toHaveBeenCalledWith(
         'remote-peer-id',
+        [],
+      );
+      expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
+    });
+
+    it('should pass parsed hints to remoteFor for remote OCAP URL', async () => {
+      const url = 'ocap:def456@remote-peer-id,relay1,relay2';
+      const kref = await ocapURLManager.redeemOcapURL(url);
+
+      expect(kref).toBe('ko456');
+      expect(mockRemoteManager.remoteFor).toHaveBeenCalledWith(
+        'remote-peer-id',
+        ['relay1', 'relay2'],
       );
       expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
     });

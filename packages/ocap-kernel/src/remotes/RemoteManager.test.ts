@@ -122,6 +122,19 @@ describe('RemoteManager', () => {
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
         'peer123',
         'test message',
+        [],
+      );
+    });
+
+    it('should send remote message with provided hints', async () => {
+      await remoteManager.sendRemoteMessage('peer123', 'test message', [
+        'relay1',
+        'relay2',
+      ]);
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+        'peer123',
+        'test message',
+        ['relay1', 'relay2'],
       );
     });
 

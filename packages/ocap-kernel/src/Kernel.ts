@@ -33,9 +33,6 @@ import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
-// XXX See #egregiousDebugHack below
-let foolTheCompiler: string = 'start';
-
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
   readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
@@ -95,9 +92,6 @@ export class Kernel {
       logger?: Logger;
     } = {},
   ) {
-    // XXX See #egregiousDebugHack below
-    foolTheCompiler = 'nope';
-
     this.#commandStream = commandStream;
     this.#rpcService = new RpcService(kernelHandlers, {});
     this.#platformServices = platformServices;
@@ -433,6 +427,12 @@ export class Kernel {
     this.#kernelStore.clear();
   }
 
+  /**
+   * Gets an endpoint by its ID.
+   *
+   * @param endpointId - The ID of the endpoint.
+   * @returns The endpoint, or undefined if not found.
+   */
   #getEndpoint(endpointId: EndpointId): EndpointHandle {
     if (isVatId(endpointId)) {
       return this.#vatManager.getVat(endpointId);
@@ -593,29 +593,6 @@ export class Kernel {
     await this.#subclusterManager.reloadAllSubclusters();
   }
 
-  async #egregiousDebugHack(): Promise<void> {
-    if (this.#remoteManager.isRemoteCommsInitialized()) {
-      // We deliberately use `let` rather than `const` for the URL string. It is
-      // stored in a variable specifically to enable it to be modified in the
-      // debugger.  Unfortunately, we have to jump through some hoops to prevent
-      // the compiler's control flow analysis from removing it -- and the entire
-      // subsequent `if` block that tests it! -- from the generated code. To
-      // this end, the variable `foolTheCompiler` is defined as a global
-      // initialized with one value and then deliberately and gratuitously
-      // modified in the constructor to a different value, because TypeScript
-      // lacks anything like a `volatile` declaration.
-
-      // eslint-disable-next-line prefer-const
-      let url: string = 'nope';
-      // eslint-disable-next-line no-debugger
-      debugger;
-
-      if (url !== foolTheCompiler) {
-        await this.queueMessage('ko3', 'doRunRun', [url]);
-      }
-    }
-  }
-
   /**
    * Gracefully stop the kernel without deleting vats.
    */
@@ -633,14 +610,6 @@ export class Kernel {
    */
   collectGarbage(): void {
     this.#vatManager.collectGarbage();
-
-    // XXX REMOVE THIS Stupid debug trick: In order to exercise the remote
-    // connection machinery (in service of attempting to get said machinery to
-    // actually work), we need a way during debugging to trigger the kernel to
-    // try to set up and use a remote connection.  The control panel's 'Collect
-    // Garbage' button turns out to be a super convenient one-click "hey kernel
-    // please do something" hook to parasitize for this purpose.
-    this.#egregiousDebugHack().catch(() => undefined);
   }
 }
 harden(Kernel);
