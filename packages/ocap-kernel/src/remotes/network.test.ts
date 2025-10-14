@@ -39,6 +39,10 @@ vi.mock('@libp2p/crypto/keys', () => ({
 vi.mock('@metamask/kernel-utils', () => ({
   // Minimal passthrough is fine; the value is only passed to generateKeyPairFromSeed
   fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+  // Provide a trivial retry implementation that just runs the operation once
+  retryWithBackoff: async <OperationResult>(
+    operation: () => Promise<OperationResult>,
+  ) => operation(),
 }));
 
 vi.mock('@metamask/logger', () => ({

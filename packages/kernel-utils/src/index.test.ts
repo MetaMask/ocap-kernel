@@ -18,6 +18,7 @@ describe('index', () => {
       'makeDefaultExo',
       'makeDefaultInterface',
       'mergeDisjointRecords',
+      'retryWithBackoff',
       'stringify',
       'toHex',
       'waitUntilQuiescent',

@@ -10,7 +10,7 @@ import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
-import { fromHex } from '@metamask/kernel-utils';
+import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { multiaddr } from '@multiformats/multiaddr';
 import type { ByteStream } from 'it-byte-stream';
@@ -223,6 +223,10 @@ export async function initNetwork(
   }
 
   const SCTP_USER_INITIATED_ABORT = 12; // see RFC 4960
+  // Connection retry/backoff configuration
+  const MAX_CONNECT_ATTEMPTS = 5;
+  const BASE_BACKOFF_MS = 1_000; // 1s
+  const MAX_BACKOFF_MS = 30_000; // 30s
 
   /**
    * Start reading (and processing) messages arriving on a channel.
@@ -271,7 +275,6 @@ export async function initNetwork(
     hints: string[] = [],
   ): Promise<Channel> {
     logger.log(`connecting to ${peerId}`);
-    const signal = AbortSignal.timeout(30_000);
 
     // try the hints first, followed by any known relays that aren't already in the hints
     const possibleContacts = hints.concat();
@@ -286,7 +289,6 @@ export async function initNetwork(
       }
     }
 
-    let stream;
     let lastError: Error | undefined;
 
     // Try multiple connection strategies
@@ -301,54 +303,57 @@ export async function initNetwork(
     // `/dns4/localhost/tcp/0/ws/p2p/${peerId}`,
     // `/ip4/127.0.0.1/tcp/0/ws/p2p/${peerId}`,
 
-    for (const addressString of addressStrings) {
-      try {
-        const connectToAddr = multiaddr(addressString);
-        logger.log(`attempting to contact ${peerId} via ${addressString}`);
-        stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
-          signal,
-        });
-        if (stream) {
+    const channel = await retryWithBackoff<Channel>(
+      async () => {
+        const signal = AbortSignal.timeout(30_000);
+        let stream;
+        for (const addressString of addressStrings) {
+          try {
+            const connectToAddr = multiaddr(addressString);
+            logger.log(`contacting ${peerId} via ${addressString}`);
+            stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
+              signal,
+            });
+            if (stream) {
+              logger.log(
+                `successfully connected to ${peerId} via ${addressString}`,
+              );
+              const msgStream = byteStream(stream);
+              const created: Channel = { msgStream, peerId };
+              activeChannels.set(peerId, created);
+              logger.log(`opened channel to ${peerId}`);
+              return created;
+            }
+          } catch (problem) {
+            lastError = problem as Error;
+            if (problem instanceof MuxerClosedError) {
+              outputError(
+                peerId,
+                `yamux muxer issue contacting via ${addressString}`,
+                problem,
+              );
+            } else if (signal.aborted) {
+              outputError(peerId, `timed out opening channel`, problem);
+            } else {
+              outputError(peerId, `issue opening channel`, problem);
+            }
+          }
+        }
+        throw lastError ?? Error(`unable to open channel to ${peerId}`);
+      },
+      {
+        maxAttempts: MAX_CONNECT_ATTEMPTS,
+        baseDelayMs: BASE_BACKOFF_MS,
+        maxDelayMs: MAX_BACKOFF_MS,
+        jitter: true,
+        onRetry: ({ attempt, delayMs }) => {
           logger.log(
-            `successfully connected to ${peerId} via ${addressString}`,
+            `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${MAX_CONNECT_ATTEMPTS})`,
           );
-          break;
-        }
-      } catch (problem) {
-        lastError = problem as Error;
-        if (problem instanceof MuxerClosedError) {
-          outputError(
-            peerId,
-            `yamux muxer issue contacting via ${addressString}`,
-            problem,
-          );
-        } else if (signal.aborted) {
-          outputError(peerId, `timed out opening channel`, problem);
-        } else {
-          outputError(peerId, `issue opening channel`, problem);
-        }
-      }
-      if (stream) {
-        break;
-      }
-    }
+        },
+      },
+    );
 
-    if (!stream) {
-      if (signal.aborted) {
-        outputError(peerId, `timed out opening channel`, lastError);
-      } else {
-        outputError(
-          peerId,
-          `opening channel after trying all addresses`,
-          lastError,
-        );
-      }
-      throw lastError ?? Error(`unable to open channel to ${peerId}`);
-    }
-    const msgStream = byteStream(stream);
-    const channel: Channel = { msgStream, peerId };
-    activeChannels.set(peerId, channel);
-    logger.log(`opened channel to ${peerId}`);
     return channel;
   }
 
