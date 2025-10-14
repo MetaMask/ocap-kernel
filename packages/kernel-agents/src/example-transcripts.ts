@@ -12,13 +12,13 @@ import {
 } from './messages.ts';
 import type { Transcript } from './messages.ts';
 
-const { end, search, getWordLength, multiply } = extractCapabilitySchemas({
+const { end, count, add, multiply } = extractCapabilitySchemas({
   ...exampleCapabilities,
   end: endCapability,
 });
 
 const simpleSemanticTask: Transcript = [
-  new CapabilitySpecMessage({ end, search }),
+  new CapabilitySpecMessage({ end, add }),
   new UserMessage('What color is a banana?'),
   new AssistantMessage({
     think: [
@@ -31,7 +31,7 @@ const simpleSemanticTask: Transcript = [
 ];
 
 const multiStepCalculation: Transcript = [
-  new CapabilitySpecMessage({ end, getWordLength, multiply }),
+  new CapabilitySpecMessage({ end, count, multiply }),
   new UserMessage(
     'What is the size of a matrix with rows indexed by the letters of "piano" and columns by the letters of "guitar"?',
   ),
@@ -39,16 +39,16 @@ const multiStepCalculation: Transcript = [
     think: [
       'I need to find the size of a matrix with rows indexed by the letters of "piano" and columns by the letters of "guitar".',
       'The answer will be the product of the length of the word "piano" and the length of the word "guitar".',
-      'To prove my answer, I will count the lengths of the words using the "getWordLength" capability, then multiply the results using the "multiply" capability.',
+      'To prove my answer, I will count the lengths of the words using the "count" capability, then multiply the results using the "multiply" capability.',
     ],
     invoke: [
-      { name: 'getWordLength', args: { word: 'piano' } },
-      { name: 'getWordLength', args: { word: 'guitar' } },
+      { name: 'count', args: { word: 'piano' } },
+      { name: 'count', args: { word: 'guitar' } },
     ],
   }),
   new CapabilityResultMessage([
-    { name: 'getWordLength', args: { word: 'piano' }, result: 5 },
-    { name: 'getWordLength', args: { word: 'guitar' }, result: 6 },
+    { name: 'count', args: { word: 'piano' }, result: 5 },
+    { name: 'count', args: { word: 'guitar' }, result: 6 },
   ]),
   new AssistantMessage({
     think: ['Now I can multiply the results to get the answer.'],
