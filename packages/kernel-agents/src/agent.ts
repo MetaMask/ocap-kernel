@@ -61,12 +61,16 @@ export const makeAgent = ({
         taskLogger?.info('prompt:', prompt);
 
         const { stream, abort } = await llm.sample(prompt);
-        const assistantMessage = await gatherStreamingResponse({
-          stream,
-          parse,
-        });
-        // Stop the LLM from generating anymore
-        await abort();
+        let assistantMessage: AssistantMessageJson;
+        try {
+          assistantMessage = await gatherStreamingResponse({
+            stream,
+            parse,
+          });
+        } finally {
+          // Stop the LLM from generating anymore
+          await abort();
+        }
         taskLogger?.info('assistantMessage:', assistantMessage);
 
         // TODO: this should already be validated by the parser
