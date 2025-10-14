@@ -41,9 +41,15 @@ function computeBackoffDelay(
   jitter: boolean,
 ): number {
   const cap = Math.min(maxDelayMs, baseDelayMs * 2 ** attemptIndex);
-  if (!jitter || cap <= baseDelayMs) {
-    return baseDelayMs;
+  // Without jitter, return the exact exponential/capped delay
+  if (!jitter) {
+    return cap;
   }
+  // With jitter but cap less than or equal to base, just return the cap
+  if (cap <= baseDelayMs) {
+    return cap;
+  }
+  // With jitter and cap greater than base, randomize uniformly in [base, cap]
   return Math.floor(baseDelayMs + Math.random() * (cap - baseDelayMs));
 }
 
