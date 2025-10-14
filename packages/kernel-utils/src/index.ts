@@ -20,3 +20,5 @@ export {
 export { waitUntilQuiescent } from './wait-quiescent.ts';
 export { fromHex, toHex } from './hex.ts';
 export { mergeDisjointRecords } from './merge-disjoint-records.ts';
+export { retryWithBackoff } from './retry.ts';
+export type { RetryBackoffOptions } from './retry.ts';
