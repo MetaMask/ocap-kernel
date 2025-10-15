@@ -1,16 +1,9 @@
 import { Far } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
-import {
-  VatAlreadyExistsError,
-  VatDeletedError,
-  VatNotFoundError,
-  SubclusterNotFoundError,
-} from '@metamask/kernel-errors';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
-import { Logger, splitLoggerStream } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
 import { hasProperty } from '@metamask/utils';
@@ -40,14 +33,11 @@ import type {
   EndpointHandle,
   RemoteComms,
 } from './types.ts';
-import {
-  ROOT_OBJECT_VREF,
-  isClusterConfig,
-  isVatId,
-  isRemoteId,
-} from './types.ts';
-import { Fail, assert } from './utils/assert.ts';
-import { VatHandle } from './vats/VatHandle.ts';
+import { isVatId, isRemoteId } from './types.ts';
+import { assert } from './utils/assert.ts';
+import { SubclusterManager } from './vats/SubclusterManager.ts';
+import type { VatHandle } from './vats/VatHandle.ts';
+import { VatManager } from './vats/VatManager.ts';
 
 type KernelService = {
   name: string;
@@ -64,8 +54,11 @@ export class Kernel {
 
   readonly #rpcService: RpcService<typeof kernelHandlers>;
 
-  /** Currently running vats, by ID */
-  readonly #vats: Map<VatId, VatHandle>;
+  /** Manages vat lifecycle operations */
+  readonly #vatManager: VatManager;
+
+  /** Manages subcluster operations */
+  readonly #subclusterManager: SubclusterManager;
 
   /** Currently active remote kernel connections, by ID */
   readonly #remotes: Map<RemoteId, RemoteHandle>;
@@ -124,7 +117,6 @@ export class Kernel {
 
     this.#commandStream = commandStream;
     this.#rpcService = new RpcService(kernelHandlers, {});
-    this.#vats = new Map();
     this.#remotes = new Map();
     this.#remotesByPeer = new Map();
     this.#platformServices = platformServices;
@@ -139,8 +131,24 @@ export class Kernel {
     }
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
-      this.terminateVat.bind(this),
+      async (vatId, reason) => this.#vatManager.terminateVat(vatId, reason),
     );
+
+    this.#vatManager = new VatManager({
+      platformServices,
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      logger: this.#logger.subLogger({ tags: ['VatManager'] }),
+    });
+
+    this.#subclusterManager = new SubclusterManager({
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      vatManager: this.#vatManager,
+      getKernelService: (name) => this.#kernelServicesByName.get(name),
+      queueMessage: this.queueMessage.bind(this),
+    });
+
     this.#kernelRouter = new KernelRouter(
       this.#kernelStore,
       this.#kernelQueue,
@@ -232,11 +240,7 @@ export class Kernel {
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
-    const starts: Promise<void>[] = [];
-    for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
-      starts.push(this.#runVat(vatID, vatConfig));
-    }
-    await Promise.all(starts);
+    await this.#vatManager.initializeAllVats();
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
@@ -353,28 +357,6 @@ export class Kernel {
   }
 
   /**
-   * Launch a new vat.
-   *
-   * @param vatConfig - Configuration for the new vat.
-   * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
-   * @returns a promise for the KRef of the new vat's root object.
-   */
-  async #launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
-    const vatId = this.#kernelStore.getNextVatId();
-    await this.#runVat(vatId, vatConfig);
-    this.#kernelStore.initEndpoint(vatId);
-    const rootRef = this.#kernelStore.exportFromEndpoint(
-      vatId,
-      ROOT_OBJECT_VREF,
-    );
-    this.#kernelStore.setVatConfig(vatId, vatConfig);
-    if (subclusterId) {
-      this.#kernelStore.addSubclusterVat(subclusterId, vatId);
-    }
-    return rootRef;
-  }
-
-  /**
    * Set up bookkeeping for a newly established remote connection.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
@@ -413,34 +395,6 @@ export class Kernel {
   }
 
   /**
-   * Start a new or resurrected vat running.
-   *
-   * @param vatId - The ID of the vat to start.
-   * @param vatConfig - Its configuration.
-   */
-  async #runVat(vatId: VatId, vatConfig: VatConfig): Promise<void> {
-    if (this.#vats.has(vatId)) {
-      throw new VatAlreadyExistsError(vatId);
-    }
-    const stream = await this.#platformServices.launch(vatId, vatConfig);
-    const { kernelStream: vatStream, loggerStream } = splitLoggerStream(stream);
-    const vatLogger = this.#logger.subLogger({ tags: [vatId] });
-    vatLogger.injectStream(
-      loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
-      (error) => this.#logger.error(`Vat ${vatId} error: ${stringify(error)}`),
-    );
-    const vat = await VatHandle.make({
-      vatId,
-      vatConfig,
-      vatStream,
-      kernelStore: this.#kernelStore,
-      kernelQueue: this.#kernelQueue,
-      logger: vatLogger,
-    });
-    this.#vats.set(vatId, vat);
-  }
-
-  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -466,13 +420,7 @@ export class Kernel {
   async launchSubcluster(
     config: ClusterConfig,
   ): Promise<CapData<KRef> | undefined> {
-    await this.#kernelQueue.waitForCrank();
-    isClusterConfig(config) || Fail`invalid cluster config`;
-    if (!config.vats[config.bootstrap]) {
-      Fail`invalid bootstrap vat name ${config.bootstrap}`;
-    }
-    const subclusterId = this.#kernelStore.addSubcluster(config);
-    return this.#launchVatsForSubcluster(subclusterId, config);
+    return this.#subclusterManager.launchSubcluster(config);
   }
 
   /**
@@ -482,16 +430,7 @@ export class Kernel {
    * @returns A promise that resolves when termination is complete.
    */
   async terminateSubcluster(subclusterId: string): Promise<void> {
-    await this.#kernelQueue.waitForCrank();
-    if (!this.#kernelStore.getSubcluster(subclusterId)) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-    const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
-    for (const vatId of vatIdsToTerminate.reverse()) {
-      await this.terminateVat(vatId);
-      this.collectGarbage();
-    }
-    this.#kernelStore.deleteSubcluster(subclusterId);
+    return this.#subclusterManager.terminateSubcluster(subclusterId);
   }
 
   /**
@@ -503,22 +442,7 @@ export class Kernel {
    * @throws If the subcluster is not found.
    */
   async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-    await this.#kernelQueue.waitForCrank();
-    const subcluster = this.getSubcluster(subclusterId);
-    if (!subcluster) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-    for (const vatId of subcluster.vats.reverse()) {
-      await this.terminateVat(vatId);
-      this.collectGarbage();
-    }
-    const newId = this.#kernelStore.addSubcluster(subcluster.config);
-    await this.#launchVatsForSubcluster(newId, subcluster.config);
-    const newSubcluster = this.getSubcluster(newId);
-    if (!newSubcluster) {
-      throw new SubclusterNotFoundError(newId);
-    }
-    return newSubcluster;
+    return this.#subclusterManager.reloadSubcluster(subclusterId);
   }
 
   /**
@@ -528,7 +452,7 @@ export class Kernel {
    * @returns The subcluster, or undefined if not found.
    */
   getSubcluster(subclusterId: string): Subcluster | undefined {
-    return this.#kernelStore.getSubcluster(subclusterId);
+    return this.#subclusterManager.getSubcluster(subclusterId);
   }
 
   /**
@@ -537,7 +461,7 @@ export class Kernel {
    * @returns An array of subcluster information records.
    */
   getSubclusters(): Subcluster[] {
-    return this.#kernelStore.getSubclusters();
+    return this.#subclusterManager.getSubclusters();
   }
 
   /**
@@ -548,7 +472,7 @@ export class Kernel {
    * @returns True if the vat belongs to the specified subcluster, false otherwise.
    */
   isVatInSubcluster(vatId: VatId, subclusterId: string): boolean {
-    return this.#kernelStore.getVatSubcluster(vatId) === subclusterId;
+    return this.#subclusterManager.isVatInSubcluster(vatId, subclusterId);
   }
 
   /**
@@ -558,107 +482,17 @@ export class Kernel {
    * @returns An array of vat IDs that belong to the specified subcluster.
    */
   getSubclusterVats(subclusterId: string): VatId[] {
-    return this.#kernelStore.getSubclusterVats(subclusterId);
-  }
-
-  /**
-   * Launches all vats for a subcluster and sets up their bootstrap connections.
-   *
-   * @param subclusterId - The ID of the subcluster to launch vats for.
-   * @param config - The configuration for the subcluster.
-   * @returns A promise for the (CapData encoded) result of the bootstrap message, if any.
-   */
-  async #launchVatsForSubcluster(
-    subclusterId: string,
-    config: ClusterConfig,
-  ): Promise<CapData<KRef> | undefined> {
-    const rootIds: Record<string, KRef> = {};
-    const roots: Record<string, SlotValue> = {};
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.#launchVat(vatConfig, subclusterId);
-      rootIds[vatName] = rootRef;
-      roots[vatName] = kslot(rootRef, 'vatRoot');
-    }
-    const services: Record<string, SlotValue> = {};
-    if (config.services) {
-      for (const name of config.services) {
-        const possibleService = this.#kernelServicesByName.get(name);
-        if (possibleService) {
-          const { kref } = possibleService;
-          services[name] = kslot(kref);
-        } else {
-          throw Error(`no registered kernel service '${name}'`);
-        }
-      }
-    }
-    const bootstrapRoot = rootIds[config.bootstrap];
-    if (bootstrapRoot) {
-      const result = await this.queueMessage(bootstrapRoot, 'bootstrap', [
-        roots,
-        services,
-      ]);
-      const unserialized = kunser(result);
-      if (unserialized instanceof Error) {
-        throw unserialized;
-      }
-      return result;
-    }
-    return undefined;
+    return this.#subclusterManager.getSubclusterVats(subclusterId);
   }
 
   /**
    * Restarts a vat.
    *
    * @param vatId - The ID of the vat.
-   * @returns A promise for the restarted vat.
+   * @returns A promise for the restarted vat handle.
    */
   async restartVat(vatId: VatId): Promise<VatHandle> {
-    await this.#kernelQueue.waitForCrank();
-    const vat = this.#getVat(vatId);
-    if (!vat) {
-      throw new VatNotFoundError(vatId);
-    }
-    const { config } = vat;
-    await this.#stopVat(vatId, false);
-    await this.#runVat(vatId, config);
-    return vat;
-  }
-
-  /**
-   * Stop a vat from running.
-   *
-   * Note that after this operation, the vat will be in a weird twilight zone
-   * between existence and nonexistence, so this operation should only be used
-   * as a component of vat restart (which will push it back into existence) or
-   * vat termination (which will push it all the way into nonexistence).
-   *
-   * @param vatId - The ID of the vat.
-   * @param terminating - If true, the vat is being killed, if false, it's being
-   *   restarted.
-   * @param reason - If the vat is being terminated, the reason for the termination.
-   */
-  async #stopVat(
-    vatId: VatId,
-    terminating: boolean,
-    reason?: CapData<KRef>,
-  ): Promise<void> {
-    const vat = this.#getVat(vatId);
-    if (!vat) {
-      throw new VatNotFoundError(vatId);
-    }
-
-    let terminationError: Error | undefined;
-    if (reason) {
-      terminationError = new Error(`Vat termination: ${reason.body}`);
-    } else if (terminating) {
-      terminationError = new VatDeletedError(vatId);
-    }
-
-    await this.#platformServices
-      .terminate(vatId, terminationError)
-      .catch(this.#logger.error);
-    await vat.terminate(terminating, terminationError);
-    this.#vats.delete(vatId);
+    return this.#vatManager.restartVat(vatId);
   }
 
   /**
@@ -666,12 +500,10 @@ export class Kernel {
    *
    * @param vatId - The ID of the vat.
    * @param reason - If the vat is being terminated, the reason for the termination.
+   * @returns A promise that resolves when the vat is terminated.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
-    await this.#kernelQueue.waitForCrank();
-    await this.#stopVat(vatId, true, reason);
-    // Mark for deletion (which will happen later, in vat-cleanup events)
-    this.#kernelStore.markVatAsTerminated(vatId);
+    return this.#vatManager.terminateVat(vatId, reason);
   }
 
   /**
@@ -684,7 +516,7 @@ export class Kernel {
 
   #getEndpoint(endpointId: EndpointId): EndpointHandle {
     if (isVatId(endpointId)) {
-      return this.#getVat(endpointId);
+      return this.#vatManager.getVat(endpointId);
     }
     if (isRemoteId(endpointId)) {
       return this.#getRemote(endpointId);
@@ -708,26 +540,12 @@ export class Kernel {
   }
 
   /**
-   * Get a vat.
-   *
-   * @param vatId - The ID of the vat.
-   * @returns the vat's VatHandle.
-   */
-  #getVat(vatId: VatId): VatHandle {
-    const vat = this.#vats.get(vatId);
-    if (vat === undefined) {
-      throw new VatNotFoundError(vatId);
-    }
-    return vat;
-  }
-
-  /**
    * Gets a list of the IDs of all running vats.
    *
    * @returns An array of vat IDs.
    */
   getVatIds(): VatId[] {
-    return Array.from(this.#vats.keys());
+    return this.#vatManager.getVatIds();
   }
 
   /**
@@ -740,14 +558,7 @@ export class Kernel {
     config: VatConfig;
     subclusterId: string;
   }[] {
-    return Array.from(this.#vats.values()).map((vat) => {
-      const subclusterId = this.#kernelStore.getVatSubcluster(vat.vatId);
-      return {
-        id: vat.vatId,
-        config: vat.config,
-        subclusterId,
-      };
-    });
+    return this.#vatManager.getVats();
   }
 
   /**
@@ -780,7 +591,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     return {
       vats: this.getVats(),
-      subclusters: this.#kernelStore.getSubclusters(),
+      subclusters: this.#subclusterManager.getSubclusters(),
       remoteComms: this.#remoteComms
         ? {
             isInitialized: true,
@@ -796,11 +607,7 @@ export class Kernel {
    * @param filter - A function that returns true if the vat should be reaped.
    */
   reapVats(filter: (vatId: VatId) => boolean = () => true): void {
-    for (const vatID of this.getVatIds()) {
-      if (filter(vatID)) {
-        this.#kernelStore.scheduleReap(vatID);
-      }
-    }
+    this.#vatManager.reapVats(filter);
   }
 
   /**
@@ -810,12 +617,7 @@ export class Kernel {
    * @returns The KRef of the vat root.
    */
   pinVatRoot(vatId: VatId): KRef {
-    const kref = this.#kernelStore.getRootObject(vatId);
-    if (!kref) {
-      throw new VatNotFoundError(vatId);
-    }
-    this.#kernelStore.pinObject(kref);
-    return kref;
+    return this.#vatManager.pinVatRoot(vatId);
   }
 
   /**
@@ -824,11 +626,7 @@ export class Kernel {
    * @param vatId - The ID of the vat.
    */
   unpinVatRoot(vatId: VatId): void {
-    const kref = this.#kernelStore.getRootObject(vatId);
-    if (!kref) {
-      throw new VatNotFoundError(vatId);
-    }
-    this.#kernelStore.unpinObject(kref);
+    this.#vatManager.unpinVatRoot(vatId);
   }
 
   /**
@@ -838,8 +636,7 @@ export class Kernel {
    * @returns A promise that resolves to the result of the ping.
    */
   async pingVat(vatId: VatId): Promise<PingVatResult> {
-    const vat = this.#getVat(vatId);
-    return vat.ping();
+    return this.#vatManager.pingVat(vatId);
   }
 
   /**
@@ -880,11 +677,7 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async terminateAllVats(): Promise<void> {
-    await this.#kernelQueue.waitForCrank();
-    for (const id of this.getVatIds().reverse()) {
-      await this.terminateVat(id);
-      this.collectGarbage();
-    }
+    await this.#vatManager.terminateAllVats();
   }
 
   /**
@@ -892,14 +685,7 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   async reload(): Promise<void> {
-    await this.#kernelQueue.waitForCrank();
-    const subclusters = this.#kernelStore.getSubclusters();
-    await this.terminateAllVats();
-    for (const subcluster of subclusters) {
-      await this.#kernelQueue.waitForCrank();
-      const newId = this.#kernelStore.addSubcluster(subcluster.config);
-      await this.#launchVatsForSubcluster(newId, subcluster.config);
-    }
+    await this.#subclusterManager.reloadAllSubclusters();
   }
 
   async #egregiousDebugHack(): Promise<void> {
@@ -941,10 +727,7 @@ export class Kernel {
    * This is for debugging purposes only.
    */
   collectGarbage(): void {
-    while (this.#kernelStore.nextTerminatedVatCleanup()) {
-      // wait for all vats to be cleaned up
-    }
-    this.#kernelStore.collectGarbage();
+    this.#vatManager.collectGarbage();
 
     // XXX REMOVE THIS Stupid debug trick: In order to exercise the remote
     // connection machinery (in service of attempting to get said machinery to
