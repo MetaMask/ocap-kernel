@@ -285,8 +285,6 @@ export async function initNetwork(
       }
     }
 
-    let lastError: Error | undefined;
-
     // Try multiple connection strategies
     const addressStrings: string[] = possibleContacts.flatMap((relay) => [
       // Browser: try WebRTC first
@@ -303,6 +301,7 @@ export async function initNetwork(
       async () => {
         const signal = AbortSignal.timeout(30_000);
         let stream;
+        let lastError: Error | undefined;
         for (const addressString of addressStrings) {
           try {
             const connectToAddr = multiaddr(addressString);
