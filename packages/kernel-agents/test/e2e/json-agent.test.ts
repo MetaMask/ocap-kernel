@@ -13,8 +13,8 @@ import {
   vi,
 } from 'vitest';
 
-import { makeAgent } from '../../src/agent.ts';
 import { count, add, multiply } from '../../src/example-capabilities.ts';
+import { makeAgent } from '../../src/json/agent.ts';
 import { DEFAULT_MODEL } from '../constants.ts';
 
 /**

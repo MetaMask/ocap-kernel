@@ -63,3 +63,7 @@ export type Chat = {
   getPromptAndPrefix: () => { prompt: string; prefix: string };
   pushMessages: (...messages: Transcript) => void;
 };
+
+export type IncrementalParser<Result = unknown> = (
+  delta: string,
+) => Result | null;
