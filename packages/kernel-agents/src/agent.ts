@@ -81,10 +81,10 @@ export const makeAgent = ({
           assistantMessage.invoke,
           agentCapabilities,
         );
-        logger?.info('results:', results);
+        taskLogger?.info('results:', results);
         const didEnd = results.find((capability) => capability.name === 'end');
         if (didEnd) {
-          logger?.info('exit invocation with result:', didEnd.result);
+          taskLogger?.info('exit invocation with result:', didEnd.result);
           return didEnd.result;
         }
         pushMessages(
