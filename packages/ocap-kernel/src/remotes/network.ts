@@ -223,10 +223,6 @@ export async function initNetwork(
   }
 
   const SCTP_USER_INITIATED_ABORT = 12; // see RFC 4960
-  // Connection retry/backoff configuration
-  const MAX_CONNECT_ATTEMPTS = 5;
-  const BASE_BACKOFF_MS = 1_000; // 1s
-  const MAX_BACKOFF_MS = 30_000; // 30s
 
   /**
    * Start reading (and processing) messages arriving on a channel.
@@ -342,13 +338,10 @@ export async function initNetwork(
         throw lastError ?? Error(`unable to open channel to ${peerId}`);
       },
       {
-        maxAttempts: MAX_CONNECT_ATTEMPTS,
-        baseDelayMs: BASE_BACKOFF_MS,
-        maxDelayMs: MAX_BACKOFF_MS,
         jitter: true,
-        onRetry: ({ attempt, delayMs }) => {
+        onRetry: ({ attempt, maxAttempts, delayMs }) => {
           logger.log(
-            `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${MAX_CONNECT_ATTEMPTS})`,
+            `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${maxAttempts})`,
           );
         },
       },
