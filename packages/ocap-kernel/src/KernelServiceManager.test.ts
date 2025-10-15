@@ -44,7 +44,7 @@ describe('KernelServiceManager', () => {
   });
 
   describe('registerKernelServiceObject', () => {
-    it('should register a kernel service and return service info', () => {
+    it('registers a kernel service and return service info', () => {
       // Use a plain object instead of Far for testing
       const testService = {
         testMethod: () => 'test result',
@@ -60,7 +60,7 @@ describe('KernelServiceManager', () => {
       expect(registered.service).toBe(testService);
     });
 
-    it('should pin the service object in kernel store', () => {
+    it('pins the service object in kernel store', () => {
       // Use a plain object instead of Far for testing
       const testService = {
         testMethod: () => 'test result',
@@ -77,7 +77,7 @@ describe('KernelServiceManager', () => {
       expect(registered.kref).toMatch(/^ko\d+$/u);
     });
 
-    it('should allow registering multiple services', () => {
+    it('allows registering multiple services', () => {
       const service1 = { method1: () => 'result1' };
       const service2 = { method2: () => 'result2' };
 
@@ -97,7 +97,7 @@ describe('KernelServiceManager', () => {
   });
 
   describe('getKernelService', () => {
-    it('should retrieve registered service by name', () => {
+    it('retrieves registered service by name', () => {
       const testService = {
         testMethod: () => 'test result',
       };
@@ -111,14 +111,14 @@ describe('KernelServiceManager', () => {
       expect(retrieved).toStrictEqual(registered);
     });
 
-    it('should return undefined for non-existent service', () => {
+    it('returns undefined for non-existent service', () => {
       const retrieved = serviceManager.getKernelService('nonExistent');
       expect(retrieved).toBeUndefined();
     });
   });
 
   describe('getKernelServiceByKref', () => {
-    it('should retrieve registered service by kref', () => {
+    it('retrieves registered service by kref', () => {
       const testService = {
         testMethod: () => 'test result',
       };
@@ -132,14 +132,14 @@ describe('KernelServiceManager', () => {
       expect(retrieved).toStrictEqual(registered);
     });
 
-    it('should return undefined for non-existent kref', () => {
+    it('returns undefined for non-existent kref', () => {
       const retrieved = serviceManager.getKernelServiceByKref('ko999');
       expect(retrieved).toBeUndefined();
     });
   });
 
   describe('isKernelService', () => {
-    it('should return true for registered service kref', () => {
+    it('returns true for registered service kref', () => {
       const testService = {
         testMethod: () => 'test result',
       };
@@ -152,13 +152,13 @@ describe('KernelServiceManager', () => {
       expect(serviceManager.isKernelService(registered.kref)).toBe(true);
     });
 
-    it('should return false for non-service kref', () => {
+    it('returns false for non-service kref', () => {
       expect(serviceManager.isKernelService('ko999')).toBe(false);
     });
   });
 
   describe('invokeKernelService', () => {
-    it('should successfully invoke a service method without result', async () => {
+    it('successfully invokes a service method without result', async () => {
       const testMethod = vi.fn().mockReturnValue('test result');
       const testService = {
         testMethod,
@@ -179,7 +179,7 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
-    it('should successfully invoke a service method with result', async () => {
+    it('successfully invokes a service method with result', async () => {
       const testMethod = vi.fn().mockResolvedValue('test result');
       const testService = {
         testMethod,
@@ -203,7 +203,7 @@ describe('KernelServiceManager', () => {
       ]);
     });
 
-    it('should handle errors when invoking service method with result', async () => {
+    it('handles errors when invoking service method with result', async () => {
       const testError = new Error('Test error');
       const testMethod = vi.fn().mockRejectedValue(testError);
       const testService = {
@@ -227,7 +227,7 @@ describe('KernelServiceManager', () => {
       ]);
     });
 
-    it('should handle errors when invoking service method without result', async () => {
+    it('handles errors when invoking service method without result', async () => {
       const loggerErrorSpy = vi.spyOn(logger, 'error');
       const testError = new Error('Test error');
       const testMethod = vi.fn().mockRejectedValue(testError);
@@ -253,7 +253,7 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
-    it('should throw error for non-existent service', async () => {
+    it('throws error for non-existent service', async () => {
       const message: Message = {
         methargs: kser(['testMethod', []]),
       };
@@ -263,7 +263,7 @@ describe('KernelServiceManager', () => {
       ).rejects.toThrow('No registered service for ko999');
     });
 
-    it('should handle unknown method with result', async () => {
+    it('handles unknown method with result', async () => {
       const testService = {
         existingMethod: () => 'test',
       };
@@ -285,7 +285,7 @@ describe('KernelServiceManager', () => {
       ]);
     });
 
-    it('should handle unknown method without result', async () => {
+    it('handles unknown method without result', async () => {
       const loggerErrorSpy = vi.spyOn(logger, 'error');
       const testService = {
         existingMethod: () => 'test',
@@ -308,7 +308,7 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
-    it('should handle service with no methods', async () => {
+    it('handles service with no methods', async () => {
       const emptyService = {};
 
       const registered = serviceManager.registerKernelServiceObject(
@@ -328,7 +328,7 @@ describe('KernelServiceManager', () => {
       ]);
     });
 
-    it('should handle service method that returns undefined', async () => {
+    it('handles service method that returns undefined', async () => {
       const testService = {
         voidMethod: () => undefined,
       };

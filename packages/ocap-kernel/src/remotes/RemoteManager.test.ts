@@ -52,19 +52,19 @@ describe('RemoteManager', () => {
   });
 
   describe('initialization', () => {
-    it('should throw error if remote comms is accessed before initialization', () => {
+    it('throws error if remote comms is accessed before initialization', () => {
       expect(() => remoteManager.getRemoteComms()).toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('should throw error if initRemoteComms is called without message handler', async () => {
+    it('throws error if initRemoteComms is called without message handler', async () => {
       await expect(remoteManager.initRemoteComms()).rejects.toThrow(
         'Message handler must be set before initializing remote comms',
       );
     });
 
-    it('should initialize remote comms after setting message handler', async () => {
+    it('initializes remote comms after setting message handler', async () => {
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
 
@@ -80,7 +80,7 @@ describe('RemoteManager', () => {
       );
     });
 
-    it('should correctly report remote comms initialization status', async () => {
+    it('correctly reports remote comms initialization status', async () => {
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
 
       const messageHandler = vi.fn();
@@ -101,13 +101,13 @@ describe('RemoteManager', () => {
       await remoteManager.initRemoteComms();
     });
 
-    it('should get peer ID from remote comms', () => {
+    it('gets peer ID from remote comms', () => {
       const peerId = remoteManager.getPeerId();
       expect(peerId).toBe('test-peer-id');
       expect(mockRemoteComms.getPeerId).toHaveBeenCalled();
     });
 
-    it('should send remote message', async () => {
+    it('sends remote message', async () => {
       await remoteManager.sendRemoteMessage('peer123', 'test message');
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
         'peer123',
@@ -116,7 +116,7 @@ describe('RemoteManager', () => {
       );
     });
 
-    it('should send remote message with provided hints', async () => {
+    it('sends remote message with provided hints', async () => {
       await remoteManager.sendRemoteMessage('peer123', 'test message', [
         'relay1',
         'relay2',
@@ -128,7 +128,7 @@ describe('RemoteManager', () => {
       );
     });
 
-    it('should get remote comms after initialization', () => {
+    it('gets remote comms after initialization', () => {
       const comms = remoteManager.getRemoteComms();
       expect(comms).toBe(mockRemoteComms);
     });
@@ -142,37 +142,37 @@ describe('RemoteManager', () => {
       await remoteManager.initRemoteComms();
     });
 
-    it('should establish a new remote connection', () => {
+    it('establishes a new remote connection', () => {
       const remote = remoteManager.establishRemote('peer123');
       expect(remote).toBeDefined();
       expect(remote.remoteId).toMatch(/^r\d+$/u);
     });
 
-    it('should reuse existing remote for same peer', () => {
+    it('reuses existing remote for same peer', () => {
       const remote1 = remoteManager.establishRemote('peer123');
       const remote2 = remoteManager.remoteFor('peer123');
       expect(remote1).toBe(remote2);
     });
 
-    it('should create new remote if not exists', () => {
+    it('creates new remote if not exists', () => {
       const remote = remoteManager.remoteFor('new-peer');
       expect(remote).toBeDefined();
       expect(remote.remoteId).toMatch(/^r\d+$/u);
     });
 
-    it('should get remote by ID', () => {
+    it('gets remote by ID', () => {
       const established = remoteManager.establishRemote('peer123');
       const retrieved = remoteManager.getRemote(established.remoteId);
       expect(retrieved).toBe(established);
     });
 
-    it('should throw error when getting non-existent remote by ID', () => {
+    it('throws error when getting non-existent remote by ID', () => {
       expect(() => remoteManager.getRemote('r999')).toThrow(
         'Remote not found: r999',
       );
     });
 
-    it('should handle remote message', async () => {
+    it('handles remote message', async () => {
       const mockHandleMessage = vi.fn().mockResolvedValue('response');
       const remote = remoteManager.establishRemote('peer123');
       remote.handleRemoteMessage = mockHandleMessage;
@@ -185,7 +185,7 @@ describe('RemoteManager', () => {
       expect(mockHandleMessage).toHaveBeenCalledWith('test message');
     });
 
-    it('should create new remote when handling message from unknown peer', async () => {
+    it('creates new remote when handling message from unknown peer', async () => {
       const message = JSON.stringify({
         method: 'deliver',
         params: [
@@ -208,13 +208,13 @@ describe('RemoteManager', () => {
   });
 
   describe('message handler', () => {
-    it('should set message handler', () => {
+    it('sets message handler', () => {
       const handler = vi.fn();
       // Should not throw
       expect(() => remoteManager.setMessageHandler(handler)).not.toThrow();
     });
 
-    it('should allow setting message handler multiple times', () => {
+    it('allows setting message handler multiple times', () => {
       const handler1 = vi.fn();
       const handler2 = vi.fn();
 
