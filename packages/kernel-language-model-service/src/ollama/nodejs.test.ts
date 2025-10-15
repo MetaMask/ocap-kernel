@@ -77,13 +77,18 @@ describe('OllamaNodejsService', () => {
       } as Parameters<typeof fetchMock.mockResponse>[0]);
 
       const instance = await service.makeInstance({ model });
-      for await (const chunk of await instance.sample('Hello, ')) {
-        expect(chunk).toMatchObject({
-          response,
-          done: true,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          done_reason: 'stop',
-        });
+      const { stream, abort } = await instance.sample('Hello, ');
+      try {
+        for await (const chunk of stream) {
+          expect(chunk).toMatchObject({
+            response,
+            done: true,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            done_reason: 'stop',
+          });
+        }
+      } finally {
+        await abort();
       }
     });
   });

@@ -54,24 +54,14 @@ describe('OllamaNodejsService E2E', { timeout: 10_000 }, () => {
       it('should return a streaming result', async () => {
         const prompt = 'A B C';
         let completion = prompt;
-        const response = await instance.sample(prompt);
-        let exitEarly = false;
-        await Promise.all([
-          (async () => {
-            for await (const chunk of response) {
-              if (exitEarly) {
-                return;
-              }
-              completion += chunk.response;
-            }
-          })(),
-          new Promise((resolve) =>
-            setTimeout(() => {
-              exitEarly = true;
-              resolve(undefined);
-            }),
-          ),
-        ]);
+        const { stream, abort } = await instance.sample(prompt);
+        try {
+          for await (const chunk of stream) {
+            completion += chunk.response;
+          }
+        } finally {
+          await abort();
+        }
         console.debug('@@@ sample: ', completion);
         expect(completion).toContain(prompt);
         expect(completion.length).toBeGreaterThan(prompt.length);

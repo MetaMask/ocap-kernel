@@ -83,6 +83,12 @@ export default defineConfig({
           branches: 0,
           lines: 1.78,
         },
+        'packages/kernel-agents/**': {
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
+        },
         'packages/kernel-browser-runtime/**': {
           statements: 71.84,
           functions: 69.11,
