@@ -7,6 +7,7 @@ import * as remoteComms from './remote-comms.ts';
 import { makeKernelStore } from '../store/index.ts';
 import type { PlatformServices, RemoteComms } from '../types.ts';
 import { RemoteManager } from './RemoteManager.ts';
+import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
 
 vi.mock('./remote-comms.ts', async () => {
   const actual = await vi.importActual('./remote-comms.ts');
@@ -23,33 +24,22 @@ describe('RemoteManager', () => {
   let mockKernelQueue: KernelQueue;
   let logger: Logger;
   let mockRemoteComms: RemoteComms;
+  let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
   beforeEach(() => {
     const kernelDatabase = makeMapKernelDatabase();
     kernelStore = makeKernelStore(kernelDatabase);
     logger = new Logger('test');
 
-    mockPlatformServices = {
-      launch: vi.fn(),
-      terminate: vi.fn(),
-      terminateAll: vi.fn(),
-      initializeRemoteComms: vi.fn(),
-      sendRemoteMessage: vi.fn(),
-    };
+    mockFactory = createMockRemotesFactory({
+      peerId: 'test-peer-id',
+      kernelStore,
+    });
 
-    mockKernelQueue = {
-      enqueueMessage: vi.fn(),
-      resolvePromises: vi.fn(),
-      waitForCrank: vi.fn(),
-      run: vi.fn(),
-    } as unknown as KernelQueue;
-
-    mockRemoteComms = {
-      getPeerId: vi.fn().mockReturnValue('test-peer-id'),
-      sendRemoteMessage: vi.fn(),
-      issueOcapURL: vi.fn(),
-      redeemLocalOcapURL: vi.fn(),
-    };
+    const mocks = mockFactory.makeRemoteManagerMocks();
+    mockPlatformServices = mocks.platformServices;
+    mockKernelQueue = mocks.kernelQueue;
+    mockRemoteComms = mocks.remoteComms;
 
     remoteManager = new RemoteManager({
       platformServices: mockPlatformServices,

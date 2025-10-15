@@ -7,6 +7,7 @@ import type { RemoteComms } from '../types.ts';
 import { OcapURLManager } from './OcapURLManager.ts';
 import type { RemoteHandle } from './RemoteHandle.ts';
 import type { RemoteManager } from './RemoteManager.ts';
+import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
 
 type RedeemService = {
   redeem: (url: string) => Promise<SlotValue>;
@@ -21,24 +22,29 @@ describe('OcapURLManager', () => {
   let mockRemoteManager: RemoteManager;
   let mockRemoteComms: RemoteComms;
   let mockRemoteHandle: RemoteHandle;
+  let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
   beforeEach(() => {
-    mockRemoteComms = {
-      getPeerId: vi.fn().mockReturnValue('local-peer-id'),
-      sendRemoteMessage: vi.fn(),
-      issueOcapURL: vi.fn().mockResolvedValue('ocap:abc123@local-peer-id'),
-      redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
-    };
-
-    mockRemoteHandle = {
+    mockFactory = createMockRemotesFactory({
+      peerId: 'local-peer-id',
       remoteId: 'r1',
-      redeemOcapURL: vi.fn().mockResolvedValue('ko456'),
-    } as unknown as RemoteHandle;
+    });
 
-    mockRemoteManager = {
-      getRemoteComms: vi.fn().mockReturnValue(mockRemoteComms),
-      remoteFor: vi.fn().mockReturnValue(mockRemoteHandle),
-    } as unknown as RemoteManager;
+    const mocks = mockFactory.makeOcapURLManagerMocks();
+    mockRemoteComms = mocks.remoteComms;
+    mockRemoteHandle = mocks.remoteHandle;
+    mockRemoteManager = mocks.remoteManager as unknown as RemoteManager;
+
+    // Override specific mock behaviors for this test
+    vi.spyOn(mockRemoteComms, 'issueOcapURL').mockImplementation(
+      async (): Promise<string> => 'ocap:abc123@local-peer-id',
+    );
+    vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockImplementation(
+      async (): Promise<string> => 'ko123',
+    );
+    vi.spyOn(mockRemoteHandle, 'redeemOcapURL').mockImplementation(
+      async (): Promise<string> => 'ko456',
+    );
 
     ocapURLManager = new OcapURLManager({
       remoteManager: mockRemoteManager,
@@ -46,7 +52,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('service creation', () => {
-    it('should create issuer and redemption services', () => {
+    it('creates issuer and redemption services', () => {
       const services = ocapURLManager.getServices();
 
       expect(services.issuerService).toBeDefined();
@@ -58,7 +64,7 @@ describe('OcapURLManager', () => {
       expect(services.redemptionService.service).toBeDefined();
     });
 
-    it('should return the same service instances', () => {
+    it('returns the same service instances', () => {
       const services1 = ocapURLManager.getServices();
       const services2 = ocapURLManager.getServices();
 
@@ -70,14 +76,14 @@ describe('OcapURLManager', () => {
       );
     });
 
-    it('should get issuer service directly', () => {
+    it('gets issuer service directly', () => {
       const issuerService = ocapURLManager.getIssuerService();
       const services = ocapURLManager.getServices();
 
       expect(issuerService).toBe(services.issuerService.service);
     });
 
-    it('should get redemption service directly', () => {
+    it('gets redemption service directly', () => {
       const redemptionService = ocapURLManager.getRedemptionService();
       const services = ocapURLManager.getServices();
 
@@ -86,7 +92,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('issueOcapURL', () => {
-    it('should issue OCAP URL for a kref', async () => {
+    it('issues OCAP URL for a kref', async () => {
       const kref = 'ko123';
       const url = await ocapURLManager.issueOcapURL(kref);
 
@@ -94,7 +100,7 @@ describe('OcapURLManager', () => {
       expect(mockRemoteComms.issueOcapURL).toHaveBeenCalledWith(kref);
     });
 
-    it('should throw if remote comms is not initialized', async () => {
+    it('throws if remote comms is not initialized', async () => {
       (mockRemoteManager.getRemoteComms as Mock).mockImplementation(() => {
         throw new Error('Remote comms not initialized');
       });
@@ -106,7 +112,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('redeemOcapURL', () => {
-    it('should redeem local OCAP URL', async () => {
+    it('redeems local OCAP URL', async () => {
       const url = 'ocap:abc123@local-peer-id';
       const kref = await ocapURLManager.redeemOcapURL(url);
 
@@ -115,7 +121,7 @@ describe('OcapURLManager', () => {
       expect(mockRemoteManager.remoteFor).not.toHaveBeenCalled();
     });
 
-    it('should redeem remote OCAP URL', async () => {
+    it('redeems remote OCAP URL', async () => {
       const url = 'ocap:def456@remote-peer-id';
       const kref = await ocapURLManager.redeemOcapURL(url);
 
@@ -128,7 +134,7 @@ describe('OcapURLManager', () => {
       expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
     });
 
-    it('should pass parsed hints to remoteFor for remote OCAP URL', async () => {
+    it('passes parsed hints to remoteFor for remote OCAP URL', async () => {
       const url = 'ocap:def456@remote-peer-id,relay1,relay2';
       const kref = await ocapURLManager.redeemOcapURL(url);
 
@@ -140,13 +146,13 @@ describe('OcapURLManager', () => {
       expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
     });
 
-    it('should throw for invalid OCAP URL', async () => {
+    it('throws for invalid OCAP URL', async () => {
       await expect(ocapURLManager.redeemOcapURL('invalid-url')).rejects.toThrow(
         'unparseable URL',
       );
     });
 
-    it('should throw if remote comms is not initialized', async () => {
+    it('throws if remote comms is not initialized', async () => {
       (mockRemoteManager.getRemoteComms as Mock).mockImplementation(() => {
         throw new Error('Remote comms not initialized');
       });
@@ -158,7 +164,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('issuer service', () => {
-    it('should issue URL through issuer service', async () => {
+    it('issues URL through issuer service', async () => {
       // Since we're testing integration with krefOf which requires a special
       // object structure, we'll test the underlying mechanism instead.
       // The issuer service is already tested implicitly through other tests.
@@ -175,39 +181,25 @@ describe('OcapURLManager', () => {
       expect(mockRemoteComms.issueOcapURL).toHaveBeenCalledWith(kref);
     });
 
-    it('should throw error for non-remotable in issuer service', async () => {
-      const services = ocapURLManager.getServices();
-      const issuerService = services.issuerService.service as IssuerService;
+    it.each([
+      { input: { foo: 'bar' }, description: 'plain object' },
+      { input: undefined, description: 'undefined' },
+      { input: null, description: 'null' },
+    ])(
+      'throws error for non-remotable $description in issuer service',
+      async ({ input }) => {
+        const services = ocapURLManager.getServices();
+        const issuerService = services.issuerService.service as IssuerService;
 
-      // Plain object is not a remotable
-      const nonRemotable = { foo: 'bar' };
-
-      await expect(issuerService.issue(nonRemotable)).rejects.toThrow(
-        'Argument must be a remotable',
-      );
-    });
-
-    it('should handle undefined input in issuer service', async () => {
-      const services = ocapURLManager.getServices();
-      const issuerService = services.issuerService.service as IssuerService;
-
-      await expect(issuerService.issue(undefined)).rejects.toThrow(
-        'Argument must be a remotable',
-      );
-    });
-
-    it('should handle null input in issuer service', async () => {
-      const services = ocapURLManager.getServices();
-      const issuerService = services.issuerService.service as IssuerService;
-
-      await expect(issuerService.issue(null)).rejects.toThrow(
-        'Argument must be a remotable',
-      );
-    });
+        await expect(issuerService.issue(input)).rejects.toThrow(
+          'Argument must be a remotable',
+        );
+      },
+    );
   });
 
   describe('redemption service', () => {
-    it('should redeem URL through redemption service', async () => {
+    it('redeems URL through redemption service', async () => {
       const services = ocapURLManager.getServices();
       const redemptionService = services.redemptionService
         .service as RedeemService;
@@ -215,12 +207,12 @@ describe('OcapURLManager', () => {
       const url = 'ocap:abc123@local-peer-id';
       const slotValue = await redemptionService.redeem(url);
 
-      // kslot('ko123') should create a slot value for the kref
+      // kslot('ko123') creates a slot value for the kref
       expect(slotValue).toStrictEqual(kslot('ko123'));
       expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(url);
     });
 
-    it('should handle remote URL in redemption service', async () => {
+    it('handles remote URL in redemption service', async () => {
       const services = ocapURLManager.getServices();
       const redemptionService = services.redemptionService
         .service as RedeemService;
@@ -232,7 +224,7 @@ describe('OcapURLManager', () => {
       expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
     });
 
-    it('should throw for invalid URL in redemption service', async () => {
+    it('throws for invalid URL in redemption service', async () => {
       const services = ocapURLManager.getServices();
       const redemptionService = services.redemptionService
         .service as RedeemService;
@@ -244,7 +236,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('integration scenarios', () => {
-    it('should handle round-trip issue and redeem', async () => {
+    it('handles round-trip issue and redeem', async () => {
       // Issue a URL
       const kref = 'ko789';
       vi.spyOn(mockRemoteComms, 'issueOcapURL').mockResolvedValue(
@@ -259,7 +251,7 @@ describe('OcapURLManager', () => {
       expect(redeemedKref).toBe(kref);
     });
 
-    it('should handle multiple simultaneous operations', async () => {
+    it('handles multiple simultaneous operations', async () => {
       const promises = [
         ocapURLManager.issueOcapURL('ko1'),
         ocapURLManager.issueOcapURL('ko2'),
@@ -277,7 +269,7 @@ describe('OcapURLManager', () => {
   });
 
   describe('error handling', () => {
-    it('should propagate errors from remote comms issue', async () => {
+    it('propagates errors from remote comms issue', async () => {
       vi.spyOn(mockRemoteComms, 'issueOcapURL').mockRejectedValue(
         new Error('Issue failed'),
       );
@@ -287,7 +279,7 @@ describe('OcapURLManager', () => {
       );
     });
 
-    it('should propagate errors from local redeem', async () => {
+    it('propagates errors from local redeem', async () => {
       vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockRejectedValue(
         new Error('Redeem failed'),
       );
@@ -297,7 +289,7 @@ describe('OcapURLManager', () => {
       ).rejects.toThrow('Redeem failed');
     });
 
-    it('should propagate errors from remote redeem', async () => {
+    it('propagates errors from remote redeem', async () => {
       vi.spyOn(mockRemoteHandle, 'redeemOcapURL').mockRejectedValue(
         new Error('Remote redeem failed'),
       );

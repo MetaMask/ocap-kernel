@@ -16,8 +16,18 @@ describe('KernelServiceManager', () => {
 
   beforeEach(() => {
     const kernelDatabase = makeMapKernelDatabase();
-    kernelStore = makeKernelStore(kernelDatabase);
+    const realKernelStore = makeKernelStore(kernelDatabase);
     logger = new Logger('test');
+
+    // Create a mock kernelStore with spyable methods
+    kernelStore = {
+      ...realKernelStore,
+      pinObject: vi.fn().mockImplementation(realKernelStore.pinObject),
+      initKernelObject: vi
+        .fn()
+        .mockImplementation(realKernelStore.initKernelObject),
+      kv: realKernelStore.kv,
+    };
 
     mockKernelQueue = {
       enqueueMessage: vi.fn(),
@@ -61,8 +71,9 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      // Check that the object is pinned (we can't spy on the frozen kernelStore.pinObject)
-      // Instead, we verify the kref format which indicates it was created
+      // Verify that initKernelObject and pinObject were called
+      expect(kernelStore.initKernelObject).toHaveBeenCalledWith('kernel');
+      expect(kernelStore.pinObject).toHaveBeenCalledWith(registered.kref);
       expect(registered.kref).toMatch(/^ko\d+$/u);
     });
 
