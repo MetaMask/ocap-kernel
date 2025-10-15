@@ -6,7 +6,12 @@ export type RetryBackoffOptions = Readonly<{
   maxDelayMs?: number;
   jitter?: boolean;
   onRetry?: (
-    details: Readonly<{ attempt: number; delayMs: number; error: unknown }>,
+    details: Readonly<{
+      attempt: number;
+      maxAttempts: number;
+      delayMs: number;
+      error: unknown;
+    }>,
   ) => void;
   shouldRetry?: (error: unknown) => boolean;
 }>;
@@ -100,7 +105,12 @@ export async function retryWithBackoff<OperationResult>(
         Boolean(jitter),
       );
       if (onRetry) {
-        onRetry({ attempt: attempt + 1, delayMs, error });
+        onRetry({
+          attempt: attempt + 1,
+          maxAttempts,
+          delayMs,
+          error,
+        });
       }
       await delay(delayMs);
     }

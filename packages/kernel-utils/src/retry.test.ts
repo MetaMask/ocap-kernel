@@ -95,7 +95,7 @@ describe('retryWithBackoff', () => {
     await Promise.resolve();
     expect(onRetry).toHaveBeenCalledTimes(1);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 2, delayMs: 100 }),
+      expect.objectContaining({ attempt: 2, delayMs: 100, maxAttempts: 5 }),
     );
 
     await vi.advanceTimersByTimeAsync(100);
@@ -104,7 +104,7 @@ describe('retryWithBackoff', () => {
     // After second failure: attemptIndex 1 → jittered delay = 150 (with random=0.5)
     expect(onRetry).toHaveBeenCalledTimes(2);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 3, delayMs: 150 }),
+      expect.objectContaining({ attempt: 3, delayMs: 150, maxAttempts: 5 }),
     );
 
     await vi.advanceTimersByTimeAsync(150);
@@ -139,7 +139,7 @@ describe('retryWithBackoff', () => {
     await Promise.resolve();
     expect(onRetry).toHaveBeenCalledTimes(1);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 2, delayMs: 100 }),
+      expect.objectContaining({ attempt: 2, delayMs: 100, maxAttempts: 5 }),
     );
     await vi.advanceTimersByTimeAsync(100);
     await Promise.resolve();
@@ -147,7 +147,7 @@ describe('retryWithBackoff', () => {
     // After second failure: attemptIndex 1 → delay = 200
     expect(onRetry).toHaveBeenCalledTimes(2);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 3, delayMs: 200 }),
+      expect.objectContaining({ attempt: 3, delayMs: 200, maxAttempts: 5 }),
     );
     await vi.advanceTimersByTimeAsync(200);
     const result = await promise;
@@ -179,7 +179,7 @@ describe('retryWithBackoff', () => {
     // With cap < base, delay should be capped to maxDelayMs
     expect(onRetry).toHaveBeenCalledTimes(1);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 2, delayMs: 100 }),
+      expect.objectContaining({ attempt: 2, delayMs: 100, maxAttempts: 5 }),
     );
     await vi.advanceTimersByTimeAsync(100);
     await Promise.resolve();
@@ -187,7 +187,7 @@ describe('retryWithBackoff', () => {
     // Next attempt also remains capped
     expect(onRetry).toHaveBeenCalledTimes(2);
     expect(onRetry).toHaveBeenLastCalledWith(
-      expect.objectContaining({ attempt: 3, delayMs: 100 }),
+      expect.objectContaining({ attempt: 3, delayMs: 100, maxAttempts: 5 }),
     );
     await vi.advanceTimersByTimeAsync(100);
     const result = await promise;
