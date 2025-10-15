@@ -112,9 +112,7 @@ describe('initializeRemoteComms', () => {
         expect(is(123, initializeRemoteCommsSpec.params)).toBe(false);
         expect(is([], initializeRemoteCommsSpec.params)).toBe(false);
       });
-    });
 
-    describe('edge cases', () => {
       it('should accept empty string keySeed', () => {
         const validParams = {
           keySeed: '',

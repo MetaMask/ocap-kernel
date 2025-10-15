@@ -58,9 +58,7 @@ describe('kernel-remote', () => {
       ])('should reject %s params', (invalidParams, _type) => {
         expect(is(invalidParams, remoteDeliverSpec.params)).toBe(false);
       });
-    });
 
-    describe('edge cases', () => {
       it.each([
         ['', '', 'empty strings'],
         ['🌟peer-123🌟', 'hello 世界 🌍', 'unicode strings'],

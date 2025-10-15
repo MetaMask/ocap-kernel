@@ -89,9 +89,7 @@ describe('sendRemoteMessage', () => {
         expect(is(123, sendRemoteMessageSpec.params)).toBe(false);
         expect(is([], sendRemoteMessageSpec.params)).toBe(false);
       });
-    });
 
-    describe('edge cases', () => {
       it('should accept empty strings', () => {
         const validParams = {
           to: '',

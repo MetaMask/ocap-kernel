@@ -296,9 +296,7 @@ describe('KernelServiceManager', () => {
       );
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
-  });
 
-  describe('edge cases', () => {
     it('should handle service with no methods', async () => {
       const emptyService = {};
 
