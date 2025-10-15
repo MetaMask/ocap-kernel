@@ -371,6 +371,31 @@ describe('kernel store', () => {
       expect(ks.kv.get('someOtherKey')).toBeUndefined();
     });
 
+    it('does not restore keys with undefined values', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      // Set up some state
+      ks.getNextVatId();
+      const koId = ks.initKernelObject('v1');
+
+      // Set some keys with values and some without
+      ks.kv.set('existingKey', 'has-value');
+      // Don't set 'undefinedKey' - it will be undefined
+      // Don't set 'nullKey' - it will be undefined
+
+      // Reset with except parameter including undefined keys
+      ks.reset({ except: ['existingKey', 'undefinedKey', 'nullKey'] });
+
+      // Check that counters are reset
+      expect(ks.getNextVatId()).toBe('v1');
+      expect(ks.getOwner(koId)).toBeUndefined();
+
+      // Check that only keys with values are restored
+      expect(ks.kv.get('existingKey')).toBe('has-value');
+      expect(ks.kv.get('undefinedKey')).toBeUndefined();
+      expect(ks.kv.get('nullKey')).toBeUndefined();
+    });
+
     it('resets all keys when no except parameter provided', () => {
       const ks = makeKernelStore(mockKernelDatabase);
 

@@ -210,7 +210,9 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     );
     crank.releaseAllSavepoints();
     preservedState?.forEach(({ key, value }) => {
-      context.kv.set(key, value ?? '');
+      if (value) {
+        context.kv.set(key, value);
+      }
     });
   }
 

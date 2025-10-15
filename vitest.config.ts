@@ -165,7 +165,7 @@ export default defineConfig({
           statements: 95.18,
           functions: 96.56,
           branches: 86.5,
-          lines: 95.16,
+          lines: 95.17,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.26,
