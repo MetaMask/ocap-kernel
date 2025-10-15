@@ -82,7 +82,7 @@ describe('agent', () => {
       );
       expect(result).toBeDefined();
       expect(countSpy).toHaveBeenCalled();
-      expect(result).includes(word.length.toString());
+      expect(result).toMatch(word.length.toString());
     },
   );
 
@@ -109,7 +109,7 @@ describe('agent', () => {
         `A box with length ${length}, width ${width}, and height ${height} have volume V. How many digits are in the numerical value of V?`,
       );
       expect(result).toBeDefined();
-      expect(result).includes(`${length * width * height}`.length.toString());
+      expect(result).toMatch(`${length * width * height}`.length.toString());
     },
   );
 });
