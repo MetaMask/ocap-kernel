@@ -23,6 +23,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./json": {
+      "import": {
+        "types": "./dist/json/index.d.mts",
+        "default": "./dist/json/index.mjs"
+      },
+      "require": {
+        "types": "./dist/json/index.d.cts",
+        "default": "./dist/json/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [

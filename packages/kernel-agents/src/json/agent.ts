@@ -2,13 +2,14 @@ import { makeCounter, mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type { LanguageModel } from '@ocap/kernel-language-model-service';
 
-import { invokeCapabilities } from './capability.ts';
-import { end } from './default-capabilities.ts';
-import { AssistantMessage, CapabilityResultMessage } from './messages.ts';
-import type { AssistantMessageJson } from './messages.ts';
-import { gatherStreamingResponse, makeIncrementalParser } from './parser.ts';
+import { invokeCapabilities } from '../capability.ts';
+import { end } from '../default-capabilities.ts';
+import { AssistantMessage, CapabilityResultMessage } from '../messages.ts';
+import type { AssistantMessageJson } from '../messages.ts';
+import { makeIncrementalParser } from './parser.ts';
+import { gatherStreamingResponse } from '../gather.ts';
 import { makeChat } from './prompt.ts';
-import type { Agent, CapabilityRecord } from './types.ts';
+import type { Agent, CapabilityRecord } from '../types.ts';
 
 /**
  * Make a capability-augmented agent

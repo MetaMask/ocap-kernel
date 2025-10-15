@@ -37,7 +37,9 @@ export const makeIncrementalParser = <Result = unknown>({
       response += `${subchunk}}`;
       logger?.info('toParse:', response);
       try {
-        return JSON.parse(response);
+        const result = JSON.parse(response);
+        logger?.info('parsed:', result);
+        return result;
       } catch (error) {
         // XXX There are other ways to detect an irrecoverable state.
         // This is the simplest.
@@ -53,29 +55,4 @@ export const makeIncrementalParser = <Result = unknown>({
     }
     return null;
   };
-};
-
-/**
- * Gather a streaming response from an stream of chunks.
- *
- * @param args - The arguments to gather the streaming response.
- * @param args.stream - The stream to gather from.
- * @param args.parse - The incremental parser to use to parse the response.
- * @returns The parsed response.
- */
-export const gatherStreamingResponse = async <Result>({
-  stream,
-  parse,
-}: {
-  stream: AsyncIterable<{ response: string }>;
-  parse: IncrementalParser<Result>;
-}): Promise<Result> => {
-  for await (const chunk of stream) {
-    const delta = (chunk as { response: string }).response;
-    const parsed = parse(delta);
-    if (parsed !== null) {
-      return parsed;
-    }
-  }
-  throw new Error('stream ended without a parse event');
 };

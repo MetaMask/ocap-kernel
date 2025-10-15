@@ -1,7 +1,7 @@
 import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { makeIncrementalParser, gatherStreamingResponse } from './parser.ts';
+import { makeIncrementalParser } from './parser.ts';
 
 describe('makeIncrementalParser', () => {
   let mockLogger: Logger;
@@ -53,36 +53,5 @@ describe('makeIncrementalParser', () => {
     parser('chunk1');
     parser('chunk2');
     expect(() => parser('chunk3')).toThrow('Max chunk count reached');
-  });
-});
-
-describe('gatherStreamingResponse', () => {
-  it('gathers complete response from single chunk', async () => {
-    const stream = (async function* () {
-      yield { response: '{"key": "value"}' };
-    })();
-    const parser = makeIncrementalParser({});
-    const result = await gatherStreamingResponse({ stream, parse: parser });
-    expect(result).toStrictEqual({ key: 'value' });
-  });
-
-  it('gathers response from multiple chunks', async () => {
-    const stream = (async function* () {
-      yield { response: '{"key": "val' };
-      yield { response: 'ue", "content": 42}' };
-    })();
-    const parser = makeIncrementalParser({});
-    const result = await gatherStreamingResponse({ stream, parse: parser });
-    expect(result).toStrictEqual({ key: 'value', content: 42 });
-  });
-
-  it('throws error when stream ends without parse event', async () => {
-    const stream = (async function* () {
-      yield { response: 'incomplete json' };
-    })();
-    const parser = makeIncrementalParser({});
-    await expect(
-      gatherStreamingResponse({ stream, parse: parser }),
-    ).rejects.toThrow('stream ended without a parse event');
   });
 });

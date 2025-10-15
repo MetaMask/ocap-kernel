@@ -4,9 +4,9 @@ import type { Logger } from '@metamask/logger';
 import { vi, describe, it, expect } from 'vitest';
 
 import { makeAgent } from './agent.ts';
-import { capability } from './capability.ts';
-import { end } from './default-capabilities.ts';
-import { AssistantMessage, CapabilityResultMessage } from './messages.ts';
+import { capability } from '../capability.ts';
+import { end } from '../default-capabilities.ts';
+import { AssistantMessage, CapabilityResultMessage } from '../messages.ts';
 import { makeChat } from './prompt.ts';
 
 const prompt = 'test prompt';
