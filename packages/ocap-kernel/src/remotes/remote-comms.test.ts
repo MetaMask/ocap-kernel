@@ -8,26 +8,23 @@ import {
   parseOcapURL,
   getKnownRelays,
 } from './remote-comms.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
-import type { PlatformServices, RemoteMessageHandler } from './types.ts';
-import { makeMapKernelDatabase } from '../test/storage.ts';
+import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
+import type { KernelStore } from '../store/index.ts';
+import type { PlatformServices, RemoteMessageHandler } from '../types.ts';
 
 describe('remote-comms', () => {
   let mockKernelStore: KernelStore;
   let mockPlatformServices: PlatformServices;
   let mockRemoteMessageHandler: RemoteMessageHandler;
+  let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
   beforeEach(() => {
-    mockKernelStore = makeKernelStore(makeMapKernelDatabase());
-    mockPlatformServices = {
-      launch: vi.fn(),
-      terminate: vi.fn(),
-      terminateAll: vi.fn(),
-      sendRemoteMessage: vi.fn(),
-      initializeRemoteComms: vi.fn(),
-    } as unknown as PlatformServices;
-    mockRemoteMessageHandler = vi.fn() as unknown as RemoteMessageHandler;
+    mockFactory = createMockRemotesFactory();
+    const mocks = mockFactory.makeRemoteCommsMocks();
+    mockKernelStore = mocks.kernelStore;
+    mockPlatformServices = mocks.platformServices;
+    mockRemoteMessageHandler = mocks.remoteMessageHandler;
+
     let counter = 1;
     // eslint-disable-next-line n/no-unsupported-features/node-builtins
     vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((arr) => {

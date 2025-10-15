@@ -335,5 +335,82 @@ describe('kernel store', () => {
       expect(ks.krefToEref('v1', koId)).toBeUndefined();
       expect(ks.dequeueRun()).toBeUndefined();
     });
+
+    it('preserves specified keys when resetting', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      // Set up some state
+      ks.getNextVatId();
+      ks.getNextVatId();
+      const koId = ks.initKernelObject('v1');
+      ks.enqueueRun(tm('test message'));
+
+      // Set some custom keys that we want to preserve
+      ks.kv.set('keySeed', 'preserved-seed');
+      ks.kv.set('peerId', 'preserved-peer');
+      ks.kv.set('ocapURLKey', 'preserved-url');
+      ks.kv.set('someOtherKey', 'should-be-cleared');
+
+      // Reset with except parameter
+      ks.reset({ except: ['keySeed', 'peerId', 'ocapURLKey'] });
+
+      // Check that counters are reset
+      expect(ks.getNextVatId()).toBe('v1');
+      expect(ks.getNextRemoteId()).toBe('r1');
+
+      // Check that state is cleared
+      expect(ks.getOwner(koId)).toBeUndefined();
+      expect(ks.dequeueRun()).toBeUndefined();
+
+      // Check that preserved keys are still there
+      expect(ks.kv.get('keySeed')).toBe('preserved-seed');
+      expect(ks.kv.get('peerId')).toBe('preserved-peer');
+      expect(ks.kv.get('ocapURLKey')).toBe('preserved-url');
+
+      // Check that non-preserved keys are cleared
+      expect(ks.kv.get('someOtherKey')).toBeUndefined();
+    });
+
+    it('does not restore keys with undefined values', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      // Set up some state
+      ks.getNextVatId();
+      const koId = ks.initKernelObject('v1');
+
+      // Set some keys with values and some without
+      ks.kv.set('existingKey', 'has-value');
+      // Don't set 'undefinedKey' - it will be undefined
+      // Don't set 'nullKey' - it will be undefined
+
+      // Reset with except parameter including undefined keys
+      ks.reset({ except: ['existingKey', 'undefinedKey', 'nullKey'] });
+
+      // Check that counters are reset
+      expect(ks.getNextVatId()).toBe('v1');
+      expect(ks.getOwner(koId)).toBeUndefined();
+
+      // Check that only keys with values are restored
+      expect(ks.kv.get('existingKey')).toBe('has-value');
+      expect(ks.kv.get('undefinedKey')).toBeUndefined();
+      expect(ks.kv.get('nullKey')).toBeUndefined();
+    });
+
+    it('resets all keys when no except parameter provided', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      // Set up some state
+      ks.getNextVatId();
+      const koId = ks.initKernelObject('v1');
+      ks.kv.set('customKey', 'should-be-cleared');
+
+      // Reset without except parameter
+      ks.reset();
+
+      // Check that everything is reset
+      expect(ks.getNextVatId()).toBe('v1');
+      expect(ks.getOwner(koId)).toBeUndefined();
+      expect(ks.kv.get('customKey')).toBeUndefined();
+    });
   });
 });

@@ -2,19 +2,19 @@ import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelQueue } from './KernelQueue.ts';
+import type { KernelQueue } from '../KernelQueue.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
-import { makeKernelStore } from './store/index.ts';
-import type { KernelStore } from './store/index.ts';
-import { parseRef } from './store/utils/parse-ref.ts';
-import type { Message, RemoteComms, RRef } from './types.ts';
-import { makeMapKernelDatabase } from '../test/storage.ts';
+import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
+import type { KernelStore } from '../store/index.ts';
+import { parseRef } from '../store/utils/parse-ref.ts';
+import type { Message, RemoteComms, RRef } from '../types.ts';
 
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;
 let mockKernelQueue: KernelQueue;
 const mockRemoteId = 'r0';
 const mockRemotePeerId = 'remotePeerId';
+let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
 /* eslint-disable vitest/no-conditional-expect */
 
@@ -38,22 +38,21 @@ export function makeRemote(logger?: Logger): RemoteHandle {
 
 describe('RemoteHandle', () => {
   beforeEach(() => {
-    mockKernelStore = makeKernelStore(makeMapKernelDatabase());
+    mockFactory = createMockRemotesFactory({
+      remoteId: mockRemoteId,
+      remotePeerId: mockRemotePeerId,
+    });
+
+    const mocks = mockFactory.makeRemoteHandleMocks();
+    mockKernelStore = mocks.kernelStore;
+    mockKernelQueue = mocks.kernelQueue;
+    mockRemoteComms = mocks.remoteComms;
+
+    // Override specific mock behaviors for this test
     const mockRedeemLocalOcapURL = vi.fn();
     mockRedeemLocalOcapURL.mockReturnValue('ko100');
-    mockRemoteComms = {
-      getPeerId: () => 'myPeerId',
-      sendRemoteMessage: vi.fn(),
-      issueOcapURL: vi.fn(),
-      redeemLocalOcapURL: mockRedeemLocalOcapURL,
-    };
-    mockKernelQueue = {
-      run: vi.fn(),
-      enqueueMessage: vi.fn(),
-      enqueueSend: vi.fn(),
-      enqueueNotify: vi.fn(),
-      resolvePromises: vi.fn(),
-    } as unknown as KernelQueue;
+    mockRemoteComms.redeemLocalOcapURL = mockRedeemLocalOcapURL;
+    mockRemoteComms.getPeerId = () => 'myPeerId';
   });
 
   it('deliverMessage calls sendRemoteMessage with correct delivery message', async () => {

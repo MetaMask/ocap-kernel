@@ -63,9 +63,7 @@ describe('terminate', () => {
         expect(is(123, terminateSpec.params)).toBe(false);
         expect(is([], terminateSpec.params)).toBe(false);
       });
-    });
 
-    describe('edge cases', () => {
       it('should accept valid numeric vatId', () => {
         const validParams = {
           vatId: 'v1',
