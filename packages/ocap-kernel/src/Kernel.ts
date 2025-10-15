@@ -11,6 +11,7 @@ import type { JsonRpcResponse } from '@metamask/utils';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
+import type { KernelService } from './KernelServiceManager.ts';
 import { OcapURLManager } from './remotes/OcapURLManager.ts';
 import { RemoteManager } from './remotes/RemoteManager.ts';
 import { kernelHandlers } from './rpc/index.ts';
@@ -317,10 +318,7 @@ export class Kernel {
    * @param object - The service object to register.
    * @returns The registration details including the kref.
    */
-  registerKernelServiceObject(
-    name: string,
-    object: object,
-  ): { name: string; kref: KRef } {
+  registerKernelServiceObject(name: string, object: object): KernelService {
     return this.#kernelServiceManager.registerKernelServiceObject(name, object);
   }
 
@@ -546,20 +544,12 @@ export class Kernel {
 
   /**
    * Reset the kernel state.
-   * This is for debugging purposes only.
    */
   #resetKernelState(): void {
-    // XXX special case hack so that network address survives restart when testing
-    const keySeed = this.#kernelStore.kv.get('keySeed');
-    const peerId = this.#kernelStore.kv.get('peerId');
-    const ocapURLKey = this.#kernelStore.kv.get('ocapURLKey');
-    this.#kernelStore.clear();
-    this.#kernelStore.reset();
-    if (keySeed && peerId && ocapURLKey) {
-      this.#kernelStore.kv.set('keySeed', keySeed);
-      this.#kernelStore.kv.set('peerId', peerId);
-      this.#kernelStore.kv.set('ocapURLKey', ocapURLKey);
-    }
+    this.#kernelStore.reset({
+      // XXX special case hack so that network address survives restart when testing
+      except: ['keySeed', 'peerId', 'ocapURLKey'],
+    });
   }
 
   /**

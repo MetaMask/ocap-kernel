@@ -180,8 +180,15 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
   /**
    * Reset the kernel's persistent state and reset all counters.
+   *
+   * @param options - Options for the reset.
+   * @param options.except - Keys to not reset. If not provided, all keys will be reset.
    */
-  function reset(): void {
+  function reset({ except }: { except?: string[] } = {}): void {
+    const preservedState = except?.map((key) => ({
+      key,
+      value: context.kv.get(key),
+    }));
     kdb.clear();
     context.maybeFreeKrefs.clear();
     context.runQueue = provideStoredQueue('run', true);
@@ -202,6 +209,9 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       '{}',
     );
     crank.releaseAllSavepoints();
+    preservedState?.forEach(({ key, value }) => {
+      context.kv.set(key, value ?? '');
+    });
   }
 
   /**
