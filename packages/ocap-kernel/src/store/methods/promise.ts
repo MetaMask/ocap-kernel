@@ -51,14 +51,6 @@ export function getPromiseMethods(ctx: StoreContext) {
     ctx.kv.set(`${kpid}.state`, 'unresolved');
     ctx.kv.set(`${kpid}.subscribers`, '[]');
     ctx.kv.set(refCountKey(kpid), '1');
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.debug(
-      'initKernelPromise',
-      kpid,
-      ctx.kv.get(refCountKey(kpid)),
-      kpr,
-    );
     return [kpid, kpr];
   }
 

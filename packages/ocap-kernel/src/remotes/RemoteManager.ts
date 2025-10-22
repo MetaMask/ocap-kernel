@@ -6,6 +6,7 @@ import type {
   PlatformServices,
   RemoteComms,
   RemoteId,
+  RemoteInfo,
   RemoteMessageHandler,
 } from '../types.ts';
 import { initRemoteComms } from './remote-comms.ts';
@@ -69,7 +70,7 @@ export class RemoteManager {
   }
 
   /**
-   * Initialize the remote comms object.
+   * Initialize the remote comms object at kernel startup.
    *
    * @param relays - The relays to use for the remote comms object.
    * @returns a promise that resolves when initialization is complete.
@@ -88,6 +89,14 @@ export class RemoteManager {
       relays,
       this.#logger,
     );
+
+    // Restore all remotes that were previously established
+    for (const {
+      remoteId,
+      remoteInfo,
+    } of this.#kernelStore.getAllRemoteRecords()) {
+      this.#initializeRemote(remoteId, remoteInfo);
+    }
   }
 
   /**
@@ -146,8 +155,17 @@ export class RemoteManager {
    * @returns the RemoteHandle that was set up.
    */
   establishRemote(peerId: string, hints: string[] = []): RemoteHandle {
-    const remoteComms = this.getRemoteComms();
     const remoteId = this.#kernelStore.getNextRemoteId();
+    const remoteInfo: RemoteInfo = { peerId, hints };
+    const remote = this.#initializeRemote(remoteId, remoteInfo);
+    this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
+    return remote;
+  }
+
+  #initializeRemote(remoteId: RemoteId, info: RemoteInfo): RemoteHandle {
+    const { peerId, hints } = info;
+    const remoteComms = this.getRemoteComms();
+
     const remote = RemoteHandle.make({
       remoteId,
       peerId,
@@ -155,6 +173,7 @@ export class RemoteManager {
       kernelQueue: this.#kernelQueue,
       remoteComms,
       locationHints: hints,
+      logger: this.#logger,
     });
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);
