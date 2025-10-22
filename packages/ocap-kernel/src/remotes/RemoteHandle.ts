@@ -118,7 +118,7 @@ export class RemoteHandle implements EndpointHandle {
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
     this.#peerId = peerId;
-    const loggerTags = `[remote ${remoteId}]`;
+    const loggerTags = { tags: ['remote', `${remoteId}`] };
     this.#logger = logger
       ? logger.subLogger(loggerTags)
       : new Logger(loggerTags);
