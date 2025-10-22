@@ -307,7 +307,7 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(response).toContain('says hello back to');
   });
 
-  it('client and server should start and work', async () => {
+  it('remote relationships should survive kernel restart', async () => {
     // Launch client vat on kernel1
     const clientConfig = makeMaasClientConfig('client1', true);
     const clientKernel = kernel1;
