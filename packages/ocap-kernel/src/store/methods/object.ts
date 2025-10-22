@@ -31,9 +31,6 @@ export function getObjectMethods(ctx: StoreContext) {
     const koId = getNextObjectId();
     ctx.kv.set(getOwnerKey(koId), owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
-    // TODO(#562): Use logger instead.
-    // eslint-disable-next-line no-console
-    console.debug('initKernelObject', koId, owner, getObjectRefCount(koId));
     return koId;
   }
 

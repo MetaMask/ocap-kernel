@@ -116,7 +116,6 @@ export class OcapURLManager {
     }
 
     // This is a remote OCAP URL
-    // XXX TODO: ignoring hints for now, just use known relay
     const remote = this.#remoteManager.remoteFor(host, hints);
     return remote.redeemOcapURL(url);
   }

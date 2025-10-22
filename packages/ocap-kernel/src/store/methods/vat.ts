@@ -21,7 +21,7 @@ const VAT_CONFIG_BASE = 'vatConfig.';
 const VAT_CONFIG_BASE_LEN = VAT_CONFIG_BASE.length;
 
 /**
- * Get a vat store object that provides functionality for managing vat records.
+ * Get a kernel store object that provides functionality for managing vat records.
  *
  * @param ctx - The store context.
  * @returns A vat store object that maps various persistent kernel data

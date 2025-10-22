@@ -346,6 +346,11 @@ export type RemoteComms = {
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
 };
 
+export type RemoteInfo = {
+  peerId: string;
+  hints?: string[];
+};
+
 // Cluster configuration
 
 export type VatConfig = UserCodeSpec & {
