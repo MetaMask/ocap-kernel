@@ -58,6 +58,7 @@ describe('kernel store', () => {
         'deleteEndpoint',
         'deleteKernelObject',
         'deleteKernelPromise',
+        'deleteRemoteInfo',
         'deleteSubcluster',
         'deleteSubclusterVat',
         'deleteVat',
