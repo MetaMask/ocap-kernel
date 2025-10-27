@@ -111,6 +111,18 @@ class DirectNetworkService {
         console.log(`Registered peer ${actualPeerId} for direct messaging`);
         return Promise.resolve();
       },
+
+      async stopRemoteComms() {
+        // Unregister this peer from the direct network
+        if (actualPeerId) {
+          self.peerRegistry.delete(actualPeerId);
+          self.peerAddresses.delete(actualPeerId);
+          console.log(
+            `Unregistered peer ${actualPeerId} from direct messaging`,
+          );
+        }
+        return Promise.resolve();
+      },
     };
   }
 }

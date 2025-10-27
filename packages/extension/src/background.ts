@@ -27,6 +27,8 @@ chrome.runtime.onMessage.addListener((_msg, _sender, sendResponse) => {
   sendResponse(true);
   return false;
 });
+
+// Connection to the offscreen document
 chrome.runtime.onConnect.addListener(() => {
   start();
 });

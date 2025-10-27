@@ -16,6 +16,14 @@ import type {
   SendRemoteMessageSpec,
   SendRemoteMessageHandler,
 } from './sendRemoteMessage.ts';
+import {
+  stopRemoteCommsHandler,
+  stopRemoteCommsSpec,
+} from './stopRemoteComms.ts';
+import type {
+  StopRemoteCommsHandler,
+  StopRemoteCommsSpec,
+} from './stopRemoteComms.ts';
 import { terminateSpec, terminateHandler } from './terminate.ts';
 import type { TerminateSpec, TerminateHandler } from './terminate.ts';
 import { terminateAllSpec, terminateAllHandler } from './terminateAll.ts';
@@ -27,12 +35,14 @@ export const platformServicesHandlers = {
   terminateAll: terminateAllHandler,
   sendRemoteMessage: sendRemoteMessageHandler,
   initializeRemoteComms: initializeRemoteCommsHandler,
+  stopRemoteComms: stopRemoteCommsHandler,
 } as {
   launch: LaunchHandler;
   terminate: TerminateHandler;
   terminateAll: TerminateAllHandler;
   sendRemoteMessage: SendRemoteMessageHandler;
   initializeRemoteComms: InitializeRemoteCommsHandler;
+  stopRemoteComms: StopRemoteCommsHandler;
 };
 
 export type PlatformServicesMethodSpecs =
@@ -40,7 +50,8 @@ export type PlatformServicesMethodSpecs =
   | typeof terminateSpec
   | typeof terminateAllSpec
   | typeof sendRemoteMessageSpec
-  | typeof initializeRemoteCommsSpec;
+  | typeof initializeRemoteCommsSpec
+  | typeof stopRemoteCommsSpec;
 
 export const platformServicesMethodSpecs = {
   launch: launchSpec,
@@ -48,12 +59,14 @@ export const platformServicesMethodSpecs = {
   terminateAll: terminateAllSpec,
   sendRemoteMessage: sendRemoteMessageSpec,
   initializeRemoteComms: initializeRemoteCommsSpec,
+  stopRemoteComms: stopRemoteCommsSpec,
 } as {
   launch: LaunchSpec;
   terminate: TerminateSpec;
   terminateAll: TerminateAllSpec;
   sendRemoteMessage: SendRemoteMessageSpec;
   initializeRemoteComms: InitializeRemoteCommsSpec;
+  stopRemoteComms: StopRemoteCommsSpec;
 };
 
 export type PlatformServicesMethod = PlatformServicesMethodSpecs['method'];

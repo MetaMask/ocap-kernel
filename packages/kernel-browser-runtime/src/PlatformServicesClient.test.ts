@@ -28,6 +28,15 @@ vi.mock('@metamask/streams/browser', async (importOriginal) => {
   };
 });
 
+type MessageEventWithPayload = MessageEvent & {
+  payload:
+    | {
+        id: string;
+        error: unknown;
+      }
+    | undefined;
+};
+
 const makeVatConfig = (sourceSpec: string = 'bogus.js'): VatConfig => ({
   sourceSpec,
 });
@@ -173,6 +182,80 @@ describe('PlatformServicesClient', () => {
         await delay(10);
 
         expect(await result).toBeUndefined();
+      });
+    });
+
+    describe('remote communications', () => {
+      describe('initializeRemoteComms', () => {
+        it('sends initializeRemoteComms request and resolves', async () => {
+          const remoteHandler = vi.fn(async () => 'response');
+          const result = client.initializeRemoteComms(
+            '0xabcd',
+            ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            remoteHandler,
+          );
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('sendRemoteMessage', () => {
+        it('sends message to remote peer via RPC', async () => {
+          const result = client.sendRemoteMessage('peer-456', 'hello', [
+            '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+          ]);
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+
+        it('works with empty hints array', async () => {
+          const result = client.sendRemoteMessage('peer-789', 'goodbye');
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('stopRemoteComms', () => {
+        it('sends stopRemoteComms request and resolves', async () => {
+          const result = client.stopRemoteComms();
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('remoteDeliver', () => {
+        it('throws error when handler not set', async () => {
+          // Client without initialized remote comms
+          const outputs: MessageEventWithPayload[] = [];
+          const newStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          // eslint-disable-next-line no-new -- test setup
+          new PlatformServicesClient(
+            newStream as unknown as PlatformServicesClientStream,
+          );
+          // Simulate remoteDeliver request
+          await newStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm1',
+                jsonrpc: '2.0',
+                method: 'remoteDeliver',
+                params: { from: 'peer-999', message: 'test' },
+              },
+            }),
+          );
+          await delay(10);
+          // Should have sent error response
+          const errorResponse = outputs.find(
+            (message) =>
+              message.payload?.id === 'm1' && 'error' in message.payload,
+          );
+          expect(errorResponse).toBeDefined();
+        });
       });
     });
   });

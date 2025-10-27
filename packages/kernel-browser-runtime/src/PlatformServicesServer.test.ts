@@ -18,12 +18,20 @@ import type {
   PlatformServicesStream,
 } from './PlatformServicesServer.ts';
 
+// Mock initNetwork from ocap-kernel
+const mockSendRemoteMessage = vi.fn(async () => undefined);
+const mockStop = vi.fn(async () => undefined);
+
 vi.mock('@metamask/ocap-kernel', () => ({
   PlatformServicesCommandMethod: {
     launch: 'launch',
     terminate: 'terminate',
     terminateAll: 'terminateAll',
   },
+  initNetwork: vi.fn(async () => ({
+    sendRemoteMessage: mockSendRemoteMessage,
+    stop: mockStop,
+  })),
 }));
 
 const makeVatConfig = (sourceSpec = 'bogus.js'): VatConfig => ({
@@ -60,6 +68,35 @@ const makeTerminateMessageEvent = (
 const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'terminateAll',
+    params: [],
+  });
+
+const makeInitializeRemoteCommsMessageEvent = (
+  messageId: `m${number}`,
+  keySeed: string,
+  knownRelays: string[],
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'initializeRemoteComms',
+    params: { keySeed, knownRelays },
+  });
+
+const makeSendRemoteMessageMessageEvent = (
+  messageId: `m${number}`,
+  to: string,
+  message: string,
+  hints: string[],
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'sendRemoteMessage',
+    params: { to, message, hints },
+  });
+
+const makeStopRemoteCommsMessageEvent = (
+  messageId: `m${number}`,
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'stopRemoteComms',
     params: [],
   });
 
@@ -269,6 +306,161 @@ describe('PlatformServicesServer', () => {
           'Error handling "terminateAll" request:',
           vatNotFoundError,
         );
+      });
+    });
+
+    describe('remote communications', () => {
+      beforeEach(() => {
+        // Reset mocks before each test
+        mockSendRemoteMessage.mockClear();
+        mockStop.mockClear();
+      });
+
+      describe('initializeRemoteComms', () => {
+        it('initializes remote comms with keySeed and relays', async () => {
+          const keySeed = '0x1234567890abcdef';
+          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+          );
+          await delay(10);
+
+          const { initNetwork } = await import('@metamask/ocap-kernel');
+          expect(initNetwork).toHaveBeenCalledWith(
+            keySeed,
+            knownRelays,
+            expect.any(Function),
+          );
+        });
+
+        it('throws error if already initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+          const keySeed = '0xabcd';
+          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          // First initialization
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+          );
+          await delay(10);
+
+          // Second initialization should fail
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m1', keySeed, knownRelays),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "initializeRemoteComms" request:',
+            expect.objectContaining({
+              message: 'remote comms already initialized',
+            }),
+          );
+        });
+      });
+
+      describe('sendRemoteMessage', () => {
+        it('sends message via network layer', async () => {
+          // First initialize remote comms
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          // Now send a message
+          await stream.receiveInput(
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          expect(mockSendRemoteMessage).toHaveBeenCalledWith(
+            'peer-123',
+            'hello',
+            ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+          );
+        });
+
+        it('throws error if remote comms not initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+
+          await stream.receiveInput(
+            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test', []),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "sendRemoteMessage" request:',
+            expect.objectContaining({
+              message: 'remote comms not initialized',
+            }),
+          );
+        });
+      });
+
+      describe('stopRemoteComms', () => {
+        it('stops remote comms and cleans up', async () => {
+          // First initialize
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          // Now stop
+          await stream.receiveInput(makeStopRemoteCommsMessageEvent('m1'));
+          await delay(10);
+
+          expect(mockStop).toHaveBeenCalledOnce();
+        });
+
+        it('throws error if remote comms not initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+
+          await stream.receiveInput(makeStopRemoteCommsMessageEvent('m0'));
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "stopRemoteComms" request:',
+            expect.objectContaining({
+              message: 'remote comms not initialized',
+            }),
+          );
+        });
+
+        it('allows re-initialization after stop', async () => {
+          const keySeed = '0xabcd';
+          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          // Initialize
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+          );
+          await delay(10);
+
+          // Stop
+          await stream.receiveInput(makeStopRemoteCommsMessageEvent('m1'));
+          await delay(10);
+
+          const { initNetwork } = await import('@metamask/ocap-kernel');
+          const firstCallCount = (initNetwork as Mock).mock.calls.length;
+
+          // Re-initialize should work
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m2', keySeed, knownRelays),
+          );
+          await delay(10);
+
+          // Should have called initNetwork again
+          expect((initNetwork as Mock).mock.calls).toHaveLength(
+            firstCallCount + 1,
+          );
+        });
       });
     });
   });

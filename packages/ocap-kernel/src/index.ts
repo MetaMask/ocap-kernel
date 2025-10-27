@@ -16,6 +16,7 @@ export type {
   Subcluster,
   SubclusterId,
 } from './types.ts';
+export type { StopRemoteComms } from './types.ts';
 export {
   isVatId,
   VatIdStruct,
