@@ -2,7 +2,7 @@ import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent, fromHex } from '@metamask/kernel-utils';
+import { fromHex } from '@metamask/kernel-utils';
 import { makeKernelStore, kunser, Kernel } from '@metamask/ocap-kernel';
 import type {
   KernelStore,
@@ -294,13 +294,6 @@ describe('Remote Communications (Integration Tests)', () => {
       'sendMessage',
       [receiverURL, 'hello', ['RemoteSender from Kernel1']],
     );
-
-    // Wait for both kernels to process their messages
-    // The message flow is: kernel1 -> kernel2 -> kernel1
-
-    // XXX Is this waitUntilQuiescent call necessary?  The test passes for me
-    // without it. The above await for remoteCallResult should be sufficient.
-    await waitUntilQuiescent(100);
 
     const response = kunser(remoteCallResult);
     expect(response).toBeDefined();

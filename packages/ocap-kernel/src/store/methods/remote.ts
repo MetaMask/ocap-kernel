@@ -57,9 +57,19 @@ export function getRemoteMethods(ctx: StoreContext) {
     kv.set(`${REMOTE_INFO_BASE}${remoteID}`, JSON.stringify(remoteInfo));
   }
 
+  /**
+   * Delete the info for a remote.
+   *
+   * @param remoteID - The remote whose info is to be removed.
+   */
+  function deleteRemoteInfo(remoteID: RemoteId): void {
+    kv.delete(`${REMOTE_INFO_BASE}${remoteID}`);
+  }
+
   return {
     getAllRemoteRecords,
     getRemoteInfo,
     setRemoteInfo,
+    deleteRemoteInfo,
   };
 }
