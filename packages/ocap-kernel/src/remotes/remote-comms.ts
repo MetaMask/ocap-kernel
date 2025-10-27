@@ -227,5 +227,6 @@ export async function initRemoteComms(
     sendRemoteMessage,
     issueOcapURL,
     redeemLocalOcapURL,
+    stopRemoteComms: platformServices.stopRemoteComms.bind(platformServices),
   };
 }

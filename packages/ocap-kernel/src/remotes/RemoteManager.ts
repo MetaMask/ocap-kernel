@@ -100,6 +100,18 @@ export class RemoteManager {
   }
 
   /**
+   * Stop the remote comms object.
+   *
+   * @returns a promise that resolves when stopping is complete.
+   */
+  async stopRemoteComms(): Promise<void> {
+    await this.#remoteComms?.stopRemoteComms();
+    this.#remoteComms = undefined;
+    this.#remotes.clear();
+    this.#remotesByPeer.clear();
+  }
+
+  /**
    * Get the remote comms object.
    *
    * @returns the remote comms object.

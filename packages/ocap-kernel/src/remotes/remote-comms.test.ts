@@ -50,6 +50,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
+      expect(remoteComms).toHaveProperty('stopRemoteComms');
 
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBe(
@@ -106,10 +107,58 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
+      expect(remoteComms).toHaveProperty('stopRemoteComms');
       expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
       expect(mockKernelStore.kv.get('keySeed')).toBe(mockKeySeed);
       expect(mockKernelStore.kv.get('ocapURLKey')).toBe(mockOcapURLKey);
+    });
+  });
+
+  describe('stopRemoteComms', () => {
+    it('calls platformServices.stopRemoteComms', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.stopRemoteComms();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
+    });
+
+    it('is a bound function from platformServices', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      expect(typeof remoteComms.stopRemoteComms).toBe('function');
+      await remoteComms.stopRemoteComms();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalled();
+    });
+
+    it('works after sending messages', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.sendRemoteMessage('peer1', 'msg1');
+      await remoteComms.sendRemoteMessage('peer2', 'msg2');
+      await remoteComms.stopRemoteComms();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
+    });
+
+    it('works after issuing ocap URLs', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.issueOcapURL('kref1');
+      await remoteComms.issueOcapURL('kref2');
+      await remoteComms.stopRemoteComms();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
     });
   });
 

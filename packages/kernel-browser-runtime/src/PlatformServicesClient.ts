@@ -84,9 +84,11 @@ export class PlatformServicesClient implements PlatformServices {
 
     // Start draining messages immediately after construction
     // This runs for the lifetime of the client
-    this.#stream.drain(this.#handleMessage.bind(this)).catch((error) => {
-      this.#logger.error('Error draining stream:', error);
-    });
+    this.#stream
+      .drain(this.#handleMessage.bind(this))
+      .catch((error: unknown) => {
+        this.#logger.error('Error draining stream:', error);
+      });
   }
 
   /**
@@ -104,7 +106,9 @@ export class PlatformServicesClient implements PlatformServices {
     const stream: PlatformServicesClientStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
-      validateInput: (message): message is MessageEvent<JsonRpcMessage> =>
+      validateInput: (
+        message: unknown,
+      ): message is MessageEvent<JsonRpcMessage> =>
         message instanceof MessageEvent && isJsonRpcMessage(message.data),
     });
     // Synchronize the stream before creating the client
@@ -152,6 +156,10 @@ export class PlatformServicesClient implements PlatformServices {
       keySeed,
       knownRelays,
     });
+  }
+
+  async stopRemoteComms(): Promise<void> {
+    await this.#rpcClient.call('stopRemoteComms', []);
   }
 
   async sendRemoteMessage(

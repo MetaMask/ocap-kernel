@@ -331,6 +331,13 @@ export type PlatformServices = {
     knownRelays: string[],
     remoteMessageHandler: RemoteMessageHandler,
   ) => Promise<void>;
+  /**
+   * Stop network communications.
+   *
+   * @returns A promise that resolves when network access has been stopped
+   *   or rejects if there is some problem doing so.
+   */
+  stopRemoteComms: StopRemoteComms;
 };
 
 export type SendRemoteMessage = (
@@ -339,11 +346,14 @@ export type SendRemoteMessage = (
   hints?: string[],
 ) => Promise<void>;
 
+export type StopRemoteComms = () => Promise<void>;
+
 export type RemoteComms = {
   getPeerId: () => string;
   sendRemoteMessage: SendRemoteMessage;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+  stopRemoteComms: StopRemoteComms;
 };
 
 export type RemoteInfo = {
