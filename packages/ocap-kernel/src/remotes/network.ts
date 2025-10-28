@@ -283,15 +283,14 @@ export async function initNetwork(
     hints: string[],
     withRetry: boolean,
   ): Promise<Channel> {
-    const key = peerId; // could include hashed hints if you need to distinguish
-    let promise = inflightDials.get(key);
+    let promise = inflightDials.get(peerId);
     if (!promise) {
       promise = (
         withRetry
           ? openChannelWithRetry(peerId, hints)
           : openChannelOnce(peerId, hints)
-      ).finally(() => inflightDials.delete(key));
-      inflightDials.set(key, promise);
+      ).finally(() => inflightDials.delete(peerId));
+      inflightDials.set(peerId, promise);
     }
     return promise;
   }
@@ -376,7 +375,7 @@ export async function initNetwork(
         return;
       }
 
-      const nextAttempt = state.attemptCount + 1; // 1-based
+      const nextAttempt = state.attemptCount + 1;
       const delayMs = calculateReconnectionBackoff(nextAttempt);
       logger.log(
         `${peerId}:: scheduling reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''} in ${delayMs}ms`,
@@ -413,19 +412,44 @@ export async function initNetwork(
           outputError(peerId, `reading channel to`, problem);
         });
 
-        // Flush queued messages
-        const queued = state.messageQueue.splice(0);
-        logger.log(`${peerId}:: flushing ${queued.length} queued messages`);
-        for (const { message } of queued) {
-          try {
-            logger.log(`${peerId}:: send (queued) ${message}`);
-            await channel.msgStream.write(fromString(message));
-            resetReconnectionBackoff(peerId);
-          } catch (problem) {
-            outputError(peerId, `sending queued message`, problem);
-            // reader will trigger reconnection again
+        logger.log(
+          `${peerId}:: flushing ${state.messageQueue.length} queued messages`,
+        );
+
+        // Update channel hints with any unique hints from queued messages
+        const allHints = new Set(channel.hints);
+        for (const queuedMsg of state.messageQueue) {
+          for (const hint of queuedMsg.hints) {
+            allHints.add(hint);
+          }
+        }
+        channel.hints = Array.from(allHints);
+
+        // Process queued messages
+        const failedMessages: QueuedMsg[] = [];
+        while (state.messageQueue.length > 0) {
+          const queuedMsg = state.messageQueue[0];
+          if (!queuedMsg) {
             break;
           }
+          try {
+            logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
+            await channel.msgStream.write(fromString(queuedMsg.message));
+            resetReconnectionBackoff(peerId);
+            state.messageQueue.shift();
+          } catch (problem) {
+            outputError(peerId, `sending queued message`, problem);
+            // Preserve the failed message with its hints
+            failedMessages.push(...state.messageQueue);
+            state.messageQueue = [];
+            break;
+          }
+        }
+
+        // Re-queue any failed messages with their original hints
+        if (failedMessages.length > 0) {
+          state.messageQueue = failedMessages;
+          handleConnectionLoss(peerId, channel.hints);
         }
         return; // success
       } catch (problem) {
