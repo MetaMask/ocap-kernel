@@ -23,6 +23,9 @@ export const parseOptions = (
   // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
   switch (typeof options) {
     case 'object':
+      if (!options.transports) {
+        return { transports: [consoleTransport], ...options };
+      }
       return options;
     case 'string':
       return { tags: [options], transports: [consoleTransport] };

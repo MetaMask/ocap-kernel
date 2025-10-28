@@ -55,7 +55,7 @@ export class VatHandle implements EndpointHandle {
   readonly config: VatConfig;
 
   /** Logger for outputting messages (such as errors) to the console */
-  readonly #logger: Logger;
+  readonly #logger: Logger | undefined;
 
   /** Storage holding the kernel's persistent state */
   readonly #kernelStore: KernelStore;
@@ -95,7 +95,7 @@ export class VatHandle implements EndpointHandle {
   }: VatConstructorProps) {
     this.vatId = vatId;
     this.config = vatConfig;
-    this.#logger = logger ?? new Logger(`[vat ${vatId}]`);
+    this.#logger = logger;
     this.#vatStream = vatStream;
     this.#kernelStore = kernelStore;
     this.#vatStore = kernelStore.makeVatStore(vatId);
@@ -104,7 +104,7 @@ export class VatHandle implements EndpointHandle {
       vatId,
       kernelQueue,
       kernelStore,
-      logger: this.#logger.subLogger({ tags: ['syscall'] }),
+      logger: this.#logger?.subLogger({ tags: ['syscall'] }),
     });
 
     this.#rpcClient = new RpcClient(
@@ -152,7 +152,7 @@ export class VatHandle implements EndpointHandle {
   async #init(): Promise<VatDeliveryResult> {
     Promise.all([this.#vatStream.drain(this.#handleMessage.bind(this))]).catch(
       async (error) => {
-        this.#logger.error(`Unexpected read error`, error);
+        this.#logger?.error(`Unexpected read error`, error);
         await this.terminate(
           true,
           new StreamReadError({ vatId: this.vatId }, error),

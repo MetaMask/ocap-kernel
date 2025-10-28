@@ -127,7 +127,6 @@ export class RemoteHandle implements EndpointHandle {
     this.#remoteComms = remoteComms;
     this.#locationHints = locationHints;
     this.#myCrankResult = { didDelivery: remoteId };
-    kernelStore.initEndpoint(remoteId);
   }
 
   /**

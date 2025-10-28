@@ -303,13 +303,13 @@ describe('Remote Communications (Integration Tests)', () => {
   it('remote relationships should survive kernel restart', async () => {
     // Launch client vat on kernel1
     const clientConfig = makeMaasClientConfig('client1', true);
-    const clientKernel = kernel1;
+    let clientKernel = kernel1;
     await runTestVats(clientKernel, clientConfig);
     const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
 
     // Launch server vat on kernel2
     const serverConfig = makeMaasServerConfig('server2', true);
-    const serverKernel = kernel2;
+    let serverKernel = kernel2;
     const serverResult = await runTestVats(serverKernel, serverConfig);
 
     // The server's ocap URL is its bootstrap result
@@ -329,6 +329,7 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(response).toContain('MaaS service URL set');
 
     // Tell the client to talk to the server
+    let expectedCount = 1;
     const stepResult = await clientKernel.queueMessage(
       clientRootRef,
       'step',
@@ -336,11 +337,11 @@ describe('Remote Communications (Integration Tests)', () => {
     );
     response = kunser(stepResult);
     expect(response).toBeDefined();
-    expect(response).toContain('next step: 1 ');
+    expect(response).toContain(`next step: ${expectedCount} `);
 
     // Kill the server and restart it
     await serverKernel.stop();
-    await makeTestKernel(
+    serverKernel = await makeTestKernel(
       'kernel2b',
       kernelDatabase2,
       directNetwork,
@@ -348,7 +349,8 @@ describe('Remote Communications (Integration Tests)', () => {
       'kernel2-peer',
     );
 
-    // Tell the client to talk to the server again
+    // Tell the client to talk to the server a second time
+    expectedCount += 1;
     const stepResult2 = await clientKernel.queueMessage(
       clientRootRef,
       'step',
@@ -356,7 +358,28 @@ describe('Remote Communications (Integration Tests)', () => {
     );
     response = kunser(stepResult2);
     expect(response).toBeDefined();
-    expect(response).toContain('next step: 2 ');
+    expect(response).toContain(`next step: ${expectedCount} `);
+
+    // Kill the client and restart it
+    await clientKernel.stop();
+    clientKernel = await makeTestKernel(
+      'kernel1b',
+      kernelDatabase1,
+      directNetwork,
+      false,
+      'kernel1-peer',
+    );
+
+    // Tell the client to talk to the server a third time
+    expectedCount += 1;
+    const stepResult3 = await clientKernel.queueMessage(
+      clientRootRef,
+      'step',
+      [],
+    );
+    response = kunser(stepResult3);
+    expect(response).toBeDefined();
+    expect(response).toContain(`next step: ${expectedCount} `);
   });
 });
 

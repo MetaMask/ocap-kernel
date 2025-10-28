@@ -24,15 +24,12 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       baggage.init('redeemer', redeemer);
     },
     async setMaas(url) {
-      console.log(`@@@@ setMaas ${url}`);
       if (!baggage.has('redeemer')) {
-        console.log('@@@@ ocapURLRedemptionService not available');
         throw Error('ocapURLRedemptionService not available');
       }
       const redeemer = baggage.get('redeemer');
       const maas = await E(redeemer).redeem(url);
       if (!maas) {
-        console.log(`@@@@ unable to redeem ${url}`);
         throw Error(`unable to redeem ${url}`);
       }
       if (baggage.has('maas')) {
