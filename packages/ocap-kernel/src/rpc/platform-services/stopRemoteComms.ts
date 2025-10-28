@@ -3,23 +3,15 @@ import { EmptyJsonArray } from '@metamask/kernel-utils';
 import { literal } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 
-const stopRemoteCommsParamsStruct = EmptyJsonArray;
+import type { StopRemoteComms } from '../../types.ts';
 
-type StopRemoteCommsParams = Json[];
-
-export type StopRemoteCommsSpec = MethodSpec<
-  'stopRemoteComms',
-  StopRemoteCommsParams,
-  null
->;
+export type StopRemoteCommsSpec = MethodSpec<'stopRemoteComms', Json[], null>;
 
 export const stopRemoteCommsSpec: StopRemoteCommsSpec = {
   method: 'stopRemoteComms',
-  params: stopRemoteCommsParamsStruct,
+  params: EmptyJsonArray,
   result: literal(null),
 };
-
-export type StopRemoteComms = () => Promise<null>;
 
 type StopRemoteCommsHooks = {
   stopRemoteComms: StopRemoteComms;
@@ -27,7 +19,7 @@ type StopRemoteCommsHooks = {
 
 export type StopRemoteCommsHandler = Handler<
   'stopRemoteComms',
-  StopRemoteCommsParams,
+  Json[],
   Promise<null>,
   StopRemoteCommsHooks
 >;
@@ -36,6 +28,7 @@ export const stopRemoteCommsHandler: StopRemoteCommsHandler = {
   ...stopRemoteCommsSpec,
   hooks: { stopRemoteComms: true },
   implementation: async ({ stopRemoteComms }, _params) => {
-    return await stopRemoteComms();
+    await stopRemoteComms();
+    return null;
   },
 };

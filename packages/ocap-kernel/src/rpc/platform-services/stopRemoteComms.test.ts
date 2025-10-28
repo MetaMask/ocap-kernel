@@ -1,11 +1,11 @@
 import { is } from '@metamask/superstruct';
 import { describe, it, expect, vi } from 'vitest';
 
-import type { StopRemoteComms } from './stopRemoteComms.ts';
 import {
   stopRemoteCommsSpec,
   stopRemoteCommsHandler,
 } from './stopRemoteComms.ts';
+import type { StopRemoteComms } from '../../types.ts';
 
 describe('stopRemoteComms', () => {
   describe('stopRemoteCommsSpec', () => {
@@ -69,7 +69,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('calls the stopRemoteComms hook with no parameters', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => null);
+      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -85,7 +85,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('returns null from the hook', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => null);
+      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -118,7 +118,7 @@ describe('stopRemoteComms', () => {
       const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => {
         // Simulate async cleanup work
         await new Promise((resolve) => setTimeout(resolve, 1));
-        return null;
+        return undefined;
       });
 
       const hooks = {
@@ -156,7 +156,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('does not pass params to the hook function', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => null);
+      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -177,7 +177,7 @@ describe('stopRemoteComms', () => {
         // Simulate stopping libp2p, clearing connections, etc.
         await new Promise((resolve) => setTimeout(resolve, 5));
         cleanupPerformed = true;
-        return null;
+        return undefined;
       });
 
       const hooks = {
