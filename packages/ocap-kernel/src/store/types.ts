@@ -22,7 +22,7 @@ export type StoreContext = {
   subclusters: StoredValue; // Holds Subcluster[]
   nextSubclusterId: StoredValue; // Holds string
   vatToSubclusterMap: StoredValue; // Holds Record<VatId, SubclusterId>
-  logger?: Logger;
+  logger?: Logger | undefined;
 };
 
 export type StoredValue = {
