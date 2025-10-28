@@ -47,6 +47,9 @@
  *   e.nextPromiseId.${endid} = NN            // allocation counter for imported promise ERefs
  *   vatConfig.${vatid} = JSON(CONFIG)        // vat's configuration object
  *
+ * Remote bookkeeping
+ *   remote.${remoteId} = JSON(INFO)          // remote's connection info
+ *
  * Kernel bookkeeping
  *   initialized = true                       // if set, indicates the store has been initialized
  *   nextVatId = NN                           // allocation counter for vat IDs
@@ -72,6 +75,7 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getRemoteMethods } from './methods/remote.ts';
 import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
@@ -150,6 +154,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const cList = getCListMethods(context);
   const queue = getQueueMethods(context);
   const vat = getVatMethods(context);
+  const remote = getRemoteMethods(context);
   const reachable = getReachableMethods(context);
   const translators = getTranslators(context);
   const pinned = getPinMethods(context);
@@ -234,6 +239,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...reachable,
     ...cList,
     ...vat,
+    ...remote,
     ...translators,
     ...pinned,
     ...crank,

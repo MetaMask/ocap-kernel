@@ -1,7 +1,8 @@
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent, fromHex } from '@metamask/kernel-utils';
+import { fromHex } from '@metamask/kernel-utils';
 import { makeKernelStore, kunser, Kernel } from '@metamask/ocap-kernel';
 import type {
   KernelStore,
@@ -170,9 +171,44 @@ function makeReceiverSubclusterConfig(name: string): ClusterConfig {
   };
 }
 
+/**
+ * Create a kernel instance for testing.
+ *
+ * @param tag - Tag string for logging and generating initial peer ID.
+ * @param kernelDatabase - The kernel database instance to use.
+ * @param directNetwork - Network platform services for testing.
+ * @param resetStorage - If true (the default), reset kernel storage on start;
+ *  if false, leave persistent state as is.
+ * @param peerId - Optional peer ID to use.
+ *
+ * @returns a promise for the kernel that was created.
+ */
+async function makeTestKernel(
+  tag: string,
+  kernelDatabase: KernelDatabase,
+  directNetwork: DirectNetworkService,
+  resetStorage: boolean = true,
+  peerId: string = `${tag}-peer`,
+): Promise<Kernel> {
+  const logger = makeTestLogger().logger.subLogger({ tags: [tag] });
+  const platformServices = directNetwork.createPlatformServices(peerId);
+
+  const kernel = await makeKernel(
+    kernelDatabase,
+    resetStorage,
+    logger,
+    undefined,
+    platformServices,
+  );
+  await kernel.initRemoteComms();
+  return kernel;
+}
+
 describe('Remote Communications (Integration Tests)', () => {
   let kernel1: Kernel;
   let kernel2: Kernel;
+  let kernelDatabase1: KernelDatabase;
+  let kernelDatabase2: KernelDatabase;
   let kernelStore1: KernelStore;
   let directNetwork: DirectNetworkService;
 
@@ -181,41 +217,16 @@ describe('Remote Communications (Integration Tests)', () => {
     directNetwork = new DirectNetworkService();
 
     // Create two independent kernels with separate in-memory databases
-    const kernelDatabase1 = await makeSQLKernelDatabase({
+    kernelDatabase1 = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
     kernelStore1 = makeKernelStore(kernelDatabase1);
-    const kernelDatabase2 = await makeSQLKernelDatabase({
+    kernelDatabase2 = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
 
-    const logger1 = makeTestLogger().logger;
-    const logger2 = makeTestLogger().logger;
-
-    // Create mock platform services for direct communication
-    const platformServices1 =
-      directNetwork.createPlatformServices('kernel1-peer');
-    const platformServices2 =
-      directNetwork.createPlatformServices('kernel2-peer');
-
-    kernel1 = await makeKernel(
-      kernelDatabase1,
-      true,
-      logger1,
-      undefined,
-      platformServices1,
-    );
-
-    kernel2 = await makeKernel(
-      kernelDatabase2,
-      true,
-      logger2,
-      undefined,
-      platformServices2,
-    );
-
-    await kernel1.initRemoteComms();
-    await kernel2.initRemoteComms();
+    kernel1 = await makeTestKernel('kernel1', kernelDatabase1, directNetwork);
+    kernel2 = await makeTestKernel('kernel2', kernelDatabase2, directNetwork);
   });
 
   it('should initialize remote communications without errors', async () => {
@@ -284,12 +295,119 @@ describe('Remote Communications (Integration Tests)', () => {
       [receiverURL, 'hello', ['RemoteSender from Kernel1']],
     );
 
-    // Wait for both kernels to process their messages
-    // The message flow is: kernel1 -> kernel2 -> kernel1
-    await waitUntilQuiescent(100);
-
     const response = kunser(remoteCallResult);
     expect(response).toBeDefined();
     expect(response).toContain('says hello back to');
   });
+
+  it('remote relationships should survive kernel restart', async () => {
+    // Launch client vat on kernel1
+    const clientConfig = makeMaasClientConfig('client1', true);
+    const clientKernel = kernel1;
+    await runTestVats(clientKernel, clientConfig);
+    const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
+
+    // Launch server vat on kernel2
+    const serverConfig = makeMaasServerConfig('server2', true);
+    const serverKernel = kernel2;
+    const serverResult = await runTestVats(serverKernel, serverConfig);
+
+    // The server's ocap URL is its bootstrap result
+    const serverURL = serverResult as string;
+
+    expect(typeof serverURL).toBe('string');
+    expect(serverURL).toMatch(/^ocap:/u);
+
+    // Configure the client with the server's URL
+    const setupResult = await clientKernel.queueMessage(
+      clientRootRef,
+      'setMaas',
+      [serverURL],
+    );
+    let response = kunser(setupResult);
+    expect(response).toBeDefined();
+    expect(response).toContain('MaaS service URL set');
+
+    // Tell the client to talk to the server
+    const stepResult = await clientKernel.queueMessage(
+      clientRootRef,
+      'step',
+      [],
+    );
+    response = kunser(stepResult);
+    expect(response).toBeDefined();
+    expect(response).toContain('next step: 1 ');
+
+    // Kill the server and restart it
+    await serverKernel.stop();
+    await makeTestKernel(
+      'kernel2b',
+      kernelDatabase2,
+      directNetwork,
+      false,
+      'kernel2-peer',
+    );
+
+    // Tell the client to talk to the server again
+    const stepResult2 = await clientKernel.queueMessage(
+      clientRootRef,
+      'step',
+      [],
+    );
+    response = kunser(stepResult2);
+    expect(response).toBeDefined();
+    expect(response).toContain('next step: 2 ');
+  });
 });
+
+/**
+ * Create a test subcluster configuration for a MaaS server vat.
+ *
+ * @param name - The name of the vat.
+ * @param forceReset - True if cluster should reset on start
+ * @returns Cluster configuration to run a MaaS server.
+ */
+function makeMaasServerConfig(
+  name: string,
+  forceReset: boolean,
+): ClusterConfig {
+  return {
+    bootstrap: 'maasServer',
+    forceReset,
+    services: ['ocapURLIssuerService'],
+    vats: {
+      maasServer: {
+        bundleSpec: getBundleSpec('monotonous-vat'),
+        parameters: {
+          name,
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Create a test subcluster configuration for a MaaS client vat.
+ *
+ * @param name - The name of the vat.
+ * @param forceReset - True if cluster should reset on start
+ * @returns Cluster configuration to run a MaaS client.
+ */
+function makeMaasClientConfig(
+  name: string,
+  forceReset: boolean,
+): ClusterConfig {
+  return {
+    bootstrap: 'maasClient',
+    forceReset,
+    services: ['ocapURLRedemptionService'],
+    vats: {
+      maasClient: {
+        bundleSpec: getBundleSpec('stepper-upper-vat'),
+        parameters: {
+          name,
+        },
+      },
+    },
+  };
+}
