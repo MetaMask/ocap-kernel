@@ -1,11 +1,11 @@
 import { is } from '@metamask/superstruct';
 import { describe, it, expect, vi } from 'vitest';
 
+import type { StopRemoteCommsImpl } from './stopRemoteComms.ts';
 import {
   stopRemoteCommsSpec,
   stopRemoteCommsHandler,
 } from './stopRemoteComms.ts';
-import type { StopRemoteComms } from '../../types.ts';
 
 describe('stopRemoteComms', () => {
   describe('stopRemoteCommsSpec', () => {
@@ -69,7 +69,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('calls the stopRemoteComms hook with no parameters', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => null);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -85,7 +85,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('returns null from the hook', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => null);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -99,7 +99,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('propagates errors from the hook', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => {
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => {
         throw new Error('Stop remote comms failed');
       });
 
@@ -115,10 +115,10 @@ describe('stopRemoteComms', () => {
     });
 
     it('handles async hook that returns a Promise', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => {
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => {
         // Simulate async cleanup work
         await new Promise((resolve) => setTimeout(resolve, 1));
-        return undefined;
+        return null;
       });
 
       const hooks = {
@@ -138,7 +138,7 @@ describe('stopRemoteComms', () => {
       { error: new Error('Connection already closed') },
       { error: new Error('Cleanup timeout') },
     ])('handles shutdown error: $error.message', async ({ error }) => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => {
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => {
         throw error;
       });
 
@@ -156,7 +156,7 @@ describe('stopRemoteComms', () => {
     });
 
     it('does not pass params to the hook function', async () => {
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => undefined);
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => null);
 
       const hooks = {
         stopRemoteComms: mockStopRemoteComms,
@@ -173,11 +173,11 @@ describe('stopRemoteComms', () => {
 
     it('handles hook that performs network cleanup', async () => {
       let cleanupPerformed = false;
-      const mockStopRemoteComms: StopRemoteComms = vi.fn(async () => {
+      const mockStopRemoteComms: StopRemoteCommsImpl = vi.fn(async () => {
         // Simulate stopping libp2p, clearing connections, etc.
         await new Promise((resolve) => setTimeout(resolve, 5));
         cleanupPerformed = true;
-        return undefined;
+        return null;
       });
 
       const hooks = {
