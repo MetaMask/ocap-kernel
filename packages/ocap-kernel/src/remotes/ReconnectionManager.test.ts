@@ -167,15 +167,21 @@ describe('ReconnectionManager', () => {
   });
 
   describe('calculateBackoff', () => {
-    it('should calculate backoff for next attempt', () => {
+    it('should calculate backoff for current attempt count', () => {
       const { calculateReconnectionBackoff } = vi.mocked(kernelUtils);
 
-      // First attempt (attemptCount = 0, so next is 1)
+      // No attempts yet (attemptCount = 0)
+      const backoff0 = manager.calculateBackoff('peer1');
+      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(0);
+      expect(backoff0).toBe(50); // 100 * 2^(-1) = 50
+
+      // After first increment (attemptCount = 1)
+      manager.incrementAttempt('peer1');
       const backoff1 = manager.calculateBackoff('peer1');
       expect(calculateReconnectionBackoff).toHaveBeenCalledWith(1);
       expect(backoff1).toBe(100);
 
-      // After incrementing (attemptCount = 1, so next is 2)
+      // After second increment (attemptCount = 2)
       manager.incrementAttempt('peer1');
       const backoff2 = manager.calculateBackoff('peer1');
       expect(calculateReconnectionBackoff).toHaveBeenCalledWith(2);
@@ -189,8 +195,8 @@ describe('ReconnectionManager', () => {
       const backoff1 = manager.calculateBackoff('peer1');
       const backoff2 = manager.calculateBackoff('peer2');
 
-      expect(backoff1).toBe(400); // 3rd attempt
-      expect(backoff2).toBe(100); // 1st attempt
+      expect(backoff1).toBe(200); // 2nd attempt (attemptCount = 2)
+      expect(backoff2).toBe(50); // No attempts yet (attemptCount = 0)
     });
 
     it('should respect backoff after reset', () => {
@@ -200,7 +206,7 @@ describe('ReconnectionManager', () => {
 
       const backoff = manager.calculateBackoff('peer1');
 
-      expect(backoff).toBe(100); // Back to 1st attempt
+      expect(backoff).toBe(50); // Back to 0 attempts
     });
   });
 
@@ -381,23 +387,23 @@ describe('ReconnectionManager', () => {
       manager.startReconnection(peerId);
       expect(manager.isReconnecting(peerId)).toBe(true);
 
-      // First attempt
+      // First attempt - increment then calculate backoff
       expect(manager.shouldRetry(peerId, maxAttempts)).toBe(true);
-      const backoff1 = manager.calculateBackoff(peerId);
-      expect(backoff1).toBe(100);
       manager.incrementAttempt(peerId);
+      const backoff1 = manager.calculateBackoff(peerId);
+      expect(backoff1).toBe(100); // attemptCount = 1
 
       // Second attempt
       expect(manager.shouldRetry(peerId, maxAttempts)).toBe(true);
-      const backoff2 = manager.calculateBackoff(peerId);
-      expect(backoff2).toBe(200);
       manager.incrementAttempt(peerId);
+      const backoff2 = manager.calculateBackoff(peerId);
+      expect(backoff2).toBe(200); // attemptCount = 2
 
       // Third attempt
       expect(manager.shouldRetry(peerId, maxAttempts)).toBe(true);
-      const backoff3 = manager.calculateBackoff(peerId);
-      expect(backoff3).toBe(400);
       manager.incrementAttempt(peerId);
+      const backoff3 = manager.calculateBackoff(peerId);
+      expect(backoff3).toBe(400); // attemptCount = 3
 
       // Should not retry after max attempts
       expect(manager.shouldRetry(peerId, maxAttempts)).toBe(false);
