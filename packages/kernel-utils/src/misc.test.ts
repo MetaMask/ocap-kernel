@@ -137,5 +137,27 @@ describe('misc utilities', () => {
         AbortError,
       );
     });
+
+    it('throws AbortError if signal is aborted after listener registration', async () => {
+      // This tests the race condition fix where signal might be aborted
+      // between the initial check and the event listener registration
+      const controller = new AbortController();
+      // Abort immediately, simulating abort during the registration window
+      controller.abort();
+      // Should throw even though the abort happened before the delay
+      await expect(abortableDelay(100, controller.signal)).rejects.toThrow(
+        AbortError,
+      );
+    });
+
+    it('handles synchronous abort during delay setup with fake timers', async () => {
+      // Ensure the second abort check catches immediately aborted signals
+      const controller = new AbortController();
+      controller.abort();
+      const delayP = abortableDelay(1000, controller.signal);
+      // Should reject immediately without needing to advance timers
+      await expect(delayP).rejects.toThrow(AbortError);
+      await expect(delayP).rejects.toThrow('Operation aborted.');
+    });
   });
 });

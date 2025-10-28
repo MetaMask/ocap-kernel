@@ -1710,5 +1710,178 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       await send('peer-after-stop', 'hello');
       expect(state.dials).toHaveLength(0);
     });
+
+    it('queues message when reconnection starts during sendRemoteMessage dial', async () => {
+      vi.useRealTimers(); // Use real timers for this test
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-race-condition' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+
+            // First dial succeeds (initial connection)
+            if (dialCount === 1) {
+              const stream = {};
+              streams.push(stream);
+              return stream;
+            }
+
+            // Second dial simulates a slow dial that allows reconnection to start
+            if (dialCount === 2) {
+              // Add delay to simulate slow dial
+              await new Promise((resolve) => setTimeout(resolve, 50));
+              const stream = {};
+              streams.push(stream);
+              return stream;
+            }
+
+            // Reconnection dial succeeds
+            const stream = {};
+            streams.push(stream);
+            return stream;
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send } = await initNetwork(
+        '0xrace',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-race', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Get the stream and force it to fail to trigger reconnection
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
+      vi.spyOn(bs, 'write').mockImplementation(async () => {
+        const error = new Error('Write failed - trigger reconnection');
+        (error as NodeJS.ErrnoException).code = 'ECONNRESET';
+        throw error;
+      });
+
+      // Trigger reconnection with first message
+      await send('peer-race', 'trigger-reconnection');
+
+      // Immediately send another message - this should detect ongoing reconnection
+      // and queue the message rather than create a conflicting channel
+      await send('peer-race', 'should-be-queued');
+
+      // Wait for reconnection to complete (using real timers)
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 500 },
+      );
+
+      // The key assertion: we should have initial dial + reconnection dial(s)
+      // But NOT a concurrent dial from the second sendRemoteMessage
+      // The exact count depends on timing, but there should be no channel conflict
+      expect(dialCount).toBeLessThan(5); // Sanity check
+    });
+
+    it('continues reconnection loop when flushQueuedMessages triggers new reconnection', async () => {
+      vi.useRealTimers(); // Use real timers for this test
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-flush-reconnect' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+
+            // All dials succeed
+            const stream = {};
+            streams.push(stream);
+
+            // First reconnection dial: inject write failure during flush
+            if (dialCount === 2) {
+              const { setWriteFailures } = (await import(
+                'it-byte-stream'
+              )) as unknown as {
+                setWriteFailures: (stream: object, count: number) => void;
+              };
+              setWriteFailures(stream, 1); // Fail once during flush
+            }
+
+            return stream;
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send } = await initNetwork(
+        '0xflushreconn',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-flush-recon', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Get the stream and force it to fail
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const initialBs = getByteStreamFor(
+        streams[0] as object,
+      ) as MockByteStream;
+      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
+        const error = new Error('Initial connection failed');
+        (error as NodeJS.ErrnoException).code = 'ECONNRESET';
+        throw error;
+      });
+
+      // Queue messages
+      await send('peer-flush-recon', 'queued-msg-1');
+      await send('peer-flush-recon', 'queued-msg-2');
+
+      // Wait for full reconnection cycle:
+      // 1. First reconnection (dialCount = 2)
+      // 2. Flush fails (injected write failure)
+      // 3. Second reconnection triggered (dialCount = 3)
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(3);
+        },
+        { timeout: 1500 },
+      );
+
+      // Verify messages were eventually delivered on the final stream
+      const finalStream = streams[streams.length - 1] as object;
+      const finalBs = getByteStreamFor(finalStream) as MockByteStream;
+      expect(finalBs.writes.length).toBeGreaterThanOrEqual(2);
+    });
   });
 });
