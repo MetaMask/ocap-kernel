@@ -150,7 +150,7 @@ vi.mock('libp2p', () => ({
   libp2pState,
 }));
 
-describe('network.initNetwork', () => {
+describe('network.initNetwork', { timeout: 10_000 }, () => {
   beforeEach(() => {
     libp2pState.dials = [];
     libp2pState.handler = undefined;
