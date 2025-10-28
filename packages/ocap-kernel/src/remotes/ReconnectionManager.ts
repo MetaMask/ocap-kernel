@@ -86,7 +86,7 @@ export class ReconnectionManager {
    */
   calculateBackoff(peerId: string): number {
     const state = this.#getState(peerId);
-    return calculateReconnectionBackoff(state.attemptCount + 1);
+    return calculateReconnectionBackoff(state.attemptCount);
   }
 
   /**
