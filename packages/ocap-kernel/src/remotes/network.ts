@@ -244,6 +244,14 @@ export async function initNetwork(
         // Flush queued messages
         await flushQueuedMessages(peerId, channel, queue);
 
+        // Check if reconnection was restarted during flush (e.g., due to flush errors)
+        if (reconnectionManager.isReconnecting(peerId)) {
+          logger.log(
+            `${peerId}:: reconnection restarted during flush, continuing loop`,
+          );
+          continue; // Continue the reconnection loop
+        }
+
         return; // success
       } catch (problem) {
         if (signal.aborted) {
@@ -345,6 +353,17 @@ export async function initNetwork(
           hints,
           true, // With retry for initial connection
         );
+
+        // Check if reconnection started while we were dialing (race condition protection)
+        if (reconnectionManager.isReconnecting(targetPeerId)) {
+          queue.enqueue(message, hints);
+          logger.log(
+            `${targetPeerId}:: reconnection started during dial, queueing message ` +
+              `(${queue.length}/${MAX_QUEUE}): ${message}`,
+          );
+          return;
+        }
+
         channels.set(targetPeerId, channel);
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);

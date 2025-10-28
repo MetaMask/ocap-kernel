@@ -41,7 +41,7 @@ describe('isRetryableNetworkError', () => {
     });
   });
 
-  describe('default retryable behavior', () => {
+  describe('default non-retryable behavior', () => {
     it.each([
       {
         name: 'generic Error',
@@ -57,8 +57,8 @@ describe('isRetryableNetworkError', () => {
           name: 'UnknownError',
         }),
       },
-    ])('returns true for $name (default behavior)', ({ error }) => {
-      expect(isRetryableNetworkError(error)).toBe(true);
+    ])('returns false for $name (default behavior)', ({ error }) => {
+      expect(isRetryableNetworkError(error)).toBe(false);
     });
   });
 
@@ -80,29 +80,29 @@ describe('isRetryableNetworkError', () => {
       name: 'Error with empty name',
       value: Object.assign(new Error('test'), { name: '' }),
     },
-  ])('returns true for $name', ({ value }) => {
-    expect(isRetryableNetworkError(value)).toBe(true);
+  ])('returns false for $name', ({ value }) => {
+    expect(isRetryableNetworkError(value)).toBe(false);
   });
 
   it.each([
     {
       name: 'name with Dial in the middle',
       errorName: 'WebRTCDialTimeout',
-      matches: true,
+      expected: true,
     },
     {
       name: 'name with Transport at the end',
       errorName: 'WebSocketTransport',
-      matches: true,
+      expected: true,
     },
     {
       name: 'lowercase dial/transport in name',
       errorName: 'dialtimeout',
-      matches: false, // Case-sensitive check won't match, but default is true
+      expected: false, // Case-sensitive check won't match, default is false
     },
-  ])('returns true for $name', ({ errorName }) => {
+  ])('returns $expected for $name', ({ errorName, expected }) => {
     const error = new Error('error');
     error.name = errorName;
-    expect(isRetryableNetworkError(error)).toBe(true);
+    expect(isRetryableNetworkError(error)).toBe(expected);
   });
 });
