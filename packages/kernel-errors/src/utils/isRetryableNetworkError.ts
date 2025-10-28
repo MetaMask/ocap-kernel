@@ -42,5 +42,5 @@ export function isRetryableNetworkError(error: unknown): boolean {
     return true;
   }
 
-  return true; // default to retryable
+  return false; // default to non-retryable for unknown errors
 }

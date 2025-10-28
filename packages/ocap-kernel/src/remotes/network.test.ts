@@ -1223,8 +1223,10 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
               streams.push(stream);
               return stream;
             }
-            // All reconnection attempts fail
-            throw new Error('Connection failed');
+            // All reconnection attempts fail with retryable error
+            const error = new Error('Connection failed');
+            (error as NodeJS.ErrnoException).code = 'ECONNRESET';
+            throw error;
           }),
           handle: vi.fn(async () => undefined),
         }),
