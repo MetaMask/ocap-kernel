@@ -92,6 +92,58 @@ describe('RemoteManager', () => {
 
       expect(remoteManager.isRemoteCommsInitialized()).toBe(true);
     });
+
+    it('restores previously established remotes from kernel store', async () => {
+      // First establish some remotes and store them
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+
+      const remote1 = remoteManager.establishRemote('peer-1', ['relay-1']);
+      const remote2 = remoteManager.establishRemote('peer-2', ['relay-2']);
+      const remote1Id = remote1.remoteId;
+      const remote2Id = remote2.remoteId;
+
+      // Stop remote comms (simulating shutdown)
+      await remoteManager.stopRemoteComms();
+
+      // Create a new RemoteManager instance (simulating restart)
+      const newRemoteManager = new RemoteManager({
+        platformServices: mockPlatformServices,
+        kernelStore, // Same store with persisted remotes
+        kernelQueue: mockKernelQueue,
+        logger,
+      });
+
+      // Initialize - should restore the remotes
+      newRemoteManager.setMessageHandler(messageHandler);
+      await newRemoteManager.initRemoteComms();
+
+      // Verify remotes were restored
+      const restoredRemote1 = newRemoteManager.getRemote(remote1Id);
+      const restoredRemote2 = newRemoteManager.getRemote(remote2Id);
+
+      expect(restoredRemote1).toBeDefined();
+      expect(restoredRemote2).toBeDefined();
+      expect(restoredRemote1.remoteId).toBe(remote1Id);
+      expect(restoredRemote2.remoteId).toBe(remote2Id);
+
+      // Verify remotes are also accessible by peer ID
+      expect(newRemoteManager.remoteFor('peer-1')).toBe(restoredRemote1);
+      expect(newRemoteManager.remoteFor('peer-2')).toBe(restoredRemote2);
+    });
+
+    it('handles empty kernel store during initialization', async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+
+      // Should initialize successfully with no remotes
+      expect(remoteManager.isRemoteCommsInitialized()).toBe(true);
+    });
   });
 
   describe('remote comms operations', () => {
@@ -149,6 +201,32 @@ describe('RemoteManager', () => {
       expect(remote.remoteId).toMatch(/^r\d+$/u);
     });
 
+    it('establishes a new remote with location hints', () => {
+      const hints = ['/dns4/relay1.example/tcp/443/wss/p2p/relay1'];
+      const remote = remoteManager.establishRemote('peer-with-hints', hints);
+
+      expect(remote).toBeDefined();
+      expect(remote.remoteId).toMatch(/^r\d+$/u);
+
+      // Verify hints are persisted in kernel store
+      const storedInfo = kernelStore.getRemoteInfo(remote.remoteId);
+      expect(storedInfo).toBeDefined();
+      expect(storedInfo?.hints).toStrictEqual(hints);
+    });
+
+    it('stores and retrieves multiple location hints', () => {
+      const hints = [
+        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+        '/dns4/relay3.example/tcp/443/wss/p2p/relay3',
+      ];
+      const remote = remoteManager.establishRemote('peer-multi-hints', hints);
+
+      const storedInfo = kernelStore.getRemoteInfo(remote.remoteId);
+      expect(storedInfo?.hints).toStrictEqual(hints);
+      expect(storedInfo?.hints).toHaveLength(3);
+    });
+
     it('reuses existing remote for same peer', () => {
       const remote1 = remoteManager.establishRemote('peer123');
       const remote2 = remoteManager.remoteFor('peer123');
@@ -159,6 +237,15 @@ describe('RemoteManager', () => {
       const remote = remoteManager.remoteFor('new-peer');
       expect(remote).toBeDefined();
       expect(remote.remoteId).toMatch(/^r\d+$/u);
+    });
+
+    it('creates new remote with hints using remoteFor', () => {
+      const hints = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+      const remote = remoteManager.remoteFor('new-peer-hints', hints);
+
+      expect(remote).toBeDefined();
+      const storedInfo = kernelStore.getRemoteInfo(remote.remoteId);
+      expect(storedInfo?.hints).toStrictEqual(hints);
     });
 
     it('gets remote by ID', () => {
@@ -205,6 +292,25 @@ describe('RemoteManager', () => {
       // But verify that a new remote was created
       const remote = remoteManager.remoteFor('new-peer');
       expect(remote).toBeDefined();
+    });
+
+    it('preserves location hints across stop/restart cycle', async () => {
+      const hints = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+      const remote = remoteManager.establishRemote('peer-persist-hints', hints);
+      const { remoteId } = remote;
+
+      // Stop and restart
+      await remoteManager.stopRemoteComms();
+
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+
+      // Verify hints were restored
+      const restoredRemote = remoteManager.getRemote(remoteId);
+      const storedInfo = kernelStore.getRemoteInfo(restoredRemote.remoteId);
+      expect(storedInfo?.hints).toStrictEqual(hints);
     });
   });
 
