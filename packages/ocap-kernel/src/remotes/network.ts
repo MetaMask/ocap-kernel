@@ -1,65 +1,25 @@
-import { noise } from '@chainsafe/libp2p-noise';
-import { yamux } from '@chainsafe/libp2p-yamux';
-import { bootstrap } from '@libp2p/bootstrap';
-import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { identify } from '@libp2p/identify';
-import { MuxerClosedError } from '@libp2p/interface';
-import type { PrivateKey } from '@libp2p/interface';
-import { ping } from '@libp2p/ping';
-import { webRTC } from '@libp2p/webrtc';
-import { webSockets } from '@libp2p/websockets';
-import { webTransport } from '@libp2p/webtransport';
 import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
 import {
   abortableDelay,
-  calculateReconnectionBackoff,
   DEFAULT_MAX_RETRY_ATTEMPTS,
-  fromHex,
   installWakeDetector,
-  retryWithBackoff,
 } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { multiaddr } from '@multiformats/multiaddr';
-import type { ByteStream } from 'it-byte-stream';
-import { byteStream } from 'it-byte-stream';
-import { createLibp2p } from 'libp2p';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import type { SendRemoteMessage, StopRemoteComms } from '../types.ts';
-
-type Channel = {
-  msgStream: ByteStream;
-  peerId: string;
-  hints: string[];
-};
-
-type QueuedMsg = { message: string; hints: string[] };
-
-type ReconnectionState = {
-  isReconnecting: boolean;
-  attemptCount: number; // completed attempts
-  messageQueue: QueuedMsg[];
-};
-
-export type RemoteMessageHandler = (
-  from: string,
-  message: string,
-) => Promise<string>;
+import { ConnectionFactory } from './ConnectionFactory.ts';
+import { MessageQueue } from './MessageQueue.ts';
+import type { QueuedMessage } from './MessageQueue.ts';
+import { ReconnectionManager } from './ReconnectionManager.ts';
+import type {
+  RemoteMessageHandler,
+  SendRemoteMessage,
+  StopRemoteComms,
+  Channel,
+} from './types.ts';
 
 /** Upper bound for queued outbound messages while reconnecting */
 const MAX_QUEUE = 200;
-
-/**
- * Generate the information needed for a network identity.
- *
- * @param seedString - Hex string containing the key seed.
- * @returns The private key pair.
- */
-async function generateKeyInfo(seedString: string): Promise<PrivateKey> {
-  const keyPair = await generateKeyPairFromSeed('Ed25519', fromHex(seedString));
-  return keyPair;
-}
 
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
@@ -78,56 +38,22 @@ export async function initNetwork(
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
 }> {
-  const privateKey = await generateKeyInfo(keySeed);
-  const activeChannels = new Map<string, Channel>(); // peerID -> channel info
-  const reconnectionStates = new Map<string, ReconnectionState>(); // peerID -> reconnection state
-  const inflightDials = new Map<string, Promise<Channel>>(); // peerID -> in-flight dial
+  let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
   const { signal } = stopController;
-
   const logger = new Logger();
+  const channels = new Map<string, Channel>();
+  const reconnectionManager = new ReconnectionManager();
+  const messageQueues = new Map<string, MessageQueue>(); // One queue per peer
+  const connectionFactory = new ConnectionFactory(
+    keySeed,
+    knownRelays,
+    logger,
+    signal,
+  );
 
-  let cleanupWakeDetector: (() => void) | undefined;
-
-  const libp2p = await createLibp2p({
-    privateKey,
-    addresses: {
-      listen: ['/webrtc', '/p2p-circuit'],
-      appendAnnounce: ['/webrtc'],
-    },
-    transports: [
-      webSockets(),
-      webTransport(),
-      webRTC({
-        rtcConfiguration: {
-          iceServers: [
-            {
-              urls: [
-                'stun:stun.l.google.com:19302',
-                'stun:global.stun.twilio.com:3478',
-              ],
-            },
-          ],
-        },
-      }),
-      circuitRelayTransport(),
-    ],
-    connectionEncrypters: [noise()],
-    streamMuxers: [yamux()],
-    connectionGater: {
-      // Allow private addresses for local testing
-      denyDialMultiaddr: async () => false,
-    },
-    peerDiscovery: [
-      bootstrap({
-        list: knownRelays,
-      }),
-    ],
-    services: {
-      identify: identify(),
-      ping: ping(),
-    },
-  });
+  // Initialize the connection factory
+  await connectionFactory.initialize();
 
   /**
    * Output an error message.
@@ -146,153 +72,46 @@ export async function initNetwork(
   }
 
   /**
-   * Get the reconnection state for a given peer ID.
+   * Update channel hints by merging new hints without duplicates.
    *
-   * @param peerId - The peer ID to get the reconnection state for.
-   * @returns The reconnection state for the given peer ID.
+   * @param peerId - The peer ID to update hints for.
+   * @param newHints - The new hints to add.
    */
-  function getReconnectionState(peerId: string): ReconnectionState {
-    let state = reconnectionStates.get(peerId);
-    if (!state) {
-      state = { isReconnecting: false, attemptCount: 0, messageQueue: [] };
-      reconnectionStates.set(peerId, state);
-    }
-    return state;
-  }
-
-  /**
-   * Reset the reconnection backoff for a given peer ID.
-   *
-   * @param peerId - The peer ID to reset the reconnection backoff for.
-   */
-  function resetReconnectionBackoff(peerId: string): void {
-    getReconnectionState(peerId).attemptCount = 0;
-  }
-
-  /**
-   * Get the candidate address strings for a given peer ID and hints.
-   *
-   * @param peerId - The peer ID to get the reconnection state for.
-   * @param hints - The hints to use for the reconnection state.
-   * @returns The candidate address strings for the given peer ID and hints.
-   */
-  function candidateAddressStrings(peerId: string, hints: string[]): string[] {
-    const possibleContacts = hints.concat(
-      ...knownRelays.filter((relay) => !hints.includes(relay)),
-    );
-    // Try WebRTC via relay first, then WebSocket via relay.
-    return possibleContacts.flatMap((relay) => [
-      `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
-      `${relay}/p2p-circuit/p2p/${peerId}`,
-    ]);
-  }
-
-  /**
-   * Single-attempt channel open (no backoff here).
-   * Throws if all strategies fail.
-   *
-   * @param peerId - The peer ID to open a channel for.
-   * @param hints - The hints to use for the channel.
-   * @returns The channel.
-   */
-  async function openChannelOnce(
-    peerId: string,
-    hints: string[] = [],
-  ): Promise<Channel> {
-    const addresses = candidateAddressStrings(peerId, hints);
-    // Combine shutdown signal with a per-dial timeout
-    const signalTimeout = AbortSignal.timeout(30_000);
-
-    let lastError: Error | undefined;
-
-    for (const addressString of addresses) {
-      if (signal.aborted) {
-        throw new AbortError();
+  function updateChannelHints(peerId: string, newHints: string[]): void {
+    const channel = channels.get(peerId);
+    if (channel) {
+      const allHints = new Set(channel.hints);
+      for (const hint of newHints) {
+        allHints.add(hint);
       }
-      try {
-        const connectToAddr = multiaddr(addressString);
-        logger.log(`contacting ${peerId} via ${addressString}`);
-        const stream = await libp2p.dialProtocol(connectToAddr, 'whatever', {
-          signal: signalTimeout,
-        });
-        if (stream) {
-          logger.log(
-            `successfully connected to ${peerId} via ${addressString}`,
-          );
-          const msgStream = byteStream(stream);
-          const created: Channel = { msgStream, peerId, hints };
-          activeChannels.set(peerId, created);
-          logger.log(`opened channel to ${peerId}`);
-          return created;
-        }
-      } catch (problem) {
-        lastError = problem as Error;
-        if (signal.aborted) {
-          throw new AbortError();
-        }
-        if (problem instanceof MuxerClosedError) {
-          outputError(
-            peerId,
-            `yamux muxer issue contacting via ${addressString}`,
-            problem,
-          );
-        } else if (signalTimeout.aborted) {
-          outputError(peerId, `timed out opening channel`, problem);
-        } else {
-          outputError(peerId, `issue opening channel`, problem);
-        }
-      }
+      channel.hints = Array.from(allHints);
     }
-
-    throw lastError ?? new Error(`unable to open channel to ${peerId}`);
   }
 
   /**
-   * Backoff-capable open (useful for initial connect)
+   * Get or create a message queue for a peer.
    *
-   * @param peerId - The peer ID to open a channel for.
-   * @param hints - The hints to use for the channel.
-   * @returns The channel.
+   * @param peerId - The peer ID to get the queue for.
+   * @returns The message queue for the peer.
    */
-  async function openChannelWithRetry(
-    peerId: string,
-    hints: string[] = [],
-  ): Promise<Channel> {
-    return retryWithBackoff(async () => openChannelOnce(peerId, hints), {
-      jitter: true,
-      shouldRetry: isRetryableNetworkError,
-      onRetry: ({ attempt, maxAttempts, delayMs }) => {
-        logger.log(
-          `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${maxAttempts || '∞'})`,
-        );
-      },
-      signal,
-    });
+  function getMessageQueue(peerId: string): MessageQueue {
+    let queue = messageQueues.get(peerId);
+    if (!queue) {
+      queue = new MessageQueue(MAX_QUEUE);
+      messageQueues.set(peerId, queue);
+    }
+    return queue;
   }
 
   /**
-   * Ensure only one dial attempt per peer at a time
+   * Receive a message from a peer.
    *
-   * @param peerId - The peer ID to dial.
-   * @param hints - The hints to use for the dial.
-   * @param withRetry - Whether to retry the dial.
-   * @returns The channel.
+   * @param from - The peer ID that the message is from.
+   * @param message - The message to receive.
    */
-  async function dialIdempotent(
-    peerId: string,
-    hints: string[],
-    withRetry: boolean,
-  ): Promise<Channel> {
-    let promise = inflightDials.get(peerId);
-    if (!promise) {
-      promise = (
-        withRetry
-          ? openChannelWithRetry(peerId, hints)
-          : openChannelOnce(peerId, hints)
-      ).finally(() => inflightDials.delete(peerId));
-      inflightDials.set(peerId, promise);
-    }
-    return promise;
+  async function receiveMsg(from: string, message: string): Promise<void> {
+    logger.log(`${from}:: recv ${message}`);
+    await remoteMessageHandler(from, message);
   }
 
   /**
@@ -333,21 +152,28 @@ export async function initNetwork(
         throw problem;
       }
       if (readBuf) {
-        resetReconnectionBackoff(channel.peerId); // successful inbound traffic
+        reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
         await receiveMsg(channel.peerId, bufToString(readBuf.subarray()));
       }
     }
   }
 
   /**
-   * Receive a message from a peer.
+   * Handle connection loss for a given peer ID.
    *
-   * @param from - The peer ID that the message is from.
-   * @param message - The message to receive.
+   * @param peerId - The peer ID to handle the connection loss for.
+   * @param hints - The hints to use for the connection loss.
    */
-  async function receiveMsg(from: string, message: string): Promise<void> {
-    logger.log(`${from}:: recv ${message}`);
-    await remoteMessageHandler(from, message);
+  function handleConnectionLoss(peerId: string, hints: string[] = []): void {
+    logger.log(`${peerId}:: connection lost, initiating reconnection`);
+    channels.delete(peerId);
+    if (!reconnectionManager.isReconnecting(peerId)) {
+      reconnectionManager.startReconnection(peerId);
+      attemptReconnection(peerId, hints).catch((problem) => {
+        outputError(peerId, 'reconnection error', problem);
+        reconnectionManager.stopReconnection(peerId);
+      });
+    }
   }
 
   /**
@@ -363,20 +189,20 @@ export async function initNetwork(
     hints: string[] = [],
     maxAttempts = DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
-    const state = getReconnectionState(peerId);
+    const queue = getMessageQueue(peerId);
 
-    while (state.isReconnecting && !signal.aborted) {
-      if (maxAttempts > 0 && state.attemptCount >= maxAttempts) {
+    while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
+      if (!reconnectionManager.shouldRetry(peerId, maxAttempts)) {
         logger.log(
           `${peerId}:: max reconnection attempts (${maxAttempts}) reached, giving up`,
         );
-        state.isReconnecting = false;
-        state.messageQueue = [];
+        reconnectionManager.stopReconnection(peerId);
+        queue.clear();
         return;
       }
 
-      const nextAttempt = state.attemptCount + 1;
-      const delayMs = calculateReconnectionBackoff(nextAttempt);
+      const nextAttempt = reconnectionManager.incrementAttempt(peerId);
+      const delayMs = reconnectionManager.calculateBackoff(peerId);
       logger.log(
         `${peerId}:: scheduling reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''} in ${delayMs}ms`,
       );
@@ -390,67 +216,34 @@ export async function initNetwork(
         throw error;
       }
 
-      state.attemptCount = nextAttempt;
       logger.log(
-        `${peerId}:: reconnection attempt ${state.attemptCount}${maxAttempts ? `/${maxAttempts}` : ''}`,
+        `${peerId}:: reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''}`,
       );
 
       try {
-        const channel = await dialIdempotent(
+        const channel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
-          /* withRetry*/ false,
+          false, // No retry here, we're already in a retry loop
         );
+
+        // Add channel to manager
+        channels.set(peerId, channel);
+
         logger.log(`${peerId}:: reconnection successful`);
 
         // Reset reconnection state
-        state.isReconnecting = false;
-        state.attemptCount = 0;
+        reconnectionManager.stopReconnection(peerId);
+        reconnectionManager.resetBackoff(peerId);
 
         // Start reading from the new channel
         readChannel(channel).catch((problem) => {
           outputError(peerId, `reading channel to`, problem);
         });
 
-        logger.log(
-          `${peerId}:: flushing ${state.messageQueue.length} queued messages`,
-        );
+        // Flush queued messages
+        await flushQueuedMessages(peerId, channel, queue);
 
-        // Update channel hints with any unique hints from queued messages
-        const allHints = new Set(channel.hints);
-        for (const queuedMsg of state.messageQueue) {
-          for (const hint of queuedMsg.hints) {
-            allHints.add(hint);
-          }
-        }
-        channel.hints = Array.from(allHints);
-
-        // Process queued messages
-        const failedMessages: QueuedMsg[] = [];
-        while (state.messageQueue.length > 0) {
-          const queuedMsg = state.messageQueue[0];
-          if (!queuedMsg) {
-            break;
-          }
-          try {
-            logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
-            await channel.msgStream.write(fromString(queuedMsg.message));
-            resetReconnectionBackoff(peerId);
-            state.messageQueue.shift();
-          } catch (problem) {
-            outputError(peerId, `sending queued message`, problem);
-            // Preserve the failed message with its hints
-            failedMessages.push(...state.messageQueue);
-            state.messageQueue = [];
-            break;
-          }
-        }
-
-        // Re-queue any failed messages with their original hints
-        if (failedMessages.length > 0) {
-          state.messageQueue = failedMessages;
-          handleConnectionLoss(peerId, channel.hints);
-        }
         return; // success
       } catch (problem) {
         if (signal.aborted) {
@@ -458,37 +251,62 @@ export async function initNetwork(
         }
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
-          state.isReconnecting = false;
-          state.messageQueue = [];
+          reconnectionManager.stopReconnection(peerId);
+          queue.clear();
           return;
         }
-        outputError(
-          peerId,
-          `reconnection attempt ${state.attemptCount}`,
-          problem,
-        );
+        outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
         // loop to next attempt
       }
     }
   }
 
   /**
-   * Handle connection loss for a given peer ID.
+   * Flush queued messages after reconnection.
    *
-   * @param peerId - The peer ID to handle the connection loss for.
-   * @param hints - The hints to use for the connection loss.
+   * @param peerId - The peer ID to flush messages for.
+   * @param channel - The channel to flush messages through.
+   * @param queue - The message queue to flush.
    */
-  function handleConnectionLoss(peerId: string, hints: string[] = []): void {
-    logger.log(`${peerId}:: connection lost, initiating reconnection`);
-    activeChannels.delete(peerId);
+  async function flushQueuedMessages(
+    peerId: string,
+    channel: Channel,
+    queue: MessageQueue,
+  ): Promise<void> {
+    logger.log(`${peerId}:: flushing ${queue.length} queued messages`);
 
-    const state = getReconnectionState(peerId);
-    if (!state.isReconnecting) {
-      state.isReconnecting = true;
-      attemptReconnection(peerId, hints).catch((problem) => {
-        outputError(peerId, 'reconnection error', problem);
-        state.isReconnecting = false;
-      });
+    // Update channel hints with any unique hints from queued messages
+    const allHints = new Set(channel.hints);
+    for (const queuedMsg of queue.messages) {
+      for (const hint of queuedMsg.hints) {
+        allHints.add(hint);
+      }
+    }
+    channel.hints = Array.from(allHints);
+    updateChannelHints(peerId, channel.hints);
+
+    // Process queued messages
+    const failedMessages: QueuedMessage[] = [];
+    let queuedMsg: QueuedMessage | undefined;
+
+    while ((queuedMsg = queue.dequeue()) !== undefined) {
+      try {
+        logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
+        await channel.msgStream.write(fromString(queuedMsg.message));
+        reconnectionManager.resetBackoff(peerId);
+      } catch (problem) {
+        outputError(peerId, `sending queued message`, problem);
+        // Preserve the failed message and all remaining messages
+        failedMessages.push(queuedMsg);
+        failedMessages.push(...queue.dequeueAll());
+        break;
+      }
+    }
+
+    // Re-queue any failed messages with their original hints
+    if (failedMessages.length > 0) {
+      queue.replaceAll(failedMessages);
+      handleConnectionLoss(peerId, channel.hints);
     }
   }
 
@@ -508,35 +326,30 @@ export async function initNetwork(
       return;
     }
 
-    const state = getReconnectionState(targetPeerId);
+    const queue = getMessageQueue(targetPeerId);
 
-    if (state.isReconnecting) {
-      if (state.messageQueue.length >= MAX_QUEUE) {
-        state.messageQueue.shift();
-      } // drop oldest
-      state.messageQueue.push({ message, hints });
+    if (reconnectionManager.isReconnecting(targetPeerId)) {
+      queue.enqueue(message, hints);
       logger.log(
         `${targetPeerId}:: queueing message during reconnection ` +
-          `(${state.messageQueue.length}/${MAX_QUEUE}): ${message}`,
+          `(${queue.length}/${MAX_QUEUE}): ${message}`,
       );
       return;
     }
 
-    let channel = activeChannels.get(targetPeerId);
+    let channel = channels.get(targetPeerId);
     if (!channel) {
       try {
-        channel = await dialIdempotent(
+        channel = await connectionFactory.dialIdempotent(
           targetPeerId,
           hints,
-          /* withRetry*/ true,
+          true, // With retry for initial connection
         );
+        channels.set(targetPeerId, channel);
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId, hints);
-        if (state.messageQueue.length >= MAX_QUEUE) {
-          state.messageQueue.shift();
-        }
-        state.messageQueue.push({ message, hints });
+        queue.enqueue(message, hints);
         return;
       }
 
@@ -548,49 +361,29 @@ export async function initNetwork(
     try {
       logger.log(`${targetPeerId}:: send ${message}`);
       await channel.msgStream.write(fromString(message));
-      resetReconnectionBackoff(targetPeerId);
+      reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
       outputError(targetPeerId, `sending message`, problem);
       handleConnectionLoss(targetPeerId, hints);
-      if (state.messageQueue.length >= MAX_QUEUE) {
-        state.messageQueue.shift();
-      }
-      state.messageQueue.push({ message, hints });
+      queue.enqueue(message, hints);
     }
   }
 
   /**
-   * Reset the reconnection backoff tails for all peers.
-   * Called when system wakes from sleep.
+   * Handle wake from sleep event.
    */
   function handleWakeFromSleep(): void {
     logger.log('Wake from sleep detected, resetting reconnection backoffs');
-    for (const [, state] of reconnectionStates) {
-      if (state.isReconnecting) {
-        state.attemptCount = 0;
-      }
-    }
+    reconnectionManager.resetAllBackoffs();
   }
 
-  // Inbound handler
-  await libp2p.handle('whatever', ({ connection, stream }) => {
-    const msgStream = byteStream(stream);
-    const remotePeerId = connection.remotePeer.toString();
-    logger.log(`inbound connection from peerId:${remotePeerId}`);
-    const channel: Channel = { msgStream, peerId: remotePeerId, hints: [] };
-    activeChannels.set(remotePeerId, channel);
+  // Set up inbound connection handler
+  connectionFactory.onInboundConnection((channel) => {
+    channels.set(channel.peerId, channel);
     readChannel(channel).catch((error) => {
-      outputError(remotePeerId, 'error in inbound channel read', error);
+      outputError(channel.peerId, 'error in inbound channel read', error);
     });
   });
-
-  // Start libp2p
-  logger.log(`Starting libp2p node with peerId: ${libp2p.peerId.toString()}`);
-  logger.log(`Connecting to relays: ${knownRelays.join(', ')}`);
-  libp2p.addEventListener('self:peer:update', (evt) => {
-    logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
-  });
-  await libp2p.start();
 
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
@@ -608,16 +401,12 @@ export async function initNetwork(
     }
 
     stopController.abort(); // cancels all delays and dials
-    try {
-      await libp2p.stop();
-    } catch (error) {
-      logger.error('Error while stopping libp2p', error);
-    }
-    activeChannels.clear();
-    reconnectionStates.clear();
-    inflightDials.clear();
+    await connectionFactory.stop();
+    channels.clear();
+    reconnectionManager.clear();
+    messageQueues.clear();
   }
 
-  // return the sender with a stop handle
+  // Return the sender with a stop handle
   return { sendRemoteMessage, stop };
 }
