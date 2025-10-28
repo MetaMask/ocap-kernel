@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { kslot } from '../liveslots/kernel-marshal.ts';
-import type { SlotValue } from '../liveslots/kernel-marshal.ts';
-import type { RemoteComms } from '../types.ts';
 import { OcapURLManager } from './OcapURLManager.ts';
 import type { RemoteHandle } from './RemoteHandle.ts';
 import type { RemoteManager } from './RemoteManager.ts';
+import type { RemoteComms } from './types.ts';
 import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
+import type { SlotValue } from '../liveslots/kernel-marshal.ts';
+import { kslot } from '../liveslots/kernel-marshal.ts';
 
 type RedeemService = {
   redeem: (url: string) => Promise<SlotValue>;
@@ -164,6 +164,42 @@ describe('OcapURLManager', () => {
   });
 
   describe('issuer service', () => {
+    it('issues URL through issuer service with valid remotable', async () => {
+      // Create a valid remotable object that krefOf can extract a kref from
+      const kref = 'ko777';
+      const remotableObj = kslot(kref, 'TestInterface');
+
+      vi.spyOn(mockRemoteComms, 'issueOcapURL').mockResolvedValue(
+        `ocap:issued@local-peer-id`,
+      );
+
+      const services = ocapURLManager.getServices();
+      const issuerService = services.issuerService.service as IssuerService;
+
+      const url = await issuerService.issue(remotableObj);
+
+      expect(url).toBe('ocap:issued@local-peer-id');
+      expect(mockRemoteComms.issueOcapURL).toHaveBeenCalledWith(kref);
+    });
+
+    it('issues URL through issuer service with promise kref', async () => {
+      // Create a promise-type kref (starts with 'p', 'kp', or 'rp')
+      const promiseKref = 'kp888';
+      const promiseObj = kslot(promiseKref);
+
+      vi.spyOn(mockRemoteComms, 'issueOcapURL').mockResolvedValue(
+        `ocap:promise@local-peer-id`,
+      );
+
+      const services = ocapURLManager.getServices();
+      const issuerService = services.issuerService.service as IssuerService;
+
+      const url = await issuerService.issue(promiseObj);
+
+      expect(url).toBe('ocap:promise@local-peer-id');
+      expect(mockRemoteComms.issueOcapURL).toHaveBeenCalledWith(promiseKref);
+    });
+
     it('issues URL through issuer service', async () => {
       // Since we're testing integration with krefOf which requires a special
       // object structure, we'll test the underlying mechanism instead.

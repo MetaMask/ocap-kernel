@@ -4,8 +4,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import * as remoteComms from './remote-comms.ts';
+import type { RemoteComms } from './types.ts';
 import { makeKernelStore } from '../store/index.ts';
-import type { PlatformServices, RemoteComms } from '../types.ts';
+import type { PlatformServices } from '../types.ts';
 import { RemoteManager } from './RemoteManager.ts';
 import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
 

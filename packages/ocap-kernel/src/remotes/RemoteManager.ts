@@ -2,15 +2,10 @@ import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type {
-  PlatformServices,
-  RemoteComms,
-  RemoteId,
-  RemoteInfo,
-  RemoteMessageHandler,
-} from '../types.ts';
+import type { PlatformServices, RemoteId } from '../types.ts';
 import { initRemoteComms } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
+import type { RemoteComms, RemoteMessageHandler, RemoteInfo } from './types.ts';
 
 type RemoteManagerConstructorProps = {
   platformServices: PlatformServices;

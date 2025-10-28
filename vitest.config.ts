@@ -80,10 +80,10 @@ export default defineConfig({
           lines: 3.62,
         },
         'packages/kernel-agents/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/kernel-browser-runtime/**': {
           statements: 77.04,
@@ -98,10 +98,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/kernel-language-model-service/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/kernel-platforms/**': {
           statements: 99.38,
@@ -110,10 +110,10 @@ export default defineConfig({
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/kernel-shims/**': {
           statements: 0,
@@ -134,10 +134,10 @@ export default defineConfig({
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 99.29,
+          functions: 100,
+          branches: 94.44,
+          lines: 99.26,
         },
         'packages/logger/**': {
           statements: 100,
@@ -170,10 +170,10 @@ export default defineConfig({
           lines: 5.67,
         },
         'packages/remote-iterables/**': {
-          statements: 0,
-          functions: 0,
-          branches: 0,
-          lines: 0,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+          lines: 100,
         },
         'packages/streams/**': {
           statements: 100,
@@ -182,10 +182,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/template-package/**': {
-          statements: 0,
-          functions: 0,
+          statements: 100,
+          functions: 100,
           branches: 100,
-          lines: 0,
+          lines: 100,
         },
       },
     },
