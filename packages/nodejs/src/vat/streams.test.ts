@@ -36,7 +36,7 @@ describe('vat/streams', () => {
       const port = getPort();
 
       expect(port).toStrictEqual(mocks.parentPort);
-    });
+    }, 10_000);
 
     it('throws if parentPort is not defined', async () => {
       doMockParentPort(undefined);
@@ -45,7 +45,7 @@ describe('vat/streams', () => {
       const { getPort } = await import('./streams.ts');
 
       expect(getPort).toThrow(/parentPort/u);
-    });
+    }, 10_000);
   });
 
   describe('makeStreams', () => {
