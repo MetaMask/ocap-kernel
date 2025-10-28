@@ -136,7 +136,7 @@ export default defineConfig({
         'packages/kernel-utils/**': {
           statements: 99.29,
           functions: 100,
-          branches: 94.44,
+          branches: 95.83,
           lines: 99.26,
         },
         'packages/logger/**': {
