@@ -72,7 +72,7 @@
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/rpc-errors": "^7.0.2",
-    "@metamask/snaps-utils": "^9.1.0",
+    "@metamask/snaps-utils": "^11.6.1",
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.4.2",
