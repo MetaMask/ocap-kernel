@@ -19,7 +19,7 @@ describe('parseOptions', () => {
 
   it('parses an empty options bag', () => {
     const options = parseOptions({});
-    expect(options).toStrictEqual({});
+    expect(options).toStrictEqual({ transports: [mocks.consoleTransport] });
   });
 
   it('parses an options bag', () => {

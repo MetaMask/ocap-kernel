@@ -142,7 +142,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
     vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
     // Logging
-    logger: logger ?? new Logger({ tags: ['kernel-store'] }),
+    logger: logger?.subLogger({ tags: ['kernel-store'] }),
   };
 
   const id = getIdMethods(context);
