@@ -3,11 +3,11 @@ import type { Logger } from '@metamask/logger';
 import type { LanguageModel } from '@ocap/kernel-language-model-service';
 
 import { invokeCapabilities } from '../capability.ts';
-import { end } from '../default-capabilities.ts';
-import { AssistantMessage, CapabilityResultMessage } from '../messages.ts';
-import type { AssistantMessageJson } from '../messages.ts';
+import { makeEnd } from '../default-capabilities.ts';
+import { gatherStreamingResponse } from './gather.ts';
+import { AssistantMessage, CapabilityResultMessage } from './messages.ts';
+import type { AssistantMessageJson } from './messages.ts';
 import { makeIncrementalParser } from './parser.ts';
-import { gatherStreamingResponse } from '../gather.ts';
 import { makeChat } from './prompt.ts';
 import type { Agent, CapabilityRecord } from '../types.ts';
 
@@ -29,11 +29,6 @@ export const makeAgent = ({
   capabilities: CapabilityRecord;
   logger?: Logger;
 }): Agent => {
-  const agentCapabilities = mergeDisjointRecords(
-    { end },
-    capabilities,
-  ) as CapabilityRecord;
-
   const taskCounter = makeCounter();
 
   return {
@@ -46,8 +41,14 @@ export const makeAgent = ({
       const taskLogger = logger?.subLogger({ tags: [taskId] });
       taskLogger?.info('query:', query);
 
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const [end, didEnd, UNSAFE_getEnd] = makeEnd();
+      const taskCapabilities = mergeDisjointRecords(capabilities, {
+        end,
+      }) as CapabilityRecord;
+
       const { getPromptAndPrefix, pushMessages } = makeChat(
-        agentCapabilities,
+        taskCapabilities,
         query,
       );
 
@@ -80,13 +81,13 @@ export const makeAgent = ({
         }
         const results = await invokeCapabilities(
           assistantMessage.invoke,
-          agentCapabilities,
+          taskCapabilities,
         );
         taskLogger?.info('results:', results);
-        const didEnd = results.find((capability) => capability.name === 'end');
-        if (didEnd) {
-          taskLogger?.info('exit invocation with result:', didEnd.result);
-          return didEnd.result;
+        if (didEnd()) {
+          const final = UNSAFE_getEnd();
+          taskLogger?.info('exit invocation with result:', final);
+          return final;
         }
         pushMessages(
           new AssistantMessage(assistantMessage),

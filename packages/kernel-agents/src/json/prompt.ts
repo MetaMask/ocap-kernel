@@ -1,7 +1,7 @@
 import { extractCapabilitySchemas } from '../capability.ts';
-import { exampleTranscripts } from '../example-transcripts.ts';
-import { CapabilitySpecMessage, UserMessage } from '../messages.ts';
-import type { Transcript } from '../messages.ts';
+import { exampleTranscripts } from './example-transcripts.ts';
+import { CapabilitySpecMessage, UserMessage } from './messages.ts';
+import type { Transcript } from './messages.ts';
 import type { CapabilityRecord, Chat } from '../types.ts';
 
 const stringifyTranscript = (transcript: Transcript, index: number): string =>
