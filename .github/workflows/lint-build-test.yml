@@ -17,6 +17,7 @@ jobs:
           cache-node-modules: ${{ matrix.node-version == '24.x' }}
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
@@ -33,6 +34,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn lint
@@ -57,6 +59,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn changelog:validate
@@ -81,6 +84,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: |
@@ -109,6 +113,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: |
@@ -138,6 +143,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn test:integration
@@ -162,6 +168,7 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+          platform-specific-caching: true
       - run: |
           if ${{ matrix.node-version != '24.x' }}; then
             yarn rebuild:native --force
