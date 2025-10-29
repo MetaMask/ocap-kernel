@@ -116,7 +116,7 @@ jobs:
             yarn rebuild:native --force
           fi
       - run: yarn build
-      - run: yarn test:ci
+      - run: yarn test:ci --coverage ${{ matrix.node-version == '22.x' && 'true' || 'false' }}
       - name: Require clean working directory
         shell: bash
         run: |
