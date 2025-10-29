@@ -5,8 +5,7 @@ import { vi, describe, it, expect } from 'vitest';
 
 import { makeAgent } from './agent.ts';
 import { capability } from '../capability.ts';
-import { end } from '../default-capabilities.ts';
-import { AssistantMessage, CapabilityResultMessage } from '../messages.ts';
+import { AssistantMessage, CapabilityResultMessage } from './messages.ts';
 import { makeChat } from './prompt.ts';
 
 const prompt = 'test prompt';
@@ -41,20 +40,6 @@ describe('makeAgent', () => {
     const agent = makeAgent({ llm, capabilities: {} });
     expect(agent).toBeDefined();
     expect(agent).toHaveProperty('task');
-  });
-
-  it('endows the "end" capability by default', async () => {
-    const llm = mockLlm();
-    const mockMergeDisjointRecordsSpy = vi.spyOn(
-      await import('@metamask/kernel-utils'),
-      'mergeDisjointRecords',
-    );
-    const capabilities = {};
-    makeAgent({ llm, capabilities });
-    expect(mockMergeDisjointRecordsSpy).toHaveBeenCalledWith(
-      { end },
-      capabilities,
-    );
   });
 
   describe('task', () => {

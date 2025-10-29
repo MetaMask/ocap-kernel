@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { AssistantMessage } from '../messages.ts';
-import type { Transcript } from '../messages.ts';
+import { AssistantMessage } from './messages.ts';
+import type { Transcript } from './messages.ts';
 import { makeChat } from './prompt.ts';
 
 describe('makeChat', () => {
