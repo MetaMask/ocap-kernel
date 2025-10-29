@@ -83,6 +83,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      - run: |
+          if ${{ matrix.node-version != '22.x' }}; then
+            yarn rebuild:native --force
+          fi
       - run: yarn build
       - name: Require clean working directory
         shell: bash
@@ -107,6 +111,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      - run: |
+          if ${{ matrix.node-version != '22.x' }}; then
+            yarn rebuild:native --force
+          fi
       - run: yarn build
       - run: yarn test:ci
       - name: Require clean working directory
@@ -154,6 +162,10 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
+      - run: |
+          if ${{ matrix.node-version != '22.x' }}; then
+            yarn rebuild:native --force
+          fi
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
