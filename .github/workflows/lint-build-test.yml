@@ -14,8 +14,9 @@ jobs:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v1
         with:
-          is-high-risk-environment: false
           cache-node-modules: ${{ matrix.node-version == '22.x' }}
+          is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
@@ -31,6 +32,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn lint
@@ -54,6 +56,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn changelog:validate
@@ -77,6 +80,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn build
@@ -100,6 +104,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn build
@@ -124,6 +129,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn test:integration
@@ -147,6 +153,7 @@ jobs:
         uses: MetaMask/action-checkout-and-setup@v1
         with:
           is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
