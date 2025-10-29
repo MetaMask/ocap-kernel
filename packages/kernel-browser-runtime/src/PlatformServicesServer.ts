@@ -10,6 +10,7 @@ import type {
   VatId,
   VatConfig,
   SendRemoteMessage,
+  StopRemoteComms,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import {
@@ -55,6 +56,8 @@ export class PlatformServicesServer {
 
   #sendRemoteMessageFunc: SendRemoteMessage | null = null;
 
+  #stopRemoteCommsFunc: StopRemoteComms | null = null;
+
   /**
    * **ATTN:** Prefer {@link PlatformServicesServer.make} over constructing
    * this class directly.
@@ -97,12 +100,15 @@ export class PlatformServicesServer {
       terminateAll: this.#terminateAll.bind(this),
       initializeRemoteComms: this.#initializeRemoteComms.bind(this),
       sendRemoteMessage: this.#sendRemoteMessage.bind(this),
+      stopRemoteComms: this.#stopRemoteComms.bind(this),
     });
 
     // Start draining messages immediately after construction
-    this.#stream.drain(this.#handleMessage.bind(this)).catch((error) => {
-      this.#logger.error('Error draining stream:', error);
-    });
+    this.#stream
+      .drain(this.#handleMessage.bind(this))
+      .catch((error: unknown) => {
+        this.#logger.error('Error draining stream:', error);
+      });
   }
 
   /**
@@ -121,7 +127,9 @@ export class PlatformServicesServer {
     const stream: PlatformServicesStream = new PostMessageDuplexStream({
       messageTarget,
       messageEventMode: 'event',
-      validateInput: (message): message is MessageEvent<JsonRpcMessage> =>
+      validateInput: (
+        message: unknown,
+      ): message is MessageEvent<JsonRpcMessage> =>
         message instanceof MessageEvent && isJsonRpcMessage(message.data),
     });
     await stream.synchronize();
@@ -200,11 +208,23 @@ export class PlatformServicesServer {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
-    this.#sendRemoteMessageFunc = await initNetwork(
+    const { sendRemoteMessage, stop } = await initNetwork(
       keySeed,
       knownRelays,
       this.#handleRemoteMessage.bind(this),
     );
+    this.#sendRemoteMessageFunc = sendRemoteMessage;
+    this.#stopRemoteCommsFunc = stop;
+    return null;
+  }
+
+  async #stopRemoteComms(): Promise<null> {
+    if (!this.#stopRemoteCommsFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#stopRemoteCommsFunc();
+    this.#sendRemoteMessageFunc = null;
+    this.#stopRemoteCommsFunc = null;
     return null;
   }
 

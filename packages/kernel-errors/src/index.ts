@@ -5,6 +5,7 @@ export { VatDeletedError } from './errors/VatDeletedError.ts';
 export { VatNotFoundError } from './errors/VatNotFoundError.ts';
 export { StreamReadError } from './errors/StreamReadError.ts';
 export { SubclusterNotFoundError } from './errors/SubclusterNotFoundError.ts';
+export { AbortError } from './errors/AbortError.ts';
 export {
   ErrorCode,
   ErrorSentinel,
@@ -18,3 +19,4 @@ export { marshalError } from './marshal/marshalError.ts';
 export { unmarshalError } from './marshal/unmarshalError.ts';
 export { isMarshaledError } from './marshal/isMarshaledError.ts';
 export { isMarshaledOcapError } from './marshal/isMarshaledOcapError.ts';
+export { isRetryableNetworkError } from './utils/isRetryableNetworkError.ts';

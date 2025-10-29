@@ -7,11 +7,8 @@ import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../store/index.ts';
-import type {
-  PlatformServices,
-  RemoteComms,
-  RemoteMessageHandler,
-} from '../types.ts';
+import type { PlatformServices } from '../types.ts';
+import type { RemoteComms, RemoteMessageHandler } from './types.ts';
 
 export type OcapURLParts = {
   oid: string;
@@ -227,5 +224,6 @@ export async function initRemoteComms(
     sendRemoteMessage,
     issueOcapURL,
     redeemLocalOcapURL,
+    stopRemoteComms: platformServices.stopRemoteComms.bind(platformServices),
   };
 }

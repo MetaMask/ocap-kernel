@@ -15,6 +15,7 @@ describe('platform-services index', () => {
         'terminateAll',
         'sendRemoteMessage',
         'initializeRemoteComms',
+        'stopRemoteComms',
       ];
 
       for (const handlerName of expectedHandlers) {
@@ -87,6 +88,14 @@ describe('platform-services index', () => {
         expect(handler.hooks).toStrictEqual({ initializeRemoteComms: true });
         expect(typeof handler.implementation).toBe('function');
       });
+
+      it('should have stopRemoteComms handler with correct configuration', () => {
+        const handler = platformServicesHandlers.stopRemoteComms;
+
+        expect(handler.method).toBe('stopRemoteComms');
+        expect(handler.hooks).toStrictEqual({ stopRemoteComms: true });
+        expect(typeof handler.implementation).toBe('function');
+      });
     });
   });
 
@@ -98,6 +107,7 @@ describe('platform-services index', () => {
         'terminateAll',
         'sendRemoteMessage',
         'initializeRemoteComms',
+        'stopRemoteComms',
       ];
 
       for (const specName of expectedSpecs) {
@@ -151,6 +161,11 @@ describe('platform-services index', () => {
         const spec = platformServicesMethodSpecs.initializeRemoteComms;
         expect(spec.method).toBe('initializeRemoteComms');
       });
+
+      it('should have stopRemoteComms spec with correct method name', () => {
+        const spec = platformServicesMethodSpecs.stopRemoteComms;
+        expect(spec.method).toBe('stopRemoteComms');
+      });
     });
   });
 
@@ -163,6 +178,7 @@ describe('platform-services index', () => {
         'terminateAll',
         'sendRemoteMessage',
         'initializeRemoteComms',
+        'stopRemoteComms',
       ];
 
       for (const method of methods) {
@@ -192,9 +208,9 @@ describe('platform-services index', () => {
       }
     });
 
-    it('should have exactly 5 platform services', () => {
-      expect(Object.keys(platformServicesHandlers)).toHaveLength(5);
-      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(5);
+    it('should have exactly 6 platform services', () => {
+      expect(Object.keys(platformServicesHandlers)).toHaveLength(6);
+      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(6);
     });
 
     it('should maintain handler-spec consistency for all services', () => {
@@ -204,6 +220,7 @@ describe('platform-services index', () => {
         'terminateAll',
         'sendRemoteMessage',
         'initializeRemoteComms',
+        'stopRemoteComms',
       ] as const;
 
       for (const service of services) {

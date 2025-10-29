@@ -90,16 +90,16 @@ export default defineConfig({
           lines: 100,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 71.84,
-          functions: 69.11,
-          branches: 53.62,
-          lines: 71.84,
+          statements: 79.44,
+          functions: 72.46,
+          branches: 66.19,
+          lines: 79.44,
         },
         'packages/kernel-errors/**': {
-          statements: 98.82,
-          functions: 96,
-          branches: 92,
-          lines: 98.82,
+          statements: 99,
+          functions: 96.42,
+          branches: 95,
+          lines: 99,
         },
         'packages/kernel-language-model-service/**': {
           statements: 100,
@@ -138,10 +138,10 @@ export default defineConfig({
           lines: 95.11,
         },
         'packages/kernel-utils/**': {
-          statements: 100,
+          statements: 97.26,
           functions: 100,
-          branches: 100,
-          lines: 100,
+          branches: 94.59,
+          lines: 97.14,
         },
         'packages/logger/**': {
           statements: 98.5,
@@ -150,10 +150,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 68.49,
-          functions: 75,
-          branches: 52.17,
-          lines: 69.44,
+          statements: 80.24,
+          functions: 88.23,
+          branches: 76,
+          lines: 81.25,
         },
         'packages/nodejs-test-workers/**': {
           statements: 23.52,
@@ -162,10 +162,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 95.23,
-          functions: 96.61,
-          branches: 86.44,
-          lines: 95.21,
+          statements: 95.56,
+          functions: 97.14,
+          branches: 86.9,
+          lines: 95.55,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.26,

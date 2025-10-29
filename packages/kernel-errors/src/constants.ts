@@ -24,6 +24,7 @@ export const ErrorStruct = define<Error>(
  * Enum defining all error codes for Ocap errors.
  */
 export const ErrorCode = {
+  AbortError: 'ABORT_ERROR',
   DuplicateEndowment: 'DUPLICATE_ENDOWMENT',
   StreamReadError: 'STREAM_READ_ERROR',
   VatAlreadyExists: 'VAT_ALREADY_EXISTS',

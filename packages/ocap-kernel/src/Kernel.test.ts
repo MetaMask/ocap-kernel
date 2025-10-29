@@ -34,10 +34,32 @@ const mocks = vi.hoisted(() => {
 
     waitForCrank = vi.fn().mockResolvedValue(undefined);
   }
-  return { KernelQueue };
+
+  class RemoteManager {
+    static lastInstance: RemoteManager;
+
+    stopRemoteComms = vi.fn().mockResolvedValue(undefined);
+
+    isRemoteCommsInitialized = vi.fn().mockReturnValue(false);
+
+    setMessageHandler = vi.fn();
+
+    initRemoteComms = vi.fn().mockResolvedValue(undefined);
+
+    constructor() {
+      (this.constructor as typeof RemoteManager).lastInstance = this;
+    }
+  }
+
+  return { KernelQueue, RemoteManager };
 });
+
 vi.mock('./KernelQueue.ts', () => {
   return { KernelQueue: mocks.KernelQueue };
+});
+
+vi.mock('./remotes/RemoteManager.ts', () => {
+  return { RemoteManager: mocks.RemoteManager };
 });
 
 const makeMockVatConfig = (): VatConfig => ({
@@ -689,6 +711,8 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       expect(vatHandles).toHaveLength(1);
       expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
+      const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+      expect(remoteManagerInstance.stopRemoteComms).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
   });
