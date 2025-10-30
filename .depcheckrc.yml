@@ -20,7 +20,7 @@ ignores:
   # vitest
   - 'vite'
   - '@types/vitest'
-  - '@vitest/coverage-istanbul'
+  - '@vitest/coverage-v8'
   - 'playwright'
   - 'vitest'
   - 'vitest-fetch-mock'
