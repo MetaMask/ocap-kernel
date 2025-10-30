@@ -39,8 +39,8 @@
   ],
   "license": "(MIT OR Apache-2.0)",
   "scripts": {
-    "build": "vite build --config vite.config.ts && yarn copy:types",
-    "dev": "vite build --config vite.config.ts --mode development --watch && yarn copy:types",
+    "build": "vite build --configLoader runner --config vite.config.ts && yarn copy:types",
+    "dev": "vite build --configLoader runner --config vite.config.ts --mode development --watch && yarn copy:types",
     "copy:types": "cp dist/index.d.ts dist/index.d.mts && cp dist/index.d.ts dist/index.d.cts",
     "build:docs": "typedoc",
     "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-ui",
