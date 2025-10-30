@@ -12,12 +12,10 @@ jobs:
         node-version: [20.x, 22.x, 24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
-          cache-node-modules: ${{ matrix.node-version == '24.x' }}
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
@@ -30,11 +28,10 @@ jobs:
         node-version: [24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn lint
@@ -55,11 +52,10 @@ jobs:
         node-version: [24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn changelog:validate
@@ -80,17 +76,12 @@ jobs:
         node-version: [24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-      - run: |
-          if ${{ matrix.node-version != '24.x' }}; then
-            yarn rebuild:native --force
-          fi
       - run: yarn build
       - name: Require clean working directory
         shell: bash
@@ -109,17 +100,12 @@ jobs:
         node-version: [20.x, 22.x, 24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-      - run: |
-          if ${{ matrix.node-version != '24.x' }}; then
-            yarn rebuild:native --force
-          fi
       - run: yarn build
       - run: yarn test:ci
       - name: Require clean working directory
@@ -139,11 +125,10 @@ jobs:
         node-version: [20.x, 22.x, 24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn test:integration
@@ -164,15 +149,10 @@ jobs:
         node-version: [24.x]
     steps:
       - name: Checkout and setup environment
-        uses: MetaMask/action-checkout-and-setup@v1
+        uses: MetaMask/action-checkout-and-setup@v2
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-          platform-specific-caching: true
-      - run: |
-          if ${{ matrix.node-version != '24.x' }}; then
-            yarn rebuild:native --force
-          fi
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
