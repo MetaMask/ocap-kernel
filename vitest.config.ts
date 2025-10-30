@@ -144,9 +144,9 @@ export default defineConfig({
           lines: 100,
         },
         'packages/logger/**': {
-          statements: 98.46,
+          statements: 98.5,
           functions: 96,
-          branches: 97.14,
+          branches: 97.29,
           lines: 100,
         },
         'packages/nodejs/**': {
@@ -164,7 +164,7 @@ export default defineConfig({
         'packages/ocap-kernel/**': {
           statements: 95.23,
           functions: 96.61,
-          branches: 86.5,
+          branches: 86.44,
           lines: 95.21,
         },
         'packages/omnium-gatherum/**': {

@@ -254,6 +254,8 @@ describe('RemoteHandle', () => {
     // came from there (because it had to come from *somewhere*).
     const koref = mockKernelStore.initKernelObject('v1');
     const [kpref] = mockKernelStore.initKernelPromise();
+    mockKernelStore.kv.set(`e.nextObjectId.${remote.remoteId}`, `1`);
+    mockKernelStore.kv.set(`e.nextPromiseId.${remote.remoteId}`, `1`);
 
     // Pretend these refs had earlier been imported into the test remote from
     // our kernel (as if they had, say, appeared in message slots) and thence were
@@ -318,6 +320,7 @@ describe('RemoteHandle', () => {
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
     const koref = mockKernelStore.initKernelObject('v1');
+    mockKernelStore.kv.set(`e.nextObjectId.${remote.remoteId}`, `1`);
 
     // Pretend this ref had earlier been imported into the test remote from our
     // kernel (as if it had, say, appeared in message slots) and thence wwas

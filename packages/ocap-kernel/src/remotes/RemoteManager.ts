@@ -159,6 +159,7 @@ export class RemoteManager {
     const remoteInfo: RemoteInfo = { peerId, hints };
     const remote = this.#initializeRemote(remoteId, remoteInfo);
     this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
+    this.#kernelStore.initEndpoint(remoteId);
     return remote;
   }
 

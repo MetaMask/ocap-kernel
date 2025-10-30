@@ -21,7 +21,7 @@ type VatSyscallProps = {
   vatId: VatId;
   kernelQueue: KernelQueue;
   kernelStore: KernelStore;
-  logger?: Logger;
+  logger?: Logger | undefined;
 };
 
 /**
