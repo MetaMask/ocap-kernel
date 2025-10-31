@@ -49,7 +49,7 @@
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
-    "@metamask/snaps-utils": "^9.1.0",
+    "@metamask/snaps-utils": "^11.6.1",
     "@metamask/utils": "^11.4.2",
     "@types/node": "^22.13.1",
     "chokidar": "^4.0.1",

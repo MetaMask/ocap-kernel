@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `@metamask/snaps-utils` from `^9.1.0` to `^11.6.1` ([#682](https://github.com/MetaMask/ocap-kernel/pull/682))
+
 ## [0.4.0]
 
 ### Changed
