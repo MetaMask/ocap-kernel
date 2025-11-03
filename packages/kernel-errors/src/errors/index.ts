@@ -1,3 +1,4 @@
+import { AbortError } from './AbortError.ts';
 import { DuplicateEndowmentError } from './DuplicateEndowmentError.ts';
 import { StreamReadError } from './StreamReadError.ts';
 import { VatAlreadyExistsError } from './VatAlreadyExistsError.ts';
@@ -7,6 +8,7 @@ import { ErrorCode } from '../constants.ts';
 import { SubclusterNotFoundError } from './SubclusterNotFoundError.ts';
 
 export const errorClasses = {
+  [ErrorCode.AbortError]: AbortError,
   [ErrorCode.DuplicateEndowment]: DuplicateEndowmentError,
   [ErrorCode.StreamReadError]: StreamReadError,
   [ErrorCode.VatAlreadyExists]: VatAlreadyExistsError,

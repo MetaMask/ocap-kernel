@@ -587,6 +587,7 @@ export class Kernel {
    * Gracefully stop the kernel without deleting vats.
    */
   async stop(): Promise<void> {
+    await this.#remoteManager.stopRemoteComms();
     await this.#kernelQueue.waitForCrank();
     this.#logger.info('Stopping kernel gracefully...');
     await this.#commandStream.end();

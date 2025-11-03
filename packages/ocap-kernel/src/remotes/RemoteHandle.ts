@@ -16,8 +16,8 @@ import type {
   EndpointHandle,
   Message,
   CrankResults,
-  RemoteComms,
 } from '../types.ts';
+import type { RemoteComms } from './types.ts';
 
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;

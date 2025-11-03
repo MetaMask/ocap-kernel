@@ -7,6 +7,7 @@ import type {
   VatId,
   RemoteMessageHandler,
   SendRemoteMessage,
+  StopRemoteComms,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
@@ -24,6 +25,8 @@ export class NodejsPlatformServices implements PlatformServices {
   readonly #logger: Logger;
 
   #sendRemoteMessageFunc: SendRemoteMessage | null = null;
+
+  #stopRemoteCommsFunc: StopRemoteComms | null = null;
 
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
@@ -129,11 +132,22 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
-    this.#sendRemoteMessageFunc = await initNetwork(
+    const { sendRemoteMessage, stop } = await initNetwork(
       keySeed,
       knownRelays,
       this.#handleRemoteMessage.bind(this),
     );
+    this.#sendRemoteMessageFunc = sendRemoteMessage;
+    this.#stopRemoteCommsFunc = stop;
+  }
+
+  async stopRemoteComms(): Promise<void> {
+    if (!this.#stopRemoteCommsFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#stopRemoteCommsFunc();
+    this.#sendRemoteMessageFunc = null;
+    this.#stopRemoteCommsFunc = null;
   }
 }
 harden(NodejsPlatformServices);

@@ -1,5 +1,6 @@
 import { getBaseMethods } from './base.ts';
-import type { RemoteId, RemoteInfo } from '../../types.ts';
+import type { RemoteInfo } from '../../remotes/types.ts';
+import type { RemoteId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
 export type RemoteRecord = {

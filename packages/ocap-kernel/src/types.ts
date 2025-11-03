@@ -29,6 +29,11 @@ import { UnsafeJsonStruct } from '@metamask/utils';
 import type { PlatformConfig } from '@ocap/kernel-platforms';
 import { platformConfigStruct } from '@ocap/kernel-platforms';
 
+import type {
+  RemoteMessageHandler,
+  SendRemoteMessage,
+  StopRemoteComms,
+} from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
 
 export type VatId = string;
@@ -263,11 +268,6 @@ export const VatMessageIdStruct = define<VatMessageId>(
   isVatMessageId,
 );
 
-export type RemoteMessageHandler = (
-  from: string,
-  message: string,
-) => Promise<string>;
-
 /**
  * A service for things the kernel worker can't do itself. Abstracts platform-specific details of
  * how vat workers are launched, terminated, and connected to the kernel, and for network communications.
@@ -311,11 +311,7 @@ export type PlatformServices = {
    * @returns A promise that resolves when the message has been transmitted or
    *   rejects if there is some problem doing so.
    */
-  sendRemoteMessage: (
-    to: string,
-    message: string,
-    hints?: string[],
-  ) => Promise<void>;
+  sendRemoteMessage: SendRemoteMessage;
   /**
    * Initialize network communications.
    *
@@ -331,24 +327,13 @@ export type PlatformServices = {
     knownRelays: string[],
     remoteMessageHandler: RemoteMessageHandler,
   ) => Promise<void>;
-};
-
-export type SendRemoteMessage = (
-  to: string,
-  message: string,
-  hints?: string[],
-) => Promise<void>;
-
-export type RemoteComms = {
-  getPeerId: () => string;
-  sendRemoteMessage: SendRemoteMessage;
-  issueOcapURL: (kref: string) => Promise<string>;
-  redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
-};
-
-export type RemoteInfo = {
-  peerId: string;
-  hints?: string[];
+  /**
+   * Stop network communications.
+   *
+   * @returns A promise that resolves when network access has been stopped
+   *   or rejects if there is some problem doing so.
+   */
+  stopRemoteComms: StopRemoteComms;
 };
 
 // Cluster configuration

@@ -4,13 +4,13 @@ import { vi } from 'vitest';
 import { makeMapKernelDatabase } from './storage.ts';
 import type { KernelQueue } from '../src/KernelQueue.ts';
 import { RemoteHandle } from '../src/remotes/RemoteHandle.ts';
-import type { KernelStore } from '../src/store/index.ts';
-import { makeKernelStore } from '../src/store/index.ts';
 import type {
-  PlatformServices,
   RemoteComms,
   RemoteMessageHandler,
-} from '../src/types.ts';
+} from '../src/remotes/types.ts';
+import type { KernelStore } from '../src/store/index.ts';
+import { makeKernelStore } from '../src/store/index.ts';
+import type { PlatformServices } from '../src/types.ts';
 
 /**
  * Default configuration for mock remotes components
@@ -52,6 +52,7 @@ export class MockRemotesFactory {
       terminateAll: vi.fn(),
       initializeRemoteComms: vi.fn(),
       sendRemoteMessage: vi.fn(),
+      stopRemoteComms: vi.fn(),
     };
   }
 
@@ -85,6 +86,7 @@ export class MockRemotesFactory {
         .fn()
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),
       redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
+      stopRemoteComms: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };
   }

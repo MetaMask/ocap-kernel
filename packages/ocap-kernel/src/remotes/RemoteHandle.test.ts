@@ -7,7 +7,8 @@ import { RemoteHandle } from './RemoteHandle.ts';
 import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
 import type { KernelStore } from '../store/index.ts';
 import { parseRef } from '../store/utils/parse-ref.ts';
-import type { Message, RemoteComms, RRef } from '../types.ts';
+import type { Message, RRef } from '../types.ts';
+import type { RemoteComms } from './types.ts';
 
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;
@@ -198,6 +199,20 @@ describe('RemoteHandle', () => {
     await expect(urlPromise).rejects.toThrow(
       `vitest ignores this string but lint complains if it's not here`,
     );
+  });
+
+  it('handleRemoteMessage throws for unknown URL redemption reply key', async () => {
+    const remote = makeRemote();
+    const unknownReplyKey = 'unknown-key';
+
+    const redeemURLReply = {
+      method: 'redeemURLReply',
+      params: [true, unknownReplyKey, 'ro+1'],
+    };
+
+    await expect(
+      remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+    ).rejects.toThrow(`unknown URL redemption reply key ${unknownReplyKey}`);
   });
 
   it('handleRemoteMessage handles deliver message', async () => {
@@ -423,6 +438,35 @@ describe('RemoteHandle', () => {
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
+  });
+
+  it('handleRemoteMessage handles redeemURL request with error', async () => {
+    const remote = makeRemote();
+    const mockOcapURL = 'invalid-url';
+    const mockReplyKey = 'replyKey';
+    const errorMessage = 'Invalid URL format';
+
+    // Mock redeemLocalOcapURL to throw an error
+    vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockRejectedValue(
+      new Error(errorMessage),
+    );
+
+    const request = JSON.stringify({
+      method: 'redeemURL',
+      params: [mockOcapURL, mockReplyKey],
+    });
+
+    const reply = await remote.handleRemoteMessage(request);
+
+    expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
+      mockOcapURL,
+    );
+    expect(reply).toBe(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [false, mockReplyKey, errorMessage],
+      }),
+    );
   });
 
   it('handleRemoteMessage rejects bogus message type', async () => {

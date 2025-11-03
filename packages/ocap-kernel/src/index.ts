@@ -7,15 +7,17 @@ export type {
   KRef,
   Message,
   VatId,
-  RemoteMessageHandler,
   PlatformServices,
   VatConfig,
   KernelStatus,
-  SendRemoteMessage,
-  RemoteComms,
   Subcluster,
   SubclusterId,
 } from './types.ts';
+export type {
+  RemoteMessageHandler,
+  SendRemoteMessage,
+  StopRemoteComms,
+} from './remotes/types.ts';
 export {
   isVatId,
   VatIdStruct,
