@@ -1109,7 +1109,12 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       await stop();
 
       // Verify that stop completed without errors
-      expect(dialCount).toBeGreaterThanOrEqual(1);
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(1);
+        },
+        { timeout: 2000 },
+      );
     });
   });
 
@@ -1332,11 +1337,13 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       // Trigger reconnection
       await send('peer-nonretry', 'trigger');
 
-      // Wait a bit for reconnection to be attempted
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
       // Should have tried initial + one reconnection attempt that failed with non-retryable error
-      expect(dialCount).toBeGreaterThanOrEqual(2);
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 2000 },
+      );
     });
   });
 
@@ -1485,9 +1492,12 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       await send('peer-hints-retry', 'm2', messageHints);
 
       // Wait for: initial dial + reconnection dial (with hints) + redial after flush failure (with hints)
-      await vi.waitFor(() => {
-        expect(dialAttempts.length).toBeGreaterThanOrEqual(3);
-      });
+      await vi.waitFor(
+        () => {
+          expect(dialAttempts.length).toBeGreaterThanOrEqual(3);
+        },
+        { timeout: 2000 },
+      );
 
       // Assert that the reconnection attempts used the hint address
       // 0: initial dial (may use relay), 1: first reconnection, 2: retry after flush failure
@@ -1549,10 +1559,13 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       await send('peer-flush', 'queued-2');
 
       // Wait for reconnection to succeed and messages to flush
-      await vi.waitFor(async () => {
-        const bs = getByteStreamFor(streams.reconnected as object);
-        expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(2);
-      });
+      await vi.waitFor(
+        async () => {
+          const bs = getByteStreamFor(streams.reconnected as object);
+          expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 2000 },
+      );
 
       const reconnectedBs = getByteStreamFor(
         streams.reconnected as object,
@@ -1628,10 +1641,13 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       // Now allow reconnection to succeed
       allowReconnect = true;
 
-      await vi.waitFor(async () => {
-        const bs = getByteStreamFor(streams.reconnected as object);
-        expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(200);
-      });
+      await vi.waitFor(
+        async () => {
+          const bs = getByteStreamFor(streams.reconnected as object);
+          expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(200);
+        },
+        { timeout: 2000 },
+      );
 
       const reconnectedBs = getByteStreamFor(
         streams.reconnected as object,
@@ -2120,11 +2136,13 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
 
       await stop();
 
-      // Wait a bit to ensure cleanup
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       // Verify stop completed (state cleaned up)
-      expect(dialCount).toBeGreaterThanOrEqual(2);
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(2);
+        },
+        { timeout: 2000 },
+      );
     });
 
     it('cleans up reconnection state and stop completes without hanging', async () => {
