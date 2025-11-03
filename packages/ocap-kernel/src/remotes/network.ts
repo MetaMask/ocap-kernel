@@ -45,15 +45,12 @@ export async function initNetwork(
   const channels = new Map<string, Channel>();
   const reconnectionManager = new ReconnectionManager();
   const messageQueues = new Map<string, MessageQueue>(); // One queue per peer
-  const connectionFactory = new ConnectionFactory(
+  const connectionFactory = await ConnectionFactory.make(
     keySeed,
     knownRelays,
     logger,
     signal,
   );
-
-  // Initialize the connection factory
-  await connectionFactory.initialize();
 
   /**
    * Output an error message.

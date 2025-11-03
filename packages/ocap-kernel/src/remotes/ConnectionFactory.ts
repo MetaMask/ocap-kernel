@@ -46,7 +46,8 @@ export class ConnectionFactory {
    * @param logger - The logger to use for the libp2p node.
    * @param signal - The signal to use for the libp2p node.
    */
-  constructor(
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
     keySeed: string,
     knownRelays: string[],
     logger: Logger,
@@ -59,9 +60,29 @@ export class ConnectionFactory {
   }
 
   /**
+   * Create a new ConnectionFactory instance.
+   *
+   * @param keySeed - The key seed to use for the libp2p node.
+   * @param knownRelays - The known relays to use for the libp2p node.
+   * @param logger - The logger to use for the libp2p node.
+   * @param signal - The signal to use for the libp2p node.
+   * @returns A promise for the new ConnectionFactory instance.
+   */
+  static async make(
+    keySeed: string,
+    knownRelays: string[],
+    logger: Logger,
+    signal: AbortSignal,
+  ): Promise<ConnectionFactory> {
+    const factory = new ConnectionFactory(keySeed, knownRelays, logger, signal);
+    await factory.#init();
+    return factory;
+  }
+
+  /**
    * Initialize libp2p with the provided configuration.
    */
-  async initialize(): Promise<void> {
+  async #init(): Promise<void> {
     const privateKey = await this.#generateKeyInfo();
 
     this.#libp2p = await createLibp2p({

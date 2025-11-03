@@ -1019,14 +1019,14 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       );
 
       await send('test-peer-c', 'msg');
-
-      // Should try WebRTC first, then fall back to circuit
-      expect(dialAttempts).toHaveLength(2);
-      expect(dialAttempts[1]).toBe(
-        `${knownRelays[0]}/p2p-circuit/p2p/test-peer-c`,
-      );
-      expect(libp2pState.dials).toHaveLength(1);
-      expect(libp2pState.dials[0]?.addr).not.toContain('/webrtc/');
+      await vi.waitFor(() => {
+        expect(dialAttempts).toHaveLength(2);
+        expect(dialAttempts[1]).toBe(
+          `${knownRelays[0]}/p2p-circuit/p2p/test-peer-c`,
+        );
+        expect(libp2pState.dials).toHaveLength(1);
+        expect(libp2pState.dials[0]?.addr).not.toContain('/webrtc/');
+      });
     });
   });
 
@@ -1708,7 +1708,9 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
       };
 
       await send('peer-after-stop', 'hello');
-      expect(state.dials).toHaveLength(0);
+      await vi.waitFor(() => {
+        expect(state.dials).toHaveLength(0);
+      });
     });
 
     it('queues message when reconnection starts during sendRemoteMessage dial', async () => {

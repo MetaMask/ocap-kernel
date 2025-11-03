@@ -26,7 +26,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('startReconnection', () => {
-    it('should start reconnection for a peer', () => {
+    it('starts reconnection for a peer', () => {
       expect(manager.isReconnecting('peer1')).toBe(false);
 
       manager.startReconnection('peer1');
@@ -34,7 +34,7 @@ describe('ReconnectionManager', () => {
       expect(manager.isReconnecting('peer1')).toBe(true);
     });
 
-    it('should handle multiple peers independently', () => {
+    it('handles multiple peers independently', () => {
       manager.startReconnection('peer1');
       manager.startReconnection('peer2');
 
@@ -43,7 +43,7 @@ describe('ReconnectionManager', () => {
       expect(manager.isReconnecting('peer3')).toBe(false);
     });
 
-    it('should be idempotent', () => {
+    it('is idempotent', () => {
       manager.startReconnection('peer1');
       manager.startReconnection('peer1');
 
@@ -52,7 +52,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('stopReconnection', () => {
-    it('should stop reconnection for a peer', () => {
+    it('stops reconnection for a peer', () => {
       manager.startReconnection('peer1');
       expect(manager.isReconnecting('peer1')).toBe(true);
 
@@ -61,7 +61,7 @@ describe('ReconnectionManager', () => {
       expect(manager.isReconnecting('peer1')).toBe(false);
     });
 
-    it('should work on non-reconnecting peer', () => {
+    it('works on non-reconnecting peer', () => {
       expect(manager.isReconnecting('peer1')).toBe(false);
 
       manager.stopReconnection('peer1');
@@ -69,7 +69,7 @@ describe('ReconnectionManager', () => {
       expect(manager.isReconnecting('peer1')).toBe(false);
     });
 
-    it('should not affect other peers', () => {
+    it('does not affect other peers', () => {
       manager.startReconnection('peer1');
       manager.startReconnection('peer2');
 
@@ -81,11 +81,11 @@ describe('ReconnectionManager', () => {
   });
 
   describe('isReconnecting', () => {
-    it('should return false for new peer', () => {
+    it('returns false for new peer', () => {
       expect(manager.isReconnecting('newpeer')).toBe(false);
     });
 
-    it('should track reconnection state correctly', () => {
+    it('tracks reconnection state correctly', () => {
       expect(manager.isReconnecting('peer1')).toBe(false);
 
       manager.startReconnection('peer1');
@@ -97,7 +97,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('incrementAttempt', () => {
-    it('should increment attempt count', () => {
+    it('increments attempt count', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
 
       const count1 = manager.incrementAttempt('peer1');
@@ -109,7 +109,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(2);
     });
 
-    it('should track attempts per peer independently', () => {
+    it('tracks attempts per peer independently', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer2');
@@ -119,7 +119,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer3')).toBe(0);
     });
 
-    it('should return the new count', () => {
+    it('returns the new count', () => {
       expect(manager.incrementAttempt('peer1')).toBe(1);
       expect(manager.incrementAttempt('peer1')).toBe(2);
       expect(manager.incrementAttempt('peer1')).toBe(3);
@@ -127,7 +127,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('resetBackoff', () => {
-    it('should reset attempt count to zero', () => {
+    it('resets attempt count to zero', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
       expect(manager.getAttemptCount('peer1')).toBe(2);
@@ -137,7 +137,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
     });
 
-    it('should work on peer with no attempts', () => {
+    it('works on peer with no attempts', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
 
       manager.resetBackoff('peer1');
@@ -145,7 +145,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
     });
 
-    it('should not affect reconnection state', () => {
+    it('does not affect reconnection state', () => {
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
 
@@ -155,7 +155,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
     });
 
-    it('should only reset specified peer', () => {
+    it('only resets specified peer', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer2');
 
@@ -167,7 +167,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('calculateBackoff', () => {
-    it('should calculate backoff for current attempt count', () => {
+    it('calculates backoff for current attempt count', () => {
       const { calculateReconnectionBackoff } = vi.mocked(kernelUtils);
 
       // No attempts yet (attemptCount = 0)
@@ -188,7 +188,7 @@ describe('ReconnectionManager', () => {
       expect(backoff2).toBe(200);
     });
 
-    it('should calculate independently for different peers', () => {
+    it('calculates independently for different peers', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
 
@@ -199,7 +199,7 @@ describe('ReconnectionManager', () => {
       expect(backoff2).toBe(50); // No attempts yet (attemptCount = 0)
     });
 
-    it('should respect backoff after reset', () => {
+    it('respects backoff after reset', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
       manager.resetBackoff('peer1');
@@ -211,7 +211,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('shouldRetry', () => {
-    it('should return true for infinite retries (maxAttempts = 0)', () => {
+    it('returns true for infinite retries (maxAttempts = 0)', () => {
       for (let i = 0; i < 100; i += 1) {
         manager.incrementAttempt('peer1');
       }
@@ -219,7 +219,7 @@ describe('ReconnectionManager', () => {
       expect(manager.shouldRetry('peer1', 0)).toBe(true);
     });
 
-    it('should respect max attempts limit', () => {
+    it('respects max attempts limit', () => {
       const maxAttempts = 3;
 
       expect(manager.shouldRetry('peer1', maxAttempts)).toBe(true);
@@ -234,7 +234,7 @@ describe('ReconnectionManager', () => {
       expect(manager.shouldRetry('peer1', maxAttempts)).toBe(false);
     });
 
-    it('should allow retry after reset', () => {
+    it('allows retry after reset', () => {
       const maxAttempts = 2;
 
       manager.incrementAttempt('peer1');
@@ -246,7 +246,7 @@ describe('ReconnectionManager', () => {
       expect(manager.shouldRetry('peer1', maxAttempts)).toBe(true);
     });
 
-    it('should handle different limits per peer', () => {
+    it('handles different limits per peer', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
 
@@ -257,11 +257,11 @@ describe('ReconnectionManager', () => {
   });
 
   describe('getAttemptCount', () => {
-    it('should return 0 for new peer', () => {
+    it('returns 0 for new peer', () => {
       expect(manager.getAttemptCount('newpeer')).toBe(0);
     });
 
-    it('should return current attempt count', () => {
+    it('returns current attempt count', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
@@ -269,7 +269,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(3);
     });
 
-    it('should reflect resets', () => {
+    it('reflects resets', () => {
       manager.incrementAttempt('peer1');
       manager.incrementAttempt('peer1');
       manager.resetBackoff('peer1');
@@ -279,7 +279,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('resetAllBackoffs', () => {
-    it('should reset attempts for all reconnecting peers', () => {
+    it('resets attempts for all reconnecting peers', () => {
       // Set up peers with different states
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
@@ -301,7 +301,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer3')).toBe(2); // Not reset
     });
 
-    it('should not affect reconnection state', () => {
+    it('does not affect reconnection state', () => {
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
 
@@ -311,13 +311,13 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
     });
 
-    it('should handle empty state', () => {
+    it('handles empty state', () => {
       expect(() => manager.resetAllBackoffs()).not.toThrow();
     });
   });
 
   describe('clear', () => {
-    it('should clear all states', () => {
+    it('clears all states', () => {
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
       manager.startReconnection('peer2');
@@ -331,7 +331,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer2')).toBe(0);
     });
 
-    it('should allow new operations after clear', () => {
+    it('allows new operations after clear', () => {
       manager.startReconnection('peer1');
       manager.clear();
 
@@ -342,13 +342,13 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(1);
     });
 
-    it('should handle empty state', () => {
+    it('handles empty state', () => {
       expect(() => manager.clear()).not.toThrow();
     });
   });
 
   describe('clearPeer', () => {
-    it('should clear state for specific peer', () => {
+    it('clears state for specific peer', () => {
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
       manager.startReconnection('peer2');
@@ -362,11 +362,11 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer2')).toBe(1);
     });
 
-    it('should handle non-existent peer', () => {
+    it('handles non-existent peer', () => {
       expect(() => manager.clearPeer('nonexistent')).not.toThrow();
     });
 
-    it('should allow re-adding peer after clear', () => {
+    it('allows re-adding peer after clear', () => {
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
 
@@ -379,7 +379,7 @@ describe('ReconnectionManager', () => {
   });
 
   describe('integration scenarios', () => {
-    it('should handle typical reconnection flow', () => {
+    it('handles typical reconnection flow', () => {
       const peerId = 'peer1';
       const maxAttempts = 3;
 
@@ -416,7 +416,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount(peerId)).toBe(0);
     });
 
-    it('should handle multiple peers with different states', () => {
+    it('handles multiple peers with different states', () => {
       // Peer 1: actively reconnecting
       manager.startReconnection('peer1');
       manager.incrementAttempt('peer1');
@@ -446,7 +446,7 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer3')).toBe(0); // Still 0
     });
 
-    it('should handle rapid state changes', () => {
+    it('handles rapid state changes', () => {
       const peerId = 'peer1';
 
       // Rapid start/stop

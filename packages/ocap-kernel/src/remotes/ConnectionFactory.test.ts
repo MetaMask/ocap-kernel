@@ -132,8 +132,8 @@ vi.mock('libp2p', () => ({
 }));
 
 describe('ConnectionFactory', () => {
-  let factory: InstanceType<
-    typeof import('./ConnectionFactory.ts').ConnectionFactory
+  let factory: Awaited<
+    ReturnType<typeof import('./ConnectionFactory.ts').ConnectionFactory.make>
   >;
   const keySeed = '0x1234567890abcdef';
   const knownRelays = [
@@ -200,11 +200,13 @@ describe('ConnectionFactory', () => {
   async function createFactory(
     signal?: AbortSignal,
   ): Promise<
-    InstanceType<typeof import('./ConnectionFactory.ts').ConnectionFactory>
+    Awaited<
+      ReturnType<typeof import('./ConnectionFactory.ts').ConnectionFactory.make>
+    >
   > {
     const { ConnectionFactory } = await import('./ConnectionFactory.ts');
     const { Logger } = await import('@metamask/logger');
-    return new ConnectionFactory(
+    return ConnectionFactory.make(
       keySeed,
       knownRelays,
       new Logger(),
@@ -213,34 +215,30 @@ describe('ConnectionFactory', () => {
   }
 
   describe('initialize', () => {
-    it('should create and start libp2p node', async () => {
+    it('creates and starts libp2p node', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       expect(createLibp2p).toHaveBeenCalledOnce();
       expect(libp2pState.startCalled).toBe(true);
     });
 
-    it('should register inbound handler', async () => {
+    it('registers inbound handler', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       expect(libp2pState.handler).toBeDefined();
       expect(typeof libp2pState.handler).toBe('function');
     });
 
-    it('should configure libp2p with correct transports', async () => {
+    it('configures libp2p with correct transports', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];
       expect(callArgs).toBeDefined();
       expect(callArgs.transports).toHaveLength(4); // webSockets, webTransport, webRTC, circuitRelay
     });
 
-    it('should use provided key seed for key generation', async () => {
+    it('uses provided key seed for key generation', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       expect(generateKeyPairFromSeed).toHaveBeenCalledWith(
         'Ed25519',
@@ -248,17 +246,15 @@ describe('ConnectionFactory', () => {
       );
     });
 
-    it('should configure bootstrap with known relays', async () => {
+    it('configures bootstrap with known relays', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];
       expect(callArgs.peerDiscovery).toBeDefined();
     });
 
-    it('should configure connectionGater to allow all multiaddrs', async () => {
+    it('configures connectionGater to allow all multiaddrs', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];
       expect(callArgs.connectionGater).toBeDefined();
@@ -269,7 +265,7 @@ describe('ConnectionFactory', () => {
       expect(result).toBe(false);
     });
 
-    it('should register peer update event listener', async () => {
+    it('registers peer update event listener', async () => {
       const mockAddEventListener = vi.fn();
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -281,7 +277,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       expect(mockAddEventListener).toHaveBeenCalledWith(
         'self:peer:update',
@@ -301,9 +296,8 @@ describe('ConnectionFactory', () => {
   });
 
   describe('onInboundConnection', () => {
-    it('should set inbound handler', async () => {
+    it('sets inbound handler', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const handler = vi.fn();
       factory.onInboundConnection(handler);
@@ -323,12 +317,11 @@ describe('ConnectionFactory', () => {
       );
     });
 
-    it('should create channel with byte stream for inbound connections', async () => {
+    it('creates channel with byte stream for inbound connections', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       let capturedChannel: Channel | undefined;
-      factory.onInboundConnection((channel) => {
+      factory.onInboundConnection((channel: Channel) => {
         capturedChannel = channel;
       });
 
@@ -345,7 +338,7 @@ describe('ConnectionFactory', () => {
   });
 
   describe('candidateAddressStrings', () => {
-    it('should generate WebRTC and circuit addresses for each relay', async () => {
+    it('generates WebRTC and circuit addresses for each relay', async () => {
       factory = await createFactory();
 
       const addresses = factory.candidateAddressStrings('peer123', []);
@@ -361,7 +354,7 @@ describe('ConnectionFactory', () => {
       expect(addresses[3]).toBe(`${knownRelays[1]}/p2p-circuit/p2p/peer123`);
     });
 
-    it('should prioritize hints over known relays', async () => {
+    it('prioritizes hints over known relays', async () => {
       factory = await createFactory();
 
       const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
@@ -374,7 +367,7 @@ describe('ConnectionFactory', () => {
       expect(addresses[2]).toContain('relay1.example');
     });
 
-    it('should not duplicate relays that are also in hints', async () => {
+    it('does not duplicate relays that are also in hints', async () => {
       factory = await createFactory();
 
       // Use one of the known relays as a hint
@@ -382,7 +375,7 @@ describe('ConnectionFactory', () => {
       const addresses = factory.candidateAddressStrings('peer123', hints);
 
       // Should not have duplicates
-      const relay1Addresses = addresses.filter((addr) =>
+      const relay1Addresses = addresses.filter((addr: string) =>
         addr.includes('relay1.example'),
       );
       expect(relay1Addresses).toHaveLength(2); // Just WebRTC and circuit
@@ -390,9 +383,8 @@ describe('ConnectionFactory', () => {
   });
 
   describe('openChannelOnce', () => {
-    it('should dial and return channel on success', async () => {
+    it('dials and returns channel on success', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const channel = await factory.openChannelOnce('peer123');
 
@@ -402,7 +394,7 @@ describe('ConnectionFactory', () => {
       expect(libp2pState.dials).toHaveLength(1);
     });
 
-    it('should try multiple addresses until one succeeds', async () => {
+    it('tries multiple addresses until one succeeds', async () => {
       let attemptCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -427,7 +419,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       const channel = await factory.openChannelOnce('peer123');
 
@@ -435,28 +426,18 @@ describe('ConnectionFactory', () => {
       expect(attemptCount).toBe(3);
     });
 
-    it('should throw if libp2p is not initialized', async () => {
-      factory = await createFactory();
-      // Don't call initialize()
-
-      await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
-        'libp2p not initialized',
-      );
-    });
-
-    it('should throw AbortError if signal is aborted', async () => {
+    it('throws AbortError if signal is aborted', async () => {
       const controller = new AbortController();
       controller.abort();
 
       factory = await createFactory(controller.signal);
-      await factory.initialize();
 
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         AbortError,
       );
     });
 
-    it('should throw AbortError if signal is aborted after dial error', async () => {
+    it('throws AbortError if signal is aborted after dial error', async () => {
       const controller = new AbortController();
       let dialAttempt = 0;
 
@@ -480,7 +461,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory(controller.signal);
-      await factory.initialize();
 
       // The error is caught, then on retry signal.aborted is checked and AbortError is thrown
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
@@ -488,7 +468,7 @@ describe('ConnectionFactory', () => {
       );
     });
 
-    it('should handle MuxerClosedError gracefully', async () => {
+    it('handles MuxerClosedError gracefully', async () => {
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
         stop: vi.fn(),
@@ -501,7 +481,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         MuxerClosedError,
@@ -509,7 +488,7 @@ describe('ConnectionFactory', () => {
       expect(libp2pState.dials).toHaveLength(0);
     });
 
-    it('should handle timeout errors', async () => {
+    it('handles timeout errors', async () => {
       const abortedSignal = {
         aborted: true,
         reason: new Error('Timeout'),
@@ -534,14 +513,13 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         'Operation timed out',
       );
     });
 
-    it('should throw last error if all attempts fail', async () => {
+    it('throws last error if all attempts fail', async () => {
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
         stop: vi.fn(),
@@ -554,7 +532,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         'Final connection error',
@@ -563,7 +540,7 @@ describe('ConnectionFactory', () => {
   });
 
   describe('openChannelWithRetry', () => {
-    it('should retry on retryable errors', async () => {
+    it('retries on retryable errors', async () => {
       let attemptCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -586,7 +563,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       const channel = await factory.openChannelWithRetry('peer123');
 
@@ -594,7 +570,7 @@ describe('ConnectionFactory', () => {
       expect(attemptCount).toBe(2);
     });
 
-    it('should not retry on non-retryable errors', async () => {
+    it('does not retry on non-retryable errors', async () => {
       let attemptCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -609,7 +585,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await expect(factory.openChannelWithRetry('peer123')).rejects.toThrow(
         'Non-retryable error',
@@ -618,7 +593,7 @@ describe('ConnectionFactory', () => {
       expect(attemptCount).toBe(4);
     });
 
-    it('should call onRetry callback', async () => {
+    it('calls onRetry callback', async () => {
       let onRetryCallbackCalled = false;
       let attemptCount = 0;
 
@@ -673,13 +648,12 @@ describe('ConnectionFactory', () => {
       vi.resetModules();
       const { ConnectionFactory } = await import('./ConnectionFactory.ts');
       const { Logger } = await import('@metamask/logger');
-      factory = new ConnectionFactory(
+      factory = await ConnectionFactory.make(
         keySeed,
         knownRelays,
         new Logger(),
         new AbortController().signal,
       );
-      await factory.initialize();
 
       await factory.openChannelWithRetry('peer123');
 
@@ -688,7 +662,7 @@ describe('ConnectionFactory', () => {
   });
 
   describe('dialIdempotent', () => {
-    it('should only dial once for concurrent requests to same peer', async () => {
+    it('only dials once for concurrent requests to same peer', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -705,7 +679,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       // Start two concurrent dials
       const [channel1, channel2] = await Promise.all([
@@ -717,7 +690,7 @@ describe('ConnectionFactory', () => {
       expect(dialCount).toBe(1);
     });
 
-    it('should allow new dial after previous completes', async () => {
+    it('allows new dial after previous completes', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -732,7 +705,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       // First dial
       await factory.dialIdempotent('peer123', [], false);
@@ -743,7 +715,7 @@ describe('ConnectionFactory', () => {
       expect(dialCount).toBe(2);
     });
 
-    it('should handle different peers independently', async () => {
+    it('handles different peers independently', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -758,7 +730,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await Promise.all([
         factory.dialIdempotent('peer1', [], false),
@@ -769,7 +740,7 @@ describe('ConnectionFactory', () => {
       expect(dialCount).toBe(3);
     });
 
-    it('should use retry when withRetry is true', async () => {
+    it('uses retry when withRetry is true', async () => {
       let attemptCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -789,13 +760,12 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await factory.dialIdempotent('peer123', [], true);
       expect(attemptCount).toBe(2);
     });
 
-    it('should clean up inflight dial on error', async () => {
+    it('cleans up inflight dial on error', async () => {
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
         stop: vi.fn(),
@@ -808,7 +778,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       await expect(
         factory.dialIdempotent('peer123', [], false),
@@ -822,7 +791,7 @@ describe('ConnectionFactory', () => {
   });
 
   describe('outputError', () => {
-    it('should log error message when problem is provided', async () => {
+    it('logs error message when problem is provided', async () => {
       // Use a custom dial that will trigger outputError with a problem
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -836,7 +805,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         'test error',
       );
@@ -845,7 +813,7 @@ describe('ConnectionFactory', () => {
       );
     });
 
-    it('should log error message without problem when problem is falsy', async () => {
+    it('logs error message without problem when problem is falsy', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -862,7 +830,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         'unable to open channel to peer123',
       );
@@ -874,16 +841,15 @@ describe('ConnectionFactory', () => {
   });
 
   describe('stop', () => {
-    it('should stop libp2p', async () => {
+    it('stops libp2p', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       await factory.stop();
 
       expect(libp2pState.stopCalled).toBe(true);
     });
 
-    it('should clear inflight dials', async () => {
+    it('clears inflight dials', async () => {
       let resolveDial: (() => void) | undefined;
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
@@ -900,7 +866,6 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       // Start a dial but don't wait for it
       const dialPromise = factory.dialIdempotent('peer123', [], false);
@@ -915,7 +880,7 @@ describe('ConnectionFactory', () => {
       expect(await dialPromise).toBeDefined();
     });
 
-    it('should handle stop errors gracefully', async () => {
+    it('handles stop errors gracefully', async () => {
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
         stop: vi.fn().mockRejectedValue(new Error('Stop failed')),
@@ -926,24 +891,15 @@ describe('ConnectionFactory', () => {
       }));
 
       factory = await createFactory();
-      await factory.initialize();
 
       // Should not throw
-      expect(await factory.stop()).toBeUndefined();
-    });
-
-    it('should handle stop when libp2p not initialized', async () => {
-      factory = await createFactory();
-      // Don't call initialize()
-
       expect(await factory.stop()).toBeUndefined();
     });
   });
 
   describe('integration scenarios', () => {
-    it('should handle complete connection lifecycle', async () => {
+    it('handles complete connection lifecycle', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       // Open channel
       const channel = await factory.openChannelOnce('peer123', [
@@ -960,12 +916,11 @@ describe('ConnectionFactory', () => {
       expect(libp2pState.stopCalled).toBe(true);
     });
 
-    it('should handle inbound and outbound connections', async () => {
+    it('handles inbound and outbound connections', async () => {
       factory = await createFactory();
-      await factory.initialize();
 
       const receivedChannels: Channel[] = [];
-      factory.onInboundConnection((channel) => {
+      factory.onInboundConnection((channel: Channel) => {
         receivedChannels.push(channel);
       });
 
