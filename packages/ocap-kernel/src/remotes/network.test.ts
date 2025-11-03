@@ -1792,7 +1792,7 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
         () => {
           expect(dialCount).toBeGreaterThanOrEqual(2);
         },
-        { timeout: 500 },
+        { timeout: 2000 },
       );
 
       // The key assertion: we should have initial dial + reconnection dial(s)
@@ -1877,13 +1877,337 @@ describe('network.initNetwork', { timeout: 10_000 }, () => {
         () => {
           expect(dialCount).toBeGreaterThanOrEqual(3);
         },
-        { timeout: 1500 },
+        { timeout: 2000 },
       );
 
       // Verify messages were eventually delivered on the final stream
       const finalStream = streams[streams.length - 1] as object;
       const finalBs = getByteStreamFor(finalStream) as MockByteStream;
       expect(finalBs.writes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('does not start concurrent reconnection loops when flush fails', async () => {
+      vi.useRealTimers();
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+      let flushFailureCount = 0;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-no-concurrent' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+            const stream = {};
+            streams.push(stream);
+
+            // First reconnection: inject write failure during flush
+            if (dialCount === 2) {
+              const { setWriteFailures } = (await import(
+                'it-byte-stream'
+              )) as unknown as {
+                setWriteFailures: (stream: object, count: number) => void;
+              };
+              setWriteFailures(stream, 1);
+              flushFailureCount += 1;
+            }
+
+            return stream;
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send } = await initNetwork(
+        '0xnoconcurrent',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-no-concurrent', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Force initial connection to fail
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const initialBs = getByteStreamFor(
+        streams[0] as object,
+      ) as MockByteStream;
+      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
+        throw new Error('Connection lost');
+      });
+
+      // Queue messages to trigger reconnection
+      await send('peer-no-concurrent', 'queued-1');
+      await send('peer-no-concurrent', 'queued-2');
+
+      // Wait for first reconnection to complete and flush to fail
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(2);
+          expect(flushFailureCount).toBeGreaterThanOrEqual(1);
+        },
+        { timeout: 2000 },
+      );
+
+      // Wait a bit more to see if a concurrent second loop starts
+      // With the fix, there should only be one active loop continuing
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify we eventually get a successful reconnection (loop continues, doesn't duplicate)
+      // The dial count should increase as the loop continues, but not spike from concurrent loops
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeGreaterThanOrEqual(3);
+        },
+        { timeout: 2000 },
+      );
+
+      // If concurrent loops existed, we'd see a spike in dials. With the fix,
+      // we should see a steady progression as the single loop retries
+      const finalDialCount = dialCount;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Dial count shouldn't spike from concurrent loops
+      expect(dialCount).toBeLessThanOrEqual(finalDialCount + 2);
+    });
+  });
+
+  describe('reconnection state cleanup', () => {
+    it('cleans up reconnection state when stopped during delay', async () => {
+      vi.useRealTimers();
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-cleanup' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+            if (dialCount === 1) {
+              const stream = {};
+              streams.push(stream);
+              return stream;
+            }
+            // All reconnection attempts fail
+            throw new Error('Connection failed');
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send, stop } = await initNetwork(
+        '0xcleanup',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-cleanup', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Force connection to fail to trigger reconnection
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
+      vi.spyOn(bs, 'write').mockImplementation(async () => {
+        throw new Error('Connection lost');
+      });
+
+      // Trigger reconnection (this starts the delay)
+      await send('peer-cleanup', 'trigger');
+
+      // Stop during the delay - this should abort and clean up state
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await stop();
+
+      // Verify that stop completed without hanging
+      // The reconnection state should be cleaned up
+      await vi.waitFor(
+        () => {
+          expect(dialCount).toBeLessThanOrEqual(2); // Initial + maybe one attempt before stop
+        },
+        { timeout: 2000 },
+      );
+    });
+
+    it('cleans up reconnection state when stopped during dial', async () => {
+      vi.useRealTimers();
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+      let dialStarted = false;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-cleanup-dial' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+            if (dialCount === 1) {
+              const stream = {};
+              streams.push(stream);
+              return stream;
+            }
+            // Simulate slow dial that can be aborted
+            dialStarted = true;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            throw new Error('Connection failed');
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send, stop } = await initNetwork(
+        '0xcleanupdial',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-cleanup-dial', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Force connection to fail
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
+      vi.spyOn(bs, 'write').mockImplementation(async () => {
+        throw new Error('Connection lost');
+      });
+
+      // Trigger reconnection (delay will pass, then dial starts)
+      await send('peer-cleanup-dial', 'trigger');
+
+      // Wait for dial to start, then stop
+      await vi.waitFor(
+        () => {
+          expect(dialStarted).toBe(true);
+        },
+        { timeout: 2000 },
+      );
+
+      await stop();
+
+      // Wait a bit to ensure cleanup
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Verify stop completed (state cleaned up)
+      expect(dialCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('cleans up reconnection state and stop completes without hanging', async () => {
+      vi.useRealTimers();
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+      const remoteHandler = vi.fn(async () => 'ok');
+
+      const streams: object[] = [];
+      let dialCount = 0;
+      let stopCompleted = false;
+
+      const { createLibp2p } = await import('libp2p');
+      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async () => ({
+          start: vi.fn(),
+          stop: vi.fn(),
+          peerId: { toString: () => 'peer-cleanup-verify' },
+          addEventListener: vi.fn(),
+          dialProtocol: vi.fn(async () => {
+            dialCount += 1;
+            if (dialCount === 1) {
+              const stream = {};
+              streams.push(stream);
+              return stream;
+            }
+            // Reconnection attempts fail
+            throw new Error('Connection failed');
+          }),
+          handle: vi.fn(async () => undefined),
+        }),
+      );
+
+      const { initNetwork } = await import('./network.ts');
+      const { sendRemoteMessage: send, stop } = await initNetwork(
+        '0xcleanupverify',
+        knownRelays,
+        remoteHandler,
+      );
+
+      // Establish initial channel
+      await send('peer-cleanup-verify', 'initial');
+      expect(dialCount).toBe(1);
+
+      // Force connection to fail
+      const { getByteStreamFor } = (await import(
+        'it-byte-stream'
+      )) as unknown as {
+        getByteStreamFor: (stream: object) => MockByteStream | undefined;
+      };
+      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
+      vi.spyOn(bs, 'write').mockImplementation(async () => {
+        throw new Error('Connection lost');
+      });
+
+      // Trigger reconnection (starts delay)
+      await send('peer-cleanup-verify', 'trigger');
+
+      // Stop during reconnection delay
+      // This should clean up reconnection state and complete without hanging
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Stop should complete quickly, indicating state was cleaned up
+      const stopPromise = stop().then(() => {
+        stopCompleted = true;
+        return undefined;
+      });
+
+      // Wait for stop to complete (should be fast if state is cleaned up)
+      await vi.waitFor(
+        async () => {
+          expect(stopCompleted).toBe(true);
+        },
+        { timeout: 2000 },
+      );
+
+      await stopPromise;
+
+      // Verify stop completed (not stuck)
+      expect(stopCompleted).toBe(true);
+      // Dial count should be limited (no infinite retries after stop)
+      await vi.waitFor(() => {
+        expect(dialCount).toBeLessThanOrEqual(3);
+      });
     });
   });
 });

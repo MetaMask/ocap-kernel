@@ -208,6 +208,7 @@ export async function initNetwork(
         await abortableDelay(delayMs, signal);
       } catch (error) {
         if (signal.aborted) {
+          reconnectionManager.stopReconnection(peerId);
           return;
         }
         throw error;
@@ -229,8 +230,7 @@ export async function initNetwork(
 
         logger.log(`${peerId}:: reconnection successful`);
 
-        // Reset reconnection state
-        reconnectionManager.stopReconnection(peerId);
+        // Reset backoff but keep reconnection active until flush completes
         reconnectionManager.resetBackoff(peerId);
 
         // Start reading from the new channel
@@ -249,9 +249,12 @@ export async function initNetwork(
           continue; // Continue the reconnection loop
         }
 
+        // Only stop reconnection after successful flush
+        reconnectionManager.stopReconnection(peerId);
         return; // success
       } catch (problem) {
         if (signal.aborted) {
+          reconnectionManager.stopReconnection(peerId);
           return;
         }
         if (!isRetryableNetworkError(problem)) {
@@ -263,6 +266,10 @@ export async function initNetwork(
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
         // loop to next attempt
       }
+    }
+    // Loop exited - clean up reconnection state
+    if (reconnectionManager.isReconnecting(peerId)) {
+      reconnectionManager.stopReconnection(peerId);
     }
   }
 
