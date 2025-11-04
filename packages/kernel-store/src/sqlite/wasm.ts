@@ -402,5 +402,6 @@ export async function makeSQLKernelDatabase({
     createSavepoint,
     rollbackSavepoint,
     releaseSavepoint,
+    close: () => db.close(),
   };
 }

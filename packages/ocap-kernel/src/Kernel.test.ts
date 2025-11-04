@@ -105,6 +105,7 @@ describe('Kernel', () => {
         ({}) as unknown as DuplexStream<JsonRpcMessage, JsonRpcMessage>,
       terminate: async () => undefined,
       terminateAll: async () => undefined,
+      stopRemoteComms: vi.fn(async () => undefined),
     } as unknown as PlatformServices;
 
     launchWorkerMock = vi
@@ -711,8 +712,7 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       expect(vatHandles).toHaveLength(1);
       expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
-      const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-      expect(remoteManagerInstance.stopRemoteComms).toHaveBeenCalledOnce();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
   });

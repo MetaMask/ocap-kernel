@@ -325,16 +325,30 @@ export class ConnectionFactory {
   /**
    * Stop libp2p and clean up.
    *
-   * @returns A promise that resolves when libp2p is stopped.
+   * Note: We intentionally do NOT call libp2p.stop() here because it can hang
+   * indefinitely, preventing the kernel from shutting down cleanly. Instead,
+   * we abort all active connections and clear references, which is sufficient
+   * for cleanup during shutdown. The libp2p instance will be garbage collected
+   * once all references are cleared.
    */
   async stop(): Promise<void> {
-    if (this.#libp2p) {
-      try {
-        await this.#libp2p.stop();
-      } catch (error) {
-        this.#logger.error('Error while stopping libp2p', error);
-      }
-    }
+    // Clear inflight dials first to prevent new connections
     this.#inflightDials.clear();
+
+    if (this.#libp2p) {
+      this.#logger.log('ConnectionFactory: Aborting connections...');
+      // Abort all connections - this is sufficient for cleanup
+      const connections = this.#libp2p.getConnections();
+      for (const connection of connections) {
+        this.#logger.log(
+          `hanging up connection to ${connection.remotePeer.toString()}`,
+        );
+        connection.abort(new Error('ConnectionFactory: Stopping libp2p'));
+      }
+
+      // Clear the reference to allow garbage collection
+      // We don't call libp2p.stop() as it can hang
+      this.#libp2p = undefined as unknown as Libp2p;
+    }
   }
 }

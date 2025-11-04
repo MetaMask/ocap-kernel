@@ -242,12 +242,10 @@ describe('NodejsPlatformServices', () => {
         expect(mockStop).toHaveBeenCalledOnce();
       });
 
-      it('throws error if remote comms not initialized', async () => {
+      it('does nothing if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
-
-        await expect(service.stopRemoteComms()).rejects.toThrow(
-          'remote comms not initialized',
-        );
+        await service.stopRemoteComms();
+        expect(mockStop).not.toHaveBeenCalled();
       });
 
       it('allows re-initialization after stop', async () => {

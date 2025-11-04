@@ -419,18 +419,10 @@ describe('PlatformServicesServer', () => {
           expect(mockStop).toHaveBeenCalledOnce();
         });
 
-        it('throws error if remote comms not initialized', async () => {
-          const errorSpy = vi.spyOn(logger, 'error');
-
+        it('does nothing if remote comms not initialized', async () => {
           await stream.receiveInput(makeStopRemoteCommsMessageEvent('m0'));
           await delay(10);
-
-          expect(errorSpy).toHaveBeenCalledWith(
-            'Error handling "stopRemoteComms" request:',
-            expect.objectContaining({
-              message: 'remote comms not initialized',
-            }),
-          );
+          expect(mockStop).not.toHaveBeenCalled();
         });
 
         it('allows re-initialization after stop', async () => {

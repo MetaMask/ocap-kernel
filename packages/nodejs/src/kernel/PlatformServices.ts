@@ -143,7 +143,7 @@ export class NodejsPlatformServices implements PlatformServices {
 
   async stopRemoteComms(): Promise<void> {
     if (!this.#stopRemoteCommsFunc) {
-      throw Error('remote comms not initialized');
+      return;
     }
     await this.#stopRemoteCommsFunc();
     this.#sendRemoteMessageFunc = null;
