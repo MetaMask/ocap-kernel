@@ -33,4 +33,5 @@ export type KernelDatabase = {
   createSavepoint(name: string): void;
   rollbackSavepoint(name: string): void;
   releaseSavepoint(name: string): void;
+  close(): void;
 };

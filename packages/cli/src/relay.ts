@@ -53,27 +53,12 @@ export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
         // Allow unlimited reservations for testing
         reservations: {
           maxReservations: Infinity,
+          applyDefaultLimit: false,
         },
+        // Reduce hop timeout to clean up stale connections faster
+        hopTimeout: 10 * 1000, // 10 seconds instead of default 30
       }),
     },
-  });
-
-  // Register the protocol handler that the kernel uses
-  await libp2p.handle('whatever', ({ stream, connection }) => {
-    logger.log(
-      `[PROTOCOL] Incoming 'whatever' protocol from ${connection.remotePeer.toString()}`,
-    );
-    // For relay purposes, we don't need to do anything special
-    // The relay will forward the stream automatically
-    stream
-      .close()
-      .then(() => {
-        return undefined;
-      })
-      .catch(() => {
-        // Ignore close errors - relay will handle cleanup
-        return undefined;
-      });
   });
 
   // Set up connection event listeners for logging

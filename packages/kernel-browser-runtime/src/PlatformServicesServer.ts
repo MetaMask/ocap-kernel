@@ -220,7 +220,7 @@ export class PlatformServicesServer {
 
   async #stopRemoteComms(): Promise<null> {
     if (!this.#stopRemoteCommsFunc) {
-      throw Error('remote comms not initialized');
+      return null;
     }
     await this.#stopRemoteCommsFunc();
     this.#sendRemoteMessageFunc = null;

@@ -33,6 +33,7 @@ const mockDb = {
   _inTx: false,
   // eslint-disable-next-line @typescript-eslint/naming-convention
   _spStack: [] as string[],
+  close: vi.fn(),
 };
 const OpfsDbMock = vi.fn(() => mockDb);
 const DBMock = vi.fn(() => mockDb);
@@ -590,5 +591,13 @@ describe('transaction management', () => {
     expect(mockStatement.step).not.toHaveBeenCalledWith(
       expect.objectContaining({ sql: 'COMMIT TRANSACTION' }),
     );
+  });
+
+  describe('close functionality', () => {
+    it('closes the database', async () => {
+      const db = await makeSQLKernelDatabase({});
+      db.close();
+      expect(mockDb.close).toHaveBeenCalled();
+    });
   });
 });

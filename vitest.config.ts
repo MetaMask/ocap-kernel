@@ -62,10 +62,10 @@ export default defineConfig({
       thresholds: {
         autoUpdate: true,
         'packages/cli/**': {
-          statements: 48.61,
+          statements: 49.69,
           functions: 91.3,
           branches: 92.42,
-          lines: 48.61,
+          lines: 49.69,
         },
         'packages/create-package/**': {
           statements: 99.66,
@@ -124,13 +124,13 @@ export default defineConfig({
         'packages/kernel-store/**': {
           statements: 98.45,
           functions: 100,
-          branches: 91.74,
+          branches: 91.89,
           lines: 98.45,
         },
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.25,
+          branches: 93.26,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.29,
+          statements: 96.33,
           functions: 98.28,
-          branches: 97.48,
-          lines: 96.29,
+          branches: 97.55,
+          lines: 96.33,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,
