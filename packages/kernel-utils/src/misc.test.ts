@@ -161,9 +161,6 @@ describe('misc utilities', () => {
     });
 
     it('cleans up timeout and removes listener when signal aborted after registration', async () => {
-      // Test lines 53-56: signal aborted after listener is added but caught by second check
-      // This tests the race condition where signal becomes aborted between listener
-      // registration and the second abort check
       const controller = new AbortController();
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
       const removeEventListenerSpy = vi.spyOn(
@@ -222,7 +219,6 @@ describe('misc utilities', () => {
 
     it('handles abort signal that becomes aborted during listener setup', async () => {
       // Create a custom signal that becomes aborted during the function execution
-      // This tests the second check (lines 52-56) that happens after listener registration
       const controller = new AbortController();
 
       // Start the delay with a signal that's not yet aborted
