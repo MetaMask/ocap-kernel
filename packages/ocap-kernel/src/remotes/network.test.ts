@@ -225,6 +225,26 @@ describe('network.initNetwork', () => {
     },
   });
 
+  describe('initialization', () => {
+    it('passes correct parameters to ConnectionFactory.make', async () => {
+      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const keySeed = '0xabcd';
+      const knownRelays = [
+        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+
+      await initNetwork(keySeed, knownRelays, vi.fn());
+
+      expect(ConnectionFactory.make).toHaveBeenCalledWith(
+        keySeed,
+        knownRelays,
+        expect.any(Object), // Logger instance
+        expect.any(AbortSignal), // signal from AbortController
+      );
+    });
+  });
+
   describe('basic messaging', () => {
     it('opens channel and sends message to new peer', async () => {
       const mockChannel = createMockChannel('peer-1');
@@ -334,6 +354,45 @@ describe('network.initNetwork', () => {
         );
       });
     });
+
+    it('handles errors from remoteMessageHandler', async () => {
+      const remoteHandler = vi
+        .fn()
+        .mockRejectedValue(new Error('Handler error'));
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      await initNetwork('0x1234', [], remoteHandler);
+
+      const mockChannel = createMockChannel('inbound-peer');
+      const messageBuffer = new TextEncoder().encode('test-message');
+      mockChannel.msgStream.read
+        .mockResolvedValueOnce(messageBuffer)
+        .mockImplementation(
+          async () =>
+            new Promise(() => {
+              /* Block after first message */
+            }),
+        );
+
+      inboundHandler?.(mockChannel);
+
+      // Handler error should be caught and not crash the read loop
+      await vi.waitFor(() => {
+        expect(remoteHandler).toHaveBeenCalledWith(
+          'inbound-peer',
+          'test-message',
+        );
+      });
+
+      // Read loop should continue (not throw)
+      expect(mockChannel.msgStream.read).toHaveBeenCalled();
+    });
   });
 
   describe('connection loss and reconnection', () => {
@@ -390,6 +449,115 @@ describe('network.initNetwork', () => {
         expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
           'peer-1',
         );
+      });
+    });
+
+    it('handles graceful disconnect without error logging', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      await initNetwork('0x1234', [], vi.fn());
+
+      const mockChannel = createMockChannel('peer-1');
+      const gracefulDisconnectError = Object.assign(new Error('SCTP failure'), {
+        errorDetail: 'sctp-failure',
+        sctpCauseCode: 12, // SCTP_USER_INITIATED_ABORT
+      });
+      mockChannel.msgStream.read.mockRejectedValue(gracefulDisconnectError);
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        // Should log graceful disconnect message, not error
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-1:: remote disconnected',
+        );
+        expect(mockLogger.log).toHaveBeenCalledWith('closed channel to peer-1');
+        // Should not call outputError for graceful disconnect
+        expect(mockLogger.log).not.toHaveBeenCalledWith(
+          expect.stringContaining('error reading message from peer-1'),
+        );
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+    });
+
+    it('throws AbortError when signal aborted during read', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const { stop } = await initNetwork('0x1234', [], vi.fn());
+
+      const mockChannel = createMockChannel('peer-1');
+      // Make read resolve after stop so loop continues and checks signal.aborted
+      let shouldResolve = false;
+      mockChannel.msgStream.read.mockImplementation(async () => {
+        // Wait until stop is called
+        // eslint-disable-next-line no-unmodified-loop-condition
+        while (!shouldResolve) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+        return undefined; // Return undefined to continue loop
+      });
+
+      // Start reading in background
+      inboundHandler?.(mockChannel);
+
+      // Give it a moment to start the read
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // Stop should abort the signal, then resolve the read so loop checks signal.aborted
+      shouldResolve = true;
+      await stop();
+
+      // Wait for the abort error to be logged
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('reader abort: peer-1');
+        // Error should be caught and logged via outputError
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('error error in inbound channel read'),
+        );
+      });
+    });
+
+    it('skips processing when readBuf is null or undefined', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const remoteHandler = vi.fn().mockResolvedValue('ok');
+      await initNetwork('0x1234', [], remoteHandler);
+
+      const mockChannel = createMockChannel('peer-1');
+      // First read returns undefined, second read returns a message, third blocks
+      mockChannel.msgStream.read
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(new TextEncoder().encode('actual-message'))
+        .mockImplementation(
+          async () =>
+            new Promise(() => {
+              /* Block after second message */
+            }),
+        );
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        // Should only process the actual message, not the undefined one
+        expect(remoteHandler).toHaveBeenCalledTimes(1);
+        expect(remoteHandler).toHaveBeenCalledWith('peer-1', 'actual-message');
       });
     });
 
@@ -509,6 +677,19 @@ describe('network.initNetwork', () => {
       // Stop should abort the reconnection
       await stop();
 
+      expect(mockConnectionFactory.stop).toHaveBeenCalled();
+      expect(mockReconnectionManager.clear).toHaveBeenCalled();
+    });
+
+    it('can be called multiple times safely', async () => {
+      const { stop } = await initNetwork('0x1234', [], vi.fn());
+
+      // Multiple calls should not throw
+      await stop();
+      await stop();
+      await stop();
+
+      // Should have been called
       expect(mockConnectionFactory.stop).toHaveBeenCalled();
       expect(mockReconnectionManager.clear).toHaveBeenCalled();
     });
@@ -678,6 +859,52 @@ describe('network.initNetwork', () => {
       });
     });
 
+    it('stops reconnection and clears queue when max attempts reached', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      // First call should return true (to enter loop), then false (max attempts)
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // Enter loop
+        .mockReturnValue(false); // Max attempts reached
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // initial connection
+        .mockResolvedValue(mockChannel); // reconnection attempts (won't succeed)
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via retryable write failure
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      // Wait for reconnection to start and check max attempts
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.shouldRetry).toHaveBeenCalled();
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+        expect(mockMessageQueue.clear).toHaveBeenCalled();
+      });
+    });
+
     it('resets backoff on successful message send', async () => {
       const mockChannel = createMockChannel('peer-1');
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
@@ -793,6 +1020,115 @@ describe('network.initNetwork', () => {
       await vi.waitFor(() => {
         expect(mockChannel.hints.sort()).toStrictEqual(
           ['base-hint', 'hint-a', 'hint-b'].sort(),
+        );
+      });
+    });
+
+    it('handles empty queue during flush', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Empty queue
+      mockMessageQueue.length = 0;
+      mockMessageQueue.dequeue.mockReturnValue(undefined);
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockResolvedValue(undefined);
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // initial connection
+        .mockResolvedValueOnce(mockChannel); // reconnection
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via write failure
+      mockChannel.msgStream.write.mockRejectedValueOnce(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      // Wait for reconnection and flush
+      await vi.waitFor(() => {
+        // Should complete flush without errors even with empty queue
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+    });
+
+    it('re-queues messages and triggers reconnection when flush fails', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Set up queue with messages
+      const queuedMsg = { message: 'queued-msg', hints: ['hint1'] };
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce(queuedMsg)
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 1;
+      mockMessageQueue.messages = [queuedMsg];
+
+      const mockChannel1 = createMockChannel('peer-1', ['base-hint']);
+      const mockChannel2 = createMockChannel('peer-1', ['base-hint']);
+
+      // Initial connection succeeds
+      mockChannel1.msgStream.write
+        .mockResolvedValueOnce(undefined) // initial message
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ); // triggers reconnection
+
+      // Reconnection succeeds, but flush write fails
+      mockChannel2.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Flush write failed'), { code: 'ECONNRESET' }),
+      );
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel1) // initial connection
+        .mockResolvedValueOnce(mockChannel2); // reconnection after flush failure
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via write failure
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      // Wait for flush failure handling
+      await vi.waitFor(() => {
+        // Should re-queue failed messages
+        expect(mockMessageQueue.replaceAll).toHaveBeenCalledWith([queuedMsg]);
+        // Should trigger reconnection again
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
         );
       });
     });
