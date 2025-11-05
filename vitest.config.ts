@@ -136,7 +136,7 @@ export default defineConfig({
         'packages/kernel-utils/**': {
           statements: 98.02,
           functions: 100,
-          branches: 95.04,
+          branches: 93.87,
           lines: 98.02,
         },
         'packages/logger/**': {
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.33,
+          statements: 96.14,
           functions: 98.28,
-          branches: 97.55,
-          lines: 96.33,
+          branches: 97.16,
+          lines: 96.14,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,

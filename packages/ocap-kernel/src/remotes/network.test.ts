@@ -1,2236 +1,799 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { AbortError } from '@metamask/kernel-errors';
+import {
+  describe,
+  expect,
+  it,
+  vi,
+  beforeEach,
+  afterEach,
+  beforeAll,
+} from 'vitest';
 
-// Mock heavy/libp2p related deps with minimal shims we can assert against.
+import type { QueuedMessage } from './MessageQueue.ts';
 
-// Track state shared between mocks and tests
-const libp2pState: {
-  handler?:
-    | ((args: {
-        connection: { remotePeer: { toString: () => string } };
-        stream: object;
-      }) => void | Promise<void>)
-    | undefined;
-  dials: {
-    addr: string;
-    protocol: string;
-    options: { signal: AbortSignal };
-    stream: object;
-  }[];
-} = { dials: [] };
+// Import the module we're testing - must be after mocks are set up
+let initNetwork: typeof import('./network.ts').initNetwork;
 
-vi.mock('@chainsafe/libp2p-noise', () => ({ noise: () => ({}) }));
-vi.mock('@chainsafe/libp2p-yamux', () => ({ yamux: () => ({}) }));
-vi.mock('@libp2p/bootstrap', () => ({ bootstrap: () => ({}) }));
-vi.mock('@libp2p/circuit-relay-v2', () => ({
-  circuitRelayTransport: () => ({}),
-}));
-vi.mock('@libp2p/identify', () => ({ identify: () => ({}) }));
-vi.mock('@libp2p/webrtc', () => ({ webRTC: () => ({}) }));
-vi.mock('@libp2p/websockets', () => ({ webSockets: () => ({}) }));
-vi.mock('@libp2p/webtransport', () => ({ webTransport: () => ({}) }));
-
-const generateKeyPairFromSeed = vi.fn(async () => ({
-  /* private key */
-}));
-vi.mock('@libp2p/crypto/keys', () => ({
-  generateKeyPairFromSeed,
-}));
-
-vi.mock('@metamask/kernel-utils', () => ({
-  // Minimal passthrough is fine; the value is only passed to generateKeyPairFromSeed
-  fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
-  // Provide a trivial retry implementation that just runs the operation once
-  retryWithBackoff: async <OperationResult>(
-    operation: () => Promise<OperationResult>,
-  ) => operation(),
-  // Mock wake detector with a no-op implementation
-  installWakeDetector: (_onWake: () => void) => () => {
-    // Return cleanup function
-  },
-  abortableDelay: async (ms: number) => {
-    // Simple non-abortable delay for tests
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  },
-  calculateReconnectionBackoff: (_attempt: number) => 100, // Fixed delay for tests
-  DEFAULT_MAX_RETRY_ATTEMPTS: 0, // infinite
-}));
-
-vi.mock('@metamask/logger', () => ({
-  Logger: class {
-    log = vi.fn();
-
-    error = vi.fn();
-  },
-}));
-
-vi.mock('@multiformats/multiaddr', () => ({
-  // Identity implementation adequate for constructing address string assertions
-  multiaddr: (addr: string) => addr,
-}));
-
-vi.mock('uint8arrays', () => ({
-  toString: (uint8Array: Uint8Array) => new TextDecoder().decode(uint8Array),
-  fromString: (str: string) => new TextEncoder().encode(str),
-}));
-
-// Simple ByteStream mock with readable queue and write capture
-type MockByteStream = {
-  write: (chunk: Uint8Array) => Promise<void>;
-  read: () => Promise<Uint8Array | undefined>;
-  writes: Uint8Array[];
-  pushInbound: (chunk: Uint8Array) => void;
+// Mock MessageQueue
+const mockMessageQueue = {
+  enqueue: vi.fn(),
+  dequeue: vi.fn().mockReturnValue(undefined),
+  dequeueAll: vi.fn().mockReturnValue([]),
+  replaceAll: vi.fn(),
+  clear: vi.fn(),
+  length: 0,
+  messages: [] as QueuedMessage[],
 };
 
-const streamMap = new WeakMap<object, MockByteStream>();
-const writeFailureMap = new WeakMap<object, number>();
-vi.mock('it-byte-stream', () => ({
-  byteStream: (stream: object) => {
-    let pending: ((c: Uint8Array) => void) | undefined;
-    const queue: Uint8Array[] = [];
-    const bs: MockByteStream = {
-      writes: [],
-      async write(chunk: Uint8Array) {
-        const remainingFailures = writeFailureMap.get(stream) ?? 0;
-        if (remainingFailures > 0) {
-          writeFailureMap.set(stream, remainingFailures - 1);
-          throw new Error('Injected write failure');
-        }
-        bs.writes.push(chunk);
-      },
-      async read() {
-        if (queue.length > 0) {
-          return queue.shift();
-        }
-        return await new Promise<Uint8Array>((resolve) => {
-          pending = resolve;
-        });
-      },
-      pushInbound(chunk: Uint8Array) {
-        if (pending) {
-          const pen = pending;
-          pending = undefined;
-          pen(chunk);
-        } else {
-          queue.push(chunk);
-        }
-      },
-    };
-    streamMap.set(stream, bs);
-    return bs;
-  },
-  getByteStreamFor: (stream: object) => streamMap.get(stream),
-  setWriteFailures: (stream: object, count: number) => {
-    writeFailureMap.set(stream, count);
-  },
-}));
+vi.mock('./MessageQueue.ts', () => {
+  class MockMessageQueue {
+    enqueue = mockMessageQueue.enqueue;
 
-vi.mock('libp2p', () => ({
-  createLibp2p: vi.fn(async () => {
-    return {
-      start: vi.fn(),
-      peerId: {
-        toString: () => 'test-peer-id-12345',
-      },
-      addEventListener: vi.fn(),
-      dialProtocol: vi.fn(
-        async (
-          addr: string,
-          protocol: string,
-          options: { signal: AbortSignal },
-        ) => {
-          const stream = {};
-          libp2pState.dials.push({ addr, protocol, options, stream });
-          return stream;
-        },
-      ),
-      handle: vi.fn(
-        async (
-          _protocol: string,
-          handler?: (args: {
-            connection: { remotePeer: { toString: () => string } };
-            stream: object;
-          }) => void | Promise<void>,
-        ) => {
-          libp2pState.handler = handler;
-        },
-      ),
-      getConnections: vi.fn(() => []),
-    } as const;
+    dequeue = mockMessageQueue.dequeue;
+
+    dequeueAll = mockMessageQueue.dequeueAll;
+
+    replaceAll = mockMessageQueue.replaceAll;
+
+    clear = mockMessageQueue.clear;
+
+    get length() {
+      return mockMessageQueue.length;
+    }
+
+    get messages() {
+      return mockMessageQueue.messages;
+    }
+  }
+  return {
+    MessageQueue: MockMessageQueue,
+  };
+});
+
+// Mock ReconnectionManager
+const mockReconnectionManager = {
+  isReconnecting: vi.fn().mockReturnValue(false),
+  startReconnection: vi.fn(),
+  stopReconnection: vi.fn(),
+  shouldRetry: vi.fn().mockReturnValue(true),
+  incrementAttempt: vi.fn().mockReturnValue(1),
+  calculateBackoff: vi.fn().mockReturnValue(100),
+  resetBackoff: vi.fn(),
+  resetAllBackoffs: vi.fn(),
+  clear: vi.fn(),
+};
+
+vi.mock('./ReconnectionManager.ts', () => {
+  class MockReconnectionManager {
+    isReconnecting = mockReconnectionManager.isReconnecting;
+
+    startReconnection = mockReconnectionManager.startReconnection;
+
+    stopReconnection = mockReconnectionManager.stopReconnection;
+
+    shouldRetry = mockReconnectionManager.shouldRetry;
+
+    incrementAttempt = mockReconnectionManager.incrementAttempt;
+
+    calculateBackoff = mockReconnectionManager.calculateBackoff;
+
+    resetBackoff = mockReconnectionManager.resetBackoff;
+
+    resetAllBackoffs = mockReconnectionManager.resetAllBackoffs;
+
+    clear = mockReconnectionManager.clear;
+  }
+  return {
+    ReconnectionManager: MockReconnectionManager,
+  };
+});
+
+// Mock ConnectionFactory
+type MockChannel = {
+  peerId: string;
+  hints: string[];
+  msgStream: {
+    read: ReturnType<typeof vi.fn>;
+    write: ReturnType<typeof vi.fn>;
+  };
+};
+
+const mockConnectionFactory = {
+  dialIdempotent: vi.fn(),
+  onInboundConnection: vi.fn(),
+  stop: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock('./ConnectionFactory.ts', () => {
+  return {
+    ConnectionFactory: {
+      make: vi.fn(async () => Promise.resolve(mockConnectionFactory)),
+    },
+  };
+});
+
+// Mock Logger
+const mockLogger = {
+  log: vi.fn(),
+  error: vi.fn(),
+};
+
+vi.mock('@metamask/logger', () => {
+  class MockLogger {
+    log = mockLogger.log;
+
+    error = mockLogger.error;
+  }
+  return {
+    Logger: MockLogger,
+  };
+});
+
+// Mock kernel-utils
+vi.mock('@metamask/kernel-utils', () => {
+  return {
+    abortableDelay: vi.fn(),
+    installWakeDetector: vi.fn(() => vi.fn()),
+    DEFAULT_MAX_RETRY_ATTEMPTS: 0,
+  };
+});
+
+// Mock kernel-errors
+vi.mock('@metamask/kernel-errors', () => ({
+  AbortError: class MockAbortError extends Error {
+    constructor() {
+      super('Aborted');
+      this.name = 'AbortError';
+    }
+  },
+  isRetryableNetworkError: vi.fn().mockImplementation((error: unknown) => {
+    const errorWithCode = error as { code?: string };
+    return (
+      errorWithCode?.code === 'ECONNRESET' ||
+      errorWithCode?.code === 'ETIMEDOUT'
+    );
   }),
-  libp2pState,
 }));
 
-describe('network.initNetwork', { timeout: 10_000 }, () => {
+// Mock uint8arrays
+vi.mock('uint8arrays', () => ({
+  toString: vi.fn((buffer: Uint8Array) => new TextDecoder().decode(buffer)),
+  fromString: vi.fn((str: string) => new TextEncoder().encode(str)),
+}));
+
+describe('network.initNetwork', () => {
+  // Import after all mocks are set up
+  beforeAll(async () => {
+    const networkModule = await import('./network.ts');
+    initNetwork = networkModule.initNetwork;
+  });
+
   beforeEach(() => {
-    libp2pState.dials = [];
-    libp2pState.handler = undefined;
-    generateKeyPairFromSeed.mockClear();
+    // Clear mock call history
+    mockReconnectionManager.isReconnecting.mockClear();
+    mockReconnectionManager.startReconnection.mockClear();
+    mockReconnectionManager.stopReconnection.mockClear();
+    mockReconnectionManager.shouldRetry.mockClear();
+    mockReconnectionManager.incrementAttempt.mockClear();
+    mockReconnectionManager.calculateBackoff.mockClear();
+    mockReconnectionManager.resetBackoff.mockClear();
+    mockReconnectionManager.resetAllBackoffs.mockClear();
+    mockReconnectionManager.clear.mockClear();
+
+    mockConnectionFactory.dialIdempotent.mockClear();
+    mockConnectionFactory.onInboundConnection.mockClear();
+    mockConnectionFactory.stop.mockClear();
+
+    mockLogger.log.mockClear();
+    mockLogger.error.mockClear();
+
+    mockMessageQueue.enqueue.mockClear();
+    mockMessageQueue.dequeue.mockClear().mockReturnValue(undefined);
+    mockMessageQueue.dequeueAll.mockClear().mockReturnValue([]);
+    mockMessageQueue.replaceAll.mockClear();
+    mockMessageQueue.clear.mockClear();
+    mockMessageQueue.length = 0;
+    mockMessageQueue.messages = [];
+
+    // Reset mock implementations
+    mockReconnectionManager.isReconnecting.mockReturnValue(false);
+    mockReconnectionManager.shouldRetry.mockReturnValue(true);
+    mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+    mockReconnectionManager.calculateBackoff.mockReturnValue(100);
+    mockConnectionFactory.stop.mockResolvedValue(undefined);
   });
 
-  it('returns a sender that opens a channel once and writes', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0x1234',
-      knownRelays,
-      remoteHandler,
-    );
-
-    // First send should dial and write
-    await send('peer-123', 'hello');
-
-    expect(libp2pState.dials).toHaveLength(1);
-    const dial = libp2pState.dials[0];
-    expect(dial?.protocol).toBe('whatever');
-    expect(dial?.addr).toBe(
-      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/peer-123`,
-    );
-
-    // Verify message was written to the byte stream
-    const { getByteStreamFor } = (await import(
-      'it-byte-stream'
-    )) as unknown as {
-      getByteStreamFor: (stream: object) => MockByteStream | undefined;
-    };
-    const bs = getByteStreamFor(dial?.stream as object) as MockByteStream;
-    expect(bs.writes).toHaveLength(1);
-
-    // Second send to same peer should reuse channel (no new dials)
-    await send('peer-123', 'again');
-    expect(libp2pState.dials).toHaveLength(1);
-    expect(bs.writes).toHaveLength(2);
+  afterEach(() => {
+    // Clear mocks after each test
+    vi.clearAllMocks();
   });
 
-  it('handles inbound message and calls remoteMessageHandler', async () => {
-    const knownRelays: string[] = [];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xabcd',
-      knownRelays,
-      remoteHandler,
-    );
-    expect(typeof send).toBe('function');
-
-    // Simulate inbound connection
-    const { libp2pState: mockLibp2pState } = (await import(
-      'libp2p'
-    )) as unknown as {
-      libp2pState: typeof libp2pState;
-    };
-    const inboundStream = {};
-    await mockLibp2pState.handler?.({
-      connection: { remotePeer: { toString: () => 'peer-inbound' } },
-      stream: inboundStream,
-    });
-
-    // Push an inbound message and wait a microtask for the handler to run
-    const { getByteStreamFor } = (await import(
-      'it-byte-stream'
-    )) as unknown as {
-      getByteStreamFor: (stream: object) => MockByteStream | undefined;
-    };
-    const bs = getByteStreamFor(inboundStream) as MockByteStream;
-    const { fromString } = await import('uint8arrays');
-    bs.pushInbound(fromString('ping'));
-
-    // Wait until the remote handler is called
-    await vi.waitFor(() => {
-      expect(remoteHandler).toHaveBeenCalledWith('peer-inbound', 'ping');
-    });
-  });
-
-  it('tries fallback addresses when first connection fails', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    // Track dial attempts
-    const dialAttempts: string[] = [];
-
-    // Override createLibp2p to fail first attempt but succeed on second
-    const { createLibp2p } = await import('libp2p');
-    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      async () => ({
-        start: vi.fn(),
-        peerId: {
-          toString: () => 'test-peer-id-fallback',
-        },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(
-          async (
-            addr: string,
-            protocol: string,
-            options: { signal: AbortSignal },
-          ) => {
-            dialAttempts.push(addr);
-
-            // Fail WebRTC attempt
-            if (addr.includes('/webrtc/')) {
-              throw new Error('WebRTC connection failed');
-            }
-
-            // Succeed on regular circuit relay
-            const stream = {};
-            libp2pState.dials.push({ addr, protocol, options, stream });
-            return stream;
-          },
-        ),
-        handle: vi.fn(async () => {
-          // do nothing
-        }),
-      }),
-    );
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xfallback',
-      knownRelays,
-      remoteHandler,
-    );
-
-    await send('peer-fallback', 'msg');
-
-    // Should have tried WebRTC first, then regular circuit
-    expect(dialAttempts).toHaveLength(2);
-    expect(dialAttempts[0]).toBe(
-      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/peer-fallback`,
-    );
-    expect(dialAttempts[1]).toBe(
-      `${knownRelays[0]}/p2p-circuit/p2p/peer-fallback`,
-    );
-
-    // Only the successful dial should be recorded
-    expect(libp2pState.dials).toHaveLength(1);
-    expect(libp2pState.dials[0]?.addr).toBe(
-      `${knownRelays[0]}/p2p-circuit/p2p/peer-fallback`,
-    );
-  });
-
-  it('swallows dial errors and does not throw from send when all attempts fail', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    // Override createLibp2p to throw on all dial attempts
-    const { createLibp2p } = await import('libp2p');
-    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      async () => ({
-        start: vi.fn(),
-        peerId: {
-          toString: () => 'test-peer-id-fail-all',
-        },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(
-          async (
-            _addr: string,
-            _p: string,
-            _options: { signal: AbortSignal },
-          ) => {
-            throw new Error('All connections failed');
-          },
-        ),
-        handle: vi.fn(async () => {
-          // do nothing
-        }),
-      }),
-    );
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xdeadbeef',
-      knownRelays,
-      remoteHandler,
-    );
-
-    expect(await send('peer-x', 'msg')).toBeUndefined();
-    // No successful dials recorded in shared state for this test run
-    expect(libp2pState.dials).toHaveLength(0);
-  });
-
-  it('handles outputError with no problem parameter', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    // Override createLibp2p to throw undefined/null errors
-    const { createLibp2p } = await import('libp2p');
-    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      async () => ({
-        start: vi.fn(),
-        peerId: {
-          toString: () => 'test-peer-id-no-problem',
-        },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(async () => {
-          // eslint-disable-next-line @typescript-eslint/only-throw-error
-          throw undefined; // Test outputError with no problem
-        }),
-        handle: vi.fn(async () => {
-          // do nothing
-        }),
-      }),
-    );
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xnoproblem',
-      knownRelays,
-      remoteHandler,
-    );
-
-    expect(await send('peer-no-problem', 'msg')).toBeUndefined();
-  });
-
-  it('handles write errors when sending messages', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xwriteerror',
-      knownRelays,
-      remoteHandler,
-    );
-
-    // First send to establish channel
-    await send('peer-write-error', 'hello');
-
-    // Mock the byte stream to throw on write
-    const { getByteStreamFor } = (await import(
-      'it-byte-stream'
-    )) as unknown as {
-      getByteStreamFor: (stream: object) => MockByteStream | undefined;
-    };
-    const dial = libp2pState.dials[0];
-    const bs = getByteStreamFor(dial?.stream as object) as MockByteStream;
-
-    // Override write to throw
-    vi.spyOn(bs, 'write').mockImplementation(async () => {
-      throw new Error('Write failed');
-    });
-
-    // This should not throw, but should handle the error internally
-    expect(await send('peer-write-error', 'fail-message')).toBeUndefined();
-  });
-
-  it('handles timeout errors when opening channels', async () => {
-    const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    // Track attempts to help verify timeout behavior
-    let attemptCount = 0;
-
-    // Create a mock aborted signal
-    const abortedSignal = {
-      aborted: true,
-      throwIfAborted: vi.fn(() => {
-        throw Object.assign(
-          new Error('The operation was aborted due to timeout'),
-          {
-            name: 'AbortError',
-            code: 'ABORT_ERR',
-          },
-        );
-      }),
-    };
-
-    // Mock AbortSignal.timeout
-    vi.spyOn(AbortSignal, 'timeout').mockImplementation(
-      () => abortedSignal as unknown as AbortSignal,
-    );
-
-    const { createLibp2p } = await import('libp2p');
-    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      async () => ({
-        start: vi.fn(),
-        peerId: {
-          toString: () => 'test-peer-id-timeout',
-        },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(async (_addr, _protocol, options) => {
-          attemptCount += 1;
-          // All attempts should fail with timeout due to aborted signal
-          if (options.signal.aborted) {
-            throw Object.assign(
-              new Error('The operation was aborted due to timeout'),
-              {
-                name: 'AbortError',
-                code: 'ABORT_ERR',
-              },
-            );
-          }
-          // Shouldn't reach here, but throw anyway
-          throw new Error('Connection failed');
-        }),
-        handle: vi.fn(async () => {
-          // do nothing
-        }),
-      }),
-    );
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xtimeout',
-      knownRelays,
-      remoteHandler,
-    );
-
-    // Send should not throw even with timeout
-    expect(await send('peer-timeout', 'msg')).toBeUndefined();
-
-    // Should have tried both connection strategies before timing out
-    expect(attemptCount).toBe(2); // WebRTC and regular circuit relay
-
-    // Restore the mock
-    vi.restoreAllMocks();
-  });
-
-  it('tries multiple relays when provided', async () => {
-    const knownRelays = [
-      '/dns4/relay1.example/tcp/443/wss/p2p/relay1Peer',
-      '/dns4/relay2.example/tcp/443/wss/p2p/relay2Peer',
-    ];
-    const remoteHandler = vi.fn(async () => 'ok');
-
-    // Track all dial attempts
-    const dialAttempts: string[] = [];
-
-    const { createLibp2p } = await import('libp2p');
-    (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-      async () => ({
-        start: vi.fn(),
-        peerId: {
-          toString: () => 'test-peer-id-multi-relays',
-        },
-        addEventListener: vi.fn(),
-        dialProtocol: vi.fn(
-          async (
-            addr: string,
-            protocol: string,
-            options: { signal: AbortSignal },
-          ) => {
-            dialAttempts.push(addr);
-
-            // Fail all attempts except the last one to test all paths
-            if (dialAttempts.length < 4) {
-              throw new Error(
-                `Connection attempt ${dialAttempts.length} failed`,
-              );
-            }
-
-            // Succeed on the 4th attempt
-            const stream = {};
-            libp2pState.dials.push({ addr, protocol, options, stream });
-            return stream;
-          },
-        ),
-        handle: vi.fn(async () => {
-          // do nothing
-        }),
-      }),
-    );
-
-    const { initNetwork } = await import('./network.ts');
-    const { sendRemoteMessage: send } = await initNetwork(
-      '0xmultirelays',
-      knownRelays,
-      remoteHandler,
-    );
-
-    await send('peer-multi', 'test');
-
-    // Should have tried both WebRTC and regular for each relay
-    expect(dialAttempts).toHaveLength(4);
-    expect(dialAttempts).toStrictEqual([
-      `${knownRelays[0]}/p2p-circuit/webrtc/p2p/peer-multi`,
-      `${knownRelays[0]}/p2p-circuit/p2p/peer-multi`,
-      `${knownRelays[1]}/p2p-circuit/webrtc/p2p/peer-multi`,
-      `${knownRelays[1]}/p2p-circuit/p2p/peer-multi`,
-    ]);
-
-    // Only the successful dial should be recorded
-    expect(libp2pState.dials).toHaveLength(1);
-    expect(libp2pState.dials[0]?.addr).toBe(
-      `${knownRelays[1]}/p2p-circuit/p2p/peer-multi`,
-    );
-  });
-
-  describe('stop functionality', () => {
-    it('returns a stop function', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { initNetwork } = await import('./network.ts');
-      const { stop } = await initNetwork('0xstop', knownRelays, remoteHandler);
-
-      expect(typeof stop).toBe('function');
-    });
-
-    it('stop function cleans up libp2p', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const mockLibp2pStop = vi.fn().mockResolvedValue(undefined);
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: mockLibp2pStop,
-          peerId: { toString: () => 'test-peer-stop' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { stop } = await initNetwork('0xstop2', knownRelays, remoteHandler);
-
-      await stop();
-
-      // We don't call libp2p.stop() anymore, just abort connections
-      expect(mockLibp2pStop).not.toHaveBeenCalled();
-    });
-
-    it('stop function handles libp2p stop errors gracefully', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const mockLibp2pStop = vi
-        .fn()
-        .mockRejectedValue(new Error('libp2p stop failed'));
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: mockLibp2pStop,
-          peerId: { toString: () => 'test-peer-stop-error' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { stop } = await initNetwork(
-        '0xstoperror',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Should not throw
-      const result = await stop();
-      expect(result).toBeUndefined();
-      // We don't call libp2p.stop() anymore, just abort connections
-      expect(mockLibp2pStop).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('message queueing during reconnection', () => {
-    it('queues messages when connection is being reestablished', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      // Track dial attempts
-      let dialCount = 0;
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-queue' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              // First attempt succeeds
-              const stream = {};
-              libp2pState.dials.push({
-                addr: 'test',
-                protocol: 'whatever',
-                options: { signal: AbortSignal.timeout(30_000) },
-                stream,
-              });
-              return stream;
-            }
-            // Subsequent attempts fail to test reconnection
-            throw new Error('Connection failed');
+  const createMockChannel = (
+    peerId: string,
+    hints: string[] = [],
+  ): MockChannel => ({
+    peerId,
+    hints,
+    msgStream: {
+      read: vi.fn().mockImplementation(
+        async () =>
+          new Promise(() => {
+            /* Never resolves by default */
           }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xqueue',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // First message establishes connection
-      await send('peer-queue', 'msg1');
-      expect(dialCount).toBe(1);
-
-      // Implementation detail: message queuing tested through integration
-      // (difficult to test directly due to internal state)
-    });
+      ),
+      write: vi.fn().mockResolvedValue(undefined),
+    },
   });
 
-  describe('error handling', () => {
-    it('handles MuxerClosedError gracefully', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+  describe('basic messaging', () => {
+    it('opens channel and sends message to new peer', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      const { MuxerClosedError } = await import('@libp2p/interface');
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-muxer' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            throw new MuxerClosedError('Muxer closed');
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
+        vi.fn(),
       );
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xmuxer',
-        knownRelays,
-        remoteHandler,
-      );
+      await sendRemoteMessage('peer-1', 'hello');
 
-      // Should handle error gracefully and not throw
-      const result = await send('peer-muxer', 'test');
-      expect(result).toBeUndefined();
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+        'peer-1',
+        [],
+        true,
+      );
+      expect(mockChannel.msgStream.write).toHaveBeenCalledWith(
+        expect.any(Uint8Array),
+      );
     });
 
-    it('handles various network error codes', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+    it('reuses existing channel for same peer', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      const networkError = new Error('Connection reset') as Error & {
-        code: string;
-      };
-      networkError.code = 'ECONNRESET';
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-network-error' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            throw networkError;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
+      await sendRemoteMessage('peer-1', 'msg1');
+      await sendRemoteMessage('peer-1', 'msg2');
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xneterr',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Should handle network error gracefully
-      const result = await send('peer-net-err', 'test');
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe('channel management', () => {
-    it('reuses existing channels for same peer', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xreuse',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // First send creates channel
-      await send('peer-reuse', 'msg1');
-      expect(libp2pState.dials).toHaveLength(1);
-
-      // Second send to same peer reuses channel
-      await send('peer-reuse', 'msg2');
-      expect(libp2pState.dials).toHaveLength(1);
-
-      // But different peer gets new channel
-      await send('peer-other', 'msg3');
-      expect(libp2pState.dials).toHaveLength(2);
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(1);
+      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
     });
 
     it('opens separate channels for different peers', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+      const mockChannel1 = createMockChannel('peer-1');
+      const mockChannel2 = createMockChannel('peer-2');
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel1)
+        .mockResolvedValueOnce(mockChannel2);
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xmulti',
-        knownRelays,
-        remoteHandler,
-      );
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      await send('peer1', 'hello');
-      await send('peer2', 'world');
-      await send('peer3', 'test');
+      await sendRemoteMessage('peer-1', 'hello');
+      await sendRemoteMessage('peer-2', 'world');
 
-      expect(libp2pState.dials).toHaveLength(3);
-    });
-  });
-
-  describe('relay selection', () => {
-    it('tries WebRTC before WebSocket for each relay', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const dialAttempts: string[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-relay-order' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async (addr: string) => {
-            dialAttempts.push(addr);
-            // Succeed on second attempt
-            if (dialAttempts.length === 2) {
-              const stream = {};
-              libp2pState.dials.push({
-                addr,
-                protocol: 'whatever',
-                options: { signal: AbortSignal.timeout(30_000) },
-                stream,
-              });
-              return stream;
-            }
-            throw new Error('Connection failed');
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xrelayorder',
-        knownRelays,
-        remoteHandler,
-      );
-
-      await send('peer-order', 'test');
-
-      // Should try WebRTC first, then regular
-      expect(dialAttempts[0]).toContain('/webrtc/');
-      expect(dialAttempts[1]).not.toContain('/webrtc/');
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(2);
     });
 
-    it('uses hints in addition to known relays', async () => {
-      const knownRelays = ['/dns4/relay1.example/tcp/443/wss/p2p/relay1'];
+    it('passes hints to ConnectionFactory', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
       const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
-      const remoteHandler = vi.fn(async () => 'ok');
 
-      const dialAttempts: string[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-hints' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async (addr: string) => {
-            dialAttempts.push(addr);
-            // Succeed on first attempt
-            if (dialAttempts.length === 1) {
-              const stream = {};
-              libp2pState.dials.push({
-                addr,
-                protocol: 'whatever',
-                options: { signal: AbortSignal.timeout(30_000) },
-                stream,
-              });
-              return stream;
-            }
-            throw new Error('Should not reach here');
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      await sendRemoteMessage('peer-1', 'hello', hints);
+
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+        'peer-1',
+        hints,
+        true,
       );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xhints',
-        knownRelays,
-        remoteHandler,
-      );
-
-      await send('peer-hints', 'test', hints);
-
-      // Hints should be tried first (before known relays)
-      expect(dialAttempts[0]).toContain('hint.example');
     });
   });
 
   describe('inbound connections', () => {
-    it('accepts and processes inbound connections', async () => {
-      const knownRelays: string[] = [];
-      const remoteHandler = vi.fn(async () => 'reply');
+    it('registers inbound connection handler', async () => {
+      await initNetwork('0x1234', [], vi.fn());
 
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xinbound', knownRelays, remoteHandler);
-
-      // Verify that a handler was registered
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
-      expect(state.handler).toBeDefined();
-      expect(typeof state.handler).toBe('function');
-    });
-
-    it('processes messages from inbound connections', async () => {
-      const knownRelays: string[] = [];
-      const receivedMessages: { from: string; message: string }[] = [];
-      const remoteHandler = vi.fn(async (from: string, message: string) => {
-        receivedMessages.push({ from, message });
-        return 'acknowledged';
-      });
-
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xinbound2', knownRelays, remoteHandler);
-
-      // Simulate inbound connection
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
-
-      const inboundStream = {};
-      await state.handler?.({
-        connection: { remotePeer: { toString: () => 'inbound-peer' } },
-        stream: inboundStream,
-      });
-
-      // Send a message through the inbound stream
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(inboundStream) as MockByteStream;
-      const { fromString } = await import('uint8arrays');
-      bs.pushInbound(fromString('test-inbound-message'));
-
-      // Wait for handler to be called
-      await vi.waitFor(() => {
-        expect(receivedMessages).toHaveLength(1);
-        expect(receivedMessages[0]).toStrictEqual({
-          from: 'inbound-peer',
-          message: 'test-inbound-message',
-        });
-      });
-    });
-  });
-
-  describe('address construction', () => {
-    it('constructs correct WebRTC addresses', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const dialAttempts: string[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-addr' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async (addr: string) => {
-            dialAttempts.push(addr);
-            const stream = {};
-            libp2pState.dials.push({
-              addr,
-              protocol: 'whatever',
-              options: { signal: AbortSignal.timeout(30_000) },
-              stream,
-            });
-            return stream;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xaddr',
-        knownRelays,
-        remoteHandler,
-      );
-
-      await send('test-peer', 'msg');
-
-      // First attempt should be WebRTC
-      expect(dialAttempts[0]).toBe(
-        `${knownRelays[0]}/p2p-circuit/webrtc/p2p/test-peer`,
+      expect(mockConnectionFactory.onInboundConnection).toHaveBeenCalledWith(
+        expect.any(Function),
       );
     });
 
-    it('constructs correct relay circuit addresses', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+    it('handles inbound messages', async () => {
+      const remoteHandler = vi.fn().mockResolvedValue('ok');
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
 
-      const dialAttempts: string[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-circuit' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async (addr: string) => {
-            dialAttempts.push(addr);
-            // Fail WebRTC, succeed on circuit
-            if (addr.includes('/webrtc/')) {
-              throw new Error('WebRTC failed');
-            }
-            const stream = {};
-            libp2pState.dials.push({
-              addr,
-              protocol: 'whatever',
-              options: { signal: AbortSignal.timeout(30_000) },
-              stream,
-            });
-            return stream;
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
       );
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xcircuit',
-        knownRelays,
-        remoteHandler,
-      );
+      await initNetwork('0x1234', [], remoteHandler);
 
-      await send('test-peer-c', 'msg');
-      await vi.waitFor(() => {
-        expect(dialAttempts).toHaveLength(2);
-        expect(dialAttempts[1]).toBe(
-          `${knownRelays[0]}/p2p-circuit/p2p/test-peer-c`,
+      const mockChannel = createMockChannel('inbound-peer');
+      const messageBuffer = new TextEncoder().encode('test-message');
+      mockChannel.msgStream.read
+        .mockResolvedValueOnce(messageBuffer)
+        .mockImplementation(
+          async () =>
+            new Promise(() => {
+              /* Block after first message */
+            }),
         );
-        expect(libp2pState.dials).toHaveLength(1);
-        expect(libp2pState.dials[0]?.addr).not.toContain('/webrtc/');
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        expect(remoteHandler).toHaveBeenCalledWith(
+          'inbound-peer',
+          'test-message',
+        );
       });
     });
   });
 
-  describe('signal abort handling', () => {
-    it('stops reading channel when signal is aborted', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+  describe('connection loss and reconnection', () => {
+    it('queues messages during reconnection', async () => {
+      mockMessageQueue.length = 1;
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xabortread',
-        knownRelays,
-        remoteHandler,
-      );
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      // Establish a channel
-      await send('peer-abort', 'hello');
-      expect(libp2pState.dials).toHaveLength(1);
+      await sendRemoteMessage('peer-1', 'queued-msg');
 
-      // Stop immediately - this aborts the signal
-      await stop();
-
-      // The readChannel loop should have exited gracefully
-      expect(await send('peer-abort', 'hello2')).toBeUndefined();
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('queued-msg', []);
+      expect(mockConnectionFactory.dialIdempotent).not.toHaveBeenCalled();
     });
 
-    it('aborts reconnection delay when signal is aborted', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
+    it('handles write failure and triggers reconnection', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockRejectedValueOnce(
+        Object.assign(new Error('Write failed'), { code: 'ECONNRESET' }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      let dialCount = 0;
-      const streams: object[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-abort-delay' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              // First dial succeeds
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // Subsequent dials fail to trigger reconnection
-            throw new Error('Connection failed');
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // First send establishes channel
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(1);
+
+      // Second send fails and triggers reconnection
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
+
+    it('starts reconnection on read error', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
       );
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xabortdelay',
-        knownRelays,
-        remoteHandler,
+      await initNetwork('0x1234', [], vi.fn());
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.read.mockRejectedValue(new Error('Read failed'));
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+    });
+
+    it('flushes queued messages after successful reconnection', async () => {
+      // Set up message queue with queued messages
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-1', hints: [] })
+        .mockReturnValueOnce({ message: 'queued-2', hints: [] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 2;
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: [] },
+        { message: 'queued-2', hints: [] },
+      ];
+
+      // Setup for reconnection scenario
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ) // First write fails, triggering reconnection
+        .mockResolvedValue(undefined); // Subsequent writes succeed
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // Initial connection
+        .mockResolvedValueOnce(mockChannel); // Reconnection succeeds
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      // First send establishes channel
+      await sendRemoteMessage('peer-1', 'initial-msg');
+
+      // Second send fails and triggers reconnection
+      await sendRemoteMessage('peer-1', 'queued-1');
+
+      // Queue another message during reconnection
+      await sendRemoteMessage('peer-1', 'queued-2');
+
+      // Wait for reconnection and flush
+      await vi.waitFor(() => {
+        // Should have 3 successful writes: queued-1 and queued-2 after reconnection
+        expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(3);
+      });
+    });
+  });
+
+  describe('stop functionality', () => {
+    it('returns a stop function', async () => {
+      const { stop } = await initNetwork('0x1234', [], vi.fn());
+
+      expect(typeof stop).toBe('function');
+    });
+
+    it('cleans up resources on stop', async () => {
+      const { stop } = await initNetwork('0x1234', [], vi.fn());
+
+      await stop();
+
+      expect(mockConnectionFactory.stop).toHaveBeenCalled();
+      expect(mockReconnectionManager.clear).toHaveBeenCalled();
+    });
+
+    it('does not send messages after stop', async () => {
+      const { sendRemoteMessage, stop } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      await stop();
+      await sendRemoteMessage('peer-1', 'msg');
+
+      expect(mockConnectionFactory.dialIdempotent).not.toHaveBeenCalled();
+    });
+
+    it('aborts ongoing reconnection on stop', async () => {
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+
+      (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        async (_ms: number, signal?: AbortSignal) => {
+          if (signal?.aborted) {
+            throw new AbortError();
+          }
+          return new Promise((_resolve, reject) => {
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                reject(new AbortError());
+              });
+            }
+          });
+        },
+      );
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
       );
 
       // Establish channel
-      await send('peer-delay', 'hello');
+      await sendRemoteMessage('peer-1', 'msg1');
 
-      // Get the stream and force it to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Write failed');
+      // Trigger reconnection with write failure (happens in background)
+      sendRemoteMessage('peer-1', 'msg2').catch(() => {
+        /* Ignore error */
       });
 
-      // Trigger reconnection
-      await send('peer-delay', 'trigger-reconnect');
+      // Give reconnection a chance to start
+      await new Promise((resolve) => setImmediate(resolve));
 
-      // Stop during reconnection delay
+      // Stop should abort the reconnection
       await stop();
 
-      // Verify that stop completed without errors
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(1);
-        },
-        { timeout: 2000 },
-      );
+      expect(mockConnectionFactory.stop).toHaveBeenCalled();
+      expect(mockReconnectionManager.clear).toHaveBeenCalled();
     });
   });
 
-  describe('SCTP error handling', () => {
-    it('detects SCTP graceful disconnect', async () => {
-      const knownRelays: string[] = [];
-      const remoteHandler = vi.fn(async () => 'ok');
+  describe('wake from sleep', () => {
+    it('installs wake detector and handles wake events', async () => {
+      const { installWakeDetector } = await import('@metamask/kernel-utils');
+      let wakeHandler: (() => void) | undefined;
 
-      // Override byteStream to inject read error
-      let readCount = 0;
-      const { byteStream } = await import('it-byte-stream');
-      vi.spyOn(
-        await import('it-byte-stream'),
-        'byteStream',
-      ).mockImplementationOnce((stream: unknown) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const bs = byteStream(stream as any);
-        vi.spyOn(bs, 'read').mockImplementation(async () => {
-          readCount += 1;
-          const error = new Error('SCTP failure') as Error & {
-            errorDetail?: string;
-            sctpCauseCode?: number;
-          };
-          error.errorDetail = 'sctp-failure';
-          error.sctpCauseCode = 12; // SCTP_USER_INITIATED_ABORT
-          throw error;
-        });
-        return bs;
-      });
+      (installWakeDetector as ReturnType<typeof vi.fn>).mockImplementation(
+        (handler) => {
+          wakeHandler = handler;
+          return vi.fn();
+        },
+      );
 
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xsctp', knownRelays, remoteHandler);
+      await initNetwork('0x1234', [], vi.fn());
 
-      // Simulate inbound connection
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
+      expect(installWakeDetector).toHaveBeenCalled();
 
-      const inboundStream = {};
-      await state.handler?.({
-        connection: { remotePeer: { toString: () => 'peer-sctp' } },
-        stream: inboundStream,
-      });
+      // Trigger wake event
+      wakeHandler?.();
 
-      // Wait for the read to be called
-      await vi.waitFor(() => {
-        expect(readCount).toBeGreaterThan(0);
-      });
+      expect(mockReconnectionManager.resetAllBackoffs).toHaveBeenCalled();
     });
 
-    it('handles non-SCTP read errors', async () => {
-      const knownRelays: string[] = [];
-      const remoteHandler = vi.fn(async () => 'ok');
+    it('cleans up wake detector on stop', async () => {
+      const cleanupFn = vi.fn();
+      const { installWakeDetector } = await import('@metamask/kernel-utils');
+      (installWakeDetector as ReturnType<typeof vi.fn>).mockReturnValue(
+        cleanupFn,
+      );
 
-      // Override byteStream to inject read error
-      let readCount = 0;
-      const { byteStream } = await import('it-byte-stream');
-      vi.spyOn(
-        await import('it-byte-stream'),
-        'byteStream',
-      ).mockImplementationOnce((stream: unknown) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const bs = byteStream(stream as any);
-        vi.spyOn(bs, 'read').mockImplementation(async () => {
-          readCount += 1;
-          throw new Error('Generic read error');
-        });
-        return bs;
+      const { stop } = await initNetwork('0x1234', [], vi.fn());
+
+      await stop();
+
+      expect(cleanupFn).toHaveBeenCalled();
+    });
+  });
+
+  describe('race conditions', () => {
+    it('queues message if reconnection starts during dial', async () => {
+      // Initially not reconnecting
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockImplementation(async () => {
+        // Simulate reconnection starting during dial
+        mockReconnectionManager.isReconnecting.mockReturnValue(true);
+        // Small delay to simulate async operation
+        await new Promise((resolve) => setImmediate(resolve));
+        return mockChannel;
       });
 
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xreaderror', knownRelays, remoteHandler);
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      // Simulate inbound connection
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
+      await sendRemoteMessage('peer-1', 'msg');
 
-      const inboundStream = {};
-      await state.handler?.({
-        connection: { remotePeer: { toString: () => 'peer-readerror' } },
-        stream: inboundStream,
-      });
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', []);
+    });
 
-      // Wait for the read to be called
+    it('does not start duplicate reconnection loops', async () => {
+      // Capture inbound handler before init
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // First connection loss starts reconnection; subsequent ones must not
+      mockReconnectionManager.isReconnecting
+        // sendRemoteMessage precheck
+        .mockReturnValueOnce(false)
+        // handleConnectionLoss check (first failure)
+        .mockReturnValueOnce(false)
+        // subsequent calls (loop, second handleConnectionLoss)
+        .mockReturnValue(true);
+
+      // Fail initial dial to trigger first handleConnectionLoss, then allow reconnection loop to succeed
+      const reconChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Dial failed'), { code: 'ECONNRESET' }),
+        )
+        .mockResolvedValue(reconChannel);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      await sendRemoteMessage('peer-1', 'msg-1');
+
+      // Trigger another connection loss via inbound read error for same peer
+      const inboundChannel = createMockChannel('peer-1');
+      inboundChannel.msgStream.read.mockRejectedValueOnce(
+        new Error('Read failed'),
+      );
+      inboundHandler?.(inboundChannel);
+
       await vi.waitFor(() => {
-        expect(readCount).toBeGreaterThan(0);
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
       });
     });
   });
 
-  describe('reconnection attempts', () => {
-    it('gives up after max reconnection attempts', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      let dialCount = 0;
-      const streams: object[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-max-attempts' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              // First dial succeeds
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // All reconnection attempts fail with retryable error
-            const error = new Error('Connection failed');
-            (error as NodeJS.ErrnoException).code = 'ECONNRESET';
-            throw error;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
+  describe('error handling', () => {
+    it('handles dial errors gracefully', async () => {
+      mockConnectionFactory.dialIdempotent.mockRejectedValue(
+        new Error('Dial failed'),
       );
 
-      // Mock DEFAULT_MAX_RETRY_ATTEMPTS to be 3 for this test by temporarily changing the mock
-      vi.doMock('@metamask/kernel-utils', async () => ({
-        ...(await vi.importActual('@metamask/kernel-utils')),
-        DEFAULT_MAX_RETRY_ATTEMPTS: 3,
-      }));
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xmaxattempts',
-        knownRelays,
-        remoteHandler,
-      );
+      await sendRemoteMessage('peer-1', 'msg');
 
-      // Establish channel
-      await send('peer-maxatt', 'hello');
-
-      // Get the stream and force it to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Write failed');
-      });
-
-      // Trigger reconnection - this will start the reconnection loop
-      await send('peer-maxatt', 'trigger');
-
-      // Queue more messages
-      await send('peer-maxatt', 'm1');
-      await send('peer-maxatt', 'm2');
-
-      // Wait for max attempts to be reached
-      await vi.waitFor(
-        () => {
-          // After 3 failed attempts, dialCount should be 1 (initial) + 3*2 (3 attempts with WebRTC and fallback)
-          expect(dialCount).toBeGreaterThanOrEqual(4);
-        },
-        { timeout: 2000 },
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
       );
     });
 
     it('handles non-retryable errors during reconnection', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      let dialCount = 0;
-      const streams: object[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-nonretryable' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              // First dial succeeds
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // Throw non-retryable error
-            const error = new Error('Invalid peer ID') as Error & {
-              code: string;
-            };
-            error.code = 'ERR_INVALID_PEER_ID';
-            throw error;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
       );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
 
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xnonretry',
-        knownRelays,
-        remoteHandler,
-      );
+      const mockChannel = createMockChannel('peer-1');
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // initial connection
+        .mockRejectedValueOnce(new Error('Permanent failure')); // non-retryable during reconnection
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
       // Establish channel
-      await send('peer-nonretry', 'hello');
+      await sendRemoteMessage('peer-1', 'msg1');
 
-      // Get the stream and force it to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Write failed');
-      });
-
-      // Trigger reconnection
-      await send('peer-nonretry', 'trigger');
-
-      // Should have tried initial + one reconnection attempt that failed with non-retryable error
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 2000 },
+      // Trigger reconnection via retryable write failure
+      mockChannel.msgStream.write.mockRejectedValueOnce(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
       );
-    });
-  });
+      await sendRemoteMessage('peer-1', 'msg2');
 
-  describe('wake from sleep handling', () => {
-    it('resets backoffs when waking from sleep', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      // Capture the wake handler by mocking installWakeDetector before importing
-      let wakeHandler: (() => void) | undefined;
-      vi.doMock('@metamask/kernel-utils', async () => {
-        const actual = await vi.importActual<
-          typeof import('@metamask/kernel-utils')
-        >('@metamask/kernel-utils');
-        return {
-          ...actual,
-          installWakeDetector: (onWake: () => void) => {
-            wakeHandler = onWake;
-            return () => {
-              // cleanup
-            };
-          },
-        };
-      });
-
-      // Reimport to get the mocked version
-      vi.resetModules();
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xwake', knownRelays, remoteHandler);
-
-      // Trigger wake event
-      expect(wakeHandler).toBeDefined();
-      wakeHandler?.();
-
-      // Verify wake handler was called (test passes if no errors thrown)
-      expect(wakeHandler).toBeDefined();
-    });
-  });
-
-  describe('inbound connection error handling', () => {
-    it('handles errors in inbound channel read', async () => {
-      const knownRelays: string[] = [];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      // Override byteStream to inject read error
-      let readCount = 0;
-      const { byteStream } = await import('it-byte-stream');
-      vi.spyOn(
-        await import('it-byte-stream'),
-        'byteStream',
-      ).mockImplementationOnce((stream: unknown) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const bs = byteStream(stream as any);
-        vi.spyOn(bs, 'read').mockImplementation(async () => {
-          readCount += 1;
-          throw new Error('Inbound read failed');
-        });
-        return bs;
-      });
-
-      const { initNetwork } = await import('./network.ts');
-      await initNetwork('0xinbounderror', knownRelays, remoteHandler);
-
-      // Simulate inbound connection
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
-
-      const inboundStream = {};
-      await state.handler?.({
-        connection: { remotePeer: { toString: () => 'peer-inbound-err' } },
-        stream: inboundStream,
-      });
-
-      // Wait for error to be handled
+      // Ensure reconnection attempt dial happened
       await vi.waitFor(() => {
-        expect(readCount).toBeGreaterThan(0);
-      });
-    });
-  });
-
-  describe('reconnection and queueing', () => {
-    it('retries with message hints when flush fails mid-queue', async () => {
-      const knownRelays = ['/dns4/relay1.example/tcp/443/wss/p2p/relay1'];
-      const messageHints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const dialAttempts: string[] = [];
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'test-peer-hints-retry' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(
-            async (
-              addr: string,
-              protocol: string,
-              options: { signal: AbortSignal },
-            ) => {
-              dialAttempts.push(addr);
-              const stream = {};
-              libp2pState.dials.push({ addr, protocol, options, stream });
-
-              // For the first reconnection dial, inject one write failure to force another redial
-              if (dialAttempts.length === 2) {
-                const { setWriteFailures } = (await import(
-                  'it-byte-stream'
-                )) as unknown as {
-                  setWriteFailures: (stream: object, count: number) => void;
-                };
-                setWriteFailures(stream, 1);
-              }
-              return stream;
-            },
-          ),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xhints-retry',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-hints-retry', 'prime');
-
-      // Get the initial stream and make it fail on next write to trigger reconnection
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const initialStream = libp2pState.dials[0]?.stream as object;
-      const initialBs = getByteStreamFor(initialStream) as MockByteStream;
-      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
-        throw new Error('Connection lost');
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(2);
       });
 
-      // Trigger reconnection and queue messages with hints
-      await send('peer-hints-retry', 'm1', messageHints);
-      await send('peer-hints-retry', 'm2', messageHints);
-
-      // Wait for: initial dial + reconnection dial (with hints) + redial after flush failure (with hints)
-      await vi.waitFor(
-        () => {
-          expect(dialAttempts.length).toBeGreaterThanOrEqual(3);
-        },
-        { timeout: 4000 },
-      );
-
-      // Assert that the reconnection attempts used the hint address
-      // 0: initial dial (may use relay), 1: first reconnection, 2: retry after flush failure
-      expect(dialAttempts[1]).toContain('hint.example');
-      expect(dialAttempts[2]).toContain('hint.example');
-    });
-
-    it('flushes queued messages after reconnection success', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { createLibp2p } = await import('libp2p');
-      const streams: { initial?: object; reconnected?: object } = {};
-
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-flush-node' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            if (!streams.initial) {
-              streams.initial = {};
-              return streams.initial;
-            }
-            streams.reconnected = {};
-            return streams.reconnected;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xflush',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial outbound channel
-      await send('peer-flush', 'hello');
-
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const initialBs = getByteStreamFor(
-        streams.initial as object,
-      ) as MockByteStream;
-
-      // Force write failure to trigger connection loss and reconnection
-      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
-        throw new Error('Write failed - simulate disconnect');
-      });
-
-      // These gets queued while reconnection is in progress
-      await send('peer-flush', 'queued-1');
-      await send('peer-flush', 'queued-2');
-
-      // Wait for reconnection to succeed and messages to flush
-      await vi.waitFor(
-        async () => {
-          const bs = getByteStreamFor(streams.reconnected as object);
-          expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 2000 },
-      );
-
-      const reconnectedBs = getByteStreamFor(
-        streams.reconnected as object,
-      ) as MockByteStream;
-      const { toString: bufToString } = await import('uint8arrays');
-      const flushed = (reconnectedBs.writes ?? []).map((chunk) =>
-        bufToString(chunk),
-      );
-      expect(flushed).toStrictEqual(['queued-1', 'queued-2']);
-    });
-
-    it('drops oldest messages beyond queue capacity and flushes the newest 200', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { createLibp2p } = await import('libp2p');
-      const streams: { initial?: object; reconnected?: object } = {};
-      let allowReconnect = false;
-
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-queue-cap' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            if (!streams.initial) {
-              streams.initial = {};
-              return streams.initial;
-            }
-            if (!allowReconnect) {
-              throw new Error('Reconnection not allowed yet');
-            }
-            streams.reconnected = {};
-            return streams.reconnected;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xqueuecap',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial outbound channel
-      await send('peer-cap', 'init');
-
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const initialBs = getByteStreamFor(
-        streams.initial as object,
-      ) as MockByteStream;
-
-      // Force writes to fail to trigger reconnection path
-      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
-        throw new Error('Write failed');
-      });
-
-      // Enqueue more than the MAX_QUEUE (200) messages
-      const total = 210;
-      await Promise.all(
-        Array.from({ length: total }, async (_v, i) =>
-          send('peer-cap', `m${i}`),
-        ),
-      );
-
-      // Now allow reconnection to succeed
-      allowReconnect = true;
-
-      await vi.waitFor(
-        async () => {
-          const bs = getByteStreamFor(streams.reconnected as object);
-          expect(bs?.writes?.length ?? 0).toBeGreaterThanOrEqual(200);
-        },
-        { timeout: 2000 },
-      );
-
-      const reconnectedBs = getByteStreamFor(
-        streams.reconnected as object,
-      ) as MockByteStream;
-      const { toString: bufToString } = await import('uint8arrays');
-      const flushed = (reconnectedBs.writes ?? []).map((chunk) =>
-        bufToString(chunk),
-      );
-      // Expect only the newest 200 messages: m10..m209
-      expect(flushed).toHaveLength(200);
-      expect(flushed[0]).toBe('m10');
-      expect(flushed[flushed.length - 1]).toBe('m209');
-    });
-
-    it('performs only one dial for concurrent sends (idempotent dialing)', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { createLibp2p } = await import('libp2p');
-      let dialCount = 0;
-      let createdStream: object | undefined;
-
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-idempotent' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            // Small delay to allow the second send to overlap
-            await new Promise((resolve) => setTimeout(resolve, 20));
-            createdStream ??= {};
-            return createdStream;
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xidem',
-        knownRelays,
-        remoteHandler,
-      );
-
-      await Promise.all([send('peer-idem', 'a'), send('peer-idem', 'b')]);
-
-      expect(dialCount).toBe(1);
-
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(createdStream as object) as MockByteStream;
-      expect(bs.writes).toHaveLength(2);
-    });
-
-    it('does not dial after stop() when send is invoked', async () => {
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xafterstop',
-        knownRelays,
-        remoteHandler,
-      );
-
-      await stop();
-      const { libp2pState: state } = (await import('libp2p')) as unknown as {
-        libp2pState: typeof libp2pState;
-      };
-
-      // Clear any dials from before stop
-      const dialsBeforeStop = state.dials.length;
-
-      await send('peer-after-stop', 'hello');
-
-      // Should not have added any new dials
-      expect(state.dials).toHaveLength(dialsBeforeStop);
-    });
-
-    it('queues message when reconnection starts during sendRemoteMessage dial', async () => {
-      vi.useRealTimers(); // Use real timers for this test
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-race-condition' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-
-            // First dial succeeds (initial connection)
-            if (dialCount === 1) {
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-
-            // Second dial simulates a slow dial that allows reconnection to start
-            if (dialCount === 2) {
-              // Add delay to simulate slow dial
-              await new Promise((resolve) => setTimeout(resolve, 50));
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-
-            // Reconnection dial succeeds
-            const stream = {};
-            streams.push(stream);
-            return stream;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xrace',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-race', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Get the stream and force it to fail to trigger reconnection
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        const error = new Error('Write failed - trigger reconnection');
-        (error as NodeJS.ErrnoException).code = 'ECONNRESET';
-        throw error;
-      });
-
-      // Trigger reconnection with first message
-      await send('peer-race', 'trigger-reconnection');
-
-      // Immediately send another message - this should detect ongoing reconnection
-      // and queue the message rather than create a conflicting channel
-      await send('peer-race', 'should-be-queued');
-
-      // Wait for reconnection to complete (using real timers)
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 2000 },
-      );
-
-      // The key assertion: we should have initial dial + reconnection dial(s)
-      // But NOT a concurrent dial from the second sendRemoteMessage
-      // The exact count depends on timing, but there should be no channel conflict
-      expect(dialCount).toBeLessThan(5); // Sanity check
-    });
-
-    it('continues reconnection loop when flushQueuedMessages triggers new reconnection', async () => {
-      vi.useRealTimers(); // Use real timers for this test
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-flush-reconnect' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-
-            // All dials succeed
-            const stream = {};
-            streams.push(stream);
-
-            // First reconnection dial: inject write failure during flush
-            if (dialCount === 2) {
-              const { setWriteFailures } = (await import(
-                'it-byte-stream'
-              )) as unknown as {
-                setWriteFailures: (stream: object, count: number) => void;
-              };
-              setWriteFailures(stream, 1); // Fail once during flush
-            }
-
-            return stream;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xflushreconn',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-flush-recon', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Get the stream and force it to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const initialBs = getByteStreamFor(
-        streams[0] as object,
-      ) as MockByteStream;
-      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
-        const error = new Error('Initial connection failed');
-        (error as NodeJS.ErrnoException).code = 'ECONNRESET';
-        throw error;
-      });
-
-      // Queue messages
-      await send('peer-flush-recon', 'queued-msg-1');
-      await send('peer-flush-recon', 'queued-msg-2');
-
-      // Wait for full reconnection cycle:
-      // 1. First reconnection (dialCount = 2)
-      // 2. Flush fails (injected write failure)
-      // 3. Second reconnection triggered (dialCount = 3)
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(3);
-        },
-        { timeout: 2000 },
-      );
-
-      // Verify messages were eventually delivered on the final stream
-      const finalStream = streams[streams.length - 1] as object;
-      const finalBs = getByteStreamFor(finalStream) as MockByteStream;
-      expect(finalBs.writes.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('does not start concurrent reconnection loops when flush fails', async () => {
-      vi.useRealTimers();
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-      let flushFailureCount = 0;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-no-concurrent' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            const stream = {};
-            streams.push(stream);
-
-            // First reconnection: inject write failure during flush
-            if (dialCount === 2) {
-              const { setWriteFailures } = (await import(
-                'it-byte-stream'
-              )) as unknown as {
-                setWriteFailures: (stream: object, count: number) => void;
-              };
-              setWriteFailures(stream, 1);
-              flushFailureCount += 1;
-            }
-
-            return stream;
-          }),
-          handle: vi.fn(async () => undefined),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send } = await initNetwork(
-        '0xnoconcurrent',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-no-concurrent', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Force initial connection to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const initialBs = getByteStreamFor(
-        streams[0] as object,
-      ) as MockByteStream;
-      vi.spyOn(initialBs, 'write').mockImplementation(async () => {
-        throw new Error('Connection lost');
-      });
-
-      // Queue messages to trigger reconnection
-      await send('peer-no-concurrent', 'queued-1');
-      await send('peer-no-concurrent', 'queued-2');
-
-      // Wait for first reconnection to complete and flush to fail
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(2);
-          expect(flushFailureCount).toBeGreaterThanOrEqual(1);
-        },
-        { timeout: 2000 },
-      );
-
-      // Wait a bit more to see if a concurrent second loop starts
-      // With the fix, there should only be one active loop continuing
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify we eventually get a successful reconnection (loop continues, doesn't duplicate)
-      // The dial count should increase as the loop continues, but not spike from concurrent loops
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(3);
-        },
-        { timeout: 2000 },
-      );
-    });
-  });
-
-  describe('reconnection state cleanup', () => {
-    it('cleans up reconnection state when stopped during delay', async () => {
-      vi.useRealTimers();
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-cleanup' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // All reconnection attempts fail
-            throw new Error('Connection failed');
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xcleanup',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-cleanup', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Force connection to fail to trigger reconnection
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Connection lost');
-      });
-
-      // Trigger reconnection (this starts the delay)
-      await send('peer-cleanup', 'trigger');
-
-      // Stop during the delay - this should abort and clean up state
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await stop();
-
-      // Verify that stop completed without hanging
-      // The reconnection state should be cleaned up
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeLessThanOrEqual(2); // Initial + maybe one attempt before stop
-        },
-        { timeout: 2000 },
-      );
-    });
-
-    it('cleans up reconnection state when stopped during dial', async () => {
-      vi.useRealTimers();
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-      let dialStarted = false;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-cleanup-dial' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // Simulate slow dial that can be aborted
-            dialStarted = true;
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            throw new Error('Connection failed');
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xcleanupdial',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-cleanup-dial', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Force connection to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Connection lost');
-      });
-
-      // Trigger reconnection (delay will pass, then dial starts)
-      await send('peer-cleanup-dial', 'trigger');
-
-      // Wait for dial to start, then stop
-      await vi.waitFor(
-        () => {
-          expect(dialStarted).toBe(true);
-        },
-        { timeout: 2000 },
-      );
-
-      await stop();
-
-      // Verify stop completed (state cleaned up)
-      await vi.waitFor(
-        () => {
-          expect(dialCount).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 2000 },
-      );
-    });
-
-    it('cleans up reconnection state and stop completes without hanging', async () => {
-      vi.useRealTimers();
-      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-      const remoteHandler = vi.fn(async () => 'ok');
-
-      const streams: object[] = [];
-      let dialCount = 0;
-      let stopCompleted = false;
-
-      const { createLibp2p } = await import('libp2p');
-      (createLibp2p as ReturnType<typeof vi.fn>).mockImplementationOnce(
-        async () => ({
-          start: vi.fn(),
-          stop: vi.fn(),
-          peerId: { toString: () => 'peer-cleanup-verify' },
-          addEventListener: vi.fn(),
-          dialProtocol: vi.fn(async () => {
-            dialCount += 1;
-            if (dialCount === 1) {
-              const stream = {};
-              streams.push(stream);
-              return stream;
-            }
-            // Reconnection attempts fail
-            throw new Error('Connection failed');
-          }),
-          handle: vi.fn(async () => undefined),
-          getConnections: vi.fn(() => []),
-        }),
-      );
-
-      const { initNetwork } = await import('./network.ts');
-      const { sendRemoteMessage: send, stop } = await initNetwork(
-        '0xcleanupverify',
-        knownRelays,
-        remoteHandler,
-      );
-
-      // Establish initial channel
-      await send('peer-cleanup-verify', 'initial');
-      expect(dialCount).toBe(1);
-
-      // Force connection to fail
-      const { getByteStreamFor } = (await import(
-        'it-byte-stream'
-      )) as unknown as {
-        getByteStreamFor: (stream: object) => MockByteStream | undefined;
-      };
-      const bs = getByteStreamFor(streams[0] as object) as MockByteStream;
-      vi.spyOn(bs, 'write').mockImplementation(async () => {
-        throw new Error('Connection lost');
-      });
-
-      // Trigger reconnection (starts delay)
-      await send('peer-cleanup-verify', 'trigger');
-
-      // Stop during reconnection delay
-      // This should clean up reconnection state and complete without hanging
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // Stop should complete quickly, indicating state was cleaned up
-      const stopPromise = stop().then(() => {
-        stopCompleted = true;
-        return undefined;
-      });
-
-      // Wait for stop to complete (should be fast if state is cleaned up)
-      await vi.waitFor(
-        async () => {
-          expect(stopCompleted).toBe(true);
-        },
-        { timeout: 2000 },
-      );
-
-      await stopPromise;
-
-      // Verify stop completed (not stuck)
-      expect(stopCompleted).toBe(true);
-      // Dial count should be limited (no infinite retries after stop)
       await vi.waitFor(() => {
-        expect(dialCount).toBeLessThanOrEqual(3);
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+        expect(mockMessageQueue.clear).toHaveBeenCalled();
+      });
+    });
+
+    it('resets backoff on successful message send', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      await sendRemoteMessage('peer-1', 'msg');
+
+      expect(mockReconnectionManager.resetBackoff).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
+
+    it('resets backoff on successful message receive', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      await initNetwork('0x1234', [], vi.fn());
+
+      const mockChannel = createMockChannel('inbound-peer');
+      const messageBuffer = new TextEncoder().encode('inbound-msg');
+      mockChannel.msgStream.read
+        .mockResolvedValueOnce(messageBuffer)
+        .mockImplementation(
+          async () =>
+            new Promise(() => {
+              /* Never resolves */
+            }),
+        );
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.resetBackoff).toHaveBeenCalledWith(
+          'inbound-peer',
+        );
+      });
+    });
+  });
+
+  describe('message queue management', () => {
+    it('preserves hints when queueing messages', async () => {
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      await sendRemoteMessage('peer-1', 'msg', hints);
+
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', hints);
+    });
+
+    it('merges hints from queued messages during flush', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const mockChannel = createMockChannel('peer-1', ['base-hint']);
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // initial connection
+        .mockResolvedValueOnce(mockChannel); // reconnection
+
+      // Prepare queue state and messages' hints used for merging
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: ['hint-a'] },
+        { message: 'queued-2', hints: ['hint-b', 'base-hint'] },
+      ];
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({
+          message: 'queued-1',
+          hints: ['hint-a'],
+        })
+        .mockReturnValueOnce({
+          message: 'queued-2',
+          hints: ['hint-b', 'base-hint'],
+        })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 2;
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+
+      // Establish initial channel
+      await sendRemoteMessage('peer-1', 'initial');
+
+      // Cause connection loss on next send
+      mockChannel.msgStream.write
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        )
+        .mockResolvedValue(undefined);
+
+      // Enqueue a message during reconnection as well (not required for hints merge)
+      await sendRemoteMessage('peer-1', 'during-reconnect');
+
+      // Ensure reconnection attempt dial happened
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(2);
+      });
+
+      await vi.waitFor(() => {
+        expect(mockChannel.hints.sort()).toStrictEqual(
+          ['base-hint', 'hint-a', 'hint-b'].sort(),
+        );
       });
     });
   });
