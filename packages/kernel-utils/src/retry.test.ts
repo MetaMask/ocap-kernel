@@ -270,7 +270,6 @@ describe('retry', () => {
   });
 
   it('uses DEFAULT_MAX_RETRY_ATTEMPTS when maxAttempts is not provided', async () => {
-    // Line 77: options?.maxAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS
     let attempts = 0;
     const op = vi.fn(async () => {
       attempts += 1;
@@ -299,7 +298,6 @@ describe('retry', () => {
   });
 
   it('uses defaults when options is undefined', async () => {
-    // Line 77: options?.maxAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS (when options is undefined)
     const op = vi.fn(async () => 'ok');
 
     // Call retry with no options at all
@@ -310,7 +308,6 @@ describe('retry', () => {
   });
 
   it('uses default baseDelayMs, maxDelayMs, and jitter when not provided', async () => {
-    // Lines 100-102: defaults for baseDelayMs, maxDelayMs, and jitter
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
     let attempts = 0;
@@ -350,7 +347,6 @@ describe('retry', () => {
   });
 
   it('uses default baseDelayMs when undefined', async () => {
-    // Line 100: options?.baseDelayMs ?? DEFAULT_BASE_DELAY_MS
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
     let attempts = 0;
@@ -389,7 +385,6 @@ describe('retry', () => {
   });
 
   it('uses default maxDelayMs when undefined', async () => {
-    // Line 101: options?.maxDelayMs ?? DEFAULT_MAX_DELAY_MS
     let attempts = 0;
     const op = vi.fn(async () => {
       attempts += 1;
@@ -428,7 +423,6 @@ describe('retry', () => {
   });
 
   it('uses default jitter (true) when undefined', async () => {
-    // Line 102: options?.jitter ?? true
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
     let attempts = 0;
