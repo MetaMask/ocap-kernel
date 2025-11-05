@@ -112,11 +112,13 @@ export async function retry<Result>(
       await abortableDelay(delayMs, options?.signal);
       // Continue loop
     }
+    /* v8 ignore start */
   }
 
   // Unreachable (loop returns or throws)
   throw new Error('Retry operation ended unexpectedly');
 }
+/* v8 ignore stop */
 
 /**
  * Compatibility wrapper for existing call sites

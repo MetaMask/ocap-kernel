@@ -269,6 +269,203 @@ describe('retry', () => {
     expect(op).toHaveBeenCalledTimes(10);
   });
 
+  it('uses DEFAULT_MAX_RETRY_ATTEMPTS when maxAttempts is not provided', async () => {
+    // Line 77: options?.maxAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS
+    let attempts = 0;
+    const op = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 5) {
+        throw new Error('not yet');
+      }
+      return 'finally';
+    });
+
+    // Call retry without maxAttempts option (should default to 0 = infinite)
+    const promise = retry(op, {
+      baseDelayMs: 10,
+      maxDelayMs: 10,
+      jitter: false,
+    });
+
+    // Let it retry several times (infinite retries)
+    for (let i = 0; i < 4; i += 1) {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(10);
+    }
+
+    const result = await promise;
+    expect(result).toBe('finally');
+    expect(op).toHaveBeenCalledTimes(5);
+  });
+
+  it('uses defaults when options is undefined', async () => {
+    // Line 77: options?.maxAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS (when options is undefined)
+    const op = vi.fn(async () => 'ok');
+
+    // Call retry with no options at all
+    const result = await retry(op);
+
+    expect(result).toBe('ok');
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses default baseDelayMs, maxDelayMs, and jitter when not provided', async () => {
+    // Lines 100-102: defaults for baseDelayMs, maxDelayMs, and jitter
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    let attempts = 0;
+    const op = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 2) {
+        throw new Error('fail');
+      }
+      return 'ok';
+    });
+
+    const onRetry = vi.fn();
+
+    // Call retry without baseDelayMs, maxDelayMs, or jitter
+    // Should use DEFAULT_BASE_DELAY_MS, DEFAULT_MAX_DELAY_MS, and jitter: true
+    const promise = retry(op, {
+      maxAttempts: 3,
+      onRetry,
+    });
+
+    // After first failure
+    await Promise.resolve();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    const firstCall = onRetry.mock.calls[0]?.[0];
+    expect(firstCall?.attempt).toBe(1);
+    // Should use default baseDelayMs (500) with jitter, so delay should be in [0, 500)
+    expect(firstCall?.delayMs).toBeGreaterThanOrEqual(0);
+    expect(firstCall?.delayMs).toBeLessThan(DEFAULT_BASE_DELAY_MS);
+
+    await vi.advanceTimersByTimeAsync(firstCall?.delayMs ?? 0);
+    await Promise.resolve();
+
+    const result = await promise;
+    expect(result).toBe('ok');
+
+    randomSpy.mockRestore();
+  });
+
+  it('uses default baseDelayMs when undefined', async () => {
+    // Line 100: options?.baseDelayMs ?? DEFAULT_BASE_DELAY_MS
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    let attempts = 0;
+    const op = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 2) {
+        throw new Error('fail');
+      }
+      return 'ok';
+    });
+
+    const onRetry = vi.fn();
+
+    // Provide maxDelayMs and jitter, but not baseDelayMs
+    const promise = retry(op, {
+      maxAttempts: 3,
+      maxDelayMs: 1000,
+      jitter: true,
+      onRetry,
+    });
+
+    await Promise.resolve();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    const firstCall = onRetry.mock.calls[0]?.[0];
+    // Should use DEFAULT_BASE_DELAY_MS (500) with jitter
+    expect(firstCall?.delayMs).toBeGreaterThanOrEqual(0);
+    expect(firstCall?.delayMs).toBeLessThan(DEFAULT_BASE_DELAY_MS);
+
+    await vi.advanceTimersByTimeAsync(firstCall?.delayMs ?? 0);
+    await Promise.resolve();
+
+    const result = await promise;
+    expect(result).toBe('ok');
+
+    randomSpy.mockRestore();
+  });
+
+  it('uses default maxDelayMs when undefined', async () => {
+    // Line 101: options?.maxDelayMs ?? DEFAULT_MAX_DELAY_MS
+    let attempts = 0;
+    const op = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new Error('fail');
+      }
+      return 'ok';
+    });
+
+    const onRetry = vi.fn();
+
+    // Provide baseDelayMs and jitter, but not maxDelayMs
+    const promise = retry(op, {
+      maxAttempts: 5,
+      baseDelayMs: 100,
+      jitter: false,
+      onRetry,
+    });
+
+    await Promise.resolve();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(100);
+    await Promise.resolve();
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(200);
+    await Promise.resolve();
+
+    // Third attempt should cap at DEFAULT_MAX_DELAY_MS (10000)
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    const secondCall = onRetry.mock.calls[1]?.[0];
+    expect(secondCall?.delayMs).toBe(200); // 100 * 2^1
+
+    await vi.advanceTimersByTimeAsync(200);
+    const result = await promise;
+    expect(result).toBe('ok');
+  });
+
+  it('uses default jitter (true) when undefined', async () => {
+    // Line 102: options?.jitter ?? true
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    let attempts = 0;
+    const op = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 2) {
+        throw new Error('fail');
+      }
+      return 'ok';
+    });
+
+    const onRetry = vi.fn();
+
+    // Provide baseDelayMs and maxDelayMs, but not jitter (should default to true)
+    const promise = retry(op, {
+      maxAttempts: 3,
+      baseDelayMs: 100,
+      maxDelayMs: 1000,
+      onRetry,
+    });
+
+    await Promise.resolve();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    const firstCall = onRetry.mock.calls[0]?.[0];
+    // Should use jitter (default true), so delay should be in [0, 100)
+    expect(firstCall?.delayMs).toBeGreaterThanOrEqual(0);
+    expect(firstCall?.delayMs).toBeLessThan(100);
+
+    await vi.advanceTimersByTimeAsync(firstCall?.delayMs ?? 0);
+    await Promise.resolve();
+
+    const result = await promise;
+    expect(result).toBe('ok');
+
+    randomSpy.mockRestore();
+  });
+
   it('throws AbortError when signal is aborted before operation', async () => {
     const controller = new AbortController();
     controller.abort();

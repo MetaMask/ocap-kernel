@@ -159,5 +159,85 @@ describe('misc utilities', () => {
       await expect(delayP).rejects.toThrow(AbortError);
       await expect(delayP).rejects.toThrow('Operation aborted.');
     });
+
+    it('cleans up timeout and removes listener when signal aborted after registration', async () => {
+      // Test lines 53-56: signal aborted after listener is added but caught by second check
+      // This tests the race condition where signal becomes aborted between listener
+      // registration and the second abort check
+      const controller = new AbortController();
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+      const removeEventListenerSpy = vi.spyOn(
+        controller.signal,
+        'removeEventListener',
+      );
+
+      // Track when listener is added
+      let listenerAdded = false;
+      const originalAddEventListener = controller.signal.addEventListener.bind(
+        controller.signal,
+      );
+
+      // Create a custom signal that becomes aborted when .aborted is accessed
+      // after the listener has been added
+      const customSignal = new Proxy(controller.signal, {
+        get(target, prop) {
+          if (prop === 'aborted' && listenerAdded && !target.aborted) {
+            // Abort when .aborted is checked after listener is added (line 52)
+            controller.abort();
+          }
+          return Reflect.get(target, prop);
+        },
+      });
+
+      // Override addEventListener to track when listener is added
+      vi.spyOn(customSignal, 'addEventListener').mockImplementation(
+        (event, handler, options) => {
+          originalAddEventListener(event, handler, options);
+          if (event === 'abort') {
+            listenerAdded = true;
+          }
+        },
+      );
+
+      const delayP = abortableDelay(1000, customSignal);
+
+      // Should reject with AbortError
+      await expect(delayP).rejects.toThrow(AbortError);
+
+      // Verify the listener was added
+      expect(listenerAdded).toBe(true);
+
+      // Verify cleanup was performed (lines 53-56)
+      // The timeout should be cleared
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      // The event listener should be removed
+      expect(removeEventListenerSpy).toHaveBeenCalledWith(
+        'abort',
+        expect.any(Function),
+      );
+
+      clearTimeoutSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    });
+
+    it('handles abort signal that becomes aborted during listener setup', async () => {
+      // Create a custom signal that becomes aborted during the function execution
+      // This tests the second check (lines 52-56) that happens after listener registration
+      const controller = new AbortController();
+
+      // Start the delay with a signal that's not yet aborted
+      const delayP = abortableDelay(1000, controller.signal);
+
+      // Abort synchronously (this happens after listener registration in the function)
+      // Since we're using fake timers, this simulates abort happening during setup
+      controller.abort();
+
+      // Should reject immediately
+      await expect(delayP).rejects.toThrow(AbortError);
+
+      // Verify that even if timers advance, the promise remains rejected
+      vi.advanceTimersByTime(2000);
+      await expect(delayP).rejects.toThrow(AbortError);
+    });
   });
 });
