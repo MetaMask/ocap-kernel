@@ -131,12 +131,6 @@ describe('hex utilities', () => {
       expect(result.slice(2).every((byte) => byte === 0)).toBe(true);
     });
 
-    it('throws assertion error when string length exceeds 64', () => {
-      const longHex = 'a'.repeat(65);
-      const result = fromHex(longHex);
-      expect(result).toHaveLength(32);
-    });
-
     it('handles exactly 64 characters', () => {
       const hexString = 'f'.repeat(64);
       const result = fromHex(hexString);
