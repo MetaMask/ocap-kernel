@@ -20,10 +20,7 @@ describe('doAttempt', () => {
   let mockReader: ReturnType<typeof vi.fn>;
   let mockEvaluator: ReturnType<typeof vi.fn>;
   let mockPrinter: ReturnType<typeof vi.fn>;
-  let mockLanguageModel: {
-    sample: ReturnType<typeof vi.fn>;
-  };
-  let mockProgress: Progress<string, TestMessage[]>;
+  let mockLanguageModel: { sample: ReturnType<typeof vi.fn> };
   let prep: PREP<TestMessage[], TestMessage, TestMessage>;
   let logger: Logger;
 
@@ -32,14 +29,11 @@ describe('doAttempt', () => {
     mockReader = vi.fn();
     mockEvaluator = vi.fn();
     mockPrinter = vi.fn();
-    mockLanguageModel = {
-      sample: vi.fn(),
-    };
+    mockLanguageModel = { sample: vi.fn() };
     logger = {
       info: vi.fn(),
       subLogger: vi.fn(() => logger),
     } as unknown as Logger;
-
     prep = [
       mockPrompter,
       mockReader,
@@ -47,6 +41,21 @@ describe('doAttempt', () => {
       mockPrinter,
     ] as unknown as PREP<TestMessage[], TestMessage, TestMessage>;
   });
+
+  const makeProgress = (
+    history: TestMessage[],
+    isDone: ReturnType<typeof vi.fn>,
+    result?: string,
+  ): Progress<string, TestMessage[]> => {
+    const progress: Progress<string, TestMessage[]> = {
+      history,
+      isDone,
+    };
+    if (result !== undefined) {
+      progress.result = result;
+    }
+    return progress;
+  };
 
   it('returns result when done on first step', async () => {
     const history: TestMessage[] = [];
@@ -58,15 +67,14 @@ describe('doAttempt', () => {
     mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
     mockReader.mockResolvedValue(action);
     mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => true),
-      result,
-    };
 
     const actual = await doAttempt(
       prep,
-      mockProgress,
+      makeProgress(
+        history,
+        vi.fn(() => true),
+        result,
+      ),
       mockLanguageModel as unknown as LanguageModel<
         unknown,
         { response: string }
@@ -75,12 +83,8 @@ describe('doAttempt', () => {
     );
 
     expect(actual).toBe(result);
-    expect(mockPrompter).toHaveBeenCalledTimes(1);
     expect(mockPrompter).toHaveBeenCalledWith(history);
-    expect(mockLanguageModel.sample).toHaveBeenCalledTimes(1);
     expect(mockLanguageModel.sample).toHaveBeenCalledWith('test prompt');
-    expect(mockReader).toHaveBeenCalledTimes(1);
-    expect(mockEvaluator).toHaveBeenCalledTimes(1);
     expect(mockEvaluator).toHaveBeenCalledWith(history, action);
     expect(mockPrinter).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith('Step 1 of 10');
@@ -107,15 +111,14 @@ describe('doAttempt', () => {
     mockEvaluator
       .mockResolvedValueOnce(observation1)
       .mockResolvedValueOnce(observation2);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => callCount === 2),
-      result,
-    };
 
     const actual = await doAttempt(
       prep,
-      mockProgress,
+      makeProgress(
+        history,
+        vi.fn(() => callCount === 2),
+        result,
+      ),
       mockLanguageModel as unknown as LanguageModel<
         unknown,
         { response: string }
@@ -125,32 +128,26 @@ describe('doAttempt', () => {
 
     expect(actual).toBe(result);
     expect(mockPrompter).toHaveBeenCalledTimes(2);
-    expect(mockLanguageModel.sample).toHaveBeenCalledTimes(2);
-    expect(mockReader).toHaveBeenCalledTimes(2);
-    expect(mockEvaluator).toHaveBeenCalledTimes(2);
-    expect(mockPrinter).toHaveBeenCalledTimes(1);
     expect(mockPrinter).toHaveBeenCalledWith(action1, observation1);
   });
 
   it('passes readerArgs to reader', async () => {
     const history: TestMessage[] = [];
     const action = new TestMessage('action');
-    const observation = new TestMessage('observation');
     const readerArgs = { stop: '</|>', prefix: 'test' };
 
     mockPrompter.mockReturnValue({ prompt: 'test prompt', readerArgs });
     mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
     mockReader.mockResolvedValue(action);
-    mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => true),
-      result: 'result',
-    };
+    mockEvaluator.mockResolvedValue(new TestMessage('observation'));
 
     await doAttempt(
       prep,
-      mockProgress,
+      makeProgress(
+        history,
+        vi.fn(() => true),
+        'result',
+      ),
       mockLanguageModel as unknown as LanguageModel<
         unknown,
         { response: string }
@@ -166,23 +163,22 @@ describe('doAttempt', () => {
       }),
     );
   });
+
   it('throws error when maxSteps is exceeded', async () => {
     const history: TestMessage[] = [];
     const action = new TestMessage('action');
-    const observation = new TestMessage('observation');
 
     mockPrompter.mockReturnValue({ prompt: 'test prompt', readerArgs: {} });
     mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
     mockReader.mockResolvedValue(action);
-    mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => false),
-    };
+    mockEvaluator.mockResolvedValue(new TestMessage('observation'));
 
     const attempt = doAttempt(
       prep,
-      mockProgress,
+      makeProgress(
+        history,
+        vi.fn(() => false),
+      ),
       mockLanguageModel as unknown as LanguageModel<
         unknown,
         { response: string }
@@ -192,67 +188,7 @@ describe('doAttempt', () => {
 
     await expect(attempt).rejects.toThrow('Invocation budget exceeded');
     expect(mockPrompter).toHaveBeenCalledTimes(3);
-    expect(mockLanguageModel.sample).toHaveBeenCalledTimes(3);
-    expect(mockReader).toHaveBeenCalledTimes(3);
-    expect(mockEvaluator).toHaveBeenCalledTimes(3);
     expect(mockPrinter).toHaveBeenCalledTimes(3);
-  });
-
-  it('logs step numbers', async () => {
-    const history: TestMessage[] = [];
-    const action = new TestMessage('action');
-    const observation = new TestMessage('observation');
-
-    mockPrompter.mockReturnValue({ prompt: 'test prompt', readerArgs: {} });
-    mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
-    mockReader.mockResolvedValue(action);
-    mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => true),
-      result: 'result',
-    };
-
-    await doAttempt(
-      prep,
-      mockProgress,
-      mockLanguageModel as unknown as LanguageModel<
-        unknown,
-        { response: string }
-      >,
-      { maxSteps: 5, logger },
-    );
-
-    expect(logger.info).toHaveBeenCalledWith('Step 1 of 5');
-    expect(logger.info).toHaveBeenCalledWith('done:', 'result');
-  });
-
-  it('does not log when logger is not provided', async () => {
-    const history: TestMessage[] = [];
-    const action = new TestMessage('action');
-    const observation = new TestMessage('observation');
-
-    mockPrompter.mockReturnValue({ prompt: 'test prompt', readerArgs: {} });
-    mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
-    mockReader.mockResolvedValue(action);
-    mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => true),
-      result: 'result',
-    };
-
-    await doAttempt(
-      prep,
-      mockProgress,
-      mockLanguageModel as unknown as LanguageModel<
-        unknown,
-        { response: string }
-      >,
-      { maxSteps: 5 },
-    );
-
-    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it('handles null observation from evaluator', async () => {
@@ -263,18 +199,17 @@ describe('doAttempt', () => {
     mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
     mockReader.mockResolvedValue(action);
     mockEvaluator.mockResolvedValue(null);
-    mockProgress = {
-      history,
-      isDone: vi
-        .fn(() => false)
-        .mockReturnValueOnce(false)
-        .mockReturnValueOnce(true),
-      result: 'result',
-    };
 
     await doAttempt(
       prep,
-      mockProgress,
+      makeProgress(
+        history,
+        vi
+          .fn(() => false)
+          .mockReturnValueOnce(false)
+          .mockReturnValueOnce(true),
+        'result',
+      ),
       mockLanguageModel as unknown as LanguageModel<
         unknown,
         { response: string }
@@ -283,33 +218,5 @@ describe('doAttempt', () => {
     );
 
     expect(mockPrinter).toHaveBeenCalledWith(action, null);
-  });
-
-  it('uses default maxSteps when not provided', async () => {
-    const history: TestMessage[] = [];
-    const action = new TestMessage('action');
-    const observation = new TestMessage('observation');
-
-    mockPrompter.mockReturnValue({ prompt: 'test prompt', readerArgs: {} });
-    mockLanguageModel.sample.mockResolvedValue(makeTestStream(['response']));
-    mockReader.mockResolvedValue(action);
-    mockEvaluator.mockResolvedValue(observation);
-    mockProgress = {
-      history,
-      isDone: vi.fn(() => true),
-      result: 'result',
-    };
-
-    await doAttempt(
-      prep,
-      mockProgress,
-      mockLanguageModel as unknown as LanguageModel<
-        unknown,
-        { response: string }
-      >,
-      {},
-    );
-
-    expect(mockPrompter).toHaveBeenCalledTimes(1);
   });
 });

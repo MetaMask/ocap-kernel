@@ -5,13 +5,10 @@ import { describe, it, expect } from 'vitest';
 import { makePrompter } from './prompter.ts';
 
 describe('makePrompter', () => {
-  it('should get the prompt and prefix', () => {
+  it('returns prompt and prefix', () => {
     const prompter = makePrompter();
-    const {
-      prompt,
-      readerArgs: { prefix },
-    } = prompter([]);
+    const { prompt, readerArgs } = prompter([]);
     expect(typeof prompt).toBe('string');
-    expect(typeof prefix).toBe('string');
+    expect(typeof readerArgs.prefix).toBe('string');
   });
 });

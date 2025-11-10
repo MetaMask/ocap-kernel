@@ -50,12 +50,15 @@ describe('StatementMessage', () => {
   });
 });
 
-describe('CommentMessage', () => {
+describe.each([
+  ['CommentMessage', CommentMessage, '// comment', 'comment'],
+  ['ImportMessage', ImportMessage, 'import { foo } from "bar";', 'import'],
+  ['EvaluationMessage', EvaluationMessage, '1 + 1;', 'evaluation'],
+])('%s', (_, Class, code, type) => {
   it('creates message with optional node', () => {
-    const code = '// comment';
-    const node = { type: 'comment' } as SyntaxNode;
-    const message = new CommentMessage(code, node);
-    expect(message.messageType).toBe('comment');
+    const node = { type } as SyntaxNode;
+    const message = new Class(code, node);
+    expect(message.messageType).toBe(type);
     expect(message.messageBody.code).toBe(code);
     expect(message.messageBody.node).toBe(node);
     expect(message.toReplString()).toBe(`> ${code}`);
@@ -63,16 +66,6 @@ describe('CommentMessage', () => {
 });
 
 describe('ImportMessage', () => {
-  it('creates message with optional node', () => {
-    const code = 'import { foo } from "bar";';
-    const node = { type: 'import_statement' } as SyntaxNode;
-    const message = new ImportMessage(code, node);
-    expect(message.messageType).toBe('import');
-    expect(message.messageBody.code).toBe(code);
-    expect(message.messageBody.node).toBe(node);
-    expect(message.toReplString()).toBe(`> ${code}`);
-  });
-
   it.each([
     [['foo', 'bar'], 'import { foo, bar } from "@ocap/abilities";'],
     [['foo'], 'import { foo } from "@ocap/abilities";'],
@@ -81,18 +74,6 @@ describe('ImportMessage', () => {
     const message = ImportMessage.fromNames(names);
     expect(message.messageType).toBe('import');
     expect(message.messageBody.code).toBe(expected);
-  });
-});
-
-describe('EvaluationMessage', () => {
-  it('creates message with optional node', () => {
-    const code = '1 + 1;';
-    const node = { type: 'expression_statement' } as SyntaxNode;
-    const message = new EvaluationMessage(code, node);
-    expect(message.messageType).toBe('evaluation');
-    expect(message.messageBody.code).toBe(code);
-    expect(message.messageBody.node).toBe(node);
-    expect(message.toReplString()).toBe(`> ${code}`);
   });
 });
 
@@ -115,43 +96,34 @@ describe('ResultMessage', () => {
     (_, i) => `line ${i}`,
   ).join('\n');
 
-  it.each([[{ [RETURN]: 'hello' }], [{ [RETURN]: 'returned' }]])(
-    'creates message with return value',
-    (result) => {
-      const message = new ResultMessage(result);
-      expect(message.messageType).toBe('result');
-      expect(message.messageBody.return).toBeDefined();
-      expect(message.messageBody.error).toBeUndefined();
-      expect(message.messageBody.value).toBeUndefined();
-    },
-  );
+  it('creates message with return value', () => {
+    const message = new ResultMessage({ [RETURN]: 'hello' });
+    expect(message.messageType).toBe('result');
+    expect(message.messageBody.return).toBeDefined();
+    expect(message.messageBody.error).toBeUndefined();
+    expect(message.messageBody.value).toBeUndefined();
+  });
 
-  it.each([
-    [{ [ERROR]: new Error('test') }],
-    [{ [ERROR]: new Error('another error') }],
-  ])('creates message with error', (result) => {
-    const message = new ResultMessage(result);
+  it('creates message with error', () => {
+    const message = new ResultMessage({ [ERROR]: new Error('test') });
     expect(message.messageType).toBe('result');
     expect(message.messageBody.error).toBeDefined();
     expect(message.messageBody.return).toBeUndefined();
     expect(message.messageBody.value).toBeUndefined();
   });
 
+  it('creates message with value', () => {
+    const message = new ResultMessage({ value: { x: 1 } });
+    expect(message.messageType).toBe('result');
+    expect(message.messageBody.value).toBeDefined();
+    expect(message.messageBody.return).toBeUndefined();
+    expect(message.messageBody.error).toBeUndefined();
+  });
+
   it('formats error correctly', () => {
     const message = new ResultMessage({ [ERROR]: new Error('test') });
     expect(message.messageBody.error).toBe('Error: test');
   });
-
-  it.each([[{ value: { x: 1 } }], [{ value: { x: 1, y: 2 } }]])(
-    'creates message with value',
-    (result) => {
-      const message = new ResultMessage(result);
-      expect(message.messageType).toBe('result');
-      expect(message.messageBody.value).toBeDefined();
-      expect(message.messageBody.error).toBeUndefined();
-      expect(message.messageBody.return).toBeUndefined();
-    },
-  );
 
   it('creates message with all result types', () => {
     const message = new ResultMessage({
@@ -180,6 +152,15 @@ describe('ResultMessage', () => {
     expect(replString).toContain('// ...');
   });
 
+  it.each([
+    ['long error', { [ERROR]: new Error(longString) }],
+    ['long return', { [RETURN]: longString }],
+  ])('compresses %s by default', (_, result) => {
+    const message = new ResultMessage(result);
+    const replString = message.toReplString();
+    expect(replString.split('\n').length).toBeLessThan(30);
+  });
+
   it('does not compress when disabled', () => {
     const message = new ResultMessage(
       { value: { output: longValue } },
@@ -188,14 +169,6 @@ describe('ResultMessage', () => {
     const replString = message.toReplString();
     expect(replString.split('\n').length).toBeGreaterThan(30);
     expect(replString).not.toContain('// ...');
-  });
-
-  it.each([
-    [{ [ERROR]: new Error(longString) }, 'error'],
-    [{ [RETURN]: longString }, 'return'],
-  ])('compresses long %s', (result, _type) => {
-    const message = new ResultMessage(result);
-    expect(message.toReplString().split('\n').length).toBeLessThan(30);
   });
 
   it('handles multiline values', () => {

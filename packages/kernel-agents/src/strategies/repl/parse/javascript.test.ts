@@ -2,13 +2,10 @@
  * This suite declares expected AST nodes for various JavaScript expressions.
  */
 import '@ocap/repo-tools/test-utils/mock-endoify';
-import { Logger } from '@metamask/logger';
 import type { SyntaxNode } from 'tree-sitter';
 import { describe, it, expect } from 'vitest';
 
 import { parse } from './javascript.ts';
-
-const logger = new Logger('js-parser-test');
 
 describe('javascript parser', () => {
   it.each([
@@ -33,7 +30,6 @@ describe('javascript parser', () => {
     expect(rootNode.text).toStrictEqual(expression);
     expect(rootNode.type).toBe('program');
     expect(rootNode.children).toHaveLength(1);
-    logger.info(rootNode.toString());
     const [child] = rootNode.children as [SyntaxNode];
     expect(child.text).toStrictEqual(expression);
     expect(child.type).toBe(expectedType);
