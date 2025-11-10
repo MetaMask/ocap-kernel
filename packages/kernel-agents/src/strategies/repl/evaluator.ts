@@ -140,17 +140,12 @@ export const makeEvaluator = ({
     );
     const compartment = makeCompartment(compartmentEndowments);
 
-    // Handle errors that escape the wrapped code (infrastructure/setup errors)
-    // If an error evades $catch, it must be an EvaluatorError because:
-    // - Errors in destructuring/await null are infrastructure code
-    // - Errors from $catch/$capture are wrapped with makeSafe (EvaluatorError)
-    // - User code errors are caught by $catch
     try {
       await compartment.evaluate(code);
     } catch (cause) {
       const asError = (error: unknown): Error =>
         error instanceof Error ? error : new Error(String(error));
-      // Errors that evade $catch are always infrastructure errors
+      // Errors that evade $catch are always an EvaluationError
       throw new EvaluatorError(
         'REPL evaluation failed',
         code,

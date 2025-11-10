@@ -291,56 +291,41 @@ describe('prepareEvaluation', () => {
   });
 
   describe('with logger', () => {
-    it('logs commit for const declaration', () => {
-      const logger = new Logger('test');
-      const infoSpy = vi.spyOn(logger, 'info');
-      const subLoggerSpy = vi.fn().mockReturnValue({
-        info: infoSpy,
-      });
+    let logger: Logger;
+    let infoSpy: ReturnType<typeof vi.spyOn>;
+    let subLoggerSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      logger = new Logger('test');
+      infoSpy = vi.spyOn(logger, 'info');
+      subLoggerSpy = vi.fn().mockReturnValue({ info: infoSpy });
       logger.subLogger = subLoggerSpy;
-
-      const statement = createMockNode('lexical_declaration', 'const x = 1;', [
-        createMockNode('const', 'const'),
-      ]);
-      mockExtractNames.mockReturnValue(['x']);
-
-      const evaluable = prepareEvaluation(state, statement, { logger });
-      evaluable.result.value = { x: 1 };
-      evaluable.commit();
-
-      expect(subLoggerSpy).toHaveBeenCalledWith({ tags: ['commit'] });
-      expect(infoSpy).toHaveBeenCalledWith('captured namespace:', {});
-      expect(infoSpy).toHaveBeenCalledWith('const declaration:', { x: 1 });
     });
 
-    it('logs commit for let declaration', () => {
-      const logger = new Logger('test');
-      const infoSpy = vi.spyOn(logger, 'info');
-      const subLoggerSpy = vi.fn().mockReturnValue({
-        info: infoSpy,
-      });
-      logger.subLogger = subLoggerSpy;
+    it.each([
+      ['const', 'const x = 1;', ['x'], { x: 1 }, 'const declaration:'],
+      ['let', 'let y = 2;', ['y'], { y: 2 }, 'let declaration:'],
+    ])(
+      'logs commit for %s declaration',
+      (_, code, names, value, logMessage) => {
+        const statement = createMockNode('lexical_declaration', code, [
+          createMockNode(
+            code.split(' ')[0] as string,
+            code.split(' ')[0] as string,
+          ),
+        ]);
+        mockExtractNames.mockReturnValue(names);
 
-      const statement = createMockNode('lexical_declaration', 'let y = 2;', [
-        createMockNode('let', 'let'),
-      ]);
-      mockExtractNames.mockReturnValue(['y']);
+        const evaluable = prepareEvaluation(state, statement, { logger });
+        evaluable.result.value = value;
+        evaluable.commit();
 
-      const evaluable = prepareEvaluation(state, statement, { logger });
-      evaluable.result.value = { y: 2 };
-      evaluable.commit();
-
-      expect(infoSpy).toHaveBeenCalledWith('let declaration:', { y: 2 });
-    });
+        expect(subLoggerSpy).toHaveBeenCalledWith({ tags: ['commit'] });
+        expect(infoSpy).toHaveBeenCalledWith(logMessage, value);
+      },
+    );
 
     it('logs error on commit', () => {
-      const logger = new Logger('test');
-      const infoSpy = vi.spyOn(logger, 'info');
-      const subLoggerSpy = vi.fn().mockReturnValue({
-        info: infoSpy,
-      });
-      logger.subLogger = subLoggerSpy;
-
       const statement = createMockNode('lexical_declaration', 'const x = 1;', [
         createMockNode('const', 'const'),
       ]);
@@ -354,15 +339,7 @@ describe('prepareEvaluation', () => {
     });
 
     it('logs expression return value', () => {
-      const logger = new Logger('test');
-      const infoSpy = vi.spyOn(logger, 'info');
-      const subLoggerSpy = vi.fn().mockReturnValue({
-        info: infoSpy,
-      });
-      logger.subLogger = subLoggerSpy;
-
       const statement = createMockNode('expression_statement', '42;');
-
       const evaluable = prepareEvaluation(state, statement, { logger });
       evaluable.result[RETURN] = 42;
       evaluable.commit();

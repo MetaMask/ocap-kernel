@@ -9,7 +9,6 @@ describe('makePrompter', () => {
     const prompter = makePrompter({});
     const { prompt, readerArgs } = prompter([]);
     expect(typeof readerArgs.stop).toBe('string');
-    console.log('prompt:\n', prompt);
     expect(prompt).toContain(
       '> import { end, search } from "@ocap/abilities";',
     );

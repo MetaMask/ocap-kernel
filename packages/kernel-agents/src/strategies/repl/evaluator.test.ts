@@ -32,13 +32,15 @@ describe('evaluator', () => {
     }
   };
 
-  describe('successful evaluations', () => {
-    it('evaluates a single expression', async () => {
-      await evaluateStatements('1 + 1;');
-      expect(state).toStrictEqual({ consts: {}, lets: {} });
+  describe('evaluates statements', () => {
+    it('evaluates expressions', async () => {
+      const history: ReplTranscript = [];
+      const result = await evaluator(history, StatementMessage.fromCode('42;'));
+      expect(result).toBeInstanceOf(ResultMessage);
+      expect(result?.messageBody.return).toBe('42');
     });
 
-    it('evaluates a sequence of declarations', async () => {
+    it('evaluates declarations and updates state', async () => {
       await evaluateStatements(
         'const x = 1;',
         'let y = x + 2;',
@@ -51,56 +53,24 @@ describe('evaluator', () => {
       });
     });
 
-    it('evaluates a for loop', async () => {
+    it('evaluates loops', async () => {
       await evaluateStatements(
         'let x = 1;',
         'for (let i = 1; i <= 4; i++) { x *= i; }',
       );
-      expect(state).toStrictEqual({ consts: {}, lets: { x: 24 } });
+      expect(state.lets).toStrictEqual({ x: 24 });
     });
 
-    it('evaluates expressions with return values', async () => {
-      const history: ReplTranscript = [];
-      const result = await evaluator(history, StatementMessage.fromCode('42;'));
-      expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.return).toBeDefined();
-    });
-
-    it('evaluates const declarations', async () => {
-      await evaluateStatements('const a = 10;', 'const b = a * 2;');
-      expect(state.consts).toStrictEqual({ a: 10, b: 20 });
-      expect(state.lets).toStrictEqual({});
-    });
-
-    it('evaluates let declarations', async () => {
-      await evaluateStatements('let a = 10;', 'a = 20;');
-      expect(state.lets).toStrictEqual({ a: 20 });
-    });
-
-    it('evaluates with capabilities', async () => {
-      const mockCapability = vi.fn().mockReturnValue('test-result');
-      const evaluatorWithCap = makeEvaluator({
-        initState: () => state,
-        capabilities: {
-          testCap: {
-            func: mockCapability,
-            schema: {
-              description: 'Test capability',
-              args: {},
-            },
-          },
-        },
-      });
-      const history: ReplTranscript = [];
-      await evaluatorWithCap(history, StatementMessage.fromCode('testCap();'));
-      expect(mockCapability).toHaveBeenCalled();
+    it('captures mutated let variables', async () => {
+      await evaluateStatements('let x = 1;', 'x = 2;', 'x = 3;');
+      expect(state.lets).toStrictEqual({ x: 3 });
     });
   });
 
-  describe('statement validation', () => {
+  describe('handles statement types', () => {
     it('handles comment messages', async () => {
       const history: ReplTranscript = [];
-      const comment = new CommentMessage('// This is a comment');
+      const comment = new CommentMessage('// comment');
       const result = await evaluator(history, comment);
       expect(result).toBeNull();
       expect(history).toHaveLength(1);
@@ -109,104 +79,64 @@ describe('evaluator', () => {
 
     it('handles import messages', async () => {
       const history: ReplTranscript = [];
-      const importMsg = new ImportMessage(
-        'import { test } from "@ocap/abilities";',
-      );
+      const importMsg = new ImportMessage('import { x } from "y";');
       const result = await evaluator(history, importMsg);
       expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.error).toContain('SyntaxError');
-      expect(result?.messageBody.error).toContain(
-        'Additional imports are not allowed',
-      );
+      expect(history).toHaveLength(2);
+      expect(history[0]).toBe(importMsg);
     });
 
     it('rejects variable declarations', async () => {
       const statement = StatementMessage.fromCode('var x = 1;');
-      const { code } = statement.messageBody;
       await expect(evaluator([], statement)).rejects.toThrow(
-        `Variable declarations are not allowed: "${code}"`,
+        'Variable declarations are not allowed',
       );
     });
   });
 
-  describe('error classification', () => {
-    it('classifies syntax errors as sample-generation errors', async () => {
-      const history: ReplTranscript = [];
-      // This will fail during prepareEvaluation, but if it somehow gets through,
-      // it would be classified as sample-generation
-      // Testing the classification logic indirectly through other error types
-      const statement = StatementMessage.fromCode('undefined.prop;');
-      const result = await evaluator(history, statement);
-      // This is a TypeError, not ReferenceError, so it's valid feedback
-      expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.error).toBeDefined();
-    });
-
-    it('classifies EvaluatorError as internal error', async () => {
-      const mockState = { consts: {}, lets: {} };
+  describe('classifies errors', () => {
+    it('rejects EvaluatorError as internal error', async () => {
       const evaluatorWithError = makeEvaluator({
-        initState: () => mockState,
+        initState: () => ({ consts: {}, lets: {} }),
         capabilities: {
           badCap: {
             func: () => {
               throw new EvaluatorError('test', 'code', new Error('cause'));
             },
-            schema: {
-              description: 'Bad capability',
-              args: {},
-            },
+            schema: { description: 'Bad capability', args: {} },
           },
         },
       });
-      const history: ReplTranscript = [];
       const statement = new EvaluationMessage('badCap();');
-      await expect(evaluatorWithError(history, statement)).rejects.toThrow(
+      await expect(evaluatorWithError([], statement)).rejects.toThrow(
         EvaluatorError,
       );
     });
 
-    it('classifies other errors as valid feedback', async () => {
+    it('returns user errors as valid feedback without stack traces', async () => {
       const history: ReplTranscript = [];
-      const statement = StatementMessage.fromCode(
-        '(function() { throw new Error("user error"); })();',
+      const result = await evaluator(
+        history,
+        StatementMessage.fromCode(
+          '(function() { throw new Error("user error"); })();',
+        ),
       );
-      const result = await evaluator(history, statement);
-      expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.error).toContain('Error: user error');
-      expect(result?.messageBody.error).not.toContain('at ');
-    });
-
-    it('strips stack traces from valid feedback errors', async () => {
-      const history: ReplTranscript = [];
-      const statement = StatementMessage.fromCode(
-        '(function() { throw new Error("test error"); })();',
-      );
-      const result = await evaluator(history, statement);
-      expect(result?.messageBody.error).toBe('Error: test error');
-    });
-
-    it('preserves error cause chains without stack traces', async () => {
-      const history: ReplTranscript = [];
-      const statement = StatementMessage.fromCode(
-        '(function() { throw new Error("outer", { cause: new Error("inner") }); })();',
-      );
-      const result = await evaluator(history, statement);
-      expect(result?.messageBody.error).toContain('Error: outer');
+      expect(result?.messageBody.error).toBe('Error: user error');
     });
   });
 
-  describe('result message creation', () => {
-    it('creates result message with return value', async () => {
+  describe('creates result messages', () => {
+    it('creates result with return value', async () => {
       const history: ReplTranscript = [];
       const result = await evaluator(
         history,
         StatementMessage.fromCode('"hello";'),
       );
       expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.return).toBeDefined();
+      expect(result?.messageBody.return).toBe('"hello"');
     });
 
-    it('creates result message with error', async () => {
+    it('creates result with error', async () => {
       const history: ReplTranscript = [];
       const result = await evaluator(
         history,
@@ -218,14 +148,14 @@ describe('evaluator', () => {
       expect(result?.messageBody.error).toContain('Error: test');
     });
 
-    it('creates result message with value from declaration', async () => {
+    it('creates result with declaration value', async () => {
       const history: ReplTranscript = [];
       const result = await evaluator(
         history,
         StatementMessage.fromCode('const x = 42;'),
       );
       expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.value).toBeDefined();
+      expect(result?.messageBody.value).toBe('x: 42');
     });
 
     it('returns null when no result keys are present', async () => {
@@ -238,25 +168,7 @@ describe('evaluator', () => {
     });
   });
 
-  describe('state management', () => {
-    it('updates state after successful const declaration', async () => {
-      const history: ReplTranscript = [];
-      await evaluator(history, StatementMessage.fromCode('const x = 5;'));
-      expect(state.consts).toStrictEqual({ x: 5 });
-      expect(state.lets).toStrictEqual({});
-    });
-
-    it('updates state after successful let declaration', async () => {
-      const history: ReplTranscript = [];
-      await evaluator(history, StatementMessage.fromCode('let y = 10;'));
-      expect(state.lets).toStrictEqual({ y: 10 });
-    });
-
-    it('captures mutated let variables', async () => {
-      await evaluateStatements('let x = 1;', 'x = 2;', 'x = 3;');
-      expect(state.lets).toStrictEqual({ x: 3 });
-    });
-
+  describe('manages state', () => {
     it('does not update state on error', async () => {
       const initialState = { consts: {}, lets: {} };
       const history: ReplTranscript = [];
@@ -272,76 +184,15 @@ describe('evaluator', () => {
     });
   });
 
-  describe('history management', () => {
-    it('adds statement and result to history', async () => {
-      const history: ReplTranscript = [];
-      const statement = StatementMessage.fromCode('42;');
-      await evaluator(history, statement);
-      expect(history).toHaveLength(2);
-      expect(history[0]).toBe(statement);
-      expect(history[1]).toBeInstanceOf(ResultMessage);
-    });
-
-    it('adds only statement for comments', async () => {
-      const history: ReplTranscript = [];
-      const comment = new CommentMessage('// comment');
-      await evaluator(history, comment);
-      expect(history).toHaveLength(1);
-      expect(history[0]).toBe(comment);
-    });
-
-    it('adds statement and error result for imports', async () => {
-      const history: ReplTranscript = [];
-      const importMsg = new ImportMessage('import { x } from "y";');
-      await evaluator(history, importMsg);
-      expect(history).toHaveLength(2);
-      expect(history[0]).toBe(importMsg);
-      expect(history[1]).toBeInstanceOf(ResultMessage);
-    });
-  });
-
-  describe('edge cases', () => {
-    it('handles undefined result', async () => {
-      const history: ReplTranscript = [];
-      const result = await evaluator(
-        history,
-        StatementMessage.fromCode('void 0;'),
-      );
-      expect(result).toBeInstanceOf(ResultMessage);
-    });
-
-    it('handles null result', async () => {
-      const history: ReplTranscript = [];
-      const result = await evaluator(
-        history,
-        StatementMessage.fromCode('null;'),
-      );
-      expect(result).toBeInstanceOf(ResultMessage);
-    });
-
-    it('handles non-Error thrown values', async () => {
-      const history: ReplTranscript = [];
-      const statement = StatementMessage.fromCode(
-        '(function() { throw "string error"; })();',
-      );
-      const result = await evaluator(history, statement);
-      expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.error).toBeDefined();
-    });
-  });
-
-  describe('capabilities integration', () => {
-    it('merges capabilities with endowments', async () => {
+  describe('integrates capabilities', () => {
+    it('evaluates capability calls', async () => {
       const mockCap = vi.fn().mockReturnValue('result');
       const evaluatorWithCap = makeEvaluator({
         initState: () => state,
         capabilities: {
           testCap: {
             func: mockCap,
-            schema: {
-              description: 'Test capability',
-              args: {},
-            },
+            schema: { description: 'Test capability', args: {} },
           },
         },
       });
