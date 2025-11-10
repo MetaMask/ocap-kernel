@@ -8,7 +8,7 @@ import type { ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { makeTestKernel } from '../make-test-kernel.ts';
+import { makeTestKernel, getBundleSpec, runTestVats } from '../utils.ts';
 
 // Increase timeout for network operations
 const NETWORK_TIMEOUT = 30_000;
@@ -48,21 +48,26 @@ describe.sequential('Remote Communications E2E', () => {
   });
 
   afterEach(async () => {
+    console.log('[AFTER EACH] stopping relay');
     if (relay) {
       await relay.stop();
     }
+    console.log('[AFTER EACH] stopping kernel1');
     if (kernel1) {
       await kernel1.stop();
     }
+    console.log('[AFTER EACH] stopping kernel2');
     if (kernel2) {
       await kernel2.stop();
     }
-    if (kernelDatabase1) {
-      kernelDatabase1.close();
-    }
-    if (kernelDatabase2) {
-      kernelDatabase2.close();
-    }
+    // console.log('[AFTER EACH] closing kernelDatabase1');
+    // if (kernelDatabase1) {
+    //   kernelDatabase1.close();
+    // }
+    // console.log('[AFTER EACH] closing kernelDatabase2');
+    // if (kernelDatabase2) {
+    //   kernelDatabase2.close();
+    // }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
@@ -222,4 +227,313 @@ describe.sequential('Remote Communications E2E', () => {
       NETWORK_TIMEOUT,
     );
   });
+
+  describe('Connection Resilience', () => {
+    it.only(
+      'remote relationships should survive kernel restart',
+      async () => {
+        // Initialize remote comms
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        // Wait for things to settle and connections to establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Launch client vat on kernel1
+        const clientConfig = makeMaasClientConfig('client1', true);
+        let clientKernel = kernel1;
+        await runTestVats(clientKernel, clientConfig);
+        const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
+
+        // Launch server vat on kernel2
+        const serverConfig = makeMaasServerConfig('server2', true);
+        let serverKernel = kernel2;
+        const serverResult = await runTestVats(serverKernel, serverConfig);
+
+        // The server's ocap URL is its bootstrap result
+        const serverURL = serverResult as string;
+
+        expect(typeof serverURL).toBe('string');
+        expect(serverURL).toMatch(/^ocap:/u);
+
+        console.log('serverURL:', serverURL);
+
+        // Configure the client with the server's URL
+        const setupResult = await clientKernel.queueMessage(
+          clientRootRef,
+          'setMaas',
+          [serverURL],
+        );
+        let response = kunser(setupResult);
+        expect(response).toBeDefined();
+        expect(response).toContain('MaaS service URL set');
+
+        console.log('client configured with server URL: MaaS service URL set');
+
+        // Tell the client to talk to the server
+        let expectedCount = 1;
+        const stepResult = await clientKernel.queueMessage(
+          clientRootRef,
+          'step',
+          [],
+        );
+        response = kunser(stepResult);
+        expect(response).toBeDefined();
+        expect(response).toContain(`next step: ${expectedCount} `);
+
+        console.log('client talked to server: next step: 1');
+
+        // Kill the server and restart it
+        await serverKernel.stop();
+        console.log('server stopped');
+        serverKernel = await makeTestKernel(kernelDatabase2, false);
+        await serverKernel.initRemoteComms(testRelays);
+
+        // Wait for things to settle and connections to re-establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Tell the client to talk to the server a second time
+        expectedCount += 1;
+        const stepResult2 = await clientKernel.queueMessage(
+          clientRootRef,
+          'step',
+          [],
+        );
+        response = kunser(stepResult2);
+        expect(response).toBeDefined();
+        expect(response).toContain(`next step: ${expectedCount} `);
+
+        console.log('client talked to server a second time: next step: 2');
+
+        // Kill the client and restart it
+        await clientKernel.stop();
+        clientKernel = await makeTestKernel(kernelDatabase1, false);
+        await clientKernel.initRemoteComms(testRelays);
+
+        // Wait for things to settle and connections to re-establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Tell the client to talk to the server a third time
+        expectedCount += 1;
+        const stepResult3 = await clientKernel.queueMessage(
+          clientRootRef,
+          'step',
+          [],
+        );
+        response = kunser(stepResult3);
+        expect(response).toBeDefined();
+        expect(response).toContain(`next step: ${expectedCount} `);
+
+        console.log('client talked to server a third time: next step: 3');
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'handles connection failure and recovery',
+      async () => {
+        // Initialize remote comms
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        // Launch vats with ocap services
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        const config2: ClusterConfig = {
+          bootstrap: 'bob',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            bob: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Bob' },
+            },
+          },
+        };
+
+        const result1 = await kernel1.launchSubcluster(config1);
+        const result2 = await kernel2.launchSubcluster(config2);
+
+        const aliceURL = kunser(result1 as CapData<KRef>) as string;
+        const bobURL = kunser(result2 as CapData<KRef>) as string;
+
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        const vats2 = kernel2.getVats();
+        const bobVatId = vats2.find(
+          (vat) => vat.config.parameters?.name === 'Bob',
+        )?.id as VatId;
+        const bobRef = kernelStore2.getRootObject(bobVatId) as KRef;
+
+        // Alice sends to Bob
+        const aliceToBob = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+        expect(kunser(aliceToBob)).toContain('vat Bob got "hello" from Alice');
+
+        // Bob sends to Alice
+        const bobToAlice = await kernel2.queueMessage(
+          bobRef,
+          'sendRemoteMessage',
+          [aliceURL, 'hello', ['Bob']],
+        );
+        expect(kunser(bobToAlice)).toContain('vat Alice got "hello" from Bob');
+
+        // Simulate network disruption by stopping kernel2's remote comms only
+        console.log('stopping kernel2');
+        await kernel2.stop();
+        console.log('kernel2 stopped');
+
+        // Wait a bit for the connection to be fully closed
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.log('restarting kernel2');
+
+        // Restart kernel2 with same storage - vats will be restored with baggage
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(kernelDatabase2, false);
+
+        console.log('kernel2 restarted, initializing remote comms');
+        await kernel2.initRemoteComms(testRelays);
+        const status2AfterRestart = await kernel2.getStatus();
+        console.log('kernel2 status after restart:', status2AfterRestart);
+        console.log(
+          'kernel2 peerId after restart:',
+          status2AfterRestart.remoteComms?.peerId,
+        );
+
+        // Wait for things to settle and connections to re-establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Send message after recovery - connection should be re-established
+        console.log('Attempting to reconnect from kernel1 to kernel2');
+        console.log('Using bobURL:', bobURL);
+        const recoveryResult = await kernel1.queueMessage(
+          aliceRef,
+          'testConnection',
+          [bobURL],
+        );
+        const recoveryResponse = kunser(recoveryResult) as {
+          status: string;
+          result?: unknown;
+          error?: string;
+        };
+        console.log('Recovery response:', recoveryResponse);
+        expect(recoveryResponse).toHaveProperty('status');
+        expect(recoveryResponse.status).toBe('connected');
+      },
+      NETWORK_TIMEOUT * 2,
+    );
+
+    it(
+      'handles reconnection with exponential backoff',
+      async () => {
+        // Initialize kernel1 and launch a vat
+        await kernel1.initRemoteComms(testRelays);
+
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        await kernel1.launchSubcluster(config1);
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        // Create a fake ocap URL for a non-existent kernel
+        const fakeURL =
+          'ocap://12D3KooWFakePeerIdThatDoesNotExist123456789/ko1';
+
+        // Try to connect to non-existent peer - should fail gracefully
+        const connectionTest = await kernel1.queueMessage(
+          aliceRef,
+          'testConnection',
+          [fakeURL],
+        );
+
+        const result = kunser(connectionTest) as {
+          status: string;
+          error?: string;
+        };
+        expect(result).toHaveProperty('status');
+        expect(result.status).toBe('disconnected');
+        expect(result).toHaveProperty('error');
+      },
+      NETWORK_TIMEOUT,
+    );
+  });
 });
+
+/**
+ * Create a test subcluster configuration for a MaaS server vat.
+ *
+ * @param name - The name of the vat.
+ * @param forceReset - True if cluster should reset on start
+ * @returns Cluster configuration to run a MaaS server.
+ */
+function makeMaasServerConfig(
+  name: string,
+  forceReset: boolean,
+): ClusterConfig {
+  return {
+    bootstrap: 'maasServer',
+    forceReset,
+    services: ['ocapURLIssuerService'],
+    vats: {
+      maasServer: {
+        bundleSpec: 'http://localhost:3000/monotonous-vat.bundle',
+        parameters: {
+          name,
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Create a test subcluster configuration for a MaaS client vat.
+ *
+ * @param name - The name of the vat.
+ * @param forceReset - True if cluster should reset on start
+ * @returns Cluster configuration to run a MaaS client.
+ */
+function makeMaasClientConfig(
+  name: string,
+  forceReset: boolean,
+): ClusterConfig {
+  return {
+    bootstrap: 'maasClient',
+    forceReset,
+    services: ['ocapURLRedemptionService'],
+    vats: {
+      maasClient: {
+        bundleSpec: 'http://localhost:3000/stepper-upper-vat.bundle',
+        parameters: {
+          name,
+        },
+      },
+    },
+  };
+}

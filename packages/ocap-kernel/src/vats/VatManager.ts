@@ -65,7 +65,9 @@ export class VatManager {
     for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
       starts.push(this.runVat(vatID, vatConfig));
     }
+    console.log('[VATMANAGER] Waiting for all vats to initialize...');
     await Promise.all(starts);
+    console.log('[VATMANAGER] All vats initialized');
   }
 
   /**
@@ -100,22 +102,39 @@ export class VatManager {
     if (this.#vats.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
     }
-    const stream = await this.#platformServices.launch(vatId, vatConfig);
-    const { kernelStream: vatStream, loggerStream } = splitLoggerStream(stream);
-    const vatLogger = this.#logger.subLogger({ tags: [vatId] });
-    vatLogger.injectStream(
-      loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
-      (error) => this.#logger.error(`Vat ${vatId} error: ${stringify(error)}`),
-    );
-    const vat = await VatHandle.make({
-      vatId,
-      vatConfig,
-      vatStream,
-      kernelStore: this.#kernelStore,
-      kernelQueue: this.#kernelQueue,
-      logger: vatLogger,
-    });
-    this.#vats.set(vatId, vat);
+    console.log('[VATMANAGER] Starting runVat for', vatId);
+    try {
+      console.log('[VATMANAGER] Calling platformServices.launch for', vatId);
+      const stream = await this.#platformServices.launch(vatId, vatConfig);
+      console.log('[VATMANAGER] Vat worker launched successfully', vatId);
+
+      const { kernelStream: vatStream, loggerStream } =
+        splitLoggerStream(stream);
+      const vatLogger = this.#logger.subLogger({ tags: [vatId] });
+      console.log('[VATMANAGER] Vat logger created', vatId);
+
+      vatLogger.injectStream(
+        loggerStream as unknown as Parameters<typeof vatLogger.injectStream>[0],
+        (error) =>
+          this.#logger.error(`Vat ${vatId} error: ${stringify(error)}`),
+      );
+      console.log('[VATMANAGER] Creating vat handle for', vatId);
+
+      const vat = await VatHandle.make({
+        vatId,
+        vatConfig,
+        vatStream,
+        kernelStore: this.#kernelStore,
+        kernelQueue: this.#kernelQueue,
+        logger: vatLogger,
+      });
+      console.log('[VATMANAGER] Vat handle created, adding to map', vatId);
+      this.#vats.set(vatId, vat);
+      console.log('[VATMANAGER] Vat fully initialized', vatId);
+    } catch (error) {
+      console.error('[VATMANAGER] Failed to run vat', vatId, error);
+      throw error;
+    }
   }
 
   /**

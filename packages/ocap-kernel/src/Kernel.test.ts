@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => {
 
     run = vi.fn().mockResolvedValue(undefined);
 
+    stop = vi.fn();
+
     constructor() {
       (this.constructor as typeof KernelQueue).lastInstance = this;
     }
@@ -706,6 +708,7 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
+      const queueInstance = mocks.KernelQueue.lastInstance;
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       await kernel.stop();
@@ -714,6 +717,7 @@ describe('Kernel', () => {
       expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
       expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
+      expect(queueInstance.stop).toHaveBeenCalledOnce();
     });
   });
 

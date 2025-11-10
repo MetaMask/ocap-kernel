@@ -208,7 +208,10 @@ export class Kernel {
    * and then begin processing the run queue.
    */
   async #init(): Promise<void> {
+    this.#logger.info('[INIT] Starting kernel initialization');
+
     // Set up the remote message handler
+    this.#logger.info('[INIT] Setting up remote message handler');
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
         this.#remoteManager.handleRemoteMessage(from, message),
@@ -216,6 +219,7 @@ export class Kernel {
 
     // Start the command stream handler (non-blocking)
     // This runs for the entire lifetime of the kernel
+    this.#logger.info('[INIT] Starting command stream handler');
     this.#commandStream
       .drain(this.#handleCommandMessage.bind(this))
       .catch((error) => {
@@ -228,10 +232,13 @@ export class Kernel {
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
+    this.#logger.info('[INIT] Initializing all vats');
     await this.#vatManager.initializeAllVats();
+    this.#logger.info('[INIT] All vats initialized');
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
+    this.#logger.info('[INIT] Starting kernel queue run loop');
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
@@ -241,6 +248,7 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
+    this.#logger.info('[INIT] Kernel initialization complete');
   }
 
   /**
@@ -251,6 +259,16 @@ export class Kernel {
    */
   async initRemoteComms(relays?: string[]): Promise<void> {
     await this.#remoteManager.initRemoteComms(relays);
+  }
+
+  /**
+   * Stop the remote comms object without stopping the kernel.
+   * This is useful for testing network disruption scenarios.
+   *
+   * @returns a promise that resolves when remote comms is stopped.
+   */
+  async stopRemoteComms(): Promise<void> {
+    await this.#remoteManager.stopRemoteComms();
   }
 
   /**
@@ -592,15 +610,29 @@ export class Kernel {
    * Gracefully stop the kernel without deleting vats.
    */
   async stop(): Promise<void> {
-    this.#logger.info('Stopping kernel gracefully...');
+    this.#logger.info('[STOP] Starting kernel stop sequence');
+
+    this.#logger.info('[STOP] Waiting for current crank to complete...');
     await this.#kernelQueue.waitForCrank();
-    this.#logger.info('stopping command stream');
+    this.#logger.info('[STOP] Current crank completed');
+
+    this.#logger.info('[STOP] Stopping kernel queue run loop...');
+    await this.#kernelQueue.stop();
+    this.#logger.info('[STOP] Kernel queue stopped');
+
+    this.#logger.info('[STOP] Ending command stream...');
     await this.#commandStream.end();
-    this.#logger.info('stopping remote comms');
+    this.#logger.info('[STOP] Command stream ended');
+
+    this.#logger.info('[STOP] Stopping remote comms...');
     await this.#platformServices.stopRemoteComms();
-    this.#logger.info('stopping platform services');
+    this.#logger.info('[STOP] Remote comms stopped');
+
+    this.#logger.info('[STOP] Terminating all platform services...');
     await this.#platformServices.terminateAll();
-    this.#logger.info('Kernel stopped gracefully');
+    this.#logger.info('[STOP] Platform services terminated');
+
+    this.#logger.info('[STOP] Kernel stopped gracefully');
   }
 
   /**
