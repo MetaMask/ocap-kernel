@@ -1,8 +1,9 @@
-import { SampleGenerationError, EvaluatorError } from '@metamask/kernel-errors';
+import { EvaluatorError } from '@metamask/kernel-errors';
 import { mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 
 import { makeCompartment } from './compartment.ts';
+import { processEvaluationError } from './evaluator-error.ts';
 import {
   CommentMessage,
   EvaluationMessage,
@@ -16,58 +17,6 @@ import type { EvaluatorState } from './types.ts';
 import { extractCapabilities } from '../../capabilities/capability.ts';
 import type { CapabilityRecord } from '../../types.ts';
 import { ifDefined } from '../../utils.ts';
-
-/**
- * Error classification result for compartment errors.
- */
-type ErrorClassification =
-  | { type: 'sample-generation'; error: SampleGenerationError }
-  | { type: 'internal'; error: EvaluatorError }
-  | { type: 'valid-feedback'; error: Error };
-
-/**
- * Classifies a compartment error into one of three categories:
- * 1. Sample generation errors (syntax/reference errors) - should trigger retry
- * 2. Internal errors (REPL infrastructure violations) - should exit attempt
- * 3. Valid feedback errors (capability errors, etc.) - should be surfaced to agent
- *
- * @param error - The error to classify.
- * @param code - The code that was being evaluated.
- * @returns The classification result.
- */
-const classifyCompartmentError = (
-  error: unknown,
-  code: string,
-): ErrorClassification => {
-  const cause = error instanceof Error ? error : new Error(String(error));
-
-  // Check if this is already an EvaluatorError (thrown by safe wrappers)
-  if (cause instanceof EvaluatorError) {
-    return {
-      type: 'internal',
-      error: cause,
-    };
-  }
-
-  // Check if this is a sample generation error (syntax/reference errors)
-  if (
-    cause instanceof SyntaxError ||
-    cause instanceof ReferenceError ||
-    cause.name === 'SyntaxError' ||
-    cause.name === 'ReferenceError'
-  ) {
-    return {
-      type: 'sample-generation',
-      error: new SampleGenerationError(code, cause),
-    };
-  }
-
-  // All other errors are valid feedback (capability errors, NotImplemented, etc.)
-  return {
-    type: 'valid-feedback',
-    error: cause,
-  };
-};
 
 const validateStatement = (
   statement: StatementMessage,
@@ -158,21 +107,7 @@ export const makeEvaluator = ({
     }
 
     // Handle errors caught by $catch (user code errors)
-    if (Object.hasOwn(result, ERROR)) {
-      const classification = classifyCompartmentError(result[ERROR], code);
-      if (['sample-generation', 'internal'].includes(classification.type)) {
-        throw classification.error;
-      }
-      // Valid feedback error: treat as result, stripping out the stack trace
-      const withoutStack = (error: unknown): unknown =>
-        error instanceof Error
-          ? new Error(
-              error.message,
-              ...(error.cause ? [{ cause: withoutStack(error.cause) }] : []),
-            )
-          : error;
-      result[ERROR] = withoutStack(result[ERROR]);
-    }
+    processEvaluationError(result, code);
 
     // Update the state and return the result
     const stepResult = [ERROR, RETURN, 'value'].some((key) =>
