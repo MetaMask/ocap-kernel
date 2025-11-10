@@ -1,13 +1,11 @@
 import 'ses'; // We need the real Compartment, not the mock.
 import '@ocap/repo-tools/test-utils/mock-endoify';
-import { EvaluatorError } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { makeEvaluator } from './evaluator.ts';
 import {
   CommentMessage,
-  EvaluationMessage,
   ImportMessage,
   ResultMessage,
   StatementMessage,
@@ -94,37 +92,6 @@ describe('evaluator', () => {
     });
   });
 
-  describe('classifies errors', () => {
-    it('rejects EvaluatorError as internal error', async () => {
-      const evaluatorWithError = makeEvaluator({
-        initState: () => ({ consts: {}, lets: {} }),
-        capabilities: {
-          badCap: {
-            func: () => {
-              throw new EvaluatorError('test', 'code', new Error('cause'));
-            },
-            schema: { description: 'Bad capability', args: {} },
-          },
-        },
-      });
-      const statement = new EvaluationMessage('badCap();');
-      await expect(evaluatorWithError([], statement)).rejects.toThrow(
-        EvaluatorError,
-      );
-    });
-
-    it('returns user errors as valid feedback without stack traces', async () => {
-      const history: ReplTranscript = [];
-      const result = await evaluator(
-        history,
-        StatementMessage.fromCode(
-          '(function() { throw new Error("user error"); })();',
-        ),
-      );
-      expect(result?.messageBody.error).toBe('Error: user error');
-    });
-  });
-
   describe('creates result messages', () => {
     it('creates result with return value', async () => {
       const history: ReplTranscript = [];
@@ -134,18 +101,6 @@ describe('evaluator', () => {
       );
       expect(result).toBeInstanceOf(ResultMessage);
       expect(result?.messageBody.return).toBe('"hello"');
-    });
-
-    it('creates result with error', async () => {
-      const history: ReplTranscript = [];
-      const result = await evaluator(
-        history,
-        StatementMessage.fromCode(
-          '(function() { throw new Error("test"); })();',
-        ),
-      );
-      expect(result).toBeInstanceOf(ResultMessage);
-      expect(result?.messageBody.error).toContain('Error: test');
     });
 
     it('creates result with declaration value', async () => {
@@ -169,17 +124,13 @@ describe('evaluator', () => {
   });
 
   describe('manages state', () => {
-    it('does not update state on error', async () => {
+    it('does not update state when evaluation has error', async () => {
       const initialState = { consts: {}, lets: {} };
       const history: ReplTranscript = [];
-      try {
-        await evaluator(
-          history,
-          StatementMessage.fromCode('const x = undefined.y;'),
-        );
-      } catch {
-        // Expected to throw
-      }
+      await evaluator(
+        history,
+        StatementMessage.fromCode('const x = undefined.y;'),
+      );
       expect(state).toStrictEqual(initialState);
     });
   });
