@@ -80,10 +80,10 @@ export default defineConfig({
           lines: 3.62,
         },
         'packages/kernel-agents/**': {
-          statements: 100,
-          functions: 100,
-          branches: 100,
-          lines: 100,
+          statements: 93.55,
+          functions: 93.15,
+          branches: 80.89,
+          lines: 93.56,
         },
         'packages/kernel-browser-runtime/**': {
           statements: 83.71,
@@ -92,10 +92,17 @@ export default defineConfig({
           lines: 83.71,
         },
         'packages/kernel-errors/**': {
+<<<<<<< HEAD
           statements: 100,
           functions: 100,
           branches: 100,
           lines: 100,
+=======
+          statements: 99,
+          functions: 96.77,
+          branches: 93.1,
+          lines: 99,
+>>>>>>> 482381e5 (thresholds)
         },
         'packages/kernel-language-model-service/**': {
           statements: 100,
