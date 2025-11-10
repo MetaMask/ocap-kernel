@@ -106,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.2,
+          branches: 96.25,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
@@ -130,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.25,
+          branches: 93.26,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {

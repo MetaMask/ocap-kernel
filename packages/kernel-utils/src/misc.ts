@@ -48,12 +48,6 @@ export async function abortableDelay(
     };
     if (signal) {
       signal.addEventListener('abort', onAbort, { once: true });
-      // Check again after adding listener to catch aborts that occurred during registration
-      if (signal.aborted) {
-        clearTimeout(id);
-        signal.removeEventListener('abort', onAbort);
-        reject(new AbortError());
-      }
     }
   });
 }
