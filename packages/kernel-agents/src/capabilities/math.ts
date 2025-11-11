@@ -40,8 +40,5 @@ export const multiply = capability(
   },
 );
 
-export const exampleCapabilities = {
-  count,
-  add,
-  multiply,
-};
+const capabilities = { count, add, multiply };
+export default capabilities;
