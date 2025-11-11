@@ -3271,6 +3271,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/kernel-errors": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
