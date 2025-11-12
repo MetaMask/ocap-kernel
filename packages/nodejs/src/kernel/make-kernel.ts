@@ -16,6 +16,7 @@ import { NodejsPlatformServices } from './PlatformServices.ts';
  * @param options.resetStorage - If true, clear kernel storage as part of setting up the kernel.
  * @param options.dbFilename - The filename of the SQLite database file.
  * @param options.logger - The logger to use for the kernel.
+ * @param options.keySeed - Optional seed for libp2p key generation.
  * @returns The kernel, initialized.
  */
 export async function makeKernel({
@@ -24,12 +25,14 @@ export async function makeKernel({
   resetStorage = false,
   dbFilename,
   logger,
+  keySeed,
 }: {
   port: NodeMessagePort;
   workerFilePath?: string;
   resetStorage?: boolean;
   dbFilename?: string;
   logger?: Logger;
+  keySeed?: string | undefined;
 }): Promise<Kernel> {
   const nodeStream = new NodeWorkerDuplexStream<
     JsonRpcRequest,
@@ -52,6 +55,7 @@ export async function makeKernel({
     {
       resetStorage,
       logger: rootLogger.subLogger({ tags: ['kernel'] }),
+      keySeed,
     },
   );
 

@@ -12,6 +12,7 @@ type RemoteManagerConstructorProps = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger;
+  keySeed?: string | undefined;
 };
 
 /**
@@ -36,6 +37,9 @@ export class RemoteManager {
   /** Logger for outputting messages to the console */
   readonly #logger: Logger | undefined;
 
+  /** Optional seed string for libp2p key generation */
+  readonly #keySeed: string | undefined;
+
   /** Remote communications interface */
   #remoteComms: RemoteComms | undefined;
 
@@ -47,11 +51,13 @@ export class RemoteManager {
     kernelStore,
     kernelQueue,
     logger,
+    keySeed,
   }: RemoteManagerConstructorProps) {
     this.#platformServices = platformServices;
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#logger = logger;
+    this.#keySeed = keySeed;
   }
 
   /**
@@ -83,6 +89,7 @@ export class RemoteManager {
       this.#messageHandler,
       relays,
       this.#logger,
+      this.#keySeed,
     );
 
     // Restore all remotes that were previously established

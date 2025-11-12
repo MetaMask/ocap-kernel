@@ -106,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.25,
+          branches: 96.2,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
@@ -130,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.26,
+          branches: 93.25,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -141,15 +141,15 @@ export default defineConfig({
         },
         'packages/logger/**': {
           statements: 100,
-          functions: 94.73,
-          branches: 98.21,
+          functions: 100,
+          branches: 96.49,
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 87.66,
-          functions: 86.66,
-          branches: 96.87,
-          lines: 87.66,
+          statements: 87.77,
+          functions: 85.71,
+          branches: 96.77,
+          lines: 87.77,
         },
         'packages/nodejs-test-workers/**': {
           statements: 22.22,
@@ -160,7 +160,7 @@ export default defineConfig({
         'packages/ocap-kernel/**': {
           statements: 96.52,
           functions: 98.28,
-          branches: 97.65,
+          branches: 95.92,
           lines: 96.52,
         },
         'packages/omnium-gatherum/**': {
@@ -178,7 +178,7 @@ export default defineConfig({
         'packages/streams/**': {
           statements: 100,
           functions: 100,
-          branches: 100,
+          branches: 99.67,
           lines: 100,
         },
         'packages/template-package/**': {

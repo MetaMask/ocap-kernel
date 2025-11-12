@@ -192,6 +192,7 @@ function makeReceiverSubclusterConfig(name: string): ClusterConfig {
  * @param resetStorage - If true (the default), reset kernel storage on start;
  *  if false, leave persistent state as is.
  * @param peerId - Optional peer ID to use.
+ * @param keySeed - Optional seed for libp2p key generation.
  *
  * @returns a promise for the kernel that was created.
  */
@@ -201,6 +202,7 @@ async function makeTestKernel(
   directNetwork: DirectNetworkService,
   resetStorage: boolean = true,
   peerId: string = `${tag}-peer`,
+  keySeed?: string,
 ): Promise<Kernel> {
   const logger = makeTestLogger().logger.subLogger({ tags: [tag] });
   const platformServices = directNetwork.createPlatformServices(peerId);
@@ -211,6 +213,7 @@ async function makeTestKernel(
     logger,
     undefined,
     platformServices,
+    keySeed,
   );
   await kernel.initRemoteComms();
   return kernel;
@@ -237,8 +240,22 @@ describe('Remote Communications (Integration Tests)', () => {
       dbFilename: ':memory:',
     });
 
-    kernel1 = await makeTestKernel('kernel1', kernelDatabase1, directNetwork);
-    kernel2 = await makeTestKernel('kernel2', kernelDatabase2, directNetwork);
+    kernel1 = await makeTestKernel(
+      'kernel1',
+      kernelDatabase1,
+      directNetwork,
+      true,
+      'kernel1-peer',
+      '01',
+    );
+    kernel2 = await makeTestKernel(
+      'kernel2',
+      kernelDatabase2,
+      directNetwork,
+      true,
+      'kernel2-peer',
+      '02',
+    );
   });
 
   it('should initialize remote communications without errors', async () => {
@@ -359,6 +376,7 @@ describe('Remote Communications (Integration Tests)', () => {
       directNetwork,
       false,
       'kernel2-peer',
+      '02',
     );
 
     // Tell the client to talk to the server a second time
@@ -380,6 +398,7 @@ describe('Remote Communications (Integration Tests)', () => {
       directNetwork,
       false,
       'kernel1-peer',
+      '01',
     );
 
     // Tell the client to talk to the server a third time
