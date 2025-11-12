@@ -133,10 +133,10 @@ export class NodejsPlatformServices implements PlatformServices {
     const workerEntry = this.workers.get(vatId);
     assert(workerEntry, `No worker found for vatId ${vatId}`);
     const { worker, stream } = workerEntry;
-    this.workers.delete(vatId);
     await stream.return();
     worker.removeAllListeners();
     await worker.terminate();
+    this.workers.delete(vatId);
     return undefined;
   }
 
