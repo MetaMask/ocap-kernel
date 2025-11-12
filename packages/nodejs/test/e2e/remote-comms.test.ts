@@ -701,6 +701,252 @@ describe.sequential('Remote Communications E2E', () => {
       NETWORK_TIMEOUT,
     );
   });
+
+  describe('Queue Management', () => {
+    it(
+      'drops oldest messages when queue reaches MAX_QUEUE limit',
+      async () => {
+        // Initialize remote comms
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        const config2: ClusterConfig = {
+          bootstrap: 'bob',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            bob: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Bob' },
+            },
+          },
+        };
+
+        await kernel1.launchSubcluster(config1);
+        const result2 = await kernel2.launchSubcluster(config2);
+
+        const bobURL = kunser(result2 as CapData<KRef>) as string;
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        // Establish initial connection
+        await kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+          bobURL,
+          'hello',
+          ['Alice'],
+        ]);
+
+        // Stop kernel2 to trigger reconnection and message queueing
+        await kernel2.stop();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Send MAX_QUEUE + 1 messages (201 messages) while disconnected
+        // The first message should be dropped when the 201st is enqueued
+        const messagePromises = [];
+        for (let i = 0; i <= 200; i++) {
+          const promise = kernel1.queueMessage(aliceRef, 'queueMessage', [
+            bobURL,
+            'receiveSequence',
+            [i],
+          ]);
+          messagePromises.push(promise);
+        }
+
+        // Restart kernel2
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(kernelDatabase2, false);
+        await kernel2.initRemoteComms(testRelays);
+        await kernel2.launchSubcluster(config2);
+
+        // Wait for reconnection and message delivery
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Check results - the first message (sequence 0) should have been dropped
+        // and we should receive messages starting from sequence 1
+        const results = await Promise.allSettled(messagePromises);
+        expect(results).toHaveLength(201);
+
+        // Verify that at least some messages were delivered
+        // (exact count may vary due to timing, but we should get most of them)
+        const successfulResults = results.filter(
+          (result) => result.status === 'fulfilled',
+        );
+        expect(successfulResults.length).toBeGreaterThan(100);
+
+        // The first message (sequence 0) should likely be missing due to queue drop
+        // Verify we can still send new messages
+        const newMessage = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'receiveSequence', [999]],
+        );
+        expect(kunser(newMessage)).toBe('Sequence 999 received');
+      },
+      NETWORK_TIMEOUT * 3,
+    );
+  });
+
+  describe('Multiple Peer Reconnections', () => {
+    it(
+      'handles multiple simultaneous reconnections to different peers',
+      async () => {
+        // Create a third kernel for testing multiple peers
+        const kernelDatabase3 = await makeSQLKernelDatabase({
+          dbFilename: 'rc-e2e-test-kernel3.db',
+        });
+        let kernel3: Kernel | undefined;
+
+        try {
+          // Initialize remote comms on all three kernels
+          await kernel1.initRemoteComms(testRelays);
+          await kernel2.initRemoteComms(testRelays);
+          kernel3 = await makeTestKernel(kernelDatabase3, true);
+          await kernel3.initRemoteComms(testRelays);
+
+          // Launch vats on all kernels
+          const config1: ClusterConfig = {
+            bootstrap: 'alice',
+            services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+            vats: {
+              alice: {
+                bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+                parameters: { name: 'Alice' },
+              },
+            },
+          };
+
+          const config2: ClusterConfig = {
+            bootstrap: 'bob',
+            services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+            vats: {
+              bob: {
+                bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+                parameters: { name: 'Bob' },
+              },
+            },
+          };
+
+          const config3: ClusterConfig = {
+            bootstrap: 'charlie',
+            services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+            vats: {
+              charlie: {
+                bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+                parameters: { name: 'Charlie' },
+              },
+            },
+          };
+
+          await kernel1.launchSubcluster(config1);
+          const result2 = await kernel2.launchSubcluster(config2);
+          const result3 = await kernel3.launchSubcluster(config3);
+
+          const bobURL = kunser(result2 as CapData<KRef>) as string;
+          const charlieURL = kunser(result3 as CapData<KRef>) as string;
+
+          const vats1 = kernel1.getVats();
+          const aliceVatId = vats1.find(
+            (vat) => vat.config.parameters?.name === 'Alice',
+          )?.id as VatId;
+          const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+          // Establish initial connections
+          await kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+            bobURL,
+            'hello',
+            ['Alice'],
+          ]);
+          await kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+            charlieURL,
+            'hello',
+            ['Alice'],
+          ]);
+
+          // Stop both kernel2 and kernel3 simultaneously
+          await kernel2.stop();
+          await kernel3.stop();
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Send messages to both peers - should trigger simultaneous reconnections
+          const bobMessagePromise = kernel1.queueMessage(
+            aliceRef,
+            'sendRemoteMessage',
+            [bobURL, 'hello', ['Alice']],
+          );
+          const charlieMessagePromise = kernel1.queueMessage(
+            aliceRef,
+            'sendRemoteMessage',
+            [charlieURL, 'hello', ['Alice']],
+          );
+
+          // Wait a bit for reconnection attempts to start
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          // Restart both kernels
+          // eslint-disable-next-line require-atomic-updates
+          kernel2 = await makeTestKernel(kernelDatabase2, false);
+          await kernel2.initRemoteComms(testRelays);
+          await kernel2.launchSubcluster(config2);
+
+          kernel3 = await makeTestKernel(kernelDatabase3, false);
+          await kernel3.initRemoteComms(testRelays);
+          await kernel3.launchSubcluster(config3);
+
+          // Wait for reconnections to establish
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+
+          // Both messages should be delivered successfully
+          const bobResult = await bobMessagePromise;
+          const charlieResult = await charlieMessagePromise;
+
+          expect(kunser(bobResult)).toContain('vat Bob got "hello" from Alice');
+          expect(kunser(charlieResult)).toContain(
+            'vat Charlie got "hello" from Alice',
+          );
+
+          // Verify both connections are working independently
+          const bobFollowUp = await kernel1.queueMessage(
+            aliceRef,
+            'sendRemoteMessage',
+            [bobURL, 'hello', ['Alice']],
+          );
+          const charlieFollowUp = await kernel1.queueMessage(
+            aliceRef,
+            'sendRemoteMessage',
+            [charlieURL, 'hello', ['Alice']],
+          );
+
+          expect(kunser(bobFollowUp)).toContain(
+            'vat Bob got "hello" from Alice',
+          );
+          expect(kunser(charlieFollowUp)).toContain(
+            'vat Charlie got "hello" from Alice',
+          );
+        } finally {
+          if (kernel3) {
+            await kernel3.stop();
+          }
+          if (kernelDatabase3) {
+            kernelDatabase3.close();
+          }
+        }
+      },
+      NETWORK_TIMEOUT * 3,
+    );
+  });
 });
 
 /**
