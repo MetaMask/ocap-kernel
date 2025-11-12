@@ -208,10 +208,7 @@ export class Kernel {
    * and then begin processing the run queue.
    */
   async #init(): Promise<void> {
-    this.#logger.info('[INIT] Starting kernel initialization');
-
     // Set up the remote message handler
-    this.#logger.info('[INIT] Setting up remote message handler');
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
         this.#remoteManager.handleRemoteMessage(from, message),
@@ -219,7 +216,6 @@ export class Kernel {
 
     // Start the command stream handler (non-blocking)
     // This runs for the entire lifetime of the kernel
-    this.#logger.info('[INIT] Starting command stream handler');
     this.#commandStream
       .drain(this.#handleCommandMessage.bind(this))
       .catch((error) => {
@@ -232,13 +228,10 @@ export class Kernel {
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
-    this.#logger.info('[INIT] Initializing all vats');
     await this.#vatManager.initializeAllVats();
-    this.#logger.info('[INIT] All vats initialized');
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
-    this.#logger.info('[INIT] Starting kernel queue run loop');
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
@@ -248,7 +241,6 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
-    this.#logger.info('[INIT] Kernel initialization complete');
   }
 
   /**
@@ -259,16 +251,6 @@ export class Kernel {
    */
   async initRemoteComms(relays?: string[]): Promise<void> {
     await this.#remoteManager.initRemoteComms(relays);
-  }
-
-  /**
-   * Stop the remote comms object without stopping the kernel.
-   * This is useful for testing network disruption scenarios.
-   *
-   * @returns a promise that resolves when remote comms is stopped.
-   */
-  async stopRemoteComms(): Promise<void> {
-    await this.#remoteManager.stopRemoteComms();
   }
 
   /**
