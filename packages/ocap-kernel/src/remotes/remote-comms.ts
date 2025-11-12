@@ -127,7 +127,6 @@ export async function initRemoteComms(
     // XXX TODO: Instead of generating a new random seed unconditionally, this
     // function should accept an optional BIP39 keyphrase parameter for the
     // seed, to enable a kernel to recover its identity on a new host.
-    // eslint-disable n0param-reassign
     [keySeed, peerId] = await generateKeyInfo(keySeed);
     kv.set('keySeed', keySeed);
     kv.set('peerId', peerId);
