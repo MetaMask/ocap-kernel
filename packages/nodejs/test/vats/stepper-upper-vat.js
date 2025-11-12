@@ -37,7 +37,11 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       } else {
         baggage.init('maas', maas);
       }
-      baggage.init('previous', 0);
+      if (baggage.has('previous')) {
+        baggage.set('previous', 0);
+      } else {
+        baggage.init('previous', 0);
+      }
       const result = `MaaS service URL set to ${url}`;
       console.log(result);
       return result;
