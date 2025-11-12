@@ -400,7 +400,7 @@ describe.sequential('Remote Communications E2E', () => {
     );
 
     it(
-      'handles reconnection with exponential backoff',
+      'handles connection failure to non-existent peer',
       async () => {
         // Initialize kernel1 and launch a vat
         await kernel1.initRemoteComms(testRelays);
