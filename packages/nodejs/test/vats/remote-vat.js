@@ -112,6 +112,31 @@ export function buildRootObject({ logger }, parameters, baggage) {
       logger.log(`${name} received ping`);
       return `pong from ${name}`;
     },
+
+    // Wrapper for sendRemoteMessage (queueing happens in network layer)
+    async queueMessage(remoteURL, method, args = []) {
+      return sendRemoteMessageHelper(remoteURL, method, args);
+    },
+
+    // Send a sequence of messages to a remote vat
+    async sendSequence(remoteURL, count) {
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const result = await sendRemoteMessageHelper(
+          remoteURL,
+          'receiveSequence',
+          [i],
+        );
+        results.push(result);
+      }
+      return results;
+    },
+
+    // Receive a sequence number and return confirmation
+    receiveSequence(sequenceNumber) {
+      logger.log(`${name} received sequence number: ${sequenceNumber}`);
+      return `Sequence ${sequenceNumber} received`;
+    },
   });
 
   return remoteVat;

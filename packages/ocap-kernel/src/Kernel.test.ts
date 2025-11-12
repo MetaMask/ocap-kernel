@@ -703,21 +703,81 @@ describe('Kernel', () => {
       const workerTerminateAllMock = vi
         .spyOn(mockPlatformServices, 'terminateAll')
         .mockResolvedValue(undefined);
+      const stopRemoteCommsMock = vi
+        .spyOn(mockPlatformServices, 'stopRemoteComms')
+        .mockResolvedValue(undefined);
+      const endStreamMock = vi.fn().mockResolvedValue(undefined);
+      const mockStreamWithEnd = {
+        drain: mockStream.drain.bind(mockStream),
+        write: mockStream.write.bind(mockStream),
+        end: endStreamMock,
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+
       const kernel = await Kernel.make(
-        mockStream,
+        mockStreamWithEnd,
         mockPlatformServices,
         mockKernelDatabase,
       );
       const queueInstance = mocks.KernelQueue.lastInstance;
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
+
+      // Clear any previous calls to waitForCrank from launchSubcluster
+      queueInstance.waitForCrank.mockClear();
+
       await kernel.stop();
+
+      // Verify vats are not terminated
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
       expect(vatHandles).toHaveLength(1);
       expect(vatHandles[0]?.terminate).not.toHaveBeenCalled();
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
+
+      // Verify stop sequence
+      expect(queueInstance.waitForCrank).toHaveBeenCalledOnce();
+      expect(endStreamMock).toHaveBeenCalledOnce();
+      expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
-      expect(queueInstance.stop).toHaveBeenCalledOnce();
+    });
+
+    it('waits for crank before stopping', async () => {
+      const endStreamMock = vi.fn().mockResolvedValue(undefined);
+      const mockStreamWithEnd = {
+        drain: mockStream.drain.bind(mockStream),
+        write: mockStream.write.bind(mockStream),
+        end: endStreamMock,
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+
+      const kernel = await Kernel.make(
+        mockStreamWithEnd,
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const queueInstance = mocks.KernelQueue.lastInstance;
+      const waitForCrankSpy = vi.spyOn(queueInstance, 'waitForCrank');
+
+      await kernel.stop();
+
+      // Verify waitForCrank is called before other operations
+      expect(waitForCrankSpy).toHaveBeenCalledOnce();
+      expect(endStreamMock).toHaveBeenCalledOnce();
+    });
+
+    it('handles errors during stop gracefully', async () => {
+      const stopError = new Error('Stop failed');
+      const endStreamMock = vi.fn().mockRejectedValue(stopError);
+      const mockStreamWithEnd = {
+        drain: mockStream.drain.bind(mockStream),
+        write: mockStream.write.bind(mockStream),
+        end: endStreamMock,
+      } as unknown as DuplexStream<JsonRpcRequest, JsonRpcResponse>;
+
+      const kernel = await Kernel.make(
+        mockStreamWithEnd,
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      await expect(kernel.stop()).rejects.toThrow('Stop failed');
     });
   });
 

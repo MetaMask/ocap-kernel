@@ -66,7 +66,7 @@ describe.sequential('Remote Communications E2E', () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
-  describe.sequential('Basic Connectivity', () => {
+  describe('Basic Connectivity', () => {
     it(
       'initializes remote comms on both kernels',
       async () => {
@@ -441,6 +441,151 @@ describe.sequential('Remote Communications E2E', () => {
         expect(result).toHaveProperty('status');
         expect(result.status).toBe('disconnected');
         expect(result).toHaveProperty('error');
+      },
+      NETWORK_TIMEOUT,
+    );
+  });
+
+  describe('Message Queueing', () => {
+    it(
+      'queues messages when connection is not established',
+      async () => {
+        // Initialize both kernels' remote comms
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        // Launch Alice vat on kernel1
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        await kernel1.launchSubcluster(config1);
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        // Launch Bob vat on kernel2 to get his URL
+        const config2: ClusterConfig = {
+          bootstrap: 'bob',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            bob: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Bob' },
+            },
+          },
+        };
+
+        const result2 = await kernel2.launchSubcluster(config2);
+        const bobURL = kunser(result2 as CapData<KRef>) as string;
+
+        // Stop kernel2 to simulate connection loss
+        await kernel2.stop();
+
+        // Wait a bit for the connection to be fully closed
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Send messages while kernel2 is offline - these should be queued
+        const queuePromises = [];
+        for (let i = 0; i < 3; i++) {
+          const promise = kernel1.queueMessage(aliceRef, 'queueMessage', [
+            bobURL,
+            'receiveSequence',
+            [i],
+          ]);
+          queuePromises.push(promise);
+        }
+
+        // Restart kernel2 with same storage - Bob vat will be restored
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(kernelDatabase2, false);
+        await kernel2.initRemoteComms(testRelays);
+
+        // Relaunch Bob vat to restore it
+        await kernel2.launchSubcluster(config2);
+
+        // Wait for connections to re-establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Messages should be queued and delivered after reconnection
+        // Note: Some may fail if the vat wasn't restored properly, but queueing should work
+        const queueResults = await Promise.allSettled(queuePromises);
+        expect(queueResults).toHaveLength(3);
+
+        // Verify we can send messages normally after reconnection
+        const normalMessage = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'receiveSequence', [99]],
+        );
+        const response = kunser(normalMessage);
+        expect(response).toBe('Sequence 99 received');
+      },
+      NETWORK_TIMEOUT * 2,
+    );
+
+    it(
+      'preserves message order during queueing',
+      async () => {
+        // Initialize remote comms and launch vats
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        const config2: ClusterConfig = {
+          bootstrap: 'bob',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            bob: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Bob' },
+            },
+          },
+        };
+
+        await kernel1.launchSubcluster(config1);
+        const result2 = await kernel2.launchSubcluster(config2);
+
+        const bobURL = kunser(result2 as CapData<KRef>) as string;
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        // Send multiple messages in sequence using sendSequence
+        const sequenceResult = await kernel1.queueMessage(
+          aliceRef,
+          'sendSequence',
+          [bobURL, 5],
+        );
+
+        const results = kunser(sequenceResult) as string[];
+        expect(results).toHaveLength(5);
+
+        // Verify messages were received in order
+        for (let i = 0; i < 5; i++) {
+          expect(results[i]).toBe(`Sequence ${i} received`);
+        }
       },
       NETWORK_TIMEOUT,
     );

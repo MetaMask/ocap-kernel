@@ -41,6 +41,46 @@ describe('isRetryableNetworkError', () => {
     });
   });
 
+  describe('relay reservation errors', () => {
+    it.each([
+      {
+        message: 'failed to connect via relay with status NO_RESERVATION',
+        description: 'full error message',
+      },
+      {
+        message: 'NO_RESERVATION',
+        description: 'just NO_RESERVATION',
+      },
+      {
+        message: 'Error: NO_RESERVATION occurred',
+        description: 'NO_RESERVATION in error message',
+      },
+      {
+        message: 'Relay error: NO_RESERVATION - peer not ready',
+        description: 'NO_RESERVATION with context',
+      },
+    ])(
+      'returns true for errors with message containing NO_RESERVATION: $description',
+      ({ message }) => {
+        const error = new Error(message);
+        expect(isRetryableNetworkError(error)).toBe(true);
+      },
+    );
+
+    it('returns true for InvalidMessageError with NO_RESERVATION', () => {
+      const error = Object.assign(
+        new Error('failed to connect via relay with status NO_RESERVATION'),
+        { name: 'InvalidMessageError' },
+      );
+      expect(isRetryableNetworkError(error)).toBe(true);
+    });
+
+    it('returns false for errors without NO_RESERVATION in message', () => {
+      const error = new Error('failed to connect via relay');
+      expect(isRetryableNetworkError(error)).toBe(false);
+    });
+  });
+
   describe('default non-retryable behavior', () => {
     it.each([
       {

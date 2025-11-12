@@ -40,9 +40,6 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
-  /** Flag to signal that the run queue should stop */
-  #stopped: boolean = false;
-
   constructor(
     kernelStore: KernelStore,
     terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
@@ -54,7 +51,7 @@ export class KernelQueue {
 
   /**
    * The kernel's run loop: take an item off the run queue, deliver it,
-   * repeat. The loop continues until stop() is called.
+   * repeat. Note that this loops forever: the returned promise never resolves.
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
@@ -62,9 +59,6 @@ export class KernelQueue {
     deliver: (item: RunQueueItem) => Promise<CrankResults | undefined>,
   ): Promise<void> {
     for await (const item of this.#runQueueItems()) {
-      if (this.#stopped) {
-        break;
-      }
       this.#kernelStore.nextTerminatedVatCleanup();
       const crankResults = await deliver(item);
       if (crankResults?.abort) {
@@ -93,35 +87,25 @@ export class KernelQueue {
    */
   async *#runQueueItems(): AsyncGenerator<RunQueueItem> {
     for (;;) {
-      if (this.#stopped) {
-        console.log('[QUEUE] Stopped flag detected in generator, exiting');
-        break;
-      }
       this.#kernelStore.startCrank();
       let wakeUpPromise: Promise<void> | undefined;
       try {
         this.#kernelStore.createCrankSavepoint('start');
         const gcAction = processGCActionSet(this.#kernelStore);
         if (gcAction) {
-          console.log('[QUEUE] Yielding GC action');
           yield gcAction;
           continue;
         }
 
         const reapAction = this.#kernelStore.nextReapAction();
         if (reapAction) {
-          console.log('[QUEUE] Yielding reap action');
           yield reapAction;
           continue;
         }
 
-        const queueLength = this.#kernelStore.runQueueLength();
-        console.log('[QUEUE] Queue length:', queueLength);
-
         while (this.#kernelStore.runQueueLength() > 0) {
           const item = this.#kernelStore.dequeueRun();
           if (item) {
-            console.log('[QUEUE] Yielding queue item:', item.type);
             yield item;
           } else {
             break;
@@ -129,7 +113,6 @@ export class KernelQueue {
         }
 
         if (this.#kernelStore.runQueueLength() === 0) {
-          console.log('[QUEUE] Queue empty, entering wait state');
           const { promise, resolve } = makePromiseKit<void>();
           if (this.#wakeUpTheRunQueue !== null) {
             Fail`wakeUpTheRunQueue function already set`;
@@ -140,9 +123,7 @@ export class KernelQueue {
       } finally {
         this.#kernelStore.endCrank();
         if (wakeUpPromise) {
-          console.log('[QUEUE] Waiting for wake up signal...');
           await wakeUpPromise;
-          console.log('[QUEUE] Wake up signal received');
         }
       }
     }
@@ -234,23 +215,6 @@ export class KernelQueue {
    */
   async waitForCrank(): Promise<void> {
     return this.#kernelStore.waitForCrank();
-  }
-
-  /**
-   * Stop the kernel queue's run loop.
-   * This allows the run loop to exit gracefully.
-   */
-  async stop(): Promise<void> {
-    console.log('[QUEUE] Setting stopped flag');
-    this.#stopped = true;
-
-    // Wake up the run queue if it's waiting
-    if (this.#wakeUpTheRunQueue) {
-      console.log('[QUEUE] Waking up waiting run queue');
-      const wakeUp = this.#wakeUpTheRunQueue;
-      this.#wakeUpTheRunQueue = null;
-      wakeUp();
-    }
   }
 
   /**

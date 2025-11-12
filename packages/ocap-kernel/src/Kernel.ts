@@ -611,7 +611,6 @@ export class Kernel {
    */
   async stop(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
-    await this.#kernelQueue.stop();
     await this.#commandStream.end();
     await this.#platformServices.stopRemoteComms();
     await this.#platformServices.terminateAll();

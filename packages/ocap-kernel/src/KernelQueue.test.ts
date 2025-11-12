@@ -21,23 +21,16 @@ vi.mock('@endo/promise-kit', () => ({
 describe('KernelQueue', () => {
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
+  let mockPromiseKit: ReturnType<typeof makePromiseKit>;
   let terminateVat: (vatId: string, reason?: CapData<KRef>) => Promise<void>;
 
   beforeEach(() => {
-    // Return a fresh promise kit each time to avoid "already set" errors
-    (makePromiseKit as unknown as MockInstance).mockImplementation(() => {
-      let resolveFunc!: (value: void) => void;
-      let rejectFunc!: (reason?: unknown) => void;
-      const promise = new Promise<void>((resolve, reject) => {
-        resolveFunc = resolve;
-        rejectFunc = reject;
-      });
-      return {
-        promise,
-        resolve: resolveFunc,
-        reject: rejectFunc,
-      };
-    });
+    mockPromiseKit = {
+      promise: Promise.resolve(),
+      resolve: vi.fn(),
+      reject: vi.fn(),
+    };
+    (makePromiseKit as unknown as MockInstance).mockReturnValue(mockPromiseKit);
 
     terminateVat = vi.fn().mockResolvedValue(undefined);
 
@@ -102,14 +95,12 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ abort: true });
-      const collectGarbageError = new Error('collectGarbage failed');
-      (
-        kernelStore.collectGarbage as unknown as MockInstance
-      ).mockImplementation(async () => {
-        // Stop the queue before throwing to prevent hanging
-        await kernelQueue.stop();
-        throw collectGarbageError;
-      });
+      const collectGarbageError = new Error(
+        'wakeUpTheRunQueue function already set',
+      );
+      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
+        collectGarbageError,
+      );
       await expect(kernelQueue.run(deliver)).rejects.toThrow(
         collectGarbageError.message,
       );
@@ -135,14 +126,12 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ terminate: terminateInfo });
-      const collectGarbageError = new Error('collectGarbage failed');
-      (
-        kernelStore.collectGarbage as unknown as MockInstance
-      ).mockImplementation(async () => {
-        // Stop the queue before throwing to prevent hanging
-        await kernelQueue.stop();
-        throw collectGarbageError;
-      });
+      const collectGarbageError = new Error(
+        'wakeUpTheRunQueue function already set',
+      );
+      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
+        collectGarbageError,
+      );
       await expect(kernelQueue.run(deliver)).rejects.toThrow(
         collectGarbageError.message,
       );
@@ -452,48 +441,6 @@ describe('KernelQueue', () => {
       resolvePromise?.();
       await waitPromise;
       expect(kernelStore.waitForCrank).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('stop', () => {
-    it('exits run loop immediately when queue has items', async () => {
-      const mockItem: RunQueueItem = {
-        type: 'send',
-        target: 'ko123',
-        message: {} as Message,
-      };
-
-      // Set up queue to have one item, then be empty
-      (kernelStore.runQueueLength as unknown as MockInstance)
-        .mockReturnValueOnce(1)
-        .mockReturnValue(0);
-      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
-        mockItem,
-      );
-
-      const deliver = vi.fn().mockResolvedValue(undefined);
-
-      // Start the run loop
-      const runPromise = kernelQueue.run(deliver);
-
-      // Give it a moment to process the first item
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      // Stop the queue - this now waits for the loop to finish
-      await kernelQueue.stop();
-
-      // Wait for run to complete - this verifies the loop exited cleanly
-      await runPromise;
-
-      // Verify deliver was called for the first item
-      expect(deliver).toHaveBeenCalledWith(mockItem);
-    });
-
-    it('handles stop when run queue is not waiting', async () => {
-      // Call stop when there's no wake-up function set
-      await kernelQueue.stop();
-      // Verify it completes without error
-      expect(true).toBe(true);
     });
   });
 });
