@@ -9,25 +9,49 @@ import { NodejsPlatformServices } from './PlatformServices.ts';
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 
-const mocks = vi.hoisted(() => ({
-  worker: {
-    once: (_: string, callback: () => unknown) => {
-      callback();
+const mocks = vi.hoisted(() => {
+  const createMockWorker = () => {
+    const eventHandlers = new Map<
+      string,
+      ((...args: unknown[]) => unknown)[]
+    >();
+    return {
+      once: (event: string, callback: (...args: unknown[]) => unknown) => {
+        if (!eventHandlers.has(event)) {
+          eventHandlers.set(event, []);
+        }
+        const handlers = eventHandlers.get(event);
+        if (handlers) {
+          handlers.push(callback);
+        }
+        // Immediately emit 'online' event to simulate worker coming online
+        if (event === 'online') {
+          // Use queueMicrotask to make it async like real events
+          queueMicrotask(() => callback());
+        }
+        // Don't emit 'error' or 'exit' events unless we want to test error cases
+      },
+      removeAllListeners: vi.fn(() => {
+        eventHandlers.clear();
+      }),
+      terminate: vi.fn(async () => undefined),
+    };
+  };
+  return {
+    createMockWorker,
+    stream: {
+      synchronize: vi.fn(async () => undefined).mockResolvedValue(undefined),
+      return: vi.fn(async () => ({})),
     },
-    terminate: vi.fn(async () => undefined),
-  },
-  stream: {
-    synchronize: vi.fn(async () => undefined).mockResolvedValue(undefined),
-    return: vi.fn(async () => ({})),
-  },
-}));
+  };
+});
 
 vi.mock('@metamask/streams', () => ({
   NodeWorkerDuplexStream: vi.fn(() => mocks.stream),
 }));
 
 vi.mock('node:worker_threads', () => ({
-  Worker: vi.fn(() => mocks.worker),
+  Worker: vi.fn(() => mocks.createMockWorker()),
 }));
 
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
@@ -45,6 +69,8 @@ describe('NodejsPlatformServices', () => {
   beforeEach(() => {
     mockSendRemoteMessage.mockClear();
     mockStop.mockClear();
+    mocks.stream.synchronize.mockResolvedValue(undefined);
+    mocks.stream.return.mockResolvedValue({});
   });
 
   it('constructs an instance without any arguments', () => {

@@ -610,29 +610,11 @@ export class Kernel {
    * Gracefully stop the kernel without deleting vats.
    */
   async stop(): Promise<void> {
-    this.#logger.info('[STOP] Starting kernel stop sequence');
-
-    this.#logger.info('[STOP] Waiting for current crank to complete...');
     await this.#kernelQueue.waitForCrank();
-    this.#logger.info('[STOP] Current crank completed');
-
-    this.#logger.info('[STOP] Stopping kernel queue run loop...');
     await this.#kernelQueue.stop();
-    this.#logger.info('[STOP] Kernel queue stopped');
-
-    this.#logger.info('[STOP] Ending command stream...');
     await this.#commandStream.end();
-    this.#logger.info('[STOP] Command stream ended');
-
-    this.#logger.info('[STOP] Stopping remote comms...');
     await this.#platformServices.stopRemoteComms();
-    this.#logger.info('[STOP] Remote comms stopped');
-
-    this.#logger.info('[STOP] Terminating all platform services...');
     await this.#platformServices.terminateAll();
-    this.#logger.info('[STOP] Platform services terminated');
-
-    this.#logger.info('[STOP] Kernel stopped gracefully');
   }
 
   /**

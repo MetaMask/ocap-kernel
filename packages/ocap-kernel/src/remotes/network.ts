@@ -117,28 +117,16 @@ export async function initNetwork(
    * @param channel - The channel to read from.
    */
   async function readChannel(channel: Channel): Promise<void> {
-    console.log('[NETWORK] Starting readChannel for', channel.peerId);
     const SCTP_USER_INITIATED_ABORT = 12; // RFC 4960
     try {
       for (;;) {
         if (signal.aborted) {
-          console.log(
-            '[NETWORK] readChannel detected abort signal for',
-            channel.peerId,
-          );
           logger.log(`reader abort: ${channel.peerId}`);
           throw new AbortError();
         }
         let readBuf;
         try {
-          console.log('[NETWORK] Waiting for message from', channel.peerId);
           readBuf = await channel.msgStream.read();
-          console.log(
-            '[NETWORK] Received message from',
-            channel.peerId,
-            'bytes:',
-            readBuf?.length,
-          );
         } catch (problem) {
           // Detect graceful disconnect
           const rtcProblem = problem as {
@@ -149,17 +137,8 @@ export async function initNetwork(
             rtcProblem?.errorDetail === 'sctp-failure' &&
             rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
           ) {
-            console.log(
-              '[NETWORK] Remote peer disconnected gracefully:',
-              channel.peerId,
-            );
             logger.log(`${channel.peerId}:: remote disconnected`);
           } else {
-            console.log(
-              '[NETWORK] Error reading from channel:',
-              channel.peerId,
-              problem,
-            );
             outputError(
               channel.peerId,
               `reading message from ${channel.peerId}`,
@@ -175,17 +154,16 @@ export async function initNetwork(
           await receiveMsg(channel.peerId, bufToString(readBuf.subarray()));
         } else {
           // Stream ended (returned undefined), exit the read loop
-          console.log(
-            '[NETWORK] Stream ended for',
-            channel.peerId,
-            'exiting read loop',
-          );
           logger.log(`${channel.peerId}:: stream ended`);
           break;
         }
       }
     } finally {
-      console.log('[NETWORK] readChannel exiting for', channel.peerId);
+      // Always remove the channel when readChannel exits to prevent stale channels
+      // This ensures that subsequent sends will establish a new connection
+      if (channels.get(channel.peerId) === channel) {
+        channels.delete(channel.peerId);
+      }
     }
   }
 
@@ -449,41 +427,17 @@ export async function initNetwork(
    * Stop the network.
    */
   async function stop(): Promise<void> {
-    console.log('[NETWORK] Starting network stop sequence');
     logger.log('Stopping kernel network...');
-
     // Stop wake detector
-    console.log('[NETWORK] Stopping wake detector');
     if (cleanupWakeDetector) {
       cleanupWakeDetector();
       cleanupWakeDetector = undefined;
     }
-    console.log('[NETWORK] Wake detector stopped');
-
-    console.log('[NETWORK] Aborting stop controller signal');
     stopController.abort(); // cancels all delays and dials
-    console.log('[NETWORK] Stop controller aborted');
-
-    console.log(
-      '[NETWORK] Stopping connection factory, active channels:',
-      channels.size,
-    );
     await connectionFactory.stop();
-    console.log('[NETWORK] Connection factory stopped');
-
-    console.log('[NETWORK] Clearing channels map, size:', channels.size);
     channels.clear();
-    console.log('[NETWORK] Channels cleared');
-
-    console.log('[NETWORK] Clearing reconnection manager');
     reconnectionManager.clear();
-    console.log('[NETWORK] Reconnection manager cleared');
-
-    console.log('[NETWORK] Clearing message queues, size:', messageQueues.size);
     messageQueues.clear();
-    console.log('[NETWORK] Message queues cleared');
-
-    console.log('[NETWORK] Network stop sequence complete');
   }
 
   // Return the sender with a stop handle

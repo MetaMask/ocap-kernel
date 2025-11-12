@@ -506,7 +506,8 @@ describe('network.initNetwork', () => {
         while (!shouldResolve) {
           await new Promise((resolve) => setImmediate(resolve));
         }
-        return undefined; // Return undefined to continue loop
+        // Return a value so loop continues to next iteration where it checks signal.aborted
+        return new TextEncoder().encode('dummy');
       });
 
       // Start reading in background
@@ -529,7 +530,7 @@ describe('network.initNetwork', () => {
       });
     });
 
-    it('skips processing when readBuf is null or undefined', async () => {
+    it('exits read loop when readBuf is undefined (stream ended)', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler) => {
@@ -541,23 +542,16 @@ describe('network.initNetwork', () => {
       await initNetwork('0x1234', [], remoteHandler);
 
       const mockChannel = createMockChannel('peer-1');
-      // First read returns undefined, second read returns a message, third blocks
-      mockChannel.msgStream.read
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(new TextEncoder().encode('actual-message'))
-        .mockImplementation(
-          async () =>
-            new Promise(() => {
-              /* Block after second message */
-            }),
-        );
+      // First read returns undefined, which means stream ended - loop should break
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
 
       inboundHandler?.(mockChannel);
 
       await vi.waitFor(() => {
-        // Should only process the actual message, not the undefined one
-        expect(remoteHandler).toHaveBeenCalledTimes(1);
-        expect(remoteHandler).toHaveBeenCalledWith('peer-1', 'actual-message');
+        // Stream ended, so no messages should be processed
+        expect(remoteHandler).not.toHaveBeenCalled();
+        // Should log that stream ended
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
       });
     });
 

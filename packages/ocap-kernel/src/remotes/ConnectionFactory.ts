@@ -326,67 +326,15 @@ export class ConnectionFactory {
    * Stop libp2p and clean up.
    */
   async stop(): Promise<void> {
-    console.log('[CONNECTIONFACTORY] Starting stop');
-
-    // Clear inflight dials first to prevent new connections
-    console.log(
-      '[CONNECTIONFACTORY] Clearing inflight dials, count:',
-      this.#inflightDials.size,
-    );
     this.#inflightDials.clear();
-
     if (this.#libp2p) {
-      console.log(
-        '[CONNECTIONFACTORY] Libp2p instance exists, getting connections',
-      );
-      const connections = this.#libp2p.getConnections();
-      console.log(
-        '[CONNECTIONFACTORY] Active connections count:',
-        connections.length,
-      );
-
-      this.#logger.log('ConnectionFactory: Aborting connections...');
-      // Abort all connections first
-      for (const connection of connections) {
-        const remotePeerId = connection.remotePeer.toString();
-        console.log('[CONNECTIONFACTORY] Aborting connection to', remotePeerId);
-        this.#logger.log(`hanging up connection to ${remotePeerId}`);
-        try {
-          connection.abort(new Error('ConnectionFactory: Stopping libp2p'));
-          console.log('[CONNECTIONFACTORY] Connection aborted:', remotePeerId);
-        } catch (error) {
-          console.error(
-            '[CONNECTIONFACTORY] Error aborting connection:',
-            remotePeerId,
-            error,
-          );
-        }
-      }
-
-      // Now actually stop libp2p with a timeout to prevent indefinite hangs
-      console.log('[CONNECTIONFACTORY] Calling libp2p.stop() with timeout...');
       try {
-        const stopPromise = this.#libp2p.stop();
-        const timeoutPromise = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('libp2p.stop() timed out')), 5000),
-        );
-        await Promise.race([stopPromise, timeoutPromise]);
-        console.log('[CONNECTIONFACTORY] libp2p.stop() completed successfully');
+        await this.#libp2p.stop();
       } catch (error) {
-        console.error(
-          '[CONNECTIONFACTORY] libp2p.stop() failed or timed out:',
-          error,
-        );
+        this.#logger.error('libp2p.stop() failed or timed out:', error);
         // Continue anyway - we'll clear the reference
       }
-
-      // Clear the reference to allow garbage collection
-      console.log('[CONNECTIONFACTORY] Clearing libp2p reference');
       this.#libp2p = undefined as unknown as Libp2p;
-      console.log('[CONNECTIONFACTORY] Libp2p reference cleared');
-    } else {
-      console.log('[CONNECTIONFACTORY] No libp2p instance to stop');
     }
-    console.log('[CONNECTIONFACTORY] Stop complete');
   }
 }

@@ -37,9 +37,6 @@ export function buildRootObject(_vatPowers, parameters, baggage) {
       baggage.init('count', 1);
       return url;
     },
-    getUrl() {
-      return baggage.get('url');
-    },
     next(from) {
       const count = baggage.get('count');
       baggage.set('count', count + 1);
