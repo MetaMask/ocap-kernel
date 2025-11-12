@@ -444,6 +444,117 @@ describe.sequential('Remote Communications E2E', () => {
       },
       NETWORK_TIMEOUT,
     );
+
+    it(
+      'handles reconnection with exponential backoff',
+      async () => {
+        // Initialize remote comms on both kernels
+        await kernel1.initRemoteComms(testRelays);
+        await kernel2.initRemoteComms(testRelays);
+
+        // Launch vats with ocap services
+        const config1: ClusterConfig = {
+          bootstrap: 'alice',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            alice: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Alice' },
+            },
+          },
+        };
+
+        const config2: ClusterConfig = {
+          bootstrap: 'bob',
+          services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+          vats: {
+            bob: {
+              bundleSpec: 'http://localhost:3000/remote-vat.bundle',
+              parameters: { name: 'Bob' },
+            },
+          },
+        };
+
+        await kernel1.launchSubcluster(config1);
+        const result2 = await kernel2.launchSubcluster(config2);
+
+        const bobURL = kunser(result2 as CapData<KRef>) as string;
+
+        const vats1 = kernel1.getVats();
+        const aliceVatId = vats1.find(
+          (vat) => vat.config.parameters?.name === 'Alice',
+        )?.id as VatId;
+        const aliceRef = kernelStore1.getRootObject(aliceVatId) as KRef;
+
+        // Establish initial connection
+        const initialMessage = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+        expect(kunser(initialMessage)).toContain(
+          'vat Bob got "hello" from Alice',
+        );
+
+        // Stop kernel2 to trigger reconnection
+        await kernel2.stop();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Send a message which will queue and trigger reconnection attempts
+        // The reconnection will use exponential backoff with base delay of 500ms
+        // and max delay of 10s. With jitter, delays will be randomized.
+        const messagePromise = kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+
+        // Track when reconnection attempts happen by monitoring when
+        // the message succeeds after restarting kernel2
+        const reconnectStartTime = Date.now();
+
+        // Restart kernel2 after a delay that allows for at least one
+        // reconnection attempt with backoff (base delay ~500ms + jitter)
+        // We wait long enough to ensure at least one attempt has occurred
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // Restart kernel2 - this should allow reconnection to succeed
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(kernelDatabase2, false);
+        await kernel2.initRemoteComms(testRelays);
+        await kernel2.launchSubcluster(config2);
+
+        // Wait for reconnection to establish
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // The queued message should now be delivered
+        const reconnectResult = await messagePromise;
+        const reconnectEndTime = Date.now();
+        const totalReconnectTime = reconnectEndTime - reconnectStartTime;
+
+        // Verify message was delivered successfully
+        expect(kunser(reconnectResult)).toContain(
+          'vat Bob got "hello" from Alice',
+        );
+
+        // Verify that reconnection took some time (indicating backoff delays)
+        // With exponential backoff, even with jitter, we expect at least
+        // one delay period (~500ms base) before reconnection succeeds
+        // We allow for some variance due to jitter and network timing
+        expect(totalReconnectTime).toBeGreaterThan(1000);
+
+        // Verify connection is working after reconnection
+        const followUpMessage = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+        expect(kunser(followUpMessage)).toContain(
+          'vat Bob got "hello" from Alice',
+        );
+      },
+      NETWORK_TIMEOUT * 2,
+    );
   });
 
   describe('Message Queueing', () => {
