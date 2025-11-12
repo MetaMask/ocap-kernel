@@ -146,10 +146,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 83.01,
+          statements: 86.84,
           functions: 86.66,
-          branches: 91.17,
-          lines: 83.01,
+          branches: 94.73,
+          lines: 86.84,
         },
         'packages/nodejs-test-workers/**': {
           statements: 22.22,

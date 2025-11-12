@@ -12,6 +12,7 @@ import type {
 import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
+import { strict as assert } from 'node:assert';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -58,20 +59,14 @@ export class NodejsPlatformServices implements PlatformServices {
   ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
     // Check if worker already exists
     if (this.workers.has(vatId)) {
-      const error = new Error(
+      throw new Error(
         `Worker ${vatId} already exists! Cannot launch duplicate.`,
       );
-      throw error;
     }
 
     this.#logger.debug('launching vat', vatId);
     const { promise, resolve, reject } =
       makePromiseKit<DuplexStream<JsonRpcMessage, JsonRpcMessage>>();
-
-    // Set a timeout to detect hung worker initialization
-    const timeout = setTimeout(() => {
-      reject(new Error(`Worker ${vatId} failed to start within 30 seconds`));
-    }, 30000);
 
     const worker = new NodeWorker(this.#workerFilePath, {
       env: {
@@ -79,25 +74,27 @@ export class NodejsPlatformServices implements PlatformServices {
       },
     });
 
-    // Handle worker errors during startup
+    // Handle worker errors before 'online' event
     worker.once('error', (error) => {
-      clearTimeout(timeout);
+      worker.removeAllListeners();
+      // eslint-disable-next-line promise/no-promise-in-callback
+      worker.terminate().catch(() => {
+        // Ignore termination errors
+      });
       reject(
         new Error(`Worker ${vatId} errored during startup: ${error.message}`),
       );
     });
 
-    // Handle worker exit during startup
+    // Handle worker exit before 'online' event
     worker.once('exit', (code) => {
-      clearTimeout(timeout);
+      worker.removeAllListeners();
       reject(
         new Error(`Worker ${vatId} exited during startup with code ${code}`),
       );
     });
 
     worker.once('online', () => {
-      clearTimeout(timeout);
-
       // Remove error and exit listeners now that worker is online
       worker.removeAllListeners('error');
       worker.removeAllListeners('exit');
@@ -106,15 +103,26 @@ export class NodejsPlatformServices implements PlatformServices {
         worker,
         isJsonRpcMessage,
       );
-      this.workers.set(vatId, { worker, stream });
       stream
         .synchronize()
         .then(() => {
+          // Only add worker to map after successful synchronization
+          this.workers.set(vatId, { worker, stream });
           resolve(stream);
           this.#logger.debug('connected to kernel');
           return undefined;
         })
-        .catch((error) => {
+        .catch(async (error) => {
+          // Clean up worker if synchronization fails
+          worker.removeAllListeners();
+          try {
+            await worker.terminate();
+          } catch (terminateError) {
+            this.#logger.error(
+              `Error terminating worker ${vatId} after sync failure`,
+              terminateError,
+            );
+          }
           reject(error);
         });
     });
