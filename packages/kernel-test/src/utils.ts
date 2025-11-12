@@ -71,6 +71,7 @@ export async function runResume(
  * @param logger - The logger to use for the kernel.
  * @param workerFilePath - The path to the worker file to use for the vat workers.
  * @param platformServices - The platform services client to use for the kernel.
+ * @param keySeed - Optional seed for libp2p key generation.
  *
  * @returns the new kernel instance.
  */
@@ -80,6 +81,7 @@ export async function makeKernel(
   logger: Logger,
   workerFilePath?: string,
   platformServices?: PlatformServices,
+  keySeed?: string,
 ): Promise<Kernel> {
   const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
   const nodeStream = new NodeWorkerDuplexStream<
@@ -101,6 +103,7 @@ export async function makeKernel(
     {
       resetStorage,
       logger,
+      keySeed,
     },
   );
   return kernel;

@@ -78,6 +78,7 @@ describe('RemoteManager', () => {
         messageHandler,
         ['relay1', 'relay2'],
         logger,
+        undefined,
       );
     });
 

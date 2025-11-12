@@ -96,6 +96,7 @@ export function getKnownRelays(kv: KVStore): string[] {
  * @param remoteMessageHandler - Handler to process received inbound communcations.
  * @param relays - The known relays to use for the remote comms object.
  * @param logger - The logger to use.
+ * @param keySeed - Optional seed for libp2p key generation.
  *
  * @returns the initialized remote comms object.
  */
@@ -105,9 +106,9 @@ export async function initRemoteComms(
   remoteMessageHandler: RemoteMessageHandler,
   relays?: string[],
   logger?: Logger,
+  keySeed?: string,
 ): Promise<RemoteComms> {
   let peerId: string;
-  let keySeed: string;
   let ocapURLKey: Uint8Array;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -116,6 +117,7 @@ export async function initRemoteComms(
     kv.set('knownRelays', JSON.stringify(relays));
   }
 
+  /* eslint-disable no-param-reassign */
   const possiblePeerId = kv.get('peerId');
   if (possiblePeerId) {
     keySeed = kv.getRequired('keySeed');
@@ -125,7 +127,7 @@ export async function initRemoteComms(
     // XXX TODO: Instead of generating a new random seed unconditionally, this
     // function should accept an optional BIP39 keyphrase parameter for the
     // seed, to enable a kernel to recover its identity on a new host.
-    [keySeed, peerId] = await generateKeyInfo();
+    [keySeed, peerId] = await generateKeyInfo(keySeed);
     kv.set('keySeed', keySeed);
     kv.set('peerId', peerId);
     logger?.log(`comms init: new peer id: ${peerId}`);
