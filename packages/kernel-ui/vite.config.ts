@@ -30,7 +30,10 @@ export default defineConfig(({ mode }) => {
       cssCodeSplit: false,
       cssMinify: !isDev,
       lib: {
-        entry: './src/index.ts',
+        entry: {
+          'kernel-ui': './src/index.ts',
+          hooks: './src/hooks/index.ts',
+        },
         name: 'KernelUI',
         formats: ['es', 'cjs'],
         fileName: (format, entryName) => {

@@ -7,6 +7,9 @@ import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 import { isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcResponse } from '@metamask/utils';
 
+import { hostService } from './services/host-service.ts';
+import { storageService } from './services/storage.ts';
+
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
@@ -86,6 +89,36 @@ async function main(): Promise<void> {
     },
     'background:',
   );
+
+  // Initialize host service with kernel RPC access
+  hostService.initialize(
+    async (request) => {
+      await offscreenStream.write(request);
+    },
+    (id, response) => {
+      rpcClient.handleResponse(id, response);
+    },
+  );
+
+  // Load installed caplets and bootstrap them on startup
+  try {
+    const installedCaplets = await storageService.loadInstalledCaplets();
+    for (const caplet of installedCaplets) {
+      if (caplet.enabled !== false && caplet.manifest.clusterConfig) {
+        try {
+          await hostService.bootstrapCaplet(caplet.id);
+          logger.log(`Bootstrapped caplet on startup: ${caplet.id}`);
+        } catch (error) {
+          logger.error(
+            `Failed to bootstrap caplet ${caplet.id} on startup`,
+            error,
+          );
+        }
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to bootstrap caplets on startup', error);
+  }
 
   const ping = async (): Promise<void> => {
     const result = await rpcClient.call('ping', []);

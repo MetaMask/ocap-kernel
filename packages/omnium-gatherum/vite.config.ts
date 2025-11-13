@@ -79,6 +79,10 @@ export default defineConfig(({ mode }) => {
           'kernel-panel': path.resolve(sourceDir, 'devtools/kernel-panel.html'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
           popup: path.resolve(sourceDir, 'popup.html'),
+          'caplet-ui-iframe': path.resolve(
+            sourceDir,
+            'ui/caplet-ui-iframe.html',
+          ),
           // kernel-browser-runtime
           'kernel-worker': path.resolve(
             kernelBrowserRuntimeSrcDir,

@@ -1,3 +1,5 @@
+import { HostShell } from './HostShell.tsx';
+
 export const App: React.FC = () => {
-  return <div>Omnium Gatherum</div>;
+  return <HostShell />;
 };

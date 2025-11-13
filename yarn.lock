@@ -3627,6 +3627,7 @@ __metadata:
     eslint-plugin-promise: "npm:^7.2.1"
     jsdom: "npm:^26.0.0"
     playwright: "npm:^1.54.2"
+    preact: "npm:^10.27.2"
     prettier: "npm:^3.5.3"
     react: "npm:^17.0.2"
     react-dom: "npm:^17.0.2"
@@ -12207,6 +12208,13 @@ __metadata:
     picocolors: "npm:^1.1.1"
     source-map-js: "npm:^1.2.1"
   checksum: 10/9e4fbe97574091e9736d0e82a591e29aa100a0bf60276a926308f8c57249698935f35c5d2f4e80de778d0cbb8dcffab4f383d85fd50c5649aca421c3df729b86
+  languageName: node
+  linkType: hard
+
+"preact@npm:^10.27.2":
+  version: 10.27.2
+  resolution: "preact@npm:10.27.2"
+  checksum: 10/e568fb968579e73921119232fcdfa6a5b6a57632742b905ec5127b8ef77abee3a8040d8342022af7845e3b43e97ca06faafbf734aa234dd95c0d62474cd0d03f
   languageName: node
   linkType: hard
 
