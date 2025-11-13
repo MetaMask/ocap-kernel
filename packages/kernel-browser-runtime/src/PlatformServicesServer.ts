@@ -58,6 +58,12 @@ export class PlatformServicesServer {
 
   #stopRemoteCommsFunc: StopRemoteComms | null = null;
 
+  #closeConnectionFunc: ((peerId: string) => Promise<void>) | null = null;
+
+  #reconnectPeerFunc:
+    | ((peerId: string, hints?: string[]) => Promise<void>)
+    | null = null;
+
   /**
    * **ATTN:** Prefer {@link PlatformServicesServer.make} over constructing
    * this class directly.
@@ -101,6 +107,8 @@ export class PlatformServicesServer {
       initializeRemoteComms: this.#initializeRemoteComms.bind(this),
       sendRemoteMessage: this.#sendRemoteMessage.bind(this),
       stopRemoteComms: this.#stopRemoteComms.bind(this),
+      closeConnection: this.#closeConnection.bind(this),
+      reconnectPeer: this.#reconnectPeer.bind(this),
     });
 
     // Start draining messages immediately after construction
@@ -161,6 +169,13 @@ export class PlatformServicesServer {
     }
   }
 
+  /**
+   * Send a message to the client.
+   *
+   * @param message - The message to send.
+   * @param port - An optional port to transfer.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async #sendMessage(
     message: JsonRpcMessage,
     port?: MessagePort,
@@ -171,6 +186,13 @@ export class PlatformServicesServer {
     });
   }
 
+  /**
+   * Launch a new worker with a specific vat id.
+   *
+   * @param vatId - The vat id of the worker to launch.
+   * @param vatConfig - The configuration for the worker.
+   * @returns A promise that resolves when the worker has been launched.
+   */
   async #launch(vatId: VatId, vatConfig: VatConfig): Promise<null> {
     if (this.#vatWorkers.has(vatId)) {
       throw new VatAlreadyExistsError(vatId);
@@ -182,6 +204,12 @@ export class PlatformServicesServer {
     return port as unknown as null;
   }
 
+  /**
+   * Terminate a worker identified by its vat id.
+   *
+   * @param vatId - The vat id of the worker to terminate.
+   * @returns A promise that resolves when the worker has been terminated.
+   */
   async #terminate(vatId: VatId): Promise<null> {
     const vatWorker = this.#vatWorkers.get(vatId);
     if (!vatWorker) {
@@ -192,6 +220,11 @@ export class PlatformServicesServer {
     return null;
   }
 
+  /**
+   * Terminate all workers managed by the service.
+   *
+   * @returns A promise that resolves when all workers have been terminated.
+   */
   async #terminateAll(): Promise<null> {
     await Promise.all(
       Array.from(this.#vatWorkers.keys()).map(async (vatId) =>
@@ -201,6 +234,14 @@ export class PlatformServicesServer {
     return null;
   }
 
+  /**
+   * Initialize network communications.
+   *
+   * @param keySeed - The seed for generating this kernel's secret key.
+   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   *   connections from other kernels.
+   * @returns A promise that resolves when network access has been initialized.
+   */
   async #initializeRemoteComms(
     keySeed: string,
     knownRelays: string[],
@@ -208,16 +249,24 @@ export class PlatformServicesServer {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
-    const { sendRemoteMessage, stop } = await initNetwork(
-      keySeed,
-      knownRelays,
-      this.#handleRemoteMessage.bind(this),
-    );
+    const { sendRemoteMessage, stop, closeConnection, reconnectPeer } =
+      await initNetwork(
+        keySeed,
+        knownRelays,
+        this.#handleRemoteMessage.bind(this),
+      );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
+    this.#closeConnectionFunc = closeConnection;
+    this.#reconnectPeerFunc = reconnectPeer;
     return null;
   }
 
+  /**
+   * Stop network communications.
+   *
+   * @returns A promise that resolves when network access has been stopped.
+   */
   async #stopRemoteComms(): Promise<null> {
     if (!this.#stopRemoteCommsFunc) {
       return null;
@@ -225,9 +274,48 @@ export class PlatformServicesServer {
     await this.#stopRemoteCommsFunc();
     this.#sendRemoteMessageFunc = null;
     this.#stopRemoteCommsFunc = null;
+    this.#closeConnectionFunc = null;
+    this.#reconnectPeerFunc = null;
     return null;
   }
 
+  /**
+   * Explicitly close a connection to a peer.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   * @returns A promise that resolves when the connection has been closed.
+   */
+  async #closeConnection(peerId: string): Promise<null> {
+    if (!this.#closeConnectionFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#closeConnectionFunc(peerId);
+    return null;
+  }
+
+  /**
+   * Manually reconnect to a peer after intentional close.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - Optional hints for reconnection.
+   * @returns A promise that resolves when reconnection has been initiated.
+   */
+  async #reconnectPeer(peerId: string, hints: string[] = []): Promise<null> {
+    if (!this.#reconnectPeerFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#reconnectPeerFunc(peerId, hints);
+    return null;
+  }
+
+  /**
+   * Send a remote message to a peer.
+   *
+   * @param to - The peer ID to send the message to.
+   * @param message - The message to send.
+   * @param hints - Optional hints for the message.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async #sendRemoteMessage(
     to: string,
     message: string,
@@ -240,6 +328,13 @@ export class PlatformServicesServer {
     return null;
   }
 
+  /**
+   * Handle a remote message from a peer.
+   *
+   * @param from - The peer ID that sent the message.
+   * @param message - The message received.
+   * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
+   */
   async #handleRemoteMessage(from: string, message: string): Promise<string> {
     const possibleReply = await this.#rpcClient.call('remoteDeliver', {
       from,

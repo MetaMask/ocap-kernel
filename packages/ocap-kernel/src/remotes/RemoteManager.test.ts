@@ -182,6 +182,24 @@ describe('RemoteManager', () => {
       );
     });
 
+    it('closes connection to peer', async () => {
+      await remoteManager.closeConnection('peer123');
+      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
+    });
+
+    it('reconnects peer with hints', async () => {
+      await remoteManager.reconnectPeer('peer123', ['relay1', 'relay2']);
+      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', [
+        'relay1',
+        'relay2',
+      ]);
+    });
+
+    it('reconnects peer with empty hints when hints not provided', async () => {
+      await remoteManager.reconnectPeer('peer123');
+      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', []);
+    });
+
     it('gets remote comms after initialization', () => {
       const comms = remoteManager.getRemoteComms();
       expect(comms).toBe(mockRemoteComms);
@@ -385,6 +403,22 @@ describe('RemoteManager', () => {
       await expect(
         remoteManager.sendRemoteMessage('peer1', 'test'),
       ).rejects.toThrow('Remote comms not initialized');
+    });
+
+    it('throws when calling closeConnection after stop', async () => {
+      await remoteManager.stopRemoteComms();
+
+      await expect(remoteManager.closeConnection('peer1')).rejects.toThrow(
+        'Remote comms not initialized',
+      );
+    });
+
+    it('throws when calling reconnectPeer after stop', async () => {
+      await remoteManager.stopRemoteComms();
+
+      await expect(remoteManager.reconnectPeer('peer1')).rejects.toThrow(
+        'Remote comms not initialized',
+      );
     });
 
     it('can be called when remote comms is not initialized', async () => {

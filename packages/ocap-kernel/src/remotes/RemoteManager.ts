@@ -235,4 +235,25 @@ export class RemoteManager {
     const remote = this.remoteFor(from);
     return await remote.handleRemoteMessage(message);
   }
+
+  /**
+   * Explicitly close a connection to a peer.
+   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   */
+  async closeConnection(peerId: string): Promise<void> {
+    await this.getRemoteComms().closeConnection(peerId);
+  }
+
+  /**
+   * Manually reconnect to a peer after intentional close.
+   * Clears the intentional close flag and initiates reconnection.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - Optional hints for reconnection.
+   */
+  async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
+    await this.getRemoteComms().reconnectPeer(peerId, hints);
+  }
 }

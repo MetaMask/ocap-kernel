@@ -243,6 +243,19 @@ describe('network.initNetwork', () => {
         expect.any(AbortSignal), // signal from AbortController
       );
     });
+
+    it('returns sendRemoteMessage, stop, closeConnection, and reconnectPeer', async () => {
+      const result = await initNetwork('0x1234', [], vi.fn());
+
+      expect(result).toHaveProperty('sendRemoteMessage');
+      expect(result).toHaveProperty('stop');
+      expect(result).toHaveProperty('closeConnection');
+      expect(result).toHaveProperty('reconnectPeer');
+      expect(typeof result.sendRemoteMessage).toBe('function');
+      expect(typeof result.stop).toBe('function');
+      expect(typeof result.closeConnection).toBe('function');
+      expect(typeof result.reconnectPeer).toBe('function');
+    });
   });
 
   describe('basic messaging', () => {
@@ -472,18 +485,15 @@ describe('network.initNetwork', () => {
       inboundHandler?.(mockChannel);
 
       await vi.waitFor(() => {
-        // Should log graceful disconnect message, not error
+        // Should log intentional disconnect message
         expect(mockLogger.log).toHaveBeenCalledWith(
-          'peer-1:: remote disconnected',
+          'peer-1:: remote intentionally disconnected',
         );
         expect(mockLogger.log).toHaveBeenCalledWith('closed channel to peer-1');
-        // Should not call outputError for graceful disconnect
-        expect(mockLogger.log).not.toHaveBeenCalledWith(
-          expect.stringContaining('error reading message from peer-1'),
-        );
-        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
-          'peer-1',
-        );
+        // Should not start reconnection for intentional disconnect
+        expect(
+          mockReconnectionManager.startReconnection,
+        ).not.toHaveBeenCalled();
       });
     });
 
@@ -686,6 +696,304 @@ describe('network.initNetwork', () => {
       // Should have been called
       expect(mockConnectionFactory.stop).toHaveBeenCalled();
       expect(mockReconnectionManager.clear).toHaveBeenCalled();
+    });
+  });
+
+  describe('closeConnection', () => {
+    it('returns a closeConnection function', async () => {
+      const { closeConnection } = await initNetwork('0x1234', [], vi.fn());
+
+      expect(typeof closeConnection).toBe('function');
+    });
+
+    it('marks peer as intentionally closed and prevents message sending', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Close connection
+      await closeConnection('peer-1');
+
+      // Attempting to send should throw
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+        'Message delivery failed after intentional close',
+      );
+    });
+
+    it('deletes channel and stops reconnection', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Start reconnection (simulate by setting reconnecting state)
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      await closeConnection('peer-1');
+
+      expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
+
+    it('clears message queue for closed peer', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Set up queue with messages
+      mockMessageQueue.length = 2;
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: [] },
+        { message: 'queued-2', hints: [] },
+      ];
+
+      await closeConnection('peer-1');
+
+      expect(mockMessageQueue.clear).toHaveBeenCalled();
+    });
+
+    it('prevents automatic reconnection after intentional close', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      // Establish connection
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Close connection intentionally
+      await closeConnection('peer-1');
+
+      // Attempting to send should throw before attempting to write
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+        'Message delivery failed after intentional close',
+      );
+
+      // Should not start reconnection (sendRemoteMessage throws before handleConnectionLoss)
+      expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
+    });
+
+    it('rejects inbound connections from intentionally closed peers', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const { closeConnection } = await initNetwork('0x1234', [], vi.fn());
+
+      // Close connection first
+      await closeConnection('peer-1');
+
+      // Try to establish inbound connection from closed peer
+      const mockChannel = createMockChannel('peer-1');
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        // Should log rejection message
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-1:: rejecting inbound connection from intentionally closed peer',
+        );
+        // Should not start reading from this channel
+        expect(mockChannel.msgStream.read).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('reconnectPeer', () => {
+    it('returns a reconnectPeer function', async () => {
+      const { reconnectPeer } = await initNetwork('0x1234', [], vi.fn());
+
+      expect(typeof reconnectPeer).toBe('function');
+    });
+
+    it('clears intentional close flag and initiates reconnection', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection, reconnectPeer } =
+        await initNetwork('0x1234', [], vi.fn());
+
+      // Establish and close connection
+      await sendRemoteMessage('peer-1', 'msg1');
+      await closeConnection('peer-1');
+
+      // Verify peer is marked as intentionally closed
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+        'Message delivery failed after intentional close',
+      );
+
+      // Reconnect peer
+      await reconnectPeer('peer-1');
+
+      // Should start reconnection
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
+
+    it('reconnects peer with provided hints', async () => {
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Set up reconnection state
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+
+      const hints = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+      await reconnectPeer('peer-1', hints);
+
+      // Should start reconnection with hints
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+
+      // Wait for reconnection attempt
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+          'peer-1',
+          hints,
+          false,
+        );
+      });
+    });
+
+    it('reconnects peer with empty hints when not provided', async () => {
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Set up reconnection state
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+      await reconnectPeer('peer-1');
+
+      // Wait for reconnection attempt with empty hints
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+          'peer-1',
+          [],
+          false,
+        );
+      });
+    });
+
+    it('does not start duplicate reconnection if already reconnecting', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initNetwork(
+        '0x1234',
+        [],
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+
+      // Set up reconnection state
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      await reconnectPeer('peer-1');
+
+      // Should not start another reconnection
+      expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
+    });
+
+    it('allows sending messages after reconnection', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, closeConnection, reconnectPeer } =
+        await initNetwork('0x1234', [], vi.fn());
+
+      // Establish, close, and reconnect
+      await sendRemoteMessage('peer-1', 'msg1');
+      await closeConnection('peer-1');
+      await reconnectPeer('peer-1');
+
+      // Wait for reconnection to complete
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalled();
+      });
+
+      // Reset reconnection state to simulate successful reconnection
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      // Should be able to send messages after reconnection
+      await sendRemoteMessage('peer-1', 'msg2');
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
     });
   });
 

@@ -16,6 +16,8 @@ describe('platform-services index', () => {
         'sendRemoteMessage',
         'initializeRemoteComms',
         'stopRemoteComms',
+        'closeConnection',
+        'reconnectPeer',
       ];
 
       for (const handlerName of expectedHandlers) {
@@ -96,6 +98,22 @@ describe('platform-services index', () => {
         expect(handler.hooks).toStrictEqual({ stopRemoteComms: true });
         expect(typeof handler.implementation).toBe('function');
       });
+
+      it('should have closeConnection handler with correct configuration', () => {
+        const handler = platformServicesHandlers.closeConnection;
+
+        expect(handler.method).toBe('closeConnection');
+        expect(handler.hooks).toStrictEqual({ closeConnection: true });
+        expect(typeof handler.implementation).toBe('function');
+      });
+
+      it('should have reconnectPeer handler with correct configuration', () => {
+        const handler = platformServicesHandlers.reconnectPeer;
+
+        expect(handler.method).toBe('reconnectPeer');
+        expect(handler.hooks).toStrictEqual({ reconnectPeer: true });
+        expect(typeof handler.implementation).toBe('function');
+      });
     });
   });
 
@@ -108,6 +126,8 @@ describe('platform-services index', () => {
         'sendRemoteMessage',
         'initializeRemoteComms',
         'stopRemoteComms',
+        'closeConnection',
+        'reconnectPeer',
       ];
 
       for (const specName of expectedSpecs) {
@@ -166,6 +186,16 @@ describe('platform-services index', () => {
         const spec = platformServicesMethodSpecs.stopRemoteComms;
         expect(spec.method).toBe('stopRemoteComms');
       });
+
+      it('should have closeConnection spec with correct method name', () => {
+        const spec = platformServicesMethodSpecs.closeConnection;
+        expect(spec.method).toBe('closeConnection');
+      });
+
+      it('should have reconnectPeer spec with correct method name', () => {
+        const spec = platformServicesMethodSpecs.reconnectPeer;
+        expect(spec.method).toBe('reconnectPeer');
+      });
     });
   });
 
@@ -179,6 +209,8 @@ describe('platform-services index', () => {
         'sendRemoteMessage',
         'initializeRemoteComms',
         'stopRemoteComms',
+        'closeConnection',
+        'reconnectPeer',
       ];
 
       for (const method of methods) {
@@ -208,9 +240,9 @@ describe('platform-services index', () => {
       }
     });
 
-    it('should have exactly 6 platform services', () => {
-      expect(Object.keys(platformServicesHandlers)).toHaveLength(6);
-      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(6);
+    it('should have exactly 8 platform services', () => {
+      expect(Object.keys(platformServicesHandlers)).toHaveLength(8);
+      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(8);
     });
 
     it('should maintain handler-spec consistency for all services', () => {
@@ -221,6 +253,8 @@ describe('platform-services index', () => {
         'sendRemoteMessage',
         'initializeRemoteComms',
         'stopRemoteComms',
+        'closeConnection',
+        'reconnectPeer',
       ] as const;
 
       for (const service of services) {

@@ -1,4 +1,12 @@
 import {
+  closeConnectionSpec,
+  closeConnectionHandler,
+} from './closeConnection.ts';
+import type {
+  CloseConnectionSpec,
+  CloseConnectionHandler,
+} from './closeConnection.ts';
+import {
   initializeRemoteCommsSpec,
   initializeRemoteCommsHandler,
 } from './initializeRemoteComms.ts';
@@ -8,6 +16,11 @@ import type {
 } from './initializeRemoteComms.ts';
 import { launchSpec, launchHandler } from './launch.ts';
 import type { LaunchSpec, LaunchHandler } from './launch.ts';
+import { reconnectPeerSpec, reconnectPeerHandler } from './reconnectPeer.ts';
+import type {
+  ReconnectPeerSpec,
+  ReconnectPeerHandler,
+} from './reconnectPeer.ts';
 import {
   sendRemoteMessageSpec,
   sendRemoteMessageHandler,
@@ -36,6 +49,8 @@ export const platformServicesHandlers = {
   sendRemoteMessage: sendRemoteMessageHandler,
   initializeRemoteComms: initializeRemoteCommsHandler,
   stopRemoteComms: stopRemoteCommsHandler,
+  closeConnection: closeConnectionHandler,
+  reconnectPeer: reconnectPeerHandler,
 } as {
   launch: LaunchHandler;
   terminate: TerminateHandler;
@@ -43,6 +58,8 @@ export const platformServicesHandlers = {
   sendRemoteMessage: SendRemoteMessageHandler;
   initializeRemoteComms: InitializeRemoteCommsHandler;
   stopRemoteComms: StopRemoteCommsHandler;
+  closeConnection: CloseConnectionHandler;
+  reconnectPeer: ReconnectPeerHandler;
 };
 
 export type PlatformServicesMethodSpecs =
@@ -51,7 +68,9 @@ export type PlatformServicesMethodSpecs =
   | typeof terminateAllSpec
   | typeof sendRemoteMessageSpec
   | typeof initializeRemoteCommsSpec
-  | typeof stopRemoteCommsSpec;
+  | typeof stopRemoteCommsSpec
+  | typeof closeConnectionSpec
+  | typeof reconnectPeerSpec;
 
 export const platformServicesMethodSpecs = {
   launch: launchSpec,
@@ -60,6 +79,8 @@ export const platformServicesMethodSpecs = {
   sendRemoteMessage: sendRemoteMessageSpec,
   initializeRemoteComms: initializeRemoteCommsSpec,
   stopRemoteComms: stopRemoteCommsSpec,
+  closeConnection: closeConnectionSpec,
+  reconnectPeer: reconnectPeerSpec,
 } as {
   launch: LaunchSpec;
   terminate: TerminateSpec;
@@ -67,6 +88,8 @@ export const platformServicesMethodSpecs = {
   sendRemoteMessage: SendRemoteMessageSpec;
   initializeRemoteComms: InitializeRemoteCommsSpec;
   stopRemoteComms: StopRemoteCommsSpec;
+  closeConnection: CloseConnectionSpec;
+  reconnectPeer: ReconnectPeerSpec;
 };
 
 export type PlatformServicesMethod = PlatformServicesMethodSpecs['method'];

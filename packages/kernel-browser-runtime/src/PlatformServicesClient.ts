@@ -117,6 +117,14 @@ export class PlatformServicesClient implements PlatformServices {
     return new PlatformServicesClient(stream, logger);
   }
 
+  /**
+   * Launch a new worker with a specific vat id.
+   *
+   * @param vatId - The vat id of the worker to launch.
+   * @param vatConfig - The configuration for the worker.
+   * @returns A promise for a duplex stream connected to the worker
+   * which rejects if a worker with the given vat id already exists.
+   */
   async launch(
     vatId: VatId,
     vatConfig: VatConfig,
@@ -138,14 +146,37 @@ export class PlatformServicesClient implements PlatformServices {
     );
   }
 
+  /**
+   * Terminate a worker identified by its vat id.
+   *
+   * @param vatId - The vat id of the worker to terminate.
+   * @returns A promise that resolves when the worker has terminated
+   * or rejects if that worker does not exist.
+   */
   async terminate(vatId: VatId): Promise<void> {
     await this.#rpcClient.call('terminate', { vatId });
   }
 
+  /**
+   * Terminate all workers managed by the service.
+   *
+   * @returns A promise that resolves after all workers have terminated
+   * or rejects if there was an error during termination.
+   */
   async terminateAll(): Promise<void> {
     await this.#rpcClient.call('terminateAll', []);
   }
 
+  /**
+   * Initialize network communications.
+   *
+   * @param keySeed - The seed for generating this kernel's secret key.
+   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   *   connections from other kernels.
+   * @param remoteMessageHandler - A handler function to receive remote messages.
+   * @returns A promise that resolves once network access has been established
+   *   or rejects if there is some problem doing so.
+   */
   async initializeRemoteComms(
     keySeed: string,
     knownRelays: string[],
@@ -158,10 +189,24 @@ export class PlatformServicesClient implements PlatformServices {
     });
   }
 
+  /**
+   * Stop network communications.
+   *
+   * @returns A promise that resolves when network access has been stopped
+   *   or rejects if there is some problem doing so.
+   */
   async stopRemoteComms(): Promise<void> {
     await this.#rpcClient.call('stopRemoteComms', []);
   }
 
+  /**
+   * Send a remote message to a peer.
+   *
+   * @param to - The peer ID to send the message to.
+   * @param message - The message to send.
+   * @param hints - Optional hints for the message.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async sendRemoteMessage(
     to: string,
     message: string,
@@ -170,6 +215,36 @@ export class PlatformServicesClient implements PlatformServices {
     await this.#rpcClient.call('sendRemoteMessage', { to, message, hints });
   }
 
+  /**
+   * Explicitly close a connection to a peer.
+   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   * @returns A promise that resolves when the connection is closed.
+   */
+  async closeConnection(peerId: string): Promise<void> {
+    await this.#rpcClient.call('closeConnection', { peerId });
+  }
+
+  /**
+   * Manually reconnect to a peer after intentional close.
+   * Clears the intentional close flag and initiates reconnection.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - Optional hints for reconnection.
+   * @returns A promise that resolves when reconnection is initiated.
+   */
+  async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
+    await this.#rpcClient.call('reconnectPeer', { peerId, hints });
+  }
+
+  /**
+   * Handle a remote message from a peer.
+   *
+   * @param from - The peer ID that sent the message.
+   * @param message - The message received.
+   * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
+   */
   async #remoteDeliver(from: string, message: string): Promise<string> {
     if (this.#remoteMessageHandler) {
       return await this.#remoteMessageHandler(from, message);
@@ -177,6 +252,12 @@ export class PlatformServicesClient implements PlatformServices {
     throw Error(`remote message handler not set`);
   }
 
+  /**
+   * Send a message to the server.
+   *
+   * @param payload - The message to send.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async #sendMessage(payload: JsonRpcMessage): Promise<void> {
     await this.#stream.write({
       payload,
@@ -184,6 +265,12 @@ export class PlatformServicesClient implements PlatformServices {
     });
   }
 
+  /**
+   * Handle a message from the server.
+   *
+   * @param event - The message event.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async #handleMessage(event: MessageEvent<JsonRpcMessage>): Promise<void> {
     if (isJsonRpcResponse(event.data)) {
       const { id } = event.data;
