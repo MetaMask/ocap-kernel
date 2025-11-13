@@ -6,7 +6,7 @@ import { NodeWorkerDuplexStream } from '@metamask/streams';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
-import { getTestWorkerFile } from '../helpers/get-test-worker.ts';
+import { getTestWorkerFile } from '../get-test-worker.ts';
 
 describe('NodejsPlatformServices', () => {
   const testWorkerFile = getTestWorkerFile('stream-sync');
