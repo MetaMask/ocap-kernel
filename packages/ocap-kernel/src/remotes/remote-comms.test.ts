@@ -52,6 +52,8 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('stopRemoteComms');
+      expect(remoteComms).toHaveProperty('closeConnection');
+      expect(remoteComms).toHaveProperty('reconnectPeer');
 
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBe(
@@ -109,6 +111,8 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('stopRemoteComms');
+      expect(remoteComms).toHaveProperty('closeConnection');
+      expect(remoteComms).toHaveProperty('reconnectPeer');
       expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
       expect(mockKernelStore.kv.get('keySeed')).toBe(mockKeySeed);
@@ -160,6 +164,123 @@ describe('remote-comms', () => {
       await remoteComms.issueOcapURL('kref2');
       await remoteComms.stopRemoteComms();
       expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('closeConnection', () => {
+    it('calls platformServices.closeConnection', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.closeConnection('peer123');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'peer123',
+      );
+    });
+
+    it('is a bound function from platformServices', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      expect(typeof remoteComms.closeConnection).toBe('function');
+      await remoteComms.closeConnection('peer123');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalled();
+    });
+
+    it('works after sending messages', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.sendRemoteMessage('peer1', 'msg1');
+      await remoteComms.closeConnection('peer1');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'peer1',
+      );
+    });
+
+    it('works after issuing ocap URLs', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.issueOcapURL('kref1');
+      await remoteComms.closeConnection('peer123');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'peer123',
+      );
+    });
+  });
+
+  describe('reconnectPeer', () => {
+    it('calls platformServices.reconnectPeer with hints', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.reconnectPeer('peer123', ['relay1', 'relay2']);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+        ['relay1', 'relay2'],
+      );
+    });
+
+    it('calls platformServices.reconnectPeer with empty hints when not provided', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.reconnectPeer('peer123');
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+      );
+      // The default parameter [] is handled by the actual implementation
+      // The mock receives undefined for the second argument when not provided
+    });
+
+    it('is a bound function from platformServices', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      expect(typeof remoteComms.reconnectPeer).toBe('function');
+      await remoteComms.reconnectPeer('peer123');
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalled();
+    });
+
+    it('works after closing connection', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.closeConnection('peer1');
+      await remoteComms.reconnectPeer('peer1', ['relay1']);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith('peer1', [
+        'relay1',
+      ]);
+    });
+
+    it('works after sending messages', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.sendRemoteMessage('peer1', 'msg1');
+      await remoteComms.reconnectPeer('peer1');
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith('peer1');
+      // The default parameter [] is handled by the actual implementation
+      // The mock receives undefined for the second argument when not provided
     });
   });
 

@@ -226,6 +226,33 @@ describe('PlatformServicesClient', () => {
         });
       });
 
+      describe('closeConnection', () => {
+        it('sends closeConnection request and resolves', async () => {
+          const result = client.closeConnection('peer-123');
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('reconnectPeer', () => {
+        it('sends reconnectPeer request with hints and resolves', async () => {
+          const result = client.reconnectPeer('peer-456', [
+            '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+          ]);
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+
+        it('sends reconnectPeer request with empty hints and resolves', async () => {
+          const result = client.reconnectPeer('peer-789');
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
       describe('remoteDeliver', () => {
         it('throws error when handler not set', async () => {
           // Client without initialized remote comms

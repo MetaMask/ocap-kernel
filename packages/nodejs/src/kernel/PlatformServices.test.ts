@@ -9,6 +9,8 @@ import { NodejsPlatformServices } from './PlatformServices.ts';
 
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
+const mockCloseConnection = vi.fn(async () => undefined);
+const mockReconnectPeer = vi.fn(async () => undefined);
 
 const mocks = vi.hoisted(() => {
   const createMockWorker = (autoEmitOnline = true) => {
@@ -75,6 +77,8 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
     initNetwork: vi.fn(async () => ({
       sendRemoteMessage: mockSendRemoteMessage,
       stop: mockStop,
+      closeConnection: mockCloseConnection,
+      reconnectPeer: mockReconnectPeer,
     })),
   };
 });
@@ -83,6 +87,8 @@ describe('NodejsPlatformServices', () => {
   beforeEach(() => {
     mockSendRemoteMessage.mockClear();
     mockStop.mockClear();
+    mockCloseConnection.mockClear();
+    mockReconnectPeer.mockClear();
     mocks.stream.synchronize.mockResolvedValue(undefined);
     mocks.stream.return.mockResolvedValue({});
   });
@@ -397,6 +403,94 @@ describe('NodejsPlatformServices', () => {
         await expect(
           service.sendRemoteMessage('peer-2', 'msg2', []),
         ).rejects.toThrow('remote comms not initialized');
+      });
+
+      it('clears closeConnection and reconnectPeer after stop', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        await service.initializeRemoteComms(
+          '0xtest',
+          [],
+          vi.fn(async () => ''),
+        );
+
+        // Should work before stop
+        await service.closeConnection('peer-1');
+        await service.reconnectPeer('peer-1');
+        expect(mockCloseConnection).toHaveBeenCalledTimes(1);
+        expect(mockReconnectPeer).toHaveBeenCalledTimes(1);
+
+        await service.stopRemoteComms();
+
+        // Should throw after stop
+        await expect(service.closeConnection('peer-2')).rejects.toThrow(
+          'remote comms not initialized',
+        );
+        await expect(service.reconnectPeer('peer-2')).rejects.toThrow(
+          'remote comms not initialized',
+        );
+      });
+    });
+
+    describe('closeConnection', () => {
+      it('closes connection via network layer', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        await service.initializeRemoteComms(
+          '0xtest',
+          [],
+          vi.fn(async () => ''),
+        );
+
+        await service.closeConnection('peer-123');
+
+        expect(mockCloseConnection).toHaveBeenCalledWith('peer-123');
+      });
+
+      it('throws error if remote comms not initialized', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+
+        await expect(service.closeConnection('peer-999')).rejects.toThrow(
+          'remote comms not initialized',
+        );
+      });
+    });
+
+    describe('reconnectPeer', () => {
+      it('reconnects peer via network layer', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        await service.initializeRemoteComms(
+          '0xtest',
+          [],
+          vi.fn(async () => ''),
+        );
+
+        await service.reconnectPeer('peer-456', [
+          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+        ]);
+
+        expect(mockReconnectPeer).toHaveBeenCalledWith('peer-456', [
+          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+        ]);
+      });
+
+      it('reconnects peer with empty hints', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        await service.initializeRemoteComms(
+          '0xtest',
+          [],
+          vi.fn(async () => ''),
+        );
+
+        await service.reconnectPeer('peer-789');
+
+        expect(mockReconnectPeer).toHaveBeenCalledWith('peer-789', []);
+      });
+
+      it('throws error if remote comms not initialized', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+
+        await expect(service.reconnectPeer('peer-999')).rejects.toThrow(
+          'remote comms not initialized',
+        );
       });
     });
   });

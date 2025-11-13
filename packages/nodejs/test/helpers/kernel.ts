@@ -7,7 +7,7 @@ import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
 
-import { NodejsPlatformServices } from '../src/kernel/PlatformServices.ts';
+import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
 /**
  * Helper function to create a kernel with an existing database.

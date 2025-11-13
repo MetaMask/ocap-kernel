@@ -48,6 +48,12 @@ const mocks = vi.hoisted(() => {
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
 
+    sendRemoteMessage = vi.fn().mockResolvedValue(undefined);
+
+    closeConnection = vi.fn().mockResolvedValue(undefined);
+
+    reconnectPeer = vi.fn().mockResolvedValue(undefined);
+
     constructor() {
       (this.constructor as typeof RemoteManager).lastInstance = this;
     }
@@ -997,6 +1003,89 @@ describe('Kernel', () => {
       expect(() => kernel.unpinVatRoot('v1')).not.toThrow();
       // Unpinning non-existent vat should throw
       expect(() => kernel.unpinVatRoot('v3')).toThrow(VatNotFoundError);
+    });
+  });
+
+  describe('remote communications', () => {
+    describe('sendRemoteMessage()', () => {
+      it('sends message to remote peer via RemoteManager', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.sendRemoteMessage('peer-123', 'hello', [
+          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+        ]);
+        expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
+          'peer-123',
+          'hello',
+          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+        );
+      });
+
+      it('sends message with empty hints when hints not provided', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.sendRemoteMessage('peer-456', 'test');
+        expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
+          'peer-456',
+          'test',
+          [],
+        );
+      });
+    });
+
+    describe('closeConnection()', () => {
+      it('closes connection via RemoteManager', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.closeConnection('peer-123');
+        expect(remoteManagerInstance.closeConnection).toHaveBeenCalledWith(
+          'peer-123',
+        );
+      });
+    });
+
+    describe('reconnectPeer()', () => {
+      it('reconnects peer via RemoteManager with hints', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.reconnectPeer('peer-456', [
+          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+        ]);
+        expect(remoteManagerInstance.reconnectPeer).toHaveBeenCalledWith(
+          'peer-456',
+          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+        );
+      });
+
+      it('reconnects peer with empty hints when hints not provided', async () => {
+        const kernel = await Kernel.make(
+          mockStream,
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.reconnectPeer('peer-789');
+        expect(remoteManagerInstance.reconnectPeer).toHaveBeenCalledWith(
+          'peer-789',
+          [],
+        );
+      });
     });
   });
 });
