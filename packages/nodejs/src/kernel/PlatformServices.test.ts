@@ -2,6 +2,7 @@ import '../env/endoify.ts';
 
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
+import { Worker as NodeWorker } from 'node:worker_threads';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { NodejsPlatformServices } from './PlatformServices.ts';
@@ -9,25 +10,62 @@ import { NodejsPlatformServices } from './PlatformServices.ts';
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 
-const mocks = vi.hoisted(() => ({
-  worker: {
-    once: (_: string, callback: () => unknown) => {
-      callback();
+const mocks = vi.hoisted(() => {
+  const createMockWorker = (autoEmitOnline = true) => {
+    const eventHandlers = new Map<
+      string,
+      ((...args: unknown[]) => unknown)[]
+    >();
+    return {
+      once: (event: string, callback: (...args: unknown[]) => unknown) => {
+        if (!eventHandlers.has(event)) {
+          eventHandlers.set(event, []);
+        }
+        const handlers = eventHandlers.get(event);
+        if (handlers) {
+          handlers.push(callback);
+        }
+        // Immediately emit 'online' event to simulate worker coming online
+        if (event === 'online' && autoEmitOnline) {
+          // Use queueMicrotask to make it async like real events
+          queueMicrotask(() => callback());
+        }
+        // Don't emit 'error' or 'exit' events unless we want to test error cases
+      },
+      removeAllListeners: vi.fn((event?: string) => {
+        if (event) {
+          eventHandlers.delete(event);
+        } else {
+          eventHandlers.clear();
+        }
+      }),
+      terminate: vi.fn(async () => undefined),
+      // Helper method to manually emit events for testing
+      emit: (event: string, ...args: unknown[]) => {
+        const handlers = eventHandlers.get(event);
+        if (handlers) {
+          handlers.forEach((handler) => {
+            handler(...args);
+          });
+        }
+      },
+    };
+  };
+  return {
+    createMockWorker,
+    stream: {
+      synchronize: vi.fn(async () => undefined).mockResolvedValue(undefined),
+      return: vi.fn(async () => ({})),
     },
-    terminate: vi.fn(async () => undefined),
-  },
-  stream: {
-    synchronize: vi.fn(async () => undefined).mockResolvedValue(undefined),
-    return: vi.fn(async () => ({})),
-  },
-}));
+  };
+});
 
 vi.mock('@metamask/streams', () => ({
   NodeWorkerDuplexStream: vi.fn(() => mocks.stream),
 }));
 
 vi.mock('node:worker_threads', () => ({
-  Worker: vi.fn(() => mocks.worker),
+  Worker: vi.fn(() => mocks.createMockWorker()),
 }));
 
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
@@ -45,6 +83,8 @@ describe('NodejsPlatformServices', () => {
   beforeEach(() => {
     mockSendRemoteMessage.mockClear();
     mockStop.mockClear();
+    mocks.stream.synchronize.mockResolvedValue(undefined);
+    mocks.stream.return.mockResolvedValue({});
   });
 
   it('constructs an instance without any arguments', () => {
@@ -75,6 +115,63 @@ describe('NodejsPlatformServices', () => {
       await expect(async () => await service.launch(testVatId)).rejects.toThrow(
         rejected,
       );
+    });
+
+    it('throws error if worker already exists', async () => {
+      const service = new NodejsPlatformServices({ workerFilePath });
+      const testVatId: VatId = getTestVatId();
+
+      await service.launch(testVatId);
+      expect(service.workers.has(testVatId)).toBe(true);
+
+      await expect(async () => await service.launch(testVatId)).rejects.toThrow(
+        `Worker ${testVatId} already exists! Cannot launch duplicate.`,
+      );
+    });
+
+    it('rejects if worker errors during startup', async () => {
+      const service = new NodejsPlatformServices({ workerFilePath });
+      const testVatId: VatId = getTestVatId();
+
+      // Create a worker that won't auto-emit 'online' (for error testing)
+      const worker = mocks.createMockWorker(false);
+      vi.mocked(NodeWorker).mockReturnValueOnce(worker as never);
+
+      const launchPromise = service.launch(testVatId);
+
+      // Wait a tick to ensure handlers are registered
+      await Promise.resolve();
+
+      // Emit error event before 'online'
+      worker.emit('error', new Error('worker startup error'));
+
+      await expect(launchPromise).rejects.toThrow(
+        `Worker ${testVatId} errored during startup: worker startup error`,
+      );
+      expect(service.workers.has(testVatId)).toBe(false);
+      expect(worker.terminate).toHaveBeenCalled();
+    });
+
+    it('rejects if worker exits during startup', async () => {
+      const service = new NodejsPlatformServices({ workerFilePath });
+      const testVatId: VatId = getTestVatId();
+
+      // Create a worker that won't auto-emit 'online' (for exit testing)
+      const worker = mocks.createMockWorker(false);
+      vi.mocked(NodeWorker).mockReturnValueOnce(worker as never);
+
+      const launchPromise = service.launch(testVatId);
+
+      // Wait a tick to ensure handlers are registered
+      await Promise.resolve();
+
+      // Emit exit event before 'online'
+      worker.emit('exit', 1);
+
+      await expect(launchPromise).rejects.toThrow(
+        `Worker ${testVatId} exited during startup with code 1`,
+      );
+      expect(service.workers.has(testVatId)).toBe(false);
     });
   });
 

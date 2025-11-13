@@ -12,6 +12,7 @@ import type {
 import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
+import { strict as assert } from 'node:assert';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 // Worker file loads from the built dist directory, requires rebuild after change
@@ -56,28 +57,72 @@ export class NodejsPlatformServices implements PlatformServices {
   async launch(
     vatId: VatId,
   ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
+    // Check if worker already exists
+    if (this.workers.has(vatId)) {
+      throw new Error(
+        `Worker ${vatId} already exists! Cannot launch duplicate.`,
+      );
+    }
+
     this.#logger.debug('launching vat', vatId);
     const { promise, resolve, reject } =
       makePromiseKit<DuplexStream<JsonRpcMessage, JsonRpcMessage>>();
+
     const worker = new NodeWorker(this.#workerFilePath, {
       env: {
         NODE_VAT_ID: vatId,
       },
     });
+
+    // Handle worker errors before 'online' event
+    worker.once('error', (error) => {
+      worker.removeAllListeners();
+      // eslint-disable-next-line promise/no-promise-in-callback
+      worker.terminate().catch(() => {
+        // Ignore termination errors
+      });
+      reject(
+        new Error(`Worker ${vatId} errored during startup: ${error.message}`),
+      );
+    });
+
+    // Handle worker exit before 'online' event
+    worker.once('exit', (code) => {
+      worker.removeAllListeners();
+      reject(
+        new Error(`Worker ${vatId} exited during startup with code ${code}`),
+      );
+    });
+
     worker.once('online', () => {
+      // Remove error and exit listeners now that worker is online
+      worker.removeAllListeners('error');
+      worker.removeAllListeners('exit');
+
       const stream = new NodeWorkerDuplexStream<JsonRpcMessage, JsonRpcMessage>(
         worker,
         isJsonRpcMessage,
       );
-      this.workers.set(vatId, { worker, stream });
       stream
         .synchronize()
         .then(() => {
+          // Only add worker to map after successful synchronization
+          this.workers.set(vatId, { worker, stream });
           resolve(stream);
           this.#logger.debug('connected to kernel');
           return undefined;
         })
-        .catch((error) => {
+        .catch(async (error) => {
+          // Clean up worker if synchronization fails
+          worker.removeAllListeners();
+          try {
+            await worker.terminate();
+          } catch (terminateError) {
+            this.#logger.error(
+              `Error terminating worker ${vatId} after sync failure`,
+              terminateError,
+            );
+          }
           reject(error);
         });
     });
@@ -89,14 +134,20 @@ export class NodejsPlatformServices implements PlatformServices {
     assert(workerEntry, `No worker found for vatId ${vatId}`);
     const { worker, stream } = workerEntry;
     await stream.return();
+    worker.removeAllListeners();
     await worker.terminate();
     this.workers.delete(vatId);
     return undefined;
   }
 
   async terminateAll(): Promise<void> {
-    for (const vatId of this.workers.keys()) {
-      await this.terminate(vatId);
+    const vatIds = Array.from(this.workers.keys());
+    for (const vatId of vatIds) {
+      try {
+        await this.terminate(vatId);
+      } catch (error) {
+        this.#logger.error('Error terminating worker', vatId, error);
+      }
     }
   }
 

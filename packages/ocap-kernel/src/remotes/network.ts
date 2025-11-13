@@ -118,39 +118,51 @@ export async function initNetwork(
    */
   async function readChannel(channel: Channel): Promise<void> {
     const SCTP_USER_INITIATED_ABORT = 12; // RFC 4960
-    for (;;) {
-      if (signal.aborted) {
-        logger.log(`reader abort: ${channel.peerId}`);
-        throw new AbortError();
-      }
-      let readBuf;
-      try {
-        readBuf = await channel.msgStream.read();
-      } catch (problem) {
-        // Detect graceful disconnect
-        const rtcProblem = problem as {
-          errorDetail?: string;
-          sctpCauseCode?: number;
-        };
-        if (
-          rtcProblem?.errorDetail === 'sctp-failure' &&
-          rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
-        ) {
-          logger.log(`${channel.peerId}:: remote disconnected`);
-        } else {
-          outputError(
-            channel.peerId,
-            `reading message from ${channel.peerId}`,
-            problem,
-          );
+    try {
+      for (;;) {
+        if (signal.aborted) {
+          logger.log(`reader abort: ${channel.peerId}`);
+          throw new AbortError();
         }
-        logger.log(`closed channel to ${channel.peerId}`);
-        handleConnectionLoss(channel.peerId, channel.hints);
-        throw problem;
+        let readBuf;
+        try {
+          readBuf = await channel.msgStream.read();
+        } catch (problem) {
+          // Detect graceful disconnect
+          const rtcProblem = problem as {
+            errorDetail?: string;
+            sctpCauseCode?: number;
+          };
+          if (
+            rtcProblem?.errorDetail === 'sctp-failure' &&
+            rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
+          ) {
+            logger.log(`${channel.peerId}:: remote disconnected`);
+          } else {
+            outputError(
+              channel.peerId,
+              `reading message from ${channel.peerId}`,
+              problem,
+            );
+          }
+          logger.log(`closed channel to ${channel.peerId}`);
+          handleConnectionLoss(channel.peerId, channel.hints);
+          throw problem;
+        }
+        if (readBuf) {
+          reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
+          await receiveMsg(channel.peerId, bufToString(readBuf.subarray()));
+        } else {
+          // Stream ended (returned undefined), exit the read loop
+          logger.log(`${channel.peerId}:: stream ended`);
+          break;
+        }
       }
-      if (readBuf) {
-        reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
-        await receiveMsg(channel.peerId, bufToString(readBuf.subarray()));
+    } finally {
+      // Always remove the channel when readChannel exits to prevent stale channels
+      // This ensures that subsequent sends will establish a new connection
+      if (channels.get(channel.peerId) === channel) {
+        channels.delete(channel.peerId);
       }
     }
   }
@@ -416,13 +428,11 @@ export async function initNetwork(
    */
   async function stop(): Promise<void> {
     logger.log('Stopping kernel network...');
-
     // Stop wake detector
     if (cleanupWakeDetector) {
       cleanupWakeDetector();
       cleanupWakeDetector = undefined;
     }
-
     stopController.abort(); // cancels all delays and dials
     await connectionFactory.stop();
     channels.clear();

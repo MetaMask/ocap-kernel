@@ -841,46 +841,25 @@ describe('ConnectionFactory', () => {
   });
 
   describe('stop', () => {
-    it('does not call libp2p.stop() but aborts connections', async () => {
-      const mockConnections = [
-        {
-          remotePeer: { toString: () => 'peer1' },
-          abort: vi.fn(),
-        },
-        {
-          remotePeer: { toString: () => 'peer2' },
-          abort: vi.fn(),
-        },
-      ];
-
+    it('calls libp2p.stop() and clears inflight dials', async () => {
+      const mockStop = vi.fn().mockImplementation(async () => {
+        libp2pState.stopCalled = true;
+      });
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
-        stop: vi.fn(),
+        stop: mockStop,
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
         handle: vi.fn(),
-        getConnections: vi.fn(() => mockConnections),
       }));
 
       factory = await createFactory();
 
       await factory.stop();
 
-      // Verify libp2p.stop() was NOT called
-      expect(libp2pState.stopCalled).toBe(false);
-
-      // Verify connections were aborted
-      expect(mockConnections[0]?.abort).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'ConnectionFactory: Stopping libp2p',
-        }),
-      );
-      expect(mockConnections[1]?.abort).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'ConnectionFactory: Stopping libp2p',
-        }),
-      );
+      expect(mockStop).toHaveBeenCalledOnce();
+      expect(libp2pState.stopCalled).toBe(true);
     });
 
     it('clears inflight dials', async () => {
@@ -915,40 +894,31 @@ describe('ConnectionFactory', () => {
       expect(await dialPromise).toBeDefined();
     });
 
-    it('logs connection abort for each connection', async () => {
-      const mockConnections = [
-        {
-          remotePeer: { toString: () => 'peer-alpha' },
-          abort: vi.fn(),
-        },
-        {
-          remotePeer: { toString: () => 'peer-beta' },
-          abort: vi.fn(),
-        },
-      ];
-
+    it('handles libp2p.stop() errors gracefully', async () => {
+      const mockStop = vi
+        .fn()
+        .mockRejectedValue(new Error('libp2p.stop() failed'));
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
-        stop: vi.fn(),
+        stop: mockStop,
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
         handle: vi.fn(),
-        getConnections: vi.fn(() => mockConnections),
       }));
 
       factory = await createFactory();
 
-      mockLoggerLog.mockClear();
       await factory.stop();
 
-      // Verify logging for each connection
-      expect(mockLoggerLog).toHaveBeenCalledWith(
-        'hanging up connection to peer-alpha',
+      // Verify libp2p.stop() was called
+      expect(mockStop).toHaveBeenCalledOnce();
+      // Verify error was logged
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'libp2p.stop() failed or timed out:',
+        expect.any(Error),
       );
-      expect(mockLoggerLog).toHaveBeenCalledWith(
-        'hanging up connection to peer-beta',
-      );
+      // Should not throw - continues anyway
     });
 
     it('handles empty connections list', async () => {
@@ -994,7 +964,7 @@ describe('ConnectionFactory', () => {
         start: vi.fn(() => {
           libp2pState.startCalled = true;
         }),
-        stop: vi.fn(() => {
+        stop: vi.fn(async () => {
           libp2pState.stopCalled = true;
         }),
         peerId: {
@@ -1040,7 +1010,7 @@ describe('ConnectionFactory', () => {
 
       // Clean up
       await factory.stop();
-      expect(libp2pState.stopCalled).toBe(false); // We don't call libp2p.stop() anymore
+      expect(libp2pState.stopCalled).toBe(true);
     });
 
     it('handles inbound and outbound connections', async () => {

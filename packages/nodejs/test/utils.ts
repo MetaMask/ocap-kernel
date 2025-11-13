@@ -1,6 +1,8 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { Kernel } from '@metamask/ocap-kernel';
+import { Kernel, kunser } from '@metamask/ocap-kernel';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
@@ -39,4 +41,24 @@ export async function makeTestKernel(
   );
 
   return kernel;
+}
+
+/**
+ * Run the set of test vats.
+ *
+ * @param kernel - The kernel to run in.
+ * @param config - Subcluster configuration telling what vats to run.
+ *
+ * @returns the bootstrap result.
+ */
+export async function runTestVats(
+  kernel: Kernel,
+  config: ClusterConfig,
+): Promise<unknown> {
+  const bootstrapResultRaw = await kernel.launchSubcluster(config);
+  await waitUntilQuiescent();
+  if (bootstrapResultRaw === undefined) {
+    throw Error(`this can't happen but eslint is stupid`);
+  }
+  return kunser(bootstrapResultRaw);
 }

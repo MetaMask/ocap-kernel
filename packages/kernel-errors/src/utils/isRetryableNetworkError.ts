@@ -42,5 +42,11 @@ export function isRetryableNetworkError(error: unknown): boolean {
     return true;
   }
 
+  // Relay reservation errors - these are temporary and should be retryable
+  const message = anyError?.message;
+  if (typeof message === 'string' && message.includes('NO_RESERVATION')) {
+    return true;
+  }
+
   return false; // default to non-retryable for unknown errors
 }
