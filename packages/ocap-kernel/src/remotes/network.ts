@@ -37,6 +37,8 @@ export async function initNetwork(
 ): Promise<{
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
+  closeConnection: (peerId: string) => Promise<void>;
+  reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
 }> {
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -45,6 +47,7 @@ export async function initNetwork(
   const channels = new Map<string, Channel>();
   const reconnectionManager = new ReconnectionManager();
   const messageQueues = new Map<string, MessageQueue>(); // One queue per peer
+  const intentionallyClosed = new Set<string>(); // Track peers that intentionally closed connections
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
     knownRelays,
@@ -137,16 +140,19 @@ export async function initNetwork(
             rtcProblem?.errorDetail === 'sctp-failure' &&
             rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
           ) {
-            logger.log(`${channel.peerId}:: remote disconnected`);
+            logger.log(`${channel.peerId}:: remote intentionally disconnected`);
+            // Mark as intentionally closed and don't trigger reconnection
+            intentionallyClosed.add(channel.peerId);
           } else {
             outputError(
               channel.peerId,
               `reading message from ${channel.peerId}`,
               problem,
             );
+            // Only trigger reconnection for non-intentional disconnects
+            handleConnectionLoss(channel.peerId, channel.hints);
           }
           logger.log(`closed channel to ${channel.peerId}`);
-          handleConnectionLoss(channel.peerId, channel.hints);
           throw problem;
         }
         if (readBuf) {
@@ -169,11 +175,19 @@ export async function initNetwork(
 
   /**
    * Handle connection loss for a given peer ID.
+   * Skips reconnection if the peer was intentionally closed.
    *
    * @param peerId - The peer ID to handle the connection loss for.
    * @param hints - The hints to use for the connection loss.
    */
   function handleConnectionLoss(peerId: string, hints: string[] = []): void {
+    // Don't reconnect if this peer intentionally closed the connection
+    if (intentionallyClosed.has(peerId)) {
+      logger.log(
+        `${peerId}:: connection lost but peer intentionally closed, skipping reconnection`,
+      );
+      return;
+    }
     logger.log(`${peerId}:: connection lost, initiating reconnection`);
     channels.delete(peerId);
     if (!reconnectionManager.isReconnecting(peerId)) {
@@ -350,6 +364,11 @@ export async function initNetwork(
       return;
     }
 
+    // Check if peer is intentionally closed
+    if (intentionallyClosed.has(targetPeerId)) {
+      throw new Error('Message delivery failed after intentional close');
+    }
+
     const queue = getMessageQueue(targetPeerId);
 
     if (reconnectionManager.isReconnecting(targetPeerId)) {
@@ -414,6 +433,14 @@ export async function initNetwork(
 
   // Set up inbound connection handler
   connectionFactory.onInboundConnection((channel) => {
+    // Reject inbound connections from intentionally closed peers
+    if (intentionallyClosed.has(channel.peerId)) {
+      logger.log(
+        `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
+      );
+      // Don't add to channels map and don't start reading - connection will naturally close
+      return;
+    }
     channels.set(channel.peerId, channel);
     readChannel(channel).catch((error) => {
       outputError(channel.peerId, 'error in inbound channel read', error);
@@ -422,6 +449,48 @@ export async function initNetwork(
 
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
+
+  /**
+   * Explicitly close a connection to a peer.
+   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   */
+  async function closeConnection(peerId: string): Promise<void> {
+    logger.log(`${peerId}:: explicitly closing connection`);
+    intentionallyClosed.add(peerId);
+    // Remove channel - the readChannel cleanup will handle stream closure
+    channels.delete(peerId);
+    // Stop any ongoing reconnection attempts
+    if (reconnectionManager.isReconnecting(peerId)) {
+      reconnectionManager.stopReconnection(peerId);
+    }
+    // Clear any queued messages
+    const queue = messageQueues.get(peerId);
+    if (queue) {
+      queue.clear();
+    }
+  }
+
+  /**
+   * Manually reconnect to a peer after intentional close.
+   * Clears the intentional close flag and initiates reconnection.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - The hints to use for the reconnection.
+   */
+  async function reconnectPeer(
+    peerId: string,
+    hints: string[] = [],
+  ): Promise<void> {
+    logger.log(`${peerId}:: manually reconnecting after intentional close`);
+    intentionallyClosed.delete(peerId);
+    // If already reconnecting, don't start another attempt
+    if (reconnectionManager.isReconnecting(peerId)) {
+      return;
+    }
+    handleConnectionLoss(peerId, hints);
+  }
 
   /**
    * Stop the network.
@@ -438,8 +507,14 @@ export async function initNetwork(
     channels.clear();
     reconnectionManager.clear();
     messageQueues.clear();
+    intentionallyClosed.clear();
   }
 
-  // Return the sender with a stop handle
-  return { sendRemoteMessage, stop };
+  // Return the sender with a stop handle and connection management functions
+  return {
+    sendRemoteMessage,
+    stop,
+    closeConnection,
+    reconnectPeer,
+  };
 }

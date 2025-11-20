@@ -334,6 +334,23 @@ export type PlatformServices = {
    *   or rejects if there is some problem doing so.
    */
   stopRemoteComms: StopRemoteComms;
+  /**
+   * Explicitly close a connection to a peer.
+   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   * @returns A promise that resolves when the connection is closed.
+   */
+  closeConnection: (peerId: string) => Promise<void>;
+  /**
+   * Manually reconnect to a peer after intentional close.
+   * Clears the intentional close flag and initiates reconnection.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - Optional hints for reconnection.
+   * @returns A promise that resolves when reconnection is initiated.
+   */
+  reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
 };
 
 // Cluster configuration

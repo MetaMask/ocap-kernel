@@ -21,6 +21,8 @@ import type {
 // Mock initNetwork from ocap-kernel
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
+const mockCloseConnection = vi.fn(async () => undefined);
+const mockReconnectPeer = vi.fn(async () => undefined);
 
 vi.mock('@metamask/ocap-kernel', () => ({
   PlatformServicesCommandMethod: {
@@ -31,6 +33,8 @@ vi.mock('@metamask/ocap-kernel', () => ({
   initNetwork: vi.fn(async () => ({
     sendRemoteMessage: mockSendRemoteMessage,
     stop: mockStop,
+    closeConnection: mockCloseConnection,
+    reconnectPeer: mockReconnectPeer,
   })),
 }));
 
@@ -98,6 +102,25 @@ const makeStopRemoteCommsMessageEvent = (
   makeMessageEvent(messageId, {
     method: 'stopRemoteComms',
     params: [],
+  });
+
+const makeCloseConnectionMessageEvent = (
+  messageId: `m${number}`,
+  peerId: string,
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'closeConnection',
+    params: { peerId },
+  });
+
+const makeReconnectPeerMessageEvent = (
+  messageId: `m${number}`,
+  peerId: string,
+  hints: string[] = [],
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'reconnectPeer',
+    params: { peerId, hints },
   });
 
 describe('PlatformServicesServer', () => {
@@ -314,6 +337,8 @@ describe('PlatformServicesServer', () => {
         // Reset mocks before each test
         mockSendRemoteMessage.mockClear();
         mockStop.mockClear();
+        mockCloseConnection.mockClear();
+        mockReconnectPeer.mockClear();
       });
 
       describe('initializeRemoteComms', () => {
@@ -451,6 +476,100 @@ describe('PlatformServicesServer', () => {
           // Should have called initNetwork again
           expect((initNetwork as Mock).mock.calls).toHaveLength(
             firstCallCount + 1,
+          );
+        });
+      });
+
+      describe('closeConnection', () => {
+        it('closes connection via network layer', async () => {
+          // First initialize remote comms
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          // Now close connection
+          await stream.receiveInput(
+            makeCloseConnectionMessageEvent('m1', 'peer-123'),
+          );
+          await delay(10);
+
+          expect(mockCloseConnection).toHaveBeenCalledWith('peer-123');
+        });
+
+        it('throws error if remote comms not initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+
+          await stream.receiveInput(
+            makeCloseConnectionMessageEvent('m0', 'peer-456'),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "closeConnection" request:',
+            expect.objectContaining({
+              message: 'remote comms not initialized',
+            }),
+          );
+        });
+      });
+
+      describe('reconnectPeer', () => {
+        it('reconnects peer via network layer', async () => {
+          // First initialize remote comms
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          // Now reconnect peer
+          await stream.receiveInput(
+            makeReconnectPeerMessageEvent('m1', 'peer-456', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          expect(mockReconnectPeer).toHaveBeenCalledWith('peer-456', [
+            '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+          ]);
+        });
+
+        it('reconnects peer with empty hints', async () => {
+          // First initialize remote comms
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
+              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+            ]),
+          );
+          await delay(10);
+
+          // Now reconnect peer with empty hints
+          await stream.receiveInput(
+            makeReconnectPeerMessageEvent('m1', 'peer-789'),
+          );
+          await delay(10);
+
+          expect(mockReconnectPeer).toHaveBeenCalledWith('peer-789', []);
+        });
+
+        it('throws error if remote comms not initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+
+          await stream.receiveInput(
+            makeReconnectPeerMessageEvent('m0', 'peer-999'),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "reconnectPeer" request:',
+            expect.objectContaining({
+              message: 'remote comms not initialized',
+            }),
           );
         });
       });

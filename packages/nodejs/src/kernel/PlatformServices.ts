@@ -29,6 +29,12 @@ export class NodejsPlatformServices implements PlatformServices {
 
   #stopRemoteCommsFunc: StopRemoteComms | null = null;
 
+  #closeConnectionFunc: ((peerId: string) => Promise<void>) | null = null;
+
+  #reconnectPeerFunc:
+    | ((peerId: string, hints?: string[]) => Promise<void>)
+    | null = null;
+
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
   readonly #workerFilePath: string;
@@ -54,6 +60,13 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#logger = args.logger ?? new Logger('vat-worker-service');
   }
 
+  /**
+   * Launch a new worker with a specific vat id.
+   *
+   * @param vatId - The vat id of the worker to launch.
+   * @returns A promise for a duplex stream connected to the worker
+   * which rejects if a worker with the given vat id already exists.
+   */
   async launch(
     vatId: VatId,
   ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
@@ -129,6 +142,13 @@ export class NodejsPlatformServices implements PlatformServices {
     return promise;
   }
 
+  /**
+   * Terminate a worker identified by its vat id.
+   *
+   * @param vatId - The vat id of the worker to terminate.
+   * @returns A promise that resolves when the worker has terminated
+   * or rejects if that worker does not exist.
+   */
   async terminate(vatId: VatId): Promise<undefined> {
     const workerEntry = this.workers.get(vatId);
     assert(workerEntry, `No worker found for vatId ${vatId}`);
@@ -140,6 +160,12 @@ export class NodejsPlatformServices implements PlatformServices {
     return undefined;
   }
 
+  /**
+   * Terminate all workers managed by the service.
+   *
+   * @returns A promise that resolves after all workers have terminated
+   * or rejects if there was an error during termination.
+   */
   async terminateAll(): Promise<void> {
     const vatIds = Array.from(this.workers.keys());
     for (const vatId of vatIds) {
@@ -151,6 +177,14 @@ export class NodejsPlatformServices implements PlatformServices {
     }
   }
 
+  /**
+   * Send a remote message to a peer.
+   *
+   * @param to - The peer ID to send the message to.
+   * @param message - The message to send.
+   * @param hints - Optional hints for the message.
+   * @returns A promise that resolves when the message has been sent.
+   */
   async sendRemoteMessage(
     to: string,
     message: string,
@@ -162,6 +196,13 @@ export class NodejsPlatformServices implements PlatformServices {
     await this.#sendRemoteMessageFunc(to, message, hints);
   }
 
+  /**
+   * Handle a remote message from a peer.
+   *
+   * @param from - The peer ID that sent the message.
+   * @param message - The message received.
+   * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
+   */
   async #handleRemoteMessage(from: string, message: string): Promise<string> {
     if (!this.#remoteMessageHandler) {
       // This can't actually happen, but TypeScript can't infer it
@@ -174,6 +215,16 @@ export class NodejsPlatformServices implements PlatformServices {
     return '';
   }
 
+  /**
+   * Initialize network communications.
+   *
+   * @param keySeed - The seed for generating this kernel's secret key.
+   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   *   connections from other kernels.
+   * @param remoteMessageHandler - A handler function to receive remote messages.
+   * @returns A promise that resolves once network access has been established
+   *   or rejects if there is some problem doing so.
+   */
   async initializeRemoteComms(
     keySeed: string,
     knownRelays: string[],
@@ -183,15 +234,24 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
-    const { sendRemoteMessage, stop } = await initNetwork(
-      keySeed,
-      knownRelays,
-      this.#handleRemoteMessage.bind(this),
-    );
+    const { sendRemoteMessage, stop, closeConnection, reconnectPeer } =
+      await initNetwork(
+        keySeed,
+        knownRelays,
+        this.#handleRemoteMessage.bind(this),
+      );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
+    this.#closeConnectionFunc = closeConnection;
+    this.#reconnectPeerFunc = reconnectPeer;
   }
 
+  /**
+   * Stop network communications.
+   *
+   * @returns A promise that resolves when network access has been stopped
+   *   or rejects if there is some problem doing so.
+   */
   async stopRemoteComms(): Promise<void> {
     if (!this.#stopRemoteCommsFunc) {
       return;
@@ -199,6 +259,37 @@ export class NodejsPlatformServices implements PlatformServices {
     await this.#stopRemoteCommsFunc();
     this.#sendRemoteMessageFunc = null;
     this.#stopRemoteCommsFunc = null;
+    this.#closeConnectionFunc = null;
+    this.#reconnectPeerFunc = null;
+  }
+
+  /**
+   * Explicitly close a connection to a peer.
+   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   *
+   * @param peerId - The peer ID to close the connection for.
+   * @returns A promise that resolves when the connection is closed.
+   */
+  async closeConnection(peerId: string): Promise<void> {
+    if (!this.#closeConnectionFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#closeConnectionFunc(peerId);
+  }
+
+  /**
+   * Manually reconnect to a peer after intentional close.
+   * Clears the intentional close flag and initiates reconnection.
+   *
+   * @param peerId - The peer ID to reconnect to.
+   * @param hints - Optional hints for reconnection.
+   * @returns A promise that resolves when reconnection is initiated.
+   */
+  async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
+    if (!this.#reconnectPeerFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#reconnectPeerFunc(peerId, hints);
   }
 }
 harden(NodejsPlatformServices);

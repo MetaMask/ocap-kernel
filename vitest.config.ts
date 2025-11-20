@@ -86,10 +86,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 83.18,
-          functions: 90.32,
-          branches: 93.8,
-          lines: 83.18,
+          statements: 83.71,
+          functions: 90.9,
+          branches: 94.16,
+          lines: 83.71,
         },
         'packages/kernel-errors/**': {
           statements: 100,
@@ -146,10 +146,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 86.84,
-          functions: 86.66,
-          branches: 94.73,
-          lines: 86.84,
+          statements: 87.76,
+          functions: 88.23,
+          branches: 95.34,
+          lines: 87.76,
         },
         'packages/nodejs-test-workers/**': {
           statements: 22.22,
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.52,
-          functions: 98.28,
-          branches: 97.66,
-          lines: 96.52,
+          statements: 96.6,
+          functions: 98.52,
+          branches: 97.54,
+          lines: 96.6,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,
