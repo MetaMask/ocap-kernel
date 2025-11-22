@@ -27,7 +27,7 @@ globalThis.assert = assertFn as unknown as typeof assert;
 globalThis.HandledPromise = Promise;
 
 // @ts-expect-error: Mocks are lies
-globalThis.Compartment = vi.fn();
+globalThis.Compartment ??= vi.fn();
 
 vi.mock('@endo/promise-kit', async () => {
   return makePromiseKitMock();

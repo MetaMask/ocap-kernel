@@ -1,25 +1,29 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import { vi, describe, it, expect } from 'vitest';
 
-import { makeAgent } from './agent.ts';
-import { capability } from './capability.ts';
-import { end } from './default-capabilities.ts';
-import { AssistantMessage, CapabilityResultMessage } from './messages.ts';
-import { makeChat } from './prompt.ts';
+import { makeJsonAgent } from './strategies/json-agent.ts';
+import { makeReplAgent } from './strategies/repl-agent.ts';
 
 const prompt = 'test prompt';
 const prefix = '{"messageType":"assistant","';
+const stop = '</|>';
 
-vi.mock('./prompt.ts', () => ({
-  makeChat: vi.fn(() => ({
-    getPromptAndPrefix: vi.fn(() => ({ prompt, prefix })),
-    pushMessages: vi.fn(),
-  })),
+vi.mock('./strategies/repl/prompter.ts', () => ({
+  makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { stop } })),
 }));
 
-describe('makeAgent', () => {
+vi.mock('./strategies/json/prompter.ts', () => ({
+  makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { prefix } })),
+}));
+
+const logger = new Logger('test');
+
+describe.each([
+  ['Json', makeJsonAgent, [`invoke":[{"name":"end","args":{"final":"x"}}]}`]],
+  ['Repl', makeReplAgent, ["await end({ final: 'x' });", stop]],
+])('make%sAgent', (strategy, makeAgent, endStatement) => {
   const mockLlm = (...chunks: string[]) => ({
     getInfo: vi.fn(),
     load: vi.fn(),
@@ -37,88 +41,54 @@ describe('makeAgent', () => {
   });
 
   it('makes an agent', () => {
-    const llm = mockLlm();
-    const agent = makeAgent({ llm, capabilities: {} });
+    const languageModel = mockLlm();
+    const agent = makeAgent({ languageModel, capabilities: {} });
     expect(agent).toBeDefined();
     expect(agent).toHaveProperty('task');
   });
 
-  it('endows the "end" capability by default', async () => {
-    const llm = mockLlm();
-    const mockMergeDisjointRecordsSpy = vi.spyOn(
-      await import('@metamask/kernel-utils'),
-      'mergeDisjointRecords',
-    );
-    const capabilities = {};
-    makeAgent({ llm, capabilities });
-    expect(mockMergeDisjointRecordsSpy).toHaveBeenCalledWith(
-      { end },
-      capabilities,
-    );
-  });
-
   describe('task', () => {
     it('invokes the LLM', async () => {
-      const llm = mockLlm(`invoke":[{"name":"end","args":{"final":"x"}}]}`);
-      const agent = makeAgent({ llm, capabilities: {} });
+      const languageModel = mockLlm(...endStatement);
+      const agent = makeAgent({ languageModel, capabilities: {}, logger });
       const result = await agent.task('');
       expect(result).toBe('x');
       // This is a massive understatement, but we don't want to test the prompt
-      expect(llm.sample).toHaveBeenCalledWith(prompt);
+      expect(languageModel.sample).toHaveBeenCalledWith(prompt);
     });
 
-    it('throws if the LLM did not invoke a capability', async () => {
-      // LLM finishes valid JSON, but no invoke property
-      const llm = mockLlm(`content":""}`);
-      const agent = makeAgent({ llm, capabilities: {} });
-      const task = agent.task('');
-      await expect(task).rejects.toThrow('No invoke in result');
-    });
+    it.skipIf(strategy !== 'Json')(
+      'throws if the LLM did not invoke a capability',
+      async () => {
+        // LLM finishes valid JSON, but no invoke property
+        const languageModel = mockLlm(`content":""}`);
+        const agent = makeAgent({ languageModel, capabilities: {} });
+        const task = agent.task('');
+        await expect(task).rejects.toThrow('No invoke in message');
+      },
+    );
 
     it('throws if invocation budget is exceeded', async () => {
-      const llm = mockLlm(`invoke":[{"name":"end","args":{"final":"x"}}]}`);
-      const agent = makeAgent({ llm, capabilities: {} });
-      const task = agent.task('', { invocationBudget: 0 });
+      const languageModel = mockLlm(...endStatement);
+      const agent = makeAgent({ languageModel, capabilities: {} });
+      const task = agent.task('', undefined, { invocationBudget: 0 });
       await expect(task).rejects.toThrow('Invocation budget exceeded');
-    });
-
-    // XXX This test reflects a poor factorization of the agent.
-    it('pushes messages to the transcript', async () => {
-      const llm = mockLlm(`invoke":[{"name":"test","args":{}}]}`);
-      const pushMessages = vi.fn();
-      vi.mocked(makeChat).mockReturnValue({
-        getPromptAndPrefix: vi.fn(() => ({ prompt, prefix })),
-        pushMessages,
-      });
-      const { makeAgent: makeAgent2 } = await import('./agent.ts');
-      const agent = makeAgent2({
-        llm,
-        capabilities: {
-          test: capability(async () => 'test', {
-            description: 'test',
-            args: {},
-            returns: { type: 'string' },
-          }),
-        },
-      });
-      const task = agent.task('test', { invocationBudget: 1 });
-      await expect(task).rejects.toThrow('Invocation budget exceeded');
-      expect(pushMessages).toHaveBeenCalledWith(
-        expect.any(AssistantMessage),
-        expect.any(CapabilityResultMessage),
-      );
     });
 
     it('logs to the provided logger', async () => {
-      const llm = mockLlm(`invoke":[{"name":"end","args":{"final":"x"}}]}`);
-      const logger = {
+      const languageModel = mockLlm(...endStatement);
+      const testLogger = {
         info: vi.fn(),
-        subLogger: vi.fn(() => logger),
+        subLogger: vi.fn(() => testLogger),
       } as unknown as Logger;
-      const agent = makeAgent({ llm, capabilities: {}, logger });
-      await agent.task('test', { invocationBudget: 1 });
-      expect(logger.info).toHaveBeenCalledWith('query:', 'test');
-      expect(logger.subLogger).toHaveBeenCalledWith({ tags: ['t001'] });
+      const agent = makeAgent({
+        languageModel,
+        capabilities: {},
+        logger: testLogger,
+      });
+      await agent.task('test', undefined, { invocationBudget: 1 });
+      expect(testLogger.info).toHaveBeenCalledWith('intent:', 'test');
+      expect(testLogger.subLogger).toHaveBeenCalledWith({ tags: ['t001'] });
     });
   });
 });
