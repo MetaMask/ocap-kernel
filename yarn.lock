@@ -3271,6 +3271,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^14.0.0"
     "@metamask/eslint-config-nodejs": "npm:^14.0.0"
     "@metamask/eslint-config-typescript": "npm:^14.0.0"
+    "@metamask/kernel-errors": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
@@ -3293,6 +3294,9 @@ __metadata:
     eslint-plugin-promise: "npm:^7.2.1"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
+    ses: "npm:^1.14.0"
+    tree-sitter: "npm:^0.25.0"
+    tree-sitter-javascript: "npm:^0.25.0"
     turbo: "npm:^2.5.6"
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
@@ -11340,6 +11344,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-addon-api@npm:^8.3.0, node-addon-api@npm:^8.3.1":
+  version: 8.5.0
+  resolution: "node-addon-api@npm:8.5.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/9a893f4f835fbc3908e0070f7bcacf36e37fd06be8008409b104c30df4092a0d9a29927b3a74cdbc1d34338274ba4116d597a41f573e06c29538a1a70d07413f
+  languageName: node
+  linkType: hard
+
 "node-emoji@npm:^2.2.0":
   version: 2.2.0
   resolution: "node-emoji@npm:2.2.0"
@@ -11349,6 +11362,17 @@ __metadata:
     emojilib: "npm:^2.4.0"
     skin-tone: "npm:^2.0.0"
   checksum: 10/2548668f5cc9f781c94dc39971a630b2887111e0970c29fc523e924819d1b39b53a2694a4d1046861adf538c4462d06ee0269c48717ccad30336a918d9a911d5
+  languageName: node
+  linkType: hard
+
+"node-gyp-build@npm:^4.8.4":
+  version: 4.8.4
+  resolution: "node-gyp-build@npm:4.8.4"
+  bin:
+    node-gyp-build: bin.js
+    node-gyp-build-optional: optional.js
+    node-gyp-build-test: build-test.js
+  checksum: 10/6a7d62289d1afc419fc8fc9bd00aa4e554369e50ca0acbc215cb91446148b75ff7e2a3b53c2c5b2c09a39d416d69f3d3237937860373104b5fe429bf30ad9ac5
   languageName: node
   linkType: hard
 
@@ -14047,6 +14071,33 @@ __metadata:
   dependencies:
     punycode: "npm:^2.3.1"
   checksum: 10/833a0e1044574da5790148fd17866d4ddaea89e022de50279967bcd6b28b4ce0d30d59eb3acf9702b60918975b3bad481400337e3a2e6326cffa5c77b874753d
+  languageName: node
+  linkType: hard
+
+"tree-sitter-javascript@npm:^0.25.0":
+  version: 0.25.0
+  resolution: "tree-sitter-javascript@npm:0.25.0"
+  dependencies:
+    node-addon-api: "npm:^8.3.1"
+    node-gyp: "npm:latest"
+    node-gyp-build: "npm:^4.8.4"
+  peerDependencies:
+    tree-sitter: ^0.25.0
+  peerDependenciesMeta:
+    tree-sitter:
+      optional: true
+  checksum: 10/b2571944b11064ae07cfc06d43a786dda45a10bd774e7f4fa416d89445215d964672a10d16b6cae9fa9544aa7a6e751df2ec84ad099bcad51237e1b541ff840c
+  languageName: node
+  linkType: hard
+
+"tree-sitter@npm:^0.25.0":
+  version: 0.25.0
+  resolution: "tree-sitter@npm:0.25.0"
+  dependencies:
+    node-addon-api: "npm:^8.3.0"
+    node-gyp: "npm:latest"
+    node-gyp-build: "npm:^4.8.4"
+  checksum: 10/cba1090bf7eb3fb68ce21f631375d5c7c5f9505db7ed554fcaadbb21dbae1ef5a6ce754e89e024d5fc332706e31bea90e913957726e0783d3a4e253e979b2a95
   languageName: node
   linkType: hard
 

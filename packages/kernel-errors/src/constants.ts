@@ -31,6 +31,8 @@ export const ErrorCode = {
   VatDeleted: 'VAT_DELETED',
   VatNotFound: 'VAT_NOT_FOUND',
   SubclusterNotFound: 'SUBCLUSTER_NOT_FOUND',
+  SampleGenerationError: 'SAMPLE_GENERATION_ERROR',
+  InternalError: 'INTERNAL_ERROR',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -85,3 +85,12 @@ export type CapabilityResultMessageJson = {
   messageType: 'capabilityResult';
   results: (Invocation & { result: unknown })[];
 };
+
+export type Observation =
+  | UserMessage
+  | CapabilitySpecMessage
+  | CapabilityResultMessage;
+
+export type Action = AssistantMessage;
+
+export type State = (Observation | Action)[];

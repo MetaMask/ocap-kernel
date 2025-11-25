@@ -1,9 +1,6 @@
 /**
  * Example transcripts for the prompt
  */
-import { extractCapabilitySchemas } from './capability.ts';
-import { end as endCapability } from './default-capabilities.ts';
-import { exampleCapabilities } from './example-capabilities.ts';
 import {
   CapabilitySpecMessage,
   UserMessage,
@@ -11,14 +8,23 @@ import {
   CapabilityResultMessage,
 } from './messages.ts';
 import type { Transcript } from './messages.ts';
+import { extractCapabilitySchemas } from '../../capabilities/capability.ts';
+import { end as endCapability } from '../../capabilities/end.ts';
+import { search as searchCapability } from '../../capabilities/examples.ts';
+import {
+  count as countCapability,
+  multiply as multiplyCapability,
+} from '../../capabilities/math.ts';
 
-const { end, count, add, multiply } = extractCapabilitySchemas({
-  ...exampleCapabilities,
+const { end, search, count, multiply } = extractCapabilitySchemas({
   end: endCapability,
+  search: searchCapability,
+  count: countCapability,
+  multiply: multiplyCapability,
 });
 
 const simpleSemanticTask: Transcript = [
-  new CapabilitySpecMessage({ end, add }),
+  new CapabilitySpecMessage({ end, search }),
   new UserMessage('What color is a banana?'),
   new AssistantMessage({
     think: [

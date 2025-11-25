@@ -1,5 +1,7 @@
 export type { OcapError, MarshaledError } from './types.ts';
 export { DuplicateEndowmentError } from './errors/DuplicateEndowmentError.ts';
+export { EvaluatorError } from './errors/EvaluatorError.ts';
+export { SampleGenerationError } from './errors/SampleGenerationError.ts';
 export { VatAlreadyExistsError } from './errors/VatAlreadyExistsError.ts';
 export { VatDeletedError } from './errors/VatDeletedError.ts';
 export { VatNotFoundError } from './errors/VatNotFoundError.ts';
