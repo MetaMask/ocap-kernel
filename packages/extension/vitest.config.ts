@@ -15,7 +15,7 @@ export default defineConfig((args) => {
         name: 'extension',
         environment: 'jsdom',
         exclude: ['**/test/e2e/**'],
-        setupFiles: path.resolve(__dirname, './test/setup.ts'),
+        setupFiles: path.resolve(import.meta.dirname, './test/setup.ts'),
         testTimeout: 3000,
       },
     }),
