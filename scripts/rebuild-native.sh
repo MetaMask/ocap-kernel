@@ -20,9 +20,6 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
     echo "🔁 Force rebuild enabled"
 fi
 
-CXXFLAGS="${CXXFLAGS} -std=c++20"
-CPPFLAGS="${CPPFLAGS} -std=c++20"
-
 # Check and rebuild better-sqlite3
 if [ -d node_modules/better-sqlite3 ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
