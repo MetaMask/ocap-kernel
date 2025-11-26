@@ -20,18 +20,6 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
     echo "🔁 Force rebuild enabled"
 fi
 
-# Detect Node.js version and set C++ standard for Node.js v24+
-# Node.js v24+ requires C++20 due to V8 API changes
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -ge 24 ]; then
-    # Set C++20 flags for node-gyp builds
-    export CXXFLAGS="${CXXFLAGS} -std=c++20"
-    export CPPFLAGS="${CPPFLAGS} -std=c++20"
-    # npm/node-gyp also respects npm_config_* environment variables
-    export npm_config_cxxflags="${npm_config_cxxflags} -std=c++20"
-    echo "🔧 Node.js v${NODE_VERSION} detected: Using C++20 for native builds"
-fi
-
 # Check and rebuild better-sqlite3
 if [ -d node_modules/better-sqlite3 ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
@@ -59,7 +47,7 @@ fi
 # Check and rebuild tree-sitter
 if [ -d node_modules/tree-sitter ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
-   [ ! -f node_modules/tree-sitter/build/Release/tree_sitter.node ]; \
+   [ ! -f node_modules/tree-sitter/build/Release/tree_sitter_runtime_binding.node ]; \
    }; then
     echo "🔨 Building tree-sitter..."
     if ! npm rebuild tree-sitter; then
