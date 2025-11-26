@@ -50,7 +50,9 @@ if [ -d node_modules/tree-sitter ] && \
    [ ! -f node_modules/tree-sitter/build/Release/tree_sitter.node ]; \
    }; then
     echo "🔨 Building tree-sitter..."
-    if ! npm rebuild tree-sitter; then
+    # npm/node-gyp also respects npm_config_* environment variables
+    export npm_config_cxxflags="${npm_config_cxxflags} -std=c++20"
+    if ! (CXXFLAGS="${CXXFLAGS} -std=c++20" CPPFLAGS="${CPPFLAGS} -std=c++20" npm rebuild tree-sitter); then
         echo "❌ Failed to build tree-sitter" >&2
         BUILD_FAILED=1
     fi
