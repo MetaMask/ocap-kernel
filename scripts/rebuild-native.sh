@@ -20,6 +20,9 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
     echo "🔁 Force rebuild enabled"
 fi
 
+CXXFLAGS="${CXXFLAGS} -std=c++20"
+CPPFLAGS="${CPPFLAGS} -std=c++20"
+
 # Check and rebuild better-sqlite3
 if [ -d node_modules/better-sqlite3 ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
@@ -47,10 +50,10 @@ fi
 # Check and rebuild tree-sitter
 if [ -d node_modules/tree-sitter ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
-   [ ! -f node_modules/tree-sitter/build/Release/tree_sitter.node ]; \
+   [ ! -f node_modules/tree-sitter/build/Release/tree_sitter_runtime_binding.node ]; \
    }; then
     echo "🔨 Building tree-sitter..."
-    if ! (CXXFLAGS="${CXXFLAGS} -std=c++20" CPPFLAGS="${CPPFLAGS} -std=c++20" npm rebuild tree-sitter); then
+    if ! npm rebuild tree-sitter; then
         echo "❌ Failed to build tree-sitter" >&2
         BUILD_FAILED=1
     fi
