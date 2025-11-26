@@ -11,7 +11,10 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'kernel-language-model-service:e2e',
-        setupFiles: path.resolve(__dirname, '../kernel-shims/src/endoify.js'),
+        setupFiles: path.resolve(
+          import.meta.dirname,
+          '../kernel-shims/src/endoify.js',
+        ),
         include: ['./test/e2e/**/*.test.ts'],
         exclude: ['./src/**/*'],
       },

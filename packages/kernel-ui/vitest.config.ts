@@ -14,7 +14,7 @@ export default defineConfig((args) => {
       test: {
         name: 'kernel-ui',
         environment: 'jsdom',
-        setupFiles: path.resolve(__dirname, './test/setup.ts'),
+        setupFiles: path.resolve(import.meta.dirname, './test/setup.ts'),
         testTimeout: 3000,
       },
     }),

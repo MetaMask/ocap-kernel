@@ -34,7 +34,7 @@ const makeVatSupervisor = async ({
           throw new Error(`Unexpected URL: ${url}`);
         }
         const bundleName = url.split('/').pop() ?? url;
-        const bundlePath = join(__dirname, 'vats', bundleName);
+        const bundlePath = join(import.meta.dirname, 'vats', bundleName);
         const bundleContent = await readFile(bundlePath, 'utf-8');
         return {
           ok: true,

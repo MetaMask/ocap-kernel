@@ -322,7 +322,7 @@ module.exports = defineConfig({
       }
 
       // All packages must specify a minimum Node.js version of 20
-      expectWorkspaceField(workspace, 'engines.node', '^20.6 || >=22');
+      expectWorkspaceField(workspace, 'engines.node', '^20.11 || >=22');
 
       // All non-root public packages should be published to the NPM registry;
       // all non-root private packages should not.

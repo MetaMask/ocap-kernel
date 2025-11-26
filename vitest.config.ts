@@ -39,7 +39,7 @@ export default defineConfig({
       {
         find: '@metamask/kernel-shims/endoify',
         replacement: path.join(
-          __dirname,
+          import.meta.dirname,
           './packages/kernel-shims/src/endoify.js',
         ),
         customResolver: (id) => ({ external: true, id }),
@@ -57,7 +57,7 @@ export default defineConfig({
         '**/test/**',
         '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
-        path.join(__dirname, './packages/brow-2-brow/**'),
+        path.join(import.meta.dirname, './packages/brow-2-brow/**'),
       ],
       thresholds: {
         autoUpdate: true,
