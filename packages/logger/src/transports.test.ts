@@ -17,9 +17,10 @@ const makeLogEntry = (level: LogLevel): LogEntry => ({
 });
 
 describe('consoleTransport', () => {
-  it.each(logLevels)(
+  it.each(Object.keys(logLevels))(
     'logs to the appropriate console alias: %s',
-    (level: LogLevel) => {
+    (levelString: string) => {
+      const level = levelString as LogLevel;
       const logEntry = makeLogEntry(level);
       const consoleMethodSpy = vi.spyOn(console, level);
       consoleTransport(logEntry);

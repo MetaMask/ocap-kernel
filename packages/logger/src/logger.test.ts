@@ -2,6 +2,7 @@ import type { DuplexStream } from '@metamask/streams';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
+import { logLevels } from './constants.ts';
 import { Logger } from './logger.ts';
 import { lser } from './stream.ts';
 import type { LogMessage } from './stream.ts';
@@ -110,6 +111,25 @@ describe('Logger', () => {
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
       expect(consoleSpy).toHaveBeenCalledWith(['test', 'sub'], 'foo');
+    });
+  });
+
+  describe('logging level limits output', () => {
+    consoleMethod.forEach((level) => {
+      it(`logging at level ${level}`, () => {
+        const testLogger = new Logger({ level });
+        consoleMethod.forEach((method) => {
+          const consoleSpy = vi.spyOn(console, method);
+          testLogger[method](`foo ${method}`);
+          if (logLevels[level] <= logLevels[method]) {
+            // eslint-disable-next-line vitest/no-conditional-expect
+            expect(consoleSpy).toHaveBeenCalledWith(`foo ${method}`);
+          } else {
+            // eslint-disable-next-line vitest/no-conditional-expect
+            expect(consoleSpy).not.toHaveBeenCalled();
+          }
+        });
+      });
     });
   });
 

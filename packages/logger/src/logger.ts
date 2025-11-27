@@ -50,6 +50,7 @@
 
 import type { DuplexStream } from '@metamask/streams';
 
+import { logLevels } from './constants.ts';
 import { parseOptions, mergeOptions } from './options.ts';
 import { lunser } from './stream.ts';
 import type { LogMessage } from './stream.ts';
@@ -99,16 +100,24 @@ export class Logger {
 
     // Create aliases for the log methods, allowing them to be used in a
     // manner similar to the console object.
-    const bind = (level: LogLevel): LogMethod =>
-      harden(
-        this.#dispatch.bind(this, {
-          ...this.#options,
-          level,
-        }),
-      ) as LogMethod;
-    this.log = bind('log');
+    const baseLevelIdx = this.#options.level
+      ? logLevels[this.#options.level]
+      : 0;
+    const bind = (level: LogLevel): LogMethod => {
+      if (baseLevelIdx <= logLevels[level]) {
+        return harden(
+          this.#dispatch.bind(this, {
+            ...this.#options,
+            level,
+          }),
+        ) as LogMethod;
+      }
+      // eslint-disable-next-line no-empty-function
+      return harden(() => {}) as LogMethod;
+    };
     this.debug = bind('debug');
     this.info = bind('info');
+    this.log = bind('log');
     this.warn = bind('warn');
     this.error = bind('error');
   }

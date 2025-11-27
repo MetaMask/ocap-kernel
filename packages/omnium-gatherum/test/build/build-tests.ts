@@ -1,7 +1,6 @@
 import { runTests } from '@ocap/repo-tools/build-utils/test';
 import path from 'node:path';
 
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
 const packageDir = path.resolve(import.meta.dirname, '../../');
 const outDir = path.resolve(packageDir, 'dist');
 const untransformedFiles = [
