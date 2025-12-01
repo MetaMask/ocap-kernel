@@ -6,7 +6,7 @@ import type { LoggerOptions } from './types.ts';
  */
 export const DEFAULT_OPTIONS: Required<LoggerOptions> = {
   transports: [],
-  level: 'info',
+  level: 'debug',
   tags: [],
 };
 
