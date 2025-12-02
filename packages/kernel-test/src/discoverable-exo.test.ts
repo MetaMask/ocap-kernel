@@ -5,16 +5,13 @@ import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger, consoleTransport } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
-import type { CapabilityRecord } from '@ocap/kernel-agents';
+import { discoverableExoToCapabilities } from '@ocap/kernel-agents';
 import { makeJsonAgent } from '@ocap/kernel-agents/json';
 import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-// Import from source files since they're not exported
-
 import { getBundleSpec, makeKernel, runTestVats } from './utils.ts';
-import { capability } from '../../kernel-agents/src/capabilities/capability.ts';
 import { DEFAULT_MODEL } from '../../kernel-agents/test/constants.ts';
 
 const logger = new Logger({
@@ -66,67 +63,10 @@ describe('discoverable exo capabilities', () => {
   });
 
   it('converts discoverable exo methods to agent capabilities', async () => {
-    // Get the schema from the discoverable exo
-    const describeResult = await kernel.queueMessage(
+    // Convert discoverable exo to capabilities
+    const capabilities = await discoverableExoToCapabilities(
+      kernel,
       calculatorRef,
-      'describe',
-      [],
-    );
-    const schema = kunser(describeResult) as Record<
-      string,
-      {
-        description: string;
-        args: Record<string, { type: string; description: string }>;
-        returns?: { type: string; description: string };
-      }
-    >;
-
-    // Convert each method to a capability
-    // For methods with multiple args, we need to extract them from the args object
-    const capabilities: CapabilityRecord = Object.fromEntries(
-      Object.entries(schema).map(([methodName, methodSchema]) => {
-        const argNames = Object.keys(methodSchema.args);
-        return [
-          methodName,
-          capability(
-            async (args: Record<string, unknown>) => {
-              // Extract arguments in the order they appear in the schema
-              const methodArgs = argNames.map((argName) => args[argName]);
-              const result = await kernel.queueMessage(
-                calculatorRef,
-                methodName,
-                methodArgs,
-              );
-              return kunser(result);
-            },
-            {
-              description: methodSchema.description,
-              args: Object.fromEntries(
-                Object.entries(methodSchema.args).map(
-                  ([argName, argSchema]) => [
-                    argName,
-                    {
-                      type: argSchema.type as 'string' | 'number' | 'boolean',
-                      description: argSchema.description,
-                    },
-                  ],
-                ),
-              ),
-              ...(methodSchema.returns
-                ? {
-                    returns: {
-                      type: methodSchema.returns.type as
-                        | 'string'
-                        | 'number'
-                        | 'boolean',
-                      description: methodSchema.returns.description,
-                    },
-                  }
-                : {}),
-            },
-          ),
-        ];
-      }),
     );
 
     // Create agent with the capabilities
