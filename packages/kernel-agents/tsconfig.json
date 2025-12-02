@@ -9,6 +9,7 @@
     { "path": "../kernel-language-model-service" },
     { "path": "../kernel-utils" },
     { "path": "../logger" },
+    { "path": "../ocap-kernel" },
     { "path": "../repo-tools" }
   ],
   "include": [
