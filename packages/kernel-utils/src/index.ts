@@ -1,4 +1,5 @@
 export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
+export type { JsonSchema, MethodSchema } from './schema.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { abortableDelay, delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
