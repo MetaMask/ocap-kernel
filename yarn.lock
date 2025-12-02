@@ -3265,7 +3265,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/kernel-agents@workspace:packages/kernel-agents":
+"@ocap/kernel-agents@workspace:^, @ocap/kernel-agents@workspace:packages/kernel-agents":
   version: 0.0.0-use.local
   resolution: "@ocap/kernel-agents@workspace:packages/kernel-agents"
   dependencies:
@@ -3413,6 +3413,7 @@ __metadata:
     "@metamask/streams": "workspace:^"
     "@metamask/utils": "npm:^11.4.2"
     "@ocap/cli": "workspace:^"
+    "@ocap/kernel-agents": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/nodejs": "workspace:^"
     "@ocap/nodejs-test-workers": "workspace:^"
