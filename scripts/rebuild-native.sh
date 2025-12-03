@@ -21,7 +21,6 @@ if [ "$FORCE_REBUILD" -eq 1 ]; then
 fi
 
 export CXXFLAGS="${CXXFLAGS} -std=c++20"
-# export CPPFLAGS="${CPPFLAGS} -std=c++20"
 
 # Check and rebuild better-sqlite3
 if [ -d node_modules/better-sqlite3 ] && \
