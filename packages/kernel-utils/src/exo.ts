@@ -3,8 +3,6 @@ import type { Methods } from '@endo/exo';
 import { M } from '@endo/patterns';
 import type { InterfaceGuard } from '@endo/patterns';
 
-import { makeDiscoverableExo } from './discoverable.ts';
-
 /**
  * Shorthand for creating a named `@endo/patterns.InterfaceGuard` with default guards
  * set to 'passable'.
@@ -30,5 +28,3 @@ export const makeDefaultExo = <Interface extends Methods>(
 ): ReturnType<typeof makeExo<Interface>> =>
   // @ts-expect-error We're intentionally not specifying method-specific interface guards.
   makeExo(name, interfaceGuard, methods);
-
-export { makeDiscoverableExo };
