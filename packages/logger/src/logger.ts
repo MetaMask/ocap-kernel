@@ -50,7 +50,6 @@
 
 import type { DuplexStream } from '@metamask/streams';
 
-import { logLevels } from './constants.ts';
 import { parseOptions, mergeOptions } from './options.ts';
 import { lunser } from './stream.ts';
 import type { LogMessage } from './stream.ts';
@@ -90,8 +89,6 @@ export class Logger {
    *   logger's tag.
    * @param options.transports - The transports, which deliver the log messages
    *   to the appropriate destination.
-   * @param options.level - The log level for the logger, used as a default
-   *   argument for the transports.
    * @param options.tags - The tags for the logger, which are accumulated by
    *   sub-loggers and passed to the transports.
    */
@@ -100,20 +97,10 @@ export class Logger {
 
     // Create aliases for the log methods, allowing them to be used in a
     // manner similar to the console object.
-    const baseLevelIdx = this.#options.level
-      ? logLevels[this.#options.level]
-      : 0;
     const bind = (level: LogLevel): LogMethod => {
-      if (baseLevelIdx <= logLevels[level]) {
-        return harden(
-          this.#dispatch.bind(this, {
-            ...this.#options,
-            level,
-          }),
-        ) as LogMethod;
-      }
-      // eslint-disable-next-line no-empty-function
-      return harden(() => {}) as LogMethod;
+      return harden(
+        this.#dispatch.bind(this, { ...this.#options }, level),
+      ) as LogMethod;
     };
     this.debug = bind('debug');
     this.info = bind('info');
@@ -155,13 +142,13 @@ export class Logger {
         const { level, tags, message, data } = lunser(args);
         const logArgs: LogArgs =
           message === undefined ? [] : [message, ...(data ?? [])];
-        this.#dispatch({ level, tags }, ...logArgs);
+        this.#dispatch({ tags }, level, ...logArgs);
       })
       .catch((problem) => onError?.(problem));
   }
 
-  #dispatch(options: LoggerOptions, ...args: LogArgs): void {
-    const { transports, level, tags } = mergeOptions(this.#options, options);
+  #dispatch(options: LoggerOptions, level: LogLevel, ...args: LogArgs): void {
+    const { transports, tags } = mergeOptions(this.#options, options);
     const [message, ...data] = args;
     const entry: LogEntry = harden({ level, tags, message, data });
     transports.forEach((transport) => transport(entry));

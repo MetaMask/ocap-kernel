@@ -1,25 +1,29 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_OPTIONS, mergeOptions, parseOptions } from './options.ts';
-import type { LoggerOptions, LogLevel, Transport } from './types.ts';
+import type { Transport } from './types.ts';
 
 const mocks = vi.hoisted(() => ({
-  consoleTransport: vi.fn(),
+  makeConsoleTransport: vi.fn(),
 }));
 
 vi.mock('./transports.ts', () => ({
-  consoleTransport: mocks.consoleTransport,
+  makeConsoleTransport: mocks.makeConsoleTransport,
 }));
 
 describe('parseOptions', () => {
   it('parses an undefined options bag', () => {
     const options = parseOptions(undefined);
-    expect(options).toStrictEqual({ transports: [mocks.consoleTransport] });
+    expect(options).toStrictEqual({
+      transports: [mocks.makeConsoleTransport()],
+    });
   });
 
   it('parses an empty options bag', () => {
     const options = parseOptions({});
-    expect(options).toStrictEqual({ transports: [mocks.consoleTransport] });
+    expect(options).toStrictEqual({
+      transports: [mocks.makeConsoleTransport()],
+    });
   });
 
   it('parses an options bag', () => {
@@ -38,7 +42,7 @@ describe('parseOptions', () => {
     const options = parseOptions('test');
     expect(options).toStrictEqual({
       tags: ['test'],
-      transports: [mocks.consoleTransport],
+      transports: [mocks.makeConsoleTransport()],
     });
   });
 
@@ -98,21 +102,6 @@ describe('mergeOptions', () => {
         ...DEFAULT_OPTIONS.transports,
         ...result,
       ]);
-    },
-  );
-
-  it.each([
-    { left: { level: 'warn' }, right: { level: 'error' }, result: 'error' },
-    { left: { level: undefined }, right: { level: 'warn' }, result: 'warn' },
-    { left: { level: 'info' }, right: {}, result: 'info' },
-  ] as { left: LoggerOptions; right: LoggerOptions; result: LogLevel }[])(
-    'merges levels as expected: $left and $right',
-    ({ left, right, result }) => {
-      const options = mergeOptions(
-        { ...left, transports: [] },
-        { ...right, transports: [] },
-      );
-      expect(options.level).toBe(result);
     },
   );
 });

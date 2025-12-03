@@ -1,24 +1,46 @@
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 
+import { logLevels } from './constants.ts';
 import { lser } from './stream.ts';
-import type { Transport } from './types.ts';
+import type { Transport, LogArgs, LogLevel, LogMethod } from './types.ts';
 
 /**
  * The console transport for the logger.
  *
- * @param entry - The log entry to transport.
+ * @param level - The logging level for this instance.
+ * @returns A transport function that writes to the console.
  */
-export const consoleTransport: Transport = (entry) => {
-  const args = [
-    ...(entry.tags.length > 0 ? [entry.tags] : []),
-    ...(entry.message ? [entry.message] : []),
-    ...(entry.data ?? []),
-  ];
-  // Ultimately, a console somewhere is an acceptable terminal for logging
-  // eslint-disable-next-line no-console
-  console[entry.level](...args);
-};
+export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
+  const baseLevelIdx = logLevels[level];
+  const logFn = (method: LogLevel): LogMethod => {
+    if (baseLevelIdx <= logLevels[method]) {
+      return (...args: unknown[]) => {
+        // Ultimately, a console somewhere is an acceptable terminal for logging
+        // eslint-disable-next-line no-console
+        console[method](...args);
+      };
+    }
+    // eslint-disable-next-line no-empty-function
+    return harden(() => {}) as LogMethod;
+  };
+  const filteredConsole = {
+    debug: logFn('debug'),
+    info: logFn('info'),
+    log: logFn('log'),
+    warn: logFn('warn'),
+    error: logFn('error'),
+  };
+  const consoleTransport: Transport = (entry) => {
+    const args = [
+      ...(entry.tags.length > 0 ? [entry.tags] : []),
+      ...(entry.message ? [entry.message] : []),
+      ...(entry.data ?? []),
+    ] as LogArgs;
+    filteredConsole[entry.level](...args);
+  };
+  return consoleTransport;
+}
 
 /**
  * The stream transport for the logger. Expects the stream is listening for

@@ -25,7 +25,6 @@ export type Transport = (entry: LogEntry) => void;
  */
 export type LoggerOptions = {
   transports?: Transport[];
-  level?: LogLevel;
   tags?: string[];
 };
 
