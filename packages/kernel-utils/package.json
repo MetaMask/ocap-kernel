@@ -39,6 +39,16 @@
         "default": "./dist/exo.cjs"
       }
     },
+    "./discoverable": {
+      "import": {
+        "types": "./dist/discoverable.d.mts",
+        "default": "./dist/discoverable.mjs"
+      },
+      "require": {
+        "types": "./dist/discoverable.d.cts",
+        "default": "./dist/discoverable.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

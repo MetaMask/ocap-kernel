@@ -1,7 +1,5 @@
-import {
-  makeDefaultExo,
-  makeDiscoverableExo,
-} from '@metamask/kernel-utils/exo';
+import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a vat that exports a discoverable exo capability.
