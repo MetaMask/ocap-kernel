@@ -23,6 +23,7 @@ describe('index', () => {
       'makeCounter',
       'makeDefaultExo',
       'makeDefaultInterface',
+      'makeDiscoverableExo',
       'mergeDisjointRecords',
       'retry',
       'retryWithBackoff',
