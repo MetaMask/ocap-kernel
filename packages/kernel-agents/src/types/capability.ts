@@ -1,4 +1,4 @@
-import type { JsonSchema } from './json-schema.ts';
+import type { JsonSchema } from '@metamask/kernel-utils';
 
 export type Capability<Args extends Record<string, unknown>, Return = null> = (
   args: Args,
