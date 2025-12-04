@@ -17,8 +17,8 @@ import type { MethodSchema } from './schema.ts';
  * A discoverable exo object that extends a base exo interface with a `describe` method
  * for runtime introspection of method schemas.
  */
-type DiscoverableExo<
-  Interface extends Methods,
+export type DiscoverableExo<
+  Interface extends Methods = Record<string, (...args: unknown[]) => unknown>,
   Schema extends Record<keyof Interface, MethodSchema> = Record<
     keyof Interface,
     MethodSchema
