@@ -2,20 +2,24 @@ import type { DuplexStream } from '@metamask/streams';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
+import { logLevels } from './constants.ts';
 import { Logger } from './logger.ts';
 import { lser } from './stream.ts';
 import type { LogMessage } from './stream.ts';
-import { consoleTransport } from './transports.ts';
+import { makeConsoleTransport } from './transports.ts';
 
 const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;
-const transports = [consoleTransport];
+const transports = [makeConsoleTransport()];
 
 describe('Logger', () => {
   it.each([
     ['no arguments', undefined],
     ['an empty object', {}],
     ['a string tag', 'test'],
-    ['an options bag', { tags: ['test'], transports: [consoleTransport] }],
+    [
+      'an options bag',
+      { tags: ['test'], transports: [makeConsoleTransport()] },
+    ],
   ])('can be constructed with $description', (_description, options) => {
     const logger = new Logger(options);
     expect(logger).toBeInstanceOf(Logger);
@@ -110,6 +114,27 @@ describe('Logger', () => {
       expect(subLogger).toBeInstanceOf(Logger);
       subLogger.log('foo');
       expect(consoleSpy).toHaveBeenCalledWith(['test', 'sub'], 'foo');
+    });
+  });
+
+  describe('logging level limits output', () => {
+    consoleMethod.forEach((level) => {
+      it(`logging at level ${level}`, () => {
+        const testLogger = new Logger({
+          transports: [makeConsoleTransport(level)],
+        });
+        consoleMethod.forEach((method) => {
+          const consoleSpy = vi.spyOn(console, method);
+          testLogger[method](`foo ${method}`);
+          if (logLevels[level] <= logLevels[method]) {
+            // eslint-disable-next-line vitest/no-conditional-expect
+            expect(consoleSpy).toHaveBeenCalledWith(`foo ${method}`);
+          } else {
+            // eslint-disable-next-line vitest/no-conditional-expect
+            expect(consoleSpy).not.toHaveBeenCalled();
+          }
+        });
+      });
     });
   });
 

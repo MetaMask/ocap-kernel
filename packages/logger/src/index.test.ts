@@ -7,8 +7,8 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual(
       expect.arrayContaining([
         'Logger',
-        'consoleTransport',
         'makeArrayTransport',
+        'makeConsoleTransport',
         'makeStreamTransport',
         'splitLoggerStream',
       ]),

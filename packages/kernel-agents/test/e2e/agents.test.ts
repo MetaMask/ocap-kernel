@@ -1,6 +1,6 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
-import { consoleTransport, Logger } from '@metamask/logger';
+import { makeConsoleTransport, Logger } from '@metamask/logger';
 import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import {
@@ -25,7 +25,7 @@ import { filterTransports, randomLetter } from '../utils.ts';
 
 const logger = new Logger({
   tags: ['test'],
-  transports: [filterTransports(consoleTransport)],
+  transports: [filterTransports(makeConsoleTransport())],
 });
 
 const makeJsonAgentWithMathCapabilities = (args: MakeAgentArgs) =>

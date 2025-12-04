@@ -29,8 +29,6 @@ const staticCopyTargets: readonly (string | Target)[] = [
   '../../kernel-shims/dist/endoify.js',
 ];
 
-// We will only run this where it's available, but ESLint doesn't know that
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
 const sourceDir = path.resolve(import.meta.dirname, 'src');
 const buildDir = path.resolve(sourceDir, '../dist/static');
 

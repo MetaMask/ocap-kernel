@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { logLevels } from './constants.ts';
 import {
-  consoleTransport,
+  makeConsoleTransport,
   makeArrayTransport,
   makeStreamTransport,
 } from './transports.ts';
@@ -17,9 +17,11 @@ const makeLogEntry = (level: LogLevel): LogEntry => ({
 });
 
 describe('consoleTransport', () => {
-  it.each(logLevels)(
+  it.each(Object.keys(logLevels))(
     'logs to the appropriate console alias: %s',
-    (level: LogLevel) => {
+    (levelString: string) => {
+      const consoleTransport = makeConsoleTransport();
+      const level = levelString as LogLevel;
       const logEntry = makeLogEntry(level);
       const consoleMethodSpy = vi.spyOn(console, level);
       consoleTransport(logEntry);

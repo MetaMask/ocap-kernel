@@ -1,4 +1,4 @@
-import { consoleTransport } from './transports.ts';
+import { makeConsoleTransport } from './transports.ts';
 import type { LoggerOptions } from './types.ts';
 
 /**
@@ -6,7 +6,6 @@ import type { LoggerOptions } from './types.ts';
  */
 export const DEFAULT_OPTIONS: Required<LoggerOptions> = {
   transports: [],
-  level: 'info',
   tags: [],
 };
 
@@ -24,13 +23,13 @@ export const parseOptions = (
   switch (typeof options) {
     case 'object':
       if (!options.transports) {
-        return { transports: [consoleTransport], ...options };
+        return { transports: [makeConsoleTransport()], ...options };
       }
       return options;
     case 'string':
-      return { tags: [options], transports: [consoleTransport] };
+      return { tags: [options], transports: [makeConsoleTransport()] };
     case 'undefined':
-      return { transports: [consoleTransport] };
+      return { transports: [makeConsoleTransport()] };
     default:
       throw new Error('Invalid logger options');
   }
@@ -61,7 +60,6 @@ export const mergeOptions = (
     (acc, option) =>
       ({
         transports: unique([...acc.transports, ...(option.transports ?? [])]),
-        level: option.level ?? acc.level,
         tags: unique([...acc.tags, ...(option.tags ?? [])]),
       }) as Required<LoggerOptions>,
     DEFAULT_OPTIONS,

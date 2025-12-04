@@ -3,7 +3,11 @@
 
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { stringify, waitUntilQuiescent } from '@metamask/kernel-utils';
-import { Logger, makeArrayTransport, consoleTransport } from '@metamask/logger';
+import {
+  Logger,
+  makeArrayTransport,
+  makeConsoleTransport,
+} from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
@@ -193,7 +197,7 @@ export function logDatabase(
 export const makeTestLogger = (): { logger: Logger; entries: LogEntry[] } => {
   const entries: LogEntry[] = [];
   const logger = new Logger({
-    transports: [consoleTransport, makeArrayTransport(entries)],
+    transports: [makeConsoleTransport(), makeArrayTransport(entries)],
   });
   return { logger, entries };
 };

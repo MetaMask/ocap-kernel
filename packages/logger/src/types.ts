@@ -3,7 +3,7 @@ import type { logLevels } from './constants.ts';
 /**
  * The log level for the logger.
  */
-export type LogLevel = (typeof logLevels)[number];
+export type LogLevel = keyof typeof logLevels;
 
 /**
  * The log entry for the logger.
@@ -25,7 +25,6 @@ export type Transport = (entry: LogEntry) => void;
  */
 export type LoggerOptions = {
   transports?: Transport[];
-  level?: LogLevel;
   tags?: string[];
 };
 
