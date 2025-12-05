@@ -8,6 +8,7 @@ import type {
   RemoteMessageHandler,
   SendRemoteMessage,
   StopRemoteComms,
+  RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
@@ -219,16 +220,21 @@ export class NodejsPlatformServices implements PlatformServices {
    * Initialize network communications.
    *
    * @param keySeed - The seed for generating this kernel's secret key.
-   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   * @param options - Options for remote communications initialization.
+   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
    *   connections from other kernels.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
    * @param remoteMessageHandler - A handler function to receive remote messages.
+   * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
   async initializeRemoteComms(
     keySeed: string,
-    knownRelays: string[],
+    options: RemoteCommsOptions,
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
+    onRemoteGiveUp?: (peerId: string) => void,
   ): Promise<void> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
@@ -237,8 +243,9 @@ export class NodejsPlatformServices implements PlatformServices {
     const { sendRemoteMessage, stop, closeConnection, reconnectPeer } =
       await initNetwork(
         keySeed,
-        knownRelays,
+        options,
         this.#handleRemoteMessage.bind(this),
+        onRemoteGiveUp,
       );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;

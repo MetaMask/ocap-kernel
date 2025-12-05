@@ -10,6 +10,7 @@ import type {
   KRef,
   PlatformServices,
   RemoteMessageHandler,
+  RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -96,7 +97,7 @@ class DirectNetworkService {
 
       async initializeRemoteComms(
         keySeed: string,
-        _knownRelays: string[],
+        _options: RemoteCommsOptions,
         handler: RemoteMessageHandler,
       ) {
         // Generate the actual peer ID from the key seed

@@ -234,13 +234,14 @@ describe('network.initNetwork', () => {
         '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
       ];
 
-      await initNetwork(keySeed, knownRelays, vi.fn());
+      await initNetwork(keySeed, { relays: knownRelays }, vi.fn());
 
       expect(ConnectionFactory.make).toHaveBeenCalledWith(
         keySeed,
         knownRelays,
         expect.any(Object), // Logger instance
         expect.any(AbortSignal), // signal from AbortController
+        undefined, // maxRetryAttempts (optional)
       );
     });
 
