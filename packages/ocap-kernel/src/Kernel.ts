@@ -14,6 +14,7 @@ import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
 import { OcapURLManager } from './remotes/OcapURLManager.ts';
 import { RemoteManager } from './remotes/RemoteManager.ts';
+import type { RemoteCommsOptions } from './remotes/types.ts';
 import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
 import { makeKernelStore } from './store/index.ts';
@@ -246,11 +247,14 @@ export class Kernel {
   /**
    * Initialize the remote comms object.
    *
-   * @param relays - The relays to use for the remote comms object.
+   * @param options - Options for remote communications initialization.
+   * @param options.relays - The relays to use for the remote comms object.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
    * @returns a promise that resolves when initialization is complete.
    */
-  async initRemoteComms(relays?: string[]): Promise<void> {
-    await this.#remoteManager.initRemoteComms(relays);
+  async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
+    await this.#remoteManager.initRemoteComms(options);
   }
 
   /**

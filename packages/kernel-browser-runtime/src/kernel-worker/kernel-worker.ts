@@ -73,5 +73,5 @@ async function main(): Promise<void> {
 
   // Initialize remote communications with the relay server passed in the query string
   const relays = getRelaysFromCurrentLocation();
-  await kernel.initRemoteComms(relays);
+  await kernel.initRemoteComms({ relays });
 }
