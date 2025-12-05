@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 
   await Promise.all([
     // Initialize remote communications with the relay server passed in the query string
-    kernel.initRemoteComms(relays),
+    kernel.initRemoteComms({ relays }),
     (async () => {
       // Launch the default subcluster if this is the first time
       if (firstTime || resetStorage) {

@@ -11,6 +11,7 @@ import type {
   VatConfig,
   SendRemoteMessage,
   StopRemoteComms,
+  RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import {
@@ -238,13 +239,19 @@ export class PlatformServicesServer {
    * Initialize network communications.
    *
    * @param keySeed - The seed for generating this kernel's secret key.
-   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   * @param options - Options for remote communications initialization.
+   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
    *   connections from other kernels.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
+   * @param _onRemoteGiveUp - Unused parameter (kept for interface compatibility).
+   *   Remote give-up notifications are sent via RPC instead.
    * @returns A promise that resolves when network access has been initialized.
    */
   async #initializeRemoteComms(
     keySeed: string,
-    knownRelays: string[],
+    options: RemoteCommsOptions,
+    _onRemoteGiveUp?: (peerId: string) => void,
   ): Promise<null> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
@@ -252,8 +259,9 @@ export class PlatformServicesServer {
     const { sendRemoteMessage, stop, closeConnection, reconnectPeer } =
       await initNetwork(
         keySeed,
-        knownRelays,
+        options,
         this.#handleRemoteMessage.bind(this),
+        this.#handleRemoteGiveUp.bind(this),
       );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
@@ -344,6 +352,18 @@ export class PlatformServicesServer {
       await this.#sendRemoteMessage(from, possibleReply, []);
     }
     return '';
+  }
+
+  /**
+   * Handle when we give up on a remote connection.
+   * Notifies the kernel worker via RPC.
+   *
+   * @param peerId - The peer ID of the remote we're giving up on.
+   */
+  #handleRemoteGiveUp(peerId: string): void {
+    this.#rpcClient.call('remoteGiveUp', { peerId }).catch((error) => {
+      this.#logger.error('Error notifying kernel of remote give up:', error);
+    });
   }
 }
 harden(PlatformServicesServer);

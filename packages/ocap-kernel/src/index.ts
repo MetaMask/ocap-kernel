@@ -17,6 +17,7 @@ export type {
   RemoteMessageHandler,
   SendRemoteMessage,
   StopRemoteComms,
+  RemoteCommsOptions,
 } from './remotes/types.ts';
 export {
   isVatId,
