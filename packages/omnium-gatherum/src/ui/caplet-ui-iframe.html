@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Caplet UI</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { render, h } from 'preact';
+      
+      // Get caplet information from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const capletId = urlParams.get('capletId') ?? 'unknown';
+      const uiBundle = urlParams.get('uiBundle') ?? '';
+      const entryPoint = urlParams.get('entryPoint') ?? 'index';
+      
+      // Set up message channel for communication with host
+      let messagePort = null;
+      
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'init-caplet-ui') {
+          messagePort = event.ports[0];
+          messagePort.onmessage = (e) => {
+            // Handle messages from host
+            console.log('Caplet UI received message:', e.data);
+          };
+          
+          // Load and render the caplet UI bundle
+          loadCapletUI();
+        }
+      });
+      
+      async function loadCapletUI() {
+        try {
+          // Fetch the UI bundle
+          const response = await fetch(uiBundle);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch UI bundle: ${response.statusText}`);
+          }
+          
+          // The bundle should export a Preact component
+          // For now, we'll create a simple placeholder
+          // In a real implementation, the bundle would be loaded and executed
+          const root = document.getElementById('root');
+          if (root) {
+            render(
+              h('div', { style: { padding: '20px' } }, [
+                h('h1', null, `Caplet UI: ${capletId}`),
+                h('p', null, `Loading UI from: ${uiBundle}`),
+                h('p', null, `Entry point: ${entryPoint}`),
+              ]),
+              root,
+            );
+          }
+        } catch (error) {
+          console.error('Failed to load caplet UI:', error);
+          const root = document.getElementById('root');
+          if (root) {
+            render(
+              h('div', { style: { padding: '20px', color: 'red' } }, [
+                h('h1', null, 'Error Loading Caplet UI'),
+                h('p', null, String(error)),
+              ]),
+              root,
+            );
+          }
+        }
+      }
+      
+      // Request initialization from host
+      window.parent.postMessage({ type: 'caplet-ui-ready' }, '*');
+    </script>
+  </body>
+</html>
+
