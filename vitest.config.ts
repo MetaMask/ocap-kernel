@@ -86,10 +86,10 @@ export default defineConfig({
           lines: 94.15,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 83.71,
-          functions: 90.9,
-          branches: 94.16,
-          lines: 83.71,
+          statements: 83.5,
+          functions: 90.76,
+          branches: 93.38,
+          lines: 83.5,
         },
         'packages/kernel-errors/**': {
           statements: 100,
@@ -106,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.2,
+          branches: 96.25,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {

@@ -21,7 +21,9 @@ export type KernelControlReplyStream = PostMessageDuplexStream<
   JsonRpcCall
 >;
 
-type HandleInstanceMessage = (request: JsonRpcCall) => Promise<JsonRpcResponse>;
+type HandleInstanceMessage = (
+  request: JsonRpcCall,
+) => Promise<JsonRpcResponse | undefined>;
 
 type Options = {
   logger: Logger;
@@ -140,7 +142,9 @@ export const receiveUiConnections = ({
       .then(async (instanceStream) => {
         return instanceStream.drain(async (message) => {
           const reply = await handleInstanceMessage(message);
-          await instanceStream.write(reply);
+          if (reply !== undefined) {
+            await instanceStream.write(reply);
+          }
         });
       })
       .catch((error) => {

@@ -1,6 +1,7 @@
 import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { PostMessageTarget } from '@metamask/streams/browser';
+import { PostMessageDuplexStream } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
@@ -33,10 +34,13 @@ vi.mock('@metamask/streams/browser', async () => {
 
   // @ts-expect-error: We're overriding the static make() method
   class MockStream extends TestDuplexStream {
+    static instances: MockStream[] = [];
+
     messageTarget: MockPostMessageTarget;
 
     constructor({ onEnd, messageTarget }: MockStreamOptions) {
       super(() => undefined, { readerOnEnd: onEnd, writerOnEnd: onEnd });
+      MockStream.instances.push(this);
       this.messageTarget = messageTarget;
       this.messageTarget.onmessage = (event) => {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -101,8 +105,13 @@ const makeMockLogger = () =>
   }) as unknown as Logger;
 
 describe('ui-connections', () => {
+  const streamInstances: PostMessageDuplexStream<unknown, unknown>[] =
+    // @ts-expect-error: This class is mocked
+    PostMessageDuplexStream.instances;
+
   beforeEach(() => {
     MockBroadcastChannel.channels.clear();
+    streamInstances.length = 0;
   });
 
   describe('establishKernelConnection', () => {
@@ -169,11 +178,14 @@ describe('ui-connections', () => {
     const logger = makeMockLogger();
 
     const mockHandleMessage = vi.fn(
-      async (_request: JsonRpcCall): Promise<JsonRpcResponse> => ({
-        id: 'foo',
-        jsonrpc: '2.0' as const,
-        result: { vats: [], clusterConfig: makeClusterConfig() },
-      }),
+      async (request: JsonRpcCall): Promise<JsonRpcResponse | undefined> =>
+        'id' in request
+          ? {
+              id: 1,
+              jsonrpc: '2.0' as const,
+              result: { vats: [], clusterConfig: makeClusterConfig() },
+            }
+          : undefined,
     );
 
     it('should handle new UI connections', async () => {
@@ -219,23 +231,78 @@ describe('ui-connections', () => {
         }),
       );
 
+      await delay();
+      const instanceStream = streamInstances[0]!;
+      expect(instanceStream).toBeDefined();
+      const instanceStreamWriteSpy = vi.spyOn(instanceStream, 'write');
+
       const instanceChannel = MockBroadcastChannel.channels.get(
         'test-instance-channel',
-      );
-      instanceChannel?.onmessage?.(
+      )!;
+      instanceChannel.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'getStatus',
             params: null,
+            id: 1,
           },
         }),
       );
-      await delay(10);
+      await delay();
 
       expect(mockHandleMessage).toHaveBeenCalledWith({
         method: 'getStatus',
         params: null,
+        id: 1,
       });
+      expect(instanceStreamWriteSpy).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { vats: [], clusterConfig: makeClusterConfig() },
+      });
+    });
+
+    it('should handle JSON-RPC notifications', async () => {
+      receiveUiConnections({
+        handleInstanceMessage: mockHandleMessage,
+        logger,
+      });
+
+      const controlChannel = MockBroadcastChannel.channels.get(
+        UI_CONTROL_CHANNEL_NAME,
+      );
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: 'test-instance-channel',
+          },
+        }),
+      );
+
+      await delay();
+      const instanceStream = streamInstances[0]!;
+      expect(instanceStream).toBeDefined();
+      const instanceStreamWriteSpy = vi.spyOn(instanceStream, 'write');
+
+      const instanceChannel = MockBroadcastChannel.channels.get(
+        'test-instance-channel',
+      )!;
+      instanceChannel.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'notification',
+          },
+        }),
+      );
+
+      await delay();
+
+      expect(mockHandleMessage).toHaveBeenCalledTimes(1);
+      expect(mockHandleMessage).toHaveBeenCalledWith({
+        method: 'notification',
+      });
+      expect(instanceStreamWriteSpy).not.toHaveBeenCalled();
     });
 
     it('should handle multiple simultaneous connections', async () => {
@@ -290,7 +357,7 @@ describe('ui-connections', () => {
           },
         }),
       );
-      await delay(10);
+      await delay();
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
       const instanceChannel = MockBroadcastChannel.channels.get(
@@ -299,7 +366,7 @@ describe('ui-connections', () => {
       instanceChannel?.onmessageerror?.(
         new MessageEvent('messageerror', { data: new Error('Test error') }),
       );
-      await delay(10);
+      await delay();
       expect(MockBroadcastChannel.channels.size).toBe(1);
 
       controlChannel?.onmessage?.(
@@ -310,7 +377,7 @@ describe('ui-connections', () => {
           },
         }),
       );
-      await delay(10);
+      await delay();
       expect(MockBroadcastChannel.channels.size).toBe(2);
     });
 
@@ -378,7 +445,7 @@ describe('ui-connections', () => {
           },
         }),
       );
-      await delay(10);
+      await delay();
 
       const instanceChannel = MockBroadcastChannel.channels.get(
         'test-instance-channel',
@@ -386,7 +453,7 @@ describe('ui-connections', () => {
       instanceChannel?.onmessageerror?.(
         new MessageEvent('messageerror', { data: new Error('Test error') }),
       );
-      await delay(10);
+      await delay();
 
       expect(logger.error).toHaveBeenCalledWith(
         'Error handling message from UI instance "test-instance-channel":',

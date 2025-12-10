@@ -124,10 +124,12 @@ const config = createConfig([
     files: ['**/*.test.ts', '**/*.test.tsx'],
     extends: [metamaskVitestConfig],
     rules: {
+      // It's fine to do this in tests.
+      '@typescript-eslint/no-non-null-assertion': 'off',
       // This causes false positives in tests especially.
       '@typescript-eslint/unbound-method': 'off',
       // We should enable this instead, but the rule is unreleased.
-      // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/359
+      // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/591
       // 'vitest/unbound-method': 'error',
     },
   },
