@@ -5,14 +5,6 @@ import type { InterfaceGuard } from '@endo/patterns';
 import { makeDefaultInterface } from './exo.ts';
 import type { MethodSchema } from './schema.ts';
 
-// The path names for describing methods are:
-// - `describe('<methodName>')` -> get the entire method schema
-// - `describe('<methodName>.args')` -> get the types and descriptions for the arguments
-// - `describe('<methodName>.args.<argumentName>')` -> get the type and description for the argument
-// - `describe('<methodName>.returns')` -> get the type and description for the return value
-// - `describe('<methodName>.returns.<property>')` -> get the type and description for a property of the return value
-// - `describe()` -> get the entire schema for the discoverable exo
-
 /**
  * A discoverable exo object that extends a base exo interface with a `describe` method
  * for runtime introspection of method schemas.
@@ -27,15 +19,9 @@ export type DiscoverableExo<
   /**
    * Describe the methods of the discoverable.
    *
-   * @param methodNames - The names of the methods to describe. If omitted, returns the entire schema.
-   * @returns A schema of the methods. If method names are provided, returns a partial schema.
+   * @returns A schema of the methods.
    */
-  describe: {
-    (): Schema;
-    (
-      ...methodNames: (keyof Interface)[]
-    ): Partial<Pick<Schema, (typeof methodNames)[number]>>;
-  };
+  describe: () => Schema;
 };
 
 /**
@@ -67,15 +53,7 @@ export const makeDiscoverableExo = <
     /**
      * Describe the methods of the discoverable.
      *
-     * @param methodNames - The names of the methods to describe.
-     * @returns A partial schema of the methods.
+     * @returns A schema of the methods.
      */
-    describe: (...methodNames: (keyof Interface)[]) => {
-      if (methodNames.length === 0) {
-        return schema;
-      }
-      return Object.fromEntries(
-        methodNames.map((methodName) => [methodName, schema[methodName]]),
-      ) as Partial<Pick<Schema, (typeof methodNames)[number]>>;
-    },
+    describe: () => schema,
   });
