@@ -800,7 +800,7 @@ describe.sequential('Remote Communications E2E', () => {
   });
 
   describe('Promise Rejection on Remote Give-Up', () => {
-    it.todo(
+    it(
       'rejects promises when remote connection is lost after max retries',
       async () => {
         // Initialize kernel1 with a low maxRetryAttempts to trigger give-up quickly
@@ -825,28 +825,24 @@ describe.sequential('Remote Communications E2E', () => {
         // Now stop kernel2 to trigger connection loss
         await kernel2.stop();
 
-        // Wait a bit for connection loss to be detected
-        await wait(500);
+        // Wait for connection loss to be detected and reconnection attempts to fail
+        await wait(2000);
 
-        // Send a message that creates a promise with remote (kernel2) as decider
-        // This message will be queued and trigger reconnection attempts
+        // Send a message that will trigger promise creation and eventual rejection
+        // The message will create a promise with the remote as decider (from URL redemption)
+        // When we give up on the remote, that promise should be rejected
+        // The vat should then propagate that rejection to the promise returned here
         const messagePromise = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
           [bobURL, 'hello', ['Alice']],
         );
 
-        // Wait for reconnection attempts to exhaust (1 attempt + backoff delays)
-        // With maxRetryAttempts=1, we'll have:
-        // - Initial connection loss detection
-        // - 1 reconnection attempt
-        // - Give up and reject promises
-        // Backoff starts at ~500ms, so we need to wait for that plus the attempt
-        await wait(3000);
-
-        // The promise should be rejected with a connection lost error
-        await expect(messagePromise).rejects.toThrow(
-          /Remote connection lost.*max retries reached or non-retryable error/u,
+        const result = await messagePromise;
+        const response = kunser(result);
+        expect(response).toBeInstanceOf(Error);
+        expect((response as Error).message).toContain(
+          'max retries reached or non-retryable error',
         );
       },
       NETWORK_TIMEOUT * 2,
