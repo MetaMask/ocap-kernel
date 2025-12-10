@@ -283,7 +283,7 @@ export async function initNetwork(
           logger.log(
             `${peerId}:: reconnection restarted during flush, continuing loop`,
           );
-          continue; // Continue the reconnection loop (don't reset attempt count)
+          continue; // Continue the reconnection loop
         }
 
         // Only reset backoff and stop reconnection after successful flush

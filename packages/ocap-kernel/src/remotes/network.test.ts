@@ -245,8 +245,43 @@ describe('network.initNetwork', () => {
       );
     });
 
+    it('passes maxRetryAttempts to ConnectionFactory.make', async () => {
+      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const keySeed = '0xabcd';
+      const maxRetryAttempts = 5;
+
+      await initNetwork(keySeed, { relays: [], maxRetryAttempts }, vi.fn());
+
+      expect(ConnectionFactory.make).toHaveBeenCalledWith(
+        keySeed,
+        [],
+        expect.any(Object),
+        expect.any(AbortSignal),
+        maxRetryAttempts,
+      );
+    });
+
+    it('uses maxQueue option for MessageQueue', async () => {
+      const maxQueue = 100;
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxQueue },
+        vi.fn(),
+      );
+
+      await sendRemoteMessage('peer-1', 'msg');
+
+      // Verify message was queued (MessageQueue is created lazily with maxQueue)
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', []);
+    });
+
     it('returns sendRemoteMessage, stop, closeConnection, and reconnectPeer', async () => {
-      const result = await initNetwork('0x1234', [], vi.fn());
+      const result = await initNetwork('0x1234', {}, vi.fn());
 
       expect(result).toHaveProperty('sendRemoteMessage');
       expect(result).toHaveProperty('stop');
@@ -266,7 +301,9 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage } = await initNetwork(
         '0x1234',
-        ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
+        {
+          relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
+        },
         vi.fn(),
       );
 
@@ -286,7 +323,7 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg1');
       await sendRemoteMessage('peer-1', 'msg2');
@@ -302,7 +339,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel1)
         .mockResolvedValueOnce(mockChannel2);
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'hello');
       await sendRemoteMessage('peer-2', 'world');
@@ -315,7 +352,7 @@ describe('network.initNetwork', () => {
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
       const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'hello', hints);
 
@@ -329,7 +366,7 @@ describe('network.initNetwork', () => {
 
   describe('inbound connections', () => {
     it('registers inbound connection handler', async () => {
-      await initNetwork('0x1234', [], vi.fn());
+      await initNetwork('0x1234', {}, vi.fn());
 
       expect(mockConnectionFactory.onInboundConnection).toHaveBeenCalledWith(
         expect.any(Function),
@@ -346,7 +383,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], remoteHandler);
+      await initNetwork('0x1234', {}, remoteHandler);
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('test-message');
@@ -381,7 +418,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], remoteHandler);
+      await initNetwork('0x1234', {}, remoteHandler);
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('test-message');
@@ -414,7 +451,7 @@ describe('network.initNetwork', () => {
       mockMessageQueue.length = 1;
       mockReconnectionManager.isReconnecting.mockReturnValue(true);
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'queued-msg');
 
@@ -429,7 +466,7 @@ describe('network.initNetwork', () => {
       );
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg1');
 
@@ -452,7 +489,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], vi.fn());
+      await initNetwork('0x1234', {}, vi.fn());
 
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.read.mockRejectedValue(new Error('Read failed'));
@@ -474,7 +511,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], vi.fn());
+      await initNetwork('0x1234', {}, vi.fn());
 
       const mockChannel = createMockChannel('peer-1');
       const gracefulDisconnectError = Object.assign(new Error('SCTP failure'), {
@@ -506,7 +543,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      const { stop } = await initNetwork('0x1234', [], vi.fn());
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
 
       const mockChannel = createMockChannel('peer-1');
       // Make read resolve after stop so loop continues and checks signal.aborted
@@ -550,7 +587,7 @@ describe('network.initNetwork', () => {
       );
 
       const remoteHandler = vi.fn().mockResolvedValue('ok');
-      await initNetwork('0x1234', [], remoteHandler);
+      await initNetwork('0x1234', {}, remoteHandler);
 
       const mockChannel = createMockChannel('peer-1');
       // First read returns undefined, which means stream ended - loop should break
@@ -590,7 +627,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel) // Initial connection
         .mockResolvedValueOnce(mockChannel); // Reconnection succeeds
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // First send establishes channel
       await sendRemoteMessage('peer-1', 'initial-msg');
@@ -611,13 +648,13 @@ describe('network.initNetwork', () => {
 
   describe('stop functionality', () => {
     it('returns a stop function', async () => {
-      const { stop } = await initNetwork('0x1234', [], vi.fn());
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
 
       expect(typeof stop).toBe('function');
     });
 
     it('cleans up resources on stop', async () => {
-      const { stop } = await initNetwork('0x1234', [], vi.fn());
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
 
       await stop();
 
@@ -628,7 +665,7 @@ describe('network.initNetwork', () => {
     it('does not send messages after stop', async () => {
       const { sendRemoteMessage, stop } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -664,7 +701,7 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage, stop } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -687,7 +724,7 @@ describe('network.initNetwork', () => {
     });
 
     it('can be called multiple times safely', async () => {
-      const { stop } = await initNetwork('0x1234', [], vi.fn());
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
 
       // Multiple calls should not throw
       await stop();
@@ -702,7 +739,7 @@ describe('network.initNetwork', () => {
 
   describe('closeConnection', () => {
     it('returns a closeConnection function', async () => {
-      const { closeConnection } = await initNetwork('0x1234', [], vi.fn());
+      const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
 
       expect(typeof closeConnection).toBe('function');
     });
@@ -713,7 +750,7 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage, closeConnection } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -735,7 +772,7 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage, closeConnection } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -758,7 +795,7 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage, closeConnection } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -783,7 +820,7 @@ describe('network.initNetwork', () => {
 
       const { sendRemoteMessage, closeConnection } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -810,7 +847,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      const { closeConnection } = await initNetwork('0x1234', [], vi.fn());
+      const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
 
       // Close connection first
       await closeConnection('peer-1');
@@ -832,7 +869,7 @@ describe('network.initNetwork', () => {
 
   describe('reconnectPeer', () => {
     it('returns a reconnectPeer function', async () => {
-      const { reconnectPeer } = await initNetwork('0x1234', [], vi.fn());
+      const { reconnectPeer } = await initNetwork('0x1234', {}, vi.fn());
 
       expect(typeof reconnectPeer).toBe('function');
     });
@@ -842,7 +879,7 @@ describe('network.initNetwork', () => {
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
       const { sendRemoteMessage, closeConnection, reconnectPeer } =
-        await initNetwork('0x1234', [], vi.fn());
+        await initNetwork('0x1234', {}, vi.fn());
 
       // Establish and close connection
       await sendRemoteMessage('peer-1', 'msg1');
@@ -886,7 +923,7 @@ describe('network.initNetwork', () => {
 
       const { closeConnection, reconnectPeer } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -934,7 +971,7 @@ describe('network.initNetwork', () => {
 
       const { closeConnection, reconnectPeer } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -957,7 +994,7 @@ describe('network.initNetwork', () => {
 
       const { closeConnection, reconnectPeer } = await initNetwork(
         '0x1234',
-        [],
+        {},
         vi.fn(),
       );
 
@@ -977,7 +1014,7 @@ describe('network.initNetwork', () => {
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
       const { sendRemoteMessage, closeConnection, reconnectPeer } =
-        await initNetwork('0x1234', [], vi.fn());
+        await initNetwork('0x1234', {}, vi.fn());
 
       // Establish, close, and reconnect
       await sendRemoteMessage('peer-1', 'msg1');
@@ -1010,7 +1047,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], vi.fn());
+      await initNetwork('0x1234', {}, vi.fn());
 
       expect(installWakeDetector).toHaveBeenCalled();
 
@@ -1027,7 +1064,7 @@ describe('network.initNetwork', () => {
         cleanupFn,
       );
 
-      const { stop } = await initNetwork('0x1234', [], vi.fn());
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
 
       await stop();
 
@@ -1049,7 +1086,7 @@ describe('network.initNetwork', () => {
         return mockChannel;
       });
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg');
 
@@ -1102,7 +1139,7 @@ describe('network.initNetwork', () => {
           return reconChannel;
         });
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Trigger first connection loss (this starts reconnection)
       await sendRemoteMessage('peer-1', 'msg-1');
@@ -1133,7 +1170,7 @@ describe('network.initNetwork', () => {
         new Error('Dial failed'),
       );
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg');
 
@@ -1161,7 +1198,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel) // initial connection
         .mockRejectedValueOnce(new Error('Permanent failure')); // non-retryable during reconnection
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Establish channel
       await sendRemoteMessage('peer-1', 'msg1');
@@ -1213,7 +1250,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel) // initial connection
         .mockResolvedValue(mockChannel); // reconnection attempts (won't succeed)
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Establish channel
       await sendRemoteMessage('peer-1', 'msg1');
@@ -1231,11 +1268,101 @@ describe('network.initNetwork', () => {
       });
     });
 
+    it('calls onRemoteGiveUp when max attempts reached', async () => {
+      const onRemoteGiveUp = vi.fn();
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true)
+        .mockReturnValue(false); // Max attempts reached
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel)
+        .mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        {},
+        vi.fn(),
+        onRemoteGiveUp,
+      );
+
+      await sendRemoteMessage('peer-1', 'msg1');
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      await vi.waitFor(() => {
+        expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
+      });
+    });
+
+    it('calls onRemoteGiveUp when non-retryable error occurs', async () => {
+      const onRemoteGiveUp = vi.fn();
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0);
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      const { isRetryableNetworkError } = await import(
+        '@metamask/kernel-errors'
+      );
+      vi.mocked(isRetryableNetworkError).mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel)
+        .mockRejectedValueOnce(new Error('Non-retryable error'));
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        {},
+        vi.fn(),
+        onRemoteGiveUp,
+      );
+
+      await sendRemoteMessage('peer-1', 'msg1');
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      await vi.waitFor(() => {
+        expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
+        expect(mockMessageQueue.clear).toHaveBeenCalled();
+      });
+    });
+
     it('resets backoff on successful message send', async () => {
       const mockChannel = createMockChannel('peer-1');
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg');
 
@@ -1252,7 +1379,7 @@ describe('network.initNetwork', () => {
         },
       );
 
-      await initNetwork('0x1234', [], vi.fn());
+      await initNetwork('0x1234', {}, vi.fn());
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('inbound-msg');
@@ -1280,7 +1407,7 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.isReconnecting.mockReturnValue(true);
 
       const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       await sendRemoteMessage('peer-1', 'msg', hints);
 
@@ -1323,7 +1450,7 @@ describe('network.initNetwork', () => {
         .mockReturnValue(undefined);
       mockMessageQueue.length = 2;
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Establish initial channel
       await sendRemoteMessage('peer-1', 'initial');
@@ -1380,7 +1507,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel) // initial connection
         .mockResolvedValueOnce(mockChannel); // reconnection
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Establish channel
       await sendRemoteMessage('peer-1', 'msg1');
@@ -1450,7 +1577,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel1) // initial connection
         .mockResolvedValueOnce(mockChannel2); // reconnection after flush failure
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
       // Establish channel
       await sendRemoteMessage('peer-1', 'msg1');
@@ -1467,6 +1594,67 @@ describe('network.initNetwork', () => {
           'peer-1',
         );
       });
+    });
+  });
+
+  describe('updateChannelHints', () => {
+    it('merges hints from queued messages during flush', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+
+      const mockChannel = createMockChannel('peer-1', ['hint1', 'hint2']);
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // initial connection
+        .mockResolvedValueOnce(mockChannel); // reconnection
+
+      // Set up queue with messages that have hints
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: ['hint2', 'hint3'] },
+      ];
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-1', hints: ['hint2', 'hint3'] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 1;
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via write failure
+      mockChannel.msgStream.write
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        )
+        .mockResolvedValue(undefined);
+
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      await vi.waitFor(() => {
+        // Hints should be merged: ['hint1', 'hint2', 'hint3']
+        expect(mockChannel.hints).toContain('hint1');
+        expect(mockChannel.hints).toContain('hint2');
+        expect(mockChannel.hints).toContain('hint3');
+        expect(mockChannel.hints).toHaveLength(3);
+      });
+    });
+
+    it('does not update hints if channel does not exist', async () => {
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Sending message to non-existent peer should not crash
+      const promise = sendRemoteMessage('non-existent-peer', 'msg', ['hint1']);
+      expect(await promise).toBeUndefined();
     });
   });
 });
