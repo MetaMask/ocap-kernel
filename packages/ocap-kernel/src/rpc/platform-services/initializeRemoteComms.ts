@@ -8,7 +8,7 @@ import {
   optional,
 } from '@metamask/superstruct';
 
-import type { RemoteCommsOptions } from 'src/remotes/types';
+import type { RemoteCommsOptions } from '../../remotes/types.ts';
 
 const initializeRemoteCommsParamsStruct = object({
   keySeed: string(),
