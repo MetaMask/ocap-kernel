@@ -9,7 +9,7 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 
 import defaultSubcluster from '../default-cluster.json';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
@@ -64,10 +64,8 @@ async function main(): Promise<void> {
     ],
   });
 
-  // JsonRpcEngine type error: does not handle JSON-RPC notifications
   receiveUiConnections({
-    handleInstanceMessage: async (request) =>
-      rpcServer.handle(request as JsonRpcRequest),
+    handleInstanceMessage: async (request) => rpcServer.handle(request),
     logger,
   });
 

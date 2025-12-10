@@ -23,7 +23,7 @@ export type KernelControlReplyStream = PostMessageDuplexStream<
 
 type HandleInstanceMessage = (
   request: JsonRpcCall,
-) => Promise<JsonRpcResponse | undefined>;
+) => Promise<JsonRpcResponse | void>;
 
 type Options = {
   logger: Logger;
