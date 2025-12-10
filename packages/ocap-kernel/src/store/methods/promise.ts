@@ -9,7 +9,6 @@ import type {
   Message,
   PromiseState,
   RunQueueItemSend,
-  VatId,
   EndpointId,
 } from '../../types.ts';
 import { insistEndpointId } from '../../types.ts';
@@ -229,14 +228,15 @@ export function getPromiseMethods(ctx: StoreContext) {
       }
     }
   }
+
   /**
-   * Generator that yield the promises decided by a given vat.
+   * Generator that yield the promises decided by a given endpoint (vat or remote).
    *
-   * @param decider - The vat ID of the vat of interest.
+   * @param decider - The endpoint ID (vat ID or remote ID) of interest.
    *
-   * @yields the kpids of all the promises decided by `decider`.
+   * @yields the kpids of all the unresolved promises decided by `decider`.
    */
-  function* getPromisesByDecider(decider: VatId): Generator<string> {
+  function* getPromisesByDecider(decider: EndpointId): Generator<string> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
       const kpid = ctx.kv.getRequired(key);

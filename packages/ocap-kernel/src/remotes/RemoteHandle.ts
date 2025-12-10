@@ -66,10 +66,6 @@ export class RemoteHandle implements EndpointHandle {
   /** The peer ID of the remote kernel this is connected to. */
   readonly #peerId: string;
 
-  /** Logger for outputting messages (such as errors) to the console */
-  // eslint-disable-next-line no-unused-private-class-members
-  readonly #logger: Logger;
-
   /** Storage holding the kernel's persistent state. */
   readonly #kernelStore: KernelStore;
 
@@ -85,7 +81,7 @@ export class RemoteHandle implements EndpointHandle {
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
     string,
-    [(ref: string) => void, (problem: string) => void]
+    [(ref: string) => void, (problem: string | Error) => void]
   > = new Map();
 
   /** Generation counter for keys to match URL redemption replies to requests. */
@@ -104,7 +100,6 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.kernelQueue - The kernel's queue.
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.locationHints - Possible contact points to reach the other end.
-   * @param params.logger - Optional logger for error and diagnostic output.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor({
@@ -114,14 +109,9 @@ export class RemoteHandle implements EndpointHandle {
     kernelQueue,
     remoteComms,
     locationHints,
-    logger,
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
     this.#peerId = peerId;
-    const loggerTags = { tags: ['remote', `${remoteId}`] };
-    this.#logger = logger
-      ? logger.subLogger(loggerTags)
-      : new Logger(loggerTags);
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#remoteComms = remoteComms;
@@ -460,5 +450,19 @@ export class RemoteHandle implements EndpointHandle {
       params: [url, replyKey],
     });
     return promise;
+  }
+
+  /**
+   * Reject all pending URL redemptions with the given error message.
+   * Called when we give up on this remote connection.
+   *
+   * @param errorMessage - The error message to reject with.
+   */
+  rejectPendingRedemptions(errorMessage: string): void {
+    const error = Error(errorMessage);
+    for (const [, [, reject]] of this.#pendingRedemptions) {
+      reject(error);
+    }
+    this.#pendingRedemptions.clear();
   }
 }

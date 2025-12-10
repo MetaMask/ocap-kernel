@@ -98,8 +98,13 @@ export class RemoteManager {
       ),
     );
 
+    // Reject pending URL redemptions in the RemoteHandle
+    // These are JavaScript promises that will propagate rejection to kernel promises
+    remote.rejectPendingRedemptions(
+      `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+    );
+
     // Reject all promises for which this remote is the decider
-    // Store metadata before rejecting so we can restore if decider overrides
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
       const promise = this.#kernelStore.getKernelPromise(kpid);
       // Track this rejection as tentative before rejecting
