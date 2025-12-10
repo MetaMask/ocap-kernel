@@ -108,17 +108,70 @@ describe('PlatformServicesClient', () => {
       await expect(resultP).rejects.toThrow('foo');
     });
 
-    it('calls logger.debug when receiving an unexpected reply', async () => {
-      const debugSpy = vi.spyOn(clientLogger, 'debug');
-      const unexpectedReply = makeNullReply('m9');
+    it('calls logger.error when receiving response with non-string id', async () => {
+      const errorSpy = vi.spyOn(clientLogger, 'error');
+      const unexpectedReply = new MessageEvent('message', {
+        data: {
+          id: 123,
+          result: null,
+          jsonrpc: '2.0',
+        },
+      });
 
       await stream.receiveInput(unexpectedReply);
       await delay(10);
 
-      expect(debugSpy).toHaveBeenCalledOnce();
-      expect(debugSpy).toHaveBeenLastCalledWith(
-        'Received response with unexpected id "m9".',
+      expect(errorSpy).toHaveBeenCalledOnce();
+      expect(errorSpy).toHaveBeenLastCalledWith(
+        'Received response with unexpected id:',
+        expect.any(String),
       );
+    });
+
+    it('calls logger.error when receiving message with unexpected port', async () => {
+      const errorSpy = vi.spyOn(clientLogger, 'error');
+      const unexpectedPortReply = makeMessageEvent(
+        'm9',
+        { result: null },
+        new MessageChannel().port1,
+      );
+
+      await stream.receiveInput(unexpectedPortReply);
+      await delay(10);
+
+      expect(errorSpy).toHaveBeenCalledOnce();
+      expect(errorSpy).toHaveBeenLastCalledWith(
+        'Received message with unexpected port:',
+        expect.any(String),
+      );
+    });
+
+    it('handles request with unknown method by sending error response', async () => {
+      const outputs: MessageEventWithPayload[] = [];
+      const newStream = await TestDuplexStream.make((message) => {
+        outputs.push(message as unknown as MessageEventWithPayload);
+      });
+      // eslint-disable-next-line no-new -- test setup
+      new PlatformServicesClient(
+        newStream as unknown as PlatformServicesClientStream,
+      );
+
+      await newStream.receiveInput(
+        new MessageEvent('message', {
+          data: {
+            id: 'm1',
+            jsonrpc: '2.0',
+            method: 'unknownMethod',
+            params: {},
+          },
+        }),
+      );
+      await delay(10);
+
+      const errorResponse = outputs.find(
+        (message) => message.payload?.id === 'm1' && 'error' in message.payload,
+      );
+      expect(errorResponse).toBeDefined();
     });
 
     describe('launch', () => {
@@ -191,7 +244,50 @@ describe('PlatformServicesClient', () => {
           const remoteHandler = vi.fn(async () => 'response');
           const result = client.initializeRemoteComms(
             '0xabcd',
-            ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            { relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'] },
+            remoteHandler,
+          );
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+
+        it('sends initializeRemoteComms with all options and resolves', async () => {
+          const remoteHandler = vi.fn(async () => 'response');
+          const result = client.initializeRemoteComms(
+            '0xabcd',
+            {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+              maxRetryAttempts: 5,
+              maxQueue: 100,
+            },
+            remoteHandler,
+          );
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+
+        it('sends initializeRemoteComms with onRemoteGiveUp callback', async () => {
+          const remoteHandler = vi.fn(async () => 'response');
+          const giveUpHandler = vi.fn();
+          const result = client.initializeRemoteComms(
+            '0xabcd',
+            { relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'] },
+            remoteHandler,
+            giveUpHandler,
+          );
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+
+        it('filters undefined values from options', async () => {
+          const remoteHandler = vi.fn(async () => 'response');
+          const result = client.initializeRemoteComms(
+            '0xabcd',
+            {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+              maxRetryAttempts: undefined,
+              maxQueue: undefined,
+            },
             remoteHandler,
           );
           await stream.receiveInput(makeNullReply('m1'));
@@ -282,6 +378,138 @@ describe('PlatformServicesClient', () => {
               message.payload?.id === 'm1' && 'error' in message.payload,
           );
           expect(errorResponse).toBeDefined();
+        });
+
+        it('calls handler and returns response when handler is set', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          const testClient = new PlatformServicesClient(
+            testStream as unknown as PlatformServicesClientStream,
+            clientLogger,
+          );
+          // Wait for client to be ready
+          await delay(10);
+
+          const remoteHandler = vi.fn(async () => 'response-message');
+          const initP = testClient.initializeRemoteComms(
+            '0xabcd',
+            {},
+            remoteHandler,
+          );
+          await testStream.receiveInput(makeNullReply('m1'));
+          await initP;
+
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm2',
+                jsonrpc: '2.0',
+                method: 'remoteDeliver',
+                params: {
+                  from: 'peer-123',
+                  message: 'test-message',
+                },
+              },
+            }),
+          );
+          await delay(50);
+
+          expect(remoteHandler).toHaveBeenCalledOnce();
+          expect(remoteHandler).toHaveBeenCalledWith(
+            'peer-123',
+            'test-message',
+          );
+
+          const successResponse = outputs.find(
+            (message) =>
+              message.payload?.id === 'm2' &&
+              'result' in message.payload &&
+              message.payload.result === 'response-message',
+          );
+          expect(successResponse).toBeDefined();
+        });
+      });
+
+      describe('remoteGiveUp', () => {
+        it('calls handler when handler is set', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          const testClient = new PlatformServicesClient(
+            testStream as unknown as PlatformServicesClientStream,
+            clientLogger,
+          );
+          // Wait for client to be ready
+          await delay(10);
+
+          const remoteHandler = vi.fn(async () => 'response');
+          const giveUpHandler = vi.fn();
+          const initP = testClient.initializeRemoteComms(
+            '0xabcd',
+            {},
+            remoteHandler,
+            giveUpHandler,
+          );
+          await testStream.receiveInput(makeNullReply('m1'));
+          await initP;
+
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm2',
+                jsonrpc: '2.0',
+                method: 'remoteGiveUp',
+                params: { peerId: 'peer-456' },
+              },
+            }),
+          );
+          await delay(50);
+
+          expect(giveUpHandler).toHaveBeenCalledOnce();
+          expect(giveUpHandler).toHaveBeenCalledWith('peer-456');
+
+          const successResponse = outputs.find(
+            (message) =>
+              message.payload?.id === 'm2' &&
+              'result' in message.payload &&
+              message.payload.result === null,
+          );
+          expect(successResponse).toBeDefined();
+        });
+
+        it('does not throw when handler is not set', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const newStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          // eslint-disable-next-line no-new -- test setup
+          new PlatformServicesClient(
+            newStream as unknown as PlatformServicesClientStream,
+          );
+
+          await newStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm1',
+                jsonrpc: '2.0',
+                method: 'remoteGiveUp',
+                params: { peerId: 'peer-789' },
+              },
+            }),
+          );
+          await delay(10);
+
+          // Should have sent success response with null result
+          const successResponse = outputs.find(
+            (message) =>
+              message.payload?.id === 'm1' &&
+              'result' in message.payload &&
+              message.payload.result === null,
+          );
+          expect(successResponse).toBeDefined();
         });
       });
     });

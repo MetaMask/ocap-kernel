@@ -484,5 +484,183 @@ describe('initializeRemoteComms', () => {
       expect(result).toBeNull();
       expect(initializationSteps).toBe(3);
     });
+
+    it('should pass maxRetryAttempts to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxRetryAttempts: 5,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxRetryAttempts: 5,
+      });
+    });
+
+    it('should pass maxQueue to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxQueue: 100,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxQueue: 100,
+      });
+    });
+
+    it('should pass all options when all are provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      });
+    });
+
+    it('should pass empty options when only keySeed is provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {});
+    });
+
+    it('should not include undefined optional params in options', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async (_keySeed: string, options: RemoteCommsOptions) => {
+          // Verify that undefined params are not included
+          expect(options).not.toHaveProperty('relays');
+          expect(options).not.toHaveProperty('maxRetryAttempts');
+          expect(options).not.toHaveProperty('maxQueue');
+          return null;
+        },
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+    });
+
+    it('should accept params with all optional fields', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should accept params with maxRetryAttempts set to zero', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        maxRetryAttempts: 0,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should accept params with maxQueue set to zero', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        maxQueue: 0,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should pass maxRetryAttempts set to zero to hook', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxRetryAttempts: 0,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxRetryAttempts: 0,
+      });
+    });
+
+    it('should pass maxQueue set to zero to hook', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxQueue: 0,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxQueue: 0,
+      });
+    });
   });
 });
