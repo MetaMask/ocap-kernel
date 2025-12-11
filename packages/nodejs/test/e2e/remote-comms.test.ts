@@ -923,14 +923,6 @@ describe.sequential('Remote Communications E2E', () => {
           'vat Bob got "hello" from reconnect',
         );
 
-        // Note: The original message promise was tentatively rejected when A gave up.
-        // When B restarts, it won't have the original message (it was lost when B stopped).
-        // However, the override mechanism is tested in unit tests (KernelQueue.test.ts).
-        // This e2e test verifies that:
-        // 1. A can reconnect via URL redemption after giving up
-        // 2. The RemoteHandle persists (same RemoteId) allowing override to work
-        // 3. B can send resolutions after reconnection
-
         // The original promise should remain rejected since B doesn't have the message
         // But the key point is that A successfully reconnected and can communicate with B
         const result = await messagePromise;
