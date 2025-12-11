@@ -1,31 +1,25 @@
-import {
-  createAsyncMiddleware,
-  JsonRpcEngine,
-} from '@metamask/json-rpc-engine';
+import { JsonRpcEngineV2 } from '@metamask/json-rpc-engine/v2';
 import { Logger } from '@metamask/logger';
-import type { JsonRpcRequest, JsonRpcSuccess } from '@metamask/utils';
+import type { JsonRpcRequest } from '@metamask/utils';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeLoggingMiddleware } from './logging.ts';
 
 describe('loggingMiddleware', () => {
-  let engine: JsonRpcEngine;
   let logger: Logger;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    engine = new JsonRpcEngine();
     logger = new Logger('test');
-    engine.push(makeLoggingMiddleware(logger));
   });
 
   it('should pass the request to the next middleware', async () => {
     // Create a spy middleware to verify the request is passed through
-    const nextSpy = vi.fn((_req, res, next) => {
-      res.result = 'success';
-      return next();
+    const nextSpy = vi.fn(() => 'success');
+    const engine = JsonRpcEngineV2.create({
+      middleware: [makeLoggingMiddleware(logger), nextSpy],
     });
-    engine.push(nextSpy);
 
     const request: JsonRpcRequest = {
       id: 1,
@@ -40,9 +34,8 @@ describe('loggingMiddleware', () => {
 
   it('should return the result from the next middleware', async () => {
     // Add a middleware that sets a result
-    engine.push((_req, res, _next, end) => {
-      res.result = 'test result';
-      return end();
+    const engine = JsonRpcEngineV2.create({
+      middleware: [makeLoggingMiddleware(logger), () => 'test result'],
     });
 
     const request: JsonRpcRequest = {
@@ -52,20 +45,21 @@ describe('loggingMiddleware', () => {
       params: {},
     };
 
-    const response = (await engine.handle(request)) as JsonRpcSuccess;
-    expect(response.result).toBe('test result');
+    const result = await engine.handle(request);
+    expect(result).toBe('test result');
   });
 
   it('should log the execution duration', async () => {
     const debugSpy = vi.spyOn(logger, 'debug');
 
     // Add a middleware that introduces a delay
-    engine.push(
-      createAsyncMiddleware(async (_req, res, _next) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        res.result = 'delayed result';
-      }),
-    );
+    const nextSpy = vi.fn(async () => {
+      await delay(10);
+      return 'delayed result';
+    });
+    const engine = JsonRpcEngineV2.create({
+      middleware: [makeLoggingMiddleware(logger), nextSpy],
+    });
 
     const request: JsonRpcRequest = {
       id: 3,
@@ -86,8 +80,13 @@ describe('loggingMiddleware', () => {
     const error = new Error('Test error');
 
     // Add a middleware that throws an error
-    engine.push(() => {
-      throw error;
+    const engine = JsonRpcEngineV2.create({
+      middleware: [
+        makeLoggingMiddleware(logger),
+        () => {
+          throw error;
+        },
+      ],
     });
 
     const request: JsonRpcRequest = {
@@ -97,11 +96,7 @@ describe('loggingMiddleware', () => {
       params: {},
     };
 
-    expect(await engine.handle(request)).toMatchObject({
-      error: expect.objectContaining({
-        message: 'Test error',
-      }),
-    });
+    await expect(engine.handle(request)).rejects.toThrow(error);
 
     expect(debugSpy).toHaveBeenCalledWith(
       expect.stringMatching(/Command executed in \d*\.?\d+ms/u),

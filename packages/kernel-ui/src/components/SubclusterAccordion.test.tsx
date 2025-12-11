@@ -130,7 +130,6 @@ describe('SubclusterAccordion', () => {
   });
 
   it('renders singular vat text when only one vat', () => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const singleVat = mockVats[0]!;
     render(<SubclusterAccordion {...defaultProps} vats={[singleVat]} />);
 

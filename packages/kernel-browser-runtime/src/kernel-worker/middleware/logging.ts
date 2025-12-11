@@ -1,15 +1,15 @@
-import { createAsyncMiddleware } from '@metamask/json-rpc-engine';
-import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine';
+import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine/v2';
 import { Logger } from '@metamask/logger';
-import type { Json, JsonRpcParams } from '@metamask/utils';
 
-export const makeLoggingMiddleware = (
-  logger: Logger,
-): JsonRpcMiddleware<JsonRpcParams, Json> =>
-  createAsyncMiddleware(async (_req, _res, next) => {
+export const makeLoggingMiddleware =
+  (logger: Logger): JsonRpcMiddleware =>
+  async ({ next }) => {
     const start = performance.now();
-    // eslint-disable-next-line n/callback-return
-    await next();
-    const duration = performance.now() - start;
-    logger.debug(`Command executed in ${duration}ms`);
-  });
+    try {
+      // eslint-disable-next-line n/callback-return
+      await next();
+    } finally {
+      const duration = performance.now() - start;
+      logger.debug(`Command executed in ${duration}ms`);
+    }
+  };

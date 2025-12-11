@@ -1,4 +1,4 @@
-import { JsonRpcEngine } from '@metamask/json-rpc-engine';
+import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { isJsonRpcCall } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
@@ -9,14 +9,14 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcResponse } from '@metamask/utils';
 
 import defaultSubcluster from '../default-cluster.json';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { receiveUiConnections } from '../ui-connections.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
-import { createPanelMessageMiddleware } from './middleware/panel-message.ts';
+import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -57,13 +57,15 @@ async function main(): Promise<void> {
     },
   );
 
-  const kernelEngine = new JsonRpcEngine();
-  kernelEngine.push(makeLoggingMiddleware(logger.subLogger('kernel-command')));
-  kernelEngine.push(createPanelMessageMiddleware(kernel, kernelDatabase));
-  // JsonRpcEngine type error: does not handle JSON-RPC notifications
+  const rpcServer = new JsonRpcServer({
+    middleware: [
+      makeLoggingMiddleware(logger.subLogger('kernel-command')),
+      makePanelMessageMiddleware(kernel, kernelDatabase),
+    ],
+  });
+
   receiveUiConnections({
-    handleInstanceMessage: async (request) =>
-      kernelEngine.handle(request as JsonRpcRequest),
+    handleInstanceMessage: async (request) => rpcServer.handle(request),
     logger,
   });
 
