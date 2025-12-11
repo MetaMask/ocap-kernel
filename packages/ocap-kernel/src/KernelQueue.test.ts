@@ -445,19 +445,14 @@ describe('KernelQueue', () => {
     });
   });
 
-  describe('trackConnectionLossRejection', () => {
+  describe('trackRemoteRejection', () => {
     it('tracks a promise as rejected due to connection loss', () => {
       const remoteId = 'r0';
       const kpid = 'kp123';
       const decider: EndpointId = remoteId; // Decider must match remoteId for override to work
       const subscribers: EndpointId[] = ['v2', 'v3'];
 
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid, decider, subscribers);
 
       // Verify tracking by attempting to resolve the promise
       // The resolvePromises method should detect it was rejected due to connection loss
@@ -512,18 +507,8 @@ describe('KernelQueue', () => {
       const decider: EndpointId = remoteId; // Decider must match remoteId
       const subscribers: EndpointId[] = ['v2'];
 
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid1,
-        decider,
-        subscribers,
-      );
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid2,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid1, decider, subscribers);
+      kernelQueue.trackRemoteRejection(remoteId, kpid2, decider, subscribers);
 
       // Both should be tracked
       const resolution1: VatOneResolution = [
@@ -574,18 +559,8 @@ describe('KernelQueue', () => {
       const decider2: EndpointId = remoteId2;
       const subscribers: EndpointId[] = ['v2'];
 
-      kernelQueue.trackConnectionLossRejection(
-        remoteId1,
-        kpid1,
-        decider1,
-        subscribers,
-      );
-      kernelQueue.trackConnectionLossRejection(
-        remoteId2,
-        kpid2,
-        decider2,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId1, kpid1, decider1, subscribers);
+      kernelQueue.trackRemoteRejection(remoteId2, kpid2, decider2, subscribers);
 
       // Resolve promise for remoteId1
       const resolution1: VatOneResolution = [
@@ -635,12 +610,7 @@ describe('KernelQueue', () => {
       ];
 
       // Track the rejection
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid, decider, subscribers);
 
       // Mock promise state: first call returns rejected (tentative), second returns unresolved (after restoration)
       (kernelStore.getKernelPromise as unknown as MockInstance)
@@ -701,12 +671,7 @@ describe('KernelQueue', () => {
       ];
 
       // Track the rejection
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid, decider, subscribers);
 
       // Mock promise state as rejected - override check happens but decider mismatch prevents override
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
@@ -769,12 +734,7 @@ describe('KernelQueue', () => {
       ];
 
       // Track the rejection
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid, decider, subscribers);
 
       // Mock promise state as rejected
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
@@ -807,12 +767,7 @@ describe('KernelQueue', () => {
       ];
 
       // Track the rejection
-      kernelQueue.trackConnectionLossRejection(
-        remoteId,
-        kpid,
-        decider,
-        subscribers,
-      );
+      kernelQueue.trackRemoteRejection(remoteId, kpid, decider, subscribers);
 
       (kernelStore.getKernelPromise as unknown as MockInstance)
         .mockReturnValueOnce({
@@ -836,6 +791,142 @@ describe('KernelQueue', () => {
       // with the same remoteId and kpid would not trigger override
       // (This is tested indirectly - the tracking map entry is deleted in the implementation)
       expect(kernelStore.restorePromiseToUnresolved).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('clearRemoteRejections', () => {
+    it('clears rejections for a specific remote', () => {
+      const remoteId1 = 'r0';
+      const remoteId2 = 'r1';
+      const kpid1 = 'kp123';
+      const kpid2 = 'kp456';
+      const decider1: EndpointId = remoteId1;
+      const decider2: EndpointId = remoteId2;
+      const subscribers: EndpointId[] = ['v2'];
+
+      // Track rejections for both remotes
+      kernelQueue.trackRemoteRejection(remoteId1, kpid1, decider1, subscribers);
+      kernelQueue.trackRemoteRejection(remoteId2, kpid2, decider2, subscribers);
+
+      // Clear rejections for remoteId1 only
+      kernelQueue.clearRemoteRejections(remoteId1);
+
+      // Verify remoteId1 rejections are cleared but remoteId2 still has them
+      // Attempt to resolve kpid1 - should not trigger override since tracking is cleared
+      const resolution1: VatOneResolution = [
+        kpid1,
+        false,
+        { body: 'resolved value 1', slots: [] } as CapData<KRef>,
+      ];
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'rejected',
+          decider: decider1,
+          subscribers,
+        },
+      );
+
+      // Should throw because promise is already resolved and no override tracking exists
+      expect(() =>
+        kernelQueue.resolvePromises(remoteId1, [resolution1]),
+      ).toThrow(`"${kpid1}" was already resolved`);
+
+      // Verify remoteId2 still has tracking by attempting override
+      const resolution2: VatOneResolution = [
+        kpid2,
+        false,
+        { body: 'resolved value 2', slots: [] } as CapData<KRef>,
+      ];
+      (kernelStore.getKernelPromise as unknown as MockInstance)
+        .mockReturnValueOnce({
+          state: 'rejected',
+          decider: decider2,
+          subscribers,
+        })
+        .mockReturnValueOnce({
+          state: 'unresolved',
+          decider: decider2,
+          subscribers,
+        });
+
+      kernelQueue.resolvePromises(remoteId2, [resolution2]);
+
+      // Should have restored and resolved for remoteId2
+      expect(kernelStore.restorePromiseToUnresolved).toHaveBeenCalledWith(
+        kpid2,
+        decider2,
+        subscribers,
+      );
+    });
+
+    it('clears rejections for non-existent remote without error', () => {
+      const nonExistentRemoteId = 'r999';
+      expect(() =>
+        kernelQueue.clearRemoteRejections(nonExistentRemoteId),
+      ).not.toThrow();
+    });
+  });
+
+  describe('clearAllRemoteRejections', () => {
+    it('clears all rejection tracking for all remotes', () => {
+      const remoteId1 = 'r0';
+      const remoteId2 = 'r1';
+      const kpid1 = 'kp123';
+      const kpid2 = 'kp456';
+      const decider1: EndpointId = remoteId1;
+      const decider2: EndpointId = remoteId2;
+      const subscribers: EndpointId[] = ['v2'];
+
+      // Track rejections for both remotes
+      kernelQueue.trackRemoteRejection(remoteId1, kpid1, decider1, subscribers);
+      kernelQueue.trackRemoteRejection(remoteId2, kpid2, decider2, subscribers);
+
+      // Clear all rejections
+      kernelQueue.clearAllRemoteRejections();
+
+      // Verify both remotes' rejections are cleared
+      const resolution1: VatOneResolution = [
+        kpid1,
+        false,
+        { body: 'resolved value 1', slots: [] } as CapData<KRef>,
+      ];
+      const resolution2: VatOneResolution = [
+        kpid2,
+        false,
+        { body: 'resolved value 2', slots: [] } as CapData<KRef>,
+      ];
+
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'rejected',
+          decider: decider1,
+          subscribers,
+        },
+      );
+
+      // Both should throw because promises are already resolved and no override tracking exists
+      expect(() =>
+        kernelQueue.resolvePromises(remoteId1, [resolution1]),
+      ).toThrow(`"${kpid1}" was already resolved`);
+
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'rejected',
+          decider: decider2,
+          subscribers,
+        },
+      );
+
+      expect(() =>
+        kernelQueue.resolvePromises(remoteId2, [resolution2]),
+      ).toThrow(`"${kpid2}" was already resolved`);
+
+      // Should not have restored any promises
+      expect(kernelStore.restorePromiseToUnresolved).not.toHaveBeenCalled();
+    });
+
+    it('clears all rejections when map is empty', () => {
+      expect(() => kernelQueue.clearAllRemoteRejections()).not.toThrow();
     });
   });
 });

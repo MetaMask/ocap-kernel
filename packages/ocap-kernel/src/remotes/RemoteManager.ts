@@ -108,7 +108,7 @@ export class RemoteManager {
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
       const promise = this.#kernelStore.getKernelPromise(kpid);
       // Track this rejection as tentative before rejecting
-      this.#kernelQueue.trackConnectionLossRejection(
+      this.#kernelQueue.trackRemoteRejection(
         remoteId,
         kpid,
         promise.decider,
@@ -159,6 +159,8 @@ export class RemoteManager {
   async stopRemoteComms(): Promise<void> {
     await this.#remoteComms?.stopRemoteComms();
     this.#remoteComms = undefined;
+    // Clear connection loss rejection tracking for all remotes to prevent memory leaks
+    this.#kernelQueue.clearAllRemoteRejections();
     this.#remotes.clear();
     this.#remotesByPeer.clear();
   }
@@ -294,6 +296,11 @@ export class RemoteManager {
    */
   async closeConnection(peerId: string): Promise<void> {
     await this.getRemoteComms().closeConnection(peerId);
+    // Clear connection loss rejection tracking for this remote since we're intentionally closing
+    const remote = this.#remotesByPeer.get(peerId);
+    if (remote) {
+      this.#kernelQueue.clearRemoteRejections(remote.remoteId);
+    }
   }
 
   /**
