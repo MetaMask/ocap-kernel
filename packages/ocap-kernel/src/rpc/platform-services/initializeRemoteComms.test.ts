@@ -6,6 +6,7 @@ import {
   initializeRemoteCommsSpec,
   initializeRemoteCommsHandler,
 } from './initializeRemoteComms.ts';
+import type { RemoteCommsOptions } from '../../remotes/types.ts';
 
 describe('initializeRemoteComms', () => {
   describe('initializeRemoteCommsSpec', () => {
@@ -25,7 +26,7 @@ describe('initializeRemoteComms', () => {
       it('should accept valid params', () => {
         const validParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: [
+          relays: [
             '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
             '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
           ],
@@ -34,10 +35,36 @@ describe('initializeRemoteComms', () => {
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
-      it('should accept params with empty knownRelays array', () => {
+      it('should accept params with empty relays array', () => {
         const validParams = {
           keySeed: '0xabcdef1234567890',
-          knownRelays: [],
+          relays: [],
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should accept params with only keySeed', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should accept params with maxRetryAttempts', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          maxRetryAttempts: 5,
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should accept params with maxQueue', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          maxQueue: 100,
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
@@ -45,15 +72,7 @@ describe('initializeRemoteComms', () => {
 
       it('should reject params with missing keySeed', () => {
         const invalidParams = {
-          knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
-        };
-
-        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
-      });
-
-      it('should reject params with missing knownRelays', () => {
-        const invalidParams = {
-          keySeed: '0x1234567890abcdef',
+          relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
         };
 
         expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
@@ -62,7 +81,7 @@ describe('initializeRemoteComms', () => {
       it('should reject params with non-string keySeed', () => {
         const invalidParams = {
           keySeed: 123,
-          knownRelays: [],
+          relays: [],
         };
 
         expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
@@ -71,16 +90,16 @@ describe('initializeRemoteComms', () => {
       it('should reject params with non-array knownRelays', () => {
         const invalidParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: 'not-an-array',
+          relays: 'not-an-array',
         };
 
         expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
       });
 
-      it('should reject params with non-string elements in knownRelays', () => {
+      it('should reject params with non-string elements in relays', () => {
         const invalidParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: [
+          relays: [
             '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
             123, // non-string element
           ],
@@ -89,10 +108,28 @@ describe('initializeRemoteComms', () => {
         expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
       });
 
+      it('should reject params with non-number maxRetryAttempts', () => {
+        const invalidParams = {
+          keySeed: '0x1234567890abcdef',
+          maxRetryAttempts: 'not-a-number',
+        };
+
+        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
+      });
+
+      it('should reject params with non-number maxQueue', () => {
+        const invalidParams = {
+          keySeed: '0x1234567890abcdef',
+          maxQueue: 'not-a-number',
+        };
+
+        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
+      });
+
       it('should reject params with extra fields', () => {
         const invalidParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: [],
+          relays: [],
           extra: 'field',
         };
 
@@ -116,16 +153,16 @@ describe('initializeRemoteComms', () => {
       it('should accept empty string keySeed', () => {
         const validParams = {
           keySeed: '',
-          knownRelays: [],
+          relays: [],
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
-      it('should accept empty strings in knownRelays', () => {
+      it('should accept empty strings in relays', () => {
         const validParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: ['', ''],
+          relays: ['', ''],
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
@@ -134,7 +171,7 @@ describe('initializeRemoteComms', () => {
       it('should accept unicode characters', () => {
         const validParams = {
           keySeed: '🔑seed🔑',
-          knownRelays: ['🌐relay🌐', '🔗connection🔗'],
+          relays: ['🌐relay🌐', '🔗connection🔗'],
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
@@ -144,7 +181,7 @@ describe('initializeRemoteComms', () => {
         const longString = 'a'.repeat(10000);
         const validParams = {
           keySeed: longString,
-          knownRelays: [longString, longString],
+          relays: [longString, longString],
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
@@ -158,7 +195,7 @@ describe('initializeRemoteComms', () => {
 
         const validParams = {
           keySeed: '0x1234567890abcdef',
-          knownRelays: manyRelays,
+          relays: manyRelays,
         };
 
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
@@ -188,7 +225,7 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '0x1234567890abcdef',
-        knownRelays: [
+        relays: [
           '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
           '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
         ],
@@ -202,10 +239,12 @@ describe('initializeRemoteComms', () => {
       expect(mockInitializeRemoteComms).toHaveBeenCalledTimes(1);
       expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
         '0x1234567890abcdef',
-        [
-          '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
-          '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
-        ],
+        {
+          relays: [
+            '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+            '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+          ],
+        },
       );
       expect(result).toBeNull();
     });
@@ -221,7 +260,7 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: 'test-seed',
-        knownRelays: ['test-relay'],
+        relays: ['test-relay'],
       };
 
       const result = await initializeRemoteCommsHandler.implementation(
@@ -245,7 +284,7 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: 'failing-seed',
-        knownRelays: ['failing-relay'],
+        relays: ['failing-relay'],
       };
 
       await expect(
@@ -264,15 +303,14 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '0xemptyrelays',
-        knownRelays: [],
+        relays: [],
       };
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
-        '0xemptyrelays',
-        [],
-      );
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xemptyrelays', {
+        relays: [],
+      });
     });
 
     it('should handle empty string parameters', async () => {
@@ -286,12 +324,14 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '',
-        knownRelays: [''],
+        relays: [''],
       };
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('', ['']);
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('', {
+        relays: [''],
+      });
     });
 
     it('should handle unicode characters in parameters', async () => {
@@ -305,14 +345,14 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '🔑unicode-seed🔑',
-        knownRelays: ['🌐unicode-relay🌐'],
+        relays: ['🌐unicode-relay🌐'],
       };
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
       expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
         '🔑unicode-seed🔑',
-        ['🌐unicode-relay🌐'],
+        { relays: ['🌐unicode-relay🌐'] },
       );
     });
 
@@ -331,7 +371,7 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: 'async-seed',
-        knownRelays: ['async-relay'],
+        relays: ['async-relay'],
       };
 
       const result = await initializeRemoteCommsHandler.implementation(
@@ -362,16 +402,16 @@ describe('initializeRemoteComms', () => {
 
         const params = {
           keySeed,
-          knownRelays: ['test-relay'],
+          relays: ['test-relay'],
         };
 
         await expect(
           initializeRemoteCommsHandler.implementation(hooks, params),
         ).rejects.toThrow(error);
 
-        expect(mockInitializeRemoteComms).toHaveBeenCalledWith(keySeed, [
-          'test-relay',
-        ]);
+        expect(mockInitializeRemoteComms).toHaveBeenCalledWith(keySeed, {
+          relays: ['test-relay'],
+        });
       },
     );
 
@@ -391,21 +431,20 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '0xmanyrelays',
-        knownRelays: manyRelays,
+        relays: manyRelays,
       };
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
-        '0xmanyrelays',
-        manyRelays,
-      );
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xmanyrelays', {
+        relays: manyRelays,
+      });
     });
 
     it('should handle complex initialization scenarios', async () => {
       let initializationSteps = 0;
       const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
-        async (keySeed: string, knownRelays: string[]) => {
+        async (keySeed: string, options: RemoteCommsOptions) => {
           // Simulate complex initialization
           initializationSteps += 1; // Step 1: Parse key seed
           await new Promise((resolve) => setTimeout(resolve, 1));
@@ -420,7 +459,7 @@ describe('initializeRemoteComms', () => {
             throw new Error('Invalid key seed');
           }
 
-          if (knownRelays.length === 0) {
+          if (!options.relays || options.relays.length === 0) {
             throw new Error('No relays provided');
           }
 
@@ -434,7 +473,7 @@ describe('initializeRemoteComms', () => {
 
       const params = {
         keySeed: '0xcomplexinitialization',
-        knownRelays: ['/dns4/complex.relay/tcp/443/wss/p2p/complex'],
+        relays: ['/dns4/complex.relay/tcp/443/wss/p2p/complex'],
       };
 
       const result = await initializeRemoteCommsHandler.implementation(
@@ -444,6 +483,184 @@ describe('initializeRemoteComms', () => {
 
       expect(result).toBeNull();
       expect(initializationSteps).toBe(3);
+    });
+
+    it('should pass maxRetryAttempts to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxRetryAttempts: 5,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxRetryAttempts: 5,
+      });
+    });
+
+    it('should pass maxQueue to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxQueue: 100,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxQueue: 100,
+      });
+    });
+
+    it('should pass all options when all are provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      });
+    });
+
+    it('should pass empty options when only keySeed is provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {});
+    });
+
+    it('should not include undefined optional params in options', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async (_keySeed: string, options: RemoteCommsOptions) => {
+          // Verify that undefined params are not included
+          expect(options).not.toHaveProperty('relays');
+          expect(options).not.toHaveProperty('maxRetryAttempts');
+          expect(options).not.toHaveProperty('maxQueue');
+          return null;
+        },
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+    });
+
+    it('should accept params with all optional fields', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should accept params with maxRetryAttempts set to zero', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        maxRetryAttempts: 0,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should accept params with maxQueue set to zero', () => {
+      const validParams = {
+        keySeed: '0x1234567890abcdef',
+        maxQueue: 0,
+      };
+
+      expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+    });
+
+    it('should pass maxRetryAttempts set to zero to hook', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxRetryAttempts: 0,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxRetryAttempts: 0,
+      });
+    });
+
+    it('should pass maxQueue set to zero to hook', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        maxQueue: 0,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
+        maxQueue: 0,
+      });
     });
   });
 });

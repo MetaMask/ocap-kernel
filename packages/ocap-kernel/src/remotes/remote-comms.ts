@@ -8,7 +8,12 @@ import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../store/index.ts';
 import type { PlatformServices } from '../types.ts';
-import type { RemoteComms, RemoteMessageHandler } from './types.ts';
+import type {
+  RemoteComms,
+  RemoteMessageHandler,
+  OnRemoteGiveUp,
+  RemoteCommsOptions,
+} from './types.ts';
 
 export type OcapURLParts = {
   oid: string;
@@ -94,9 +99,10 @@ export function getKnownRelays(kv: KVStore): string[] {
  * @param platformServices - The platform services, for accessing network I/O
  *   operations that are not available within the web worker that the kernel runs in.
  * @param remoteMessageHandler - Handler to process received inbound communcations.
- * @param relays - The known relays to use for the remote comms object.
+ * @param options - Options for remote communications initialization.
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for libp2p key generation.
+ * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
  *
  * @returns the initialized remote comms object.
  */
@@ -104,16 +110,18 @@ export async function initRemoteComms(
   kernelStore: KernelStore,
   platformServices: PlatformServices,
   remoteMessageHandler: RemoteMessageHandler,
-  relays?: string[],
+  options: RemoteCommsOptions = {},
   logger?: Logger,
   keySeed?: string,
+  onRemoteGiveUp?: OnRemoteGiveUp,
 ): Promise<RemoteComms> {
   let peerId: string;
   let ocapURLKey: Uint8Array;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const { kv } = kernelStore;
-  if (relays && relays.length > 0) {
+  const { relays = [] } = options;
+  if (relays.length > 0) {
     kv.set('knownRelays', JSON.stringify(relays));
   }
 
@@ -142,12 +150,13 @@ export async function initRemoteComms(
   }
   const cipher = AES_GCM.create();
 
-  const knownRelays = relays ?? getKnownRelays(kv);
+  const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
   await platformServices.initializeRemoteComms(
     keySeed,
-    knownRelays,
+    { ...options, relays: knownRelays },
     remoteMessageHandler,
+    onRemoteGiveUp,
   );
 
   /**

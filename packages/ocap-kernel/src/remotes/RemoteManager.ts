@@ -1,11 +1,17 @@
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import type { KernelStore } from '../store/index.ts';
-import type { PlatformServices, RemoteId } from '../types.ts';
 import { initRemoteComms } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
-import type { RemoteComms, RemoteMessageHandler, RemoteInfo } from './types.ts';
+import { kser } from '../liveslots/kernel-marshal.ts';
+import type { PlatformServices, RemoteId } from '../types.ts';
+import type {
+  RemoteComms,
+  RemoteMessageHandler,
+  RemoteInfo,
+  RemoteCommsOptions,
+} from './types.ts';
+import type { KernelStore } from '../store/index.ts';
 
 type RemoteManagerConstructorProps = {
   platformServices: PlatformServices;
@@ -71,12 +77,55 @@ export class RemoteManager {
   }
 
   /**
+   * Handle when we give up on a remote (after max retries or non-retryable error).
+   * Rejects all promises for which this remote is the decider.
+   * Tracks these rejections as tentative, allowing the decider to override later.
+   *
+   * @param peerId - The peer ID of the remote we're giving up on.
+   */
+  #handleRemoteGiveUp(peerId: string): void {
+    // Find the RemoteId for this peerId
+    const remote = this.#remotesByPeer.get(peerId);
+    if (!remote) {
+      // Remote not found - might have been cleaned up already
+      return;
+    }
+
+    const { remoteId } = remote;
+    const failure = kser(
+      Error(
+        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+      ),
+    );
+
+    // Reject pending URL redemptions in the RemoteHandle
+    // These are JavaScript promises that will propagate rejection to kernel promises
+    remote.rejectPendingRedemptions(
+      `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+    );
+
+    // Reject all promises for which this remote is the decider
+    for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
+      const promise = this.#kernelStore.getKernelPromise(kpid);
+      // Track this rejection as tentative before rejecting
+      this.#kernelQueue.trackRemoteRejection(
+        remoteId,
+        kpid,
+        promise.decider,
+        promise.subscribers ?? [],
+      );
+      // Now reject the promise
+      this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);
+    }
+  }
+
+  /**
    * Initialize the remote comms object at kernel startup.
    *
-   * @param relays - The relays to use for the remote comms object.
+   * @param options - Options for remote communications initialization.
    * @returns a promise that resolves when initialization is complete.
    */
-  async initRemoteComms(relays?: string[]): Promise<void> {
+  async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
     if (!this.#messageHandler) {
       throw Error(
         'Message handler must be set before initializing remote comms',
@@ -87,9 +136,10 @@ export class RemoteManager {
       this.#kernelStore,
       this.#platformServices,
       this.#messageHandler,
-      relays,
+      options ?? {},
       this.#logger,
       this.#keySeed,
+      this.#handleRemoteGiveUp.bind(this),
     );
 
     // Restore all remotes that were previously established
@@ -109,6 +159,8 @@ export class RemoteManager {
   async stopRemoteComms(): Promise<void> {
     await this.#remoteComms?.stopRemoteComms();
     this.#remoteComms = undefined;
+    // Clear connection loss rejection tracking for all remotes to prevent memory leaks
+    this.#kernelQueue.clearAllRemoteRejections();
     this.#remotes.clear();
     this.#remotesByPeer.clear();
   }
@@ -244,6 +296,11 @@ export class RemoteManager {
    */
   async closeConnection(peerId: string): Promise<void> {
     await this.getRemoteComms().closeConnection(peerId);
+    // Clear connection loss rejection tracking for this remote since we're intentionally closing
+    const remote = this.#remotesByPeer.get(peerId);
+    if (remote) {
+      this.#kernelQueue.clearRemoteRejections(remote.remoteId);
+    }
   }
 
   /**

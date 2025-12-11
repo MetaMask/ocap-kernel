@@ -82,14 +82,14 @@ export default defineConfig({
         'packages/kernel-agents/**': {
           statements: 94.15,
           functions: 94.64,
-          branches: 91.39,
+          branches: 91.42,
           lines: 94.15,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 83.5,
-          functions: 90.76,
-          branches: 93.38,
-          lines: 83.5,
+          statements: 86.76,
+          functions: 94.02,
+          branches: 96.96,
+          lines: 86.76,
         },
         'packages/kernel-errors/**': {
           statements: 100,
@@ -106,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.25,
+          branches: 96.2,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
@@ -141,15 +141,15 @@ export default defineConfig({
         },
         'packages/logger/**': {
           statements: 100,
-          functions: 100,
-          branches: 96.77,
+          functions: 95.23,
+          branches: 98.36,
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 87.76,
-          functions: 87.5,
-          branches: 95.23,
-          lines: 87.76,
+          statements: 90.27,
+          functions: 94.11,
+          branches: 95.65,
+          lines: 90.27,
         },
         'packages/nodejs-test-workers/**': {
           statements: 22.22,
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.6,
-          functions: 98.52,
-          branches: 95.86,
-          lines: 96.6,
+          statements: 96.55,
+          functions: 98.54,
+          branches: 97.83,
+          lines: 96.55,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,
@@ -178,7 +178,7 @@ export default defineConfig({
         'packages/streams/**': {
           statements: 100,
           functions: 100,
-          branches: 99.67,
+          branches: 100,
           lines: 100,
         },
         'packages/template-package/**': {

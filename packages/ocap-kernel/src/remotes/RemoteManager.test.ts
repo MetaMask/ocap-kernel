@@ -70,15 +70,69 @@ describe('RemoteManager', () => {
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
 
       remoteManager.setMessageHandler(messageHandler);
-      await remoteManager.initRemoteComms(['relay1', 'relay2']);
+      await remoteManager.initRemoteComms({ relays: ['relay1', 'relay2'] });
 
       expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
         kernelStore,
         mockPlatformServices,
         messageHandler,
-        ['relay1', 'relay2'],
+        { relays: ['relay1', 'relay2'] },
         logger,
         undefined,
+        expect.any(Function),
+      );
+    });
+
+    it('initializes remote comms with all options', async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms({
+        relays: ['relay1', 'relay2'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      });
+
+      expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
+        kernelStore,
+        mockPlatformServices,
+        messageHandler,
+        {
+          relays: ['relay1', 'relay2'],
+          maxRetryAttempts: 5,
+          maxQueue: 100,
+        },
+        logger,
+        undefined,
+        expect.any(Function),
+      );
+    });
+
+    it('passes keySeed to initRemoteComms', async () => {
+      const keySeed = '0x1234567890abcdef';
+      const managerWithKeySeed = new RemoteManager({
+        platformServices: mockPlatformServices,
+        kernelStore,
+        kernelQueue: mockKernelQueue,
+        logger,
+        keySeed,
+      });
+
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      managerWithKeySeed.setMessageHandler(messageHandler);
+      await managerWithKeySeed.initRemoteComms();
+
+      expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
+        kernelStore,
+        mockPlatformServices,
+        messageHandler,
+        {},
+        logger,
+        keySeed,
+        expect.any(Function),
       );
     });
 
@@ -183,8 +237,27 @@ describe('RemoteManager', () => {
     });
 
     it('closes connection to peer', async () => {
+      const remote = remoteManager.establishRemote('peer123');
+      const clearRejectionsSpy = vi.spyOn(
+        mockKernelQueue,
+        'clearRemoteRejections',
+      );
       await remoteManager.closeConnection('peer123');
       expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
+      expect(clearRejectionsSpy).toHaveBeenCalledWith(remote.remoteId);
+    });
+
+    it('closes connection to peer that does not exist', async () => {
+      const clearRejectionsSpy = vi.spyOn(
+        mockKernelQueue,
+        'clearRemoteRejections',
+      );
+      await remoteManager.closeConnection('non-existent-peer');
+      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith(
+        'non-existent-peer',
+      );
+      // Should not clear rejections if remote doesn't exist
+      expect(clearRejectionsSpy).not.toHaveBeenCalled();
     });
 
     it('reconnects peer with hints', async () => {
@@ -441,7 +514,7 @@ describe('RemoteManager', () => {
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
       remoteManager.setMessageHandler(messageHandler);
-      await remoteManager.initRemoteComms(['relay1']);
+      await remoteManager.initRemoteComms({ relays: ['relay1'] });
 
       expect(remoteManager.isRemoteCommsInitialized()).toBe(true);
       expect(remoteComms.initRemoteComms).toHaveBeenCalledTimes(2);
@@ -459,6 +532,57 @@ describe('RemoteManager', () => {
 
       // After stop, remotes are cleared
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
+    });
+  });
+
+  describe('handleRemoteGiveUp', () => {
+    beforeEach(async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+    });
+
+    it('handles remote give up callback when remote exists', () => {
+      const peerId = 'peer-to-give-up';
+      const remote = remoteManager.establishRemote(peerId);
+      const rejectPendingRedemptionsSpy = vi.spyOn(
+        remote,
+        'rejectPendingRedemptions',
+      );
+      // Get the callback that was passed to initRemoteComms
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      onRemoteGiveUp(peerId);
+      // Verify pending redemptions were rejected
+      expect(rejectPendingRedemptionsSpy).toHaveBeenCalledWith(
+        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+      );
+    });
+
+    it('handles remote give up callback when remote does not exist', () => {
+      const peerId = 'non-existent-peer';
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      expect(() => onRemoteGiveUp(peerId)).not.toThrow();
+    });
+
+    it('handles remote give up and processes promises when they exist', () => {
+      const peerId = 'peer-with-promises';
+      remoteManager.establishRemote(peerId);
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      expect(() => onRemoteGiveUp(peerId)).not.toThrow();
+    });
+
+    it('handles remote give up with no promises', () => {
+      const peerId = 'peer-with-no-promises';
+      remoteManager.establishRemote(peerId);
+      const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      onRemoteGiveUp(peerId);
+      expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });
   });
 });

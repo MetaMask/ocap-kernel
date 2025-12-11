@@ -36,6 +36,8 @@ export class ConnectionFactory {
 
   readonly #keySeed: string;
 
+  readonly #maxRetryAttempts?: number;
+
   #inboundHandler?: InboundConnectionHandler;
 
   /**
@@ -45,6 +47,7 @@ export class ConnectionFactory {
    * @param knownRelays - The known relays to use for the libp2p node.
    * @param logger - The logger to use for the libp2p node.
    * @param signal - The signal to use for the libp2p node.
+   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -52,11 +55,15 @@ export class ConnectionFactory {
     knownRelays: string[],
     logger: Logger,
     signal: AbortSignal,
+    maxRetryAttempts?: number,
   ) {
     this.#keySeed = keySeed;
     this.#knownRelays = knownRelays;
     this.#logger = logger;
     this.#signal = signal;
+    if (maxRetryAttempts !== undefined) {
+      this.#maxRetryAttempts = maxRetryAttempts;
+    }
   }
 
   /**
@@ -66,6 +73,7 @@ export class ConnectionFactory {
    * @param knownRelays - The known relays to use for the libp2p node.
    * @param logger - The logger to use for the libp2p node.
    * @param signal - The signal to use for the libp2p node.
+   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @returns A promise for the new ConnectionFactory instance.
    */
   static async make(
@@ -73,8 +81,15 @@ export class ConnectionFactory {
     knownRelays: string[],
     logger: Logger,
     signal: AbortSignal,
+    maxRetryAttempts?: number,
   ): Promise<ConnectionFactory> {
-    const factory = new ConnectionFactory(keySeed, knownRelays, logger, signal);
+    const factory = new ConnectionFactory(
+      keySeed,
+      knownRelays,
+      logger,
+      signal,
+      maxRetryAttempts,
+    );
     await factory.#init();
     return factory;
   }
@@ -269,7 +284,10 @@ export class ConnectionFactory {
     peerId: string,
     hints: string[] = [],
   ): Promise<Channel> {
-    return retryWithBackoff(async () => this.openChannelOnce(peerId, hints), {
+    const retryOptions: Parameters<typeof retryWithBackoff>[1] = {
+      ...(this.#maxRetryAttempts !== undefined && {
+        maxAttempts: this.#maxRetryAttempts,
+      }),
       jitter: true,
       shouldRetry: isRetryableNetworkError,
       onRetry: ({ attempt, maxAttempts, delayMs }) => {
@@ -278,7 +296,11 @@ export class ConnectionFactory {
         );
       },
       signal: this.#signal,
-    });
+    };
+    return retryWithBackoff(
+      async () => this.openChannelOnce(peerId, hints),
+      retryOptions,
+    );
   }
 
   /**
