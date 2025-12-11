@@ -90,7 +90,6 @@ describe('remote-comms', () => {
       expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
         'elsewhere',
         'your message here',
-        [],
       );
     });
 

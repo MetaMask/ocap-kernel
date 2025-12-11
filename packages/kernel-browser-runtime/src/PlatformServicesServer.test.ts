@@ -89,11 +89,10 @@ const makeSendRemoteMessageMessageEvent = (
   messageId: `m${number}`,
   to: string,
   message: string,
-  hints: string[],
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'sendRemoteMessage',
-    params: { to, message, hints },
+    params: { to, message },
   });
 
 const makeStopRemoteCommsMessageEvent = (
@@ -397,16 +396,13 @@ describe('PlatformServicesServer', () => {
 
           // Now send a message
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello'),
           );
           await delay(10);
 
           expect(mockSendRemoteMessage).toHaveBeenCalledWith(
             'peer-123',
             'hello',
-            ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
           );
         });
 
@@ -414,7 +410,7 @@ describe('PlatformServicesServer', () => {
           const errorSpy = vi.spyOn(logger, 'error');
 
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test', []),
+            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test'),
           );
           await delay(10);
 

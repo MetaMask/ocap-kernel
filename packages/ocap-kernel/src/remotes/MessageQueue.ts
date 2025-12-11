@@ -1,11 +1,9 @@
 export type QueuedMessage = {
   message: string;
-  hints: string[];
 };
 
 /**
  * Message queue management for remote communications.
- * Handles queueing of messages with their hints during reconnection.
  */
 export class MessageQueue {
   readonly #queue: QueuedMessage[] = [];
@@ -26,13 +24,12 @@ export class MessageQueue {
    * If at capacity, drops the oldest message first.
    *
    * @param message - The message to add to the queue.
-   * @param hints - The hints to add to the queue.
    */
-  enqueue(message: string, hints: string[]): void {
+  enqueue(message: string): void {
     if (this.#queue.length >= this.#maxCapacity) {
       this.dropOldest();
     }
-    this.#queue.push({ message, hints });
+    this.#queue.push({ message });
   }
 
   /**

@@ -312,7 +312,6 @@ describe('ConnectionFactory', () => {
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
           peerId: 'remote-peer',
-          hints: [],
         }),
       );
     });

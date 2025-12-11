@@ -112,7 +112,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(response).toContain('vat Bob got "hello" from Alice');
       },
@@ -135,7 +134,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(aliceToBob).toContain('vat Bob got "hello" from Alice');
 
@@ -144,7 +142,6 @@ describe.sequential('Remote Communications E2E', () => {
           bobRef,
           aliceURL,
           'hello',
-          ['Bob'],
         );
         expect(bobToAlice).toContain('vat Alice got "hello" from Bob');
       },
@@ -244,8 +241,8 @@ describe.sequential('Remote Communications E2E', () => {
           testRelays,
         );
 
-        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
-        await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello', ['Bob']);
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello');
+        await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello');
 
         await kernel2.stop();
 
@@ -324,7 +321,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(initialMessage).toContain('vat Bob got "hello" from Alice');
 
@@ -336,7 +332,7 @@ describe.sequential('Remote Communications E2E', () => {
         const messagePromise = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
+          [bobURL, 'hello'],
         );
 
         // Track when reconnection attempts happen by monitoring when
@@ -374,7 +370,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(followUpMessage).toContain('vat Bob got "hello" from Alice');
       },
@@ -476,7 +471,7 @@ describe.sequential('Remote Communications E2E', () => {
           testRelays,
         );
 
-        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello');
 
         await kernel2.stop();
 
@@ -556,12 +551,8 @@ describe.sequential('Remote Communications E2E', () => {
 
           const aliceRef = getVatRootRef(kernel1, kernelStore1, 'Alice');
 
-          await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', [
-            'Alice',
-          ]);
-          await sendRemoteMessage(kernel1, aliceRef, charlieURL, 'hello', [
-            'Alice',
-          ]);
+          await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello');
+          await sendRemoteMessage(kernel1, aliceRef, charlieURL, 'hello');
 
           await kernel2.stop();
           await kernel3.stop();
@@ -570,12 +561,12 @@ describe.sequential('Remote Communications E2E', () => {
           const bobMessagePromise = kernel1.queueMessage(
             aliceRef,
             'sendRemoteMessage',
-            [bobURL, 'hello', ['Alice']],
+            [bobURL, 'hello'],
           );
           const charlieMessagePromise = kernel1.queueMessage(
             aliceRef,
             'sendRemoteMessage',
-            [charlieURL, 'hello', ['Alice']],
+            [charlieURL, 'hello'],
           );
 
           const bobConfigRestart = makeRemoteVatConfig('Bob');
@@ -613,14 +604,12 @@ describe.sequential('Remote Communications E2E', () => {
             aliceRef,
             bobURL,
             'hello',
-            ['Alice'],
           );
           const charlieFollowUp = await sendRemoteMessage(
             kernel1,
             aliceRef,
             charlieURL,
             'hello',
-            ['Alice'],
           );
 
           expect(bobFollowUp).toContain('vat Bob got "hello" from Alice');
@@ -657,7 +646,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(initialMessage).toContain('vat Bob got "hello" from Alice');
 
@@ -667,7 +655,7 @@ describe.sequential('Remote Communications E2E', () => {
         const messageAfterClose = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
+          [bobURL, 'hello'],
         );
 
         const bobConfig = makeRemoteVatConfig('Bob');
@@ -708,7 +696,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(initialMessage).toContain('vat Bob got "hello" from Alice');
 
@@ -732,7 +719,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(messageAfterReconnect).toContain(
           'vat Bob got "hello" from Alice',
@@ -757,7 +743,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(initialMessage).toContain('vat Bob got "hello" from Alice');
 
@@ -769,7 +754,7 @@ describe.sequential('Remote Communications E2E', () => {
         const messageAfterClose = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
+          [bobURL, 'hello'],
         );
 
         const result = await messageAfterClose;
@@ -789,7 +774,6 @@ describe.sequential('Remote Communications E2E', () => {
           aliceRef,
           bobURL,
           'hello',
-          ['Alice'],
         );
         expect(messageAfterManualReconnect).toContain(
           'vat Bob got "hello" from Alice',

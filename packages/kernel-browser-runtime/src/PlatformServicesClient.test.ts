@@ -201,9 +201,7 @@ describe('PlatformServicesClient', () => {
 
       describe('sendRemoteMessage', () => {
         it('sends message to remote peer via RPC', async () => {
-          const result = client.sendRemoteMessage('peer-456', 'hello', [
-            '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-          ]);
+          const result = client.sendRemoteMessage('peer-456', 'hello');
           await delay(10);
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();

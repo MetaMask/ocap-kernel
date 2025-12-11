@@ -91,7 +91,6 @@ vi.mock('./ReconnectionManager.ts', () => {
 // Mock ConnectionFactory
 type MockChannel = {
   peerId: string;
-  hints: string[];
   msgStream: {
     read: ReturnType<typeof vi.fn>;
     write: ReturnType<typeof vi.fn>;
@@ -208,12 +207,8 @@ describe('network.initNetwork', () => {
     vi.clearAllMocks();
   });
 
-  const createMockChannel = (
-    peerId: string,
-    hints: string[] = [],
-  ): MockChannel => ({
+  const createMockChannel = (peerId: string): MockChannel => ({
     peerId,
-    hints,
     msgStream: {
       read: vi.fn().mockImplementation(
         async () =>
@@ -314,9 +309,10 @@ describe('network.initNetwork', () => {
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
       const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
 
-      const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
+      const { sendRemoteMessage, registerLocationHints } = await initNetwork('0x1234', [], vi.fn());
 
-      await sendRemoteMessage('peer-1', 'hello', hints);
+      registerLocationHints('peer-1', hints);
+      await sendRemoteMessage('peer-1', 'hello');
 
       expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
         'peer-1',
@@ -417,7 +413,7 @@ describe('network.initNetwork', () => {
 
       await sendRemoteMessage('peer-1', 'queued-msg');
 
-      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('queued-msg', []);
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('queued-msg');
       expect(mockConnectionFactory.dialIdempotent).not.toHaveBeenCalled();
     });
 
@@ -568,13 +564,13 @@ describe('network.initNetwork', () => {
     it('flushes queued messages after successful reconnection', async () => {
       // Set up message queue with queued messages
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1', hints: [] })
-        .mockReturnValueOnce({ message: 'queued-2', hints: [] })
+        .mockReturnValueOnce({ message: 'queued-1' })
+        .mockReturnValueOnce({ message: 'queued-2' })
         .mockReturnValue(undefined);
       mockMessageQueue.length = 2;
       mockMessageQueue.messages = [
-        { message: 'queued-1', hints: [] },
-        { message: 'queued-2', hints: [] },
+        { message: 'queued-1' },
+        { message: 'queued-2' },
       ];
 
       // Setup for reconnection scenario
@@ -767,8 +763,8 @@ describe('network.initNetwork', () => {
       // Set up queue with messages
       mockMessageQueue.length = 2;
       mockMessageQueue.messages = [
-        { message: 'queued-1', hints: [] },
-        { message: 'queued-2', hints: [] },
+        { message: 'queued-1' },
+        { message: 'queued-2' },
       ];
 
       await closeConnection('peer-1');
@@ -1052,7 +1048,7 @@ describe('network.initNetwork', () => {
 
       await sendRemoteMessage('peer-1', 'msg');
 
-      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', []);
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
     });
 
     it('does not start duplicate reconnection loops', async () => {
@@ -1255,12 +1251,11 @@ describe('network.initNetwork', () => {
     it('preserves hints when queueing messages', async () => {
       mockReconnectionManager.isReconnecting.mockReturnValue(true);
 
-      const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
       const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
-      await sendRemoteMessage('peer-1', 'msg', hints);
+      await sendRemoteMessage('peer-1', 'msg');
 
-      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', hints);
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
     });
 
     it('merges hints from queued messages during flush', async () => {
@@ -1276,7 +1271,7 @@ describe('network.initNetwork', () => {
         reconnecting = false;
       });
 
-      const mockChannel = createMockChannel('peer-1', ['base-hint']);
+      const mockChannel = createMockChannel('peer-1');
 
       mockConnectionFactory.dialIdempotent
         .mockResolvedValueOnce(mockChannel) // initial connection
@@ -1284,18 +1279,12 @@ describe('network.initNetwork', () => {
 
       // Prepare queue state and messages' hints used for merging
       mockMessageQueue.messages = [
-        { message: 'queued-1', hints: ['hint-a'] },
-        { message: 'queued-2', hints: ['hint-b', 'base-hint'] },
+        { message: 'queued-1' },
+        { message: 'queued-2' },
       ];
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({
-          message: 'queued-1',
-          hints: ['hint-a'],
-        })
-        .mockReturnValueOnce({
-          message: 'queued-2',
-          hints: ['hint-b', 'base-hint'],
-        })
+        .mockReturnValueOnce({ message: 'queued-1' })
+        .mockReturnValueOnce({ message: 'queued-2' })
         .mockReturnValue(undefined);
       mockMessageQueue.length = 2;
 
@@ -1317,12 +1306,6 @@ describe('network.initNetwork', () => {
       // Ensure reconnection attempt dial happened
       await vi.waitFor(() => {
         expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(2);
-      });
-
-      await vi.waitFor(() => {
-        expect(mockChannel.hints.sort()).toStrictEqual(
-          ['base-hint', 'hint-a', 'hint-b'].sort(),
-        );
       });
     });
 
@@ -1390,7 +1373,7 @@ describe('network.initNetwork', () => {
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       // Set up queue with messages
-      const queuedMsg = { message: 'queued-msg', hints: ['hint1'] };
+      const queuedMsg = { message: 'queued-msg' };
       mockMessageQueue.dequeue
         .mockReturnValueOnce(queuedMsg)
         .mockReturnValue(undefined);

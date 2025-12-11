@@ -294,15 +294,9 @@ describe('NodejsPlatformServices', () => {
           remoteHandler,
         );
 
-        await service.sendRemoteMessage('peer-456', 'hello', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-        ]);
+        await service.sendRemoteMessage('peer-456', 'hello');
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-456',
-          'hello',
-          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-        );
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', 'hello');
       });
 
       it('sends message with empty hints', async () => {
@@ -318,7 +312,6 @@ describe('NodejsPlatformServices', () => {
         expect(mockSendRemoteMessage).toHaveBeenCalledWith(
           'peer-789',
           'goodbye',
-          [],
         );
       });
 
@@ -326,7 +319,7 @@ describe('NodejsPlatformServices', () => {
         const service = new NodejsPlatformServices({ workerFilePath });
 
         await expect(
-          service.sendRemoteMessage('peer-999', 'test', []),
+          service.sendRemoteMessage('peer-999', 'test'),
         ).rejects.toThrow('remote comms not initialized');
       });
     });
@@ -394,14 +387,14 @@ describe('NodejsPlatformServices', () => {
         );
 
         // Should work before stop
-        await service.sendRemoteMessage('peer-1', 'msg1', []);
+        await service.sendRemoteMessage('peer-1', 'msg1');
         expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
 
         await service.stopRemoteComms();
 
         // Should throw after stop
         await expect(
-          service.sendRemoteMessage('peer-2', 'msg2', []),
+          service.sendRemoteMessage('peer-2', 'msg2'),
         ).rejects.toThrow('remote comms not initialized');
       });
 

@@ -22,6 +22,14 @@ import type {
   ReconnectPeerHandler,
 } from './reconnectPeer.ts';
 import {
+  registerLocationHintsSpec,
+  registerLocationHintsHandler,
+} from './registerLocationHints.ts';
+import type {
+  RegisterLocationHintsSpec,
+  RegisterLocationHintsHandler,
+} from './registerLocationHints.ts';
+import {
   sendRemoteMessageSpec,
   sendRemoteMessageHandler,
 } from './sendRemoteMessage.ts';
@@ -50,6 +58,7 @@ export const platformServicesHandlers = {
   initializeRemoteComms: initializeRemoteCommsHandler,
   stopRemoteComms: stopRemoteCommsHandler,
   closeConnection: closeConnectionHandler,
+  registerLocationHints: registerLocationHintsHandler,
   reconnectPeer: reconnectPeerHandler,
 } as {
   launch: LaunchHandler;
@@ -59,6 +68,7 @@ export const platformServicesHandlers = {
   initializeRemoteComms: InitializeRemoteCommsHandler;
   stopRemoteComms: StopRemoteCommsHandler;
   closeConnection: CloseConnectionHandler;
+  registerLocationHints: RegisterLocationHintsHandler;
   reconnectPeer: ReconnectPeerHandler;
 };
 
@@ -70,6 +80,7 @@ export type PlatformServicesMethodSpecs =
   | typeof initializeRemoteCommsSpec
   | typeof stopRemoteCommsSpec
   | typeof closeConnectionSpec
+  | typeof registerLocationHintsSpec
   | typeof reconnectPeerSpec;
 
 export const platformServicesMethodSpecs = {
@@ -80,6 +91,7 @@ export const platformServicesMethodSpecs = {
   initializeRemoteComms: initializeRemoteCommsSpec,
   stopRemoteComms: stopRemoteCommsSpec,
   closeConnection: closeConnectionSpec,
+  registerLocationHints: registerLocationHintsSpec,
   reconnectPeer: reconnectPeerSpec,
 } as {
   launch: LaunchSpec;
@@ -89,6 +101,7 @@ export const platformServicesMethodSpecs = {
   initializeRemoteComms: InitializeRemoteCommsSpec;
   stopRemoteComms: StopRemoteCommsSpec;
   closeConnection: CloseConnectionSpec;
+  registerLocationHints: RegisterLocationHintsSpec;
   reconnectPeer: ReconnectPeerSpec;
 };
 

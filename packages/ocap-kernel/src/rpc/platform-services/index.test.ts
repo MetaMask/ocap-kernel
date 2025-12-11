@@ -240,9 +240,9 @@ describe('platform-services index', () => {
       }
     });
 
-    it('should have exactly 8 platform services', () => {
-      expect(Object.keys(platformServicesHandlers)).toHaveLength(8);
-      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(8);
+    it('should have exactly 9 platform services', () => {
+      expect(Object.keys(platformServicesHandlers)).toHaveLength(9);
+      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(9);
     });
 
     it('should maintain handler-spec consistency for all services', () => {

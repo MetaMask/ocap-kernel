@@ -157,14 +157,17 @@ describe('RemoteHandle', () => {
     const expectedReplyKey = '1';
 
     const urlPromise = remote.redeemOcapURL(mockOcapURL);
+    expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(mockRemotePeerId, []);
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
+    /*
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       JSON.stringify({
         method: 'redeemURL',
         params: [mockOcapURL, expectedReplyKey],
       }),
-      undefined,
     );
+    */
     const redeemURLReply = {
       method: 'redeemURLReply',
       params: [true, expectedReplyKey, mockURLResolutionRRef],

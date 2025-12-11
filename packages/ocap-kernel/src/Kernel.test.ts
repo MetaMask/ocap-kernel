@@ -1015,13 +1015,10 @@ describe('Kernel', () => {
           mockKernelDatabase,
         );
         const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-        await kernel.sendRemoteMessage('peer-123', 'hello', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-        ]);
+        await kernel.sendRemoteMessage('peer-123', 'hello');
         expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
           'peer-123',
           'hello',
-          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
         );
       });
 
@@ -1036,7 +1033,6 @@ describe('Kernel', () => {
         expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
           'peer-456',
           'test',
-          [],
         );
       });
     });
