@@ -22,7 +22,7 @@ describe('MessageQueue', () => {
 
       // Fill beyond custom capacity to test it's respected
       for (let i = 0; i < 11; i += 1) {
-        customQueue.enqueue(`msg${i}`, []);
+        customQueue.enqueue(`msg${i}`);
       }
       expect(customQueue).toHaveLength(10);
     });
@@ -30,40 +30,29 @@ describe('MessageQueue', () => {
 
   describe('enqueue', () => {
     it('adds messages to the queue', () => {
-      queue.enqueue('message1', ['hint1']);
-      queue.enqueue('message2', ['hint2', 'hint3']);
+      queue.enqueue('message1');
+      queue.enqueue('message2');
 
       expect(queue).toHaveLength(2);
       expect(queue.messages[0]).toStrictEqual({
         message: 'message1',
-        hints: ['hint1'],
       });
       expect(queue.messages[1]).toStrictEqual({
         message: 'message2',
-        hints: ['hint2', 'hint3'],
-      });
-    });
-
-    it('handles empty hints array', () => {
-      queue.enqueue('message', []);
-
-      expect(queue.messages[0]).toStrictEqual({
-        message: 'message',
-        hints: [],
       });
     });
 
     it('drops oldest message when at capacity', () => {
       const smallQueue = new MessageQueue(3);
 
-      smallQueue.enqueue('msg1', ['hint1']);
-      smallQueue.enqueue('msg2', ['hint2']);
-      smallQueue.enqueue('msg3', ['hint3']);
+      smallQueue.enqueue('msg1');
+      smallQueue.enqueue('msg2');
+      smallQueue.enqueue('msg3');
 
       expect(smallQueue).toHaveLength(3);
 
       // Adding 4th message should drop the first
-      smallQueue.enqueue('msg4', ['hint4']);
+      smallQueue.enqueue('msg4');
 
       expect(smallQueue).toHaveLength(3);
       expect(smallQueue.messages[0]?.message).toBe('msg2');
@@ -74,29 +63,28 @@ describe('MessageQueue', () => {
     it('maintains FIFO order when dropping messages', () => {
       const smallQueue = new MessageQueue(2);
 
-      smallQueue.enqueue('first', ['a']);
-      smallQueue.enqueue('second', ['b']);
-      smallQueue.enqueue('third', ['c']);
-      smallQueue.enqueue('fourth', ['d']);
+      smallQueue.enqueue('first');
+      smallQueue.enqueue('second');
+      smallQueue.enqueue('third');
+      smallQueue.enqueue('fourth');
 
       // Should have dropped 'first' and 'second'
       expect(smallQueue.messages).toStrictEqual([
-        { message: 'third', hints: ['c'] },
-        { message: 'fourth', hints: ['d'] },
+        { message: 'third' },
+        { message: 'fourth' },
       ]);
     });
   });
 
   describe('dequeue', () => {
     it('removes and returns the first message', () => {
-      queue.enqueue('first', ['hint1']);
-      queue.enqueue('second', ['hint2']);
+      queue.enqueue('first');
+      queue.enqueue('second');
 
       const dequeued = queue.dequeue();
 
       expect(dequeued).toStrictEqual({
         message: 'first',
-        hints: ['hint1'],
       });
       expect(queue).toHaveLength(1);
       expect(queue.messages[0]?.message).toBe('second');
@@ -107,9 +95,9 @@ describe('MessageQueue', () => {
     });
 
     it('maintains FIFO order', () => {
-      queue.enqueue('1', ['a']);
-      queue.enqueue('2', ['b']);
-      queue.enqueue('3', ['c']);
+      queue.enqueue('1');
+      queue.enqueue('2');
+      queue.enqueue('3');
 
       expect(queue.dequeue()?.message).toBe('1');
       expect(queue.dequeue()?.message).toBe('2');
@@ -120,16 +108,16 @@ describe('MessageQueue', () => {
 
   describe('dequeueAll', () => {
     it('returns all messages and clears the queue', () => {
-      queue.enqueue('msg1', ['hint1']);
-      queue.enqueue('msg2', ['hint2']);
-      queue.enqueue('msg3', ['hint3']);
+      queue.enqueue('msg1');
+      queue.enqueue('msg2');
+      queue.enqueue('msg3');
 
       const allMessages = queue.dequeueAll();
 
       expect(allMessages).toStrictEqual([
-        { message: 'msg1', hints: ['hint1'] },
-        { message: 'msg2', hints: ['hint2'] },
-        { message: 'msg3', hints: ['hint3'] },
+        { message: 'msg1' },
+        { message: 'msg2' },
+        { message: 'msg3' },
       ]);
       expect(queue).toHaveLength(0);
       expect(queue.messages).toStrictEqual([]);
@@ -143,10 +131,10 @@ describe('MessageQueue', () => {
     });
 
     it('returns a copy, not the internal array', () => {
-      queue.enqueue('msg', ['hint']);
+      queue.enqueue('msg');
 
       const result = queue.dequeueAll();
-      result.push({ message: 'extra', hints: [] });
+      result.push({ message: 'extra' });
 
       // Queue should still be empty after dequeueAll
       expect(queue).toHaveLength(0);
@@ -156,9 +144,9 @@ describe('MessageQueue', () => {
 
   describe('dropOldest', () => {
     it('removes the first message', () => {
-      queue.enqueue('first', ['a']);
-      queue.enqueue('second', ['b']);
-      queue.enqueue('third', ['c']);
+      queue.enqueue('first');
+      queue.enqueue('second');
+      queue.enqueue('third');
 
       queue.dropOldest();
 
@@ -173,7 +161,7 @@ describe('MessageQueue', () => {
     });
 
     it('handles single element queue', () => {
-      queue.enqueue('only', ['hint']);
+      queue.enqueue('only');
 
       queue.dropOldest();
 
@@ -184,9 +172,9 @@ describe('MessageQueue', () => {
 
   describe('clear', () => {
     it('removes all messages', () => {
-      queue.enqueue('msg1', ['hint1']);
-      queue.enqueue('msg2', ['hint2']);
-      queue.enqueue('msg3', ['hint3']);
+      queue.enqueue('msg1');
+      queue.enqueue('msg2');
+      queue.enqueue('msg3');
 
       queue.clear();
 
@@ -202,9 +190,9 @@ describe('MessageQueue', () => {
     });
 
     it('allows enqueueing after clear', () => {
-      queue.enqueue('before', ['hint']);
+      queue.enqueue('before');
       queue.clear();
-      queue.enqueue('after', ['new']);
+      queue.enqueue('after');
 
       expect(queue).toHaveLength(1);
       expect(queue.messages[0]?.message).toBe('after');
@@ -215,10 +203,10 @@ describe('MessageQueue', () => {
     it('returns correct queue length', () => {
       expect(queue).toHaveLength(0);
 
-      queue.enqueue('1', []);
+      queue.enqueue('1');
       expect(queue).toHaveLength(1);
 
-      queue.enqueue('2', []);
+      queue.enqueue('2');
       expect(queue).toHaveLength(2);
 
       queue.dequeue();
@@ -231,14 +219,14 @@ describe('MessageQueue', () => {
 
   describe('messages getter', () => {
     it('returns read-only view of messages', () => {
-      queue.enqueue('msg1', ['hint1']);
-      queue.enqueue('msg2', ['hint2']);
+      queue.enqueue('msg1');
+      queue.enqueue('msg2');
 
       const { messages } = queue;
 
       expect(messages).toStrictEqual([
-        { message: 'msg1', hints: ['hint1'] },
-        { message: 'msg2', hints: ['hint2'] },
+        { message: 'msg1' },
+        { message: 'msg2' },
       ]);
 
       // TypeScript enforces read-only at compile time
@@ -247,11 +235,11 @@ describe('MessageQueue', () => {
     });
 
     it('reflects current queue state', () => {
-      queue.enqueue('first', ['a']);
+      queue.enqueue('first');
       const messages1 = queue.messages;
       expect(messages1).toHaveLength(1);
 
-      queue.enqueue('second', ['b']);
+      queue.enqueue('second');
       const messages2 = queue.messages;
       expect(messages2).toHaveLength(2);
 
@@ -264,13 +252,13 @@ describe('MessageQueue', () => {
 
   describe('replaceAll', () => {
     it('replaces entire queue contents', () => {
-      queue.enqueue('old1', ['a']);
-      queue.enqueue('old2', ['b']);
+      queue.enqueue('old1');
+      queue.enqueue('old2');
 
       const newMessages: QueuedMessage[] = [
-        { message: 'new1', hints: ['x'] },
-        { message: 'new2', hints: ['y'] },
-        { message: 'new3', hints: ['z'] },
+        { message: 'new1' },
+        { message: 'new2' },
+        { message: 'new3' },
       ];
 
       queue.replaceAll(newMessages);
@@ -280,7 +268,7 @@ describe('MessageQueue', () => {
     });
 
     it('handles empty replacement', () => {
-      queue.enqueue('msg', ['hint']);
+      queue.enqueue('msg');
 
       queue.replaceAll([]);
 
@@ -289,19 +277,18 @@ describe('MessageQueue', () => {
     });
 
     it('is not affected by changes to input array', () => {
-      const messages: QueuedMessage[] = [{ message: 'msg1', hints: ['h1'] }];
+      const messages: QueuedMessage[] = [{ message: 'msg1' }];
 
       queue.replaceAll(messages);
 
       // Modify the input array
-      messages.push({ message: 'msg2', hints: ['h2'] });
-      messages[0] = { message: 'modified', hints: ['mod'] };
+      messages.push({ message: 'msg2' });
+      messages[0] = { message: 'modified' };
 
       // Queue should not be affected
       expect(queue).toHaveLength(1);
       expect(queue.messages[0]).toStrictEqual({
         message: 'msg1',
-        hints: ['h1'],
       });
     });
 
@@ -309,9 +296,9 @@ describe('MessageQueue', () => {
       const smallQueue = new MessageQueue(2);
 
       const messages: QueuedMessage[] = [
-        { message: 'msg1', hints: [] },
-        { message: 'msg2', hints: [] },
-        { message: 'msg3', hints: [] },
+        { message: 'msg1' },
+        { message: 'msg2' },
+        { message: 'msg3' },
       ];
 
       smallQueue.replaceAll(messages);
@@ -325,14 +312,14 @@ describe('MessageQueue', () => {
 
   describe('integration scenarios', () => {
     it('handles mixed operations correctly', () => {
-      queue.enqueue('msg1', ['hint1']);
-      queue.enqueue('msg2', ['hint2']);
+      queue.enqueue('msg1');
+      queue.enqueue('msg2');
 
       const first = queue.dequeue();
       expect(first?.message).toBe('msg1');
 
-      queue.enqueue('msg3', ['hint3']);
-      queue.enqueue('msg4', ['hint4']);
+      queue.enqueue('msg3');
+      queue.enqueue('msg4');
 
       expect(queue).toHaveLength(3);
 
@@ -343,32 +330,13 @@ describe('MessageQueue', () => {
       expect(all).toHaveLength(2);
       expect(queue).toHaveLength(0);
 
-      queue.enqueue('msg5', ['hint5']);
+      queue.enqueue('msg5');
       expect(queue).toHaveLength(1);
-    });
-
-    it('preserves hints through all operations', () => {
-      const complexHints = ['hint1', 'hint2', 'hint3'];
-
-      queue.enqueue('msg', complexHints);
-
-      // Through dequeue
-      const dequeued = queue.dequeue();
-      expect(dequeued?.hints).toStrictEqual(complexHints);
-
-      // Through dequeueAll
-      queue.enqueue('msg2', complexHints);
-      const all = queue.dequeueAll();
-      expect(all[0]?.hints).toStrictEqual(complexHints);
-
-      // Through replaceAll
-      queue.replaceAll([{ message: 'replaced', hints: complexHints }]);
-      expect(queue.messages[0]?.hints).toStrictEqual(complexHints);
     });
 
     it('handles rapid enqueue/dequeue cycles', () => {
       for (let i = 0; i < 100; i += 1) {
-        queue.enqueue(`msg${i}`, [`hint${i}`]);
+        queue.enqueue(`msg${i}`);
         if (i % 3 === 0) {
           queue.dequeue();
         }

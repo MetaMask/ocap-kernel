@@ -188,15 +188,10 @@ export class RemoteManager {
    *
    * @param to - The peer ID of the remote kernel.
    * @param message - The message to send.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
    * @returns a promise for the result of the message send.
    */
-  async sendRemoteMessage(
-    to: string,
-    message: string,
-    hints: string[] = [],
-  ): Promise<void> {
-    await this.getRemoteComms().sendRemoteMessage(to, message, hints);
+  async sendRemoteMessage(to: string, message: string): Promise<void> {
+    await this.getRemoteComms().sendRemoteMessage(to, message);
   }
 
   /**
@@ -283,6 +278,16 @@ export class RemoteManager {
   async closeConnection(peerId: string): Promise<void> {
     this.getRemoteComms(); // Ensure remote comms is initialized
     await this.#platformServices.closeConnection(peerId);
+  }
+
+  /**
+   * Take note of where a peer might be.
+   *
+   * @param peerId - The peer ID to which this information applies.
+   * @param hints - Location hints for the peer.
+   */
+  async registerLocationHints(peerId: string, hints: string[]): Promise<void> {
+    await this.getRemoteComms().registerLocationHints(peerId, hints);
   }
 
   /**

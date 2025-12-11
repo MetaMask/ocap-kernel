@@ -45,6 +45,7 @@ export async function initNetwork(
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
   closeConnection: (peerId: string) => Promise<void>;
+  registerLocationHints: (peerId: string, hints: string[]) => void;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
 }> {
   const {
@@ -67,7 +68,7 @@ export async function initNetwork(
     signal,
     maxRetryAttempts,
   );
-
+  const locationHints = new Map<string, string[]>();
   /**
    * Output an error message.
    *
@@ -81,23 +82,6 @@ export async function initNetwork(
       logger.log(`${peerId}:: error ${task}: ${realProblem}`);
     } else {
       logger.log(`${peerId}:: error ${task}`);
-    }
-  }
-
-  /**
-   * Update channel hints by merging new hints without duplicates.
-   *
-   * @param peerId - The peer ID to update hints for.
-   * @param newHints - The new hints to add.
-   */
-  function updateChannelHints(peerId: string, newHints: string[]): void {
-    const channel = channels.get(peerId);
-    if (channel) {
-      const allHints = new Set(channel.hints);
-      for (const hint of newHints) {
-        allHints.add(hint);
-      }
-      channel.hints = Array.from(allHints);
     }
   }
 
@@ -163,7 +147,7 @@ export async function initNetwork(
               problem,
             );
             // Only trigger reconnection for non-intentional disconnects
-            handleConnectionLoss(channel.peerId, channel.hints);
+            handleConnectionLoss(channel.peerId);
           }
           logger.log(`closed channel to ${channel.peerId}`);
           throw problem;
@@ -191,9 +175,8 @@ export async function initNetwork(
    * Skips reconnection if the peer was intentionally closed.
    *
    * @param peerId - The peer ID to handle the connection loss for.
-   * @param hints - The hints to use for the connection loss.
    */
-  function handleConnectionLoss(peerId: string, hints: string[] = []): void {
+  function handleConnectionLoss(peerId: string): void {
     // Don't reconnect if this peer intentionally closed the connection
     if (intentionallyClosed.has(peerId)) {
       logger.log(
@@ -205,7 +188,7 @@ export async function initNetwork(
     channels.delete(peerId);
     if (!reconnectionManager.isReconnecting(peerId)) {
       reconnectionManager.startReconnection(peerId);
-      attemptReconnection(peerId, hints).catch((problem) => {
+      attemptReconnection(peerId).catch((problem) => {
         outputError(peerId, 'reconnection error', problem);
         reconnectionManager.stopReconnection(peerId);
       });
@@ -217,12 +200,10 @@ export async function initNetwork(
    * Single orchestration loop per peer; abortable.
    *
    * @param peerId - The peer ID to reconnect to.
-   * @param hints - The hints to use for the reconnection.
    * @param maxAttempts - The maximum number of reconnection attempts. 0 = infinite.
    */
   async function attemptReconnection(
     peerId: string,
-    hints: string[] = [],
     maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
     const queue = getMessageQueue(peerId);
@@ -259,6 +240,7 @@ export async function initNetwork(
       );
 
       try {
+        const hints = locationHints.get(peerId) ?? [];
         const channel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
@@ -326,16 +308,6 @@ export async function initNetwork(
   ): Promise<void> {
     logger.log(`${peerId}:: flushing ${queue.length} queued messages`);
 
-    // Update channel hints with any unique hints from queued messages
-    const allHints = new Set(channel.hints);
-    for (const queuedMsg of queue.messages) {
-      for (const hint of queuedMsg.hints) {
-        allHints.add(hint);
-      }
-    }
-    channel.hints = Array.from(allHints);
-    updateChannelHints(peerId, channel.hints);
-
     // Process queued messages
     const failedMessages: QueuedMessage[] = [];
     let queuedMsg: QueuedMessage | undefined;
@@ -353,10 +325,10 @@ export async function initNetwork(
       }
     }
 
-    // Re-queue any failed messages with their original hints
+    // Re-queue any failed messages
     if (failedMessages.length > 0) {
       queue.replaceAll(failedMessages);
-      handleConnectionLoss(peerId, channel.hints);
+      handleConnectionLoss(peerId);
     }
   }
 
@@ -365,12 +337,10 @@ export async function initNetwork(
    *
    * @param targetPeerId - The peer ID to send the message to.
    * @param message - The message to send.
-   * @param hints - The hints to use for the message.
    */
   async function sendRemoteMessage(
     targetPeerId: string,
     message: string,
-    hints: string[] = [],
   ): Promise<void> {
     if (signal.aborted) {
       return;
@@ -384,7 +354,7 @@ export async function initNetwork(
     const queue = getMessageQueue(targetPeerId);
 
     if (reconnectionManager.isReconnecting(targetPeerId)) {
-      queue.enqueue(message, hints);
+      queue.enqueue(message);
       logger.log(
         `${targetPeerId}:: queueing message during reconnection ` +
           `(${queue.length}/${maxQueue}): ${message}`,
@@ -395,6 +365,7 @@ export async function initNetwork(
     let channel = channels.get(targetPeerId);
     if (!channel) {
       try {
+        const hints = locationHints.get(targetPeerId) ?? [];
         channel = await connectionFactory.dialIdempotent(
           targetPeerId,
           hints,
@@ -403,7 +374,7 @@ export async function initNetwork(
 
         // Check if reconnection started while we were dialing (race condition protection)
         if (reconnectionManager.isReconnecting(targetPeerId)) {
-          queue.enqueue(message, hints);
+          queue.enqueue(message);
           logger.log(
             `${targetPeerId}:: reconnection started during dial, queueing message ` +
               `(${queue.length}/${maxQueue}): ${message}`,
@@ -414,8 +385,8 @@ export async function initNetwork(
         channels.set(targetPeerId, channel);
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
-        handleConnectionLoss(targetPeerId, hints);
-        queue.enqueue(message, hints);
+        handleConnectionLoss(targetPeerId);
+        queue.enqueue(message);
         return;
       }
 
@@ -430,8 +401,8 @@ export async function initNetwork(
       reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
       outputError(targetPeerId, `sending message`, problem);
-      handleConnectionLoss(targetPeerId, hints);
-      queue.enqueue(message, hints);
+      handleConnectionLoss(targetPeerId);
+      queue.enqueue(message);
     }
   }
 
@@ -485,6 +456,25 @@ export async function initNetwork(
   }
 
   /**
+   * Take note of where a peer might be.
+   *
+   * @param peerId - The peer ID to which this information applies.
+   * @param hints - Location hints for the peer.
+   */
+  function registerLocationHints(peerId: string, hints: string[]): void {
+    const oldHints = locationHints.get(peerId);
+    if (oldHints) {
+      const newHints = new Set(oldHints);
+      for (const hint of hints) {
+        newHints.add(hint);
+      }
+      locationHints.set(peerId, Array.from(newHints));
+    } else {
+      locationHints.set(peerId, hints);
+    }
+  }
+
+  /**
    * Manually reconnect to a peer after intentional close.
    * Clears the intentional close flag and initiates reconnection.
    *
@@ -501,7 +491,8 @@ export async function initNetwork(
     if (reconnectionManager.isReconnecting(peerId)) {
       return;
     }
-    handleConnectionLoss(peerId, hints);
+    registerLocationHints(peerId, hints);
+    handleConnectionLoss(peerId);
   }
 
   /**
@@ -527,6 +518,7 @@ export async function initNetwork(
     sendRemoteMessage,
     stop,
     closeConnection,
+    registerLocationHints,
     reconnectPeer,
   };
 }

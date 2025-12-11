@@ -297,16 +297,7 @@ describe('PlatformServicesClient', () => {
 
       describe('sendRemoteMessage', () => {
         it('sends message to remote peer via RPC', async () => {
-          const result = client.sendRemoteMessage('peer-456', 'hello', [
-            '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-          ]);
-          await delay(10);
-          await stream.receiveInput(makeNullReply('m1'));
-          expect(await result).toBeUndefined();
-        });
-
-        it('works with empty hints array', async () => {
-          const result = client.sendRemoteMessage('peer-789', 'goodbye');
+          const result = client.sendRemoteMessage('peer-456', 'hello');
           await delay(10);
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();
@@ -325,6 +316,18 @@ describe('PlatformServicesClient', () => {
       describe('closeConnection', () => {
         it('sends closeConnection request and resolves', async () => {
           const result = client.closeConnection('peer-123');
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('registerLocationHints', () => {
+        it('sends registerLocationHints request and resolves', async () => {
+          const result = client.registerLocationHints('peer-123', [
+            'hint1',
+            'hint2',
+          ]);
           await delay(10);
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();

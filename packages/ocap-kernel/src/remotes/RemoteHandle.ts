@@ -76,7 +76,10 @@ export class RemoteHandle implements EndpointHandle {
   readonly #remoteComms: RemoteComms;
 
   /** Possible contact points for reaching the remote peer. */
-  readonly #locationHints: string[] | undefined;
+  readonly #locationHints: string[];
+
+  /** Flag that location hints need to be sent to remote comms object. */
+  #needsHinting: boolean = true;
 
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
@@ -115,7 +118,7 @@ export class RemoteHandle implements EndpointHandle {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#remoteComms = remoteComms;
-    this.#locationHints = locationHints;
+    this.#locationHints = locationHints ?? [];
     this.#myCrankResult = { didDelivery: remoteId };
   }
 
@@ -130,7 +133,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.logger - Optional logger for error and diagnostic output.
    *
-   * @returns a promise for the new RemoteHandle instance.
+   * @returns the new RemoteHandle instance.
    */
   static make(params: RemoteHandleConstructorProps): RemoteHandle {
     const remote = new RemoteHandle(params);
@@ -143,10 +146,24 @@ export class RemoteHandle implements EndpointHandle {
    * @param message - The message to send.
    */
   async #sendRemoteCommand(message: RemoteCommand): Promise<void> {
+    if (this.#needsHinting) {
+      // Hints are registered lazily because (a) transmitting to the platform
+      // services process has to be done asynchronously, which is very painful
+      // to do at construction time, and (b) after a kernel restart (when we
+      // might have a lot of known peers with hint information) connection
+      // re-establishment will also be lazy, with a reasonable chance of never
+      // even happening if we never talk to a particular peer again. Instead, we
+      // wait until we know a given peer needs to be communicated with before
+      // bothering to send its hint info.
+      this.#needsHinting = false;
+      await this.#remoteComms.registerLocationHints(
+        this.#peerId,
+        this.#locationHints,
+      );
+    }
     await this.#remoteComms.sendRemoteMessage(
       this.#peerId,
       JSON.stringify(message),
-      this.#locationHints,
     );
   }
 

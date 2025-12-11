@@ -52,6 +52,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
+      expect(remoteComms).toHaveProperty('registerLocationHints');
 
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBe(
@@ -88,14 +89,12 @@ describe('remote-comms', () => {
       expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
         'elsewhere',
         'your message here',
-        [],
       );
 
-      await remoteComms.sendRemoteMessage('peer1', 'msg', ['hint1', 'hint2']);
+      await remoteComms.sendRemoteMessage('peer1', 'msg');
       expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
         'peer1',
         'msg',
-        ['hint1', 'hint2'],
       );
     });
 
@@ -115,6 +114,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
+      expect(remoteComms).toHaveProperty('registerLocationHints');
       expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
       expect(mockKernelStore.kv.get('keySeed')).toBe(mockKeySeed);
@@ -294,6 +294,32 @@ describe('remote-comms', () => {
       expect(mockKernelStore.kv.get('knownRelays')).toBe(
         JSON.stringify(storedRelays),
       );
+    });
+  });
+
+  describe('registerLocationHints', () => {
+    it('calls platformServices.registerLocationHints', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.registerLocationHints('peer123', ['hint1', 'hint2']);
+      expect(mockPlatformServices.registerLocationHints).toHaveBeenCalledWith(
+        'peer123',
+        ['hint1', 'hint2'],
+      );
+    });
+
+    it('is a bound function from platformServices', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      expect(typeof remoteComms.registerLocationHints).toBe('function');
+      await remoteComms.registerLocationHints('peer123', ['hint1', 'hint2']);
+      expect(mockPlatformServices.registerLocationHints).toHaveBeenCalled();
     });
   });
 

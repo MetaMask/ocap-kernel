@@ -5,7 +5,6 @@ export type InboundConnectionHandler = (channel: Channel) => void;
 export type Channel = {
   msgStream: ByteStream;
   peerId: string;
-  hints: string[];
 };
 
 export type RemoteMessageHandler = (
@@ -13,11 +12,7 @@ export type RemoteMessageHandler = (
   message: string,
 ) => Promise<string>;
 
-export type SendRemoteMessage = (
-  to: string,
-  message: string,
-  hints?: string[],
-) => Promise<void>;
+export type SendRemoteMessage = (to: string, message: string) => Promise<void>;
 
 export type StopRemoteComms = () => Promise<void>;
 
@@ -26,6 +21,7 @@ export type RemoteComms = {
   sendRemoteMessage: SendRemoteMessage;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+  registerLocationHints: (peerId: string, hints: string[]) => Promise<void>;
 };
 
 export type OnRemoteGiveUp = (peerId: string) => void;

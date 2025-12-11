@@ -70,7 +70,6 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['message', target, message],
       }),
-      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -88,7 +87,6 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['notify', resolutions],
       }),
-      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -104,7 +102,6 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['dropExports', rrefs],
       }),
-      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -120,7 +117,6 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['retireExports', rrefs],
       }),
-      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -136,7 +132,6 @@ describe('RemoteHandle', () => {
         method: 'deliver',
         params: ['retireImports', rrefs],
       }),
-      undefined,
     );
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
@@ -157,20 +152,23 @@ describe('RemoteHandle', () => {
     const expectedReplyKey = '1';
 
     const urlPromise = remote.redeemOcapURL(mockOcapURL);
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL, expectedReplyKey],
-      }),
-      undefined,
-    );
     const redeemURLReply = {
       method: 'redeemURLReply',
       params: [true, expectedReplyKey, mockURLResolutionRRef],
     };
     await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
     const kref = await urlPromise;
+    expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      [],
+    );
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL, expectedReplyKey],
+      }),
+    );
     expect(kref).toBe(mockURLResolutionKRef);
     expect(
       mockKernelStore.translateRefEtoK(remote.remoteId, mockURLResolutionRRef),
@@ -183,19 +181,22 @@ describe('RemoteHandle', () => {
     const expectedReplyKey = '1';
 
     const urlPromise = remote.redeemOcapURL(mockOcapURL);
+    const redeemURLReply = {
+      method: 'redeemURLReply',
+      params: [false, expectedReplyKey],
+    };
+    await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
+    expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      [],
+    );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
       JSON.stringify({
         method: 'redeemURL',
         params: [mockOcapURL, expectedReplyKey],
       }),
-      undefined,
     );
-    const redeemURLReply = {
-      method: 'redeemURLReply',
-      params: [false, expectedReplyKey],
-    };
-    await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
     await expect(urlPromise).rejects.toThrow(
       `vitest ignores this string but lint complains if it's not here`,
     );

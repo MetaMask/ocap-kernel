@@ -130,6 +130,10 @@ class DirectNetworkService {
         return Promise.resolve();
       },
 
+      async registerLocationHints(_peerId: string, _hints: string[]) {
+        return Promise.resolve();
+      },
+
       async reconnectPeer(_peerId: string, _hints: string[] = []) {
         // Mock implementation - in direct network, connections are always available
         return Promise.resolve();

@@ -22,6 +22,7 @@ import type {
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 const mockCloseConnection = vi.fn(async () => undefined);
+const mockRegisterLocationHints = vi.fn(async () => undefined);
 const mockReconnectPeer = vi.fn(async () => undefined);
 let capturedRemoteMessageHandler:
   | ((from: string, message: string) => Promise<string>)
@@ -47,6 +48,7 @@ vi.mock('@metamask/ocap-kernel', () => ({
         sendRemoteMessage: mockSendRemoteMessage,
         stop: mockStop,
         closeConnection: mockCloseConnection,
+        registerLocationHints: mockRegisterLocationHints,
         reconnectPeer: mockReconnectPeer,
       };
     },
@@ -104,11 +106,10 @@ const makeSendRemoteMessageMessageEvent = (
   messageId: `m${number}`,
   to: string,
   message: string,
-  hints: string[],
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'sendRemoteMessage',
-    params: { to, message, hints },
+    params: { to, message },
   });
 
 const makeStopRemoteCommsMessageEvent = (
@@ -126,6 +127,16 @@ const makeCloseConnectionMessageEvent = (
   makeMessageEvent(messageId, {
     method: 'closeConnection',
     params: { peerId },
+  });
+
+const makeRegisterLocationHintsMessageEvent = (
+  messageId: `m${number}`,
+  peerId: string,
+  hints: string[],
+): MessageEvent =>
+  makeMessageEvent(messageId, {
+    method: 'registerLocationHints',
+    params: { peerId, hints },
   });
 
 const makeReconnectPeerMessageEvent = (
@@ -383,6 +394,7 @@ describe('PlatformServicesServer', () => {
         mockSendRemoteMessage.mockClear();
         mockStop.mockClear();
         mockCloseConnection.mockClear();
+        mockRegisterLocationHints.mockClear();
         mockReconnectPeer.mockClear();
         capturedRemoteMessageHandler = undefined;
         capturedRemoteGiveUpHandler = undefined;
@@ -592,16 +604,13 @@ describe('PlatformServicesServer', () => {
 
           // Now send a message
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello'),
           );
           await delay(10);
 
           expect(mockSendRemoteMessage).toHaveBeenCalledWith(
             'peer-123',
             'hello',
-            ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
           );
         });
 
@@ -609,7 +618,7 @@ describe('PlatformServicesServer', () => {
           const errorSpy = vi.spyOn(logger, 'error');
 
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test', []),
+            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test'),
           );
           await delay(10);
 
@@ -704,6 +713,51 @@ describe('PlatformServicesServer', () => {
 
           expect(errorSpy).toHaveBeenCalledWith(
             'Error handling "closeConnection" request:',
+            expect.objectContaining({
+              message: 'remote comms not initialized',
+            }),
+          );
+        });
+      });
+
+      describe('registerLocationHints', () => {
+        it('registers location hints via network layer', async () => {
+          // First initialize remote comms
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
+          );
+          await delay(10);
+
+          // Now register some hints
+          await stream.receiveInput(
+            makeRegisterLocationHintsMessageEvent('m1', 'peer-123', [
+              'hint1',
+              'hint2',
+            ]),
+          );
+          await delay(10);
+
+          expect(mockRegisterLocationHints).toHaveBeenCalledWith('peer-123', [
+            'hint1',
+            'hint2',
+          ]);
+        });
+
+        it('throws error if remote comms not initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+
+          await stream.receiveInput(
+            makeRegisterLocationHintsMessageEvent('m0', 'peer-456', [
+              'hint1',
+              'hint2',
+            ]),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "registerLocationHints" request:',
             expect.objectContaining({
               message: 'remote comms not initialized',
             }),

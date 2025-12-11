@@ -309,7 +309,6 @@ export type PlatformServices = {
    *
    * @param to - The network peer to whom to send the message.
    * @param message - The message itself.
-   * @param hints - Possible addresses at which the `to` peer might be contacted.
    * @returns A promise that resolves when the message has been transmitted or
    *   rejects if there is some problem doing so.
    */
@@ -349,6 +348,13 @@ export type PlatformServices = {
    * @returns A promise that resolves when the connection is closed.
    */
   closeConnection: (peerId: string) => Promise<void>;
+  /**
+   * Take note of where a peer might be.
+   *
+   * @param peerId - The peer ID to which this information applies
+   * @param hints - Location hints for the peer.
+   */
+  registerLocationHints: (peerId: string, hints: string[]) => Promise<void>;
   /**
    * Manually reconnect to a peer after intentional close.
    * Clears the intentional close flag and initiates reconnection.
