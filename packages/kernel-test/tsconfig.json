@@ -8,6 +8,7 @@
     "types": ["vitest"]
   },
   "references": [
+    { "path": "../kernel-agents" },
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../nodejs" },

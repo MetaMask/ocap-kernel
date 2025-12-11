@@ -19,7 +19,7 @@ export const add = capability(
     summands.reduce((acc, summand) => acc + summand, 0),
   {
     description: 'Add a list of numbers.',
-    args: { summands: { type: 'array', item: { type: 'number' } } },
+    args: { summands: { type: 'array', items: { type: 'number' } } },
     returns: { type: 'number', description: 'The sum of the numbers.' },
   },
 );
@@ -33,7 +33,7 @@ export const multiply = capability(
       factors: {
         type: 'array',
         description: 'The list of numbers to multiply.',
-        item: { type: 'number' },
+        items: { type: 'number' },
       },
     },
     returns: { type: 'number', description: 'The product of the factors.' },

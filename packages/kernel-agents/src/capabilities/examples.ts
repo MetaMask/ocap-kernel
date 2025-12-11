@@ -18,7 +18,7 @@ export const search = capability(
     args: { query: { type: 'string', description: 'The query to search for' } },
     returns: {
       type: 'array',
-      item: {
+      items: {
         type: 'object',
         properties: {
           source: {
