@@ -344,7 +344,6 @@ export async function initNetwork(
       try {
         logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
         await channel.msgStream.write(fromString(queuedMsg.message));
-        reconnectionManager.resetBackoff(peerId);
       } catch (problem) {
         outputError(peerId, `sending queued message`, problem);
         // Preserve the failed message and all remaining messages

@@ -644,6 +644,64 @@ describe('network.initNetwork', () => {
         expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(3);
       });
     });
+
+    it('resets backoff once after successful flush completion', async () => {
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+      // Set up message queue with multiple messages
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-1', hints: [] })
+        .mockReturnValueOnce({ message: 'queued-2', hints: [] })
+        .mockReturnValueOnce({ message: 'queued-3', hints: [] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 3;
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: [] },
+        { message: 'queued-2', hints: [] },
+        { message: 'queued-3', hints: [] },
+      ];
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ) // First write fails, triggering reconnection
+        .mockResolvedValue(undefined); // All flush writes succeed
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel) // Initial connection
+        .mockResolvedValueOnce(mockChannel); // Reconnection succeeds
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'initial-msg');
+      // Clear resetBackoff mock before triggering reconnection to get accurate count
+      mockReconnectionManager.resetBackoff.mockClear();
+      // Trigger reconnection via write failure
+      await sendRemoteMessage('peer-1', 'queued-1');
+      // Wait for flush to complete (3 queued messages should be flushed)
+      await vi.waitFor(
+        () => {
+          // Should have flushed all 3 queued messages
+          expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(4); // initial + 3 queued
+        },
+        { timeout: 5000 },
+      );
+      const resetBackoffCallCount =
+        mockReconnectionManager.resetBackoff.mock.calls.length;
+      expect(resetBackoffCallCount).toBeLessThanOrEqual(1);
+    });
   });
 
   describe('stop functionality', () => {
@@ -1308,6 +1366,86 @@ describe('network.initNetwork', () => {
       await vi.waitFor(() => {
         expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
       });
+    });
+
+    it('respects maxRetryAttempts limit even when flush operations occur', async () => {
+      const maxRetryAttempts = 3;
+      const onRemoteGiveUp = vi.fn();
+      let attemptCount = 0;
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+        attemptCount = 0; // Reset on start
+      });
+      mockReconnectionManager.incrementAttempt.mockImplementation(() => {
+        attemptCount += 1;
+        return attemptCount;
+      });
+      mockReconnectionManager.shouldRetry.mockImplementation(
+        (_peerId: string, maxAttempts: number) => {
+          if (maxAttempts === 0) {
+            return true;
+          }
+          return attemptCount < maxAttempts;
+        },
+      );
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+      mockReconnectionManager.resetBackoff.mockImplementation(() => {
+        attemptCount = 0; // Reset attempt count
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      const mockChannel = createMockChannel('peer-1');
+      // All writes fail to trigger reconnection
+      mockChannel.msgStream.write.mockRejectedValue(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      // All reconnection attempts fail (dial succeeds but flush fails)
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      // Set up queue with messages that will be flushed during reconnection
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-1', hints: [] })
+        .mockReturnValueOnce({ message: 'queued-2', hints: [] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 2;
+      mockMessageQueue.messages = [
+        { message: 'queued-1', hints: [] },
+        { message: 'queued-2', hints: [] },
+      ];
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxRetryAttempts },
+        vi.fn(),
+        onRemoteGiveUp,
+      );
+      // Establish channel
+      await sendRemoteMessage('peer-1', 'msg1');
+      // Trigger reconnection via write failure
+      await sendRemoteMessage('peer-1', 'msg2');
+      // Wait for maxRetryAttempts to be reached
+      await vi.waitFor(
+        () => {
+          // Should have called incrementAttempt exactly maxRetryAttempts times
+          expect(
+            mockReconnectionManager.incrementAttempt,
+          ).toHaveBeenCalledTimes(maxRetryAttempts);
+          // Should have stopped reconnection and called onRemoteGiveUp
+          expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+            'peer-1',
+          );
+          expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
+          expect(mockMessageQueue.clear).toHaveBeenCalled();
+        },
+        { timeout: 5000 },
+      );
+      const resetBackoffCalls = mockReconnectionManager.resetBackoff.mock.calls;
+      expect(resetBackoffCalls).toHaveLength(0);
     });
 
     it('calls onRemoteGiveUp when non-retryable error occurs', async () => {

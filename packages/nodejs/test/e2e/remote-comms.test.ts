@@ -873,7 +873,7 @@ describe.sequential('Remote Communications E2E', () => {
         const messagePromise = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
-          [bobURL, 'hello-before-stop', ['Alice']],
+          [bobURL, 'hello', ['Alice']],
         );
 
         // Wait a bit for the message to be sent (but B might not respond yet)
