@@ -237,8 +237,27 @@ describe('RemoteManager', () => {
     });
 
     it('closes connection to peer', async () => {
+      const remote = remoteManager.establishRemote('peer123');
+      const clearRejectionsSpy = vi.spyOn(
+        mockKernelQueue,
+        'clearRemoteRejections',
+      );
       await remoteManager.closeConnection('peer123');
       expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
+      expect(clearRejectionsSpy).toHaveBeenCalledWith(remote.remoteId);
+    });
+
+    it('closes connection to peer that does not exist', async () => {
+      const clearRejectionsSpy = vi.spyOn(
+        mockKernelQueue,
+        'clearRemoteRejections',
+      );
+      await remoteManager.closeConnection('non-existent-peer');
+      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith(
+        'non-existent-peer',
+      );
+      // Should not clear rejections if remote doesn't exist
+      expect(clearRejectionsSpy).not.toHaveBeenCalled();
     });
 
     it('reconnects peer with hints', async () => {

@@ -264,7 +264,7 @@ export class KernelQueue {
         state === 'rejected' &&
         endpointId &&
         endpointId !== 'kernel' &&
-        this.#wasRejectedDueToConnectionLoss(endpointId, kpid)
+        this.#wasRemoteRejected(endpointId, kpid)
       ) {
         // Decider's resolution overrides the tentative rejection
         // Restore promise state (decider, subscribers) before resolving
@@ -317,7 +317,7 @@ export class KernelQueue {
    * @param kpid - The promise ID to check.
    * @returns True if the promise was rejected due to connection loss.
    */
-  #wasRejectedDueToConnectionLoss(remoteId: RemoteId, kpid: KRef): boolean {
+  #wasRemoteRejected(remoteId: RemoteId, kpid: KRef): boolean {
     return this.#connectionLossRejections.get(remoteId)?.has(kpid) ?? false;
   }
 
@@ -330,7 +330,7 @@ export class KernelQueue {
    * @param decider - The decider of the promise (before rejection).
    * @param subscribers - The subscribers of the promise (before rejection).
    */
-  trackConnectionLossRejection(
+  trackRemoteRejection(
     remoteId: RemoteId,
     kpid: KRef,
     decider: EndpointId | undefined,
@@ -342,5 +342,25 @@ export class KernelQueue {
       this.#connectionLossRejections.set(remoteId, remoteRejections);
     }
     remoteRejections.set(kpid, { decider, subscribers });
+  }
+
+  /**
+   * Clear connection loss rejection tracking for a specific remote.
+   * This should be called when a remote is permanently removed or stopped
+   * to prevent memory leaks from accumulated rejection entries.
+   *
+   * @param remoteId - The remote ID to clear rejections for.
+   */
+  clearRemoteRejections(remoteId: RemoteId): void {
+    this.#connectionLossRejections.delete(remoteId);
+  }
+
+  /**
+   * Clear all connection loss rejection tracking.
+   * This should be called when all remotes are stopped or the kernel is shut down
+   * to prevent memory leaks from accumulated rejection entries.
+   */
+  clearAllRemoteRejections(): void {
+    this.#connectionLossRejections.clear();
   }
 }

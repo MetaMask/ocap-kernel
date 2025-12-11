@@ -69,7 +69,9 @@ export class MockRemotesFactory {
       enqueueSend: vi.fn(),
       enqueueNotify: vi.fn(),
       resolvePromises: vi.fn(),
-      trackConnectionLossRejection: vi.fn(),
+      trackRemoteRejection: vi.fn(),
+      clearRemoteRejections: vi.fn(),
+      clearAllRemoteRejections: vi.fn(),
       waitForCrank: vi.fn(),
       run: vi.fn(),
     } as unknown as KernelQueue;
