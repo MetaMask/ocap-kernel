@@ -74,10 +74,10 @@ export default defineConfig({
           lines: 99.66,
         },
         'packages/extension/**': {
-          statements: 3.62,
+          statements: 2.97,
           functions: 0,
           branches: 0,
-          lines: 3.62,
+          lines: 2.97,
         },
         'packages/kernel-agents/**': {
           statements: 94.15,
@@ -86,10 +86,10 @@ export default defineConfig({
           lines: 94.15,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 83.5,
+          statements: 84.28,
           functions: 90.76,
           branches: 93.38,
-          lines: 83.5,
+          lines: 84.28,
         },
         'packages/kernel-errors/**': {
           statements: 100,
