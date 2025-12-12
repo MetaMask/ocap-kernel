@@ -149,6 +149,10 @@ export const receiveInternalConnections = ({
     connectToInternalProcess(channelName)
       .then(async (kernelRpcStream) => {
         return kernelRpcStream.drain(async (message) => {
+          logger.debug(
+            `Received message from internal process "${channelName}": ${JSON.stringify(message)}`,
+          );
+
           const reply = await handleInternalMessage(message);
           if (reply !== undefined) {
             await kernelRpcStream.write(reply);
