@@ -70,6 +70,13 @@ const makeClusterConfig = () => ({
 class MockBroadcastChannel {
   static channels: Map<string, MockBroadcastChannel> = new Map();
 
+  static closedChannels: Map<string, MockBroadcastChannel> = new Map();
+
+  static reset(): void {
+    MockBroadcastChannel.channels.clear();
+    MockBroadcastChannel.closedChannels.clear();
+  }
+
   onmessage: ((event: MessageEvent) => void) | null = null;
 
   onmessageerror: ((event: MessageEvent) => void) | null = null;
@@ -81,17 +88,18 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, this);
   }
 
-  postMessage(message: unknown): void {
+  postMessage: (message: unknown) => void = vi.fn((message: unknown): void => {
     // Simulate broadcasting to other channels with the same name
     MockBroadcastChannel.channels.forEach((channel) => {
       if (channel !== this && channel.name === this.name && channel.onmessage) {
         channel.onmessage(new MessageEvent('message', { data: message }));
       }
     });
-  }
+  });
 
   close(): void {
     MockBroadcastChannel.channels.delete(this.name);
+    MockBroadcastChannel.closedChannels.set(this.name, this);
   }
 }
 
@@ -110,7 +118,7 @@ describe('internal-connections', () => {
     PostMessageDuplexStream.instances;
 
   beforeEach(() => {
-    MockBroadcastChannel.channels.clear();
+    MockBroadcastChannel.reset();
     streamInstances.length = 0;
   });
 
@@ -123,10 +131,14 @@ describe('internal-connections', () => {
       });
 
       // Verify that the control channel receives the init message
-      const controlChannel = MockBroadcastChannel.channels.get(
+      const controlChannel = MockBroadcastChannel.closedChannels.get(
         COMMS_CONTROL_CHANNEL_NAME,
-      );
+      )!;
       expect(controlChannel).toBeDefined();
+      expect(controlChannel.postMessage).toHaveBeenCalledWith({
+        method: 'init',
+        params: { channelName: 'internal-process-test-id' },
+      });
 
       const stream = await connectionPromise;
       expect(stream).toBeInstanceOf(TestDuplexStream);
@@ -135,7 +147,8 @@ describe('internal-connections', () => {
     it('should handle comms channel message errors', async () => {
       const logger = makeMockLogger();
       await connectToKernel({ label: 'internal-process', logger });
-      expect(MockBroadcastChannel.channels.size).toBe(2);
+      expect(MockBroadcastChannel.channels.size).toBe(1);
+      expect(MockBroadcastChannel.closedChannels.size).toBe(1);
 
       const commsChannel = MockBroadcastChannel.channels.get(
         'internal-process-test-id',
@@ -149,31 +162,8 @@ describe('internal-connections', () => {
       commsChannel?.onmessageerror?.(errorEvent);
 
       // Verify comms channel is closed
-      expect(MockBroadcastChannel.channels.size).toBe(1);
-      expect(
-        MockBroadcastChannel.channels.has(COMMS_CONTROL_CHANNEL_NAME),
-      ).toBe(true);
-    });
-
-    it('should handle control channel message errors', async () => {
-      const logger = makeMockLogger();
-      await connectToKernel({ label: 'internal-process', logger });
-      expect(MockBroadcastChannel.channels.size).toBe(2);
-
-      const controlChannel = MockBroadcastChannel.channels.get(
-        COMMS_CONTROL_CHANNEL_NAME,
-      );
-      expect(controlChannel).toBeDefined();
-
-      const errorEvent = new MessageEvent('messageerror', {
-        data: new Error('Test error'),
-      });
-      controlChannel?.onmessageerror?.(errorEvent);
-
-      expect(MockBroadcastChannel.channels.size).toBe(2);
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/^Internal comms control channel error/u),
-      );
+      expect(MockBroadcastChannel.channels.size).toBe(0);
+      expect(MockBroadcastChannel.closedChannels.size).toBe(2);
     });
   });
 

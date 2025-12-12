@@ -57,6 +57,7 @@ export const connectToKernel = async ({
     method: 'init',
     params: { channelName: commsChannelName },
   } satisfies CommsControlMessage);
+  commsControlChannel.close();
 
   const kernelStream = await PostMessageDuplexStream.make<
     JsonRpcResponse,
@@ -75,12 +76,6 @@ export const connectToKernel = async ({
       .throw(new Error(stringify(event.data)))
       .catch(/* istanbul ignore next */ () => undefined);
     commsChannel.close();
-  };
-
-  commsControlChannel.onmessageerror = (event) => {
-    logger.error(
-      `Internal comms control channel error: ${stringify(event.data)}`,
-    );
   };
 
   return kernelStream;
