@@ -12,8 +12,8 @@ import {
 import type { JsonRpcResponse } from '@metamask/utils';
 
 import defaultSubcluster from '../default-cluster.json';
+import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { receiveUiConnections } from '../ui-connections.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
@@ -64,8 +64,8 @@ async function main(): Promise<void> {
     ],
   });
 
-  receiveUiConnections({
-    handleInstanceMessage: async (request) => rpcServer.handle(request),
+  receiveInternalConnections({
+    handleInternalMessage: async (request) => rpcServer.handle(request),
     logger,
   });
 

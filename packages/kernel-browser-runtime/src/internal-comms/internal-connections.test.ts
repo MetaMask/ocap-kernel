@@ -8,10 +8,10 @@ import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
-  establishKernelConnection,
-  receiveUiConnections,
-  UI_CONTROL_CHANNEL_NAME,
-} from './ui-connections.ts';
+  connectToKernel,
+  receiveInternalConnections,
+  COMMS_CONTROL_CHANNEL_NAME,
+} from './internal-connections.ts';
 
 vi.mock('nanoid', () => ({
   nanoid: vi.fn(() => 'test-id'),
@@ -104,7 +104,7 @@ const makeMockLogger = () =>
     info: vi.fn(),
   }) as unknown as Logger;
 
-describe('ui-connections', () => {
+describe('internal-connections', () => {
   const streamInstances: PostMessageDuplexStream<unknown, unknown>[] =
     // @ts-expect-error: This class is mocked
     PostMessageDuplexStream.instances;
@@ -114,14 +114,17 @@ describe('ui-connections', () => {
     streamInstances.length = 0;
   });
 
-  describe('establishKernelConnection', () => {
+  describe('connectToKernel', () => {
     it('should establish a connection and return a stream', async () => {
       const logger = makeMockLogger();
-      const connectionPromise = establishKernelConnection({ logger });
+      const connectionPromise = connectToKernel({
+        label: 'internal-process',
+        logger,
+      });
 
       // Verify that the control channel receives the init message
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       expect(controlChannel).toBeDefined();
 
@@ -129,36 +132,36 @@ describe('ui-connections', () => {
       expect(stream).toBeInstanceOf(TestDuplexStream);
     });
 
-    it('should handle instance channel message errors', async () => {
+    it('should handle comms channel message errors', async () => {
       const logger = makeMockLogger();
-      await establishKernelConnection({ logger });
+      await connectToKernel({ label: 'internal-process', logger });
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
-      const instanceChannel = MockBroadcastChannel.channels.get(
-        'ui-instance-test-id',
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-test-id',
       );
-      expect(instanceChannel).toBeDefined();
+      expect(commsChannel).toBeDefined();
 
       // Trigger message error
       const errorEvent = new MessageEvent('messageerror', {
         data: new Error('Test error'),
       });
-      instanceChannel?.onmessageerror?.(errorEvent);
+      commsChannel?.onmessageerror?.(errorEvent);
 
-      // Verify instance channel is closed
+      // Verify comms channel is closed
       expect(MockBroadcastChannel.channels.size).toBe(1);
-      expect(MockBroadcastChannel.channels.has(UI_CONTROL_CHANNEL_NAME)).toBe(
-        true,
-      );
+      expect(
+        MockBroadcastChannel.channels.has(COMMS_CONTROL_CHANNEL_NAME),
+      ).toBe(true);
     });
 
     it('should handle control channel message errors', async () => {
       const logger = makeMockLogger();
-      await establishKernelConnection({ logger });
+      await connectToKernel({ label: 'internal-process', logger });
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       expect(controlChannel).toBeDefined();
 
@@ -169,12 +172,12 @@ describe('ui-connections', () => {
 
       expect(MockBroadcastChannel.channels.size).toBe(2);
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/^UI control channel error/u),
+        expect.stringMatching(/^Internal comms control channel error/u),
       );
     });
   });
 
-  describe('receiveUiConnections', () => {
+  describe('receiveInternalConnections', () => {
     const logger = makeMockLogger();
 
     const mockHandleMessage = vi.fn(
@@ -188,58 +191,58 @@ describe('ui-connections', () => {
           : undefined,
     );
 
-    it('should handle new UI connections', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+    it('should handle new internal process connections', async () => {
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
 
-      // Simulate a new UI instance connecting
+      // Simulate a new internal process connecting
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
 
       expect(MockBroadcastChannel.channels.size).toBe(2);
       expect(logger.debug).toHaveBeenCalledWith(
-        'Connecting to UI instance "test-instance-channel"',
+        'Connecting to internal process "internal-process-channel"',
       );
     });
 
     it('should handle valid message', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
 
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
 
       await delay();
-      const instanceStream = streamInstances[0]!;
-      expect(instanceStream).toBeDefined();
-      const instanceStreamWriteSpy = vi.spyOn(instanceStream, 'write');
+      const commsStream = streamInstances[0]!;
+      expect(commsStream).toBeDefined();
+      const commsStreamWriteSpy = vi.spyOn(commsStream, 'write');
 
-      const instanceChannel = MockBroadcastChannel.channels.get(
-        'test-instance-channel',
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
       )!;
-      instanceChannel.onmessage?.(
+      commsChannel.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'getStatus',
@@ -255,7 +258,7 @@ describe('ui-connections', () => {
         params: null,
         id: 1,
       });
-      expect(instanceStreamWriteSpy).toHaveBeenCalledWith({
+      expect(commsStreamWriteSpy).toHaveBeenCalledWith({
         jsonrpc: '2.0',
         id: 1,
         result: { vats: [], clusterConfig: makeClusterConfig() },
@@ -263,32 +266,32 @@ describe('ui-connections', () => {
     });
 
     it('should handle JSON-RPC notifications', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
 
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
 
       await delay();
-      const instanceStream = streamInstances[0]!;
-      expect(instanceStream).toBeDefined();
-      const instanceStreamWriteSpy = vi.spyOn(instanceStream, 'write');
+      const commsStream = streamInstances[0]!;
+      expect(commsStream).toBeDefined();
+      const commsStreamWriteSpy = vi.spyOn(commsStream, 'write');
 
-      const instanceChannel = MockBroadcastChannel.channels.get(
-        'test-instance-channel',
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
       )!;
-      instanceChannel.onmessage?.(
+      commsChannel.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'notification',
@@ -302,23 +305,23 @@ describe('ui-connections', () => {
       expect(mockHandleMessage).toHaveBeenCalledWith({
         method: 'notification',
       });
-      expect(instanceStreamWriteSpy).not.toHaveBeenCalled();
+      expect(commsStreamWriteSpy).not.toHaveBeenCalled();
     });
 
     it('should handle multiple simultaneous connections', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
 
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel-1',
+            params: { channelName: 'internal-process-channel-1' },
           },
         }),
       );
@@ -326,44 +329,44 @@ describe('ui-connections', () => {
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel-2',
+            params: { channelName: 'internal-process-channel-2' },
           },
         }),
       );
 
       expect(MockBroadcastChannel.channels.size).toBe(3);
       expect(logger.debug).toHaveBeenCalledWith(
-        'Connecting to UI instance "test-instance-channel-1"',
+        'Connecting to internal process "internal-process-channel-1"',
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        'Connecting to UI instance "test-instance-channel-2"',
+        'Connecting to internal process "internal-process-channel-2"',
       );
     });
 
     it('should forget ids of closed channels', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
 
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
       await delay();
       expect(MockBroadcastChannel.channels.size).toBe(2);
 
-      const instanceChannel = MockBroadcastChannel.channels.get(
-        'test-instance-channel',
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
       );
-      instanceChannel?.onmessageerror?.(
+      commsChannel?.onmessageerror?.(
         new MessageEvent('messageerror', { data: new Error('Test error') }),
       );
       await delay();
@@ -373,7 +376,7 @@ describe('ui-connections', () => {
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
@@ -382,19 +385,19 @@ describe('ui-connections', () => {
     });
 
     it('should reject duplicate connections', () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
 
       // Connect twice with the same channel name
       const duplicateMessage = new MessageEvent('message', {
         data: {
           method: 'init',
-          params: 'duplicate-channel',
+          params: { channelName: 'duplicate-channel' },
         },
       });
 
@@ -402,17 +405,17 @@ describe('ui-connections', () => {
       controlChannel?.onmessage?.(duplicateMessage);
 
       expect(logger.error).toHaveBeenCalledWith(
-        'Already connected to UI instance "duplicate-channel"',
+        'Already connected to internal process "duplicate-channel"',
       );
     });
 
     it('should reject invalid control commands', () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
 
       controlChannel?.onmessage?.(
@@ -424,39 +427,41 @@ describe('ui-connections', () => {
       );
 
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/^Received invalid UI control command/u),
+        expect.stringMatching(
+          /^Received invalid internal comms control message/u,
+        ),
       );
     });
 
-    it('should handle instance channel message errors', async () => {
-      receiveUiConnections({
-        handleInstanceMessage: mockHandleMessage,
+    it('should handle comms channel message errors', async () => {
+      receiveInternalConnections({
+        handleInternalMessage: mockHandleMessage,
         logger,
       });
 
       const controlChannel = MockBroadcastChannel.channels.get(
-        UI_CONTROL_CHANNEL_NAME,
+        COMMS_CONTROL_CHANNEL_NAME,
       );
       controlChannel?.onmessage?.(
         new MessageEvent('message', {
           data: {
             method: 'init',
-            params: 'test-instance-channel',
+            params: { channelName: 'internal-process-channel' },
           },
         }),
       );
       await delay();
 
-      const instanceChannel = MockBroadcastChannel.channels.get(
-        'test-instance-channel',
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
       );
-      instanceChannel?.onmessageerror?.(
+      commsChannel?.onmessageerror?.(
         new MessageEvent('messageerror', { data: new Error('Test error') }),
       );
       await delay();
 
       expect(logger.error).toHaveBeenCalledWith(
-        'Error handling message from UI instance "test-instance-channel":',
+        'Error handling message from internal process "internal-process-channel":',
         expect.any(Error),
       );
     });

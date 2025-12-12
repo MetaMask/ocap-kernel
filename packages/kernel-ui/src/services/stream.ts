@@ -1,6 +1,6 @@
 import {
   rpcMethodSpecs,
-  establishKernelConnection,
+  connectToKernel,
 } from '@metamask/kernel-browser-runtime';
 import type { KernelControlMethod } from '@metamask/kernel-browser-runtime';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
@@ -24,7 +24,7 @@ export type CallKernelMethod = <Method extends KernelControlMethod>(command: {
 export async function setupStream(): Promise<{
   callKernelMethod: CallKernelMethod;
 }> {
-  const kernelStream = await establishKernelConnection({ logger });
+  const kernelStream = await connectToKernel({ label: 'ui-instance', logger });
 
   const rpcClient = new RpcClient(
     rpcMethodSpecs,
