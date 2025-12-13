@@ -17,6 +17,7 @@ describe('platform-services index', () => {
         'initializeRemoteComms',
         'stopRemoteComms',
         'closeConnection',
+        'registerLocationHints',
         'reconnectPeer',
       ];
 
@@ -107,6 +108,14 @@ describe('platform-services index', () => {
         expect(typeof handler.implementation).toBe('function');
       });
 
+      it('should have registerLocationHints handler with correct configuration', () => {
+        const handler = platformServicesHandlers.registerLocationHints;
+
+        expect(handler.method).toBe('registerLocationHints');
+        expect(handler.hooks).toStrictEqual({ registerLocationHints: true });
+        expect(typeof handler.implementation).toBe('function');
+      });
+
       it('should have reconnectPeer handler with correct configuration', () => {
         const handler = platformServicesHandlers.reconnectPeer;
 
@@ -127,6 +136,7 @@ describe('platform-services index', () => {
         'initializeRemoteComms',
         'stopRemoteComms',
         'closeConnection',
+        'registerLocationHints',
         'reconnectPeer',
       ];
 
@@ -192,6 +202,11 @@ describe('platform-services index', () => {
         expect(spec.method).toBe('closeConnection');
       });
 
+      it('should have registerLocationHints spec with correct method name', () => {
+        const spec = platformServicesMethodSpecs.registerLocationHints;
+        expect(spec.method).toBe('registerLocationHints');
+      });
+
       it('should have reconnectPeer spec with correct method name', () => {
         const spec = platformServicesMethodSpecs.reconnectPeer;
         expect(spec.method).toBe('reconnectPeer');
@@ -210,6 +225,7 @@ describe('platform-services index', () => {
         'initializeRemoteComms',
         'stopRemoteComms',
         'closeConnection',
+        'registerLocationHints',
         'reconnectPeer',
       ];
 
@@ -254,6 +270,7 @@ describe('platform-services index', () => {
         'initializeRemoteComms',
         'stopRemoteComms',
         'closeConnection',
+        'registerLocationHints',
         'reconnectPeer',
       ] as const;
 

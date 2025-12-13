@@ -53,6 +53,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('stopRemoteComms');
       expect(remoteComms).toHaveProperty('closeConnection');
+      expect(remoteComms).toHaveProperty('registerLocationHints');
       expect(remoteComms).toHaveProperty('reconnectPeer');
 
       const keySeed = mockKernelStore.kv.get('keySeed');
@@ -111,6 +112,7 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('stopRemoteComms');
       expect(remoteComms).toHaveProperty('closeConnection');
+      expect(remoteComms).toHaveProperty('registerLocationHints');
       expect(remoteComms).toHaveProperty('reconnectPeer');
       expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
@@ -214,6 +216,32 @@ describe('remote-comms', () => {
       expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
         'peer123',
       );
+    });
+  });
+
+  describe('registerLocationHints', () => {
+    it('calls platformServices.registerLocationHints', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      await remoteComms.registerLocationHints('peer123', ['hint1', 'hint2']);
+      expect(mockPlatformServices.registerLocationHints).toHaveBeenCalledWith(
+        'peer123',
+        ['hint1', 'hint2'],
+      );
+    });
+
+    it('is a bound function from platformServices', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      expect(typeof remoteComms.registerLocationHints).toBe('function');
+      await remoteComms.registerLocationHints('peer123', ['hint1', 'hint2']);
+      expect(mockPlatformServices.registerLocationHints).toHaveBeenCalled();
     });
   });
 

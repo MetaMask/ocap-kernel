@@ -84,7 +84,7 @@ export class MockRemotesFactory {
   makeMockRemoteComms(overrides: Partial<RemoteComms> = {}): RemoteComms {
     return {
       getPeerId: vi.fn().mockReturnValue(this.config.peerId),
-      sendRemoteMessage: vi.fn().mockResolvedValue('fake'),
+      sendRemoteMessage: vi.fn(),
       issueOcapURL: vi
         .fn()
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),

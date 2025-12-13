@@ -42,14 +42,6 @@ describe('MessageQueue', () => {
       });
     });
 
-    it('handles empty hints array', () => {
-      queue.enqueue('message');
-
-      expect(queue.messages[0]).toStrictEqual({
-        message: 'message',
-      });
-    });
-
     it('drops oldest message when at capacity', () => {
       const smallQueue = new MessageQueue(3);
 

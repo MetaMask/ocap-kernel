@@ -174,6 +174,14 @@ describe('RemoteManager', () => {
       expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
     });
 
+    it('registers location hints', async () => {
+      await remoteManager.registerLocationHints('peer123', ['hint1', 'hint2']);
+      expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
+        'peer123',
+        ['hint1', 'hint2'],
+      );
+    });
+
     it('reconnects peer with hints', async () => {
       await remoteManager.reconnectPeer('peer123', ['relay1', 'relay2']);
       expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', [
@@ -398,6 +406,14 @@ describe('RemoteManager', () => {
       await expect(remoteManager.closeConnection('peer1')).rejects.toThrow(
         'Remote comms not initialized',
       );
+    });
+
+    it('throws when calling registerLocationHints after stop', async () => {
+      await remoteManager.stopRemoteComms();
+
+      await expect(
+        remoteManager.registerLocationHints('peer1', ['hint1', 'hint2']),
+      ).rejects.toThrow('Remote comms not initialized');
     });
 
     it('throws when calling reconnectPeer after stop', async () => {

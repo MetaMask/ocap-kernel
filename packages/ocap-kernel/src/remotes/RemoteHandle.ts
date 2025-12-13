@@ -156,7 +156,6 @@ export class RemoteHandle implements EndpointHandle {
    * @param message - The message to send.
    */
   async #sendRemoteCommand(message: RemoteCommand): Promise<void> {
-    console.log(`@@@@ sendRemoteCommand `, message);
     if (this.#needsHinting) {
       // Hints are registered lazily because (a) transmitting to the platform
       // services process has to be done asynchronously, which is very painful
@@ -172,12 +171,10 @@ export class RemoteHandle implements EndpointHandle {
         this.#locationHints,
       );
     }
-    console.log(`@@@@ sendRemoteCommand calling sendRemoteMessage "${JSON.stringify(message)}`);
-    const x = await this.#remoteComms.sendRemoteMessage(
+    await this.#remoteComms.sendRemoteMessage(
       this.#peerId,
       JSON.stringify(message),
     );
-    console.log(`@@@@ sendRemoteCommand awaited, got ${x}`);
   }
 
   /**
@@ -470,7 +467,6 @@ export class RemoteHandle implements EndpointHandle {
    * @returns a promise for the kref of the object designated by `url`.
    */
   async redeemOcapURL(url: string): Promise<string> {
-    console.log(`@@@@ redeemOcapURL (RemoteHandle) of "${url}"`);
     const replyKey = `${this.#redemptionCounter}`;
     this.#redemptionCounter += 1;
     const { promise, resolve, reject } = makePromiseKit<string>();

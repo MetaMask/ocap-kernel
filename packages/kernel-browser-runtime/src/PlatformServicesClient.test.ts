@@ -206,13 +206,6 @@ describe('PlatformServicesClient', () => {
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();
         });
-
-        it('works with empty hints array', async () => {
-          const result = client.sendRemoteMessage('peer-789', 'goodbye');
-          await delay(10);
-          await stream.receiveInput(makeNullReply('m1'));
-          expect(await result).toBeUndefined();
-        });
       });
 
       describe('stopRemoteComms', () => {
@@ -227,6 +220,18 @@ describe('PlatformServicesClient', () => {
       describe('closeConnection', () => {
         it('sends closeConnection request and resolves', async () => {
           const result = client.closeConnection('peer-123');
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('registerLocationHints', () => {
+        it('sends registerLocationHints request and resolves', async () => {
+          const result = client.registerLocationHints('peer-123', [
+            'hint1',
+            'hint2',
+          ]);
           await delay(10);
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();
