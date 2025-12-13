@@ -11,9 +11,8 @@ import {
 } from '@metamask/streams/browser';
 import type { JsonRpcResponse } from '@metamask/utils';
 
-import defaultSubcluster from '../default-cluster.json';
+import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { receiveUiConnections } from '../ui-connections.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
@@ -43,12 +42,11 @@ async function main(): Promise<void> {
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
 
-  const firstTime = !kernelDatabase.kernelKVStore.get('initialized');
   const resetStorage =
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
-  const kernel = await Kernel.make(
+  const kernelP = Kernel.make(
     kernelStream,
     platformServicesClient,
     kernelDatabase,
@@ -56,30 +54,24 @@ async function main(): Promise<void> {
       resetStorage,
     },
   );
-
-  const rpcServer = new JsonRpcServer({
-    middleware: [
-      makeLoggingMiddleware(logger.subLogger('kernel-command')),
-      makePanelMessageMiddleware(kernel, kernelDatabase),
-    ],
+  const serverP = kernelP.then((kernel) => {
+    return new JsonRpcServer({
+      middleware: [
+        makeLoggingMiddleware(logger.subLogger('kernel-command')),
+        makePanelMessageMiddleware(kernel, kernelDatabase),
+      ],
+    });
   });
 
-  receiveUiConnections({
-    handleInstanceMessage: async (request) => rpcServer.handle(request),
+  receiveInternalConnections({
+    handleInternalMessage: async (request) =>
+      serverP.then(async (rpcServer) => rpcServer.handle(request)),
     logger,
   });
 
-  const relays = getRelaysFromCurrentLocation();
+  const kernel = await kernelP;
 
-  await Promise.all([
-    // Initialize remote communications with the relay server passed in the query string
-    kernel.initRemoteComms(relays),
-    (async () => {
-      // Launch the default subcluster if this is the first time
-      if (firstTime || resetStorage) {
-        const result = await kernel.launchSubcluster(defaultSubcluster);
-        logger.info(`Subcluster launched: ${JSON.stringify(result)}`);
-      }
-    })(),
-  ]);
+  // Initialize remote communications with the relay server passed in the query string
+  const relays = getRelaysFromCurrentLocation();
+  await kernel.initRemoteComms(relays);
 }

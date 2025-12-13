@@ -7,12 +7,12 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'PlatformServicesClient',
       'PlatformServicesServer',
+      'connectToKernel',
       'createRelayQueryString',
-      'establishKernelConnection',
       'getRelaysFromCurrentLocation',
       'makeIframeVatWorker',
       'parseRelayQueryString',
-      'receiveUiConnections',
+      'receiveInternalConnections',
       'rpcHandlers',
       'rpcMethodSpecs',
     ]);

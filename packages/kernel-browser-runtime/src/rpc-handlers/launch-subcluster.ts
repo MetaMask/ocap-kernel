@@ -2,7 +2,7 @@ import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import type { Kernel, ClusterConfig, KRef } from '@metamask/ocap-kernel';
 import { CapDataStruct, ClusterConfigStruct } from '@metamask/ocap-kernel';
-import { object, union, literal } from '@metamask/superstruct';
+import { object, nullable } from '@metamask/superstruct';
 
 export const launchSubclusterSpec: MethodSpec<
   'launchSubcluster',
@@ -11,7 +11,7 @@ export const launchSubclusterSpec: MethodSpec<
 > = {
   method: 'launchSubcluster',
   params: object({ config: ClusterConfigStruct }),
-  result: union([CapDataStruct, literal(null)]),
+  result: nullable(CapDataStruct),
 };
 
 export type LaunchSubclusterHooks = {
