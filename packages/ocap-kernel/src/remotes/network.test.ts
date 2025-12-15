@@ -876,7 +876,10 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
-      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      // Allow first retry, then stop to prevent infinite loop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt
+        .mockReturnValue(false); // Stop after first attempt
       mockReconnectionManager.incrementAttempt.mockReturnValue(1);
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
 
@@ -924,7 +927,10 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
-      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      // Allow first retry, then stop to prevent infinite loop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt
+        .mockReturnValue(false); // Stop after first attempt
       mockReconnectionManager.incrementAttempt.mockReturnValue(1);
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
 
