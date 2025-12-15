@@ -1064,28 +1064,51 @@ describe('network.initNetwork', () => {
         },
       );
 
-      // First connection loss starts reconnection; subsequent ones must not
-      mockReconnectionManager.isReconnecting
-        // sendRemoteMessage precheck
-        .mockReturnValueOnce(false)
-        // handleConnectionLoss check (first failure)
-        .mockReturnValueOnce(false)
-        // subsequent calls (loop, second handleConnectionLoss)
-        .mockReturnValue(true);
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      // Allow first retry, then stop to prevent infinite loop
+      // The loop needs to stay active when second handleConnectionLoss is called,
+      // but should exit after successful flush
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt - allows loop to stay active for second handleConnectionLoss
+        .mockReturnValue(false); // After flush completes, stop to prevent infinite loop
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       // Fail initial dial to trigger first handleConnectionLoss, then allow reconnection loop to succeed
       const reconChannel = createMockChannel('peer-1');
+      // Ensure flush completes successfully so loop exits naturally
+      reconChannel.msgStream.write.mockResolvedValue(undefined);
+      // Make dialIdempotent resolve after a small delay to ensure reconnection loop is active
+      // when inbound error is processed
       mockConnectionFactory.dialIdempotent
         .mockRejectedValueOnce(
           Object.assign(new Error('Dial failed'), { code: 'ECONNRESET' }),
         )
-        .mockResolvedValue(reconChannel);
+        .mockImplementation(async () => {
+          // Small delay to ensure reconnection state is checked before dial completes
+          await new Promise((resolve) => setImmediate(resolve));
+          return reconChannel;
+        });
 
       const { sendRemoteMessage } = await initNetwork('0x1234', [], vi.fn());
 
+      // Trigger first connection loss (this starts reconnection)
       await sendRemoteMessage('peer-1', 'msg-1');
 
       // Trigger another connection loss via inbound read error for same peer
+      // This should happen while reconnection is still active (reconnecting = true)
+      // The dialIdempotent delay ensures the reconnection loop hasn't completed yet
       const inboundChannel = createMockChannel('peer-1');
       inboundChannel.msgStream.read.mockRejectedValueOnce(
         new Error('Read failed'),
@@ -1338,6 +1361,10 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      // Allow first retry, then stop to prevent infinite loop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt
+        .mockReturnValue(false); // Stop after first attempt
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -1381,10 +1408,16 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
       });
-      mockReconnectionManager.shouldRetry.mockReturnValue(true);
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      // Allow first retry, then stop to prevent infinite loop
+      // First reconnection attempt succeeds but flush fails, triggering second reconnection
+      // We need to allow the second reconnection to start, then stop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First reconnection attempt
+        .mockReturnValueOnce(true) // Second reconnection attempt (after flush failure)
+        .mockReturnValue(false); // Stop after second attempt
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
