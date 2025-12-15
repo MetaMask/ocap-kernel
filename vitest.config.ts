@@ -86,17 +86,10 @@ export default defineConfig({
           lines: 94.15,
         },
         'packages/kernel-browser-runtime/**': {
-<<<<<<< HEAD
           statements: 84.21,
           functions: 90.62,
           branches: 93.33,
           lines: 84.21,
-=======
-          statements: 83.59,
-          functions: 90.76,
-          branches: 93.38,
-          lines: 83.59,
->>>>>>> bd6316a6 (thresholds)
         },
         'packages/kernel-errors/**': {
           statements: 100,
@@ -113,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.2,
+          branches: 96.25,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
@@ -137,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.25,
+          branches: 93.26,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -167,7 +160,7 @@ export default defineConfig({
         'packages/ocap-kernel/**': {
           statements: 96.6,
           functions: 98.52,
-          branches: 97.56,
+          branches: 97.54,
           lines: 96.6,
         },
         'packages/omnium-gatherum/**': {
