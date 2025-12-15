@@ -1075,9 +1075,12 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
-      // Keep shouldRetry returning true so loop stays active until flush completes
-      // This ensures isReconnecting stays true when second handleConnectionLoss is called
-      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      // Allow first retry, then stop to prevent infinite loop
+      // The loop needs to stay active when second handleConnectionLoss is called,
+      // but should exit after successful flush
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt - allows loop to stay active for second handleConnectionLoss
+        .mockReturnValue(false); // After flush completes, stop to prevent infinite loop
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
