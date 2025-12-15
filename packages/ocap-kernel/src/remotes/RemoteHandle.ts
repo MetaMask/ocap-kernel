@@ -155,11 +155,11 @@ export class RemoteHandle implements EndpointHandle {
       // even happening if we never talk to a particular peer again. Instead, we
       // wait until we know a given peer needs to be communicated with before
       // bothering to send its hint info.
-      this.#needsHinting = false;
       await this.#remoteComms.registerLocationHints(
         this.#peerId,
         this.#locationHints,
       );
+      this.#needsHinting = false;
     }
     await this.#remoteComms.sendRemoteMessage(
       this.#peerId,
