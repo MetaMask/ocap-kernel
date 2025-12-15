@@ -1064,14 +1064,24 @@ describe('network.initNetwork', () => {
         },
       );
 
-      // First connection loss starts reconnection; subsequent ones must not
-      mockReconnectionManager.isReconnecting
-        // sendRemoteMessage precheck
-        .mockReturnValueOnce(false)
-        // handleConnectionLoss check (first failure)
-        .mockReturnValueOnce(false)
-        // subsequent calls (loop, second handleConnectionLoss)
-        .mockReturnValue(true);
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      // Allow first retry, then stop to prevent infinite loop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt
+        .mockReturnValue(false); // Stop after first attempt
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       // Fail initial dial to trigger first handleConnectionLoss, then allow reconnection loop to succeed
       const reconChannel = createMockChannel('peer-1');
@@ -1338,6 +1348,10 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      // Allow first retry, then stop to prevent infinite loop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First attempt
+        .mockReturnValue(false); // Stop after first attempt
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -1381,10 +1395,16 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
       });
-      mockReconnectionManager.shouldRetry.mockReturnValue(true);
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      // Allow first retry, then stop to prevent infinite loop
+      // First reconnection attempt succeeds but flush fails, triggering second reconnection
+      // We need to allow the second reconnection to start, then stop
+      mockReconnectionManager.shouldRetry
+        .mockReturnValueOnce(true) // First reconnection attempt
+        .mockReturnValueOnce(true) // Second reconnection attempt (after flush failure)
+        .mockReturnValue(false); // Stop after second attempt
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
