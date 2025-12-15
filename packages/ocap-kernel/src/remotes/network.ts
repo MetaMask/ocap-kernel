@@ -470,7 +470,7 @@ export async function initNetwork(
       }
       locationHints.set(peerId, Array.from(newHints));
     } else {
-      locationHints.set(peerId, hints);
+      locationHints.set(peerId, Array.from(hints));
     }
   }
 
