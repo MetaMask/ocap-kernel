@@ -1,3 +1,8 @@
+import {
+  connectToKernel,
+  rpcMethodSpecs,
+} from '@metamask/kernel-browser-runtime';
+import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
 import { delay } from '@metamask/kernel-utils';
 import type { JsonRpcCall } from '@metamask/kernel-utils';
@@ -109,14 +114,50 @@ async function main(): Promise<void> {
     ping().catch(logger.error);
   });
 
+  // Pipe responses back to the RpcClient
+  const drainPromise = offscreenStream.drain(async (message) =>
+    rpcClient.handleResponse(message.id as string, message),
+  );
+  drainPromise.catch(logger.error);
+
+  await ping(); // Wait for the kernel to be ready
+  await startDefaultSubcluster();
+
   try {
-    // Pipe responses back to the RpcClient
-    await offscreenStream.drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    );
+    await drainPromise;
   } catch (error) {
     throw new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
+  }
+}
+
+/**
+ * Idempotently starts the default subcluster.
+ */
+async function startDefaultSubcluster(): Promise<void> {
+  const kernelStream = await connectToKernel({ label: 'background', logger });
+  const rpcClient = new RpcClient(
+    rpcMethodSpecs,
+    async (request) => {
+      await kernelStream.write(request);
+    },
+    'background',
+  );
+
+  kernelStream
+    .drain(async (message) =>
+      rpcClient.handleResponse(message.id as string, message),
+    )
+    .catch(logger.error);
+
+  const status = await rpcClient.call('getStatus', []);
+  if (status.subclusters.length === 0) {
+    const result = await rpcClient.call('launchSubcluster', {
+      config: defaultSubcluster,
+    });
+    logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
+  } else {
+    logger.info('Subclusters already exist. Not launching default subcluster.');
   }
 }

@@ -1,12 +1,12 @@
 export * from './rpc-handlers/index.ts';
 export {
-  establishKernelConnection,
-  receiveUiConnections,
-} from './ui-connections.ts';
+  connectToKernel,
+  receiveInternalConnections,
+} from './internal-comms/index.ts';
 export type {
-  KernelControlReplyStream,
-  KernelControlStream,
-} from './ui-connections.ts';
+  KernelRpcReplyStream,
+  KernelRpcStream,
+} from './internal-comms/index.ts';
 export * from './makeIframeVatWorker.ts';
 export * from './PlatformServicesClient.ts';
 export * from './PlatformServicesServer.ts';
