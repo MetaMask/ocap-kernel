@@ -1166,7 +1166,6 @@ describe('network.initNetwork', () => {
     });
 
     it('does not start duplicate reconnection loops', async () => {
-      // crash
       // Capture inbound handler before init
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
@@ -1581,7 +1580,6 @@ describe('network.initNetwork', () => {
 
   describe('message queue management', () => {
     it('handles empty queue during flush', async () => {
-      // crash
       // Drive reconnection state deterministically
       let reconnecting = false;
       mockReconnectionManager.isReconnecting.mockImplementation(
@@ -1632,7 +1630,6 @@ describe('network.initNetwork', () => {
     });
 
     it('re-queues messages and triggers reconnection when flush fails', async () => {
-      // crash
       // Drive reconnection state deterministically
       let reconnecting = false;
       mockReconnectionManager.isReconnecting.mockImplementation(
