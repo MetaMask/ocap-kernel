@@ -33,6 +33,16 @@
         "default": "./dist/ollama/nodejs.cjs"
       }
     },
+    "./queue": {
+      "import": {
+        "types": "./dist/queue/service.d.mts",
+        "default": "./dist/queue/service.mjs"
+      },
+      "require": {
+        "types": "./dist/queue/service.d.cts",
+        "default": "./dist/queue/service.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
