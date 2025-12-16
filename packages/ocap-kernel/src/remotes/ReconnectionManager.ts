@@ -29,11 +29,17 @@ export class ReconnectionManager {
 
   /**
    * Start reconnection for a peer.
+   * Resets attempt count when starting a new reconnection session.
    *
    * @param peerId - The peer ID to start reconnection for.
    */
   startReconnection(peerId: string): void {
     const state = this.#getState(peerId);
+    // Reset attempt count when starting a new reconnection session
+    // This allows retries after max attempts were previously exhausted
+    if (!state.isReconnecting) {
+      state.attemptCount = 0;
+    }
     state.isReconnecting = true;
   }
 
