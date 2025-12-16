@@ -849,7 +849,7 @@ describe.sequential('Remote Communications E2E', () => {
     );
 
     it(
-      'allows decider to override tentative rejection after reconnection',
+      'resolves promise after reconnection when retries have not been exhausted',
       async () => {
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
@@ -873,6 +873,7 @@ describe.sequential('Remote Communications E2E', () => {
         await wait(500);
 
         // Restart kernel2 quickly (before max retries, since default is infinite)
+        // The promise should remain unresolved and resolve normally after reconnection
         const bobConfig = makeRemoteVatConfig('Bob');
         // eslint-disable-next-line require-atomic-updates
         kernel2 = (
@@ -888,6 +889,7 @@ describe.sequential('Remote Communications E2E', () => {
         await wait(2000);
 
         // The message should eventually be delivered and resolved
+        // The promise was never rejected because retries weren't exhausted
         const result = await messagePromise;
         expect(kunser(result)).toContain('vat Bob got "hello" from Alice');
       },

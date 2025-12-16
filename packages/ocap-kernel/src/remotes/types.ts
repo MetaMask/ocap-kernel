@@ -26,9 +26,6 @@ export type RemoteComms = {
   sendRemoteMessage: SendRemoteMessage;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
-  stopRemoteComms: StopRemoteComms;
-  closeConnection: (peerId: string) => Promise<void>;
-  reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
 };
 
 export type OnRemoteGiveUp = (peerId: string) => void;

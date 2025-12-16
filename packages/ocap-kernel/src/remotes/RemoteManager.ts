@@ -79,7 +79,6 @@ export class RemoteManager {
   /**
    * Handle when we give up on a remote (after max retries or non-retryable error).
    * Rejects all promises for which this remote is the decider.
-   * Tracks these rejections as tentative, allowing the decider to override later.
    *
    * @param peerId - The peer ID of the remote we're giving up on.
    */
@@ -106,15 +105,7 @@ export class RemoteManager {
 
     // Reject all promises for which this remote is the decider
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
-      const promise = this.#kernelStore.getKernelPromise(kpid);
-      // Track this rejection as tentative before rejecting
-      this.#kernelQueue.trackRemoteRejection(
-        remoteId,
-        kpid,
-        promise.decider,
-        promise.subscribers ?? [],
-      );
-      // Now reject the promise
+      // Reject the promise
       this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);
     }
   }
@@ -157,12 +148,12 @@ export class RemoteManager {
    * @returns a promise that resolves when stopping is complete.
    */
   async stopRemoteComms(): Promise<void> {
-    await this.#remoteComms?.stopRemoteComms();
-    this.#remoteComms = undefined;
-    // Clear connection loss rejection tracking for all remotes to prevent memory leaks
-    this.#kernelQueue.clearAllRemoteRejections();
-    this.#remotes.clear();
-    this.#remotesByPeer.clear();
+    if (this.#remoteComms) {
+      await this.#platformServices.stopRemoteComms();
+      this.#remoteComms = undefined;
+      this.#remotes.clear();
+      this.#remotesByPeer.clear();
+    }
   }
 
   /**
@@ -295,12 +286,8 @@ export class RemoteManager {
    * @param peerId - The peer ID to close the connection for.
    */
   async closeConnection(peerId: string): Promise<void> {
-    await this.getRemoteComms().closeConnection(peerId);
-    // Clear connection loss rejection tracking for this remote since we're intentionally closing
-    const remote = this.#remotesByPeer.get(peerId);
-    if (remote) {
-      this.#kernelQueue.clearRemoteRejections(remote.remoteId);
-    }
+    this.getRemoteComms(); // Ensure remote comms is initialized
+    await this.#platformServices.closeConnection(peerId);
   }
 
   /**
@@ -311,6 +298,7 @@ export class RemoteManager {
    * @param hints - Optional hints for reconnection.
    */
   async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
-    await this.getRemoteComms().reconnectPeer(peerId, hints);
+    this.getRemoteComms(); // Ensure remote comms is initialized
+    await this.#platformServices.reconnectPeer(peerId, hints);
   }
 }

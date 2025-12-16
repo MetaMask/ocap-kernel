@@ -60,7 +60,6 @@ describe('promise store methods', () => {
   let context: StoreContext;
   let promiseMethods: ReturnType<typeof getPromiseMethods>;
   const mockDecrementRefCount = vi.fn();
-  const mockIncrementRefCount = vi.fn();
 
   beforeEach(() => {
     mockKV = new Map();
@@ -74,8 +73,6 @@ describe('promise store methods', () => {
       delete: vi.fn(),
     };
     mockProvideStoredQueue = vi.fn(() => mockQueue);
-    mockIncrementRefCount.mockClear();
-    mockDecrementRefCount.mockClear();
 
     (getBaseMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       refCountKey: mockRefCountKey,
@@ -90,7 +87,6 @@ describe('promise store methods', () => {
 
     (getRefCountMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       decrementRefCount: mockDecrementRefCount,
-      incrementRefCount: mockIncrementRefCount,
     });
 
     // Reset the isPromiseRef mock
@@ -168,21 +164,6 @@ describe('promise store methods', () => {
         decider: 'v3',
         subscribers: ['v1', 'v2'],
       });
-    });
-
-    it('does not include decider when it is an empty string', () => {
-      const kpid = 'kp123';
-      mockKV.set(`${kpid}.state`, 'unresolved');
-      mockKV.set(`${kpid}.decider`, '');
-      mockKV.set(`${kpid}.subscribers`, '["v1", "v2"]');
-
-      const result = promiseMethods.getKernelPromise(kpid);
-
-      expect(result).toStrictEqual({
-        state: 'unresolved',
-        subscribers: ['v1', 'v2'],
-      });
-      expect(result.decider).toBeUndefined();
     });
 
     it('retrieves a fulfilled promise', () => {
@@ -304,14 +285,6 @@ describe('promise store methods', () => {
       promiseMethods.setPromiseDecider(kpid, vatId);
 
       expect(mockKV.get(`${kpid}.decider`)).toBe(vatId);
-    });
-
-    it('sets the decider when endpointId is kernel', () => {
-      const kpid = 'kp123';
-
-      promiseMethods.setPromiseDecider(kpid, 'kernel');
-
-      expect(mockKV.get(`${kpid}.decider`)).toBe('kernel');
     });
 
     it('does nothing when kpid is falsy', () => {
@@ -504,111 +477,6 @@ describe('promise store methods', () => {
       const result = Array.from(promiseMethods.getPromisesByDecider(vatId));
 
       expect(result).toStrictEqual([]);
-    });
-  });
-
-  describe('restorePromiseToUnresolved', () => {
-    it('restores a rejected promise to unresolved with decider and subscribers', () => {
-      const kpid = 'kp123';
-      const decider = 'v1' as VatId;
-      const subscribers: VatId[] = ['v2', 'v3'];
-
-      mockKV.set(`${kpid}.state`, 'rejected');
-      mockKV.set(`${kpid}.value`, '{"body":"error","slots":[]}');
-
-      promiseMethods.restorePromiseToUnresolved(kpid, decider, subscribers);
-
-      expect(mockKV.get(`${kpid}.state`)).toBe('unresolved');
-      expect(mockKV.has(`${kpid}.value`)).toBe(false);
-      expect(mockKV.get(`${kpid}.decider`)).toBe(decider);
-      expect(mockKV.get(`${kpid}.subscribers`)).toBe(
-        JSON.stringify(subscribers),
-      );
-      expect(mockIncrementRefCount).toHaveBeenCalledTimes(1);
-      expect(mockIncrementRefCount).toHaveBeenCalledWith(
-        kpid,
-        'override|decider',
-      );
-    });
-
-    it('restores a fulfilled promise to unresolved with decider and subscribers', () => {
-      const kpid = 'kp123';
-      const decider = 'v1' as VatId;
-      const subscribers: VatId[] = ['v2'];
-
-      mockKV.set(`${kpid}.state`, 'fulfilled');
-      mockKV.set(`${kpid}.value`, '{"body":"value","slots":[]}');
-
-      promiseMethods.restorePromiseToUnresolved(kpid, decider, subscribers);
-
-      expect(mockKV.get(`${kpid}.state`)).toBe('unresolved');
-      expect(mockKV.has(`${kpid}.value`)).toBe(false);
-      expect(mockKV.get(`${kpid}.decider`)).toBe(decider);
-      expect(mockKV.get(`${kpid}.subscribers`)).toBe(
-        JSON.stringify(subscribers),
-      );
-      expect(mockIncrementRefCount).toHaveBeenCalledTimes(1);
-      expect(mockIncrementRefCount).toHaveBeenCalledWith(
-        kpid,
-        'override|decider',
-      );
-    });
-
-    it('restores a promise without decider', () => {
-      const kpid = 'kp123';
-      const subscribers: VatId[] = ['v1', 'v2'];
-
-      mockKV.set(`${kpid}.state`, 'rejected');
-      mockKV.set(`${kpid}.value`, '{"body":"error","slots":[]}');
-
-      promiseMethods.restorePromiseToUnresolved(kpid, undefined, subscribers);
-
-      expect(mockKV.get(`${kpid}.state`)).toBe('unresolved');
-      expect(mockKV.has(`${kpid}.value`)).toBe(false);
-      expect(mockKV.has(`${kpid}.decider`)).toBe(false);
-      expect(mockKV.get(`${kpid}.subscribers`)).toBe(
-        JSON.stringify(subscribers),
-      );
-      expect(mockIncrementRefCount).not.toHaveBeenCalled();
-    });
-
-    it('restores a promise with empty subscribers array', () => {
-      const kpid = 'kp123';
-      const decider = 'v1' as VatId;
-      const subscribers: VatId[] = [];
-
-      mockKV.set(`${kpid}.state`, 'rejected');
-      mockKV.set(`${kpid}.value`, '{"body":"error","slots":[]}');
-
-      promiseMethods.restorePromiseToUnresolved(kpid, decider, subscribers);
-
-      expect(mockKV.get(`${kpid}.state`)).toBe('unresolved');
-      expect(mockKV.has(`${kpid}.value`)).toBe(false);
-      expect(mockKV.get(`${kpid}.decider`)).toBe(decider);
-      expect(mockKV.get(`${kpid}.subscribers`)).toBe('[]');
-      expect(mockIncrementRefCount).toHaveBeenCalledTimes(1);
-    });
-
-    it('restores a promise with kernel as decider', () => {
-      const kpid = 'kp123';
-      const subscribers: VatId[] = ['v1'];
-
-      mockKV.set(`${kpid}.state`, 'rejected');
-      mockKV.set(`${kpid}.value`, '{"body":"error","slots":[]}');
-
-      promiseMethods.restorePromiseToUnresolved(kpid, 'kernel', subscribers);
-
-      expect(mockKV.get(`${kpid}.state`)).toBe('unresolved');
-      expect(mockKV.has(`${kpid}.value`)).toBe(false);
-      expect(mockKV.get(`${kpid}.decider`)).toBe('kernel');
-      expect(mockKV.get(`${kpid}.subscribers`)).toBe(
-        JSON.stringify(subscribers),
-      );
-      expect(mockIncrementRefCount).toHaveBeenCalledTimes(1);
-      expect(mockIncrementRefCount).toHaveBeenCalledWith(
-        kpid,
-        'override|decider',
-      );
     });
   });
 

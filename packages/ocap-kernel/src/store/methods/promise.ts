@@ -30,7 +30,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
     getBaseMethods(ctx.kv);
   const { enqueueRun } = getQueueMethods(ctx);
-  const { decrementRefCount, incrementRefCount } = getRefCountMethods(ctx);
+  const { decrementRefCount } = getRefCountMethods(ctx);
 
   /**
    * Create a new, unresolved kernel promise. The new promise will be born with
@@ -142,32 +142,6 @@ export function getPromiseMethods(ctx: StoreContext) {
     if (kpid) {
       ctx.kv.set(`${kpid}.decider`, endpointId);
     }
-  }
-
-  /**
-   * Restore a promise from rejected/fulfilled state back to unresolved.
-   * Used when overriding tentative rejections with authoritative resolutions.
-   *
-   * @param kpid - The ref of the promise to restore.
-   * @param decider - The decider to restore (if any).
-   * @param subscribers - The subscribers to restore.
-   */
-  function restorePromiseToUnresolved(
-    kpid: KRef,
-    decider: EndpointId | undefined,
-    subscribers: EndpointId[],
-  ): void {
-    // Change state from rejected/fulfilled back to unresolved
-    ctx.kv.set(`${kpid}.state`, 'unresolved');
-    ctx.kv.delete(`${kpid}.value`);
-    // Restore decider if provided
-    if (decider) {
-      setPromiseDecider(kpid, decider);
-      // Restore the decider refcount that was decremented during rejection
-      incrementRefCount(kpid, 'override|decider');
-    }
-    // Restore subscribers
-    ctx.kv.set(`${kpid}.subscribers`, JSON.stringify(subscribers));
   }
 
   /**
@@ -294,7 +268,6 @@ export function getPromiseMethods(ctx: StoreContext) {
     getNextPromiseId,
     addPromiseSubscriber,
     setPromiseDecider,
-    restorePromiseToUnresolved,
     resolveKernelPromise,
     enqueuePromiseMessage,
     getKernelPromiseMessageQueue,

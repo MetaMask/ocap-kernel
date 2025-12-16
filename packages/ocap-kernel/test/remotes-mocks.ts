@@ -69,9 +69,6 @@ export class MockRemotesFactory {
       enqueueSend: vi.fn(),
       enqueueNotify: vi.fn(),
       resolvePromises: vi.fn(),
-      trackRemoteRejection: vi.fn(),
-      clearRemoteRejections: vi.fn(),
-      clearAllRemoteRejections: vi.fn(),
       waitForCrank: vi.fn(),
       run: vi.fn(),
     } as unknown as KernelQueue;
@@ -91,9 +88,6 @@ export class MockRemotesFactory {
         .fn()
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),
       redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
-      stopRemoteComms: vi.fn().mockResolvedValue(undefined),
-      closeConnection: vi.fn().mockResolvedValue(undefined),
-      reconnectPeer: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };
   }

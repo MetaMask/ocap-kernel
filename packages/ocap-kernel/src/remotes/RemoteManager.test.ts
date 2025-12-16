@@ -237,40 +237,33 @@ describe('RemoteManager', () => {
     });
 
     it('closes connection to peer', async () => {
-      const remote = remoteManager.establishRemote('peer123');
-      const clearRejectionsSpy = vi.spyOn(
-        mockKernelQueue,
-        'clearRemoteRejections',
-      );
       await remoteManager.closeConnection('peer123');
-      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
-      expect(clearRejectionsSpy).toHaveBeenCalledWith(remote.remoteId);
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'peer123',
+      );
     });
 
     it('closes connection to peer that does not exist', async () => {
-      const clearRejectionsSpy = vi.spyOn(
-        mockKernelQueue,
-        'clearRemoteRejections',
-      );
       await remoteManager.closeConnection('non-existent-peer');
-      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith(
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
         'non-existent-peer',
       );
-      // Should not clear rejections if remote doesn't exist
-      expect(clearRejectionsSpy).not.toHaveBeenCalled();
     });
 
     it('reconnects peer with hints', async () => {
       await remoteManager.reconnectPeer('peer123', ['relay1', 'relay2']);
-      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', [
-        'relay1',
-        'relay2',
-      ]);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+        ['relay1', 'relay2'],
+      );
     });
 
     it('reconnects peer with empty hints when hints not provided', async () => {
       await remoteManager.reconnectPeer('peer123');
-      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', []);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+        [],
+      );
     });
 
     it('gets remote comms after initialization', () => {
@@ -436,7 +429,7 @@ describe('RemoteManager', () => {
     it('stops remote comms and calls stopRemoteComms', async () => {
       await remoteManager.stopRemoteComms();
 
-      expect(mockRemoteComms.stopRemoteComms).toHaveBeenCalledOnce();
+      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
     });
 
     it('clears remoteComms after stopping', async () => {

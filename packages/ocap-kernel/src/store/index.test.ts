@@ -126,7 +126,6 @@ describe('kernel store', () => {
         'removeVatFromSubcluster',
         'reset',
         'resolveKernelPromise',
-        'restorePromiseToUnresolved',
         'retireKernelObjects',
         'revoke',
         'rollbackCrank',

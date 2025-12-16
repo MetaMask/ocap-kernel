@@ -15,7 +15,6 @@ import type {
   RunQueueItemSend,
   VatId,
   EndpointId,
-  RemoteId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
@@ -28,22 +27,6 @@ import { Fail } from './utils/assert.ts';
 export class KernelQueue {
   /** Storage holding the kernel's own persistent state */
   readonly #kernelStore: KernelStore;
-
-  /**
-   * Track promises that were rejected due to connection loss, keyed by remote ID.
-   * This allows the decider's resolution to override tentative rejections.
-   * Stores promise metadata (decider, subscribers) needed to restore state for override.
-   */
-  readonly #connectionLossRejections: Map<
-    RemoteId,
-    Map<
-      KRef,
-      {
-        decider: EndpointId | undefined;
-        subscribers: EndpointId[];
-      }
-    >
-  > = new Map();
 
   /** A function that terminates a vat. */
   readonly #terminateVat: (
@@ -256,35 +239,8 @@ export class KernelQueue {
         this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
       }
 
-      let promise = this.#kernelStore.getKernelPromise(kpid);
-      let { state, decider, subscribers } = promise;
-
-      // If promise was rejected due to connection loss, allow decider to override
-      if (
-        state === 'rejected' &&
-        endpointId &&
-        endpointId !== 'kernel' &&
-        this.#wasRemoteRejected(endpointId, kpid)
-      ) {
-        // Decider's resolution overrides the tentative rejection
-        // Restore promise state (decider, subscribers) before resolving
-        const metadata = this.#connectionLossRejections
-          .get(endpointId)
-          ?.get(kpid);
-        if (metadata) {
-          // Restore promise state from rejected back to unresolved
-          this.#kernelStore.restorePromiseToUnresolved(
-            kpid,
-            metadata.decider,
-            metadata.subscribers,
-          );
-          // Remove from tracking
-          this.#connectionLossRejections.get(endpointId)?.delete(kpid);
-          // Re-fetch promise state after restoration to continue with normal resolution path
-          promise = this.#kernelStore.getKernelPromise(kpid);
-          ({ state, decider, subscribers } = promise);
-        }
-      }
+      const promise = this.#kernelStore.getKernelPromise(kpid);
+      const { state, decider, subscribers } = promise;
 
       if (state !== 'unresolved') {
         Fail`${kpid} was already resolved`;
@@ -308,59 +264,5 @@ export class KernelQueue {
         kernelResolve(data);
       }
     }
-  }
-
-  /**
-   * Check if a promise was rejected due to connection loss.
-   *
-   * @param remoteId - The remote ID to check.
-   * @param kpid - The promise ID to check.
-   * @returns True if the promise was rejected due to connection loss.
-   */
-  #wasRemoteRejected(remoteId: RemoteId, kpid: KRef): boolean {
-    return this.#connectionLossRejections.get(remoteId)?.has(kpid) ?? false;
-  }
-
-  /**
-   * Track a promise as rejected due to connection loss.
-   * Stores promise metadata needed to restore state if decider overrides.
-   *
-   * @param remoteId - The remote ID that was lost.
-   * @param kpid - The promise ID that was rejected.
-   * @param decider - The decider of the promise (before rejection).
-   * @param subscribers - The subscribers of the promise (before rejection).
-   */
-  trackRemoteRejection(
-    remoteId: RemoteId,
-    kpid: KRef,
-    decider: EndpointId | undefined,
-    subscribers: EndpointId[],
-  ): void {
-    let remoteRejections = this.#connectionLossRejections.get(remoteId);
-    if (!remoteRejections) {
-      remoteRejections = new Map();
-      this.#connectionLossRejections.set(remoteId, remoteRejections);
-    }
-    remoteRejections.set(kpid, { decider, subscribers });
-  }
-
-  /**
-   * Clear connection loss rejection tracking for a specific remote.
-   * This should be called when a remote is permanently removed or stopped
-   * to prevent memory leaks from accumulated rejection entries.
-   *
-   * @param remoteId - The remote ID to clear rejections for.
-   */
-  clearRemoteRejections(remoteId: RemoteId): void {
-    this.#connectionLossRejections.delete(remoteId);
-  }
-
-  /**
-   * Clear all connection loss rejection tracking.
-   * This should be called when all remotes are stopped or the kernel is shut down
-   * to prevent memory leaks from accumulated rejection entries.
-   */
-  clearAllRemoteRejections(): void {
-    this.#connectionLossRejections.clear();
   }
 }
