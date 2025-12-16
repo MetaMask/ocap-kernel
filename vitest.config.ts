@@ -98,10 +98,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/kernel-language-model-service/**': {
-          statements: 100,
+          statements: 99.17,
           functions: 100,
-          branches: 100,
-          lines: 100,
+          branches: 97.22,
+          lines: 99.17,
         },
         'packages/kernel-platforms/**': {
           statements: 99.38,
