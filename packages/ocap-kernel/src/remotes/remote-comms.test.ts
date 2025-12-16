@@ -1,6 +1,7 @@
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { fromHex } from '@metamask/kernel-utils';
+import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -45,15 +46,12 @@ describe('remote-comms', () => {
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        testRelays,
+        { relays: testRelays },
       );
       expect(remoteComms).toHaveProperty('getPeerId');
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
-      expect(remoteComms).toHaveProperty('stopRemoteComms');
-      expect(remoteComms).toHaveProperty('closeConnection');
-      expect(remoteComms).toHaveProperty('reconnectPeer');
 
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBe(
@@ -92,6 +90,13 @@ describe('remote-comms', () => {
         'your message here',
         [],
       );
+
+      await remoteComms.sendRemoteMessage('peer1', 'msg', ['hint1', 'hint2']);
+      expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
+        'peer1',
+        'msg',
+        ['hint1', 'hint2'],
+      );
     });
 
     it('honors pre-existing comms initialization parameters when present', async () => {
@@ -110,177 +115,185 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('issueOcapURL');
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
-      expect(remoteComms).toHaveProperty('stopRemoteComms');
-      expect(remoteComms).toHaveProperty('closeConnection');
-      expect(remoteComms).toHaveProperty('reconnectPeer');
       expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
       expect(mockKernelStore.kv.get('keySeed')).toBe(mockKeySeed);
       expect(mockKernelStore.kv.get('ocapURLKey')).toBe(mockOcapURLKey);
     });
-  });
 
-  describe('stopRemoteComms', () => {
-    it('calls platformServices.stopRemoteComms', async () => {
-      const remoteComms = await initRemoteComms(
+    it('passes options object to platformServices.initializeRemoteComms', async () => {
+      const options = {
+        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      };
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        options,
       );
-      await remoteComms.stopRemoteComms();
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
-    });
-
-    it('is a bound function from platformServices', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
+      expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
+        expect.any(String), // keySeed
+        expect.objectContaining({
+          relays: options.relays,
+          maxRetryAttempts: options.maxRetryAttempts,
+          maxQueue: options.maxQueue,
+        }),
         mockRemoteMessageHandler,
-      );
-      expect(typeof remoteComms.stopRemoteComms).toBe('function');
-      await remoteComms.stopRemoteComms();
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalled();
-    });
-
-    it('works after sending messages', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-      await remoteComms.sendRemoteMessage('peer1', 'msg1');
-      await remoteComms.sendRemoteMessage('peer2', 'msg2');
-      await remoteComms.stopRemoteComms();
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
-    });
-
-    it('works after issuing ocap URLs', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-      await remoteComms.issueOcapURL('kref1');
-      await remoteComms.issueOcapURL('kref2');
-      await remoteComms.stopRemoteComms();
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe('closeConnection', () => {
-    it('calls platformServices.closeConnection', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-      await remoteComms.closeConnection('peer123');
-      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
-        'peer123',
+        undefined, // onRemoteGiveUp
       );
     });
 
-    it('is a bound function from platformServices', async () => {
-      const remoteComms = await initRemoteComms(
+    it('uses getKnownRelays when options.relays is empty', async () => {
+      const storedRelays = [
+        '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        {}, // empty options
       );
-      expect(typeof remoteComms.closeConnection).toBe('function');
-      await remoteComms.closeConnection('peer123');
-      expect(mockPlatformServices.closeConnection).toHaveBeenCalled();
-    });
-
-    it('works after sending messages', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
+      expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          relays: storedRelays,
+        }),
         mockRemoteMessageHandler,
-      );
-      await remoteComms.sendRemoteMessage('peer1', 'msg1');
-      await remoteComms.closeConnection('peer1');
-      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
-        'peer1',
-      );
-    });
-
-    it('works after issuing ocap URLs', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-      await remoteComms.issueOcapURL('kref1');
-      await remoteComms.closeConnection('peer123');
-      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
-        'peer123',
-      );
-    });
-  });
-
-  describe('reconnectPeer', () => {
-    it('calls platformServices.reconnectPeer with hints', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-      await remoteComms.reconnectPeer('peer123', ['relay1', 'relay2']);
-      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
-        'peer123',
-        ['relay1', 'relay2'],
+        undefined,
       );
     });
 
-    it('calls platformServices.reconnectPeer with empty hints when not provided', async () => {
-      const remoteComms = await initRemoteComms(
+    it('passes onRemoteGiveUp callback to platformServices', async () => {
+      const onRemoteGiveUp = vi.fn();
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        {},
+        undefined, // logger
+        undefined, // keySeed
+        onRemoteGiveUp,
       );
-      await remoteComms.reconnectPeer('peer123');
-      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
-        'peer123',
+      expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        mockRemoteMessageHandler,
+        onRemoteGiveUp,
       );
-      // The default parameter [] is handled by the actual implementation
-      // The mock receives undefined for the second argument when not provided
     });
 
-    it('is a bound function from platformServices', async () => {
-      const remoteComms = await initRemoteComms(
+    it('uses provided keySeed when creating new peer', async () => {
+      const providedKeySeed =
+        '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        {},
+        undefined,
+        providedKeySeed,
       );
-      expect(typeof remoteComms.reconnectPeer).toBe('function');
-      await remoteComms.reconnectPeer('peer123');
-      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalled();
+      expect(mockKernelStore.kv.get('keySeed')).toBe(providedKeySeed);
+      const peerId = mockKernelStore.kv.get('peerId');
+      expect(peerId).toBeDefined();
+      // Verify peerId matches the provided keySeed
+      const keyPair = await generateKeyPairFromSeed(
+        'Ed25519',
+        fromHex(providedKeySeed),
+      );
+      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
     });
 
-    it('works after closing connection', async () => {
-      const remoteComms = await initRemoteComms(
+    it('calls logger.log when existing peer id is found', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+      const mockPeerId = 'existing-peer-id';
+      const mockKeySeed = 'abcdef';
+      mockKernelStore.kv.set('peerId', mockPeerId);
+      mockKernelStore.kv.set('keySeed', mockKeySeed);
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        {},
+        mockLogger as unknown as Logger,
       );
-      await remoteComms.closeConnection('peer1');
-      await remoteComms.reconnectPeer('peer1', ['relay1']);
-      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith('peer1', [
-        'relay1',
-      ]);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `comms init: existing peer id: ${mockPeerId}`,
+      );
     });
 
-    it('works after sending messages', async () => {
-      const remoteComms = await initRemoteComms(
+    it('calls logger.log when new peer id is created', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+      await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
+        {},
+        mockLogger as unknown as Logger,
       );
-      await remoteComms.sendRemoteMessage('peer1', 'msg1');
-      await remoteComms.reconnectPeer('peer1');
-      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith('peer1');
-      // The default parameter [] is handled by the actual implementation
-      // The mock receives undefined for the second argument when not provided
+      const peerId = mockKernelStore.kv.get('peerId');
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `comms init: new peer id: ${peerId}`,
+      );
+    });
+
+    it('calls logger.log with relays', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+      const testRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { relays: testRelays },
+        mockLogger as unknown as Logger,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `relays: ${JSON.stringify(testRelays)}`,
+      );
+    });
+
+    it('saves relays to KV store when provided', async () => {
+      const testRelays = [
+        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { relays: testRelays },
+      );
+      expect(mockKernelStore.kv.get('knownRelays')).toBe(
+        JSON.stringify(testRelays),
+      );
+    });
+
+    it('does not save relays to KV store when empty', async () => {
+      const storedRelays = ['/dns4/stored-relay.example/tcp/443/wss/p2p/relay'];
+      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {}, // empty relays
+      );
+      // Should not overwrite existing relays
+      expect(mockKernelStore.kv.get('knownRelays')).toBe(
+        JSON.stringify(storedRelays),
+      );
     });
   });
 
@@ -397,6 +410,122 @@ describe('remote-comms', () => {
       await expect(
         remoteComms.redeemLocalOcapURL(corruptedURL),
       ).rejects.toThrow('ocapURL has bad object reference');
+    });
+
+    it('calls logger.error when decryption fails', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {},
+        mockLogger as unknown as Logger,
+      );
+
+      const validURL = await remoteComms.issueOcapURL('test-kref');
+      const peerId = remoteComms.getPeerId();
+      const { oid } = parseOcapURL(validURL);
+      const corruptedOid = `${oid.slice(0, -5)}zzzzz`;
+      const corruptedURL = `ocap:${corruptedOid}@${peerId}`;
+
+      await expect(
+        remoteComms.redeemLocalOcapURL(corruptedURL),
+      ).rejects.toThrow('ocapURL has bad object reference');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'problem deciphering encoded kref: ',
+        expect.any(Error),
+      );
+    });
+
+    it('handles issueOcapURL with short kref', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      const shortKref = 'abc';
+      const ocapURL = await remoteComms.issueOcapURL(shortKref);
+      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
+      expect(kref).toBe(shortKref);
+    });
+
+    it('handles issueOcapURL with empty kref', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      const emptyKref = '';
+      const ocapURL = await remoteComms.issueOcapURL(emptyKref);
+      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
+      expect(kref).toBe(emptyKref);
+    });
+
+    it('handles issueOcapURL with long kref', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      const longKref = 'a'.repeat(100);
+      const ocapURL = await remoteComms.issueOcapURL(longKref);
+      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
+      expect(kref).toBe(longKref);
+    });
+
+    it('handles issueOcapURL with kref containing special characters', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      const specialKref = 'kref-with-special-chars-!@#$%^&*()';
+      const ocapURL = await remoteComms.issueOcapURL(specialKref);
+      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
+      expect(kref).toBe(specialKref);
+    });
+
+    it('includes knownRelays in issued ocap URLs', async () => {
+      const testRelays = [
+        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { relays: testRelays },
+      );
+
+      const ocapURL = await remoteComms.issueOcapURL('test-kref');
+      const { hints } = parseOcapURL(ocapURL);
+      expect(hints).toStrictEqual(testRelays);
+    });
+
+    it('includes stored relays in issued ocap URLs when options.relays is empty', async () => {
+      const storedRelays = [
+        '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
+        '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
+      ];
+      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {},
+      );
+
+      const ocapURL = await remoteComms.issueOcapURL('test-kref');
+      const { hints } = parseOcapURL(ocapURL);
+      expect(hints).toStrictEqual(storedRelays);
     });
   });
 });

@@ -88,9 +88,6 @@ export class MockRemotesFactory {
         .fn()
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),
       redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
-      stopRemoteComms: vi.fn().mockResolvedValue(undefined),
-      closeConnection: vi.fn().mockResolvedValue(undefined),
-      reconnectPeer: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };
   }

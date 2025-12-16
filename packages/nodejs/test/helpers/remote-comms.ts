@@ -134,7 +134,7 @@ export async function restartKernel(
   relays: string[],
 ): Promise<Kernel> {
   const kernel = await makeTestKernel(kernelDatabase, resetStorage);
-  await kernel.initRemoteComms(relays);
+  await kernel.initRemoteComms({ relays });
   return kernel;
 }
 
@@ -192,8 +192,8 @@ export async function setupAliceAndBob(
   peerId1: string;
   peerId2: string;
 }> {
-  await kernel1.initRemoteComms(relays);
-  await kernel2.initRemoteComms(relays);
+  await kernel1.initRemoteComms({ relays });
+  await kernel2.initRemoteComms({ relays });
 
   const aliceConfig = makeRemoteVatConfig('Alice');
   const bobConfig = makeRemoteVatConfig('Bob');

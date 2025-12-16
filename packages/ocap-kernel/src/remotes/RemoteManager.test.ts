@@ -70,15 +70,69 @@ describe('RemoteManager', () => {
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
 
       remoteManager.setMessageHandler(messageHandler);
-      await remoteManager.initRemoteComms(['relay1', 'relay2']);
+      await remoteManager.initRemoteComms({ relays: ['relay1', 'relay2'] });
 
       expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
         kernelStore,
         mockPlatformServices,
         messageHandler,
-        ['relay1', 'relay2'],
+        { relays: ['relay1', 'relay2'] },
         logger,
         undefined,
+        expect.any(Function),
+      );
+    });
+
+    it('initializes remote comms with all options', async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms({
+        relays: ['relay1', 'relay2'],
+        maxRetryAttempts: 5,
+        maxQueue: 100,
+      });
+
+      expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
+        kernelStore,
+        mockPlatformServices,
+        messageHandler,
+        {
+          relays: ['relay1', 'relay2'],
+          maxRetryAttempts: 5,
+          maxQueue: 100,
+        },
+        logger,
+        undefined,
+        expect.any(Function),
+      );
+    });
+
+    it('passes keySeed to initRemoteComms', async () => {
+      const keySeed = '0x1234567890abcdef';
+      const managerWithKeySeed = new RemoteManager({
+        platformServices: mockPlatformServices,
+        kernelStore,
+        kernelQueue: mockKernelQueue,
+        logger,
+        keySeed,
+      });
+
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      managerWithKeySeed.setMessageHandler(messageHandler);
+      await managerWithKeySeed.initRemoteComms();
+
+      expect(remoteComms.initRemoteComms).toHaveBeenCalledWith(
+        kernelStore,
+        mockPlatformServices,
+        messageHandler,
+        {},
+        logger,
+        keySeed,
+        expect.any(Function),
       );
     });
 
@@ -107,7 +161,8 @@ describe('RemoteManager', () => {
       const remote2Id = remote2.remoteId;
 
       // Stop remote comms (simulating shutdown)
-      await remoteManager.stopRemoteComms();
+      await mockPlatformServices.stopRemoteComms();
+      remoteManager.cleanup();
 
       // Create a new RemoteManager instance (simulating restart)
       const newRemoteManager = new RemoteManager({
@@ -184,20 +239,32 @@ describe('RemoteManager', () => {
 
     it('closes connection to peer', async () => {
       await remoteManager.closeConnection('peer123');
-      expect(mockRemoteComms.closeConnection).toHaveBeenCalledWith('peer123');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'peer123',
+      );
+    });
+
+    it('closes connection to peer that does not exist', async () => {
+      await remoteManager.closeConnection('non-existent-peer');
+      expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
+        'non-existent-peer',
+      );
     });
 
     it('reconnects peer with hints', async () => {
       await remoteManager.reconnectPeer('peer123', ['relay1', 'relay2']);
-      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', [
-        'relay1',
-        'relay2',
-      ]);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+        ['relay1', 'relay2'],
+      );
     });
 
     it('reconnects peer with empty hints when hints not provided', async () => {
       await remoteManager.reconnectPeer('peer123');
-      expect(mockRemoteComms.reconnectPeer).toHaveBeenCalledWith('peer123', []);
+      expect(mockPlatformServices.reconnectPeer).toHaveBeenCalledWith(
+        'peer123',
+        [],
+      );
     });
 
     it('gets remote comms after initialization', () => {
@@ -319,7 +386,8 @@ describe('RemoteManager', () => {
       const { remoteId } = remote;
 
       // Stop and restart
-      await remoteManager.stopRemoteComms();
+      await mockPlatformServices.stopRemoteComms();
+      remoteManager.cleanup();
 
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
@@ -352,7 +420,7 @@ describe('RemoteManager', () => {
     });
   });
 
-  describe('stopRemoteComms', () => {
+  describe('cleanup', () => {
     beforeEach(async () => {
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
@@ -360,19 +428,13 @@ describe('RemoteManager', () => {
       await remoteManager.initRemoteComms();
     });
 
-    it('stops remote comms and calls stopRemoteComms', async () => {
-      await remoteManager.stopRemoteComms();
-
-      expect(mockRemoteComms.stopRemoteComms).toHaveBeenCalledOnce();
-    });
-
-    it('clears remoteComms after stopping', async () => {
-      await remoteManager.stopRemoteComms();
+    it('clears remoteComms after cleanup', () => {
+      remoteManager.cleanup();
 
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
     });
 
-    it('clears all remote handles after stopping', async () => {
+    it('clears all remote handles after cleanup', () => {
       // Establish some remotes
       remoteManager.establishRemote('peer1');
       remoteManager.establishRemote('peer2');
@@ -383,45 +445,45 @@ describe('RemoteManager', () => {
       expect(remoteManager.remoteFor('peer2')).toBeDefined();
       expect(remoteManager.remoteFor('peer3')).toBeDefined();
 
-      await remoteManager.stopRemoteComms();
+      remoteManager.cleanup();
 
-      // After stop, trying to get remotes should throw or create new ones
+      // After cleanup, trying to get remotes should throw or create new ones
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
     });
 
-    it('throws when calling getPeerId after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling getPeerId after cleanup', () => {
+      remoteManager.cleanup();
 
       expect(() => remoteManager.getPeerId()).toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('throws when calling sendRemoteMessage after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling sendRemoteMessage after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(
         remoteManager.sendRemoteMessage('peer1', 'test'),
       ).rejects.toThrow('Remote comms not initialized');
     });
 
-    it('throws when calling closeConnection after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling closeConnection after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(remoteManager.closeConnection('peer1')).rejects.toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('throws when calling reconnectPeer after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling reconnectPeer after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(remoteManager.reconnectPeer('peer1')).rejects.toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('can be called when remote comms is not initialized', async () => {
+    it('can be called when remote comms is not initialized', () => {
       const newManager = new RemoteManager({
         platformServices: mockPlatformServices,
         kernelStore,
@@ -430,24 +492,23 @@ describe('RemoteManager', () => {
       });
 
       // Should not throw
-      const result = await newManager.stopRemoteComms();
-      expect(result).toBeUndefined();
+      expect(() => newManager.cleanup()).not.toThrow();
     });
 
-    it('allows re-initialization after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('allows re-initialization after cleanup', async () => {
+      remoteManager.cleanup();
 
       // Should be able to initialize again
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
       remoteManager.setMessageHandler(messageHandler);
-      await remoteManager.initRemoteComms(['relay1']);
+      await remoteManager.initRemoteComms({ relays: ['relay1'] });
 
       expect(remoteManager.isRemoteCommsInitialized()).toBe(true);
       expect(remoteComms.initRemoteComms).toHaveBeenCalledTimes(2);
     });
 
-    it('clears remote handles by peer ID', async () => {
+    it('clears remote handles by peer ID', () => {
       const remote1 = remoteManager.establishRemote('peer1');
       const remote2 = remoteManager.establishRemote('peer2');
 
@@ -455,10 +516,61 @@ describe('RemoteManager', () => {
       expect(remoteManager.remoteFor('peer1')).toBe(remote1);
       expect(remoteManager.remoteFor('peer2')).toBe(remote2);
 
-      await remoteManager.stopRemoteComms();
+      remoteManager.cleanup();
 
-      // After stop, remotes are cleared
+      // After cleanup, remotes are cleared
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
+    });
+  });
+
+  describe('handleRemoteGiveUp', () => {
+    beforeEach(async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+    });
+
+    it('handles remote give up callback when remote exists', () => {
+      const peerId = 'peer-to-give-up';
+      const remote = remoteManager.establishRemote(peerId);
+      const rejectPendingRedemptionsSpy = vi.spyOn(
+        remote,
+        'rejectPendingRedemptions',
+      );
+      // Get the callback that was passed to initRemoteComms
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      onRemoteGiveUp(peerId);
+      // Verify pending redemptions were rejected
+      expect(rejectPendingRedemptionsSpy).toHaveBeenCalledWith(
+        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+      );
+    });
+
+    it('handles remote give up callback when remote does not exist', () => {
+      const peerId = 'non-existent-peer';
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      expect(() => onRemoteGiveUp(peerId)).not.toThrow();
+    });
+
+    it('handles remote give up and processes promises when they exist', () => {
+      const peerId = 'peer-with-promises';
+      remoteManager.establishRemote(peerId);
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      expect(() => onRemoteGiveUp(peerId)).not.toThrow();
+    });
+
+    it('handles remote give up with no promises', () => {
+      const peerId = 'peer-with-no-promises';
+      remoteManager.establishRemote(peerId);
+      const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
+      onRemoteGiveUp(peerId);
+      expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });
   });
 });

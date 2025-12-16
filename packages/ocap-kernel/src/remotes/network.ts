@@ -16,30 +16,42 @@ import type {
   SendRemoteMessage,
   StopRemoteComms,
   Channel,
+  OnRemoteGiveUp,
+  RemoteCommsOptions,
 } from './types.ts';
 
-/** Upper bound for queued outbound messages while reconnecting */
-const MAX_QUEUE = 200;
+/** Default upper bound for queued outbound messages while reconnecting */
+const DEFAULT_MAX_QUEUE = 200;
 
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
  * @param keySeed - Seed value for key generation, in the form of a hex-encoded string.
- * @param knownRelays - PeerIds/Multiaddrs of known message relays.
+ * @param options - Options for remote communications initialization.
+ * @param options.relays - PeerIds/Multiaddrs of known message relays.
+ * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+ * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
+ * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
  *
  * @returns a function to send messages **and** a `stop()` to cancel/release everything.
  */
 export async function initNetwork(
   keySeed: string,
-  knownRelays: string[],
+  options: RemoteCommsOptions,
   remoteMessageHandler: RemoteMessageHandler,
+  onRemoteGiveUp?: OnRemoteGiveUp,
 ): Promise<{
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
   closeConnection: (peerId: string) => Promise<void>;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
 }> {
+  const {
+    relays = [],
+    maxRetryAttempts,
+    maxQueue = DEFAULT_MAX_QUEUE,
+  } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
   const { signal } = stopController;
@@ -50,9 +62,10 @@ export async function initNetwork(
   const intentionallyClosed = new Set<string>(); // Track peers that intentionally closed connections
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
-    knownRelays,
+    relays,
     logger,
     signal,
+    maxRetryAttempts,
   );
 
   /**
@@ -97,7 +110,7 @@ export async function initNetwork(
   function getMessageQueue(peerId: string): MessageQueue {
     let queue = messageQueues.get(peerId);
     if (!queue) {
-      queue = new MessageQueue(MAX_QUEUE);
+      queue = new MessageQueue(maxQueue);
       messageQueues.set(peerId, queue);
     }
     return queue;
@@ -210,7 +223,7 @@ export async function initNetwork(
   async function attemptReconnection(
     peerId: string,
     hints: string[] = [],
-    maxAttempts = DEFAULT_MAX_RETRY_ATTEMPTS,
+    maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
     const queue = getMessageQueue(peerId);
 
@@ -221,6 +234,7 @@ export async function initNetwork(
         );
         reconnectionManager.stopReconnection(peerId);
         queue.clear();
+        onRemoteGiveUp?.(peerId);
         return;
       }
 
@@ -256,9 +270,6 @@ export async function initNetwork(
 
         logger.log(`${peerId}:: reconnection successful`);
 
-        // Reset backoff but keep reconnection active until flush completes
-        reconnectionManager.resetBackoff(peerId);
-
         // Start reading from the new channel
         readChannel(channel).catch((problem) => {
           outputError(peerId, `reading channel to`, problem);
@@ -267,15 +278,16 @@ export async function initNetwork(
         // Flush queued messages
         await flushQueuedMessages(peerId, channel, queue);
 
-        // Check if reconnection was restarted during flush (e.g., due to flush errors)
-        if (reconnectionManager.isReconnecting(peerId)) {
+        // Check if channel was deleted during flush (e.g., due to flush errors)
+        if (!channels.has(peerId)) {
           logger.log(
-            `${peerId}:: reconnection restarted during flush, continuing loop`,
+            `${peerId}:: channel deleted during flush, continuing loop`,
           );
           continue; // Continue the reconnection loop
         }
 
-        // Only stop reconnection after successful flush
+        // Only reset backoff and stop reconnection after successful flush
+        reconnectionManager.resetBackoff(peerId);
         reconnectionManager.stopReconnection(peerId);
         return; // success
       } catch (problem) {
@@ -287,6 +299,7 @@ export async function initNetwork(
           outputError(peerId, `non-retryable failure`, problem);
           reconnectionManager.stopReconnection(peerId);
           queue.clear();
+          onRemoteGiveUp?.(peerId);
           return;
         }
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
@@ -331,7 +344,6 @@ export async function initNetwork(
       try {
         logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
         await channel.msgStream.write(fromString(queuedMsg.message));
-        reconnectionManager.resetBackoff(peerId);
       } catch (problem) {
         outputError(peerId, `sending queued message`, problem);
         // Preserve the failed message and all remaining messages
@@ -375,7 +387,7 @@ export async function initNetwork(
       queue.enqueue(message, hints);
       logger.log(
         `${targetPeerId}:: queueing message during reconnection ` +
-          `(${queue.length}/${MAX_QUEUE}): ${message}`,
+          `(${queue.length}/${maxQueue}): ${message}`,
       );
       return;
     }
@@ -394,7 +406,7 @@ export async function initNetwork(
           queue.enqueue(message, hints);
           logger.log(
             `${targetPeerId}:: reconnection started during dial, queueing message ` +
-              `(${queue.length}/${MAX_QUEUE}): ${message}`,
+              `(${queue.length}/${maxQueue}): ${message}`,
           );
           return;
         }

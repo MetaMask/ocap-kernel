@@ -10,7 +10,12 @@ describe('kernel-remote index', () => {
       expect(kernelRemoteHandlers.remoteDeliver).toBeDefined();
     });
 
-    it('should have correct handler structure', () => {
+    it('should export remoteGiveUp handler', () => {
+      expect(kernelRemoteHandlers).toHaveProperty('remoteGiveUp');
+      expect(kernelRemoteHandlers.remoteGiveUp).toBeDefined();
+    });
+
+    it('should have correct handler structure for remoteDeliver', () => {
       const handler = kernelRemoteHandlers.remoteDeliver;
 
       expect(handler).toHaveProperty('method', 'remoteDeliver');
@@ -20,7 +25,17 @@ describe('kernel-remote index', () => {
       expect(handler).toHaveProperty('implementation');
     });
 
-    it('should have correct hooks configuration', () => {
+    it('should have correct handler structure for remoteGiveUp', () => {
+      const handler = kernelRemoteHandlers.remoteGiveUp;
+
+      expect(handler).toHaveProperty('method', 'remoteGiveUp');
+      expect(handler).toHaveProperty('params');
+      expect(handler).toHaveProperty('result');
+      expect(handler).toHaveProperty('hooks');
+      expect(handler).toHaveProperty('implementation');
+    });
+
+    it('should have correct hooks configuration for remoteDeliver', () => {
       const handler = kernelRemoteHandlers.remoteDeliver;
 
       expect(handler.hooks).toStrictEqual({
@@ -28,8 +43,22 @@ describe('kernel-remote index', () => {
       });
     });
 
-    it('should have implementation as a function', () => {
+    it('should have correct hooks configuration for remoteGiveUp', () => {
+      const handler = kernelRemoteHandlers.remoteGiveUp;
+
+      expect(handler.hooks).toStrictEqual({
+        remoteGiveUp: true,
+      });
+    });
+
+    it('should have implementation as a function for remoteDeliver', () => {
       const handler = kernelRemoteHandlers.remoteDeliver;
+
+      expect(typeof handler.implementation).toBe('function');
+    });
+
+    it('should have implementation as a function for remoteGiveUp', () => {
+      const handler = kernelRemoteHandlers.remoteGiveUp;
 
       expect(typeof handler.implementation).toBe('function');
     });
@@ -41,7 +70,12 @@ describe('kernel-remote index', () => {
       expect(kernelRemoteMethodSpecs.remoteDeliver).toBeDefined();
     });
 
-    it('should have correct method spec structure', () => {
+    it('should export remoteGiveUp method spec', () => {
+      expect(kernelRemoteMethodSpecs).toHaveProperty('remoteGiveUp');
+      expect(kernelRemoteMethodSpecs.remoteGiveUp).toBeDefined();
+    });
+
+    it('should have correct method spec structure for remoteDeliver', () => {
       const spec = kernelRemoteMethodSpecs.remoteDeliver;
 
       expect(spec).toHaveProperty('method', 'remoteDeliver');
@@ -49,9 +83,24 @@ describe('kernel-remote index', () => {
       expect(spec).toHaveProperty('result');
     });
 
-    it('should match the handler method name', () => {
+    it('should have correct method spec structure for remoteGiveUp', () => {
+      const spec = kernelRemoteMethodSpecs.remoteGiveUp;
+
+      expect(spec).toHaveProperty('method', 'remoteGiveUp');
+      expect(spec).toHaveProperty('params');
+      expect(spec).toHaveProperty('result');
+    });
+
+    it('should match the handler method name for remoteDeliver', () => {
       const handler = kernelRemoteHandlers.remoteDeliver;
       const spec = kernelRemoteMethodSpecs.remoteDeliver;
+
+      expect(handler.method).toBe(spec.method);
+    });
+
+    it('should match the handler method name for remoteGiveUp', () => {
+      const handler = kernelRemoteHandlers.remoteGiveUp;
+      const spec = kernelRemoteMethodSpecs.remoteGiveUp;
 
       expect(handler.method).toBe(spec.method);
     });
@@ -62,6 +111,12 @@ describe('kernel-remote index', () => {
       // This test verifies that the type is correctly inferred
       const method: KernelRemoteMethod = 'remoteDeliver';
       expect(method).toBe('remoteDeliver');
+    });
+
+    it('should include remoteGiveUp method', () => {
+      // This test verifies that the type is correctly inferred
+      const method: KernelRemoteMethod = 'remoteGiveUp';
+      expect(method).toBe('remoteGiveUp');
     });
   });
 

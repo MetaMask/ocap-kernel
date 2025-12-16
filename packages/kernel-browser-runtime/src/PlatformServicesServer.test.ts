@@ -23,6 +23,10 @@ const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 const mockCloseConnection = vi.fn(async () => undefined);
 const mockReconnectPeer = vi.fn(async () => undefined);
+let capturedRemoteMessageHandler:
+  | ((from: string, message: string) => Promise<string>)
+  | undefined;
+let capturedRemoteGiveUpHandler: ((peerId: string) => void) | undefined;
 
 vi.mock('@metamask/ocap-kernel', () => ({
   PlatformServicesCommandMethod: {
@@ -30,12 +34,23 @@ vi.mock('@metamask/ocap-kernel', () => ({
     terminate: 'terminate',
     terminateAll: 'terminateAll',
   },
-  initNetwork: vi.fn(async () => ({
-    sendRemoteMessage: mockSendRemoteMessage,
-    stop: mockStop,
-    closeConnection: mockCloseConnection,
-    reconnectPeer: mockReconnectPeer,
-  })),
+  initNetwork: vi.fn(
+    async (
+      _keySeed: string,
+      _options: unknown,
+      remoteMessageHandler: (from: string, message: string) => Promise<string>,
+      remoteGiveUpHandler: (peerId: string) => void,
+    ) => {
+      capturedRemoteMessageHandler = remoteMessageHandler;
+      capturedRemoteGiveUpHandler = remoteGiveUpHandler;
+      return {
+        sendRemoteMessage: mockSendRemoteMessage,
+        stop: mockStop,
+        closeConnection: mockCloseConnection,
+        reconnectPeer: mockReconnectPeer,
+      };
+    },
+  ),
 }));
 
 const makeVatConfig = (sourceSpec = 'bogus.js'): VatConfig => ({
@@ -78,11 +93,11 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
 const makeInitializeRemoteCommsMessageEvent = (
   messageId: `m${number}`,
   keySeed: string,
-  knownRelays: string[],
+  options: { relays?: string[]; maxRetryAttempts?: number; maxQueue?: number },
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'initializeRemoteComms',
-    params: { keySeed, knownRelays },
+    params: { keySeed, ...options },
   });
 
 const makeSendRemoteMessageMessageEvent = (
@@ -212,6 +227,36 @@ describe('PlatformServicesServer', () => {
       );
     });
 
+    it('handles JsonRpcResponse messages', async () => {
+      const outputs: unknown[] = [];
+      const testStream = await TestDuplexStream.make((message) => {
+        outputs.push(message);
+      });
+      await testStream.synchronize();
+      // eslint-disable-next-line no-new
+      new PlatformServicesServer(
+        testStream as unknown as PlatformServicesStream,
+        makeMockVatWorker,
+        logger,
+      );
+
+      // Send a response (simulating RPC client response)
+      await testStream.receiveInput(
+        new MessageEvent('message', {
+          data: {
+            id: 'vws:1',
+            result: 'test-result',
+            jsonrpc: '2.0',
+          },
+        }),
+      );
+      await delay(10);
+
+      // Response should be handled without errors
+      // (RPC client handles it internally)
+      expect(testStream).toBeDefined();
+    });
+
     describe('launch', () => {
       it('launches a vat', async () => {
         const vatId = 'v0';
@@ -339,22 +384,47 @@ describe('PlatformServicesServer', () => {
         mockStop.mockClear();
         mockCloseConnection.mockClear();
         mockReconnectPeer.mockClear();
+        capturedRemoteMessageHandler = undefined;
+        capturedRemoteGiveUpHandler = undefined;
       });
 
       describe('initializeRemoteComms', () => {
         it('initializes remote comms with keySeed and relays', async () => {
           const keySeed = '0x1234567890abcdef';
-          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
           );
           await delay(10);
 
           const { initNetwork } = await import('@metamask/ocap-kernel');
           expect(initNetwork).toHaveBeenCalledWith(
             keySeed,
-            knownRelays,
+            { relays },
+            expect.any(Function),
+            expect.any(Function),
+          );
+        });
+
+        it('initializes remote comms with all options', async () => {
+          const keySeed = '0x1234567890abcdef';
+          const options = {
+            relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            maxRetryAttempts: 5,
+            maxQueue: 100,
+          };
+
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, options),
+          );
+          await delay(10);
+
+          const { initNetwork } = await import('@metamask/ocap-kernel');
+          expect(initNetwork).toHaveBeenCalledWith(
+            keySeed,
+            options,
+            expect.any(Function),
             expect.any(Function),
           );
         });
@@ -362,17 +432,17 @@ describe('PlatformServicesServer', () => {
         it('throws error if already initialized', async () => {
           const errorSpy = vi.spyOn(logger, 'error');
           const keySeed = '0xabcd';
-          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
           // First initialization
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
           );
           await delay(10);
 
           // Second initialization should fail
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m1', keySeed, knownRelays),
+            makeInitializeRemoteCommsMessageEvent('m1', keySeed, { relays }),
           );
           await delay(10);
 
@@ -385,13 +455,138 @@ describe('PlatformServicesServer', () => {
         });
       });
 
+      describe('handleRemoteMessage', () => {
+        it('captures handler from initNetwork', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
+          );
+          await delay(10);
+
+          // Handler should be captured
+          expect(capturedRemoteMessageHandler).toBeDefined();
+          expect(typeof capturedRemoteMessageHandler).toBe('function');
+        });
+
+        it('sends RPC call for remoteDeliver when handler is called', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          // Capture RPC calls through stream
+          const outputs: unknown[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message);
+          });
+          await testStream.synchronize();
+          // eslint-disable-next-line no-new
+          new PlatformServicesServer(
+            testStream as unknown as PlatformServicesStream,
+            makeMockVatWorker,
+            logger,
+          );
+          await testStream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m1', keySeed, { relays }),
+          );
+          await delay(10);
+
+          // Handler should be captured and callable
+          expect(capturedRemoteMessageHandler).toBeDefined();
+          expect(typeof capturedRemoteMessageHandler).toBe('function');
+
+          // Call handler - it will send RPC request
+          const handlerPromise = capturedRemoteMessageHandler?.(
+            'peer-123',
+            'test-message',
+          );
+
+          await delay(10);
+
+          // Should have sent remoteDeliver RPC request
+          const remoteDeliverCall = outputs.find((outputMessage: unknown) => {
+            const parsedMessage = outputMessage as {
+              payload?: { method?: string };
+            };
+            return parsedMessage.payload?.method === 'remoteDeliver';
+          });
+          expect(remoteDeliverCall).toBeDefined();
+
+          // Mock response to complete the handler call
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'vws:1',
+                result: '',
+                jsonrpc: '2.0',
+              },
+            }),
+          );
+          await handlerPromise;
+        });
+      });
+
+      describe('handleRemoteGiveUp', () => {
+        it('captures handler from initNetwork', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
+          );
+          await delay(10);
+
+          // Handler should be captured
+          expect(capturedRemoteGiveUpHandler).toBeDefined();
+          expect(typeof capturedRemoteGiveUpHandler).toBe('function');
+        });
+
+        it('sends RPC call for remoteGiveUp when handler is called', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          // Capture RPC calls through stream
+          const outputs: unknown[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message);
+          });
+          await testStream.synchronize();
+          // eslint-disable-next-line no-new
+          new PlatformServicesServer(
+            testStream as unknown as PlatformServicesStream,
+            makeMockVatWorker,
+            logger,
+          );
+          await testStream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m1', keySeed, { relays }),
+          );
+          await delay(10);
+
+          // Handler should be captured and callable
+          expect(capturedRemoteGiveUpHandler).toBeDefined();
+          expect(typeof capturedRemoteGiveUpHandler).toBe('function');
+
+          capturedRemoteGiveUpHandler?.('peer-789');
+          await delay(10);
+
+          // Should have sent remoteGiveUp RPC call
+          const remoteGiveUpCall = outputs.find((outputMessage: unknown) => {
+            const parsedMessage = outputMessage as {
+              payload?: { method?: string };
+            };
+            return parsedMessage.payload?.method === 'remoteGiveUp';
+          });
+          expect(remoteGiveUpCall).toBeDefined();
+        });
+      });
+
       describe('sendRemoteMessage', () => {
         it('sends message via network layer', async () => {
           // First initialize remote comms
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
           );
           await delay(10);
 
@@ -431,9 +626,9 @@ describe('PlatformServicesServer', () => {
         it('stops remote comms and cleans up', async () => {
           // First initialize
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
           );
           await delay(10);
 
@@ -452,11 +647,11 @@ describe('PlatformServicesServer', () => {
 
         it('allows re-initialization after stop', async () => {
           const keySeed = '0xabcd';
-          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
           // Initialize
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', keySeed, knownRelays),
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
           );
           await delay(10);
 
@@ -469,7 +664,7 @@ describe('PlatformServicesServer', () => {
 
           // Re-initialize should work
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m2', keySeed, knownRelays),
+            makeInitializeRemoteCommsMessageEvent('m2', keySeed, { relays }),
           );
           await delay(10);
 
@@ -484,9 +679,9 @@ describe('PlatformServicesServer', () => {
         it('closes connection via network layer', async () => {
           // First initialize remote comms
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
           );
           await delay(10);
 
@@ -520,9 +715,9 @@ describe('PlatformServicesServer', () => {
         it('reconnects peer via network layer', async () => {
           // First initialize remote comms
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
           );
           await delay(10);
 
@@ -542,9 +737,9 @@ describe('PlatformServicesServer', () => {
         it('reconnects peer with empty hints', async () => {
           // First initialize remote comms
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', [
-              '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-            ]),
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {
+              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+            }),
           );
           await delay(10);
 

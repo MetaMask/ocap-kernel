@@ -471,5 +471,47 @@ describe('ReconnectionManager', () => {
       expect(manager.isReconnecting(peerId)).toBe(true);
       expect(manager.getAttemptCount(peerId)).toBe(0);
     });
+
+    it('resets attempt count when starting new reconnection after max retries exhausted', () => {
+      const peerId = 'peer1';
+      const maxAttempts = 3;
+
+      // Start reconnection and exhaust max attempts
+      manager.startReconnection(peerId);
+      manager.incrementAttempt(peerId);
+      manager.incrementAttempt(peerId);
+      manager.incrementAttempt(peerId);
+
+      // Max attempts reached
+      expect(manager.shouldRetry(peerId, maxAttempts)).toBe(false);
+      expect(manager.getAttemptCount(peerId)).toBe(3);
+
+      // Stop reconnection (simulating giving up)
+      manager.stopReconnection(peerId);
+      expect(manager.isReconnecting(peerId)).toBe(false);
+      // Attempt count is still 3 (not reset by stopReconnection)
+
+      // Start a new reconnection session - should reset attempt count
+      manager.startReconnection(peerId);
+      expect(manager.isReconnecting(peerId)).toBe(true);
+      expect(manager.getAttemptCount(peerId)).toBe(0);
+      // Should now allow retries again
+      expect(manager.shouldRetry(peerId, maxAttempts)).toBe(true);
+    });
+
+    it('does not reset attempt count when already reconnecting', () => {
+      const peerId = 'peer1';
+
+      // Start reconnection and make some attempts
+      manager.startReconnection(peerId);
+      manager.incrementAttempt(peerId);
+      manager.incrementAttempt(peerId);
+      expect(manager.getAttemptCount(peerId)).toBe(2);
+
+      // Calling startReconnection again (idempotent) should not reset
+      manager.startReconnection(peerId);
+      expect(manager.getAttemptCount(peerId)).toBe(2);
+      expect(manager.isReconnecting(peerId)).toBe(true);
+    });
   });
 });

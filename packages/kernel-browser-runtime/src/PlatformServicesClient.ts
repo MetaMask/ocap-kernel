@@ -7,6 +7,7 @@ import type {
   RemoteMessageHandler,
   VatId,
   VatConfig,
+  RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 import {
   platformServicesMethodSpecs,
@@ -47,6 +48,8 @@ export class PlatformServicesClient implements PlatformServices {
 
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
+  #remoteGiveUpHandler: ((peerId: string) => void) | undefined = undefined;
+
   /**
    * **ATTN:** Prefer {@link PlatformServicesClient.make} over constructing
    * this class directly.
@@ -80,6 +83,7 @@ export class PlatformServicesClient implements PlatformServices {
     );
     this.#rpcServer = new RpcService(kernelRemoteHandlers, {
       remoteDeliver: this.#remoteDeliver.bind(this),
+      remoteGiveUp: this.#remoteGiveUp.bind(this),
     });
 
     // Start draining messages immediately after construction
@@ -171,21 +175,29 @@ export class PlatformServicesClient implements PlatformServices {
    * Initialize network communications.
    *
    * @param keySeed - The seed for generating this kernel's secret key.
-   * @param knownRelays - Array of the peerIDs of relay nodes that can be used to listen for incoming
+   * @param options - Options for remote communications initialization.
+   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
    *   connections from other kernels.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
    * @param remoteMessageHandler - A handler function to receive remote messages.
+   * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
   async initializeRemoteComms(
     keySeed: string,
-    knownRelays: string[],
+    options: RemoteCommsOptions,
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
+    onRemoteGiveUp?: (peerId: string) => void,
   ): Promise<void> {
     this.#remoteMessageHandler = remoteMessageHandler;
+    this.#remoteGiveUpHandler = onRemoteGiveUp;
     await this.#rpcClient.call('initializeRemoteComms', {
       keySeed,
-      knownRelays,
+      ...Object.fromEntries(
+        Object.entries(options).filter(([, value]) => value !== undefined),
+      ),
     });
   }
 
@@ -250,6 +262,19 @@ export class PlatformServicesClient implements PlatformServices {
       return await this.#remoteMessageHandler(from, message);
     }
     throw Error(`remote message handler not set`);
+  }
+
+  /**
+   * Handle a remote give up notification from the server.
+   *
+   * @param peerId - The peer ID of the remote we're giving up on.
+   * @returns A promise that resolves when handling is complete.
+   */
+  async #remoteGiveUp(peerId: string): Promise<null> {
+    if (this.#remoteGiveUpHandler) {
+      this.#remoteGiveUpHandler(peerId);
+    }
+    return null;
   }
 
   /**

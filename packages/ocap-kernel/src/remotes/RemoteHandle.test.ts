@@ -479,4 +479,153 @@ describe('RemoteHandle', () => {
       'unknown remote message type bogus',
     );
   });
+
+  it('rejectPendingRedemptions rejects all pending redemptions', async () => {
+    const remote = makeRemote();
+    const errorMessage = 'Connection lost';
+
+    // Start multiple URL redemptions
+    const promise1 = remote.redeemOcapURL('url1');
+    const promise2 = remote.redeemOcapURL('url2');
+    const promise3 = remote.redeemOcapURL('url3');
+
+    // Reject all pending redemptions
+    remote.rejectPendingRedemptions(errorMessage);
+
+    // All promises should be rejected with the error
+    await expect(promise1).rejects.toThrow(errorMessage);
+    await expect(promise2).rejects.toThrow(errorMessage);
+    await expect(promise3).rejects.toThrow(errorMessage);
+  });
+
+  it('rejectPendingRedemptions clears pending redemptions map', async () => {
+    const remote = makeRemote();
+    const errorMessage = 'Connection lost';
+
+    // Start a URL redemption
+    const promise = remote.redeemOcapURL('url1');
+
+    // Reject all pending redemptions
+    remote.rejectPendingRedemptions(errorMessage);
+
+    // Try to handle a reply for the rejected redemption - should fail
+    const redeemURLReply = {
+      method: 'redeemURLReply',
+      params: [true, '1', 'ro+1'],
+    };
+    await expect(
+      remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+    ).rejects.toThrow('unknown URL redemption reply key 1');
+
+    await expect(promise).rejects.toThrow(errorMessage);
+  });
+
+  it('rejectPendingRedemptions handles empty pending redemptions', () => {
+    const remote = makeRemote();
+    const errorMessage = 'Connection lost';
+
+    // Should not throw when there are no pending redemptions
+    expect(() => remote.rejectPendingRedemptions(errorMessage)).not.toThrow();
+  });
+
+  it('redeemOcapURL increments redemption counter for multiple redemptions', async () => {
+    const remote = makeRemote();
+    const mockOcapURL1 = 'url1';
+    const mockOcapURL2 = 'url2';
+    const mockOcapURL3 = 'url3';
+
+    // Start multiple redemptions
+    const promise1 = remote.redeemOcapURL(mockOcapURL1);
+    const promise2 = remote.redeemOcapURL(mockOcapURL2);
+    const promise3 = remote.redeemOcapURL(mockOcapURL3);
+
+    // Verify each redemption uses a different reply key
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL1, '1'],
+      }),
+      undefined,
+    );
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL2, '2'],
+      }),
+      undefined,
+    );
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL3, '3'],
+      }),
+      undefined,
+    );
+
+    // Resolve all redemptions
+    await remote.handleRemoteMessage(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [true, '1', 'ro+1'],
+      }),
+    );
+    await remote.handleRemoteMessage(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [true, '2', 'ro+2'],
+      }),
+    );
+    await remote.handleRemoteMessage(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [true, '3', 'ro+3'],
+      }),
+    );
+
+    await promise1;
+    await promise2;
+    await promise3;
+  });
+
+  it('handles multiple concurrent URL redemptions independently', async () => {
+    const remote = makeRemote();
+    const mockOcapURL1 = 'url1';
+    const mockOcapURL2 = 'url2';
+    const mockURLResolutionRRef1 = 'ro+1';
+    const mockURLResolutionRRef2 = 'ro+2';
+
+    // Start two concurrent redemptions
+    const promise1 = remote.redeemOcapURL(mockOcapURL1);
+    const promise2 = remote.redeemOcapURL(mockOcapURL2);
+
+    // Resolve them in reverse order to verify they're handled independently
+    await remote.handleRemoteMessage(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [true, '2', mockURLResolutionRRef2],
+      }),
+    );
+    await remote.handleRemoteMessage(
+      JSON.stringify({
+        method: 'redeemURLReply',
+        params: [true, '1', mockURLResolutionRRef1],
+      }),
+    );
+
+    const kref1 = await promise1;
+    const kref2 = await promise2;
+
+    // Verify each promise resolved with the correct value based on its reply key
+    expect(kref1).toBe(
+      mockKernelStore.translateRefEtoK(remote.remoteId, mockURLResolutionRRef1),
+    );
+    expect(kref2).toBe(
+      mockKernelStore.translateRefEtoK(remote.remoteId, mockURLResolutionRRef2),
+    );
+    // Verify they resolved independently (different values)
+    expect(kref1).not.toBe(kref2);
+  });
 });

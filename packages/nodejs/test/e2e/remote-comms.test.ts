@@ -5,6 +5,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeTestKernel, runTestVats } from '../helpers/kernel.ts';
@@ -18,7 +19,6 @@ import {
   restartKernelAndReloadVat,
   sendRemoteMessage,
   setupAliceAndBob,
-  wait,
 } from '../helpers/remote-comms.ts';
 
 // Increase timeout for network operations
@@ -41,7 +41,7 @@ describe.sequential('Remote Communications E2E', () => {
     // Start the relay server
     relay = await startRelay(console);
     // Wait for relay to be fully initialized
-    await wait(1000);
+    await delay(1000);
 
     // Create two independent kernels with separate storage
     kernelDatabase1 = await makeSQLKernelDatabase({
@@ -74,15 +74,15 @@ describe.sequential('Remote Communications E2E', () => {
     if (kernelDatabase2) {
       kernelDatabase2.close();
     }
-    await wait(1000);
+    await delay(1000);
   });
 
   describe('Basic Connectivity', () => {
     it(
       'initializes remote comms on both kernels',
       async () => {
-        await kernel1.initRemoteComms(testRelays);
-        await kernel2.initRemoteComms(testRelays);
+        await kernel1.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({ relays: testRelays });
 
         const status1 = await kernel1.getStatus();
         const status2 = await kernel2.getStatus();
@@ -157,8 +157,8 @@ describe.sequential('Remote Communications E2E', () => {
       'remote relationships should survive kernel restart',
       async () => {
         // Initialize remote comms
-        await kernel1.initRemoteComms(testRelays);
-        await kernel2.initRemoteComms(testRelays);
+        await kernel1.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({ relays: testRelays });
 
         // Launch client vat on kernel1
         const clientConfig = makeMaasClientConfig('client1', true);
@@ -201,7 +201,7 @@ describe.sequential('Remote Communications E2E', () => {
         // Kill the server and restart it
         await serverKernel.stop();
         serverKernel = await makeTestKernel(kernelDatabase2, false);
-        await serverKernel.initRemoteComms(testRelays);
+        await serverKernel.initRemoteComms({ relays: testRelays });
 
         // Tell the client to talk to the server a second time
         expectedCount += 1;
@@ -217,7 +217,7 @@ describe.sequential('Remote Communications E2E', () => {
         // Kill the client and restart it
         await clientKernel.stop();
         clientKernel = await makeTestKernel(kernelDatabase1, false);
-        await clientKernel.initRemoteComms(testRelays);
+        await clientKernel.initRemoteComms({ relays: testRelays });
 
         // Tell the client to talk to the server a third time
         expectedCount += 1;
@@ -280,7 +280,7 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'handles connection failure to non-existent peer',
       async () => {
-        await kernel1.initRemoteComms(testRelays);
+        await kernel1.initRemoteComms({ relays: testRelays });
 
         const aliceConfig = makeRemoteVatConfig('Alice');
         await launchVatAndGetURL(kernel1, aliceConfig);
@@ -386,8 +386,8 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'queues messages when connection is not established',
       async () => {
-        await kernel1.initRemoteComms(testRelays);
-        await kernel2.initRemoteComms(testRelays);
+        await kernel1.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({ relays: testRelays });
 
         const aliceConfig = makeRemoteVatConfig('Alice');
         await launchVatAndGetURL(kernel1, aliceConfig);
@@ -538,10 +538,10 @@ describe.sequential('Remote Communications E2E', () => {
         let kernel3: Kernel | undefined;
 
         try {
-          await kernel1.initRemoteComms(testRelays);
-          await kernel2.initRemoteComms(testRelays);
+          await kernel1.initRemoteComms({ relays: testRelays });
+          await kernel2.initRemoteComms({ relays: testRelays });
           kernel3 = await makeTestKernel(kernelDatabase3, true);
-          await kernel3.initRemoteComms(testRelays);
+          await kernel3.initRemoteComms({ relays: testRelays });
 
           const aliceConfig = makeRemoteVatConfig('Alice');
           const bobConfigInitial = makeRemoteVatConfig('Bob');
@@ -763,7 +763,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Close connection from kernel1 side
         await kernel1.closeConnection(peerId2);
-        await wait(100);
+        await delay(100);
 
         // Try to send a message after closing - should fail
         const messageAfterClose = kernel1.queueMessage(
@@ -781,7 +781,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Manually reconnect
         await kernel1.reconnectPeer(peerId2);
-        await wait(2000);
+        await delay(2000);
 
         // Send message after manual reconnect - should succeed
         const messageAfterManualReconnect = await sendRemoteMessage(
@@ -796,6 +796,104 @@ describe.sequential('Remote Communications E2E', () => {
         );
       },
       NETWORK_TIMEOUT * 2,
+    );
+  });
+
+  describe('Promise Rejection on Remote Give-Up', () => {
+    it(
+      'rejects promises when remote connection is lost after max retries',
+      async () => {
+        // Initialize kernel1 with a low maxRetryAttempts to trigger give-up quickly
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          maxRetryAttempts: 1, // Only 1 retry attempt before giving up
+        });
+        await kernel2.initRemoteComms({ relays: testRelays });
+
+        // Set up Alice and Bob manually (can't use setupAliceAndBob as it reinitializes comms)
+        const aliceConfig = makeRemoteVatConfig('Alice');
+        const bobConfig = makeRemoteVatConfig('Bob');
+
+        await launchVatAndGetURL(kernel1, aliceConfig);
+        const bobURL = await launchVatAndGetURL(kernel2, bobConfig);
+
+        const aliceRef = getVatRootRef(kernel1, kernelStore1, 'Alice');
+
+        // Establish connection first by sending a successful message
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Now stop kernel2 to trigger connection loss
+        await kernel2.stop();
+
+        // Wait for connection loss to be detected and reconnection attempts to fail
+        await delay(2000);
+
+        // Send a message that will trigger promise creation and eventual rejection
+        // The message will create a promise with the remote as decider (from URL redemption)
+        // When we give up on the remote, that promise should be rejected
+        // The vat should then propagate that rejection to the promise returned here
+        const messagePromise = kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+
+        const result = await messagePromise;
+        const response = kunser(result);
+        expect(response).toBeInstanceOf(Error);
+        expect((response as Error).message).toContain(
+          'max retries reached or non-retryable error',
+        );
+      },
+      NETWORK_TIMEOUT * 2,
+    );
+
+    it(
+      'resolves promise after reconnection when retries have not been exhausted',
+      async () => {
+        const { aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Send a message that creates a promise with remote as decider
+        const messagePromise = kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+
+        // Stop kernel2 before it can respond
+        await kernel2.stop();
+
+        // Wait a bit for connection loss to be detected
+        await delay(500);
+
+        // Restart kernel2 quickly (before max retries, since default is infinite)
+        // The promise should remain unresolved and resolve normally after reconnection
+        const bobConfig = makeRemoteVatConfig('Bob');
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = (
+          await restartKernelAndReloadVat(
+            kernelDatabase2,
+            false,
+            testRelays,
+            bobConfig,
+          )
+        ).kernel;
+
+        // Wait for reconnection
+        await delay(2000);
+
+        // The message should eventually be delivered and resolved
+        // The promise was never rejected because retries weren't exhausted
+        const result = await messagePromise;
+        expect(kunser(result)).toContain('vat Bob got "hello" from Alice');
+      },
+      NETWORK_TIMEOUT * 3,
     );
   });
 });
