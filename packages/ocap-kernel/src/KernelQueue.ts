@@ -241,7 +241,6 @@ export class KernelQueue {
 
       const promise = this.#kernelStore.getKernelPromise(kpid);
       const { state, decider, subscribers } = promise;
-
       if (state !== 'unresolved') {
         Fail`${kpid} was already resolved`;
       }

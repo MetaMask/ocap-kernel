@@ -105,7 +105,6 @@ export class RemoteManager {
 
     // Reject all promises for which this remote is the decider
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
-      // Reject the promise
       this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);
     }
   }
