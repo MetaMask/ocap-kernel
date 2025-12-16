@@ -102,6 +102,7 @@ export function getVatRootRef(
  * @param rootRef - The root reference of the sending vat.
  * @param remoteURL - The ocap URL of the remote vat.
  * @param message - The message to send.
+ * @param hints - Optional hints for the message.
  * @returns The response string.
  */
 export async function sendRemoteMessage(
@@ -109,10 +110,12 @@ export async function sendRemoteMessage(
   rootRef: KRef,
   remoteURL: string,
   message: string,
+  hints: string[] = [],
 ): Promise<string> {
   const result = await kernel.queueMessage(rootRef, 'sendRemoteMessage', [
     remoteURL,
     message,
+    hints,
   ]);
   return kunser(result) as string;
 }
