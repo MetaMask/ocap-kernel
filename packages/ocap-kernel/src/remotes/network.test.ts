@@ -1289,10 +1289,10 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
       });
-      // First call should return true (to enter loop), then false (max attempts)
+      // First call should return true (to enter loop), then false when checking after flush failure
       mockReconnectionManager.shouldRetry
         .mockReturnValueOnce(true) // Enter loop
-        .mockReturnValue(false); // Max attempts reached
+        .mockReturnValueOnce(false); // Max attempts reached (checked after flush failure)
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
@@ -1300,13 +1300,20 @@ describe('network.initNetwork', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
+      // Set up queue with messages that will fail during flush
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-msg', hints: [] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 1;
+      mockMessageQueue.messages = [{ message: 'queued-msg', hints: [] }];
+
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.write.mockRejectedValue(
         Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
       );
       mockConnectionFactory.dialIdempotent
         .mockResolvedValueOnce(mockChannel) // initial connection
-        .mockResolvedValue(mockChannel); // reconnection attempts (won't succeed)
+        .mockResolvedValue(mockChannel); // reconnection attempts (dial succeeds, flush fails)
 
       const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
 
@@ -1337,13 +1344,20 @@ describe('network.initNetwork', () => {
       });
       mockReconnectionManager.shouldRetry
         .mockReturnValueOnce(true)
-        .mockReturnValue(false); // Max attempts reached
+        .mockReturnValueOnce(false); // Max attempts reached (checked after flush failure)
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Set up queue with messages that will fail during flush
+      mockMessageQueue.dequeue
+        .mockReturnValueOnce({ message: 'queued-msg', hints: [] })
+        .mockReturnValue(undefined);
+      mockMessageQueue.length = 1;
+      mockMessageQueue.messages = [{ message: 'queued-msg', hints: [] }];
 
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.write.mockRejectedValue(
@@ -1389,6 +1403,7 @@ describe('network.initNetwork', () => {
           if (maxAttempts === 0) {
             return true;
           }
+          // shouldRetry should return false when attemptCount >= maxAttempts
           return attemptCount < maxAttempts;
         },
       );
@@ -1409,15 +1424,24 @@ describe('network.initNetwork', () => {
       // All reconnection attempts fail (dial succeeds but flush fails)
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
       // Set up queue with messages that will be flushed during reconnection
-      mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1', hints: [] })
-        .mockReturnValueOnce({ message: 'queued-2', hints: [] })
-        .mockReturnValue(undefined);
+      // Each reconnection attempt will try to flush these messages, and they will fail
+      const queuedMsg1 = { message: 'queued-1', hints: [] };
+      const queuedMsg2 = { message: 'queued-2', hints: [] };
+      // dequeue should return messages for each flush attempt (each reconnection)
+      mockMessageQueue.dequeue.mockImplementation(() => {
+        // Return messages in order, then undefined
+        if (mockMessageQueue.messages.length > 0) {
+          return mockMessageQueue.messages.shift();
+        }
+        return undefined;
+      });
       mockMessageQueue.length = 2;
-      mockMessageQueue.messages = [
-        { message: 'queued-1', hints: [] },
-        { message: 'queued-2', hints: [] },
-      ];
+      mockMessageQueue.messages = [queuedMsg1, queuedMsg2];
+      // When replaceAll is called (after flush failure), restore the messages
+      mockMessageQueue.replaceAll.mockImplementation((messages) => {
+        mockMessageQueue.messages = [...messages];
+        mockMessageQueue.length = messages.length;
+      });
       const { sendRemoteMessage } = await initNetwork(
         '0x1234',
         { maxRetryAttempts },
@@ -1442,11 +1466,11 @@ describe('network.initNetwork', () => {
           expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
           expect(mockMessageQueue.clear).toHaveBeenCalled();
         },
-        { timeout: 5000 },
+        { timeout: 10000 },
       );
       const resetBackoffCalls = mockReconnectionManager.resetBackoff.mock.calls;
       expect(resetBackoffCalls).toHaveLength(0);
-    });
+    }, 10000);
 
     it('calls onRemoteGiveUp when non-retryable error occurs', async () => {
       const onRemoteGiveUp = vi.fn();

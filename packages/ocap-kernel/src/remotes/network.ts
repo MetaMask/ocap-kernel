@@ -278,10 +278,10 @@ export async function initNetwork(
         // Flush queued messages
         await flushQueuedMessages(peerId, channel, queue);
 
-        // Check if reconnection was restarted during flush (e.g., due to flush errors)
-        if (reconnectionManager.isReconnecting(peerId)) {
+        // Check if channel was deleted during flush (e.g., due to flush errors)
+        if (!channels.has(peerId)) {
           logger.log(
-            `${peerId}:: reconnection restarted during flush, continuing loop`,
+            `${peerId}:: channel deleted during flush, continuing loop`,
           );
           continue; // Continue the reconnection loop
         }
