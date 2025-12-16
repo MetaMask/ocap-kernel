@@ -5,6 +5,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeTestKernel, runTestVats } from '../helpers/kernel.ts';
@@ -18,7 +19,6 @@ import {
   restartKernelAndReloadVat,
   sendRemoteMessage,
   setupAliceAndBob,
-  wait,
 } from '../helpers/remote-comms.ts';
 
 // Increase timeout for network operations
@@ -41,7 +41,7 @@ describe.sequential('Remote Communications E2E', () => {
     // Start the relay server
     relay = await startRelay(console);
     // Wait for relay to be fully initialized
-    await wait(1000);
+    await delay(1000);
 
     // Create two independent kernels with separate storage
     kernelDatabase1 = await makeSQLKernelDatabase({
@@ -74,7 +74,7 @@ describe.sequential('Remote Communications E2E', () => {
     if (kernelDatabase2) {
       kernelDatabase2.close();
     }
-    await wait(1000);
+    await delay(1000);
   });
 
   describe('Basic Connectivity', () => {
@@ -763,7 +763,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Close connection from kernel1 side
         await kernel1.closeConnection(peerId2);
-        await wait(100);
+        await delay(100);
 
         // Try to send a message after closing - should fail
         const messageAfterClose = kernel1.queueMessage(
@@ -781,7 +781,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Manually reconnect
         await kernel1.reconnectPeer(peerId2);
-        await wait(2000);
+        await delay(2000);
 
         // Send message after manual reconnect - should succeed
         const messageAfterManualReconnect = await sendRemoteMessage(
@@ -826,7 +826,7 @@ describe.sequential('Remote Communications E2E', () => {
         await kernel2.stop();
 
         // Wait for connection loss to be detected and reconnection attempts to fail
-        await wait(2000);
+        await delay(2000);
 
         // Send a message that will trigger promise creation and eventual rejection
         // The message will create a promise with the remote as decider (from URL redemption)
@@ -870,7 +870,7 @@ describe.sequential('Remote Communications E2E', () => {
         await kernel2.stop();
 
         // Wait a bit for connection loss to be detected
-        await wait(500);
+        await delay(500);
 
         // Restart kernel2 quickly (before max retries, since default is infinite)
         // The promise should remain unresolved and resolve normally after reconnection
@@ -886,7 +886,7 @@ describe.sequential('Remote Communications E2E', () => {
         ).kernel;
 
         // Wait for reconnection
-        await wait(2000);
+        await delay(2000);
 
         // The message should eventually be delivered and resolved
         // The promise was never rejected because retries weren't exhausted

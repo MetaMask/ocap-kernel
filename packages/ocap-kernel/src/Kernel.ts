@@ -620,6 +620,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     await this.#commandStream.end();
     await this.#platformServices.stopRemoteComms();
+    this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();
   }
 

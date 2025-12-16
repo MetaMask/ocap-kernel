@@ -161,7 +161,8 @@ describe('RemoteManager', () => {
       const remote2Id = remote2.remoteId;
 
       // Stop remote comms (simulating shutdown)
-      await remoteManager.stopRemoteComms();
+      await mockPlatformServices.stopRemoteComms();
+      remoteManager.cleanup();
 
       // Create a new RemoteManager instance (simulating restart)
       const newRemoteManager = new RemoteManager({
@@ -385,7 +386,8 @@ describe('RemoteManager', () => {
       const { remoteId } = remote;
 
       // Stop and restart
-      await remoteManager.stopRemoteComms();
+      await mockPlatformServices.stopRemoteComms();
+      remoteManager.cleanup();
 
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
@@ -418,7 +420,7 @@ describe('RemoteManager', () => {
     });
   });
 
-  describe('stopRemoteComms', () => {
+  describe('cleanup', () => {
     beforeEach(async () => {
       const messageHandler = vi.fn();
       vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
@@ -426,19 +428,13 @@ describe('RemoteManager', () => {
       await remoteManager.initRemoteComms();
     });
 
-    it('stops remote comms and calls stopRemoteComms', async () => {
-      await remoteManager.stopRemoteComms();
-
-      expect(mockPlatformServices.stopRemoteComms).toHaveBeenCalledOnce();
-    });
-
-    it('clears remoteComms after stopping', async () => {
-      await remoteManager.stopRemoteComms();
+    it('clears remoteComms after cleanup', () => {
+      remoteManager.cleanup();
 
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
     });
 
-    it('clears all remote handles after stopping', async () => {
+    it('clears all remote handles after cleanup', () => {
       // Establish some remotes
       remoteManager.establishRemote('peer1');
       remoteManager.establishRemote('peer2');
@@ -449,45 +445,45 @@ describe('RemoteManager', () => {
       expect(remoteManager.remoteFor('peer2')).toBeDefined();
       expect(remoteManager.remoteFor('peer3')).toBeDefined();
 
-      await remoteManager.stopRemoteComms();
+      remoteManager.cleanup();
 
-      // After stop, trying to get remotes should throw or create new ones
+      // After cleanup, trying to get remotes should throw or create new ones
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
     });
 
-    it('throws when calling getPeerId after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling getPeerId after cleanup', () => {
+      remoteManager.cleanup();
 
       expect(() => remoteManager.getPeerId()).toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('throws when calling sendRemoteMessage after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling sendRemoteMessage after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(
         remoteManager.sendRemoteMessage('peer1', 'test'),
       ).rejects.toThrow('Remote comms not initialized');
     });
 
-    it('throws when calling closeConnection after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling closeConnection after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(remoteManager.closeConnection('peer1')).rejects.toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('throws when calling reconnectPeer after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('throws when calling reconnectPeer after cleanup', async () => {
+      remoteManager.cleanup();
 
       await expect(remoteManager.reconnectPeer('peer1')).rejects.toThrow(
         'Remote comms not initialized',
       );
     });
 
-    it('can be called when remote comms is not initialized', async () => {
+    it('can be called when remote comms is not initialized', () => {
       const newManager = new RemoteManager({
         platformServices: mockPlatformServices,
         kernelStore,
@@ -496,12 +492,11 @@ describe('RemoteManager', () => {
       });
 
       // Should not throw
-      const result = await newManager.stopRemoteComms();
-      expect(result).toBeUndefined();
+      expect(() => newManager.cleanup()).not.toThrow();
     });
 
-    it('allows re-initialization after stop', async () => {
-      await remoteManager.stopRemoteComms();
+    it('allows re-initialization after cleanup', async () => {
+      remoteManager.cleanup();
 
       // Should be able to initialize again
       const messageHandler = vi.fn();
@@ -513,7 +508,7 @@ describe('RemoteManager', () => {
       expect(remoteComms.initRemoteComms).toHaveBeenCalledTimes(2);
     });
 
-    it('clears remote handles by peer ID', async () => {
+    it('clears remote handles by peer ID', () => {
       const remote1 = remoteManager.establishRemote('peer1');
       const remote2 = remoteManager.establishRemote('peer2');
 
@@ -521,9 +516,9 @@ describe('RemoteManager', () => {
       expect(remoteManager.remoteFor('peer1')).toBe(remote1);
       expect(remoteManager.remoteFor('peer2')).toBe(remote2);
 
-      await remoteManager.stopRemoteComms();
+      remoteManager.cleanup();
 
-      // After stop, remotes are cleared
+      // After cleanup, remotes are cleared
       expect(remoteManager.isRemoteCommsInitialized()).toBe(false);
     });
   });

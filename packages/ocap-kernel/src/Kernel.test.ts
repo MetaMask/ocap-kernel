@@ -40,7 +40,7 @@ const mocks = vi.hoisted(() => {
   class RemoteManager {
     static lastInstance: RemoteManager;
 
-    stopRemoteComms = vi.fn().mockResolvedValue(undefined);
+    cleanup = vi.fn();
 
     isRemoteCommsInitialized = vi.fn().mockReturnValue(false);
 
@@ -725,6 +725,7 @@ describe('Kernel', () => {
         mockKernelDatabase,
       );
       const queueInstance = mocks.KernelQueue.lastInstance;
+      const remoteManagerInstance = mocks.RemoteManager.lastInstance;
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       expect(kernel.getVatIds()).toStrictEqual(['v1']);
 
@@ -742,6 +743,7 @@ describe('Kernel', () => {
       expect(queueInstance.waitForCrank).toHaveBeenCalledOnce();
       expect(endStreamMock).toHaveBeenCalledOnce();
       expect(stopRemoteCommsMock).toHaveBeenCalledOnce();
+      expect(remoteManagerInstance.cleanup).toHaveBeenCalledOnce();
       expect(workerTerminateAllMock).toHaveBeenCalledOnce();
     });
 

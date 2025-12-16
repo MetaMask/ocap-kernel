@@ -36,7 +36,7 @@ export class ConnectionFactory {
 
   readonly #keySeed: string;
 
-  readonly #maxRetryAttempts?: number;
+  readonly #maxRetryAttempts: number;
 
   #inboundHandler?: InboundConnectionHandler;
 
@@ -61,9 +61,7 @@ export class ConnectionFactory {
     this.#knownRelays = knownRelays;
     this.#logger = logger;
     this.#signal = signal;
-    if (maxRetryAttempts !== undefined) {
-      this.#maxRetryAttempts = maxRetryAttempts;
-    }
+    this.#maxRetryAttempts = maxRetryAttempts ?? 0;
   }
 
   /**
@@ -285,9 +283,7 @@ export class ConnectionFactory {
     hints: string[] = [],
   ): Promise<Channel> {
     const retryOptions: Parameters<typeof retryWithBackoff>[1] = {
-      ...(this.#maxRetryAttempts !== undefined && {
-        maxAttempts: this.#maxRetryAttempts,
-      }),
+      maxAttempts: this.#maxRetryAttempts,
       jitter: true,
       shouldRetry: isRetryableNetworkError,
       onRetry: ({ attempt, maxAttempts, delayMs }) => {

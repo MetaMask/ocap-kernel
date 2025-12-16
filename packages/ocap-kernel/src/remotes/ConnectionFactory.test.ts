@@ -718,6 +718,56 @@ describe('ConnectionFactory', () => {
       expect(onRetryCallbackCalled).toBe(true);
     });
 
+    it('defaults maxRetryAttempts to 0 when not provided', async () => {
+      let capturedRetryOptions:
+        | Parameters<
+            typeof import('@metamask/kernel-utils').retryWithBackoff
+          >[1]
+        | undefined;
+
+      // Override the mock retryWithBackoff to capture options
+      vi.doMock('@metamask/kernel-utils', () => ({
+        fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+        retryWithBackoff: async <OperationResult>(
+          operation: () => Promise<OperationResult>,
+          options?: Parameters<
+            typeof import('@metamask/kernel-utils').retryWithBackoff
+          >[1],
+        ) => {
+          capturedRetryOptions = options;
+          return await operation();
+        },
+      }));
+
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer' },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(async () => {
+          return {};
+        }),
+        handle: vi.fn(),
+      }));
+
+      // Re-import ConnectionFactory to use the new mock
+      vi.resetModules();
+      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { Logger } = await import('@metamask/logger');
+      factory = await ConnectionFactory.make(
+        keySeed,
+        knownRelays,
+        new Logger(),
+        new AbortController().signal,
+      );
+
+      await factory.openChannelWithRetry('peer123');
+
+      // Verify retry was called with maxAttempts defaulting to 0 (infinite)
+      expect(capturedRetryOptions).toBeDefined();
+      expect(capturedRetryOptions).toHaveProperty('maxAttempts', 0);
+    });
+
     it('uses maxRetryAttempts when provided', async () => {
       const maxRetryAttempts = 2;
       let capturedRetryOptions:
