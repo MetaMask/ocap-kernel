@@ -460,13 +460,42 @@ export class RemoteHandle implements EndpointHandle {
     const replyKey = `${this.#redemptionCounter}`;
     this.#redemptionCounter += 1;
     const { promise, resolve, reject } = makePromiseKit<string>();
-    // XXX TODO: Probably these should have timeouts
     this.#pendingRedemptions.set(replyKey, [resolve, reject]);
-    await this.#sendRemoteCommand({
-      method: 'redeemURL',
-      params: [url, replyKey],
+
+    // Set up timeout handling with AbortSignal
+    const timeoutSignal = AbortSignal.timeout(30_000);
+    let abortHandler: (() => void) | undefined;
+    const timeoutPromise = new Promise<never>((_resolve, _reject) => {
+      abortHandler = () => {
+        // Clean up from pending redemptions map
+        if (this.#pendingRedemptions.has(replyKey)) {
+          this.#pendingRedemptions.delete(replyKey);
+        }
+        _reject(new Error('URL redemption timed out after 30 seconds'));
+      };
+      timeoutSignal.addEventListener('abort', abortHandler);
     });
-    return promise;
+
+    try {
+      await this.#sendRemoteCommand({
+        method: 'redeemURL',
+        params: [url, replyKey],
+      });
+      // Wait for reply with timeout protection
+      return await Promise.race([promise, timeoutPromise]);
+    } catch (error) {
+      // Clean up and remove from map if still pending
+      if (this.#pendingRedemptions.has(replyKey)) {
+        this.#pendingRedemptions.delete(replyKey);
+      }
+      throw error;
+    } finally {
+      // Clean up event listener to prevent unhandled rejection if operation
+      // completes before timeout
+      if (abortHandler) {
+        timeoutSignal.removeEventListener('abort', abortHandler);
+      }
+    }
   }
 
   /**

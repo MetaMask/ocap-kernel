@@ -101,6 +101,43 @@ export async function initNetwork(
   }
 
   /**
+   * Write a message to a channel stream with a timeout.
+   *
+   * @param channel - The channel to write to.
+   * @param message - The message bytes to write.
+   * @param timeoutMs - Timeout in milliseconds (default: 10 seconds).
+   * @returns Promise that resolves when the write completes or rejects on timeout.
+   * @throws Error if the write times out or fails.
+   */
+  async function writeWithTimeout(
+    channel: Channel,
+    message: Uint8Array,
+    timeoutMs = 10_000,
+  ): Promise<void> {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    let abortHandler: (() => void) | undefined;
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      abortHandler = () => {
+        reject(new Error(`Message send timed out after ${timeoutMs}ms`));
+      };
+      timeoutSignal.addEventListener('abort', abortHandler);
+    });
+
+    try {
+      return await Promise.race([
+        channel.msgStream.write(message),
+        timeoutPromise,
+      ]);
+    } finally {
+      // Clean up event listener to prevent unhandled rejection if operation
+      // completes before timeout
+      if (abortHandler) {
+        timeoutSignal.removeEventListener('abort', abortHandler);
+      }
+    }
+  }
+
+  /**
    * Receive a message from a peer.
    *
    * @param from - The peer ID that the message is from.
@@ -315,7 +352,7 @@ export async function initNetwork(
     while ((queuedMsg = queue.dequeue()) !== undefined) {
       try {
         logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
-        await channel.msgStream.write(fromString(queuedMsg.message));
+        await writeWithTimeout(channel, fromString(queuedMsg.message), 10_000);
       } catch (problem) {
         outputError(peerId, `sending queued message`, problem);
         // Preserve the failed message and all remaining messages
@@ -397,7 +434,7 @@ export async function initNetwork(
 
     try {
       logger.log(`${targetPeerId}:: send ${message}`);
-      await channel.msgStream.write(fromString(message));
+      await writeWithTimeout(channel, fromString(message), 10_000);
       reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
       outputError(targetPeerId, `sending message`, problem);
