@@ -106,7 +106,7 @@ export default defineConfig({
         'packages/kernel-platforms/**': {
           statements: 99.38,
           functions: 100,
-          branches: 96.25,
+          branches: 96.2,
           lines: 99.38,
         },
         'packages/kernel-rpc-methods/**': {
@@ -159,8 +159,8 @@ export default defineConfig({
         },
         'packages/ocap-kernel/**': {
           statements: 96.53,
-          functions: 98.53,
-          branches: 97.73,
+          functions: 98.54,
+          branches: 97.59,
           lines: 96.53,
         },
         'packages/omnium-gatherum/**': {

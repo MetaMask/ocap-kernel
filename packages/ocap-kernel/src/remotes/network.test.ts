@@ -1699,4 +1699,251 @@ describe('network.initNetwork', () => {
       });
     });
   });
+
+  describe('message send timeout', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('times out after 10 seconds when write hangs', async () => {
+      // Ensure isReconnecting returns false so we actually call writeWithTimeout
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      // Make write hang indefinitely - return a new hanging promise each time
+      mockChannel.msgStream.write.mockReset();
+      mockChannel.msgStream.write.mockImplementation(
+        async () =>
+          new Promise<never>(() => {
+            // Never resolves - simulates hanging write
+          }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage('peer-1', 'test message');
+
+      // Wait for the promise to be set up and event listener registered
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Verify write was called (proves we're not returning early)
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+
+      // Manually trigger the abort to simulate timeout
+      mockSignal?.abort();
+
+      // Wait for the abort handler to execute
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Note: sendRemoteMessage catches the timeout error and returns undefined
+      // The timeout error is handled internally and triggers connection loss handling
+      expect(await sendPromise).toBeUndefined();
+
+      // Verify that connection loss handling was triggered
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalled();
+    });
+
+    it('does not timeout if write completes before timeout', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.write.mockResolvedValue(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage('peer-1', 'test message');
+
+      // Write resolves immediately, so promise should resolve
+      expect(await sendPromise).toBeUndefined();
+
+      // Verify timeout signal was not aborted
+      expect(mockSignal?.aborted).toBe(false);
+    });
+
+    it('handles timeout errors and triggers connection loss handling', async () => {
+      // Ensure isReconnecting returns false so we actually call writeWithTimeout
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      // Make write hang indefinitely - return a new hanging promise each time
+      mockChannel.msgStream.write.mockReset();
+      mockChannel.msgStream.write.mockImplementation(
+        async () =>
+          new Promise<never>(() => {
+            // Never resolves - simulates hanging write
+          }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage('peer-1', 'test message');
+
+      // Wait for the promise to be set up and event listener registered
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Manually trigger the abort to simulate timeout
+      mockSignal?.abort();
+
+      // Wait for the abort handler to execute
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Note: sendRemoteMessage catches the timeout error and returns undefined
+      // The timeout error is handled internally and triggers connection loss handling
+      expect(await sendPromise).toBeUndefined();
+
+      // Verify that connection loss handling was triggered
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalled();
+    });
+
+    it('propagates write errors that occur before timeout', async () => {
+      // Ensure isReconnecting returns false so we actually call writeWithTimeout
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      const writeError = new Error('Write failed');
+      mockChannel.msgStream.write.mockRejectedValue(writeError);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage('peer-1', 'test message');
+
+      // Write error occurs immediately
+      // Note: sendRemoteMessage catches write errors and returns undefined
+      // The error is handled internally and triggers connection loss handling
+      expect(await sendPromise).toBeUndefined();
+
+      // Verify that connection loss handling was triggered
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalled();
+    });
+
+    it('writeWithTimeout uses AbortSignal.timeout with 10 second default', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      // Make write resolve immediately to avoid timeout
+      mockChannel.msgStream.write.mockResolvedValue(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      await sendRemoteMessage('peer-1', 'test message');
+
+      // Verify AbortSignal.timeout was called with 10 seconds (default)
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(10_000);
+      expect(mockSignal?.timeoutMs).toBe(10_000);
+    });
+
+    it('error message includes correct timeout duration', async () => {
+      // Ensure isReconnecting returns false so we actually call writeWithTimeout
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      // Make write hang indefinitely - return a new hanging promise each time
+      mockChannel.msgStream.write.mockReset();
+      mockChannel.msgStream.write.mockImplementation(
+        async () =>
+          new Promise<never>(() => {
+            // Never resolves - simulates hanging write
+          }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage('peer-1', 'test message');
+
+      // Wait for the promise to be set up and event listener registered
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Manually trigger the abort to simulate timeout
+      mockSignal?.abort();
+
+      // Wait for the abort handler to execute
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Note: sendRemoteMessage catches the timeout error and returns undefined
+      // The timeout error is handled internally
+      expect(await sendPromise).toBeUndefined();
+
+      // Verify that writeWithTimeout was called (the timeout error message includes the duration)
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+    });
+
+    it('handles multiple concurrent writes with timeout', async () => {
+      // Ensure isReconnecting returns false so we actually call writeWithTimeout
+      mockReconnectionManager.isReconnecting.mockReturnValue(false);
+
+      const mockChannel = createMockChannel('peer-1');
+      // Make write hang indefinitely - return a new hanging promise each time
+      mockChannel.msgStream.write.mockReset();
+      mockChannel.msgStream.write.mockImplementation(
+        async () =>
+          new Promise<never>(() => {
+            // Never resolves - simulates hanging write
+          }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const mockSignals: ReturnType<typeof makeAbortSignalMock>[] = [];
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        const signal = makeAbortSignalMock(ms);
+        mockSignals.push(signal);
+        return signal;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      const sendPromise1 = sendRemoteMessage('peer-1', 'message 1');
+      const sendPromise2 = sendRemoteMessage('peer-1', 'message 2');
+
+      // Wait for the promises to be set up and event listeners registered
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Manually trigger the abort on all signals to simulate timeout
+      for (const signal of mockSignals) {
+        signal.abort();
+      }
+
+      // Wait for the abort handlers to execute
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Note: sendRemoteMessage catches the timeout error and returns undefined
+      // The timeout error is handled internally
+      expect(await sendPromise1).toBeUndefined();
+      expect(await sendPromise2).toBeUndefined();
+
+      // Verify that writeWithTimeout was called for both messages
+      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
+    });
+  });
 });

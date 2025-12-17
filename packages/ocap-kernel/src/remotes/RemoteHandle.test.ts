@@ -649,10 +649,13 @@ describe('RemoteHandle', () => {
       expect(AbortSignal.timeout).toHaveBeenCalledWith(30_000);
       expect(mockSignal?.timeoutMs).toBe(30_000);
 
+      // Wait for sendRemoteMessage to be called
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
       // Resolve the redemption to avoid hanging
       const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0];
-      const sentMessage = JSON.parse(sendCall?.[1] as string);
+      const sentMessage = JSON.parse(sendCall![1]);
       const replyKey = sentMessage.params[1] as string;
 
       await remote.handleRemoteMessage(
@@ -712,10 +715,13 @@ describe('RemoteHandle', () => {
       // Start a redemption
       const urlPromise = remote.redeemOcapURL(mockOcapURL);
 
+      // Wait for sendRemoteMessage to be called
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
       // Get the reply key that was used
       const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0];
-      const sentMessage = JSON.parse(sendCall?.[1] as string);
+      const sentMessage = JSON.parse(sendCall![1]);
       const replyKey = sentMessage.params[1] as string;
 
       // Wait for the promise to be set up and event listener registered
