@@ -32,6 +32,10 @@ export class NodejsPlatformServices implements PlatformServices {
 
   #closeConnectionFunc: ((peerId: string) => Promise<void>) | null = null;
 
+  #registerLocationHintsFunc:
+    | ((peerId: string, hints: string[]) => void)
+    | null = null;
+
   #reconnectPeerFunc:
     | ((peerId: string, hints?: string[]) => Promise<void>)
     | null = null;
@@ -183,18 +187,13 @@ export class NodejsPlatformServices implements PlatformServices {
    *
    * @param to - The peer ID to send the message to.
    * @param message - The message to send.
-   * @param hints - Optional hints for the message.
    * @returns A promise that resolves when the message has been sent.
    */
-  async sendRemoteMessage(
-    to: string,
-    message: string,
-    hints: string[] = [],
-  ): Promise<void> {
+  async sendRemoteMessage(to: string, message: string): Promise<void> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(to, message, hints);
+    await this.#sendRemoteMessageFunc(to, message);
   }
 
   /**
@@ -211,7 +210,7 @@ export class NodejsPlatformServices implements PlatformServices {
     }
     const possibleReply = await this.#remoteMessageHandler(from, message);
     if (possibleReply !== '') {
-      await this.sendRemoteMessage(from, possibleReply, []);
+      await this.sendRemoteMessage(from, possibleReply);
     }
     return '';
   }
@@ -240,16 +239,22 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
-    const { sendRemoteMessage, stop, closeConnection, reconnectPeer } =
-      await initNetwork(
-        keySeed,
-        options,
-        this.#handleRemoteMessage.bind(this),
-        onRemoteGiveUp,
-      );
+    const {
+      sendRemoteMessage,
+      stop,
+      closeConnection,
+      registerLocationHints,
+      reconnectPeer,
+    } = await initNetwork(
+      keySeed,
+      options,
+      this.#handleRemoteMessage.bind(this),
+      onRemoteGiveUp,
+    );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
     this.#closeConnectionFunc = closeConnection;
+    this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
   }
 
@@ -267,6 +272,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#sendRemoteMessageFunc = null;
     this.#stopRemoteCommsFunc = null;
     this.#closeConnectionFunc = null;
+    this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
   }
 
@@ -282,6 +288,19 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms not initialized');
     }
     await this.#closeConnectionFunc(peerId);
+  }
+
+  /**
+   * Take note of where a peer might be.
+   *
+   * @param peerId - The peer ID to which this information applies.
+   * @param hints - Location hints for the peer.
+   */
+  async registerLocationHints(peerId: string, hints: string[]): Promise<void> {
+    if (!this.#registerLocationHintsFunc) {
+      throw Error('remote comms not initialized');
+    }
+    this.#registerLocationHintsFunc(peerId, hints);
   }
 
   /**

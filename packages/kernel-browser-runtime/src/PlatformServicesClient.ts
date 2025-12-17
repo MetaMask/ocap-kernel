@@ -216,15 +216,10 @@ export class PlatformServicesClient implements PlatformServices {
    *
    * @param to - The peer ID to send the message to.
    * @param message - The message to send.
-   * @param hints - Optional hints for the message.
    * @returns A promise that resolves when the message has been sent.
    */
-  async sendRemoteMessage(
-    to: string,
-    message: string,
-    hints: string[] = [],
-  ): Promise<void> {
-    await this.#rpcClient.call('sendRemoteMessage', { to, message, hints });
+  async sendRemoteMessage(to: string, message: string): Promise<void> {
+    await this.#rpcClient.call('sendRemoteMessage', { to, message });
   }
 
   /**
@@ -236,6 +231,16 @@ export class PlatformServicesClient implements PlatformServices {
    */
   async closeConnection(peerId: string): Promise<void> {
     await this.#rpcClient.call('closeConnection', { peerId });
+  }
+
+  /**
+   * Take note of where a peer might be.
+   *
+   * @param peerId - The peer ID to whom this information applies.
+   * @param hints - An array of location hint strings.
+   */
+  async registerLocationHints(peerId: string, hints: string[]): Promise<void> {
+    await this.#rpcClient.call('registerLocationHints', { peerId, hints });
   }
 
   /**

@@ -10,6 +10,7 @@ import { NodejsPlatformServices } from './PlatformServices.ts';
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 const mockCloseConnection = vi.fn(async () => undefined);
+const mockRegisterLocationHints = vi.fn(async () => undefined);
 const mockReconnectPeer = vi.fn(async () => undefined);
 
 const mocks = vi.hoisted(() => {
@@ -78,6 +79,7 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
       sendRemoteMessage: mockSendRemoteMessage,
       stop: mockStop,
       closeConnection: mockCloseConnection,
+      registerLocationHints: mockRegisterLocationHints,
       reconnectPeer: mockReconnectPeer,
     })),
   };
@@ -88,6 +90,7 @@ describe('NodejsPlatformServices', () => {
     mockSendRemoteMessage.mockClear();
     mockStop.mockClear();
     mockCloseConnection.mockClear();
+    mockRegisterLocationHints.mockClear();
     mockReconnectPeer.mockClear();
     mocks.stream.synchronize.mockResolvedValue(undefined);
     mocks.stream.return.mockResolvedValue({});
@@ -345,7 +348,6 @@ describe('NodejsPlatformServices', () => {
         expect(mockSendRemoteMessage).toHaveBeenCalledWith(
           'peer-123',
           'reply-message',
-          [],
         );
       });
 
@@ -389,39 +391,16 @@ describe('NodejsPlatformServices', () => {
 
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        await service.sendRemoteMessage('peer-456', 'hello', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-        ]);
+        await service.sendRemoteMessage('peer-456', 'hello');
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-456',
-          'hello',
-          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-        );
-      });
-
-      it('sends message with empty hints', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
-        await service.sendRemoteMessage('peer-789', 'goodbye');
-
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-789',
-          'goodbye',
-          [],
-        );
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', 'hello');
       });
 
       it('throws error if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
 
         await expect(
-          service.sendRemoteMessage('peer-999', 'test', []),
+          service.sendRemoteMessage('peer-999', 'test'),
         ).rejects.toThrow('remote comms not initialized');
       });
     });
@@ -481,14 +460,14 @@ describe('NodejsPlatformServices', () => {
         );
 
         // Should work before stop
-        await service.sendRemoteMessage('peer-1', 'msg1', []);
+        await service.sendRemoteMessage('peer-1', 'msg1');
         expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
 
         await service.stopRemoteComms();
 
         // Should throw after stop
         await expect(
-          service.sendRemoteMessage('peer-2', 'msg2', []),
+          service.sendRemoteMessage('peer-2', 'msg2'),
         ).rejects.toThrow('remote comms not initialized');
       });
 
@@ -538,6 +517,32 @@ describe('NodejsPlatformServices', () => {
         await expect(service.closeConnection('peer-999')).rejects.toThrow(
           'remote comms not initialized',
         );
+      });
+    });
+
+    describe('registerLocationHints', () => {
+      it('registers location hints via network layer', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        await service.initializeRemoteComms(
+          '0xtest',
+          {},
+          vi.fn(async () => ''),
+        );
+
+        await service.registerLocationHints('peer-123', ['hint1', 'hint2']);
+
+        expect(mockRegisterLocationHints).toHaveBeenCalledWith('peer-123', [
+          'hint1',
+          'hint2',
+        ]);
+      });
+
+      it('throws error if remote comms not initialized', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+
+        await expect(
+          service.registerLocationHints('peer-999', ['hint1', 'hint2']),
+        ).rejects.toThrow('remote comms not initialized');
       });
     });
 

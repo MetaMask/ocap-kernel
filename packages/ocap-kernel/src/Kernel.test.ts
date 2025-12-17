@@ -1017,28 +1017,10 @@ describe('Kernel', () => {
           mockKernelDatabase,
         );
         const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-        await kernel.sendRemoteMessage('peer-123', 'hello', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-        ]);
+        await kernel.sendRemoteMessage('peer-123', 'hello');
         expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
           'peer-123',
           'hello',
-          ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-        );
-      });
-
-      it('sends message with empty hints when hints not provided', async () => {
-        const kernel = await Kernel.make(
-          mockStream,
-          mockPlatformServices,
-          mockKernelDatabase,
-        );
-        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-        await kernel.sendRemoteMessage('peer-456', 'test');
-        expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
-          'peer-456',
-          'test',
-          [],
         );
       });
     });

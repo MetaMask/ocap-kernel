@@ -147,7 +147,6 @@ export class ConnectionFactory {
       const channel: Channel = {
         msgStream,
         peerId: remotePeerId,
-        hints: [],
       };
 
       this.#inboundHandler?.(channel);
@@ -246,7 +245,7 @@ export class ConnectionFactory {
           `successfully connected to ${peerId} via ${addressString}`,
         );
         const msgStream = byteStream(stream);
-        const channel: Channel = { msgStream, peerId, hints };
+        const channel: Channel = { msgStream, peerId };
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;
       } catch (problem) {

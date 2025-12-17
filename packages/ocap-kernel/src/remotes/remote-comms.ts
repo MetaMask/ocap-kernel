@@ -175,14 +175,9 @@ export async function initRemoteComms(
    * @param message - The message to send; it is the caller's responsibility to
    *   ensure that the string properly encodes something that the recipient will
    *   understand.
-   * @param hints - Possible addresses at which the `to` peer might be contacted.
    */
-  async function sendRemoteMessage(
-    to: string,
-    message: string,
-    hints: string[] = [],
-  ): Promise<void> {
-    await platformServices.sendRemoteMessage(to, message, hints);
+  async function sendRemoteMessage(to: string, message: string): Promise<void> {
+    await platformServices.sendRemoteMessage(to, message);
   }
 
   const KREF_MIN_LEN = 16;
@@ -235,5 +230,7 @@ export async function initRemoteComms(
     sendRemoteMessage,
     issueOcapURL,
     redeemLocalOcapURL,
+    registerLocationHints:
+      platformServices.registerLocationHints.bind(platformServices),
   };
 }
