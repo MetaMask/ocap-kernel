@@ -401,16 +401,7 @@ describe('ConnectionFactory', () => {
       expect(channel).toBeDefined();
       expect(channel.peerId).toBe('peer123');
       expect(channel.msgStream).toBeDefined();
-      expect(channel.hints).toStrictEqual([]);
       expect(libp2pState.dials).toHaveLength(1);
-    });
-
-    it('returns channel with hints when provided', async () => {
-      factory = await createFactory();
-      const hints = ['/dns4/hint.example/tcp/443/wss/p2p/hint'];
-      const channel = await factory.openChannelOnce('peer123', hints);
-      expect(channel.hints).toStrictEqual(hints);
-      expect(channel.peerId).toBe('peer123');
     });
 
     it('tries multiple addresses until one succeeds', async () => {

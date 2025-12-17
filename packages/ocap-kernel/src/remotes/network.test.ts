@@ -272,7 +272,7 @@ describe('network.initNetwork', () => {
       await sendRemoteMessage('peer-1', 'msg');
 
       // Verify message was queued (MessageQueue is created lazily with maxQueue)
-      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg', []);
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
     });
 
     it('returns sendRemoteMessage, stop, closeConnection, registerLocationHints, and reconnectPeer', async () => {

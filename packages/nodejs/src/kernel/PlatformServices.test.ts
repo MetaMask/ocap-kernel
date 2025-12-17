@@ -348,7 +348,6 @@ describe('NodejsPlatformServices', () => {
         expect(mockSendRemoteMessage).toHaveBeenCalledWith(
           'peer-123',
           'reply-message',
-          [],
         );
       });
 
@@ -395,23 +394,6 @@ describe('NodejsPlatformServices', () => {
         await service.sendRemoteMessage('peer-456', 'hello');
 
         expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', 'hello');
-      });
-
-      it('sends message with empty hints', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
-        await service.sendRemoteMessage('peer-789', 'goodbye');
-
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-789',
-          'goodbye',
-          [],
-        );
       });
 
       it('throws error if remote comms not initialized', async () => {

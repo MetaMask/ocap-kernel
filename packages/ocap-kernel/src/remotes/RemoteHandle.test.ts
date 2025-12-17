@@ -540,32 +540,6 @@ describe('RemoteHandle', () => {
     const promise2 = remote.redeemOcapURL(mockOcapURL2);
     const promise3 = remote.redeemOcapURL(mockOcapURL3);
 
-    // Verify each redemption uses a different reply key
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL1, '1'],
-      }),
-      undefined,
-    );
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL2, '2'],
-      }),
-      undefined,
-    );
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL3, '3'],
-      }),
-      undefined,
-    );
-
     // Resolve all redemptions
     await remote.handleRemoteMessage(
       JSON.stringify({
@@ -589,6 +563,29 @@ describe('RemoteHandle', () => {
     await promise1;
     await promise2;
     await promise3;
+
+    // Verify each redemption uses a different reply key
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL1, '1'],
+      }),
+    );
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL2, '2'],
+      }),
+    );
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      mockRemotePeerId,
+      JSON.stringify({
+        method: 'redeemURL',
+        params: [mockOcapURL3, '3'],
+      }),
+    );
   });
 
   it('handles multiple concurrent URL redemptions independently', async () => {
