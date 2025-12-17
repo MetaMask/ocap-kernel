@@ -115,14 +115,26 @@ export async function initNetwork(
     timeoutMs = 10_000,
   ): Promise<void> {
     const timeoutSignal = AbortSignal.timeout(timeoutMs);
-    return Promise.race([
-      channel.msgStream.write(message),
-      new Promise<never>((_resolve, reject) => {
-        timeoutSignal.addEventListener('abort', () => {
-          reject(new Error(`Message send timed out after ${timeoutMs}ms`));
-        });
-      }),
-    ]);
+    let abortHandler: (() => void) | undefined;
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      abortHandler = () => {
+        reject(new Error(`Message send timed out after ${timeoutMs}ms`));
+      };
+      timeoutSignal.addEventListener('abort', abortHandler);
+    });
+
+    try {
+      return await Promise.race([
+        channel.msgStream.write(message),
+        timeoutPromise,
+      ]);
+    } finally {
+      // Clean up event listener to prevent unhandled rejection if operation
+      // completes before timeout
+      if (abortHandler) {
+        timeoutSignal.removeEventListener('abort', abortHandler);
+      }
+    }
   }
 
   /**

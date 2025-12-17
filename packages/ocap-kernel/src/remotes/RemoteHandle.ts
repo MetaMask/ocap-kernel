@@ -464,14 +464,16 @@ export class RemoteHandle implements EndpointHandle {
 
     // Set up timeout handling with AbortSignal
     const timeoutSignal = AbortSignal.timeout(30_000);
+    let abortHandler: (() => void) | undefined;
     const timeoutPromise = new Promise<never>((_resolve, _reject) => {
-      timeoutSignal.addEventListener('abort', () => {
+      abortHandler = () => {
         // Clean up from pending redemptions map
         if (this.#pendingRedemptions.has(replyKey)) {
           this.#pendingRedemptions.delete(replyKey);
         }
         _reject(new Error('URL redemption timed out after 30 seconds'));
-      });
+      };
+      timeoutSignal.addEventListener('abort', abortHandler);
     });
 
     try {
@@ -487,6 +489,12 @@ export class RemoteHandle implements EndpointHandle {
         this.#pendingRedemptions.delete(replyKey);
       }
       throw error;
+    } finally {
+      // Clean up event listener to prevent unhandled rejection if operation
+      // completes before timeout
+      if (abortHandler) {
+        timeoutSignal.removeEventListener('abort', abortHandler);
+      }
     }
   }
 
