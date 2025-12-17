@@ -33,14 +33,14 @@
         "default": "./dist/ollama/nodejs.cjs"
       }
     },
-    "./queue": {
+    "./test-utils": {
       "import": {
-        "types": "./dist/queue/service.d.mts",
-        "default": "./dist/queue/service.mjs"
+        "types": "./dist/test-utils/index.d.mts",
+        "default": "./dist/test-utils/index.mjs"
       },
       "require": {
-        "types": "./dist/queue/service.d.cts",
-        "default": "./dist/queue/service.cjs"
+        "types": "./dist/test-utils/index.d.cts",
+        "default": "./dist/test-utils/index.cjs"
       }
     },
     "./package.json": "./package.json"

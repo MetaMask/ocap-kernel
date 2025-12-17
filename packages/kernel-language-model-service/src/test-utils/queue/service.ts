@@ -1,8 +1,8 @@
-import type { InstanceConfig, LanguageModelService } from '../types.ts';
 import type { QueueLanguageModel } from './model.ts';
 import { makeQueueModel } from './model.ts';
 import type { ObjectResponse, ResponseFormatter } from './response.ts';
 import type { Tokenizer } from './tokenizer.ts';
+import type { InstanceConfig, LanguageModelService } from '../../types.ts';
 
 type QueueLanguageModelServiceConfig<Response extends object> = {
   tokenizer?: Tokenizer;

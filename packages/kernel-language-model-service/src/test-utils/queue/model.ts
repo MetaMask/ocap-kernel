@@ -1,4 +1,3 @@
-import type { LanguageModel, ModelInfo } from '../types.ts';
 import { objectResponseFormatter } from './response.ts';
 import type { ResponseFormatter } from './response.ts';
 import type { Tokenizer } from './tokenizer.ts';
@@ -10,6 +9,7 @@ import {
   normalizeToAsyncIterable,
 } from './utils.ts';
 import type { StreamWithAbort } from './utils.ts';
+import type { LanguageModel, ModelInfo } from '../../types.ts';
 
 /**
  * Queue-based language model with helper methods for configuring responses.
