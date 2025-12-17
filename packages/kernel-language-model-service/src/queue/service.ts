@@ -20,7 +20,7 @@ export type QueueLanguageModelService<
   Response extends object = ObjectResponse,
 > = LanguageModelService<
   QueueLanguageModelServiceConfig<Response>,
-  /* Options = */ unknown,
+  unknown,
   Response
 > & {
   /**
