@@ -106,7 +106,6 @@
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
-    "@metamask/ocap-kernel": "workspace:^",
     "@ocap/kernel-language-model-service": "workspace:^",
     "ses": "^1.14.0",
     "tree-sitter": "^0.25.0",
