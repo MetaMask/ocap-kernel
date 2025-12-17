@@ -4,6 +4,7 @@ export { makePromiseKitMock } from './promise-kit.ts';
 export { fetchMock } from './env/fetch-mock.ts';
 export * from './env/mock-kernel.ts';
 export { makeMockMessageTarget } from './postMessage.ts';
+export { makeAbortSignalMock } from './abort-signal.ts';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore Intermittent browser/Node incompatibility

@@ -1,4 +1,5 @@
 import { AbortError } from '@metamask/kernel-errors';
+import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import {
   describe,
   expect,

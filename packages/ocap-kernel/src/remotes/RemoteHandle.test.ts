@@ -1,6 +1,7 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
@@ -625,5 +626,120 @@ describe('RemoteHandle', () => {
     );
     // Verify they resolved independently (different values)
     expect(kref1).not.toBe(kref2);
+  });
+
+  describe('redeemOcapURL timeout', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('sets up 30-second timeout using AbortSignal.timeout', async () => {
+      const remote = makeRemote();
+      const mockOcapURL = 'ocap:test@peer';
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const urlPromise = remote.redeemOcapURL(mockOcapURL);
+
+      // Verify AbortSignal.timeout was called with 30 seconds
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(30_000);
+      expect(mockSignal?.timeoutMs).toBe(30_000);
+
+      // Resolve the redemption to avoid hanging
+      const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0];
+      const sentMessage = JSON.parse(sendCall?.[1] as string);
+      const replyKey = sentMessage.params[1] as string;
+
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          method: 'redeemURLReply',
+          params: [true, replyKey, 'ro+1'],
+        }),
+      );
+
+      await urlPromise;
+    });
+
+    it('cleans up pending redemption when redemption succeeds before timeout', async () => {
+      const remote = makeRemote();
+      const mockOcapURL = 'ocap:test@peer';
+      const mockURLResolutionRRef = 'ro+6';
+      const mockURLResolutionKRef = 'ko1';
+      const expectedReplyKey = '1';
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      const urlPromise = remote.redeemOcapURL(mockOcapURL);
+
+      // Send reply immediately (before timeout)
+      const redeemURLReply = {
+        method: 'redeemURLReply',
+        params: [true, expectedReplyKey, mockURLResolutionRRef],
+      };
+      await remote.handleRemoteMessage(JSON.stringify(redeemURLReply));
+
+      const kref = await urlPromise;
+      expect(kref).toBe(mockURLResolutionKRef);
+
+      // Verify timeout signal was not aborted
+      expect(mockSignal?.aborted).toBe(false);
+
+      // Verify cleanup happened - trying to handle another reply with the same key should fail
+      await expect(
+        remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+      ).rejects.toThrow(`unknown URL redemption reply key ${expectedReplyKey}`);
+    });
+
+    it('cleans up pending redemption map entry on timeout', async () => {
+      const remote = makeRemote();
+      const mockOcapURL = 'ocap:test@peer';
+
+      let mockSignal: ReturnType<typeof makeAbortSignalMock> | undefined;
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        mockSignal = makeAbortSignalMock(ms);
+        return mockSignal;
+      });
+
+      // Start a redemption
+      const urlPromise = remote.redeemOcapURL(mockOcapURL);
+
+      // Get the reply key that was used
+      const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0];
+      const sentMessage = JSON.parse(sendCall?.[1] as string);
+      const replyKey = sentMessage.params[1] as string;
+
+      // Wait for the promise to be set up and event listener registered
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Manually trigger the abort to simulate timeout
+      mockSignal?.abort();
+
+      // Wait for the abort handler to execute
+      await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
+
+      // Verify the promise rejects
+      await expect(urlPromise).rejects.toThrow(
+        'URL redemption timed out after 30 seconds',
+      );
+
+      // Verify cleanup happened - trying to handle a reply with the same key should fail
+      const redeemURLReply = {
+        method: 'redeemURLReply',
+        params: [true, replyKey, 'ro+1'],
+      };
+      await expect(
+        remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+      ).rejects.toThrow(`unknown URL redemption reply key ${replyKey}`);
+    });
   });
 });
