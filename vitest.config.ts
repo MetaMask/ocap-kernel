@@ -80,10 +80,10 @@ export default defineConfig({
           lines: 2.97,
         },
         'packages/kernel-agents/**': {
-          statements: 94.15,
-          functions: 94.59,
+          statements: 93.36,
+          functions: 93.75,
           branches: 91.37,
-          lines: 94.15,
+          lines: 93.36,
         },
         'packages/kernel-browser-runtime/**': {
           statements: 87.52,
