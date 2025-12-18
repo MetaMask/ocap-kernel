@@ -1,4 +1,8 @@
-import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
+import {
+  AbortError,
+  isRetryableNetworkError,
+  ResourceLimitError,
+} from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -22,6 +26,18 @@ import type {
 /** Default upper bound for queued outbound messages while reconnecting */
 const DEFAULT_MAX_QUEUE = 200;
 
+/** Default maximum number of concurrent connections */
+const DEFAULT_MAX_CONCURRENT_CONNECTIONS = 100;
+
+/** Default maximum message size in bytes (1MB) */
+const DEFAULT_MAX_MESSAGE_SIZE_BYTES = 1024 * 1024;
+
+/** Default stale peer cleanup interval in milliseconds (15 minutes) */
+const DEFAULT_CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+
+/** Default stale peer timeout in milliseconds (1 hour) */
+const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
+
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
@@ -30,6 +46,10 @@ const DEFAULT_MAX_QUEUE = 200;
  * @param options.relays - PeerIds/Multiaddrs of known message relays.
  * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
  * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
+ * @param options.maxConcurrentConnections - Maximum number of concurrent connections (default: 100).
+ * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
+ * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
+ * @param options.stalePeerTimeoutMs - Stale peer timeout in milliseconds (default: 1 hour).
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
  *
@@ -51,6 +71,10 @@ export async function initNetwork(
     relays = [],
     maxRetryAttempts,
     maxQueue = DEFAULT_MAX_QUEUE,
+    maxConcurrentConnections = DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+    maxMessageSizeBytes = DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+    cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS,
+    stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -60,6 +84,7 @@ export async function initNetwork(
   const reconnectionManager = new ReconnectionManager();
   const messageQueues = new Map<string, MessageQueue>(); // One queue per peer
   const intentionallyClosed = new Set<string>(); // Track peers that intentionally closed connections
+  const lastConnectionTime = new Map<string, number>(); // Track last connection time for cleanup
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
     relays,
@@ -68,6 +93,8 @@ export async function initNetwork(
     maxRetryAttempts,
   );
   const locationHints = new Map<string, string[]>();
+  let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
+
   /**
    * Output an error message.
    *
@@ -285,6 +312,7 @@ export async function initNetwork(
 
         // Add channel to manager
         channels.set(peerId, channel);
+        lastConnectionTime.set(peerId, Date.now());
 
         logger.log(`${peerId}:: reconnection successful`);
 
@@ -369,6 +397,98 @@ export async function initNetwork(
   }
 
   /**
+   * Validate message size before sending or queuing.
+   *
+   * @param message - The message to validate.
+   * @throws ResourceLimitError if message exceeds size limit.
+   */
+  function validateMessageSize(message: string): void {
+    const messageSizeBytes = new TextEncoder().encode(message).length;
+    if (messageSizeBytes > maxMessageSizeBytes) {
+      throw new ResourceLimitError(
+        `Message size ${messageSizeBytes} bytes exceeds limit of ${maxMessageSizeBytes} bytes`,
+        {
+          data: {
+            limitType: 'messageSize',
+            current: messageSizeBytes,
+            limit: maxMessageSizeBytes,
+          },
+        },
+      );
+    }
+  }
+
+  /**
+   * Check if we can establish a new connection (within connection limit).
+   *
+   * @throws ResourceLimitError if connection limit is reached.
+   */
+  function checkConnectionLimit(): void {
+    const currentConnections = channels.size;
+    if (currentConnections >= maxConcurrentConnections) {
+      throw new ResourceLimitError(
+        `Connection limit reached: ${currentConnections}/${maxConcurrentConnections} concurrent connections`,
+        {
+          data: {
+            limitType: 'connection',
+            current: currentConnections,
+            limit: maxConcurrentConnections,
+          },
+        },
+      );
+    }
+  }
+
+  /**
+   * Clean up stale peer data for peers disconnected for more than 1 hour.
+   */
+  function cleanupStalePeers(): void {
+    const now = Date.now();
+    const stalePeers: string[] = [];
+
+    // Check all tracked peers
+    for (const [peerId, lastTime] of lastConnectionTime.entries()) {
+      const timeSinceLastConnection = now - lastTime;
+      const hasActiveChannel = channels.has(peerId);
+      const isReconnecting = reconnectionManager.isReconnecting(peerId);
+
+      // Consider peer stale if:
+      // - No active channel
+      // - Not currently reconnecting
+      // - Disconnected for more than stalePeerTimeoutMs
+      if (
+        !hasActiveChannel &&
+        !isReconnecting &&
+        timeSinceLastConnection > stalePeerTimeoutMs
+      ) {
+        stalePeers.push(peerId);
+      }
+    }
+
+    // Clean up stale peer data
+    for (const peerId of stalePeers) {
+      const lastTime = lastConnectionTime.get(peerId);
+      if (lastTime !== undefined) {
+        const minutesSinceDisconnect = Math.round((now - lastTime) / 1000 / 60);
+        logger.log(
+          `${peerId}:: cleaning up stale peer data (disconnected for ${minutesSinceDisconnect} minutes)`,
+        );
+      }
+
+      // Remove from all tracking structures
+      lastConnectionTime.delete(peerId);
+      messageQueues.delete(peerId);
+      locationHints.delete(peerId);
+
+      // Clear reconnection state if any
+      if (reconnectionManager.isReconnecting(peerId)) {
+        reconnectionManager.stopReconnection(peerId);
+      }
+      reconnectionManager.clearPeer(peerId);
+    }
+  }
+
+  /**
    * Send a message to a peer.
    *
    * @param targetPeerId - The peer ID to send the message to.
@@ -381,6 +501,9 @@ export async function initNetwork(
     if (signal.aborted) {
       return;
     }
+
+    // Validate message size before processing
+    validateMessageSize(message);
 
     // Check if peer is intentionally closed
     if (intentionallyClosed.has(targetPeerId)) {
@@ -400,6 +523,9 @@ export async function initNetwork(
 
     let channel = channels.get(targetPeerId);
     if (!channel) {
+      // Check connection limit before dialing new connection
+      checkConnectionLimit();
+
       try {
         const hints = locationHints.get(targetPeerId) ?? [];
         channel = await connectionFactory.dialIdempotent(
@@ -419,6 +545,7 @@ export async function initNetwork(
         }
 
         channels.set(targetPeerId, channel);
+        lastConnectionTime.set(targetPeerId, Date.now());
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
@@ -435,6 +562,7 @@ export async function initNetwork(
       logger.log(`${targetPeerId}:: send ${message}`);
       await writeWithTimeout(channel, fromString(message), 10_000);
       reconnectionManager.resetBackoff(targetPeerId);
+      lastConnectionTime.set(targetPeerId, Date.now());
     } catch (problem) {
       outputError(targetPeerId, `sending message`, problem);
       handleConnectionLoss(targetPeerId);
@@ -460,7 +588,20 @@ export async function initNetwork(
       // Don't add to channels map and don't start reading - connection will naturally close
       return;
     }
+
+    // Check connection limit for inbound connections
+    try {
+      checkConnectionLimit();
+    } catch {
+      logger.log(
+        `${channel.peerId}:: rejecting inbound connection due to connection limit`,
+      );
+      // Don't add to channels map - connection will naturally close
+      return;
+    }
+
     channels.set(channel.peerId, channel);
+    lastConnectionTime.set(channel.peerId, Date.now());
     readChannel(channel).catch((error) => {
       outputError(channel.peerId, 'error in inbound channel read', error);
     });
@@ -468,6 +609,13 @@ export async function initNetwork(
 
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
+
+  // Start periodic cleanup task for stale peers
+  cleanupIntervalId = setInterval(() => {
+    if (!signal.aborted) {
+      cleanupStalePeers();
+    }
+  }, cleanupIntervalMs);
 
   /**
    * Explicitly close a connection to a peer.
@@ -541,12 +689,18 @@ export async function initNetwork(
       cleanupWakeDetector();
       cleanupWakeDetector = undefined;
     }
+    // Stop cleanup interval
+    if (cleanupIntervalId) {
+      clearInterval(cleanupIntervalId);
+      cleanupIntervalId = undefined;
+    }
     stopController.abort(); // cancels all delays and dials
     await connectionFactory.stop();
     channels.clear();
     reconnectionManager.clear();
     messageQueues.clear();
     intentionallyClosed.clear();
+    lastConnectionTime.clear();
   }
 
   // Return the sender with a stop handle and connection management functions

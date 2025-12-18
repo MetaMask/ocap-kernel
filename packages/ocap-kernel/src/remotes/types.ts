@@ -44,6 +44,26 @@ export type RemoteCommsOptions = {
    * If not provided, uses the default MAX_QUEUE value.
    */
   maxQueue?: number | undefined;
+  /**
+   * Maximum number of concurrent connections.
+   * If not provided, uses the default MAX_CONCURRENT_CONNECTIONS value (100).
+   */
+  maxConcurrentConnections?: number | undefined;
+  /**
+   * Maximum message size in bytes.
+   * If not provided, uses the default MAX_MESSAGE_SIZE_BYTES value (1MB).
+   */
+  maxMessageSizeBytes?: number | undefined;
+  /**
+   * Stale peer cleanup interval in milliseconds.
+   * If not provided, uses the default CLEANUP_INTERVAL_MS value (15 minutes).
+   */
+  cleanupIntervalMs?: number | undefined;
+  /**
+   * Stale peer timeout in milliseconds (time before a disconnected peer is considered stale).
+   * If not provided, uses the default STALE_PEER_TIMEOUT_MS value (1 hour).
+   */
+  stalePeerTimeoutMs?: number | undefined;
 };
 
 export type RemoteInfo = {

@@ -13,6 +13,7 @@ describe('index', () => {
       'EvaluatorError',
       'MarshaledErrorStruct',
       'MarshaledOcapErrorStruct',
+      'ResourceLimitError',
       'SampleGenerationError',
       'StreamReadError',
       'SubclusterNotFoundError',
