@@ -1,7 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeDiscoverableExo } from './discoverable.ts';
 import type { MethodSchema } from './schema.ts';
+
+const makeExoMock = vi.hoisted(() =>
+  vi.fn((_name, _interfaceGuard, methods) => methods),
+);
+
+vi.mock('@endo/exo', () => ({
+  makeExo: makeExoMock,
+}));
 
 describe('makeDiscoverableExo', () => {
   const greetSchema: MethodSchema = {
@@ -112,5 +120,38 @@ describe('makeDiscoverableExo', () => {
     expect(exo.describe()).toStrictEqual({
       doSomething: schema.doSomething,
     });
+  });
+
+  it('throws if describe is already a method', () => {
+    const methods = {
+      describe: () => 'original describe',
+      greet: (name: string) => `Hello, ${name}!`,
+    };
+    const schema: Record<keyof typeof methods, MethodSchema> = {
+      describe: {
+        description: 'Original describe method',
+        args: {},
+        returns: { type: 'string', description: 'Original description' },
+      },
+      greet: greetSchema,
+    };
+
+    expect(() => {
+      makeDiscoverableExo('TestExo', methods, schema);
+    }).toThrow('The `describe` method name is reserved for discoverable exos.');
+  });
+
+  it('re-throws errors from makeExo that are not about describe key', () => {
+    const testError = new Error('Some other error from makeExo');
+    makeExoMock.mockImplementation(() => {
+      throw testError;
+    });
+
+    const methods = { greet: (name: string) => `Hello, ${name}!` };
+    const schema = { greet: greetSchema };
+
+    expect(() => {
+      makeDiscoverableExo('TestExo', methods, schema);
+    }).toThrow('Some other error from makeExo');
   });
 });

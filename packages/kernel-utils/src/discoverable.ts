@@ -3,6 +3,7 @@ import type { Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
 
 import { makeDefaultInterface } from './exo.ts';
+import { mergeDisjointRecords } from './merge-disjoint-records.ts';
 import type { MethodSchema } from './schema.ts';
 
 /**
@@ -50,14 +51,31 @@ export const makeDiscoverableExo = <
   methods: Interface,
   schema: Schema,
   interfaceGuard: InterfaceGuard = makeDefaultInterface(name),
-): DiscoverableExo<Interface, Schema> =>
-  // @ts-expect-error We're intentionally not specifying method-specific interface guards.
-  makeExo(name, interfaceGuard, {
-    ...methods,
-    /**
-     * Describe the methods of the discoverable.
-     *
-     * @returns A schema of the methods.
-     */
-    describe: () => schema,
-  });
+): DiscoverableExo<Interface, Schema> => {
+  try {
+    // @ts-expect-error We're intentionally not specifying method-specific interface guards.
+    return makeExo(
+      name,
+      interfaceGuard,
+      // @ts-expect-error We're intentionally not specifying method-specific interface guards.
+      mergeDisjointRecords(methods, {
+        /**
+         * Describe the methods of the discoverable.
+         *
+         * @returns A schema of the methods.
+         */
+        describe: () => schema,
+      }),
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Duplicate keys in records: describe')
+    ) {
+      throw new Error(
+        'The `describe` method name is reserved for discoverable exos.',
+      );
+    }
+    throw error;
+  }
+};
