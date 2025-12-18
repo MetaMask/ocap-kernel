@@ -60,7 +60,17 @@ export class ResourceLimitError extends BaseError {
   ): ResourceLimitError {
     assert(marshaledError, this.struct);
     const options = unmarshalErrorOptions(marshaledError);
-    return new ResourceLimitError(marshaledError.message, options);
+    const data = marshaledError.data as
+      | {
+          limitType?: 'connection' | 'messageSize';
+          current?: number;
+          limit?: number;
+        }
+      | undefined;
+    return new ResourceLimitError(marshaledError.message, {
+      ...options,
+      ...(data !== undefined && { data }),
+    });
   }
 }
 harden(ResourceLimitError);

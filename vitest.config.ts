@@ -92,10 +92,10 @@ export default defineConfig({
           lines: 87.52,
         },
         'packages/kernel-errors/**': {
-          statements: 97.57,
-          functions: 96.07,
+          statements: 100,
+          functions: 100,
           branches: 100,
-          lines: 97.57,
+          lines: 100,
         },
         'packages/kernel-language-model-service/**': {
           statements: 98.35,
@@ -130,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.25,
+          branches: 93.26,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.25,
+          statements: 96.27,
           functions: 98.55,
-          branches: 97.32,
-          lines: 96.25,
+          branches: 97.33,
+          lines: 96.27,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,

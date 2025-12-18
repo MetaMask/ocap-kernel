@@ -310,6 +310,27 @@ export async function initNetwork(
           false, // No retry here, we're already in a retry loop
         );
 
+        // Check connection limit before adding channel
+        // This prevents exceeding the limit if other connections were established
+        // during the reconnection delay
+        try {
+          checkConnectionLimit();
+        } catch (limitError) {
+          // Connection limit reached - treat as retryable and continue loop
+          // The limit might free up when other connections close
+          logger.log(
+            `${peerId}:: reconnection blocked by connection limit, will retry`,
+          );
+          outputError(
+            peerId,
+            `reconnection attempt ${nextAttempt}`,
+            limitError,
+          );
+          // Don't add channel - connection will naturally close
+          // Continue the reconnection loop
+          continue;
+        }
+
         // Add channel to manager
         channels.set(peerId, channel);
         lastConnectionTime.set(peerId, Date.now());
@@ -524,6 +545,7 @@ export async function initNetwork(
     let channel = channels.get(targetPeerId);
     if (!channel) {
       // Check connection limit before dialing new connection
+      // (Early check to fail fast, but we'll check again after dial to prevent race conditions)
       checkConnectionLimit();
 
       try {
@@ -541,6 +563,22 @@ export async function initNetwork(
             `${targetPeerId}:: reconnection started during dial, queueing message ` +
               `(${queue.length}/${maxQueue}): ${message}`,
           );
+          return;
+        }
+
+        // Re-check connection limit after dial completes to prevent race conditions
+        // Multiple concurrent dials could all pass the initial check, then all add channels
+        try {
+          checkConnectionLimit();
+        } catch {
+          // Connection limit reached - close the dialed channel and queue the message
+          logger.log(
+            `${targetPeerId}:: connection limit reached after dial, queueing message`,
+          );
+          queue.enqueue(message);
+          // Don't add channel - connection will naturally close
+          // Start reconnection to retry later when limit might free up
+          handleConnectionLoss(targetPeerId);
           return;
         }
 
