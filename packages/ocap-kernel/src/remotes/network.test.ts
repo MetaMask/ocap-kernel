@@ -1,5 +1,5 @@
 import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
-import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
+import { delay, makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import {
   describe,
   expect,
@@ -2219,5 +2219,148 @@ describe('network.initNetwork', () => {
       expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
       setIntervalSpy.mockRestore();
     });
+  });
+
+  describe('reconnection respects connection limit', () => {
+    it('blocks reconnection when connection limit is reached', async () => {
+      const customLimit = 2;
+      const mockChannels: MockChannel[] = [];
+      // Create mock channels
+      for (let i = 0; i < customLimit; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+      }
+      // Set up reconnection state
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(100); // Small delay to ensure ordering
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        async (ms: number) => {
+          // Use real delay to allow other operations to complete
+          await new Promise((resolve) => setTimeout(resolve, ms));
+        },
+      );
+      // Set up dial mocks - initial connections
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannels[0]) // peer-0
+        .mockResolvedValueOnce(mockChannels[1]); // peer-1
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections: customLimit },
+        vi.fn(),
+      );
+      // Establish connections up to limit
+      await sendRemoteMessage('peer-0', 'msg');
+      await sendRemoteMessage('peer-1', 'msg');
+      // Disconnect peer-0 (simulate connection loss)
+      const peer0Channel = mockChannels[0] as MockChannel;
+      peer0Channel.msgStream.write.mockRejectedValueOnce(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      // Trigger reconnection for peer-0 (this will remove peer-0 from channels)
+      await sendRemoteMessage('peer-0', 'msg2');
+      // Wait for connection loss to be handled (channel removed)
+      await vi.waitFor(
+        () => {
+          expect(
+            mockReconnectionManager.startReconnection,
+          ).toHaveBeenCalledWith('peer-0');
+        },
+        { timeout: 1000 },
+      );
+      // Now fill the connection limit with a new peer (peer-0 is removed, so we have space)
+      // Ensure new-peer is NOT in reconnecting state
+      mockReconnectionManager.isReconnecting.mockImplementation((peerId) => {
+        return peerId === 'peer-0'; // Only peer-0 is reconnecting
+      });
+      const newPeerChannel = createMockChannel('new-peer');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(
+        newPeerChannel,
+      );
+      await sendRemoteMessage('new-peer', 'msg');
+      // Wait a bit to ensure new-peer connection is fully established in channels map
+      await delay(50);
+      // Mock successful dial for reconnection attempt (but limit will block it)
+      const reconnectChannel = createMockChannel('peer-0');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(
+        reconnectChannel,
+      );
+      // Verify reconnection started
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-0',
+      );
+      // Wait for reconnection attempt to be blocked
+      await vi.waitFor(
+        () => {
+          // Should have logged that reconnection was blocked by limit
+          expect(mockLogger.log).toHaveBeenCalledWith(
+            expect.stringContaining(
+              'peer-0:: reconnection blocked by connection limit',
+            ),
+          );
+        },
+        { timeout: 5000 },
+      );
+      // Verify reconnection continues (doesn't stop) - shouldRetry should be called
+      // meaning the loop continues after the limit check fails
+      expect(mockReconnectionManager.shouldRetry).toHaveBeenCalled();
+    }, 10000);
+  });
+
+  describe('connection limit race condition', () => {
+    it('prevents exceeding limit when multiple concurrent dials occur', async () => {
+      const customLimit = 2;
+      const mockChannels: MockChannel[] = [];
+
+      // Create mock channels
+      for (let i = 0; i < customLimit + 1; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+      }
+
+      // Set up dial mocks - all dials will succeed
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => {
+          // Simulate async dial delay
+          await delay(10);
+          return mockChannels.find((ch) => ch.peerId === peerId) as MockChannel;
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections: customLimit },
+        vi.fn(),
+      );
+      // Start multiple concurrent dials that all pass the initial limit check
+      const sendPromises = Promise.all([
+        sendRemoteMessage('peer-0', 'msg0'),
+        sendRemoteMessage('peer-1', 'msg1'),
+        sendRemoteMessage('peer-2', 'msg2'), // This should be blocked after dial
+      ]);
+      await sendPromises;
+      // Verify that only 2 channels were added (the limit)
+      // The third one should have been rejected after dial completed
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-2:: connection limit reached after dial'),
+      );
+      // Verify that peer-2's message was queued
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg2');
+      // Verify that reconnection was started for peer-2 (to retry later)
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-2',
+      );
+    }, 10000);
   });
 });

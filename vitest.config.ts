@@ -72,7 +72,7 @@ export default defineConfig({
           statements: 100,
           functions: 100,
           branches: 100,
-          lines: 97.57,
+          lines: 100,
         },
         'packages/extension/**': {
           statements: 1.42,
