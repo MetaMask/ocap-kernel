@@ -15,14 +15,18 @@ export type DiscoverableExo<
     keyof Interface,
     MethodSchema
   >,
-> = ReturnType<typeof makeExo<Interface>> & {
-  /**
-   * Describe the methods of the discoverable.
-   *
-   * @returns A schema of the methods.
-   */
-  describe: () => Schema;
-};
+> = ReturnType<
+  typeof makeExo<
+    Interface & {
+      /**
+       * Describe the methods of the discoverable.
+       *
+       * @returns A schema of the methods.
+       */
+      describe: () => Schema;
+    }
+  >
+>;
 
 /**
  * Shorthand for creating a discoverable `@endo/exo` remotable with default guards set to 'passable'.
