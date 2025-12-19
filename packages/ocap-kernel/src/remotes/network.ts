@@ -326,7 +326,8 @@ export async function initNetwork(
             `reconnection attempt ${nextAttempt}`,
             limitError,
           );
-          // Don't add channel - connection will naturally close
+          // Explicitly close the channel to release network resources
+          await connectionFactory.closeChannel(channel, peerId);
           // Continue the reconnection loop
           continue;
         }
@@ -575,8 +576,9 @@ export async function initNetwork(
           logger.log(
             `${targetPeerId}:: connection limit reached after dial, queueing message`,
           );
+          // Explicitly close the channel to release network resources
+          await connectionFactory.closeChannel(channel, targetPeerId);
           queue.enqueue(message);
-          // Don't add channel - connection will naturally close
           // Start reconnection to retry later when limit might free up
           handleConnectionLoss(targetPeerId);
           return;
@@ -634,7 +636,20 @@ export async function initNetwork(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection due to connection limit`,
       );
-      // Don't add to channels map - connection will naturally close
+      // Explicitly close the channel to release network resources
+      const closePromise = connectionFactory.closeChannel(
+        channel,
+        channel.peerId,
+      );
+      if (typeof closePromise?.catch === 'function') {
+        closePromise.catch((problem) => {
+          outputError(
+            channel.peerId,
+            'closing rejected inbound channel',
+            problem,
+          );
+        });
+      }
       return;
     }
 
