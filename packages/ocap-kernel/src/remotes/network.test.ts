@@ -607,8 +607,8 @@ describe('network.initNetwork', () => {
     it('flushes queued messages after successful reconnection', async () => {
       // Set up message queue with queued messages
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1' })
-        .mockReturnValueOnce({ message: 'queued-2' })
+        .mockReturnValueOnce('queued-1')
+        .mockReturnValueOnce('queued-2')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 2;
       mockMessageQueue.messages = ['queued-1', 'queued-2'];
@@ -660,9 +660,9 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
       // Set up message queue with multiple messages
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1' })
-        .mockReturnValueOnce({ message: 'queued-2' })
-        .mockReturnValueOnce({ message: 'queued-3' })
+        .mockReturnValueOnce('queued-1')
+        .mockReturnValueOnce('queued-2')
+        .mockReturnValueOnce('queued-3')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 3;
       mockMessageQueue.messages = ['queued-1', 'queued-2', 'queued-3'];
@@ -1305,7 +1305,7 @@ describe('network.initNetwork', () => {
 
       // Set up queue with messages that will fail during flush
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-msg' })
+        .mockReturnValueOnce('queued-msg')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 1;
       mockMessageQueue.messages = ['queued-msg'];
@@ -1357,7 +1357,7 @@ describe('network.initNetwork', () => {
 
       // Set up queue with messages that will fail during flush
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-msg' })
+        .mockReturnValueOnce('queued-msg')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 1;
       mockMessageQueue.messages = ['queued-msg'];
