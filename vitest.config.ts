@@ -130,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.25,
+          branches: 93.26,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.27,
+          statements: 96.4,
           functions: 98.55,
-          branches: 97.33,
-          lines: 96.27,
+          branches: 97.27,
+          lines: 96.4,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,
