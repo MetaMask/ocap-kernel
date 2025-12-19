@@ -10,8 +10,6 @@ import {
   beforeAll,
 } from 'vitest';
 
-import type { QueuedMessage } from './MessageQueue.ts';
-
 // Import the module we're testing - must be after mocks are set up
 let initNetwork: typeof import('./network.ts').initNetwork;
 
@@ -23,7 +21,7 @@ const mockMessageQueue = {
   replaceAll: vi.fn(),
   clear: vi.fn(),
   length: 0,
-  messages: [] as QueuedMessage[],
+  messages: [] as string[],
 };
 
 vi.mock('./MessageQueue.ts', () => {
@@ -609,14 +607,11 @@ describe('network.initNetwork', () => {
     it('flushes queued messages after successful reconnection', async () => {
       // Set up message queue with queued messages
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1' })
-        .mockReturnValueOnce({ message: 'queued-2' })
+        .mockReturnValueOnce('queued-1')
+        .mockReturnValueOnce('queued-2')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 2;
-      mockMessageQueue.messages = [
-        { message: 'queued-1' },
-        { message: 'queued-2' },
-      ];
+      mockMessageQueue.messages = ['queued-1', 'queued-2'];
 
       // Setup for reconnection scenario
       const mockChannel = createMockChannel('peer-1');
@@ -665,16 +660,12 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
       // Set up message queue with multiple messages
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-1' })
-        .mockReturnValueOnce({ message: 'queued-2' })
-        .mockReturnValueOnce({ message: 'queued-3' })
+        .mockReturnValueOnce('queued-1')
+        .mockReturnValueOnce('queued-2')
+        .mockReturnValueOnce('queued-3')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 3;
-      mockMessageQueue.messages = [
-        { message: 'queued-1' },
-        { message: 'queued-2' },
-        { message: 'queued-3' },
-      ];
+      mockMessageQueue.messages = ['queued-1', 'queued-2', 'queued-3'];
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.write
         .mockRejectedValueOnce(
@@ -865,10 +856,7 @@ describe('network.initNetwork', () => {
 
       // Set up queue with messages
       mockMessageQueue.length = 2;
-      mockMessageQueue.messages = [
-        { message: 'queued-1' },
-        { message: 'queued-2' },
-      ];
+      mockMessageQueue.messages = ['queued-1', 'queued-2'];
 
       await closeConnection('peer-1');
 
@@ -1317,10 +1305,10 @@ describe('network.initNetwork', () => {
 
       // Set up queue with messages that will fail during flush
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-msg' })
+        .mockReturnValueOnce('queued-msg')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 1;
-      mockMessageQueue.messages = [{ message: 'queued-msg' }];
+      mockMessageQueue.messages = ['queued-msg'];
 
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.write.mockRejectedValue(
@@ -1369,10 +1357,10 @@ describe('network.initNetwork', () => {
 
       // Set up queue with messages that will fail during flush
       mockMessageQueue.dequeue
-        .mockReturnValueOnce({ message: 'queued-msg' })
+        .mockReturnValueOnce('queued-msg')
         .mockReturnValue(undefined);
       mockMessageQueue.length = 1;
-      mockMessageQueue.messages = [{ message: 'queued-msg' }];
+      mockMessageQueue.messages = ['queued-msg'];
 
       const mockChannel = createMockChannel('peer-1');
       mockChannel.msgStream.write.mockRejectedValue(
@@ -1440,8 +1428,8 @@ describe('network.initNetwork', () => {
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
       // Set up queue with messages that will be flushed during reconnection
       // Each reconnection attempt will try to flush these messages, and they will fail
-      const queuedMsg1 = { message: 'queued-1' };
-      const queuedMsg2 = { message: 'queued-2' };
+      const queuedMsg1 = 'queued-1';
+      const queuedMsg2 = 'queued-2';
       // dequeue should return messages for each flush attempt (each reconnection)
       mockMessageQueue.dequeue.mockImplementation(() => {
         // Return messages in order, then undefined
@@ -1654,7 +1642,7 @@ describe('network.initNetwork', () => {
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       // Set up queue with messages
-      const queuedMsg = { message: 'queued-msg' };
+      const queuedMsg = 'queued-msg';
       mockMessageQueue.dequeue
         .mockReturnValueOnce(queuedMsg)
         .mockReturnValue(undefined);
