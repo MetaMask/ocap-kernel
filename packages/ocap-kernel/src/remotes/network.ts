@@ -218,6 +218,7 @@ export async function initNetwork(
         if (readBuf) {
           reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
           await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
+          lastConnectionTime.set(channel.peerId, Date.now()); // update timestamp on inbound activity
         } else {
           // Stream ended (returned undefined), exit the read loop
           logger.log(`${channel.peerId}:: stream ended`);
