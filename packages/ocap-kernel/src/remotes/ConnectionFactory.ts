@@ -324,6 +324,50 @@ export class ConnectionFactory {
   }
 
   /**
+   * Close a channel's underlying stream to release network resources.
+   *
+   * @param channel - The channel to close.
+   * @param peerId - The peer ID for logging.
+   */
+  async closeChannel(channel: Channel, peerId: string): Promise<void> {
+    try {
+      // ByteStream.unwrap() returns the underlying libp2p stream.
+      const maybeWrapper = channel.msgStream as unknown as {
+        unwrap?: () => unknown;
+      };
+      const underlying =
+        typeof maybeWrapper.unwrap === 'function'
+          ? maybeWrapper.unwrap()
+          : undefined;
+
+      const closable = underlying as
+        | { close?: () => Promise<void> }
+        | undefined;
+      if (closable?.close) {
+        await closable.close();
+        this.#logger.log(`${peerId}:: closed channel stream`);
+        return;
+      }
+
+      const abortable = underlying as
+        | { abort?: (error?: Error) => void }
+        | undefined;
+      if (abortable?.abort) {
+        abortable.abort(new AbortError());
+        this.#logger.log(`${peerId}:: aborted channel stream`);
+        return;
+      }
+
+      // If we cannot explicitly close/abort, log and rely on natural closure.
+      this.#logger.log(
+        `${peerId}:: channel stream lacks close/abort, relying on natural closure`,
+      );
+    } catch (problem) {
+      this.#outputError(peerId, 'closing channel stream', problem);
+    }
+  }
+
+  /**
    * Output an error message.
    *
    * @param peerId - The peer ID to output an error message for.

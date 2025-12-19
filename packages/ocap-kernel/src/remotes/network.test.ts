@@ -60,6 +60,7 @@ const mockReconnectionManager = {
   resetBackoff: vi.fn(),
   resetAllBackoffs: vi.fn(),
   clear: vi.fn(),
+  clearPeer: vi.fn(),
 };
 
 vi.mock('./ReconnectionManager.ts', () => {
@@ -81,6 +82,8 @@ vi.mock('./ReconnectionManager.ts', () => {
     resetAllBackoffs = mockReconnectionManager.resetAllBackoffs;
 
     clear = mockReconnectionManager.clear;
+
+    clearPeer = mockReconnectionManager.clearPeer;
   }
   return {
     ReconnectionManager: MockReconnectionManager,
@@ -100,6 +103,7 @@ const mockConnectionFactory = {
   dialIdempotent: vi.fn(),
   onInboundConnection: vi.fn(),
   stop: vi.fn().mockResolvedValue(undefined),
+  closeChannel: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock('./ConnectionFactory.ts', () => {
@@ -183,10 +187,12 @@ describe('network.initNetwork', () => {
     mockReconnectionManager.resetBackoff.mockClear();
     mockReconnectionManager.resetAllBackoffs.mockClear();
     mockReconnectionManager.clear.mockClear();
+    mockReconnectionManager.clearPeer.mockClear();
 
     mockConnectionFactory.dialIdempotent.mockClear();
     mockConnectionFactory.onInboundConnection.mockClear();
     mockConnectionFactory.stop.mockClear();
+    mockConnectionFactory.closeChannel.mockClear();
 
     mockLogger.log.mockClear();
     mockLogger.error.mockClear();
@@ -2219,6 +2225,101 @@ describe('network.initNetwork', () => {
       expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
       setIntervalSpy.mockRestore();
     });
+
+    it('cleans up stale peers and calls clearPeer', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      // Stale cleanup only applies when there is no active channel.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const stalePeerTimeoutMs = 1;
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+      // Establish connection (sets lastConnectionTime)
+      await sendRemoteMessage('peer-1', 'msg');
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Ensure enough wall-clock time passes to exceed stalePeerTimeoutMs.
+      await delay(stalePeerTimeoutMs + 5);
+      // Run cleanup; stale peer should be cleaned
+      intervalFn?.();
+      // Verify clearPeer was called
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      // Verify cleanup log message
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+      setIntervalSpy.mockRestore();
+    });
+
+    it('respects custom cleanupIntervalMs option', async () => {
+      const customInterval = 30 * 60 * 1000; // 30 minutes
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((_fn: () => void, _ms?: number) => {
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      await initNetwork(
+        '0x1234',
+        { cleanupIntervalMs: customInterval },
+        vi.fn(),
+      );
+      expect(setIntervalSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        customInterval,
+      );
+      setIntervalSpy.mockRestore();
+    });
+
+    it('respects custom stalePeerTimeoutMs option', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const customTimeout = 50;
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        {
+          stalePeerTimeoutMs: customTimeout,
+        },
+        vi.fn(),
+      );
+      // Establish connection
+      await sendRemoteMessage('peer-1', 'msg');
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Run cleanup quickly; peer should not be stale yet.
+      intervalFn?.();
+      // Peer should not be cleaned (not stale yet)
+      expect(mockReconnectionManager.clearPeer).not.toHaveBeenCalled();
+      // Wait beyond the custom timeout, then run cleanup again.
+      await delay(customTimeout + 10);
+      intervalFn?.();
+      // Now peer should be cleaned
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      setIntervalSpy.mockRestore();
+    });
   });
 
   describe('reconnection respects connection limit', () => {
@@ -2308,6 +2409,11 @@ describe('network.initNetwork', () => {
             expect.stringContaining(
               'peer-0:: reconnection blocked by connection limit',
             ),
+          );
+          // Verify closeChannel was called to release network resources
+          expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+            reconnectChannel,
+            'peer-0',
           );
         },
         { timeout: 5000 },
