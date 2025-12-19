@@ -589,24 +589,32 @@ export async function initNetwork(
           return;
         }
 
-        // Re-check connection limit after dial completes to prevent race conditions
-        // Multiple concurrent dials could all pass the initial check, then all add channels
-        try {
-          checkConnectionLimit();
-        } catch {
-          // Connection limit reached - close the dialed channel and queue the message
-          logger.log(
-            `${targetPeerId}:: connection limit reached after dial, queueing message`,
-          );
-          // Explicitly close the channel to release network resources
-          await connectionFactory.closeChannel(channel, targetPeerId);
-          queue.enqueue(message);
-          // Start reconnection to retry later when limit might free up
-          handleConnectionLoss(targetPeerId);
-          return;
-        }
+        // Check if a concurrent call already registered a channel for this peer
+        // (dialIdempotent may return the same channel due to deduplication)
+        const existingChannel = channels.get(targetPeerId);
+        if (existingChannel) {
+          // Another concurrent call already registered the channel, use it
+          channel = existingChannel;
+        } else {
+          // Re-check connection limit after dial completes to prevent race conditions
+          // Multiple concurrent dials could all pass the initial check, then all add channels
+          try {
+            checkConnectionLimit();
+          } catch {
+            // Connection limit reached - close the dialed channel and queue the message
+            logger.log(
+              `${targetPeerId}:: connection limit reached after dial, queueing message`,
+            );
+            // Explicitly close the channel to release network resources
+            await connectionFactory.closeChannel(channel, targetPeerId);
+            queue.enqueue(message);
+            // Start reconnection to retry later when limit might free up
+            handleConnectionLoss(targetPeerId);
+            return;
+          }
 
-        registerChannel(targetPeerId, channel);
+          registerChannel(targetPeerId, channel);
+        }
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
