@@ -654,28 +654,31 @@ export async function initNetwork(
       return;
     }
 
-    // Check connection limit for inbound connections
-    try {
-      checkConnectionLimit();
-    } catch {
-      logger.log(
-        `${channel.peerId}:: rejecting inbound connection due to connection limit`,
-      );
-      // Explicitly close the channel to release network resources
-      const closePromise = connectionFactory.closeChannel(
-        channel,
-        channel.peerId,
-      );
-      if (typeof closePromise?.catch === 'function') {
-        closePromise.catch((problem) => {
-          outputError(
-            channel.peerId,
-            'closing rejected inbound channel',
-            problem,
-          );
-        });
+    // Check connection limit for inbound connections only if no existing channel
+    // If a channel already exists, this is likely a reconnection and the peer already has a slot
+    if (!channels.has(channel.peerId)) {
+      try {
+        checkConnectionLimit();
+      } catch {
+        logger.log(
+          `${channel.peerId}:: rejecting inbound connection due to connection limit`,
+        );
+        // Explicitly close the channel to release network resources
+        const closePromise = connectionFactory.closeChannel(
+          channel,
+          channel.peerId,
+        );
+        if (typeof closePromise?.catch === 'function') {
+          closePromise.catch((problem) => {
+            outputError(
+              channel.peerId,
+              'closing rejected inbound channel',
+              problem,
+            );
+          });
+        }
+        return;
       }
-      return;
     }
 
     registerChannel(channel.peerId, channel, 'error in inbound channel read');
