@@ -9,7 +9,6 @@ import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { ConnectionFactory } from './ConnectionFactory.ts';
 import { MessageQueue } from './MessageQueue.ts';
-import type { QueuedMessage } from './MessageQueue.ts';
 import { ReconnectionManager } from './ReconnectionManager.ts';
 import type {
   RemoteMessageHandler,
@@ -143,7 +142,7 @@ export async function initNetwork(
    * @param from - The peer ID that the message is from.
    * @param message - The message to receive.
    */
-  async function receiveMsg(from: string, message: string): Promise<void> {
+  async function receiveMessage(from: string, message: string): Promise<void> {
     logger.log(`${from}:: recv ${message}`);
     await remoteMessageHandler(from, message);
   }
@@ -191,7 +190,7 @@ export async function initNetwork(
         }
         if (readBuf) {
           reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
-          await receiveMsg(channel.peerId, bufToString(readBuf.subarray()));
+          await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
         } else {
           // Stream ended (returned undefined), exit the read loop
           logger.log(`${channel.peerId}:: stream ended`);
@@ -346,13 +345,13 @@ export async function initNetwork(
     logger.log(`${peerId}:: flushing ${queue.length} queued messages`);
 
     // Process queued messages
-    const failedMessages: QueuedMessage[] = [];
-    let queuedMsg: QueuedMessage | undefined;
+    const failedMessages: string[] = [];
+    let queuedMsg: string | undefined;
 
     while ((queuedMsg = queue.dequeue()) !== undefined) {
       try {
-        logger.log(`${peerId}:: send (queued) ${queuedMsg.message}`);
-        await writeWithTimeout(channel, fromString(queuedMsg.message), 10_000);
+        logger.log(`${peerId}:: send (queued) ${queuedMsg}`);
+        await writeWithTimeout(channel, fromString(queuedMsg), 10_000);
       } catch (problem) {
         outputError(peerId, `sending queued message`, problem);
         // Preserve the failed message and all remaining messages

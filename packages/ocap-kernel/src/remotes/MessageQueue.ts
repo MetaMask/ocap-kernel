@@ -1,12 +1,8 @@
-export type QueuedMessage = {
-  message: string;
-};
-
 /**
  * Message queue management for remote communications.
  */
 export class MessageQueue {
-  readonly #queue: QueuedMessage[] = [];
+  readonly #queue: string[] = [];
 
   readonly #maxCapacity: number;
 
@@ -29,7 +25,7 @@ export class MessageQueue {
     if (this.#queue.length >= this.#maxCapacity) {
       this.dropOldest();
     }
-    this.#queue.push({ message });
+    this.#queue.push(message);
   }
 
   /**
@@ -37,7 +33,7 @@ export class MessageQueue {
    *
    * @returns The first message in the queue, or undefined if the queue is empty.
    */
-  dequeue(): QueuedMessage | undefined {
+  dequeue(): string | undefined {
     return this.#queue.shift();
   }
 
@@ -46,7 +42,7 @@ export class MessageQueue {
    *
    * @returns All messages in the queue.
    */
-  dequeueAll(): QueuedMessage[] {
+  dequeueAll(): string[] {
     const messages = [...this.#queue];
     this.#queue.length = 0;
     return messages;
@@ -80,7 +76,7 @@ export class MessageQueue {
    *
    * @returns A read-only view of the messages.
    */
-  get messages(): readonly QueuedMessage[] {
+  get messages(): readonly string[] {
     return this.#queue;
   }
 
@@ -89,7 +85,7 @@ export class MessageQueue {
    *
    * @param messages - The new messages to replace the queue with.
    */
-  replaceAll(messages: QueuedMessage[]): void {
+  replaceAll(messages: string[]): void {
     this.#queue.length = 0;
     this.#queue.push(...messages);
   }
