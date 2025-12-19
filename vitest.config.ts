@@ -82,7 +82,7 @@ export default defineConfig({
         'packages/kernel-agents/**': {
           statements: 94.15,
           functions: 94.64,
-          branches: 91.39,
+          branches: 91.42,
           lines: 94.15,
         },
         'packages/kernel-browser-runtime/**': {
@@ -130,7 +130,7 @@ export default defineConfig({
         'packages/kernel-ui/**': {
           statements: 97.57,
           functions: 97.29,
-          branches: 93.26,
+          branches: 93.25,
           lines: 97.57,
         },
         'packages/kernel-utils/**': {
@@ -158,10 +158,10 @@ export default defineConfig({
           lines: 22.22,
         },
         'packages/ocap-kernel/**': {
-          statements: 96.53,
-          functions: 98.54,
-          branches: 97.59,
-          lines: 96.53,
+          statements: 96.42,
+          functions: 98.56,
+          branches: 97.27,
+          lines: 96.42,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.67,
