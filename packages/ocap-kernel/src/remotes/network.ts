@@ -276,9 +276,7 @@ export async function initNetwork(
         logger.log(
           `${peerId}:: max reconnection attempts (${maxAttempts}) reached, giving up`,
         );
-        reconnectionManager.stopReconnection(peerId);
-        queue.clear();
-        onRemoteGiveUp?.(peerId);
+        giveUpOnPeer(peerId, queue);
         return;
       }
 
@@ -332,16 +330,10 @@ export async function initNetwork(
           continue;
         }
 
-        // Add channel to manager
-        channels.set(peerId, channel);
-        lastConnectionTime.set(peerId, Date.now());
+        // Register channel and start reading
+        registerChannel(peerId, channel);
 
         logger.log(`${peerId}:: reconnection successful`);
-
-        // Start reading from the new channel
-        readChannel(channel).catch((problem) => {
-          outputError(peerId, `reading channel to`, problem);
-        });
 
         // Flush queued messages
         await flushQueuedMessages(peerId, channel, queue);
@@ -365,9 +357,7 @@ export async function initNetwork(
         }
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
-          reconnectionManager.stopReconnection(peerId);
-          queue.clear();
-          onRemoteGiveUp?.(peerId);
+          giveUpOnPeer(peerId, queue);
           return;
         }
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
@@ -459,6 +449,37 @@ export async function initNetwork(
         },
       );
     }
+  }
+
+  /**
+   * Register a channel and start reading from it.
+   *
+   * @param peerId - The peer ID for the channel.
+   * @param channel - The channel to register.
+   * @param errorContext - Optional context for error messages when reading fails.
+   */
+  function registerChannel(
+    peerId: string,
+    channel: Channel,
+    errorContext = 'reading channel to',
+  ): void {
+    channels.set(peerId, channel);
+    lastConnectionTime.set(peerId, Date.now());
+    readChannel(channel).catch((problem) => {
+      outputError(peerId, errorContext, problem);
+    });
+  }
+
+  /**
+   * Give up on a peer after max retries or non-retryable error.
+   *
+   * @param peerId - The peer ID to give up on.
+   * @param queue - The message queue for the peer.
+   */
+  function giveUpOnPeer(peerId: string, queue: MessageQueue): void {
+    reconnectionManager.stopReconnection(peerId);
+    queue.clear();
+    onRemoteGiveUp?.(peerId);
   }
 
   /**
@@ -584,18 +605,13 @@ export async function initNetwork(
           return;
         }
 
-        channels.set(targetPeerId, channel);
-        lastConnectionTime.set(targetPeerId, Date.now());
+        registerChannel(targetPeerId, channel);
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
         queue.enqueue(message);
         return;
       }
-
-      readChannel(channel).catch((problem) => {
-        outputError(targetPeerId, `reading channel to`, problem);
-      });
     }
 
     try {
@@ -653,11 +669,7 @@ export async function initNetwork(
       return;
     }
 
-    channels.set(channel.peerId, channel);
-    lastConnectionTime.set(channel.peerId, Date.now());
-    readChannel(channel).catch((error) => {
-      outputError(channel.peerId, 'error in inbound channel read', error);
-    });
+    registerChannel(channel.peerId, channel, 'error in inbound channel read');
   });
 
   // Install wake detector to reset backoff on sleep/wake
