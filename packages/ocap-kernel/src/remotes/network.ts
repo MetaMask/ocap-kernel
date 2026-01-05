@@ -582,6 +582,9 @@ export async function initNetwork(
             `${targetPeerId}:: reconnection started during dial, queueing message ` +
               `(${queue.length}/${maxQueue}): ${message}`,
           );
+          // Explicitly close the channel to release network resources
+          // The reconnection loop will dial its own new channel
+          await connectionFactory.closeChannel(channel, targetPeerId);
           return;
         }
 
@@ -589,6 +592,10 @@ export async function initNetwork(
         // (dialIdempotent may return the same channel due to deduplication)
         const existingChannel = channels.get(targetPeerId);
         if (existingChannel) {
+          // Close the dialed channel if it's different from the existing one
+          if (channel !== existingChannel) {
+            await connectionFactory.closeChannel(channel, targetPeerId);
+          }
           // Another concurrent call already registered the channel, use it
           channel = existingChannel;
         } else {
