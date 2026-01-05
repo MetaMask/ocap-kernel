@@ -103,7 +103,7 @@ const connectToInternalProcess = async (
 };
 
 type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
-  handleInternalMessage: HandleInternalMessage;
+  handleInternalMessage: HandleInternalMessage | Promise<HandleInternalMessage>;
 };
 
 /**
@@ -112,7 +112,9 @@ type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
  * processes have attempted to connect.
  *
  * @param options - The options for the connection.
- * @param options.handleInternalMessage - The function to handle the internal message.
+ * @param options.handleInternalMessage - The function to handle the internal message,
+ * or a promise that resolves to such a function. If a promise is provided, messages will
+ * be buffered until the handler is ready, then subsequent messages are handled directly.
  * @param options.logger - The logger instance.
  * @param options.controlChannelName - The name of the control channel. Must match
  * the name used by {@link connectToKernel} on the other end.
@@ -122,6 +124,22 @@ export const receiveInternalConnections = ({
   logger,
   controlChannelName = COMMS_CONTROL_CHANNEL_NAME,
 }: ReceiveConnectionsOptions): void => {
+  // Support both direct handler and promise-based handler
+  let handler: HandleInternalMessage | null = null;
+  let handlerReady: Promise<HandleInternalMessage>;
+
+  if (typeof handleInternalMessage === 'function') {
+    // Direct handler - use immediately
+    handler = handleInternalMessage;
+    handlerReady = Promise.resolve(handleInternalMessage);
+  } else {
+    // Promise-based handler - cache once resolved
+    handlerReady = handleInternalMessage.then((resolvedHandler) => {
+      handler = resolvedHandler;
+      return resolvedHandler;
+    });
+  }
+
   const seenChannels = new Set<string>();
   new BroadcastChannel(controlChannelName).onmessage = (event) => {
     if (!isCommsControlMessage(event.data)) {
@@ -148,7 +166,9 @@ export const receiveInternalConnections = ({
             `Received message from internal process "${channelName}": ${JSON.stringify(message)}`,
           );
 
-          const reply = await handleInternalMessage(message);
+          // Use cached handler if available, otherwise await once
+          const messageHandler = handler ?? (await handlerReady);
+          const reply = await messageHandler(message);
           if (reply !== undefined) {
             await kernelRpcStream.write(reply);
           }
