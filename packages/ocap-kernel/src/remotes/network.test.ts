@@ -699,7 +699,7 @@ describe('network.initNetwork', () => {
       });
 
       const peerId = 'peer-flush';
-      const mockChannel = createMockChannel('peer-1');
+      const mockChannel = createMockChannel(peerId);
       const connectionLostError = Object.assign(new Error('Connection lost'), {
         code: 'ECONNRESET',
       });
