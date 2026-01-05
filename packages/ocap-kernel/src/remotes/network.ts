@@ -523,11 +523,7 @@ export async function initNetwork(
       lastConnectionTime.delete(peerId);
       messageQueues.delete(peerId);
       locationHints.delete(peerId);
-
-      // Clear reconnection state if any
-      if (reconnectionManager.isReconnecting(peerId)) {
-        reconnectionManager.stopReconnection(peerId);
-      }
+      // Clear reconnection state
       reconnectionManager.clearPeer(peerId);
     }
   }
