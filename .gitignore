@@ -89,3 +89,6 @@ test-results
 
 # Turborepo
 .turbo
+
+# Claude
+.claude/settings.local.json
