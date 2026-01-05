@@ -38,9 +38,7 @@ describe('NodejsPlatformServices', () => {
 
       const service = new NVWS({ workerFilePath: testWorkerFile });
       const testVatId: VatId = getTestVatId();
-      await expect(async () => await service.launch(testVatId)).rejects.toThrow(
-        rejected,
-      );
+      await expect(service.launch(testVatId)).rejects.toThrow(rejected);
     });
   });
 
@@ -64,9 +62,9 @@ describe('NodejsPlatformServices', () => {
       });
       const testVatId: VatId = getTestVatId();
 
-      await expect(
-        async () => await service.terminate(testVatId),
-      ).rejects.toThrow(/No worker found/u);
+      await expect(service.terminate(testVatId)).rejects.toThrow(
+        /No worker found/u,
+      );
     });
   });
 

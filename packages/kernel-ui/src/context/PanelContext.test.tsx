@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@metamask/kernel-utils', () => ({
   stringify: JSON.stringify,
@@ -22,6 +22,10 @@ vi.mock('../hooks/useStatusPolling.ts', () => ({
 
 describe('PanelContext', () => {
   const mockSendMessage = vi.fn();
+
+  beforeEach(() => {
+    mockSendMessage.mockClear();
+  });
 
   describe('sendMessageWrapper', () => {
     it('should return response on success', async () => {

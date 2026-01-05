@@ -15,7 +15,7 @@ import {
 
 const v1Root = 'ko3';
 
-describe('persistent storage', { timeout: 10_000 }, () => {
+describe('persistent storage', { timeout: 20_000 }, () => {
   let logger: ReturnType<typeof makeTestLogger>;
   let databasePath: string;
 

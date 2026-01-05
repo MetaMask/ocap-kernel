@@ -1,6 +1,6 @@
 import type { CapData, PassStyle } from '@endo/marshal';
 import { passStyleOf } from '@endo/pass-style';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { extractSingleRef } from './extract-ref.ts';
 import { kunser, krefOf } from '../../liveslots/kernel-marshal.ts';
@@ -24,6 +24,12 @@ describe('extract-ref', () => {
     const mockedPassStyleOf = vi.mocked(passStyleOf);
     const mockedKunser = vi.mocked(kunser);
     const mockedKrefOf = vi.mocked(krefOf);
+
+    beforeEach(() => {
+      mockedPassStyleOf.mockClear();
+      mockedKunser.mockClear();
+      mockedKrefOf.mockClear();
+    });
 
     it.each([
       { type: 'remotable', expected: 'ko123' },

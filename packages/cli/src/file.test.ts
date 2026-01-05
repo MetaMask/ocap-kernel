@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { cp, fileExists, isDirectory } from './file.ts';
 
@@ -24,6 +24,12 @@ const makeTestError = (code?: string): Error & { code?: string } => {
 };
 
 describe('file', () => {
+  beforeEach(() => {
+    mocks.access.mockClear();
+    mocks.lstat.mockClear();
+    mocks.copyFile.mockClear();
+  });
+
   describe('isDirectory', () => {
     it('should return true if the path is a directory', async () => {
       mocks.lstat.mockResolvedValue({ isDirectory: () => true });
@@ -48,14 +54,14 @@ describe('file', () => {
     it('should throw an error if lstat throws an error with unknown code', async () => {
       const error = makeTestError('UNKNOWN');
       mocks.lstat.mockRejectedValue(error);
-      await expect(isDirectory('test')).rejects.toThrow(error);
+      await expect(isDirectory('test')).rejects.toThrowError(error);
       expect(mocks.lstat).toHaveBeenCalledOnce();
     });
 
     it('should throw an error if lstat throws an error with no code', async () => {
       const error = makeTestError();
       mocks.lstat.mockRejectedValue(error);
-      await expect(isDirectory('test')).rejects.toThrow(error);
+      await expect(isDirectory('test')).rejects.toThrowError(error);
       expect(mocks.lstat).toHaveBeenCalledOnce();
     });
   });
@@ -70,7 +76,7 @@ describe('file', () => {
 
     it('should throw an error if the source is a directory', async () => {
       mocks.lstat.mockResolvedValue({ isDirectory: () => true });
-      await expect(cp('source', 'destination')).rejects.toThrow(
+      await expect(cp('source', 'destination')).rejects.toThrowError(
         /not implemented/u,
       );
     });
@@ -98,14 +104,14 @@ describe('file', () => {
     it('should throw an error if access throws an error with unknown code', async () => {
       const error = makeTestError('UNKNOWN');
       mocks.access.mockRejectedValue(error);
-      await expect(fileExists('source')).rejects.toThrow(error);
+      await expect(fileExists('source')).rejects.toThrowError(error);
       expect(mocks.access).toHaveBeenCalledOnce();
     });
 
     it('should throw an error if access throws an error with no code', async () => {
       const error = makeTestError();
       mocks.access.mockRejectedValue(error);
-      await expect(fileExists('source')).rejects.toThrow(error);
+      await expect(fileExists('source')).rejects.toThrowError(error);
       expect(mocks.access).toHaveBeenCalledOnce();
     });
   });

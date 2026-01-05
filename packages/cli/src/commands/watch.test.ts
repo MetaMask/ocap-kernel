@@ -38,6 +38,7 @@ describe('watch', () => {
 
   beforeEach(() => {
     logger = new Logger('test');
+    vi.mocked(bundleFile).mockClear();
   });
 
   describe('watchDir', () => {

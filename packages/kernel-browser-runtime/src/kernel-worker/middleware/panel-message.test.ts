@@ -57,6 +57,11 @@ describe('makePanelMessageMiddleware', () => {
   let engine: JsonRpcEngineV2;
 
   beforeEach(() => {
+    // Clear mocks before each test
+    mockExecute.mockClear();
+    mockAssertHasMethod.mockClear();
+    mockAssertHasMethod.mockImplementation(() => undefined);
+
     // Set up mocks
     mockKernel = {} as Kernel;
     mockKernelDatabase = {
@@ -112,7 +117,7 @@ describe('makePanelMessageMiddleware', () => {
       params: { foo: 'bar' },
     } as JsonRpcRequest;
 
-    await expect(engine.handle(request)).rejects.toThrow(error);
+    await expect(engine.handle(request)).rejects.toThrowError(error);
     expect(mockExecute).toHaveBeenCalledWith('testMethod1', { foo: 'bar' });
   });
 
@@ -157,7 +162,7 @@ describe('makePanelMessageMiddleware', () => {
       throw new Error('The method does not exist / is not available.');
     });
 
-    await expect(engine.handle(request)).rejects.toThrow(
+    await expect(engine.handle(request)).rejects.toThrowError(
       'The method does not exist / is not available.',
     );
     expect(mockExecute).not.toHaveBeenCalled();

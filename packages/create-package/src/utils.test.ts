@@ -93,6 +93,11 @@ describe('create-package/utils', () => {
 
     beforeEach(() => {
       consoleErrorSpy = vi.spyOn(console, 'error');
+      vi.mocked(execa).mockClear();
+      vi.mocked(fs.writeFile).mockClear();
+      vi.mocked(fs.mkdir).mockClear();
+      vi.mocked(fs.access).mockClear();
+      vi.mocked(fsUtils.writeFiles).mockClear();
     });
 
     it('should write the expected files', async () => {
@@ -222,7 +227,7 @@ describe('create-package/utils', () => {
 
       await expect(
         finalizeAndWriteData(packageData, monorepoFileData),
-      ).rejects.toThrow(/^The package directory already exists:/u);
+      ).rejects.toThrowError(/^The package directory already exists:/u);
 
       expect(fs.mkdir).not.toHaveBeenCalled();
       expect(fs.writeFile).not.toHaveBeenCalled();
@@ -236,7 +241,7 @@ describe('create-package/utils', () => {
 
       await expect(
         finalizeAndWriteData(packageData, monorepoFileData),
-      ).rejects.toThrow(/^foo$/u);
+      ).rejects.toThrowError(/^foo$/u);
     });
   });
 });

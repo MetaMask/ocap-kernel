@@ -8,10 +8,12 @@ import {
 
 // Mock the logger module
 vi.mock('@metamask/logger', () => ({
-  Logger: vi.fn().mockImplementation(() => ({
-    error: vi.fn(),
-    warn: vi.fn(),
-  })),
+  Logger: vi.fn().mockImplementation(function () {
+    return {
+      error: vi.fn(),
+      warn: vi.fn(),
+    };
+  }),
 }));
 
 describe('relay-query-string', () => {

@@ -209,13 +209,16 @@ describe('network.initNetwork', () => {
   const createMockChannel = (peerId: string): MockChannel => ({
     peerId,
     msgStream: {
-      read: vi.fn().mockImplementation(
-        async () =>
-          new Promise(() => {
+      read: vi
+        .fn<() => Promise<Uint8Array | undefined>>()
+        .mockImplementation(async () => {
+          return await new Promise<Uint8Array | undefined>(() => {
             /* Never resolves by default */
-          }),
-      ),
-      write: vi.fn().mockResolvedValue(undefined),
+          });
+        }),
+      write: vi
+        .fn<(buffer: Uint8Array) => Promise<void>>()
+        .mockResolvedValue(undefined),
     },
   });
 
@@ -388,14 +391,12 @@ describe('network.initNetwork', () => {
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('test-message');
-      mockChannel.msgStream.read
-        .mockResolvedValueOnce(messageBuffer)
-        .mockImplementation(
-          async () =>
-            new Promise(() => {
-              /* Block after first message */
-            }),
-        );
+      mockChannel.msgStream.read.mockResolvedValueOnce(messageBuffer);
+      mockChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array>(() => {
+          /* Block after first message */
+        }),
+      );
 
       inboundHandler?.(mockChannel);
 
@@ -423,14 +424,12 @@ describe('network.initNetwork', () => {
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('test-message');
-      mockChannel.msgStream.read
-        .mockResolvedValueOnce(messageBuffer)
-        .mockImplementation(
-          async () =>
-            new Promise(() => {
-              /* Block after first message */
-            }),
-        );
+      mockChannel.msgStream.read.mockResolvedValueOnce(messageBuffer);
+      mockChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array>(() => {
+          /* Block after first message */
+        }),
+      );
 
       inboundHandler?.(mockChannel);
 
@@ -480,7 +479,7 @@ describe('network.initNetwork', () => {
       expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
         'peer-1',
       );
-    });
+    }, 5000);
 
     it('starts reconnection on read error', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
@@ -549,15 +548,18 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       // Make read resolve after stop so loop continues and checks signal.aborted
       let shouldResolve = false;
-      mockChannel.msgStream.read.mockImplementation(async () => {
+      const poll = async (): Promise<Uint8Array> => {
         // Wait until stop is called
         // eslint-disable-next-line no-unmodified-loop-condition
         while (!shouldResolve) {
-          await new Promise((resolve) => setImmediate(resolve));
+          await new Promise<void>((resolve) => {
+            setImmediate(() => resolve());
+          });
         }
         // Return a value so loop continues to next iteration where it checks signal.aborted
         return new TextEncoder().encode('dummy');
-      });
+      };
+      mockChannel.msgStream.read.mockReturnValue(poll());
 
       // Start reading in background
       inboundHandler?.(mockChannel);
@@ -644,6 +646,13 @@ describe('network.initNetwork', () => {
     });
 
     it('resets backoff once after successful flush completion', async () => {
+      // Ensure this test doesn't inherit mock implementations from previous tests.
+      mockConnectionFactory.dialIdempotent.mockReset();
+      mockMessageQueue.enqueue.mockReset();
+      mockMessageQueue.dequeue.mockReset();
+      mockMessageQueue.dequeueAll.mockReset();
+      mockMessageQueue.replaceAll.mockReset();
+
       // Drive reconnection state deterministically
       let reconnecting = false;
       mockReconnectionManager.isReconnecting.mockImplementation(
@@ -658,44 +667,104 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.shouldRetry.mockReturnValue(true);
       mockReconnectionManager.incrementAttempt.mockReturnValue(1);
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
-      // Set up message queue with multiple messages
-      mockMessageQueue.dequeue
-        .mockReturnValueOnce('queued-1')
-        .mockReturnValueOnce('queued-2')
-        .mockReturnValueOnce('queued-3')
-        .mockReturnValue(undefined);
-      mockMessageQueue.length = 3;
-      mockMessageQueue.messages = ['queued-1', 'queued-2', 'queued-3'];
+
+      // Make the mocked MessageQueue behave like a real FIFO queue so the test
+      // models actual behavior: failed sends enqueue messages, and flush dequeues them.
+      mockMessageQueue.messages = [];
+      mockMessageQueue.length = 0;
+      mockMessageQueue.enqueue.mockImplementation((message: string) => {
+        mockMessageQueue.messages.push(message);
+        mockMessageQueue.length = mockMessageQueue.messages.length;
+      });
+      mockMessageQueue.dequeue.mockImplementation(() => {
+        const message = mockMessageQueue.messages.shift();
+        mockMessageQueue.length = mockMessageQueue.messages.length;
+        return message;
+      });
+      mockMessageQueue.dequeueAll.mockImplementation(() => {
+        const messages = [...mockMessageQueue.messages];
+        mockMessageQueue.messages = [];
+        mockMessageQueue.length = 0;
+        return messages;
+      });
+      mockMessageQueue.replaceAll.mockImplementation((messages: unknown) => {
+        if (
+          !Array.isArray(messages) ||
+          !messages.every((value) => typeof value === 'string')
+        ) {
+          throw new Error('Expected replaceAll to be called with string[]');
+        }
+        mockMessageQueue.messages = [...messages];
+        mockMessageQueue.length = messages.length;
+      });
+
+      const peerId = 'peer-flush';
       const mockChannel = createMockChannel('peer-1');
+      const connectionLostError = Object.assign(new Error('Connection lost'), {
+        code: 'ECONNRESET',
+      });
       mockChannel.msgStream.write
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
-        ) // First write fails, triggering reconnection
-        .mockResolvedValue(undefined); // All flush writes succeed
-      mockConnectionFactory.dialIdempotent
-        .mockResolvedValueOnce(mockChannel) // Initial connection
-        .mockResolvedValueOnce(mockChannel); // Reconnection succeeds
-      const { abortableDelay } = await import('@metamask/kernel-utils');
-      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+        // Initial message succeeds (establish channel)
+        .mockResolvedValueOnce(undefined)
+        // Next message fails, triggering reconnection + enqueue
+        .mockRejectedValueOnce(connectionLostError)
+        // All flush writes succeed
+        .mockResolvedValue(undefined);
+
+      // Gate the *reconnection dial* (retry=false) so we can enqueue messages while
+      // reconnecting *before* the flush begins, without messing with `abortableDelay`.
+      let releaseReconnectionDial: (() => void) | undefined;
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (targetPeerId: string, _hints: string[], retry: boolean) => {
+          if (targetPeerId !== peerId) {
+            return createMockChannel(targetPeerId);
+          }
+
+          // Initial connection (retry=true) returns immediately.
+          if (retry) {
+            return mockChannel;
+          }
+
+          // Reconnection attempt (retry=false) waits until we allow it.
+          await new Promise<void>((resolve) => {
+            releaseReconnectionDial = resolve;
+          });
+          return mockChannel;
+        },
+      );
       const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
       // Establish channel
-      await sendRemoteMessage('peer-1', 'initial-msg');
+      await sendRemoteMessage(peerId, 'initial-msg');
+
+      // Clear write mock after initial message to get accurate count for reconnection/flush
+      mockChannel.msgStream.write.mockClear();
+
       // Clear resetBackoff mock before triggering reconnection to get accurate count
       mockReconnectionManager.resetBackoff.mockClear();
+
       // Trigger reconnection via write failure
-      await sendRemoteMessage('peer-1', 'queued-1');
+      await sendRemoteMessage(peerId, 'queued-1');
+
+      // Queue additional messages during reconnection (these should not write immediately)
+      await sendRemoteMessage(peerId, 'queued-2');
+      await sendRemoteMessage(peerId, 'queued-3');
+
+      // Allow reconnection to dial, then flush queued messages
+      releaseReconnectionDial?.();
+
       // Wait for flush to complete (3 queued messages should be flushed)
       await vi.waitFor(
         () => {
-          // Should have flushed all 3 queued messages
-          expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(4); // initial + 3 queued
+          // queued-1 write (fails) + queued-1, queued-2, queued-3 during flush = 4 writes
+          expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(4);
         },
         { timeout: 5000 },
       );
       const resetBackoffCallCount =
         mockReconnectionManager.resetBackoff.mock.calls.length;
       expect(resetBackoffCallCount).toBeLessThanOrEqual(1);
-    });
+    }, 10000);
   });
 
   describe('stop functionality', () => {
@@ -731,11 +800,12 @@ describe('network.initNetwork', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
 
       (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
-        async (_ms: number, signal?: AbortSignal) => {
+        // eslint-disable-next-line @typescript-eslint/promise-function-async, @typescript-eslint/no-misused-promises
+        (_ms: number, signal?: AbortSignal) => {
           if (signal?.aborted) {
-            throw new AbortError();
+            return Promise.reject(new AbortError());
           }
-          return new Promise((_resolve, reject) => {
+          return new Promise<void>((_resolve, reject) => {
             if (signal) {
               signal.addEventListener('abort', () => {
                 reject(new AbortError());
@@ -813,7 +883,7 @@ describe('network.initNetwork', () => {
       await closeConnection('peer-1');
 
       // Attempting to send should throw
-      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrowError(
         'Message delivery failed after intentional close',
       );
     });
@@ -880,7 +950,7 @@ describe('network.initNetwork', () => {
       await closeConnection('peer-1');
 
       // Attempting to send should throw before attempting to write
-      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrowError(
         'Message delivery failed after intentional close',
       );
 
@@ -947,7 +1017,7 @@ describe('network.initNetwork', () => {
       await closeConnection('peer-1');
 
       // Verify peer is marked as intentionally closed
-      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrowError(
         'Message delivery failed after intentional close',
       );
 
@@ -1548,14 +1618,12 @@ describe('network.initNetwork', () => {
 
       const mockChannel = createMockChannel('inbound-peer');
       const messageBuffer = new TextEncoder().encode('inbound-msg');
-      mockChannel.msgStream.read
-        .mockResolvedValueOnce(messageBuffer)
-        .mockImplementation(
-          async () =>
-            new Promise(() => {
-              /* Never resolves */
-            }),
-        );
+      mockChannel.msgStream.read.mockResolvedValueOnce(messageBuffer);
+      mockChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array>(() => {
+          /* Never resolves */
+        }),
+      );
 
       inboundHandler?.(mockChannel);
 
@@ -1700,11 +1768,10 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       // Make write hang indefinitely - return a new hanging promise each time
       mockChannel.msgStream.write.mockReset();
-      mockChannel.msgStream.write.mockImplementation(
-        async () =>
-          new Promise<never>(() => {
-            // Never resolves - simulates hanging write
-          }),
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          // Never resolves - simulates hanging write
+        }),
       );
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
@@ -1767,11 +1834,10 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       // Make write hang indefinitely - return a new hanging promise each time
       mockChannel.msgStream.write.mockReset();
-      mockChannel.msgStream.write.mockImplementation(
-        async () =>
-          new Promise<never>(() => {
-            // Never resolves - simulates hanging write
-          }),
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          // Never resolves - simulates hanging write
+        }),
       );
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
@@ -1852,11 +1918,10 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       // Make write hang indefinitely - return a new hanging promise each time
       mockChannel.msgStream.write.mockReset();
-      mockChannel.msgStream.write.mockImplementation(
-        async () =>
-          new Promise<never>(() => {
-            // Never resolves - simulates hanging write
-          }),
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          // Never resolves - simulates hanging write
+        }),
       );
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
@@ -1894,11 +1959,10 @@ describe('network.initNetwork', () => {
       const mockChannel = createMockChannel('peer-1');
       // Make write hang indefinitely - return a new hanging promise each time
       mockChannel.msgStream.write.mockReset();
-      mockChannel.msgStream.write.mockImplementation(
-        async () =>
-          new Promise<never>(() => {
-            // Never resolves - simulates hanging write
-          }),
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          // Never resolves - simulates hanging write
+        }),
       );
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 

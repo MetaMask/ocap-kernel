@@ -35,8 +35,12 @@ const mockDb = {
   _spStack: [] as string[],
   close: vi.fn(),
 };
-const OpfsDbMock = vi.fn(() => mockDb);
-const DBMock = vi.fn(() => mockDb);
+const OpfsDbMock = vi.fn(function () {
+  return mockDb;
+});
+const DBMock = vi.fn(function () {
+  return mockDb;
+});
 vi.mock('@sqlite.org/sqlite-wasm', () => ({
   default: vi.fn(async () => ({
     oo1: {
@@ -73,7 +77,9 @@ describe('makeSQLKernelDatabase', () => {
         ({
           oo1: {
             OpfsDb: undefined,
-            DB: vi.fn(() => mockDb),
+            DB: vi.fn(function () {
+              return mockDb;
+            }),
           },
         }) as unknown as Sqlite3Static,
     );
@@ -104,7 +110,7 @@ describe('makeSQLKernelDatabase', () => {
     mockStatement.step.mockReturnValueOnce(false);
     const db = await makeSQLKernelDatabase({});
     const store = db.kernelKVStore;
-    expect(() => store.getRequired('missing-key')).toThrow(
+    expect(() => store.getRequired('missing-key')).toThrowError(
       "no record matching key 'missing-key'",
     );
   });
@@ -355,7 +361,7 @@ describe('makeSQLKernelDatabase', () => {
       mockStatement.step.mockImplementationOnce(() => {
         throw new Error('SQL execution error');
       });
-      expect(() => db.executeQuery('SELECT * FROM invalid_table')).toThrow(
+      expect(() => db.executeQuery('SELECT * FROM invalid_table')).toThrowError(
         'SQL execution error',
       );
       expect(mockStatement.reset).toHaveBeenCalled();
@@ -378,16 +384,16 @@ describe('makeSQLKernelDatabase', () => {
 
     it('rejects invalid savepoint names', async () => {
       const db = await makeSQLKernelDatabase({});
-      expect(() => db.createSavepoint('invalid-name')).toThrow(
+      expect(() => db.createSavepoint('invalid-name')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint('123numeric')).toThrow(
+      expect(() => db.createSavepoint('123numeric')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint('spaces not allowed')).toThrow(
+      expect(() => db.createSavepoint('spaces not allowed')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrow(
+      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrowError(
         'Invalid identifier',
       );
       expect(mockDb.exec).not.toHaveBeenCalledWith(
@@ -423,7 +429,7 @@ describe('makeSQLKernelDatabase', () => {
       const db = await makeSQLKernelDatabase({});
       mockDb._inTx = true;
       mockDb._spStack = ['existing_point'];
-      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrow(
+      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrowError(
         'No such savepoint: nonexistent_point',
       );
     });
@@ -450,7 +456,7 @@ describe('makeSQLKernelDatabase', () => {
       const db = await makeSQLKernelDatabase({});
       mockDb._inTx = true;
       mockDb._spStack = ['existing_point'];
-      expect(() => db.releaseSavepoint('nonexistent_point')).toThrow(
+      expect(() => db.releaseSavepoint('nonexistent_point')).toThrowError(
         'No such savepoint: nonexistent_point',
       );
     });
@@ -512,7 +518,7 @@ describe('makeSQLKernelDatabase', () => {
       throw new Error('Database error');
     });
     const db = await makeSQLKernelDatabase({});
-    expect(() => db.deleteVatStore('test-vat')).toThrow('Database error');
+    expect(() => db.deleteVatStore('test-vat')).toThrowError('Database error');
     expect(mockStatement.bind).toHaveBeenCalled();
     expect(mockStatement.reset).not.toHaveBeenCalled();
   });
@@ -573,7 +579,7 @@ describe('transaction management', () => {
       throw new Error('Database error');
     });
     const vatStore = db.makeVatStore('test-vat');
-    expect(() => vatStore.updateKVData([['key', 'value']], [])).toThrow(
+    expect(() => vatStore.updateKVData([['key', 'value']], [])).toThrowError(
       'Database error',
     );
     expect(mockStatement.step).toHaveBeenCalled();
