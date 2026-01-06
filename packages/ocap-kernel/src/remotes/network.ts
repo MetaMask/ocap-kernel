@@ -312,7 +312,16 @@ export async function initNetwork(
         // Check if a concurrent call already registered a channel for this peer
         // (e.g., an inbound connection or another reconnection attempt)
         channel = await reuseOrReturnChannel(peerId, channel);
-        if (channels.has(peerId)) {
+        // Re-check after await to handle race condition where a channel was registered
+        // concurrently during the microtask delay
+        const registeredChannel = channels.get(peerId);
+        if (registeredChannel) {
+          // A channel was registered concurrently, use it instead
+          if (channel !== registeredChannel) {
+            // Close the dialed channel to prevent resource leak
+            await connectionFactory.closeChannel(channel, peerId);
+          }
+          channel = registeredChannel;
           logger.log(
             `${peerId}:: reconnection: channel already exists, reusing existing channel`,
           );
@@ -609,12 +618,16 @@ export async function initNetwork(
           true, // With retry for initial connection
         );
 
+        // Re-fetch queue after dial in case cleanupStalePeers deleted it during the await
+        // This prevents orphaned messages in a stale queue reference
+        const currentQueue = getMessageQueue(targetPeerId);
+
         // Check if reconnection started while we were dialing (race condition protection)
         if (reconnectionManager.isReconnecting(targetPeerId)) {
-          queue.enqueue(message);
+          currentQueue.enqueue(message);
           logger.log(
             `${targetPeerId}:: reconnection started during dial, queueing message ` +
-              `(${queue.length}/${maxQueue}): ${message}`,
+              `(${currentQueue.length}/${maxQueue}): ${message}`,
           );
           // Explicitly close the channel to release network resources
           // The reconnection loop will dial its own new channel
@@ -624,7 +637,18 @@ export async function initNetwork(
 
         // Check if a concurrent call already registered a channel for this peer
         channel = await reuseOrReturnChannel(targetPeerId, channel);
-        if (!channels.has(targetPeerId)) {
+        // Re-check after await to handle race condition where a channel was registered
+        // concurrently during the microtask delay
+        const registeredChannel = channels.get(targetPeerId);
+        if (registeredChannel) {
+          // A channel was registered concurrently, use it instead
+          if (channel !== registeredChannel) {
+            // Close the dialed channel to prevent resource leak
+            await connectionFactory.closeChannel(channel, targetPeerId);
+          }
+          channel = registeredChannel;
+          // Existing channel reused, nothing more to do
+        } else {
           // Re-check connection limit after dial completes to prevent race conditions
           // Multiple concurrent dials could all pass the initial check, then all add channels
           try {
@@ -636,7 +660,7 @@ export async function initNetwork(
             );
             // Explicitly close the channel to release network resources
             await connectionFactory.closeChannel(channel, targetPeerId);
-            queue.enqueue(message);
+            currentQueue.enqueue(message);
             // Start reconnection to retry later when limit might free up
             handleConnectionLoss(targetPeerId);
             return;
@@ -645,11 +669,12 @@ export async function initNetwork(
           // Register the new channel and start reading
           registerChannel(targetPeerId, channel);
         }
-        // else: Existing channel reused, nothing more to do
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
-        queue.enqueue(message);
+        // Re-fetch queue in case cleanupStalePeers deleted it during the dial await
+        const currentQueue = getMessageQueue(targetPeerId);
+        currentQueue.enqueue(message);
         return;
       }
     }
