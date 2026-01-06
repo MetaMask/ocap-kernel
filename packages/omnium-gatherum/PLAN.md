@@ -22,70 +22,68 @@ capabilities.
 
 **Goal**: Enable userspace (background script) to use `E()` naturally with kernel and vat objects, establishing the foundation for omnium ↔ kernel ↔ vat communication.
 
-**Architecture**: Create **remote presences** in userspace that represent vat objects. These presences work directly with `E()`, maintaining consistent eventual-send semantics across the kernel boundary. No special "call method on object" RPC needed - just create presences from krefs and use E() naturally.
+**Architecture**: Use **CapTP** (`@endo/captp`) to create proper remote presences that work with `E()`. CapTP is the standard Endo capability transfer protocol that handles remote object references, promise resolution, and garbage collection automatically.
 
-- [ ] **Remote Presence Implementation**
+- [x] **CapTP-based Remote Presence Implementation**
 
-  - Create `makeRemotePresence(kref)` function in userspace
-  - Returns an object that works with `E()` from `@endo/eventual-send`
-  - Implemented using Proxy or far object handlers to intercept method calls
-  - When `E(remotePresence).method(args)` is invoked:
-    1. Intercepts the method call
-    2. Serializes arguments (handling nested object references)
-    3. Sends RPC message: `{ type: 'send', target: kref, method, args }`
-    4. Kernel routes to appropriate vat
-    5. Deserializes result and resolves promise
-  - Location: `packages/omnium-gatherum/src/kernel/remote-presence.ts`
+  - Using `@endo/captp` for proper remote presence handling
+  - Kernel-side CapTP setup:
+    - Location: `packages/kernel-browser-runtime/src/kernel-worker/captp/`
+    - `kernel-facade.ts` - Creates a kernel facade exo using `makeDefaultExo`
+    - `kernel-captp.ts` - Sets up CapTP endpoint with kernel facade as bootstrap
+    - `message-router.ts` - Routes messages between kernel RPC and CapTP
+  - Background-side CapTP setup:
+    - Location: `packages/omnium-gatherum/src/captp/`
+    - `background-captp.ts` - Sets up CapTP endpoint to connect to kernel
+    - `types.ts` - TypeScript types for the kernel facade
+  - CapTP messages are wrapped in JSON-RPC notifications: `{ method: 'captp', params: [captpMsg] }`
+  - `E` is globally available (set in trusted prelude before lockdown)
+  - `getKernel()` exposed on `globalThis.omnium`
+  - Usage example:
+    ```typescript
+    const kernel = await omnium.getKernel();
+    const status = await E(kernel).getStatus();
+    ```
 
-- [ ] **Kernel Message Routing**
+- [x] **Kernel Facade**
 
-  - Kernel receives RPC messages from userspace with target krefs
-  - Routes to appropriate vat objects (kernel services or vat-exported objects)
-  - Handles promise resolution back to userspace
-  - May require new RPC method or extension of existing message handling
-  - Location: Likely in `packages/ocap-kernel/src/rpc/` or kernel router
+  - Kernel facade exposes kernel methods via CapTP:
+    - `launchSubcluster(config)` - Launch a subcluster of vats
+    - `terminateSubcluster(subclusterId)` - Terminate a subcluster
+    - `queueMessage(target, method, args)` - Send a message to a kref
+    - `getStatus()` - Get kernel status
+    - `pingVat(vatId)` - Ping a vat
 
-- [ ] **Kernel Remote Presence** (Optional)
+- [x] **Message Routing**
 
-  - For convenience, expose kernel itself as a remote presence
-  - Allows `E(kernel).launchSubcluster(config)` from userspace
-  - Alternative: Kernel could remain RPC-based if simpler
-  - Decision: TBD based on implementation complexity
+  - Messages flow: background → offscreen → kernel-worker
+  - All streams use `JsonRpcMessage` type for bidirectional messaging
+  - Message router in kernel-worker intercepts 'captp' notifications
+  - Non-captp messages passed to kernel's RPC handler as before
 
-- [ ] **Argument Serialization**
+- [ ] **Argument Serialization** (Partial - Phase 2)
 
-  - Handle serialization of arguments that may contain object references
-  - Pass-by-reference: Other krefs in arguments should be preserved
-  - Pass-by-copy: Plain data (JSON-serializable) should be copied
-  - Use CapData format (same as vat-to-vat communication)
-  - Location: `packages/omnium-gatherum/src/kernel/serialization.ts`
+  - Phase 1: JSON-serializable arguments only
+  - Phase 2: Handle serialization of arguments that may contain object references
+    - Pass-by-reference: Other krefs in arguments should be preserved
+    - Pass-by-copy: Plain data (JSON-serializable) should be copied
+    - CapTP handles this automatically with proper configuration
 
-- [ ] **Promise Management**
+- [x] **Promise Management**
 
-  - Handle async results and promise resolution across userspace/kernel boundary
-  - Consider: Do we support promise pipelining in Phase 1?
-  - Minimal: Just support eventual send with promise resolution
-  - Advanced: Support pipelining (E(E(foo).bar()).baz())
-  - Phase 1 recommendation: Just promise resolution, defer pipelining
+  - CapTP handles promise resolution automatically via CTP_RESOLVE messages
+  - Phase 1: Basic promise resolution
+  - Phase 2+: Promise pipelining supported by CapTP
 
 - [ ] **Testing**
-  - Unit tests:
-    - Create remote presence from kref
-    - Invoke methods with E()
-    - Verify RPC messages are correctly formatted
-    - Test serialization/deserialization
-  - Integration tests:
-    - Launch a test vat
-    - Get its root kref from launch result
-    - Create remote presence
-    - Call methods via E() from userspace
-    - Verify results come back correctly
-  - Error handling:
-    - Test method throws error
-    - Test vat terminated during call
-    - Test invalid kref
+  - Tests to be added for CapTP-based approach
 
-**Note**: This infrastructure is foundational. By creating remote presences that work with `E()`, userspace code looks identical to vat code. This is the right abstraction for ocap model - omnium can interact with any vat object using the same eventual-send patterns.
+**Note**: Using CapTP provides several advantages over a custom implementation:
+
+1. Proper integration with `E()` from `@endo/eventual-send` via `resolveWithPresence()`
+2. Automatic promise pipelining support
+3. Garbage collection of remote references
+4. Battle-tested implementation from the Endo ecosystem
 
 #### 1.2 Define Caplet Structure
 

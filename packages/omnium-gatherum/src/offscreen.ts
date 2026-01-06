@@ -3,8 +3,8 @@ import {
   PlatformServicesServer,
   createRelayQueryString,
 } from '@metamask/kernel-browser-runtime';
-import { delay, isJsonRpcCall } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -13,8 +13,6 @@ import {
   MessagePortDuplexStream,
 } from '@metamask/streams/browser';
 import type { PostMessageTarget } from '@metamask/streams/browser';
-import type { JsonRpcResponse } from '@metamask/utils';
-import { isJsonRpcResponse } from '@metamask/utils';
 
 const logger = new Logger('offscreen');
 
@@ -28,10 +26,11 @@ async function main(): Promise<void> {
   await delay(50);
 
   // Create stream for messages from the background script
+  // Uses JsonRpcMessage to support both RPC calls/responses and CapTP notifications
   const backgroundStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcCall,
-    JsonRpcResponse
-  >(chrome.runtime, 'offscreen', 'background', isJsonRpcCall);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
 
   const kernelStream = await makeKernelWorker();
 
@@ -48,7 +47,7 @@ async function main(): Promise<void> {
  * @returns The message port stream for worker communication
  */
 async function makeKernelWorker(): Promise<
-  DuplexStream<JsonRpcResponse, JsonRpcCall>
+  DuplexStream<JsonRpcMessage, JsonRpcMessage>
 > {
   // Assign local relay address generated from `yarn ocap relay`
   const relayQueryString = createRelayQueryString([
@@ -70,9 +69,9 @@ async function makeKernelWorker(): Promise<
   );
 
   const kernelStream = await MessagePortDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(port, isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(port, isJsonRpcMessage);
 
   await PlatformServicesServer.make(worker as PostMessageTarget, (vatId) =>
     makeIframeVatWorker({
