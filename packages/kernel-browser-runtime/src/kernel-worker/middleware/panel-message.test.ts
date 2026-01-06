@@ -57,9 +57,6 @@ describe('makePanelMessageMiddleware', () => {
   let engine: JsonRpcEngineV2;
 
   beforeEach(() => {
-    // Clear mocks before each test
-    mockExecute.mockClear();
-    mockAssertHasMethod.mockClear();
     mockAssertHasMethod.mockImplementation(() => undefined);
 
     // Set up mocks

@@ -15,7 +15,6 @@ describe('useStatusPolling', () => {
   const mockIsRequestInProgress = { current: false };
 
   beforeEach(() => {
-    mockSendMessage.mockClear();
     mockIsRequestInProgress.current = false;
   });
 

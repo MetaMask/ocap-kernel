@@ -22,6 +22,7 @@ export default defineConfig({
     silent: true,
     testTimeout: 2000,
     restoreMocks: true,
+    clearMocks: true,
     reporters: [
       [
         'default',

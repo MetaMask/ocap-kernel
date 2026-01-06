@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { cp, fileExists, isDirectory } from './file.ts';
 
@@ -24,12 +24,6 @@ const makeTestError = (code?: string): Error & { code?: string } => {
 };
 
 describe('file', () => {
-  beforeEach(() => {
-    mocks.access.mockClear();
-    mocks.lstat.mockClear();
-    mocks.copyFile.mockClear();
-  });
-
   describe('isDirectory', () => {
     it('should return true if the path is a directory', async () => {
       mocks.lstat.mockResolvedValue({ isDirectory: () => true });

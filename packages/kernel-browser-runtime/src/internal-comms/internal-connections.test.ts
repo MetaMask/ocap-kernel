@@ -181,10 +181,6 @@ describe('internal-connections', () => {
           : undefined,
     );
 
-    beforeEach(() => {
-      mockHandleMessage.mockClear();
-    });
-
     it('should handle new internal process connections', async () => {
       receiveInternalConnections({
         handleInternalMessage: mockHandleMessage,

@@ -93,11 +93,6 @@ describe('create-package/utils', () => {
 
     beforeEach(() => {
       consoleErrorSpy = vi.spyOn(console, 'error');
-      vi.mocked(execa).mockClear();
-      vi.mocked(fs.writeFile).mockClear();
-      vi.mocked(fs.mkdir).mockClear();
-      vi.mocked(fs.access).mockClear();
-      vi.mocked(fsUtils.writeFiles).mockClear();
     });
 
     it('should write the expected files', async () => {

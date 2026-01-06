@@ -222,6 +222,41 @@ describe('network.initNetwork', () => {
     },
   });
 
+  /**
+   * Sets up mockMessageQueue to behave like a real FIFO queue.
+   * This makes the test model actual behavior: failed sends enqueue messages,
+   * and flush dequeues them.
+   */
+  const setupFifoMessageQueue = (): void => {
+    mockMessageQueue.messages = [];
+    mockMessageQueue.length = 0;
+    mockMessageQueue.enqueue.mockImplementation((message: string) => {
+      mockMessageQueue.messages.push(message);
+      mockMessageQueue.length = mockMessageQueue.messages.length;
+    });
+    mockMessageQueue.dequeue.mockImplementation(() => {
+      const message = mockMessageQueue.messages.shift();
+      mockMessageQueue.length = mockMessageQueue.messages.length;
+      return message;
+    });
+    mockMessageQueue.dequeueAll.mockImplementation(() => {
+      const messages = [...mockMessageQueue.messages];
+      mockMessageQueue.messages = [];
+      mockMessageQueue.length = 0;
+      return messages;
+    });
+    mockMessageQueue.replaceAll.mockImplementation((messages: unknown) => {
+      if (
+        !Array.isArray(messages) ||
+        !messages.every((value) => typeof value === 'string')
+      ) {
+        throw new Error('Expected replaceAll to be called with string[]');
+      }
+      mockMessageQueue.messages = [...messages];
+      mockMessageQueue.length = messages.length;
+    });
+  };
+
   describe('initialization', () => {
     it('passes correct parameters to ConnectionFactory.make', async () => {
       const { ConnectionFactory } = await import('./ConnectionFactory.ts');
@@ -670,33 +705,7 @@ describe('network.initNetwork', () => {
 
       // Make the mocked MessageQueue behave like a real FIFO queue so the test
       // models actual behavior: failed sends enqueue messages, and flush dequeues them.
-      mockMessageQueue.messages = [];
-      mockMessageQueue.length = 0;
-      mockMessageQueue.enqueue.mockImplementation((message: string) => {
-        mockMessageQueue.messages.push(message);
-        mockMessageQueue.length = mockMessageQueue.messages.length;
-      });
-      mockMessageQueue.dequeue.mockImplementation(() => {
-        const message = mockMessageQueue.messages.shift();
-        mockMessageQueue.length = mockMessageQueue.messages.length;
-        return message;
-      });
-      mockMessageQueue.dequeueAll.mockImplementation(() => {
-        const messages = [...mockMessageQueue.messages];
-        mockMessageQueue.messages = [];
-        mockMessageQueue.length = 0;
-        return messages;
-      });
-      mockMessageQueue.replaceAll.mockImplementation((messages: unknown) => {
-        if (
-          !Array.isArray(messages) ||
-          !messages.every((value) => typeof value === 'string')
-        ) {
-          throw new Error('Expected replaceAll to be called with string[]');
-        }
-        mockMessageQueue.messages = [...messages];
-        mockMessageQueue.length = messages.length;
-      });
+      setupFifoMessageQueue();
 
       const peerId = 'peer-flush';
       const mockChannel = createMockChannel(peerId);

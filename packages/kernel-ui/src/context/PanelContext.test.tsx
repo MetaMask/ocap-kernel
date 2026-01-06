@@ -23,10 +23,6 @@ vi.mock('../hooks/useStatusPolling.ts', () => ({
 describe('PanelContext', () => {
   const mockSendMessage = vi.fn();
 
-  beforeEach(() => {
-    mockSendMessage.mockClear();
-  });
-
   describe('sendMessageWrapper', () => {
     it('should return response on success', async () => {
       const { PanelProvider, usePanelContext } = await import(
