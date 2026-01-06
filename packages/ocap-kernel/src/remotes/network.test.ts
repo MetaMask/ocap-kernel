@@ -2426,6 +2426,60 @@ describe('network.initNetwork', () => {
       expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
       setIntervalSpy.mockRestore();
     });
+
+    it('cleans up intentionallyClosed entries for stale peers', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const stalePeerTimeoutMs = 1;
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+      // Establish connection and then intentionally close it
+      await sendRemoteMessage('peer-1', 'msg');
+      await closeConnection('peer-1');
+      // Verify peer is marked as intentionally closed
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+        'Message delivery failed after intentional close',
+      );
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Ensure enough wall-clock time passes to exceed stalePeerTimeoutMs.
+      await delay(stalePeerTimeoutMs + 5);
+      // Run cleanup; stale peer should be cleaned, including intentionallyClosed entry
+      intervalFn?.();
+      // Verify clearPeer was called
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      // Verify cleanup log message
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+      // After cleanup, peer should no longer be in intentionallyClosed
+      // Verify by attempting to send a message - it should not throw the intentional close error
+      const newChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(newChannel);
+      // Should not throw "Message delivery failed after intentional close"
+      // (it will attempt to dial a new connection instead)
+      await sendRemoteMessage('peer-1', 'msg-after-cleanup');
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+        'peer-1',
+        [],
+        true,
+      );
+      setIntervalSpy.mockRestore();
+    });
   });
 
   describe('reconnection respects connection limit', () => {
