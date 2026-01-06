@@ -11,7 +11,7 @@ capabilities.
 
 #### 1.0 Omnium dev console
 
-- [ ] Extension background dev console implementation
+- [x] Extension background dev console implementation
 
   - Add `globalThis.omnium` in `background.ts`
   - Model this on `globalThis.kernel` in @packages/extension
