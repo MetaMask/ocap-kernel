@@ -37,16 +37,19 @@ const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
+  'packages/omnium-gatherum/src/env/dev-console.js',
+  'packages/omnium-gatherum/src/env/background-trusted-prelude.js',
   'packages/kernel-shims/dist/endoify.js',
 ];
 
+const backgroundPreludeImportStatement = `import './background-trusted-prelude.js';`;
 const endoifyImportStatement = `import './endoify.js';`;
-const trustedPreludes: PreludeRecord = {
+const trustedPreludes = {
   background: {
-    content: endoifyImportStatement,
+    content: backgroundPreludeImportStatement,
   },
   'kernel-worker': { content: endoifyImportStatement },
-};
+} satisfies PreludeRecord;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
