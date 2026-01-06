@@ -74,7 +74,7 @@ describe.sequential('Remote Communications E2E', () => {
     if (kernelDatabase2) {
       kernelDatabase2.close();
     }
-    await delay(1000);
+    await delay(500);
   });
 
   describe('Basic Connectivity', () => {

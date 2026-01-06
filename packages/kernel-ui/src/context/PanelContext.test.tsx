@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@metamask/kernel-utils', () => ({
   stringify: JSON.stringify,
