@@ -92,6 +92,14 @@ async function main(): Promise<void> {
     logger.info(result);
   };
 
+  // globalThis.omnium will exist due to dev-console.js in background-trusted-prelude.js
+  Object.defineProperties(globalThis.omnium, {
+    ping: {
+      value: ping,
+    },
+  });
+  harden(globalThis.omnium);
+
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
     ping().catch(logger.error);
