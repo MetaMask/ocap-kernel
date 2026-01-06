@@ -110,7 +110,6 @@ export class Kernel {
     } = {},
   ) {
     this.#commandStream = commandStream;
-    this.#rpcService = new RpcService(kernelHandlers, {});
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
@@ -125,6 +124,8 @@ export class Kernel {
       this.#kernelStore,
       async (vatId, reason) => this.#vatManager.terminateVat(vatId, reason),
     );
+
+    this.#rpcService = new RpcService(kernelHandlers, {});
 
     this.#vatManager = new VatManager({
       platformServices,
