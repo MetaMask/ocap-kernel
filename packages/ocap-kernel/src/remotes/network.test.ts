@@ -2629,4 +2629,157 @@ describe('network.initNetwork', () => {
       );
     }, 10000);
   });
+
+  it('registerLocationHints merges with existing hints', async () => {
+    const { registerLocationHints, sendRemoteMessage } = await initNetwork(
+      '0x1234',
+      {},
+      vi.fn(),
+    );
+
+    const mockChannel = createMockChannel('peer-1');
+    mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+    // Register initial hints
+    registerLocationHints('peer-1', ['hint1', 'hint2']);
+
+    // Register additional hints (should merge)
+    registerLocationHints('peer-1', ['hint2', 'hint3']);
+
+    await sendRemoteMessage('peer-1', 'msg');
+
+    expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+      'peer-1',
+      ['hint1', 'hint2', 'hint3'],
+      true,
+    );
+  });
+
+  it('registerLocationHints creates new set when no existing hints', async () => {
+    const { registerLocationHints, sendRemoteMessage } = await initNetwork(
+      '0x1234',
+      {},
+      vi.fn(),
+    );
+
+    const mockChannel = createMockChannel('peer-1');
+    mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+    registerLocationHints('peer-1', ['hint1', 'hint2']);
+
+    await sendRemoteMessage('peer-1', 'msg');
+
+    expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+      'peer-1',
+      ['hint1', 'hint2'],
+      true,
+    );
+  });
+
+  it('registerChannel closes replaced channel', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    await initNetwork('0x1234', {}, vi.fn());
+
+    const channel1 = createMockChannel('peer-1');
+    const channel2 = createMockChannel('peer-1');
+
+    inboundHandler?.(channel1);
+
+    await vi.waitFor(() => {
+      expect(channel1.msgStream.read).toHaveBeenCalled();
+    });
+
+    inboundHandler?.(channel2);
+
+    await vi.waitFor(() => {
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        channel1,
+        'peer-1',
+      );
+    });
+  });
+
+  it('handles closeChannel error when replacing channel', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    mockConnectionFactory.closeChannel.mockRejectedValueOnce(
+      new Error('Close failed'),
+    );
+
+    await initNetwork('0x1234', {}, vi.fn());
+
+    const channel1 = createMockChannel('peer-1');
+    const channel2 = createMockChannel('peer-1');
+
+    inboundHandler?.(channel1);
+
+    await vi.waitFor(() => {
+      expect(channel1.msgStream.read).toHaveBeenCalled();
+    });
+
+    inboundHandler?.(channel2);
+
+    await vi.waitFor(() => {
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('error closing replaced channel'),
+      );
+    });
+  });
+
+  it('closes rejected inbound channel from intentionally closed peer', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
+
+    await closeConnection('peer-1');
+
+    const inboundChannel = createMockChannel('peer-1');
+    inboundHandler?.(inboundChannel);
+
+    await vi.waitFor(() => {
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        inboundChannel,
+        'peer-1',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'peer-1:: rejecting inbound connection from intentionally closed peer',
+      );
+    });
+  });
+
+  it('handles error when closing rejected inbound from intentionally closed peer', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    mockConnectionFactory.closeChannel.mockRejectedValueOnce(
+      new Error('Close failed'),
+    );
+
+    const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
+
+    await closeConnection('peer-1');
+
+    const inboundChannel = createMockChannel('peer-1');
+    inboundHandler?.(inboundChannel);
+
+    await vi.waitFor(() => {
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'error closing rejected inbound channel from intentionally closed peer',
+        ),
+      );
+    });
+  });
 });

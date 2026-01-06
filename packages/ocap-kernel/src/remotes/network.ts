@@ -191,6 +191,7 @@ export async function initNetwork(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
+          const isCurrentChannel = channels.get(channel.peerId) === channel;
           // Detect graceful disconnect
           const rtcProblem = problem as {
             errorDetail?: string;
@@ -200,17 +201,27 @@ export async function initNetwork(
             rtcProblem?.errorDetail === 'sctp-failure' &&
             rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
           ) {
-            logger.log(`${channel.peerId}:: remote intentionally disconnected`);
-            // Mark as intentionally closed and don't trigger reconnection
-            intentionallyClosed.add(channel.peerId);
-          } else {
+            if (isCurrentChannel) {
+              logger.log(
+                `${channel.peerId}:: remote intentionally disconnected`,
+              );
+              // Mark as intentionally closed and don't trigger reconnection
+              intentionallyClosed.add(channel.peerId);
+            } else {
+              logger.log(
+                `${channel.peerId}:: stale channel intentionally disconnected`,
+              );
+            }
+          } else if (isCurrentChannel) {
             outputError(
               channel.peerId,
               `reading message from ${channel.peerId}`,
               problem,
             );
             // Only trigger reconnection for non-intentional disconnects
-            handleConnectionLoss(channel.peerId);
+            handleConnectionLoss(channel.peerId, channel);
+          } else {
+            logger.log(`${channel.peerId}:: ignoring error from stale channel`);
           }
           logger.log(`closed channel to ${channel.peerId}`);
           throw problem;
@@ -239,8 +250,15 @@ export async function initNetwork(
    * Skips reconnection if the peer was intentionally closed.
    *
    * @param peerId - The peer ID to handle the connection loss for.
+   * @param channel - Optional channel that experienced loss; used to ignore stale channels.
    */
-  function handleConnectionLoss(peerId: string): void {
+  function handleConnectionLoss(peerId: string, channel?: Channel): void {
+    const currentChannel = channels.get(peerId);
+    // Ignore loss signals from stale channels if a different channel is active.
+    if (channel && currentChannel && currentChannel !== channel) {
+      logger.log(`${peerId}:: ignoring connection loss from stale channel`);
+      return;
+    }
     // Don't reconnect if this peer intentionally closed the connection
     if (intentionallyClosed.has(peerId)) {
       logger.log(
@@ -270,7 +288,8 @@ export async function initNetwork(
     peerId: string,
     maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
-    const queue = getMessageQueue(peerId);
+    // Get queue reference - will re-fetch after long awaits to handle cleanup race conditions
+    let queue = getMessageQueue(peerId);
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
       if (!reconnectionManager.shouldRetry(peerId, maxAttempts)) {
@@ -297,21 +316,46 @@ export async function initNetwork(
         throw error;
       }
 
+      // Re-fetch queue after delay in case cleanupStalePeers deleted it during the await
+      queue = getMessageQueue(peerId);
+
+      // Re-check reconnection state after the await; it may have been stopped concurrently
+      if (!reconnectionManager.isReconnecting(peerId) || signal.aborted) {
+        return;
+      }
+
+      // If peer was intentionally closed while reconnecting, stop and exit
+      if (intentionallyClosed.has(peerId)) {
+        reconnectionManager.stopReconnection(peerId);
+        return;
+      }
+
       logger.log(
         `${peerId}:: reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''}`,
       );
 
       try {
         const hints = locationHints.get(peerId) ?? [];
-        let channel = await connectionFactory.dialIdempotent(
+        let channel: Channel | null = await connectionFactory.dialIdempotent(
           peerId,
           hints,
           false, // No retry here, we're already in a retry loop
         );
 
+        // Re-fetch queue after dial in case cleanupStalePeers deleted it during the await
+        queue = getMessageQueue(peerId);
+
         // Check if a concurrent call already registered a channel for this peer
         // (e.g., an inbound connection or another reconnection attempt)
         channel = await reuseOrReturnChannel(peerId, channel);
+        // Handle case where existing channel died during await and dialed channel was closed
+        if (channel === null) {
+          logger.log(
+            `${peerId}:: existing channel died during reuse check, continuing reconnection loop`,
+          );
+          // Channel died and dialed channel was already closed, continue loop to re-dial
+          continue;
+        }
         // Re-check after await to handle race condition where a channel was registered
         // concurrently during the microtask delay
         const registeredChannel = channels.get(peerId);
@@ -422,7 +466,7 @@ export async function initNetwork(
     // Re-queue any failed messages
     if (failedMessages.length > 0) {
       queue.replaceAll(failedMessages);
-      handleConnectionLoss(peerId);
+      handleConnectionLoss(peerId, channel);
     }
   }
 
@@ -481,11 +525,25 @@ export async function initNetwork(
     channel: Channel,
     errorContext = 'reading channel to',
   ): void {
+    const previousChannel = channels.get(peerId);
     channels.set(peerId, channel);
     lastConnectionTime.set(peerId, Date.now());
     readChannel(channel).catch((problem) => {
       outputError(peerId, errorContext, problem);
     });
+
+    // If we replaced an existing channel, close it to avoid leaks and stale readers.
+    if (previousChannel && previousChannel !== channel) {
+      const closePromise = connectionFactory.closeChannel(
+        previousChannel,
+        peerId,
+      );
+      if (typeof closePromise?.catch === 'function') {
+        closePromise.catch((problem) => {
+          outputError(peerId, 'closing replaced channel', problem);
+        });
+      }
+    }
   }
 
   /**
@@ -494,20 +552,47 @@ export async function initNetwork(
    *
    * @param peerId - The peer ID for the channel.
    * @param dialedChannel - The newly dialed channel.
-   * @returns The channel to use (either existing or the dialed one).
+   * @returns The channel to use (either existing or the dialed one), or null if
+   * the existing channel died during the await and the dialed channel was already closed.
    */
   async function reuseOrReturnChannel(
     peerId: string,
     dialedChannel: Channel,
-  ): Promise<Channel> {
+  ): Promise<Channel | null> {
     const existingChannel = channels.get(peerId);
     if (existingChannel) {
       // Close the dialed channel if it's different from the existing one
       if (dialedChannel !== existingChannel) {
         await connectionFactory.closeChannel(dialedChannel, peerId);
+        // Re-check if existing channel is still valid after await
+        // It may have been removed if readChannel exited during the close,
+        // or a new channel may have been registered concurrently
+        const currentChannel = channels.get(peerId);
+        if (currentChannel === existingChannel) {
+          // Existing channel is still valid, use it
+          return existingChannel;
+        }
+        if (currentChannel) {
+          // A different channel was registered concurrently, use that instead
+          return currentChannel;
+        }
+        // Existing channel died during await, but we already closed dialed channel
+        // Return null to signal caller needs to handle this (re-dial or fail)
+        return null;
       }
-      // Another concurrent call already registered the channel, use it
-      return existingChannel;
+      // Same channel, check if it's still valid
+      const currentChannel = channels.get(peerId);
+      if (currentChannel === existingChannel) {
+        // Still the same channel, use it
+        return existingChannel;
+      }
+      if (currentChannel) {
+        // A different channel was registered concurrently, use that instead
+        return currentChannel;
+      }
+      // Channel died, but we can't close dialed channel since it's the same
+      // Return null to signal caller needs to handle this
+      return null;
     }
     // No existing channel, return the dialed one for caller to register
     return dialedChannel;
@@ -604,7 +689,7 @@ export async function initNetwork(
       return;
     }
 
-    let channel = channels.get(targetPeerId);
+    let channel: Channel | null | undefined = channels.get(targetPeerId);
     if (!channel) {
       // Check connection limit before dialing new connection
       // (Early check to fail fast, but we'll check again after dial to prevent race conditions)
@@ -637,6 +722,17 @@ export async function initNetwork(
 
         // Check if a concurrent call already registered a channel for this peer
         channel = await reuseOrReturnChannel(targetPeerId, channel);
+        // Handle case where existing channel died during await and dialed channel was closed
+        if (channel === null) {
+          // Existing channel died and dialed channel was already closed
+          // Trigger reconnection to re-dial
+          logger.log(
+            `${targetPeerId}:: existing channel died during reuse check, triggering reconnection`,
+          );
+          currentQueue.enqueue(message);
+          handleConnectionLoss(targetPeerId);
+          return;
+        }
         // Re-check after await to handle race condition where a channel was registered
         // concurrently during the microtask delay
         const registeredChannel = channels.get(targetPeerId);
@@ -686,8 +782,10 @@ export async function initNetwork(
       lastConnectionTime.set(targetPeerId, Date.now());
     } catch (problem) {
       outputError(targetPeerId, `sending message`, problem);
-      handleConnectionLoss(targetPeerId);
-      queue.enqueue(message);
+      handleConnectionLoss(targetPeerId, channel);
+      // Re-fetch queue in case cleanupStalePeers deleted it during the await
+      const currentQueue = getMessageQueue(targetPeerId);
+      currentQueue.enqueue(message);
     }
   }
 
@@ -706,7 +804,20 @@ export async function initNetwork(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
       );
-      // Don't add to channels map and don't start reading - connection will naturally close
+      // Explicitly close the channel to release network resources
+      const closePromise = connectionFactory.closeChannel(
+        channel,
+        channel.peerId,
+      );
+      if (typeof closePromise?.catch === 'function') {
+        closePromise.catch((problem) => {
+          outputError(
+            channel.peerId,
+            'closing rejected inbound channel from intentionally closed peer',
+            problem,
+          );
+        });
+      }
       return;
     }
 
@@ -759,7 +870,8 @@ export async function initNetwork(
   async function closeConnection(peerId: string): Promise<void> {
     logger.log(`${peerId}:: explicitly closing connection`);
     intentionallyClosed.add(peerId);
-    // Remove channel - the readChannel cleanup will handle stream closure
+    // Get the channel before removing from map
+    const channel = channels.get(peerId);
     channels.delete(peerId);
     // Stop any ongoing reconnection attempts
     if (reconnectionManager.isReconnecting(peerId)) {
@@ -769,6 +881,14 @@ export async function initNetwork(
     const queue = messageQueues.get(peerId);
     if (queue) {
       queue.clear();
+    }
+    // Actually close the underlying network connection
+    if (channel) {
+      try {
+        await connectionFactory.closeChannel(channel, peerId);
+      } catch (problem) {
+        outputError(peerId, 'closing connection', problem);
+      }
     }
   }
 
