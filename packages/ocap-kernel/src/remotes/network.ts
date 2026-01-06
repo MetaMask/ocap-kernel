@@ -303,7 +303,7 @@ export async function initNetwork(
 
       try {
         const hints = locationHints.get(peerId) ?? [];
-        const channel = await connectionFactory.dialIdempotent(
+        let channel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
           false, // No retry here, we're already in a retry loop
@@ -331,8 +331,19 @@ export async function initNetwork(
           continue;
         }
 
-        // Register channel and start reading
-        registerChannel(peerId, channel);
+        // Check if a concurrent call already registered a channel for this peer
+        // (e.g., an inbound connection or another reconnection attempt)
+        // (dialIdempotent may return the same channel due to deduplication)
+        const dialedChannel = channel;
+        channel = await reuseOrReturnChannel(peerId, channel);
+        if (channel === dialedChannel) {
+          // Register the new channel and start reading
+          registerChannel(peerId, channel);
+        } else {
+          logger.log(
+            `${peerId}:: reconnection: channel already exists, reusing existing channel`,
+          );
+        }
 
         logger.log(`${peerId}:: reconnection successful`);
 
@@ -472,6 +483,31 @@ export async function initNetwork(
   }
 
   /**
+   * Check if an existing channel exists for a peer, and if so, reuse it.
+   * Otherwise, return the dialed channel for the caller to register.
+   *
+   * @param peerId - The peer ID for the channel.
+   * @param dialedChannel - The newly dialed channel.
+   * @returns The channel to use (either existing or the dialed one).
+   */
+  async function reuseOrReturnChannel(
+    peerId: string,
+    dialedChannel: Channel,
+  ): Promise<Channel> {
+    const existingChannel = channels.get(peerId);
+    if (existingChannel) {
+      // Close the dialed channel if it's different from the existing one
+      if (dialedChannel !== existingChannel) {
+        await connectionFactory.closeChannel(dialedChannel, peerId);
+      }
+      // Another concurrent call already registered the channel, use it
+      return existingChannel;
+    }
+    // No existing channel, return the dialed one for caller to register
+    return dialedChannel;
+  }
+
+  /**
    * Give up on a peer after max retries or non-retryable error.
    *
    * @param peerId - The peer ID to give up on.
@@ -590,15 +626,9 @@ export async function initNetwork(
 
         // Check if a concurrent call already registered a channel for this peer
         // (dialIdempotent may return the same channel due to deduplication)
-        const existingChannel = channels.get(targetPeerId);
-        if (existingChannel) {
-          // Close the dialed channel if it's different from the existing one
-          if (channel !== existingChannel) {
-            await connectionFactory.closeChannel(channel, targetPeerId);
-          }
-          // Another concurrent call already registered the channel, use it
-          channel = existingChannel;
-        } else {
+        const dialedChannel = channel;
+        channel = await reuseOrReturnChannel(targetPeerId, channel);
+        if (channel === dialedChannel) {
           // Re-check connection limit after dial completes to prevent race conditions
           // Multiple concurrent dials could all pass the initial check, then all add channels
           try {
@@ -616,8 +646,10 @@ export async function initNetwork(
             return;
           }
 
+          // Register the new channel and start reading
           registerChannel(targetPeerId, channel);
         }
+        // else: Existing channel reused, nothing more to do
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);

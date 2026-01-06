@@ -1316,6 +1316,112 @@ describe('network.initNetwork', () => {
         );
       });
     });
+
+    it('reuses existing channel when inbound connection arrives during reconnection dial', async () => {
+      // Capture inbound handler before init
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Create two different channels: one for reconnection dial, one for inbound
+      const reconnectionChannel = createMockChannel('peer-1');
+      const inboundChannel = createMockChannel('peer-1');
+      reconnectionChannel.msgStream.write.mockResolvedValue(undefined);
+      inboundChannel.msgStream.write.mockResolvedValue(undefined);
+      inboundChannel.msgStream.read.mockImplementation(
+        async () =>
+          new Promise(() => {
+            /* Never resolves - keeps channel active */
+          }),
+      );
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Set up initial connection that will fail on write
+      const initialChannel = createMockChannel('peer-1');
+      initialChannel.msgStream.write
+        .mockResolvedValueOnce(undefined) // First write succeeds
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ); // Second write fails, triggering reconnection
+
+      // Make dialIdempotent delay for reconnection to allow inbound connection to arrive first
+      let dialResolve: ((value: MockChannel) => void) | undefined;
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(initialChannel) // Initial connection
+        .mockImplementation(
+          async () =>
+            new Promise<MockChannel>((resolve) => {
+              dialResolve = resolve;
+            }),
+        ); // Reconnection dial (pending)
+
+      // Establish initial connection
+      await sendRemoteMessage('peer-1', 'msg-1');
+
+      // Trigger connection loss to start reconnection
+      await sendRemoteMessage('peer-1', 'msg-2');
+
+      // Wait for reconnection to start and begin dialing
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // While reconnection dial is pending, inbound connection arrives and registers channel
+      inboundHandler?.(inboundChannel);
+
+      // Wait for inbound channel to be registered
+      await vi.waitFor(() => {
+        expect(inboundChannel.msgStream.read).toHaveBeenCalled();
+      });
+
+      // Now resolve the reconnection dial
+      dialResolve?.(reconnectionChannel);
+
+      // Wait for reconnection to complete
+      await vi.waitFor(() => {
+        // Should detect existing channel and close the dialed one
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          reconnectionChannel,
+          'peer-1',
+        );
+        // Should log that existing channel is being reused
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-1:: reconnection: channel already exists, reusing existing channel',
+        );
+        // Should stop reconnection (successful)
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Verify only one channel is active (the inbound one)
+      // The reconnection channel should have been closed, not registered
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('error handling', () => {
