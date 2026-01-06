@@ -1,7 +1,7 @@
 import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { isJsonRpcCall } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { PostMessageTarget } from '@metamask/streams/browser';
@@ -9,8 +9,9 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import type { JsonRpcResponse } from '@metamask/utils';
 
+import { makeKernelCapTP } from './captp/index.ts';
+import { makeMessageRouter } from './captp/message-router.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
@@ -31,13 +32,13 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  // Initialize kernel dependencies
-  const [kernelStream, platformServicesClient, kernelDatabase] =
+  // Initialize other kernel dependencies
+  const [messageRouter, platformServicesClient, kernelDatabase] =
     await Promise.all([
-      MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
+      MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
         port,
-        isJsonRpcCall,
-      ),
+        isJsonRpcMessage,
+      ).then((stream) => makeMessageRouter(stream)),
       PlatformServicesClient.make(globalThis as PostMessageTarget),
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
@@ -46,8 +47,9 @@ async function main(): Promise<void> {
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
+  // Create kernel with the filtered stream (only sees non-CapTP messages)
   const kernelP = Kernel.make(
-    kernelStream,
+    messageRouter.kernelStream,
     platformServicesClient,
     kernelDatabase,
     {
@@ -70,6 +72,18 @@ async function main(): Promise<void> {
   });
 
   const kernel = await kernelP;
+
+  // Set up CapTP for background ↔ kernel communication
+  const kernelCapTP = makeKernelCapTP({
+    kernel,
+    send: messageRouter.sendCapTP,
+  });
+  messageRouter.setCapTPDispatch(kernelCapTP.dispatch);
+
+  // Start the message router (routes incoming messages to kernel or CapTP)
+  messageRouter.start().catch((error) => {
+    logger.error('Message router error:', error);
+  });
 
   // Initialize remote communications with the relay server passed in the query string
   const relays = getRelaysFromCurrentLocation();

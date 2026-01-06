@@ -38,15 +38,13 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
   'packages/omnium-gatherum/src/env/dev-console.js',
-  'packages/omnium-gatherum/src/env/background-trusted-prelude.js',
   'packages/kernel-shims/dist/endoify.js',
 ];
 
-const backgroundPreludeImportStatement = `import './background-trusted-prelude.js';`;
 const endoifyImportStatement = `import './endoify.js';`;
 const trustedPreludes = {
   background: {
-    content: backgroundPreludeImportStatement,
+    content: endoifyImportStatement,
   },
   'kernel-worker': { content: endoifyImportStatement },
 } satisfies PreludeRecord;

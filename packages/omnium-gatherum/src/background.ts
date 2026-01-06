@@ -1,11 +1,21 @@
+import { E } from '@endo/eventual-send';
 import { RpcClient } from '@metamask/kernel-rpc-methods';
-import { delay } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
+
+import {
+  makeBackgroundCapTP,
+  makeCapTPNotification,
+  isCapTPNotification,
+  getCapTPMessage,
+} from './captp/index.ts';
+import type { KernelFacade, CapTPMessage } from './captp/index.ts';
+
+defineGlobals();
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -74,11 +84,13 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
+  // Create stream that supports both RPC and CapTP messages
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
+  // Set up RpcClient for backward compatibility with existing RPC methods
   const rpcClient = new RpcClient(
     kernelMethodSpecs,
     async (request) => {
@@ -87,15 +99,35 @@ async function main(): Promise<void> {
     'background:',
   );
 
+  // Set up CapTP for E() based communication with the kernel
+  const backgroundCapTP = makeBackgroundCapTP({
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      offscreenStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
+    },
+  });
+
+  // Get the kernel remote presence
+  const kernelPromise = backgroundCapTP.getKernel();
+
   const ping = async (): Promise<void> => {
     const result = await rpcClient.call('ping', []);
     logger.info(result);
   };
 
-  // globalThis.omnium will exist due to dev-console.js in background-trusted-prelude.js
+  // Helper to get the kernel remote presence (for use with E())
+  const getKernel = async (): Promise<KernelFacade> => {
+    return kernelPromise;
+  };
+
   Object.defineProperties(globalThis.omnium, {
     ping: {
       value: ping,
+    },
+    getKernel: {
+      value: getKernel,
     },
   });
   harden(globalThis.omnium);
@@ -106,13 +138,40 @@ async function main(): Promise<void> {
   });
 
   try {
-    // Pipe responses back to the RpcClient
-    await offscreenStream.drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    );
+    // Handle all incoming messages
+    await offscreenStream.drain(async (message) => {
+      if (isCapTPNotification(message)) {
+        // Dispatch CapTP messages
+        const captpMessage = getCapTPMessage(message);
+        backgroundCapTP.dispatch(captpMessage);
+      } else if (isJsonRpcResponse(message)) {
+        // Handle RPC responses
+        rpcClient.handleResponse(message.id as string, message);
+      }
+      // Ignore other message types
+    });
   } catch (error) {
     throw new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
   }
+}
+
+/**
+ * Define globals accessible via the background console.
+ */
+function defineGlobals(): void {
+  Object.defineProperty(globalThis, 'omnium', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
+  });
+
+  Object.defineProperty(globalThis, 'E', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: E,
+  });
 }
