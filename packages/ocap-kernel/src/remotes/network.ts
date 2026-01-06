@@ -311,9 +311,6 @@ export async function initNetwork(
 
         // Check if a concurrent call already registered a channel for this peer
         // (e.g., an inbound connection or another reconnection attempt)
-        // Use channels.has() instead of object identity check because dialIdempotent
-        // may return the same channel object due to deduplication, making
-        // channel === dialedChannel true even when the channel was already registered
         channel = await reuseOrReturnChannel(peerId, channel);
         if (channels.has(peerId)) {
           logger.log(
