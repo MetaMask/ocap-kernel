@@ -3,7 +3,7 @@ import '../../src/env/endoify.ts';
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 import { getTestWorkerFile } from '../get-test-worker.ts';
@@ -13,11 +13,28 @@ describe('NodejsPlatformServices', () => {
   const vatIdCounter = makeCounter();
   const getTestVatId = (): VatId => `v${vatIdCounter()}`;
 
+  // Track all services to ensure cleanup
+  const services: NodejsPlatformServices[] = [];
+
+  afterEach(async () => {
+    // Terminate all workers to prevent dangling processes
+    await Promise.all(services.map(async (service) => service.terminateAll()));
+    // eslint-disable-next-line require-atomic-updates
+    services.length = 0;
+    vi.restoreAllMocks();
+  });
+
+  const createService = (): NodejsPlatformServices => {
+    const service = new NodejsPlatformServices({
+      workerFilePath: testWorkerFile,
+    });
+    services.push(service);
+    return service;
+  };
+
   describe('launch', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
-      const service = new NodejsPlatformServices({
-        workerFilePath: testWorkerFile,
-      });
+      const service = createService();
       const testVatId: VatId = getTestVatId();
       const stream = await service.launch(testVatId);
 
@@ -28,15 +45,16 @@ describe('NodejsPlatformServices', () => {
       const rejected = 'test-reject-value';
 
       vi.doMock('@metamask/streams', () => ({
-        NodeWorkerDuplexStream: vi.fn().mockImplementation(() => ({
-          synchronize: vi.fn(() => 'no').mockRejectedValue(rejected),
-        })),
+        NodeWorkerDuplexStream: class MockNodeWorkerDuplexStream {
+          synchronize = vi.fn().mockRejectedValue(rejected);
+        },
       }));
       vi.resetModules();
       const NVWS = (await import('../../src/kernel/PlatformServices.ts'))
         .NodejsPlatformServices;
 
       const service = new NVWS({ workerFilePath: testWorkerFile });
+      services.push(service);
       const testVatId: VatId = getTestVatId();
       await expect(service.launch(testVatId)).rejects.toThrow(rejected);
     });
@@ -44,9 +62,7 @@ describe('NodejsPlatformServices', () => {
 
   describe('terminate', () => {
     it('terminates the target vat', async () => {
-      const service = new NodejsPlatformServices({
-        workerFilePath: testWorkerFile,
-      });
+      const service = createService();
       const testVatId: VatId = getTestVatId();
 
       await service.launch(testVatId);
@@ -57,9 +73,7 @@ describe('NodejsPlatformServices', () => {
     });
 
     it('throws when terminating an unknown vat', async () => {
-      const service = new NodejsPlatformServices({
-        workerFilePath: testWorkerFile,
-      });
+      const service = createService();
       const testVatId: VatId = getTestVatId();
 
       await expect(service.terminate(testVatId)).rejects.toThrow(
@@ -70,9 +84,7 @@ describe('NodejsPlatformServices', () => {
 
   describe('terminateAll', () => {
     it('terminates all vats', async () => {
-      const service = new NodejsPlatformServices({
-        workerFilePath: testWorkerFile,
-      });
+      const service = createService();
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
 
       await Promise.all(
