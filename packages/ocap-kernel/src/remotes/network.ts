@@ -391,6 +391,16 @@ export async function initNetwork(
             continue;
           }
 
+          // Check if peer was intentionally closed during dial
+          if (intentionallyClosed.has(peerId)) {
+            logger.log(
+              `${peerId}:: peer intentionally closed during dial, closing channel`,
+            );
+            await connectionFactory.closeChannel(channel, peerId);
+            reconnectionManager.stopReconnection(peerId);
+            return;
+          }
+
           // Register the new channel and start reading
           registerChannel(peerId, channel);
         }
@@ -760,6 +770,15 @@ export async function initNetwork(
             // Start reconnection to retry later when limit might free up
             handleConnectionLoss(targetPeerId);
             return;
+          }
+
+          // Check if peer was intentionally closed during dial
+          if (intentionallyClosed.has(targetPeerId)) {
+            logger.log(
+              `${targetPeerId}:: peer intentionally closed during dial, closing channel`,
+            );
+            await connectionFactory.closeChannel(channel, targetPeerId);
+            throw new Error('Message delivery failed after intentional close');
           }
 
           // Register the new channel and start reading
