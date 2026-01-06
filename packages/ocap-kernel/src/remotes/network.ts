@@ -805,6 +805,16 @@ export async function initNetwork(
       // Re-fetch queue in case cleanupStalePeers deleted it during the await
       const currentQueue = getMessageQueue(targetPeerId);
       currentQueue.enqueue(message);
+
+      // If a new channel is active (stale channel was replaced by inbound connection),
+      // flush the queue on it to prevent messages from being stuck indefinitely
+      const newChannel = channels.get(targetPeerId);
+      if (newChannel && newChannel !== channel) {
+        logger.log(
+          `${targetPeerId}:: stale channel replaced, flushing queue on new channel`,
+        );
+        await flushQueuedMessages(targetPeerId, newChannel, currentQueue);
+      }
     }
   }
 
