@@ -309,40 +309,40 @@ export async function initNetwork(
           false, // No retry here, we're already in a retry loop
         );
 
-        // Check connection limit before adding channel
-        // This prevents exceeding the limit if other connections were established
-        // during the reconnection delay
-        try {
-          checkConnectionLimit();
-        } catch (limitError) {
-          // Connection limit reached - treat as retryable and continue loop
-          // The limit might free up when other connections close
-          logger.log(
-            `${peerId}:: reconnection blocked by connection limit, will retry`,
-          );
-          outputError(
-            peerId,
-            `reconnection attempt ${nextAttempt}`,
-            limitError,
-          );
-          // Explicitly close the channel to release network resources
-          await connectionFactory.closeChannel(channel, peerId);
-          // Continue the reconnection loop
-          continue;
-        }
-
         // Check if a concurrent call already registered a channel for this peer
         // (e.g., an inbound connection or another reconnection attempt)
-        // (dialIdempotent may return the same channel due to deduplication)
-        const dialedChannel = channel;
+        // Use channels.has() instead of object identity check because dialIdempotent
+        // may return the same channel object due to deduplication, making
+        // channel === dialedChannel true even when the channel was already registered
         channel = await reuseOrReturnChannel(peerId, channel);
-        if (channel === dialedChannel) {
-          // Register the new channel and start reading
-          registerChannel(peerId, channel);
-        } else {
+        if (channels.has(peerId)) {
           logger.log(
             `${peerId}:: reconnection: channel already exists, reusing existing channel`,
           );
+        } else {
+          // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
+          // Other connections (inbound or outbound) could be established during the await
+          try {
+            checkConnectionLimit();
+          } catch (limitError) {
+            // Connection limit reached - treat as retryable and continue loop
+            // The limit might free up when other connections close
+            logger.log(
+              `${peerId}:: reconnection blocked by connection limit, will retry`,
+            );
+            outputError(
+              peerId,
+              `reconnection attempt ${nextAttempt}`,
+              limitError,
+            );
+            // Explicitly close the channel to release network resources
+            await connectionFactory.closeChannel(channel, peerId);
+            // Continue the reconnection loop
+            continue;
+          }
+
+          // Register the new channel and start reading
+          registerChannel(peerId, channel);
         }
 
         logger.log(`${peerId}:: reconnection successful`);
@@ -559,6 +559,7 @@ export async function initNetwork(
       lastConnectionTime.delete(peerId);
       messageQueues.delete(peerId);
       locationHints.delete(peerId);
+      intentionallyClosed.delete(peerId);
       // Clear reconnection state
       reconnectionManager.clearPeer(peerId);
     }
@@ -625,10 +626,11 @@ export async function initNetwork(
         }
 
         // Check if a concurrent call already registered a channel for this peer
-        // (dialIdempotent may return the same channel due to deduplication)
-        const dialedChannel = channel;
+        // Use channels.has() instead of object identity check because dialIdempotent
+        // may return the same channel object due to deduplication, making
+        // channel === dialedChannel true even when the channel was already registered
         channel = await reuseOrReturnChannel(targetPeerId, channel);
-        if (channel === dialedChannel) {
+        if (!channels.has(targetPeerId)) {
           // Re-check connection limit after dial completes to prevent race conditions
           // Multiple concurrent dials could all pass the initial check, then all add channels
           try {
