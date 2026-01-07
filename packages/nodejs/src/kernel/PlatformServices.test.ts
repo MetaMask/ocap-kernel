@@ -64,11 +64,15 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('@metamask/streams', () => ({
-  NodeWorkerDuplexStream: vi.fn(() => mocks.stream),
+  NodeWorkerDuplexStream: vi.fn(function () {
+    return mocks.stream;
+  }),
 }));
 
 vi.mock('node:worker_threads', () => ({
-  Worker: vi.fn(() => mocks.createMockWorker()),
+  Worker: vi.fn(function () {
+    return mocks.createMockWorker();
+  }),
 }));
 
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
@@ -121,9 +125,7 @@ describe('NodejsPlatformServices', () => {
       mocks.stream.synchronize.mockRejectedValue(rejected);
       const service = new NodejsPlatformServices({ workerFilePath });
       const testVatId: VatId = getTestVatId();
-      await expect(async () => await service.launch(testVatId)).rejects.toThrow(
-        rejected,
-      );
+      await expect(service.launch(testVatId)).rejects.toThrowError(rejected);
     });
 
     it('throws error if worker already exists', async () => {
@@ -133,7 +135,7 @@ describe('NodejsPlatformServices', () => {
       await service.launch(testVatId);
       expect(service.workers.has(testVatId)).toBe(true);
 
-      await expect(async () => await service.launch(testVatId)).rejects.toThrow(
+      await expect(service.launch(testVatId)).rejects.toThrowError(
         `Worker ${testVatId} already exists! Cannot launch duplicate.`,
       );
     });
@@ -144,7 +146,9 @@ describe('NodejsPlatformServices', () => {
 
       // Create a worker that won't auto-emit 'online' (for error testing)
       const worker = mocks.createMockWorker(false);
-      vi.mocked(NodeWorker).mockReturnValueOnce(worker as never);
+      vi.mocked(NodeWorker).mockImplementationOnce(function () {
+        return worker;
+      });
 
       const launchPromise = service.launch(testVatId);
 
@@ -154,7 +158,7 @@ describe('NodejsPlatformServices', () => {
       // Emit error event before 'online'
       worker.emit('error', new Error('worker startup error'));
 
-      await expect(launchPromise).rejects.toThrow(
+      await expect(launchPromise).rejects.toThrowError(
         `Worker ${testVatId} errored during startup: worker startup error`,
       );
       expect(service.workers.has(testVatId)).toBe(false);
@@ -167,7 +171,9 @@ describe('NodejsPlatformServices', () => {
 
       // Create a worker that won't auto-emit 'online' (for exit testing)
       const worker = mocks.createMockWorker(false);
-      vi.mocked(NodeWorker).mockReturnValueOnce(worker as never);
+      vi.mocked(NodeWorker).mockImplementationOnce(function () {
+        return worker;
+      });
 
       const launchPromise = service.launch(testVatId);
 
@@ -177,7 +183,7 @@ describe('NodejsPlatformServices', () => {
       // Emit exit event before 'online'
       worker.emit('exit', 1);
 
-      await expect(launchPromise).rejects.toThrow(
+      await expect(launchPromise).rejects.toThrowError(
         `Worker ${testVatId} exited during startup with code 1`,
       );
       expect(service.workers.has(testVatId)).toBe(false);
@@ -204,9 +210,9 @@ describe('NodejsPlatformServices', () => {
       });
       const testVatId: VatId = getTestVatId();
 
-      await expect(
-        async () => await service.terminate(testVatId),
-      ).rejects.toThrow(/No worker found/u);
+      await expect(service.terminate(testVatId)).rejects.toThrowError(
+        /No worker found/u,
+      );
     });
   });
 
@@ -302,7 +308,7 @@ describe('NodejsPlatformServices', () => {
 
         await expect(
           service.initializeRemoteComms(keySeed, { relays }, remoteHandler),
-        ).rejects.toThrow('remote comms already initialized');
+        ).rejects.toThrowError('remote comms already initialized');
       });
 
       it('stores remote message handler for later use', async () => {
@@ -401,7 +407,7 @@ describe('NodejsPlatformServices', () => {
 
         await expect(
           service.sendRemoteMessage('peer-999', 'test'),
-        ).rejects.toThrow('remote comms not initialized');
+        ).rejects.toThrowError('remote comms not initialized');
       });
     });
 
@@ -468,7 +474,7 @@ describe('NodejsPlatformServices', () => {
         // Should throw after stop
         await expect(
           service.sendRemoteMessage('peer-2', 'msg2'),
-        ).rejects.toThrow('remote comms not initialized');
+        ).rejects.toThrowError('remote comms not initialized');
       });
 
       it('clears closeConnection and reconnectPeer after stop', async () => {
@@ -488,10 +494,10 @@ describe('NodejsPlatformServices', () => {
         await service.stopRemoteComms();
 
         // Should throw after stop
-        await expect(service.closeConnection('peer-2')).rejects.toThrow(
+        await expect(service.closeConnection('peer-2')).rejects.toThrowError(
           'remote comms not initialized',
         );
-        await expect(service.reconnectPeer('peer-2')).rejects.toThrow(
+        await expect(service.reconnectPeer('peer-2')).rejects.toThrowError(
           'remote comms not initialized',
         );
       });
@@ -514,7 +520,7 @@ describe('NodejsPlatformServices', () => {
       it('throws error if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
 
-        await expect(service.closeConnection('peer-999')).rejects.toThrow(
+        await expect(service.closeConnection('peer-999')).rejects.toThrowError(
           'remote comms not initialized',
         );
       });
@@ -542,7 +548,7 @@ describe('NodejsPlatformServices', () => {
 
         await expect(
           service.registerLocationHints('peer-999', ['hint1', 'hint2']),
-        ).rejects.toThrow('remote comms not initialized');
+        ).rejects.toThrowError('remote comms not initialized');
       });
     });
 
@@ -580,7 +586,7 @@ describe('NodejsPlatformServices', () => {
       it('throws error if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
 
-        await expect(service.reconnectPeer('peer-999')).rejects.toThrow(
+        await expect(service.reconnectPeer('peer-999')).rejects.toThrowError(
           'remote comms not initialized',
         );
       });

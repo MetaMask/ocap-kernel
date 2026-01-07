@@ -13,6 +13,11 @@ export default defineConfig((args) => {
         pool: 'forks',
         include: ['./test/e2e/**/*.test.ts'],
         exclude: ['./src/**/*'],
+        env: {
+          // Prevent SES from calling process.exit on uncaught exceptions.
+          // Vitest v4+ intercepts process.exit and throws errors.
+          LOCKDOWN_ERROR_TRAPPING: 'none',
+        },
       },
     }),
   );

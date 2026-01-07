@@ -131,6 +131,9 @@ const config = createConfig([
       // We should enable this instead, but the rule is unreleased.
       // See https://github.com/vitest-dev/eslint-plugin-vitest/issues/591
       // 'vitest/unbound-method': 'error',
+      // TODO: Remove these rules once @metamask/eslint-config-vitest is updated to the latest version.
+      'vitest/no-alias-methods': 'off',
+      'vitest/prefer-called-exactly-once-with': 'off',
     },
   },
 

@@ -167,9 +167,9 @@ describe('LaunchSubcluster', () => {
       readAsText: vi.fn(),
       onerror: vi.fn(),
     };
-    vi.spyOn(window, 'FileReader').mockImplementation(
-      () => mockFileReader as unknown as FileReader,
-    );
+    vi.spyOn(window, 'FileReader').mockImplementation(function () {
+      return mockFileReader as unknown as FileReader;
+    });
     fireEvent.change(input, { target: { files: [file] } });
     mockFileReader.onerror();
     expect(mockLogMessage).toHaveBeenCalledWith(
@@ -188,9 +188,9 @@ describe('LaunchSubcluster', () => {
       readAsText: vi.fn(),
       onload: vi.fn(),
     };
-    vi.spyOn(window, 'FileReader').mockImplementation(
-      () => mockFileReader as unknown as FileReader,
-    );
+    vi.spyOn(window, 'FileReader').mockImplementation(function () {
+      return mockFileReader as unknown as FileReader;
+    });
     fireEvent.change(input, { target: { files: [file] } });
     mockFileReader.onload({
       target: { result: null },

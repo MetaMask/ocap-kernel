@@ -39,8 +39,7 @@ describe('initializeMessageChannel', () => {
       targetWindow.postMessage(message, '*', transfer),
     );
 
-    expect(postMessageSpy).toHaveBeenCalledOnce();
-    expect(postMessageSpy).toHaveBeenCalledWith(
+    expect(postMessageSpy).toHaveBeenCalledExactlyOnceWith(
       {
         type: MessageType.Initialize,
       },
@@ -53,9 +52,8 @@ describe('initializeMessageChannel', () => {
     const { port1, port2 } = new MessageChannel();
     const removeEventListenerSpy = vi.spyOn(port1, 'removeEventListener');
 
-    vi.spyOn(globalThis, 'MessageChannel').mockReturnValueOnce({
-      port1,
-      port2,
+    vi.spyOn(globalThis, 'MessageChannel').mockImplementationOnce(function () {
+      return { port1, port2 };
     });
     const messageChannelP = initializeMessageChannel(vi.fn());
 
@@ -81,8 +79,9 @@ describe('initializeMessageChannel', () => {
 
     await messageChannelP;
 
-    expect(portHandler).toHaveBeenCalledOnce();
-    expect(portHandler).toHaveBeenCalledWith(expect.any(MessagePort));
+    expect(portHandler).toHaveBeenCalledExactlyOnceWith(
+      expect.any(MessagePort),
+    );
     expect(portHandler.mock.lastCall?.[0] === remotePort).toBe(false);
   });
 
@@ -125,7 +124,7 @@ describe('initializeMessageChannel', () => {
       const remotePort: MessagePort = postMessageSpy.mock.lastCall[2][0];
       remotePort.postMessage(unexpectedMessage);
 
-      await expect(messageChannelP).rejects.toThrow(
+      await expect(messageChannelP).rejects.toThrowError(
         /^Received unexpected message via message port/u,
       );
     },
@@ -176,8 +175,7 @@ describe('receiveMessagePort', () => {
     );
 
     expect(await messagePortP).toBe(port2);
-    expect(portPostMessageSpy).toHaveBeenCalledOnce();
-    expect(portPostMessageSpy).toHaveBeenCalledWith({
+    expect(portPostMessageSpy).toHaveBeenCalledExactlyOnceWith({
       type: MessageType.Acknowledge,
     });
   });
@@ -201,8 +199,7 @@ describe('receiveMessagePort', () => {
 
     await messagePortP;
 
-    expect(portHandler).toHaveBeenCalledOnce();
-    expect(portHandler).toHaveBeenCalledWith(port2);
+    expect(portHandler).toHaveBeenCalledExactlyOnceWith(port2);
   });
 
   it('resolves with the value returned by portHandler', async () => {
@@ -242,13 +239,11 @@ describe('receiveMessagePort', () => {
 
     await messagePortP;
 
-    expect(addEventListenerSpy).toHaveBeenCalledOnce();
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
+    expect(addEventListenerSpy).toHaveBeenCalledExactlyOnceWith(
       'message',
       expect.any(Function),
     );
-    expect(removeEventListenerSpy).toHaveBeenCalledOnce();
-    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+    expect(removeEventListenerSpy).toHaveBeenCalledExactlyOnceWith(
       'message',
       expect.any(Function),
     );

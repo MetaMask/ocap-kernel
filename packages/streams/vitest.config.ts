@@ -1,4 +1,5 @@
 import { mergeConfig } from '@ocap/repo-tools/vitest-config';
+import { playwright } from '@vitest/browser-playwright';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, defineProject } from 'vitest/config';
 
@@ -28,7 +29,7 @@ export default defineConfig((args) => {
               setupFiles: '../kernel-shims/src/endoify.js',
               browser: {
                 enabled: true,
-                provider: 'playwright',
+                provider: playwright(),
                 instances: [
                   {
                     browser: 'chromium',

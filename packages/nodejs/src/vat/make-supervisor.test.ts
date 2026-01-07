@@ -3,11 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@metamask/logger', () => ({
   makeStreamTransport: vi.fn(() => ({ id: 'transport' })),
-  Logger: vi.fn(() => ({ debug: vi.fn() })),
+  Logger: vi.fn(function () {
+    return { debug: vi.fn() };
+  }),
 }));
 
 vi.mock('@metamask/ocap-kernel', () => ({
-  VatSupervisor: vi.fn(() => ({ id: 'test-vat-id' })),
+  VatSupervisor: vi.fn(function () {
+    return { id: 'test-vat-id' };
+  }),
 }));
 
 vi.mock('./streams.ts', () => ({
