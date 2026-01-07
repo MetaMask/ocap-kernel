@@ -123,8 +123,8 @@ type ReceiveConnectionsOptions = Omit<Options, 'label'> &
  * @param options.handler - The function to handle internal messages. Mutually exclusive
  * with `handlerPromise`.
  * @param options.handlerPromise - A promise that resolves to the handler function.
- * Messages will be buffered until the handler is ready, then subsequent messages are
- * handled directly. Mutually exclusive with `handler`.
+ * Incoming messages await handler initialization once, then the resolved handler is
+ * cached and used directly for all subsequent messages. Mutually exclusive with `handler`.
  * @param options.logger - The logger instance.
  * @param options.controlChannelName - The name of the control channel. Must match
  * the name used by {@link connectToKernel} on the other end.
@@ -137,18 +137,24 @@ export const receiveInternalConnections = ({
 }: ReceiveConnectionsOptions): void => {
   // Support both direct handler and promise-based handler
   let handler: HandleInternalMessage | null = null;
-  let handlerReady: Promise<HandleInternalMessage>;
+  let handlerResolution: Promise<HandleInternalMessage>;
 
   if (directHandler !== undefined) {
     // Direct handler - use immediately
     handler = directHandler;
-    handlerReady = Promise.resolve(directHandler);
+    handlerResolution = Promise.resolve(directHandler);
   } else {
     // Promise-based handler - cache once resolved
-    handlerReady = handlerPromise.then((resolvedHandler) => {
-      handler = resolvedHandler;
-      return resolvedHandler;
-    });
+    handlerResolution = handlerPromise.then(
+      (resolvedHandler) => {
+        handler = resolvedHandler;
+        return resolvedHandler;
+      },
+      (error) => {
+        // Re-throw to propagate initialization errors to message handlers
+        throw error;
+      },
+    );
   }
 
   const seenChannels = new Set<string>();
@@ -177,19 +183,39 @@ export const receiveInternalConnections = ({
             `Received message from internal process "${channelName}": ${JSON.stringify(message)}`,
           );
 
-          // Use cached handler if available, otherwise await once
-          const messageHandler = handler ?? (await handlerReady);
-          const reply = await messageHandler(message);
-          if (reply !== undefined) {
-            await kernelRpcStream.write(reply);
+          try {
+            // Use cached handler if available, otherwise await once
+            const messageHandler = handler ?? (await handlerResolution);
+            const reply = await messageHandler(message);
+            if (reply !== undefined) {
+              await kernelRpcStream.write(reply);
+            }
+          } catch (error) {
+            // Check if this is a handler initialization error
+            if (handler === null) {
+              logger.error(
+                `Error initializing message handler for internal process "${channelName}":`,
+                error,
+              );
+            } else {
+              logger.error(
+                `Error handling message from internal process "${channelName}":`,
+                error,
+              );
+            }
+            throw error;
           }
         });
       })
       .catch((error) => {
-        logger.error(
-          `Error handling message from internal process "${channelName}":`,
-          error,
-        );
+        // This catch handles connection errors and re-thrown handler errors
+        if (handler !== null) {
+          logger.error(
+            `Error handling message from internal process "${channelName}":`,
+            error,
+          );
+        }
+        // Initialization errors are already logged in the try-catch above
       })
       .finally(() => {
         logger.debug(`Closed connection to internal process "${channelName}"`);

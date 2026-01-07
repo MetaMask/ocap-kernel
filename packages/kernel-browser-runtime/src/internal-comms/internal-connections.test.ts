@@ -455,5 +455,183 @@ describe('internal-connections', () => {
         expect.any(Error),
       );
     });
+
+    it('should handle messages with handlerPromise after resolution', async () => {
+      const handlerPromise = Promise.resolve(mockHandleMessage);
+
+      receiveInternalConnections({
+        handlerPromise,
+        logger,
+      });
+
+      const controlChannel = MockBroadcastChannel.channels.get(
+        COMMS_CONTROL_CHANNEL_NAME,
+      );
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: { channelName: 'internal-process-channel' },
+          },
+        }),
+      );
+
+      await delay();
+      const commsStream = streamInstances[0]!;
+      expect(commsStream).toBeDefined();
+      const commsStreamWriteSpy = vi.spyOn(commsStream, 'write');
+
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
+      )!;
+
+      // Send first message
+      commsChannel.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'getStatus',
+            params: null,
+            id: 1,
+          },
+        }),
+      );
+      await delay();
+
+      expect(mockHandleMessage).toHaveBeenCalledWith({
+        method: 'getStatus',
+        params: null,
+        id: 1,
+      });
+      expect(commsStreamWriteSpy).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { vats: [], clusterConfig: makeClusterConfig() },
+      });
+
+      // Send second message to verify caching (handler should be used directly)
+      commsChannel.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'getStatus',
+            params: null,
+            id: 2,
+          },
+        }),
+      );
+      await delay();
+
+      expect(mockHandleMessage).toHaveBeenCalledTimes(2);
+      expect(commsStreamWriteSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should queue messages until handlerPromise resolves', async () => {
+      let resolveHandler: (handler: typeof mockHandleMessage) => void;
+      const handlerPromise = new Promise<typeof mockHandleMessage>((resolve) => {
+        resolveHandler = resolve;
+      });
+
+      receiveInternalConnections({
+        handlerPromise,
+        logger,
+      });
+
+      const controlChannel = MockBroadcastChannel.channels.get(
+        COMMS_CONTROL_CHANNEL_NAME,
+      );
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: { channelName: 'internal-process-channel' },
+          },
+        }),
+      );
+
+      await delay();
+      const commsStream = streamInstances[0]!;
+      expect(commsStream).toBeDefined();
+      const commsStreamWriteSpy = vi.spyOn(commsStream, 'write');
+
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
+      )!;
+
+      // Send message before handler is ready
+      commsChannel.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'getStatus',
+            params: null,
+            id: 1,
+          },
+        }),
+      );
+
+      // Handler should not be called yet
+      await delay();
+      expect(mockHandleMessage).not.toHaveBeenCalled();
+      expect(commsStreamWriteSpy).not.toHaveBeenCalled();
+
+      // Now resolve the handler
+      resolveHandler!(mockHandleMessage);
+      await delay();
+
+      // Now the message should be handled
+      expect(mockHandleMessage).toHaveBeenCalledWith({
+        method: 'getStatus',
+        params: null,
+        id: 1,
+      });
+      expect(commsStreamWriteSpy).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { vats: [], clusterConfig: makeClusterConfig() },
+      });
+    });
+
+    it('should handle handlerPromise rejection', async () => {
+      const handlerError = new Error('Handler initialization failed');
+      const handlerPromise = Promise.reject(handlerError);
+
+      receiveInternalConnections({
+        handlerPromise,
+        logger,
+      });
+
+      const controlChannel = MockBroadcastChannel.channels.get(
+        COMMS_CONTROL_CHANNEL_NAME,
+      );
+      controlChannel?.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'init',
+            params: { channelName: 'internal-process-channel' },
+          },
+        }),
+      );
+
+      await delay();
+      const commsChannel = MockBroadcastChannel.channels.get(
+        'internal-process-channel',
+      )!;
+
+      // Send message - should trigger error handling
+      commsChannel.onmessage?.(
+        new MessageEvent('message', {
+          data: {
+            method: 'getStatus',
+            params: null,
+            id: 1,
+          },
+        }),
+      );
+
+      await delay();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Error initializing message handler for internal process "internal-process-channel":',
+        handlerError,
+      );
+    });
   });
 });
