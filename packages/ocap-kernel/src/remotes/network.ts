@@ -768,7 +768,7 @@ export async function initNetwork(
             await connectionFactory.closeChannel(channel, targetPeerId);
             currentQueue.enqueue(message);
             // Start reconnection to retry later when limit might free up
-            handleConnectionLoss(targetPeerId);
+            handleConnectionLoss(targetPeerId, channel);
             return;
           }
 
