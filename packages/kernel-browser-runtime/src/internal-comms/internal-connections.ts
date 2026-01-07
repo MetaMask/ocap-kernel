@@ -129,12 +129,23 @@ type ReceiveConnectionsOptions = Omit<Options, 'label'> &
  * the name used by {@link connectToKernel} on the other end.
  */
 export const receiveInternalConnections = ({
-  handler,
+  handler: directHandler,
   handlerPromise,
   logger,
   controlChannelName = COMMS_CONTROL_CHANNEL_NAME,
 }: ReceiveConnectionsOptions): void => {
-  const handlerResolution = handler ? Promise.resolve(handler) : handlerPromise;
+  let handler: HandleInternalMessage | null = null;
+  let handlerReady: Promise<HandleInternalMessage>;
+
+  if (handlerPromise === undefined) {
+    handler = directHandler;
+    handlerReady = Promise.resolve(directHandler);
+  } else {
+    handlerReady = handlerPromise.then((resolvedHandler) => {
+      handler = resolvedHandler;
+      return resolvedHandler;
+    });
+  }
 
   const seenChannels = new Set<string>();
   new BroadcastChannel(controlChannelName).onmessage = (event) => {
@@ -162,7 +173,7 @@ export const receiveInternalConnections = ({
             `Received message from internal process "${channelName}": ${JSON.stringify(message)}`,
           );
 
-          const messageHandler = await handlerResolution;
+          const messageHandler = handler ?? (await handlerReady);
           const reply = await messageHandler(message);
           if (reply !== undefined) {
             await kernelRpcStream.write(reply);
