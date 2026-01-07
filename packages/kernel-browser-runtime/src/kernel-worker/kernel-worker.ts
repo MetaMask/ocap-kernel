@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   });
 
   receiveInternalConnections({
-    handleInternalMessage: handlerP,
+    handlerPromise: handlerP,
     logger,
   });
 

@@ -102,9 +102,17 @@ const connectToInternalProcess = async (
   return stream;
 };
 
-type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
-  handleInternalMessage: HandleInternalMessage | Promise<HandleInternalMessage>;
-};
+type ReceiveConnectionsOptions = Omit<Options, 'label'> &
+  (
+    | {
+        handler: HandleInternalMessage;
+        handlerPromise?: never;
+      }
+    | {
+        handler?: never;
+        handlerPromise: Promise<HandleInternalMessage>;
+      }
+  );
 
 /**
  * Listens for connections between the kernel and an internal process, e.g. a UI instance.
@@ -112,15 +120,18 @@ type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
  * processes have attempted to connect.
  *
  * @param options - The options for the connection.
- * @param options.handleInternalMessage - The function to handle the internal message,
- * or a promise that resolves to such a function. If a promise is provided, messages will
- * be buffered until the handler is ready, then subsequent messages are handled directly.
+ * @param options.handler - The function to handle internal messages. Mutually exclusive
+ * with `handlerPromise`.
+ * @param options.handlerPromise - A promise that resolves to the handler function.
+ * Messages will be buffered until the handler is ready, then subsequent messages are
+ * handled directly. Mutually exclusive with `handler`.
  * @param options.logger - The logger instance.
  * @param options.controlChannelName - The name of the control channel. Must match
  * the name used by {@link connectToKernel} on the other end.
  */
 export const receiveInternalConnections = ({
-  handleInternalMessage,
+  handler: directHandler,
+  handlerPromise,
   logger,
   controlChannelName = COMMS_CONTROL_CHANNEL_NAME,
 }: ReceiveConnectionsOptions): void => {
@@ -128,13 +139,13 @@ export const receiveInternalConnections = ({
   let handler: HandleInternalMessage | null = null;
   let handlerReady: Promise<HandleInternalMessage>;
 
-  if (typeof handleInternalMessage === 'function') {
+  if (directHandler !== undefined) {
     // Direct handler - use immediately
-    handler = handleInternalMessage;
-    handlerReady = Promise.resolve(handleInternalMessage);
+    handler = directHandler;
+    handlerReady = Promise.resolve(directHandler);
   } else {
     // Promise-based handler - cache once resolved
-    handlerReady = handleInternalMessage.then((resolvedHandler) => {
+    handlerReady = handlerPromise.then((resolvedHandler) => {
       handler = resolvedHandler;
       return resolvedHandler;
     });

@@ -183,7 +183,7 @@ describe('internal-connections', () => {
 
     it('should handle new internal process connections', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
 
@@ -208,7 +208,7 @@ describe('internal-connections', () => {
 
     it('should handle valid message', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
 
@@ -257,7 +257,7 @@ describe('internal-connections', () => {
 
     it('should handle JSON-RPC notifications', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
 
@@ -300,7 +300,7 @@ describe('internal-connections', () => {
 
     it('should handle multiple simultaneous connections', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
 
@@ -335,7 +335,7 @@ describe('internal-connections', () => {
 
     it('should forget ids of closed channels', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -376,7 +376,7 @@ describe('internal-connections', () => {
 
     it('should reject duplicate connections', () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -401,7 +401,7 @@ describe('internal-connections', () => {
 
     it('should reject invalid control commands', () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
       const controlChannel = MockBroadcastChannel.channels.get(
@@ -425,7 +425,7 @@ describe('internal-connections', () => {
 
     it('should handle comms channel message errors', async () => {
       receiveInternalConnections({
-        handleInternalMessage: mockHandleMessage,
+        handler: mockHandleMessage,
         logger,
       });
 
