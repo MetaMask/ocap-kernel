@@ -526,9 +526,11 @@ describe('internal-connections', () => {
 
     it('should queue messages until handlerPromise resolves', async () => {
       let resolveHandler: (handler: typeof mockHandleMessage) => void;
-      const handlerPromise = new Promise<typeof mockHandleMessage>((resolve) => {
-        resolveHandler = resolve;
-      });
+      const handlerPromise = new Promise<typeof mockHandleMessage>(
+        (resolve) => {
+          resolveHandler = resolve;
+        },
+      );
 
       receiveInternalConnections({
         handlerPromise,
@@ -592,6 +594,8 @@ describe('internal-connections', () => {
     it('should handle handlerPromise rejection', async () => {
       const handlerError = new Error('Handler initialization failed');
       const handlerPromise = Promise.reject(handlerError);
+      // Prevent unhandled rejection warning - error is handled by receiveInternalConnections
+      handlerPromise.catch(() => undefined);
 
       receiveInternalConnections({
         handlerPromise,
@@ -629,7 +633,7 @@ describe('internal-connections', () => {
       await delay();
 
       expect(logger.error).toHaveBeenCalledWith(
-        'Error initializing message handler for internal process "internal-process-channel":',
+        'Error handling message from internal process "internal-process-channel":',
         handlerError,
       );
     });
