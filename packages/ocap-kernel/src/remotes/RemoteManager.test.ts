@@ -217,10 +217,11 @@ describe('RemoteManager', () => {
     });
 
     it('sends remote message', async () => {
-      await remoteManager.sendRemoteMessage('peer123', 'test message');
-      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+      const messageBase = { method: 'deliver' as const, params: ['test'] };
+      await remoteManager.sendRemoteMessage('peer123', messageBase);
+      expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
         'peer123',
-        'test message',
+        messageBase,
       );
     });
 
@@ -458,7 +459,10 @@ describe('RemoteManager', () => {
       remoteManager.cleanup();
 
       await expect(
-        remoteManager.sendRemoteMessage('peer1', 'test'),
+        remoteManager.sendRemoteMessage(
+          'peer1',
+          JSON.stringify({ method: 'deliver', params: [] }),
+        ),
       ).rejects.toThrow('Remote comms not initialized');
     });
 

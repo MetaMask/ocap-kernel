@@ -1017,10 +1017,11 @@ describe('Kernel', () => {
           mockKernelDatabase,
         );
         const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-        await kernel.sendRemoteMessage('peer-123', 'hello');
+        const messageBase = { method: 'deliver' as const, params: ['hello'] };
+        await kernel.sendRemoteMessage('peer-123', messageBase);
         expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
           'peer-123',
-          'hello',
+          messageBase,
         );
       });
     });

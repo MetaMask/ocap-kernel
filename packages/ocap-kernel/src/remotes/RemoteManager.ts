@@ -1,10 +1,11 @@
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { initRemoteComms } from './remote-comms.ts';
-import { RemoteHandle } from './RemoteHandle.ts';
 import { kser } from '../liveslots/kernel-marshal.ts';
 import type { PlatformServices, RemoteId } from '../types.ts';
+import { initRemoteComms } from './remote-comms.ts';
+import { RemoteHandle } from './RemoteHandle.ts';
+import type { RemoteMessageBase } from './RemoteHandle.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
@@ -197,11 +198,17 @@ export class RemoteManager {
    * Send a message to a remote kernel.
    *
    * @param to - The peer ID of the remote kernel.
-   * @param message - The message to send.
+   * @param messageBase - The message to send (without seq/ack).
    * @returns a promise for the result of the message send.
    */
-  async sendRemoteMessage(to: string, message: string): Promise<void> {
-    await this.getRemoteComms().sendRemoteMessage(to, message);
+  async sendRemoteMessage(
+    to: string,
+    messageBase: RemoteMessageBase,
+  ): Promise<void> {
+    this.getRemoteComms(); // Ensure remote comms is initialized
+    // Send through platform services
+    // This bypasses the RemoteComms wrapper which is used by RemoteHandle
+    await this.#platformServices.sendRemoteMessage(to, messageBase);
   }
 
   /**

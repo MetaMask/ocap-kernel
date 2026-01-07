@@ -1,3 +1,4 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import {
   AbortError,
   isRetryableNetworkError,
@@ -12,8 +13,10 @@ import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { ConnectionFactory } from './ConnectionFactory.ts';
-import { MessageQueue } from './MessageQueue.ts';
+import { PeerConnectionState } from './PeerConnectionState.ts';
+import type { PendingMessage } from './PeerConnectionState.ts';
 import { ReconnectionManager } from './ReconnectionManager.ts';
+import type { RemoteMessageBase } from './RemoteHandle.ts';
 import type {
   RemoteMessageHandler,
   SendRemoteMessage,
@@ -23,7 +26,7 @@ import type {
   RemoteCommsOptions,
 } from './types.ts';
 
-/** Default upper bound for queued outbound messages while reconnecting */
+/** Default maximum pending messages per peer */
 const DEFAULT_MAX_QUEUE = 200;
 
 /** Default maximum number of concurrent connections */
@@ -38,6 +41,12 @@ const DEFAULT_CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
 /** Default stale peer timeout in milliseconds (1 hour) */
 const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
 
+/** Timeout for waiting for message ACK before retry */
+const ACK_TIMEOUT_MS = 10_000; // 10 seconds
+
+/** Maximum number of retries for unacknowledged messages */
+const MAX_RETRIES = 3;
+
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
@@ -45,7 +54,7 @@ const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
  * @param options - Options for remote communications initialization.
  * @param options.relays - PeerIds/Multiaddrs of known message relays.
  * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
- * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
+ * @param options.maxQueue - Maximum pending messages per peer (default: 200).
  * @param options.maxConcurrentConnections - Maximum number of concurrent connections (default: 100).
  * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
  * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
@@ -66,6 +75,8 @@ export async function initNetwork(
   closeConnection: (peerId: string) => Promise<void>;
   registerLocationHints: (peerId: string, hints: string[]) => void;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
+  handleAck: (peerId: string, ackSeq: number) => Promise<void>;
+  updateReceivedSeq: (peerId: string, seq: number) => void;
 }> {
   const {
     relays = [],
@@ -80,11 +91,11 @@ export async function initNetwork(
   const stopController = new AbortController();
   const { signal } = stopController;
   const logger = new Logger();
-  const channels = new Map<string, Channel>();
   const reconnectionManager = new ReconnectionManager();
-  const messageQueues = new Map<string, MessageQueue>(); // One queue per peer
-  const intentionallyClosed = new Set<string>(); // Track peers that intentionally closed connections
+  const intentionallyClosed = new Set<string>(); // Peers that intentionally closed connections
   const lastConnectionTime = new Map<string, number>(); // Track last connection time for cleanup
+  const messageEncoder = new TextEncoder(); // Reused for message size validation
+  let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
     relays,
@@ -92,9 +103,27 @@ export async function initNetwork(
     signal,
     maxRetryAttempts,
   );
-  const locationHints = new Map<string, string[]>();
-  const messageEncoder = new TextEncoder(); // Reused for message size validation
-  let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
+
+  // Per-peer connection state
+  const peerStates = new Map<string, PeerConnectionState>();
+
+  // Per-peer ACK timeout handle (single timeout for queue)
+  const ackTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /**
+   * Get or create peer connection state.
+   *
+   * @param peerId - The peer ID.
+   * @returns The peer connection state.
+   */
+  function getPeerState(peerId: string): PeerConnectionState {
+    let state = peerStates.get(peerId);
+    if (!state) {
+      state = new PeerConnectionState(peerId, maxQueue);
+      peerStates.set(peerId, state);
+    }
+    return state;
+  }
 
   /**
    * Output an error message.
@@ -113,23 +142,221 @@ export async function initNetwork(
   }
 
   /**
-   * Get or create a message queue for a peer.
+   * Helper to clear ACK timeout for a peer.
+   * Properly cancels the timeout and removes it from tracking.
    *
-   * @param peerId - The peer ID to get the queue for.
-   * @returns The message queue for the peer.
+   * @param peerId - The peer ID.
    */
-  function getMessageQueue(peerId: string): MessageQueue {
-    let queue = messageQueues.get(peerId);
-    if (!queue) {
-      queue = new MessageQueue(maxQueue);
-      messageQueues.set(peerId, queue);
-      // Initialize lastConnectionTime if not set to enable stale peer cleanup
-      // even for peers that never successfully connect
-      if (!lastConnectionTime.has(peerId)) {
-        lastConnectionTime.set(peerId, Date.now());
+  function clearAckTimeout(peerId: string): void {
+    const timeout = ackTimeouts.get(peerId);
+    if (timeout) {
+      clearTimeout(timeout);
+      ackTimeouts.delete(peerId);
+    }
+  }
+
+  /**
+   * Start or restart ACK timeout for pending messages.
+   * Clears any existing timeout first.
+   *
+   * @param peerId - The peer ID.
+   */
+  function startAckTimeout(peerId: string): void {
+    // Clear any existing timeout first
+    clearAckTimeout(peerId);
+
+    const state = getPeerState(peerId);
+    const head = state.peekFirstPending();
+    if (!head) {
+      // No pending messages - nothing to timeout
+      return;
+    }
+
+    // Start timeout for pending messages
+    const timeoutHandle = setTimeout(() => {
+      handleAckTimeout(peerId);
+    }, ACK_TIMEOUT_MS);
+
+    ackTimeouts.set(peerId, timeoutHandle);
+  }
+
+  /**
+   * Handle ACK timeout for pending messages - retry all pending or reject all.
+   *
+   * TODO: Potential retransmission storm issue. In-order transmission means
+   * if message N times out, all messages N+1, N+2, ... are also unACKed and
+   * get retransmitted together. Standard mitigations from networking literature
+   * include: exponential backoff (partially addressed by reconnection backoff),
+   * rate limiting (#661), and spreading retransmissions over time. Consider
+   * implementing selective retransmission pacing if storms become an issue.
+   *
+   * @param peerId - The peer ID.
+   */
+  function handleAckTimeout(peerId: string): void {
+    const state = getPeerState(peerId);
+    const head = state.peekFirstPending();
+    if (!head) {
+      // Queue empty - nothing to do
+      clearAckTimeout(peerId);
+      return;
+    }
+
+    if (head.retryCount >= MAX_RETRIES) {
+      // Give up - reject all pending messages
+      logger.log(
+        `${peerId}:: gave up after ${MAX_RETRIES} retries, rejecting ${state.getPendingCount()} pending messages`,
+      );
+      clearAckTimeout(peerId);
+      state.rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
+      return;
+    }
+
+    // Retry all pending messages
+    const channel = state.getChannel();
+    if (!channel) {
+      // No channel - will be retried during reconnection
+      logger.log(
+        `${peerId}:: no channel for retry, will retry after reconnection`,
+      );
+      clearAckTimeout(peerId);
+      return;
+    }
+
+    // Update head's retry metadata
+    head.retryCount += 1;
+    head.sendTimestamp = Date.now();
+    logger.log(
+      `${peerId}:: retransmitting ${state.getPendingCount()} pending messages (attempt ${head.retryCount + 1})`,
+    );
+
+    // Retransmit all pending messages
+    retransmitAllPending(peerId, channel).catch((error) => {
+      outputError(peerId, 'retransmitting pending messages', error);
+      handleConnectionLoss(peerId);
+    });
+  }
+
+  /**
+   * Retransmit all pending messages and restart ACK timeout on success.
+   *
+   * @param peerId - The peer ID.
+   * @param channel - The channel to transmit through.
+   */
+  async function retransmitAllPending(
+    peerId: string,
+    channel: Channel,
+  ): Promise<void> {
+    const state = getPeerState(peerId);
+    let seq = state.getSeqForPosition(0); // Start seq
+    const ack = state.getHighestReceivedSeq();
+
+    for (const pending of state.getPendingMessages()) {
+      const remoteCommand = {
+        seq,
+        ...(ack !== undefined && { ack }),
+        ...pending.messageBase,
+      };
+      const message = JSON.stringify(remoteCommand);
+      await writeWithTimeout(channel, fromString(message), 10_000);
+      seq += 1;
+    }
+
+    // All retransmitted successfully - restart ACK timeout
+    startAckTimeout(peerId);
+  }
+
+  /**
+   * Create a pending message entry for ACK tracking.
+   *
+   * @param messageBase - The message base.
+   * @returns Pending message entry with promise kit.
+   */
+  function createPendingMessage(
+    messageBase: RemoteMessageBase,
+  ): PendingMessage & { promise: Promise<void> } {
+    const { promise, resolve, reject } = makePromiseKit<void>();
+    return {
+      messageBase,
+      sendTimestamp: Date.now(),
+      retryCount: 0,
+      resolve,
+      reject,
+      promise,
+    };
+  }
+
+  /**
+   * Send a message with ACK tracking.
+   *
+   * @param peerId - The peer ID.
+   * @param seq - The sequence number.
+   * @param messageBase - The message base object.
+   * @returns Promise that resolves when ACK is received.
+   */
+  async function sendWithAck(
+    peerId: string,
+    seq: number,
+    messageBase: RemoteMessageBase,
+  ): Promise<void> {
+    // Create pending message entry with messageBase (seq/ack added at transmission time)
+    const pending = createPendingMessage(messageBase);
+    const { promise } = pending;
+
+    const state = getPeerState(peerId);
+    const queueWasEmpty = state.getPendingCount() === 0;
+    state.addPendingMessage(pending, seq);
+
+    // Get or establish channel
+    let channel = state.getChannel();
+    if (!channel) {
+      try {
+        const { locationHints: hints } = state;
+        channel = await connectionFactory.dialIdempotent(peerId, hints, true);
+
+        // Check if reconnection started during dial
+        if (reconnectionManager.isReconnecting(peerId)) {
+          // Pending entry already created, will be transmitted during flush
+          logger.log(
+            `${peerId}:: reconnection started during dial, message ${seq} in pending`,
+          );
+          return promise;
+        }
+
+        state.setChannel(channel);
+        readChannel(channel).catch((problem) => {
+          outputError(peerId, `reading channel to`, problem);
+        });
+      } catch (problem) {
+        outputError(peerId, `opening connection for message ${seq}`, problem);
+        handleConnectionLoss(peerId);
+        // Message is pending, will be retried after reconnection
+        return promise;
       }
     }
-    return queue;
+
+    // Build full message with current seq/ack, then send
+    const ack = state.getHighestReceivedSeq();
+    const remoteCommand = {
+      seq,
+      ...(ack !== undefined && { ack }),
+      ...messageBase,
+    };
+    const message = JSON.stringify(remoteCommand);
+
+    try {
+      await writeWithTimeout(channel, fromString(message), 10_000);
+      // Start ACK timeout if this was the first message in queue
+      if (queueWasEmpty) {
+        startAckTimeout(peerId);
+      }
+      reconnectionManager.resetBackoff(peerId);
+    } catch (problem) {
+      outputError(peerId, `sending message ${seq}`, problem);
+      handleConnectionLoss(peerId);
+      // Message is pending, will be retried after reconnection
+    }
+
+    return promise;
   }
 
   /**
@@ -150,7 +377,7 @@ export async function initNetwork(
     let abortHandler: (() => void) | undefined;
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
       abortHandler = () => {
-        reject(new Error(`Message send timed out after ${timeoutMs}ms`));
+        reject(Error(`Message send timed out after ${timeoutMs}ms`));
       };
       timeoutSignal.addEventListener('abort', abortHandler);
     });
@@ -177,7 +404,11 @@ export async function initNetwork(
    */
   async function receiveMessage(from: string, message: string): Promise<void> {
     logger.log(`${from}:: recv ${message}`);
-    await remoteMessageHandler(from, message);
+    try {
+      await remoteMessageHandler(from, message);
+    } catch (error) {
+      outputError(from, 'processing received message', error);
+    }
   }
 
   /**
@@ -197,7 +428,6 @@ export async function initNetwork(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
-          const isCurrentChannel = channels.get(channel.peerId) === channel;
           // Detect graceful disconnect
           const rtcProblem = problem as {
             errorDetail?: string;
@@ -207,27 +437,17 @@ export async function initNetwork(
             rtcProblem?.errorDetail === 'sctp-failure' &&
             rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
           ) {
-            if (isCurrentChannel) {
-              logger.log(
-                `${channel.peerId}:: remote intentionally disconnected`,
-              );
-              // Mark as intentionally closed and don't trigger reconnection
-              intentionallyClosed.add(channel.peerId);
-            } else {
-              logger.log(
-                `${channel.peerId}:: stale channel intentionally disconnected`,
-              );
-            }
-          } else if (isCurrentChannel) {
+            logger.log(`${channel.peerId}:: remote intentionally disconnected`);
+            // Mark as intentionally closed and don't trigger reconnection
+            intentionallyClosed.add(channel.peerId);
+          } else {
             outputError(
               channel.peerId,
               `reading message from ${channel.peerId}`,
               problem,
             );
             // Only trigger reconnection for non-intentional disconnects
-            handleConnectionLoss(channel.peerId, channel);
-          } else {
-            logger.log(`${channel.peerId}:: ignoring error from stale channel`);
+            handleConnectionLoss(channel.peerId);
           }
           logger.log(`closed channel to ${channel.peerId}`);
           throw problem;
@@ -235,7 +455,6 @@ export async function initNetwork(
         if (readBuf) {
           reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
           await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
-          lastConnectionTime.set(channel.peerId, Date.now()); // update timestamp on inbound activity
         } else {
           // Stream ended (returned undefined), exit the read loop
           logger.log(`${channel.peerId}:: stream ended`);
@@ -245,8 +464,9 @@ export async function initNetwork(
     } finally {
       // Always remove the channel when readChannel exits to prevent stale channels
       // This ensures that subsequent sends will establish a new connection
-      if (channels.get(channel.peerId) === channel) {
-        channels.delete(channel.peerId);
+      const state = getPeerState(channel.peerId);
+      if (state.getChannel() === channel) {
+        state.clearChannel();
       }
     }
   }
@@ -256,15 +476,8 @@ export async function initNetwork(
    * Skips reconnection if the peer was intentionally closed.
    *
    * @param peerId - The peer ID to handle the connection loss for.
-   * @param channel - Optional channel that experienced loss; used to ignore stale channels.
    */
-  function handleConnectionLoss(peerId: string, channel?: Channel): void {
-    const currentChannel = channels.get(peerId);
-    // Ignore loss signals from stale channels if a different channel is active.
-    if (channel && currentChannel && currentChannel !== channel) {
-      logger.log(`${peerId}:: ignoring connection loss from stale channel`);
-      return;
-    }
+  function handleConnectionLoss(peerId: string): void {
     // Don't reconnect if this peer intentionally closed the connection
     if (intentionallyClosed.has(peerId)) {
       logger.log(
@@ -273,7 +486,12 @@ export async function initNetwork(
       return;
     }
     logger.log(`${peerId}:: connection lost, initiating reconnection`);
-    channels.delete(peerId);
+    const state = getPeerState(peerId);
+    state.clearChannel();
+
+    // Clear ACK timeout during reconnection (will restart after flush)
+    clearAckTimeout(peerId);
+
     if (!reconnectionManager.isReconnecting(peerId)) {
       reconnectionManager.startReconnection(peerId);
       attemptReconnection(peerId).catch((problem) => {
@@ -294,15 +512,16 @@ export async function initNetwork(
     peerId: string,
     maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
   ): Promise<void> {
-    // Get queue reference - will re-fetch after long awaits to handle cleanup race conditions
-    let queue = getMessageQueue(peerId);
+    const state = getPeerState(peerId);
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
       if (!reconnectionManager.shouldRetry(peerId, maxAttempts)) {
         logger.log(
           `${peerId}:: max reconnection attempts (${maxAttempts}) reached, giving up`,
         );
-        giveUpOnPeer(peerId, queue);
+        reconnectionManager.stopReconnection(peerId);
+        state.rejectAllPending('remote unreachable');
+        onRemoteGiveUp?.(peerId);
         return;
       }
 
@@ -322,126 +541,38 @@ export async function initNetwork(
         throw error;
       }
 
-      // Re-fetch queue after delay in case cleanupStalePeers deleted it during the await
-      queue = getMessageQueue(peerId);
-
-      // Re-check reconnection state after the await; it may have been stopped concurrently
-      if (!reconnectionManager.isReconnecting(peerId) || signal.aborted) {
-        return;
-      }
-
-      // If peer was intentionally closed while reconnecting, stop and exit
-      if (intentionallyClosed.has(peerId)) {
-        reconnectionManager.stopReconnection(peerId);
-        return;
-      }
-
       logger.log(
         `${peerId}:: reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''}`,
       );
 
       try {
-        const hints = locationHints.get(peerId) ?? [];
-        let channel: Channel | null = await connectionFactory.dialIdempotent(
+        const hints = state.locationHints;
+        const channel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
           false, // No retry here, we're already in a retry loop
         );
-
-        // Re-fetch queue after dial in case cleanupStalePeers deleted it during the await
-        queue = getMessageQueue(peerId);
-
-        // Check if a concurrent call already registered a channel for this peer
-        // (e.g., an inbound connection or another reconnection attempt)
-        channel = await reuseOrReturnChannel(peerId, channel);
-        // Handle case where existing channel died during await and dialed channel was closed
-        if (channel === null) {
-          logger.log(
-            `${peerId}:: existing channel died during reuse check, continuing reconnection loop`,
-          );
-          // Channel died and dialed channel was already closed, continue loop to re-dial
-          continue;
-        }
-        // Re-check after await to handle race condition where a channel was registered
-        // concurrently during the microtask delay
-        const registeredChannel = channels.get(peerId);
-        if (registeredChannel) {
-          // A channel was registered concurrently, use it instead
-          if (channel !== registeredChannel) {
-            // Close the dialed channel to prevent resource leak
-            await connectionFactory.closeChannel(channel, peerId);
-          }
-          channel = registeredChannel;
-          logger.log(
-            `${peerId}:: reconnection: channel already exists, reusing existing channel`,
-          );
-        } else {
-          // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
-          // Other connections (inbound or outbound) could be established during the await
-          try {
-            checkConnectionLimit();
-          } catch (limitError) {
-            // Connection limit reached - treat as retryable and continue loop
-            // The limit might free up when other connections close
-            logger.log(
-              `${peerId}:: reconnection blocked by connection limit, will retry`,
-            );
-            outputError(
-              peerId,
-              `reconnection attempt ${nextAttempt}`,
-              limitError,
-            );
-            // Explicitly close the channel to release network resources
-            await connectionFactory.closeChannel(channel, peerId);
-            // Continue the reconnection loop
-            continue;
-          }
-
-          // Check if peer was intentionally closed during dial
-          if (intentionallyClosed.has(peerId)) {
-            logger.log(
-              `${peerId}:: peer intentionally closed during dial, closing channel`,
-            );
-            await connectionFactory.closeChannel(channel, peerId);
-            reconnectionManager.stopReconnection(peerId);
-            return;
-          }
-
-          // Register the new channel and start reading
-          registerChannel(peerId, channel);
-        }
+        state.setChannel(channel);
 
         logger.log(`${peerId}:: reconnection successful`);
 
-        // Flush queued messages
-        await flushQueuedMessages(peerId, channel, queue);
+        // Start reading from the new channel
+        readChannel(channel).catch((problem) => {
+          outputError(peerId, `reading channel to`, problem);
+        });
+
+        await flushQueuedMessages(peerId, channel);
 
         // Check if channel was deleted during flush (e.g., due to flush errors)
-        if (!channels.has(peerId)) {
+        if (!state.getChannel()) {
           logger.log(
             `${peerId}:: channel deleted during flush, continuing loop`,
           );
           continue; // Continue the reconnection loop
         }
 
-        // If a new channel is active (stale channel was replaced by inbound connection),
-        // flush the queue on it to prevent messages from being stuck indefinitely
-        const newChannel = channels.get(peerId);
-        if (newChannel && newChannel !== channel) {
-          logger.log(
-            `${peerId}:: stale channel replaced during flush, flushing queue on new channel`,
-          );
-          await flushQueuedMessages(peerId, newChannel, queue);
-          // Check again if the new flush succeeded
-          if (!channels.has(peerId)) {
-            logger.log(
-              `${peerId}:: new channel also failed during flush, continuing loop`,
-            );
-            continue;
-          }
-        }
-
         // Only reset backoff and stop reconnection after successful flush
+        startAckTimeout(peerId);
         reconnectionManager.resetBackoff(peerId);
         reconnectionManager.stopReconnection(peerId);
         return; // success
@@ -452,7 +583,9 @@ export async function initNetwork(
         }
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
-          giveUpOnPeer(peerId, queue);
+          reconnectionManager.stopReconnection(peerId);
+          state.rejectAllPending('non-retryable failure');
+          onRemoteGiveUp?.(peerId);
           return;
         }
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
@@ -467,388 +600,89 @@ export async function initNetwork(
 
   /**
    * Flush queued messages after reconnection.
+   * Transmits all pending messages (messages awaiting ACK).
    *
    * @param peerId - The peer ID to flush messages for.
    * @param channel - The channel to flush messages through.
-   * @param queue - The message queue to flush.
    */
   async function flushQueuedMessages(
     peerId: string,
     channel: Channel,
-    queue: MessageQueue,
   ): Promise<void> {
-    logger.log(`${peerId}:: flushing ${queue.length} queued messages`);
-
-    // Process queued messages
-    const failedMessages: string[] = [];
-    let queuedMsg: string | undefined;
-
-    while ((queuedMsg = queue.dequeue()) !== undefined) {
-      try {
-        logger.log(`${peerId}:: send (queued) ${queuedMsg}`);
-        await writeWithTimeout(channel, fromString(queuedMsg), 10_000);
-      } catch (problem) {
-        outputError(peerId, `sending queued message`, problem);
-        // Preserve the failed message and all remaining messages
-        failedMessages.push(queuedMsg);
-        failedMessages.push(...queue.dequeueAll());
-        break;
-      }
-    }
-
-    // Re-queue any failed messages
-    if (failedMessages.length > 0) {
-      queue.replaceAll(failedMessages);
-      handleConnectionLoss(peerId, channel);
-    }
-  }
-
-  /**
-   * Validate message size before sending or queuing.
-   *
-   * @param message - The message to validate.
-   * @throws ResourceLimitError if message exceeds size limit.
-   */
-  function validateMessageSize(message: string): void {
-    const messageSizeBytes = messageEncoder.encode(message).length;
-    if (messageSizeBytes > maxMessageSizeBytes) {
-      throw new ResourceLimitError(
-        `Message size ${messageSizeBytes} bytes exceeds limit of ${maxMessageSizeBytes} bytes`,
-        {
-          data: {
-            limitType: 'messageSize',
-            current: messageSizeBytes,
-            limit: maxMessageSizeBytes,
-          },
-        },
+    // Transmit all pending messages (messages awaiting ACK, including those queued during reconnection)
+    const state = getPeerState(peerId);
+    const peerPending = state.getPendingMessages();
+    if (peerPending.length > 0) {
+      logger.log(
+        `${peerId}:: transmitting ${peerPending.length} pending messages`,
       );
-    }
-  }
 
-  /**
-   * Check if we can establish a new connection (within connection limit).
-   *
-   * @throws ResourceLimitError if connection limit is reached.
-   */
-  function checkConnectionLimit(): void {
-    const currentConnections = channels.size;
-    if (currentConnections >= maxConcurrentConnections) {
-      throw new ResourceLimitError(
-        `Connection limit reached: ${currentConnections}/${maxConcurrentConnections} concurrent connections`,
-        {
-          data: {
-            limitType: 'connection',
-            current: currentConnections,
-            limit: maxConcurrentConnections,
-          },
-        },
-      );
-    }
-  }
-
-  /**
-   * Register a channel and start reading from it.
-   *
-   * @param peerId - The peer ID for the channel.
-   * @param channel - The channel to register.
-   * @param errorContext - Optional context for error messages when reading fails.
-   */
-  function registerChannel(
-    peerId: string,
-    channel: Channel,
-    errorContext = 'reading channel to',
-  ): void {
-    const previousChannel = channels.get(peerId);
-    channels.set(peerId, channel);
-    lastConnectionTime.set(peerId, Date.now());
-    readChannel(channel).catch((problem) => {
-      outputError(peerId, errorContext, problem);
-    });
-
-    // If we replaced an existing channel, close it to avoid leaks and stale readers.
-    if (previousChannel && previousChannel !== channel) {
-      const closePromise = connectionFactory.closeChannel(
-        previousChannel,
-        peerId,
-      );
-      if (typeof closePromise?.catch === 'function') {
-        closePromise.catch((problem) => {
-          outputError(peerId, 'closing replaced channel', problem);
-        });
-      }
-    }
-  }
-
-  /**
-   * Check if an existing channel exists for a peer, and if so, reuse it.
-   * Otherwise, return the dialed channel for the caller to register.
-   *
-   * @param peerId - The peer ID for the channel.
-   * @param dialedChannel - The newly dialed channel.
-   * @returns The channel to use (either existing or the dialed one), or null if
-   * the existing channel died during the await and the dialed channel was already closed.
-   */
-  async function reuseOrReturnChannel(
-    peerId: string,
-    dialedChannel: Channel,
-  ): Promise<Channel | null> {
-    const existingChannel = channels.get(peerId);
-    if (existingChannel) {
-      // Close the dialed channel if it's different from the existing one
-      if (dialedChannel !== existingChannel) {
-        await connectionFactory.closeChannel(dialedChannel, peerId);
-        // Re-check if existing channel is still valid after await
-        // It may have been removed if readChannel exited during the close,
-        // or a new channel may have been registered concurrently
-        const currentChannel = channels.get(peerId);
-        if (currentChannel === existingChannel) {
-          // Existing channel is still valid, use it
-          return existingChannel;
+      // Pending messages are ordered by sequence number
+      let seq = state.getSeqForPosition(0);
+      for (const pending of peerPending) {
+        try {
+          logger.log(`${peerId}:: transmit message ${seq}`);
+          // Build message with current ack
+          const ack = state.getHighestReceivedSeq();
+          const remoteCommand = {
+            seq,
+            ...(ack !== undefined && { ack }),
+            ...pending.messageBase,
+          };
+          const message = JSON.stringify(remoteCommand);
+          await writeWithTimeout(channel, fromString(message), 10_000);
+          seq += 1;
+        } catch (problem) {
+          outputError(peerId, `transmitting message ${seq}`, problem);
+          // Failed to transmit - connection lost again
+          handleConnectionLoss(peerId);
+          return;
         }
-        if (currentChannel) {
-          // A different channel was registered concurrently, use that instead
-          return currentChannel;
-        }
-        // Existing channel died during await, but we already closed dialed channel
-        // Return null to signal caller needs to handle this (re-dial or fail)
-        return null;
       }
-      // Same channel, check if it's still valid
-      const currentChannel = channels.get(peerId);
-      if (currentChannel === existingChannel) {
-        // Still the same channel, use it
-        return existingChannel;
-      }
-      if (currentChannel) {
-        // A different channel was registered concurrently, use that instead
-        return currentChannel;
-      }
-      // Channel died, but we can't close dialed channel since it's the same
-      // Return null to signal caller needs to handle this
-      return null;
     }
-    // No existing channel, return the dialed one for caller to register
-    return dialedChannel;
+    // Restart ACK timeout for pending queue after successful flush
+    startAckTimeout(peerId);
   }
 
   /**
-   * Give up on a peer after max retries or non-retryable error.
-   *
-   * @param peerId - The peer ID to give up on.
-   * @param queue - The message queue for the peer.
-   */
-  function giveUpOnPeer(peerId: string, queue: MessageQueue): void {
-    reconnectionManager.stopReconnection(peerId);
-    queue.clear();
-    onRemoteGiveUp?.(peerId);
-  }
-
-  /**
-   * Clean up stale peer data for peers inactive for more than stalePeerTimeoutMs.
-   * This includes peers that never successfully connected (e.g., dial failures).
-   */
-  function cleanupStalePeers(): void {
-    const now = Date.now();
-    const stalePeers: string[] = [];
-
-    // Check all tracked peers (includes peers that never connected successfully)
-    for (const [peerId, lastTime] of lastConnectionTime.entries()) {
-      const timeSinceLastActivity = now - lastTime;
-      const hasActiveChannel = channels.has(peerId);
-      const isReconnecting = reconnectionManager.isReconnecting(peerId);
-
-      // Consider peer stale if:
-      // - No active channel
-      // - Not currently reconnecting
-      // - Inactive for more than stalePeerTimeoutMs
-      if (
-        !hasActiveChannel &&
-        !isReconnecting &&
-        timeSinceLastActivity > stalePeerTimeoutMs
-      ) {
-        stalePeers.push(peerId);
-      }
-    }
-
-    // Clean up stale peer data
-    for (const peerId of stalePeers) {
-      const lastTime = lastConnectionTime.get(peerId);
-      if (lastTime !== undefined) {
-        const minutesSinceActivity = Math.round((now - lastTime) / 1000 / 60);
-        logger.log(
-          `${peerId}:: cleaning up stale peer data (inactive for ${minutesSinceActivity} minutes)`,
-        );
-      }
-
-      // Remove from all tracking structures
-      lastConnectionTime.delete(peerId);
-      messageQueues.delete(peerId);
-      locationHints.delete(peerId);
-      intentionallyClosed.delete(peerId);
-      // Clear reconnection state
-      reconnectionManager.clearPeer(peerId);
-    }
-  }
-
-  /**
-   * Send a message to a peer.
+   * Send a message to a peer with ACK tracking.
+   * Takes a message base (without seq/ack), adds seq and ack fields, and sends with ACK tracking.
    *
    * @param targetPeerId - The peer ID to send the message to.
-   * @param message - The message to send.
+   * @param messageBase - The base message object (without seq/ack).
+   * @returns Promise that resolves when message is ACKed or rejects on failure.
    */
   async function sendRemoteMessage(
     targetPeerId: string,
-    message: string,
+    messageBase: RemoteMessageBase,
   ): Promise<void> {
     if (signal.aborted) {
-      return;
+      throw Error('Network stopped');
     }
-
-    // Validate message size before processing
-    validateMessageSize(message);
 
     // Check if peer is intentionally closed
     if (intentionallyClosed.has(targetPeerId)) {
-      throw new Error('Message delivery failed after intentional close');
+      throw Error('Message delivery failed after intentional close');
     }
 
-    const queue = getMessageQueue(targetPeerId);
+    const state = getPeerState(targetPeerId);
+    const seq = state.getNextSeq();
 
+    // If reconnecting, create pending entry and return promise
+    // Message will be transmitted during reconnection flush
     if (reconnectionManager.isReconnecting(targetPeerId)) {
-      queue.enqueue(message);
       logger.log(
-        `${targetPeerId}:: queueing message during reconnection ` +
-          `(${queue.length}/${maxQueue}): ${message}`,
+        `${targetPeerId}:: adding pending message ${seq} during reconnection`,
       );
-      return;
+
+      // Create pending entry for ACK tracking
+      const pending = createPendingMessage(messageBase);
+      state.addPendingMessage(pending, seq);
+      return pending.promise;
     }
 
-    let channel: Channel | null | undefined = channels.get(targetPeerId);
-    if (!channel) {
-      // Check connection limit before dialing new connection
-      // (Early check to fail fast, but we'll check again after dial to prevent race conditions)
-      checkConnectionLimit();
-
-      try {
-        const hints = locationHints.get(targetPeerId) ?? [];
-        channel = await connectionFactory.dialIdempotent(
-          targetPeerId,
-          hints,
-          true, // With retry for initial connection
-        );
-
-        // Re-fetch queue after dial in case cleanupStalePeers deleted it during the await
-        // This prevents orphaned messages in a stale queue reference
-        const currentQueue = getMessageQueue(targetPeerId);
-
-        // Check if reconnection started while we were dialing (race condition protection)
-        if (reconnectionManager.isReconnecting(targetPeerId)) {
-          currentQueue.enqueue(message);
-          logger.log(
-            `${targetPeerId}:: reconnection started during dial, queueing message ` +
-              `(${currentQueue.length}/${maxQueue}): ${message}`,
-          );
-          // Explicitly close the channel to release network resources
-          // The reconnection loop will dial its own new channel
-          await connectionFactory.closeChannel(channel, targetPeerId);
-          return;
-        }
-
-        // Check if a concurrent call already registered a channel for this peer
-        channel = await reuseOrReturnChannel(targetPeerId, channel);
-        // Handle case where existing channel died during await and dialed channel was closed
-        if (channel === null) {
-          // Existing channel died and dialed channel was already closed
-          // Trigger reconnection to re-dial
-          logger.log(
-            `${targetPeerId}:: existing channel died during reuse check, triggering reconnection`,
-          );
-          currentQueue.enqueue(message);
-          handleConnectionLoss(targetPeerId);
-          return;
-        }
-        // Re-check after await to handle race condition where a channel was registered
-        // concurrently during the microtask delay
-        const registeredChannel = channels.get(targetPeerId);
-        if (registeredChannel) {
-          // A channel was registered concurrently, use it instead
-          if (channel !== registeredChannel) {
-            // Close the dialed channel to prevent resource leak
-            await connectionFactory.closeChannel(channel, targetPeerId);
-          }
-          channel = registeredChannel;
-          // Existing channel reused, nothing more to do
-        } else {
-          // Re-check connection limit after dial completes to prevent race conditions
-          // Multiple concurrent dials could all pass the initial check, then all add channels
-          try {
-            checkConnectionLimit();
-          } catch (limitError) {
-            // Connection limit reached - close the dialed channel and propagate error to caller
-            logger.log(
-              `${targetPeerId}:: connection limit reached after dial, rejecting send`,
-            );
-            // Explicitly close the channel to release network resources
-            await connectionFactory.closeChannel(channel, targetPeerId);
-            // Re-throw to let caller know the send failed
-            throw limitError;
-          }
-
-          // Check if peer was intentionally closed during dial
-          if (intentionallyClosed.has(targetPeerId)) {
-            logger.log(
-              `${targetPeerId}:: peer intentionally closed during dial, closing channel`,
-            );
-            await connectionFactory.closeChannel(channel, targetPeerId);
-            throw new Error('Message delivery failed after intentional close');
-          }
-
-          // Register the new channel and start reading
-          registerChannel(targetPeerId, channel);
-        }
-      } catch (problem) {
-        // Re-throw ResourceLimitError to propagate to caller
-        if (problem instanceof ResourceLimitError) {
-          throw problem;
-        }
-        // Re-throw intentional close errors to propagate to caller
-        if (
-          problem instanceof Error &&
-          problem.message === 'Message delivery failed after intentional close'
-        ) {
-          throw problem;
-        }
-        outputError(targetPeerId, `opening connection`, problem);
-        handleConnectionLoss(targetPeerId);
-        // Re-fetch queue in case cleanupStalePeers deleted it during the dial await
-        const currentQueue = getMessageQueue(targetPeerId);
-        currentQueue.enqueue(message);
-        return;
-      }
-    }
-
-    try {
-      logger.log(`${targetPeerId}:: send ${message}`);
-      await writeWithTimeout(channel, fromString(message), 10_000);
-      reconnectionManager.resetBackoff(targetPeerId);
-      lastConnectionTime.set(targetPeerId, Date.now());
-    } catch (problem) {
-      outputError(targetPeerId, `sending message`, problem);
-      handleConnectionLoss(targetPeerId, channel);
-      // Re-fetch queue in case cleanupStalePeers deleted it during the await
-      const currentQueue = getMessageQueue(targetPeerId);
-      currentQueue.enqueue(message);
-
-      // If a new channel is active (stale channel was replaced by inbound connection),
-      // flush the queue on it to prevent messages from being stuck indefinitely
-      const newChannel = channels.get(targetPeerId);
-      if (newChannel && newChannel !== channel) {
-        logger.log(
-          `${targetPeerId}:: stale channel replaced, flushing queue on new channel`,
-        );
-        await flushQueuedMessages(targetPeerId, newChannel, currentQueue);
-      }
-    }
+    // Send with ACK tracking
+    return sendWithAck(targetPeerId, seq, messageBase);
   }
 
   /**
@@ -866,62 +700,17 @@ export async function initNetwork(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
       );
-      // Explicitly close the channel to release network resources
-      const closePromise = connectionFactory.closeChannel(
-        channel,
-        channel.peerId,
-      );
-      if (typeof closePromise?.catch === 'function') {
-        closePromise.catch((problem) => {
-          outputError(
-            channel.peerId,
-            'closing rejected inbound channel from intentionally closed peer',
-            problem,
-          );
-        });
-      }
+      // Don't add to channels map and don't start reading - connection will naturally close
       return;
     }
-
-    // Check connection limit for inbound connections only if no existing channel
-    // If a channel already exists, this is likely a reconnection and the peer already has a slot
-    if (!channels.has(channel.peerId)) {
-      try {
-        checkConnectionLimit();
-      } catch {
-        logger.log(
-          `${channel.peerId}:: rejecting inbound connection due to connection limit`,
-        );
-        // Explicitly close the channel to release network resources
-        const closePromise = connectionFactory.closeChannel(
-          channel,
-          channel.peerId,
-        );
-        if (typeof closePromise?.catch === 'function') {
-          closePromise.catch((problem) => {
-            outputError(
-              channel.peerId,
-              'closing rejected inbound channel',
-              problem,
-            );
-          });
-        }
-        return;
-      }
-    }
-
-    registerChannel(channel.peerId, channel, 'error in inbound channel read');
+    getPeerState(channel.peerId).setChannel(channel);
+    readChannel(channel).catch((error) => {
+      outputError(channel.peerId, 'error in inbound channel read', error);
+    });
   });
 
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
-
-  // Start periodic cleanup task for stale peers
-  cleanupIntervalId = setInterval(() => {
-    if (!signal.aborted) {
-      cleanupStalePeers();
-    }
-  }, cleanupIntervalMs);
 
   /**
    * Explicitly close a connection to a peer.
@@ -932,26 +721,15 @@ export async function initNetwork(
   async function closeConnection(peerId: string): Promise<void> {
     logger.log(`${peerId}:: explicitly closing connection`);
     intentionallyClosed.add(peerId);
-    // Get the channel before removing from map
-    const channel = channels.get(peerId);
-    channels.delete(peerId);
-    // Stop any ongoing reconnection attempts
+    const state = getPeerState(peerId);
+    // Remove channel - the readChannel cleanup will handle stream closure
+    state.clearChannel();
     if (reconnectionManager.isReconnecting(peerId)) {
       reconnectionManager.stopReconnection(peerId);
     }
-    // Clear any queued messages
-    const queue = messageQueues.get(peerId);
-    if (queue) {
-      queue.clear();
-    }
-    // Actually close the underlying network connection
-    if (channel) {
-      try {
-        await connectionFactory.closeChannel(channel, peerId);
-      } catch (problem) {
-        outputError(peerId, 'closing connection', problem);
-      }
-    }
+    state.rejectAllPending('connection intentionally closed');
+    clearAckTimeout(peerId);
+    state.clearSequenceNumbers();
   }
 
   /**
@@ -961,15 +739,16 @@ export async function initNetwork(
    * @param hints - Location hints for the peer.
    */
   function registerLocationHints(peerId: string, hints: string[]): void {
-    const oldHints = locationHints.get(peerId);
-    if (oldHints) {
+    const state = getPeerState(peerId);
+    const oldHints = state.locationHints;
+    if (oldHints.length > 0) {
       const newHints = new Set(oldHints);
       for (const hint of hints) {
         newHints.add(hint);
       }
-      locationHints.set(peerId, Array.from(newHints));
+      state.locationHints = Array.from(newHints);
     } else {
-      locationHints.set(peerId, Array.from(hints));
+      state.locationHints = Array.from(hints);
     }
   }
 
@@ -995,6 +774,29 @@ export async function initNetwork(
   }
 
   /**
+   * Handle acknowledgment from a peer (cumulative ACK).
+   *
+   * @param peerId - The peer ID.
+   * @param ackSeq - The highest sequence number being acknowledged.
+   */
+  async function handleAck(peerId: string, ackSeq: number): Promise<void> {
+    const state = getPeerState(peerId);
+    state.ackMessages(ackSeq, logger);
+    // Restart timeout (or clear if queue is now empty)
+    startAckTimeout(peerId);
+  }
+
+  /**
+   * Update received sequence number for a peer.
+   *
+   * @param peerId - The peer ID.
+   * @param seq - The sequence number received.
+   */
+  function updateReceivedSeq(peerId: string, seq: number): void {
+    getPeerState(peerId).updateReceivedSeq(seq);
+  }
+
+  /**
    * Stop the network.
    */
   async function stop(): Promise<void> {
@@ -1004,18 +806,20 @@ export async function initNetwork(
       cleanupWakeDetector();
       cleanupWakeDetector = undefined;
     }
-    // Stop cleanup interval
-    if (cleanupIntervalId) {
-      clearInterval(cleanupIntervalId);
-      cleanupIntervalId = undefined;
-    }
     stopController.abort(); // cancels all delays and dials
+    // Reject all pending messages for all peers
+    for (const peerId of peerStates.keys()) {
+      getPeerState(peerId).rejectAllPending('network stopped');
+    }
+    // Clear all ACK timeouts
+    for (const timeout of ackTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    ackTimeouts.clear();
     await connectionFactory.stop();
-    channels.clear();
+    peerStates.clear();
     reconnectionManager.clear();
-    messageQueues.clear();
     intentionallyClosed.clear();
-    lastConnectionTime.clear();
   }
 
   // Return the sender with a stop handle and connection management functions
@@ -1025,5 +829,7 @@ export async function initNetwork(
     closeConnection,
     registerLocationHints,
     reconnectPeer,
+    handleAck,
+    updateReceivedSeq,
   };
 }

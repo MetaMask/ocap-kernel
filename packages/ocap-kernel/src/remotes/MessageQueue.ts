@@ -1,8 +1,11 @@
+import type { PendingMessage } from './PeerConnectionState.ts';
+
 /**
- * Message queue management for remote communications.
+ * Queue for managing pending messages awaiting acknowledgment.
+ * Implements FIFO queue semantics with capacity limits.
  */
 export class MessageQueue {
-  readonly #queue: string[] = [];
+  readonly #queue: PendingMessage[] = [];
 
   readonly #maxCapacity: number;
 
@@ -16,47 +19,43 @@ export class MessageQueue {
   }
 
   /**
-   * Add a message to the queue.
-   * If at capacity, drops the oldest message first.
+   * Add a pending message to the back of the queue.
+   * If at capacity, rejects the new message and does not add it.
    *
-   * @param message - The message to add to the queue.
+   * @param pending - The pending message to add to the queue.
+   * @returns True if the message was added, false if rejected due to capacity.
    */
-  enqueue(message: string): void {
+  enqueue(pending: PendingMessage): boolean {
     if (this.#queue.length >= this.#maxCapacity) {
-      this.dropOldest();
+      // Reject the new message - don't drop messages already awaiting ACK
+      pending.reject(Error('Message rejected: queue at capacity'));
+      return false;
     }
-    this.#queue.push(message);
+    this.#queue.push(pending);
+    return true;
   }
 
   /**
-   * Remove and return the first message in the queue.
+   * Remove and return the first pending message from the queue.
    *
-   * @returns The first message in the queue, or undefined if the queue is empty.
+   * @returns The first pending message, or undefined if the queue is empty.
    */
-  dequeue(): string | undefined {
+  dequeue(): PendingMessage | undefined {
     return this.#queue.shift();
   }
 
   /**
-   * Get all messages and clear the queue.
+   * Get the first pending message without removing it.
    *
-   * @returns All messages in the queue.
+   * @returns The first pending message, or undefined if the queue is empty.
    */
-  dequeueAll(): string[] {
-    const messages = [...this.#queue];
-    this.#queue.length = 0;
-    return messages;
+  peekFirst(): PendingMessage | undefined {
+    return this.#queue[0];
   }
 
   /**
-   * Drop the oldest message from the queue.
-   */
-  dropOldest(): void {
-    this.#queue.shift();
-  }
-
-  /**
-   * Clear all messages from the queue.
+   * Clear all pending messages from the queue without rejecting them.
+   * Caller is responsible for handling promise resolution/rejection.
    */
   clear(): void {
     this.#queue.length = 0;
@@ -72,21 +71,12 @@ export class MessageQueue {
   }
 
   /**
-   * Get a read-only view of the messages.
+   * Get a read-only view of the pending messages.
+   * Useful for iteration (reject all, flush all, etc.).
    *
-   * @returns A read-only view of the messages.
+   * @returns A read-only view of the pending messages.
    */
-  get messages(): readonly string[] {
+  get messages(): readonly PendingMessage[] {
     return this.#queue;
-  }
-
-  /**
-   * Replace the entire queue with new messages.
-   *
-   * @param messages - The new messages to replace the queue with.
-   */
-  replaceAll(messages: string[]): void {
-    this.#queue.length = 0;
-    this.#queue.push(...messages);
   }
 }

@@ -1,6 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { MessageQueue } from './MessageQueue.ts';
+import type { PendingMessage } from './PeerConnectionState.ts';
+
+/**
+ * Helper to create mock pending messages for testing.
+ *
+ * @param id - Identifier for the test message.
+ * @returns A mock PendingMessage object.
+ */
+function createMockPending(id: string): PendingMessage {
+  return {
+    messageBase: { method: 'deliver', params: [id] },
+    sendTimestamp: Date.now(),
+    retryCount: 0,
+    resolve: vi.fn(),
+    reject: vi.fn(),
+  };
+}
 
 describe('MessageQueue', () => {
   let queue: MessageQueue;
@@ -21,7 +38,7 @@ describe('MessageQueue', () => {
 
       // Fill beyond custom capacity to test it's respected
       for (let i = 0; i < 11; i += 1) {
-        customQueue.enqueue(`msg${i}`);
+        customQueue.enqueue(createMockPending(`msg${i}`));
       }
       expect(customQueue).toHaveLength(10);
     });
@@ -29,55 +46,73 @@ describe('MessageQueue', () => {
 
   describe('enqueue', () => {
     it('adds messages to the queue', () => {
-      queue.enqueue('message1');
-      queue.enqueue('message2');
+      const msg1 = createMockPending('message1');
+      const msg2 = createMockPending('message2');
+
+      queue.enqueue(msg1);
+      queue.enqueue(msg2);
 
       expect(queue).toHaveLength(2);
-      expect(queue.messages[0]).toBe('message1');
-      expect(queue.messages[1]).toBe('message2');
+      expect(queue.messages[0]).toBe(msg1);
+      expect(queue.messages[1]).toBe(msg2);
     });
 
-    it('drops oldest message when at capacity', () => {
+    it('rejects new message when at capacity', () => {
       const smallQueue = new MessageQueue(3);
 
-      smallQueue.enqueue('msg1');
-      smallQueue.enqueue('msg2');
-      smallQueue.enqueue('msg3');
+      const msg1 = createMockPending('msg1');
+      const msg2 = createMockPending('msg2');
+      const msg3 = createMockPending('msg3');
+      const msg4 = createMockPending('msg4');
+
+      expect(smallQueue.enqueue(msg1)).toBe(true);
+      expect(smallQueue.enqueue(msg2)).toBe(true);
+      expect(smallQueue.enqueue(msg3)).toBe(true);
 
       expect(smallQueue).toHaveLength(3);
 
-      // Adding 4th message should drop the first
-      smallQueue.enqueue('msg4');
+      // Adding 4th message should reject it, not add it
+      expect(smallQueue.enqueue(msg4)).toBe(false);
 
+      // Queue unchanged - still has original 3 messages
       expect(smallQueue).toHaveLength(3);
-      expect(smallQueue.messages[0]).toBe('msg2');
-      expect(smallQueue.messages[1]).toBe('msg3');
-      expect(smallQueue.messages[2]).toBe('msg4');
+      expect(smallQueue.messages[0]).toBe(msg1);
+      expect(smallQueue.messages[1]).toBe(msg2);
+      expect(smallQueue.messages[2]).toBe(msg3);
+
+      // Verify msg4 (the new one) was rejected
+      expect(msg4.reject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Message rejected: queue at capacity',
+        }),
+      );
+
+      // Original messages not rejected
+      expect(msg1.reject).not.toHaveBeenCalled();
+      expect(msg2.reject).not.toHaveBeenCalled();
+      expect(msg3.reject).not.toHaveBeenCalled();
     });
 
-    it('maintains FIFO order when dropping messages', () => {
-      const smallQueue = new MessageQueue(2);
-
-      smallQueue.enqueue('first');
-      smallQueue.enqueue('second');
-      smallQueue.enqueue('third');
-      smallQueue.enqueue('fourth');
-
-      // Should have dropped 'first' and 'second'
-      expect(smallQueue.messages).toStrictEqual(['third', 'fourth']);
+    it('returns true when message added successfully', () => {
+      const pending = createMockPending('test');
+      expect(queue.enqueue(pending)).toBe(true);
+      expect(queue).toHaveLength(1);
     });
   });
 
   describe('dequeue', () => {
     it('removes and returns the first message', () => {
-      queue.enqueue('first');
-      queue.enqueue('second');
+      const first = createMockPending('first');
+      const second = createMockPending('second');
+
+      queue.enqueue(first);
+      queue.enqueue(second);
 
       const dequeued = queue.dequeue();
 
-      expect(dequeued).toBe('first');
+      expect(dequeued).toBe(first);
       expect(queue).toHaveLength(1);
-      expect(queue.messages[0]).toBe('second');
+      expect(queue.messages[0]).toBe(second);
     });
 
     it('returns undefined for empty queue', () => {
@@ -85,82 +120,55 @@ describe('MessageQueue', () => {
     });
 
     it('maintains FIFO order', () => {
-      queue.enqueue('1');
-      queue.enqueue('2');
-      queue.enqueue('3');
+      const msg1 = createMockPending('1');
+      const msg2 = createMockPending('2');
+      const msg3 = createMockPending('3');
 
-      expect(queue.dequeue()).toBe('1');
-      expect(queue.dequeue()).toBe('2');
-      expect(queue.dequeue()).toBe('3');
+      queue.enqueue(msg1);
+      queue.enqueue(msg2);
+      queue.enqueue(msg3);
+
+      expect(queue.dequeue()).toBe(msg1);
+      expect(queue.dequeue()).toBe(msg2);
+      expect(queue.dequeue()).toBe(msg3);
       expect(queue.dequeue()).toBeUndefined();
     });
   });
 
-  describe('dequeueAll', () => {
-    it('returns all messages and clears the queue', () => {
-      queue.enqueue('msg1');
-      queue.enqueue('msg2');
-      queue.enqueue('msg3');
+  describe('peekFirst', () => {
+    it('returns first message without removing it', () => {
+      const first = createMockPending('first');
+      const second = createMockPending('second');
 
-      const allMessages = queue.dequeueAll();
+      queue.enqueue(first);
+      queue.enqueue(second);
 
-      expect(allMessages).toStrictEqual(['msg1', 'msg2', 'msg3']);
-      expect(queue).toHaveLength(0);
-      expect(queue.messages).toStrictEqual([]);
-    });
+      const peeked = queue.peekFirst();
 
-    it('returns empty array for empty queue', () => {
-      const result = queue.dequeueAll();
-
-      expect(result).toStrictEqual([]);
-      expect(queue).toHaveLength(0);
-    });
-
-    it('returns a copy, not the internal array', () => {
-      queue.enqueue('msg');
-
-      const result = queue.dequeueAll();
-      result.push('extra');
-
-      // Queue should still be empty after dequeueAll
-      expect(queue).toHaveLength(0);
-      expect(queue.messages).toStrictEqual([]);
-    });
-  });
-
-  describe('dropOldest', () => {
-    it('removes the first message', () => {
-      queue.enqueue('first');
-      queue.enqueue('second');
-      queue.enqueue('third');
-
-      queue.dropOldest();
-
+      expect(peeked).toBe(first);
       expect(queue).toHaveLength(2);
-      expect(queue.messages[0]).toBe('second');
-      expect(queue.messages[1]).toBe('third');
     });
 
-    it('handles empty queue gracefully', () => {
-      expect(() => queue.dropOldest()).not.toThrow();
-      expect(queue).toHaveLength(0);
+    it('returns undefined for empty queue', () => {
+      expect(queue.peekFirst()).toBeUndefined();
     });
 
-    it('handles single element queue', () => {
-      queue.enqueue('only');
+    it('returns same element on multiple calls', () => {
+      const only = createMockPending('only');
 
-      queue.dropOldest();
+      queue.enqueue(only);
 
-      expect(queue).toHaveLength(0);
-      expect(queue.messages).toStrictEqual([]);
+      expect(queue.peekFirst()).toBe(only);
+      expect(queue.peekFirst()).toBe(only);
+      expect(queue).toHaveLength(1);
     });
   });
 
   describe('clear', () => {
     it('removes all messages', () => {
-      queue.enqueue('msg1');
-      queue.enqueue('msg2');
-      queue.enqueue('msg3');
+      queue.enqueue(createMockPending('msg1'));
+      queue.enqueue(createMockPending('msg2'));
+      queue.enqueue(createMockPending('msg3'));
 
       queue.clear();
 
@@ -176,12 +184,15 @@ describe('MessageQueue', () => {
     });
 
     it('allows enqueueing after clear', () => {
-      queue.enqueue('before');
+      const before = createMockPending('before');
+      const after = createMockPending('after');
+
+      queue.enqueue(before);
       queue.clear();
-      queue.enqueue('after');
+      queue.enqueue(after);
 
       expect(queue).toHaveLength(1);
-      expect(queue.messages[0]).toBe('after');
+      expect(queue.messages[0]).toBe(after);
     });
   });
 
@@ -189,10 +200,10 @@ describe('MessageQueue', () => {
     it('returns correct queue length', () => {
       expect(queue).toHaveLength(0);
 
-      queue.enqueue('1');
+      queue.enqueue(createMockPending('1'));
       expect(queue).toHaveLength(1);
 
-      queue.enqueue('2');
+      queue.enqueue(createMockPending('2'));
       expect(queue).toHaveLength(2);
 
       queue.dequeue();
@@ -205,12 +216,15 @@ describe('MessageQueue', () => {
 
   describe('messages getter', () => {
     it('returns read-only view of messages', () => {
-      queue.enqueue('msg1');
-      queue.enqueue('msg2');
+      const msg1 = createMockPending('msg1');
+      const msg2 = createMockPending('msg2');
+
+      queue.enqueue(msg1);
+      queue.enqueue(msg2);
 
       const { messages } = queue;
 
-      expect(messages).toStrictEqual(['msg1', 'msg2']);
+      expect(messages).toStrictEqual([msg1, msg2]);
 
       // TypeScript enforces read-only at compile time
       // At runtime, verify the array reference is the internal one
@@ -218,98 +232,60 @@ describe('MessageQueue', () => {
     });
 
     it('reflects current queue state', () => {
-      queue.enqueue('first');
+      const first = createMockPending('first');
+      const second = createMockPending('second');
+
+      queue.enqueue(first);
       const messages1 = queue.messages;
       expect(messages1).toHaveLength(1);
 
-      queue.enqueue('second');
+      queue.enqueue(second);
       const messages2 = queue.messages;
       expect(messages2).toHaveLength(2);
 
       queue.dequeue();
       const messages3 = queue.messages;
       expect(messages3).toHaveLength(1);
-      expect(messages3[0]).toBe('second');
-    });
-  });
-
-  describe('replaceAll', () => {
-    it('replaces entire queue contents', () => {
-      queue.enqueue('old1');
-      queue.enqueue('old2');
-
-      const newMessages: string[] = ['new1', 'new2', 'new3'];
-
-      queue.replaceAll(newMessages);
-
-      expect(queue).toHaveLength(3);
-      expect(queue.messages).toStrictEqual(newMessages);
-    });
-
-    it('handles empty replacement', () => {
-      queue.enqueue('msg');
-
-      queue.replaceAll([]);
-
-      expect(queue).toHaveLength(0);
-      expect(queue.messages).toStrictEqual([]);
-    });
-
-    it('is not affected by changes to input array', () => {
-      const messages: string[] = ['msg1'];
-
-      queue.replaceAll(messages);
-
-      // Modify the input array
-      messages.push('msg2');
-      messages[0] = 'modified';
-
-      // Queue should not be affected
-      expect(queue).toHaveLength(1);
-      expect(queue.messages[0]).toBe('msg1');
-    });
-
-    it('works when replacing with more messages than capacity', () => {
-      const smallQueue = new MessageQueue(2);
-
-      const messages: string[] = ['msg1', 'msg2', 'msg3'];
-
-      smallQueue.replaceAll(messages);
-
-      // Should store all messages even if beyond capacity
-      // (capacity only applies to enqueue operations)
-      expect(smallQueue).toHaveLength(3);
-      expect(smallQueue.messages).toStrictEqual(messages);
+      expect(messages3[0]).toBe(second);
     });
   });
 
   describe('integration scenarios', () => {
     it('handles mixed operations correctly', () => {
-      queue.enqueue('msg1');
-      queue.enqueue('msg2');
+      const msg1 = createMockPending('msg1');
+      const msg2 = createMockPending('msg2');
+      const msg3 = createMockPending('msg3');
+      const msg4 = createMockPending('msg4');
+      const msg5 = createMockPending('msg5');
+
+      queue.enqueue(msg1);
+      queue.enqueue(msg2);
 
       const first = queue.dequeue();
-      expect(first).toBe('msg1');
+      expect(first).toBe(msg1);
 
-      queue.enqueue('msg3');
-      queue.enqueue('msg4');
+      queue.enqueue(msg3);
+      queue.enqueue(msg4);
 
       expect(queue).toHaveLength(3);
 
-      queue.dropOldest();
-      expect(queue.messages[0]).toBe('msg3');
+      const peeked = queue.peekFirst();
+      expect(peeked).toBe(msg2);
 
-      const all = queue.dequeueAll();
-      expect(all).toHaveLength(2);
+      const second = queue.dequeue();
+      expect(second).toBe(msg2);
+      expect(queue.messages[0]).toBe(msg3);
+
+      queue.clear();
       expect(queue).toHaveLength(0);
 
-      queue.enqueue('msg5');
+      queue.enqueue(msg5);
       expect(queue).toHaveLength(1);
     });
 
     it('handles rapid enqueue/dequeue cycles', () => {
       for (let i = 0; i < 100; i += 1) {
-        queue.enqueue(`msg${i}`);
+        queue.enqueue(createMockPending(`msg${i}`));
         if (i % 3 === 0) {
           queue.dequeue();
         }

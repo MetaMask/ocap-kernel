@@ -61,6 +61,8 @@ export class MockRemotesFactory {
       closeConnection: vi.fn(),
       registerLocationHints: vi.fn(),
       reconnectPeer: vi.fn(),
+      handleAck: vi.fn(),
+      updateReceivedSeq: vi.fn(),
     };
   }
 
@@ -95,6 +97,8 @@ export class MockRemotesFactory {
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),
       redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
       registerLocationHints: vi.fn().mockResolvedValue(undefined),
+      handleAck: vi.fn(),
+      updateReceivedSeq: vi.fn(),
       ...overrides,
     };
   }

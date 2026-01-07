@@ -8,6 +8,7 @@ import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../store/index.ts';
 import type { PlatformServices } from '../types.ts';
+import type { RemoteMessageBase } from './RemoteHandle.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
@@ -172,12 +173,13 @@ export async function initRemoteComms(
    * Transmit a message to a remote kernel.
    *
    * @param to - The peer ID of the intended destination.
-   * @param message - The message to send; it is the caller's responsibility to
-   *   ensure that the string properly encodes something that the recipient will
-   *   understand.
+   * @param messageBase - The message base object (without seq/ack).
    */
-  async function sendRemoteMessage(to: string, message: string): Promise<void> {
-    await platformServices.sendRemoteMessage(to, message);
+  async function sendRemoteMessage(
+    to: string,
+    messageBase: RemoteMessageBase,
+  ): Promise<void> {
+    await platformServices.sendRemoteMessage(to, messageBase);
   }
 
   const KREF_MIN_LEN = 16;
@@ -228,6 +230,9 @@ export async function initRemoteComms(
   return {
     getPeerId,
     sendRemoteMessage,
+    handleAck: platformServices.handleAck.bind(platformServices),
+    updateReceivedSeq:
+      platformServices.updateReceivedSeq.bind(platformServices),
     issueOcapURL,
     redeemLocalOcapURL,
     registerLocationHints:

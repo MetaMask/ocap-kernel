@@ -57,7 +57,12 @@ type RedeemURLReply = {
   params: [boolean, string, string];
 };
 
-type RemoteCommand = Delivery | RedeemURLRequest | RedeemURLReply;
+export type RemoteMessageBase = Delivery | RedeemURLRequest | RedeemURLReply;
+
+type RemoteCommand = {
+  seq: number;
+  ack?: number;
+} & RemoteMessageBase;
 
 /**
  * Handles communication with a remote kernel endpoint over the network.
@@ -145,10 +150,14 @@ export class RemoteHandle implements EndpointHandle {
 
   /**
    * Transmit a message to the remote end of the connection.
+   * Note: message parameter should be a partial RemoteCommand without seq/ack.
+   * This method will add seq and ack fields before sending.
    *
-   * @param message - The message to send.
+   * @param messageBase - The base message to send (without seq/ack).
    */
-  async #sendRemoteCommand(message: RemoteCommand): Promise<void> {
+  async #sendRemoteCommand(
+    messageBase: Delivery | RedeemURLRequest | RedeemURLReply,
+  ): Promise<void> {
     if (this.#needsHinting) {
       // Hints are registered lazily because (a) transmitting to the platform
       // services process has to be done asynchronously, which is very painful
@@ -164,10 +173,10 @@ export class RemoteHandle implements EndpointHandle {
       );
       this.#needsHinting = false;
     }
-    await this.#remoteComms.sendRemoteMessage(
-      this.#peerId,
-      JSON.stringify(message),
-    );
+
+    // Send message base object
+    // seq and ack will be added by sendRemoteMessage in network.ts
+    await this.#remoteComms.sendRemoteMessage(this.#peerId, messageBase);
   }
 
   /**
@@ -433,7 +442,16 @@ export class RemoteHandle implements EndpointHandle {
    */
   async handleRemoteMessage(message: string): Promise<string> {
     const remoteCommand: RemoteCommand = JSON.parse(message);
-    const { method, params } = remoteCommand;
+    const { seq, ack, method, params } = remoteCommand;
+
+    // Track received sequence number for piggyback ACK
+    this.#remoteComms.updateReceivedSeq(this.#peerId, seq);
+
+    // Handle piggyback ACK if present
+    if (ack !== undefined) {
+      await this.#remoteComms.handleAck(this.#peerId, ack);
+    }
+
     let result = '';
     switch (method) {
       case 'deliver':
