@@ -1349,11 +1349,10 @@ describe('network.initNetwork', () => {
       const inboundChannel = createMockChannel('peer-1');
       reconnectionChannel.msgStream.write.mockResolvedValue(undefined);
       inboundChannel.msgStream.write.mockResolvedValue(undefined);
-      inboundChannel.msgStream.read.mockImplementation(
-        async () =>
-          new Promise(() => {
-            /* Never resolves - keeps channel active */
-          }),
+      inboundChannel.msgStream.read.mockResolvedValue(
+        new Promise(() => {
+          /* Never resolves - keeps channel active */
+        }),
       );
 
       const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
@@ -2507,6 +2506,7 @@ describe('network.initNetwork', () => {
       mockReconnectionManager.calculateBackoff.mockReturnValue(100); // Small delay to ensure ordering
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         async (ms: number) => {
           // Use real delay to allow other operations to complete
           await new Promise((resolve) => setTimeout(resolve, ms));
