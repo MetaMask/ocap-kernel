@@ -12,5 +12,11 @@
     { "path": "../logger" },
     { "path": "../repo-tools" }
   ],
-  "include": ["../../vitest.config.ts", "./src", "./vitest.config.ts"]
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./vitest.config.ts",
+    "./vitest.config.e2e.ts",
+    "./test/e2e"
+  ]
 }

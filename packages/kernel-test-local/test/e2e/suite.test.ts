@@ -5,7 +5,7 @@ import {
   DEFAULT_MODEL,
   OLLAMA_API_BASE,
   OLLAMA_TAGS_ENDPOINT,
-} from './constants.ts';
+} from '../../src/constants.ts';
 
 describe.sequential('test suite', () => {
   beforeAll(() => {

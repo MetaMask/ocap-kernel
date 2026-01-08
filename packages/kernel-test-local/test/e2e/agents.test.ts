@@ -19,8 +19,8 @@ import {
   vi,
 } from 'vitest';
 
-import { DEFAULT_MODEL } from './constants.ts';
-import { filterTransports, randomLetter } from './utils.ts';
+import { DEFAULT_MODEL } from '../../src/constants.ts';
+import { filterTransports, randomLetter } from '../../src/utils.ts';
 
 const logger = new Logger({
   tags: ['test'],
