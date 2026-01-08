@@ -1,6 +1,11 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
 import { makeConsoleTransport, Logger } from '@metamask/logger';
+import type { MakeAgentArgs, Agent } from '@ocap/kernel-agents';
+import { getMoonPhase } from '@ocap/kernel-agents/capabilities/examples';
+import { count, add, multiply } from '@ocap/kernel-agents/capabilities/math';
+import { makeJsonAgent } from '@ocap/kernel-agents/json';
+import { makeReplAgent } from '@ocap/kernel-agents/repl';
 import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import {
@@ -14,14 +19,8 @@ import {
   vi,
 } from 'vitest';
 
-import type { MakeAgentArgs } from '../../src/agent.ts';
-import { getMoonPhase } from '../../src/capabilities/examples.ts';
-import { count, add, multiply } from '../../src/capabilities/math.ts';
-import { makeJsonAgent } from '../../src/strategies/json-agent.ts';
-import { makeReplAgent } from '../../src/strategies/repl-agent.ts';
-import type { Agent } from '../../src/types.ts';
-import { DEFAULT_MODEL } from '../constants.ts';
-import { filterTransports, randomLetter } from '../utils.ts';
+import { DEFAULT_MODEL } from './constants.ts';
+import { filterTransports, randomLetter } from './utils.ts';
 
 const logger = new Logger({
   tags: ['test'],

@@ -43,7 +43,27 @@
         "default": "./dist/strategies/repl-agent.cjs"
       }
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./capabilities/examples": {
+      "import": {
+        "types": "./dist/capabilities/examples.d.mts",
+        "default": "./dist/capabilities/examples.mjs"
+      },
+      "require": {
+        "types": "./dist/capabilities/examples.d.cts",
+        "default": "./dist/capabilities/examples.cjs"
+      }
+    },
+    "./capabilities/math": {
+      "import": {
+        "types": "./dist/capabilities/math.d.mts",
+        "default": "./dist/capabilities/math.mjs"
+      },
+      "require": {
+        "types": "./dist/capabilities/math.d.cts",
+        "default": "./dist/capabilities/math.cjs"
+      }
+    }
   },
   "files": [
     "dist/"
@@ -60,7 +80,6 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
-    "test:e2e": "vitest run --config vitest.config.e2e.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development --reporter dot",
     "test:verbose": "yarn test --reporter verbose",

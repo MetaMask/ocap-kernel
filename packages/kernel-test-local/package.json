@@ -1,0 +1,69 @@
+{
+  "name": "@ocap/kernel-test-local",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-only E2E tests for kernel agents requiring external dependencies (Ollama)",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-test-local#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetaMask/ocap-kernel.git"
+  },
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./.turbo",
+    "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
+    "lint:dependencies": "depcheck",
+    "lint:eslint": "eslint . --cache",
+    "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
+    "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+    "test:local": "vitest run --config vitest.config.ts",
+    "test:local:watch": "vitest --config vitest.config.ts",
+    "build:docs": "typedoc",
+    "test": "vitest run --config vitest.config.ts",
+    "test:clean": "yarn test --no-cache --coverage.clean",
+    "test:dev": "yarn test --mode development",
+    "test:verbose": "yarn test --reporter verbose",
+    "test:watch": "vitest --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@metamask/logger": "workspace:^",
+    "@ocap/kernel-agents": "workspace:^",
+    "@ocap/kernel-language-model-service": "workspace:^",
+    "@ocap/repo-tools": "workspace:^"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
+    "@metamask/eslint-config": "^14.0.0",
+    "@metamask/eslint-config-nodejs": "^14.0.0",
+    "@metamask/eslint-config-typescript": "^14.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "@typescript-eslint/utils": "^8.29.0",
+    "@vitest/eslint-plugin": "^1.6.5",
+    "depcheck": "^1.4.7",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-import-resolver-typescript": "^4.3.1",
+    "eslint-plugin-import-x": "^4.10.0",
+    "eslint-plugin-jsdoc": "^50.6.9",
+    "eslint-plugin-n": "^17.17.0",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-promise": "^7.2.1",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.5.6",
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.29.0",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": "^20.11 || >=22"
+  },
+  "exports": {
+    "./package.json": "./package.json"
+  }
+}
