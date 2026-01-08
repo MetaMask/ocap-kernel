@@ -5,7 +5,7 @@ import type { MakeAgentArgs, Agent } from '@ocap/kernel-agents';
 import { getMoonPhase } from '@ocap/kernel-agents/capabilities/examples';
 import { count, add, multiply } from '@ocap/kernel-agents/capabilities/math';
 import { makeJsonAgent } from '@ocap/kernel-agents/json';
-import { makeReplAgent } from '@ocap/kernel-agents/repl';
+import { makeReplAgent } from '@ocap/kernel-agents-repl';
 import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import {
@@ -21,6 +21,11 @@ import {
 
 import { DEFAULT_MODEL } from '../../src/constants.ts';
 import { filterTransports, randomLetter } from '../../src/utils.ts';
+import type { MakeAgentArgs } from '../../src/agent.ts';
+import { getMoonPhase } from '../../src/capabilities/examples.ts';
+import { count, add, multiply } from '../../src/capabilities/math.ts';
+import { makeJsonAgent } from '../../src/strategies/json-agent.ts';
+import type { Agent } from '../../src/types.ts';
 
 const logger = new Logger({
   tags: ['test'],

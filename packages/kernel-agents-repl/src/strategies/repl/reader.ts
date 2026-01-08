@@ -1,8 +1,12 @@
 import type { Logger } from '@metamask/logger';
+import {
+  ifDefined,
+  withAbort,
+  gatherStreamingResponse,
+} from '@ocap/kernel-agents/utils';
 
 import type { StatementMessage } from './messages.ts';
 import { makeSampleCollector } from './sample-collector.ts';
-import { ifDefined, withAbort, gatherStreamingResponse } from '../../utils.ts';
 
 export const makeReader =
   ({ logger }: { logger?: Logger }) =>

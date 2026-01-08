@@ -1,10 +1,10 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
 import { Logger } from '@metamask/logger';
+import { makeReplAgent } from '@ocap/kernel-agents-repl';
 import { vi, describe, it, expect } from 'vitest';
 
 import { makeJsonAgent } from './strategies/json-agent.ts';
-import { makeReplAgent } from './strategies/repl-agent.ts';
 
 const prompt = 'test prompt';
 const prefix = '{"messageType":"assistant","';

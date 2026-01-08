@@ -33,14 +33,84 @@
         "default": "./dist/strategies/json-agent.cjs"
       }
     },
-    "./repl": {
+    "./agent": {
       "import": {
-        "types": "./dist/strategies/repl-agent.d.mts",
-        "default": "./dist/strategies/repl-agent.mjs"
+        "types": "./dist/agent.d.mts",
+        "default": "./dist/agent.mjs"
       },
       "require": {
-        "types": "./dist/strategies/repl-agent.d.cts",
-        "default": "./dist/strategies/repl-agent.cjs"
+        "types": "./dist/agent.d.cts",
+        "default": "./dist/agent.cjs"
+      }
+    },
+    "./types": {
+      "import": {
+        "types": "./dist/types.d.mts",
+        "default": "./dist/types.mjs"
+      },
+      "require": {
+        "types": "./dist/types.d.cts",
+        "default": "./dist/types.cjs"
+      }
+    },
+    "./types/messages": {
+      "import": {
+        "types": "./dist/types/messages.d.mts",
+        "default": "./dist/types/messages.mjs"
+      },
+      "require": {
+        "types": "./dist/types/messages.d.cts",
+        "default": "./dist/types/messages.cjs"
+      }
+    },
+    "./utils": {
+      "import": {
+        "types": "./dist/utils.d.mts",
+        "default": "./dist/utils.mjs"
+      },
+      "require": {
+        "types": "./dist/utils.d.cts",
+        "default": "./dist/utils.cjs"
+      }
+    },
+    "./capabilities/capability": {
+      "import": {
+        "types": "./dist/capabilities/capability.d.mts",
+        "default": "./dist/capabilities/capability.mjs"
+      },
+      "require": {
+        "types": "./dist/capabilities/capability.d.cts",
+        "default": "./dist/capabilities/capability.cjs"
+      }
+    },
+    "./capabilities/end": {
+      "import": {
+        "types": "./dist/capabilities/end.d.mts",
+        "default": "./dist/capabilities/end.mjs"
+      },
+      "require": {
+        "types": "./dist/capabilities/end.d.cts",
+        "default": "./dist/capabilities/end.cjs"
+      }
+    },
+    "./capabilities/examples": {
+      "import": {
+        "types": "./dist/capabilities/examples.d.mts",
+        "default": "./dist/capabilities/examples.mjs"
+      },
+      "require": {
+        "types": "./dist/capabilities/examples.d.cts",
+        "default": "./dist/capabilities/examples.cjs"
+      }
+    },
+    "./test-utils": {
+      "import": {
+        "types": "./dist/test-utils.d.mts",
+        "default": "./dist/test-utils.mjs"
+      },
+      "require": {
+        "types": "./dist/test-utils.d.cts",
+        "default": "./dist/test-utils.cjs"
       }
     },
     "./package.json": "./package.json",
@@ -126,8 +196,6 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@ocap/kernel-language-model-service": "workspace:^",
-    "ses": "^1.14.0",
-    "tree-sitter": "^0.25.0",
-    "tree-sitter-javascript": "^0.25.0"
+    "ses": "^1.14.0"
   }
 }

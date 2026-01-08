@@ -1,10 +1,10 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
 import type { Logger } from '@metamask/logger';
+import { makeTestStream } from '@ocap/kernel-agents/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeReader } from './reader.ts';
-import { makeTestStream } from '../../test-utils.ts';
 
 describe('reader', () => {
   let logger: Logger;
