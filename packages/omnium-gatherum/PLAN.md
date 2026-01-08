@@ -76,7 +76,7 @@ capabilities.
   - Phase 1: Basic promise resolution
   - Phase 2+: Promise pipelining supported by CapTP
 
-- [ ] **Testing**
+- [x] **Testing**
   - Tests to be added for CapTP-based approach
 
 **Note**: Using CapTP provides several advantages over a custom implementation:
@@ -88,22 +88,57 @@ capabilities.
 
 #### 1.2 Define Caplet Structure
 
-**Goal**: Establish the data structures and formats that define a Caplet.
+**Goal**: Establish the data structures, storage abstractions, and controller architecture for Caplets.
 
-- [ ] **Caplet Manifest Schema**
+- [x] **Controller Architecture**
 
-  - Define a TypeScript type/superstruct for Caplet metadata:
-    - `id`: Unique identifier (string, e.g., `"com.example.bitcoin-signer"`)
-    - `name`: Human-readable name
-    - `version`: Semantic version
-    - `bundleSpec`: URI to the vat bundle (for now, local file paths or inline bundles)
-    - `requestedServices`: Array of service names this Caplet wants to consume (e.g., `["keyring", "network"]`)
-    - `providedServices`: Array of service names this Caplet exposes (e.g., `["bitcoin-signer"]`)
-    - `description`: Optional description
-    - `author`: Optional author info
-  - Location: Create `packages/omnium-gatherum/src/caplet/types.ts`
+  - Established modular controller pattern in `packages/omnium-gatherum/src/controllers/`:
+    - Controllers manage state and business logic
+    - Controllers communicate via `E()` for capability attenuation (POLA)
+    - Each controller receives namespaced storage (isolated key space)
+  - `controllers/types.ts`: Base controller types (`ControllerConfig`, `FacetOf`)
+  - `controllers/facet.ts`: `makeFacet()` utility for POLA attenuation between controllers
 
-- [ ] **Caplet Vat Bundle Format**
+- [x] **Storage Abstraction Layer**
+
+  - `controllers/storage/types.ts`: Storage interfaces
+    - `StorageAdapter`: Low-level wrapper for platform storage APIs
+    - `NamespacedStorage`: Scoped storage interface with automatic key prefixing
+  - `controllers/storage/chrome-storage.ts`: `makeChromeStorageAdapter()` for Chrome Storage API
+  - `controllers/storage/namespaced-storage.ts`: `makeNamespacedStorage()` factory
+  - Storage keys automatically prefixed: `${namespace}.${key}` (e.g., `caplet.com.example.test.manifest`)
+
+- [x] **Caplet Manifest Schema**
+
+  - Defined TypeScript types with superstruct validation in `controllers/caplet/types.ts`:
+    - `CapletId`: Reverse domain notation (e.g., `"com.example.bitcoin-signer"`)
+    - `SemVer`: Semantic version string (strict format, no `v` prefix)
+    - `CapletManifest`: Full manifest with id, name, version, bundleSpec, requestedServices, providedServices
+    - `InstalledCaplet`: Runtime record with manifest, subclusterId, installedAt timestamp
+  - Validation functions: `isCapletId()`, `isSemVer()`, `isCapletManifest()`, `assertCapletManifest()`
+
+- [x] **CapletController**
+
+  - `controllers/caplet/caplet-controller.ts`: `makeCapletController()` manages installed caplets
+  - Methods:
+    - `install(manifest, bundle?)`: Validate manifest, launch subcluster, store metadata
+    - `uninstall(capletId)`: Terminate subcluster, remove metadata
+    - `list()`: Get all installed caplets
+    - `get(capletId)`: Get specific caplet
+    - `getByService(serviceName)`: Find caplet providing a service
+  - Storage keys (within `caplet` namespace):
+    - `installed`: Array of installed caplet IDs
+    - `${capletId}.manifest`: CapletManifest JSON
+    - `${capletId}.subclusterId`: Associated subcluster ID
+    - `${capletId}.installedAt`: Installation timestamp
+
+- [x] **Dev Console Integration**
+
+  - Wired CapletController into `background.ts`
+  - Exposed on `globalThis.omnium.caplet`:
+    - `install(manifest, bundle?)`, `uninstall(capletId)`, `list()`, `get(capletId)`, `getByService(serviceName)`
+
+- [ ] **Caplet Vat Bundle Format** (Deferred)
 
   - A Caplet's code is a standard vat bundle (JSON output from `@endo/bundle-source`)
   - The vat must export `buildRootObject(vatPowers, parameters, baggage)` as per kernel conventions
@@ -111,17 +146,6 @@ capabilities.
     - `initialize(services)`: Receives requested services, returns own service interface(s)
     - `shutdown()`: Cleanup hook
   - Document the Caplet vat contract in `packages/omnium-gatherum/docs/caplet-contract.md`
-
-- [ ] **Caplet Storage Schema**
-  - Define how installed Caplets are persisted in **user space** (not kernel store):
-    - Use **Chrome Storage API** (`chrome.storage.local`) for omnium-specific data
-    - Maintains clean kernel/user space separation - kernel doesn't know about Caplets
-    - Storage keys:
-      - `caplet.${capletId}.manifest` → JSON manifest
-      - `caplet.${capletId}.subclusterId` → Associated subcluster ID
-      - `caplet.installed` → Array of installed Caplet IDs
-  - Location: `packages/omnium-gatherum/src/caplet/storage.ts`
-  - Note: This is omnium's own storage, separate from kernel store
 
 #### 1.3 Implement Caplet Installation
 
