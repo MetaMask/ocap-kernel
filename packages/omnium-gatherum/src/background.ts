@@ -12,7 +12,15 @@ import type {
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
+
+import {
+  makeChromeStorageAdapter,
+  makeNamespacedStorage,
+  makeCapletController,
+} from './controllers/index.ts';
+import type { CapletManifest, LaunchResult } from './controllers/index.ts';
 
 defineGlobals();
 
@@ -100,18 +108,57 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelPromise = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
 
   const ping = async (): Promise<void> => {
-    const kernel = await kernelPromise;
-    const result = await E(kernel).ping();
+    const result = await E(kernelP).ping();
     logger.info(result);
   };
 
   // Helper to get the kernel remote presence (for use with E())
   const getKernel = async (): Promise<KernelFacade> => {
-    return kernelPromise;
+    return kernelP;
   };
+
+  // Create storage adapter and namespaced storage for caplets
+  const storageAdapter = makeChromeStorageAdapter();
+  const capletStorage = makeNamespacedStorage('caplet', storageAdapter);
+
+  // Create CapletController with attenuated kernel access
+  const capletController = makeCapletController(
+    { logger: logger.subLogger({ tags: ['caplet'] }) },
+    {
+      storage: capletStorage,
+      // Wrap launchSubcluster to return subclusterId
+      launchSubcluster: async (
+        config: ClusterConfig,
+      ): Promise<LaunchResult> => {
+        // Get current subcluster count
+        const statusBefore = await E(kernelP).getStatus();
+        const beforeIds = new Set(
+          statusBefore.subclusters.map((subcluster) => subcluster.id),
+        );
+
+        // Launch the subcluster
+        await E(kernelP).launchSubcluster(config);
+
+        // Get status after and find the new subcluster
+        const statusAfter = await E(kernelP).getStatus();
+        const newSubcluster = statusAfter.subclusters.find(
+          (subcluster) => !beforeIds.has(subcluster.id),
+        );
+
+        if (!newSubcluster) {
+          throw new Error('Failed to determine subclusterId after launch');
+        }
+
+        return { subclusterId: newSubcluster.id };
+      },
+      terminateSubcluster: async (subclusterId: string): Promise<void> => {
+        await E(kernelP).terminateSubcluster(subclusterId);
+      },
+    },
+  );
 
   Object.defineProperties(globalThis.omnium, {
     ping: {
@@ -119,6 +166,18 @@ async function main(): Promise<void> {
     },
     getKernel: {
       value: getKernel,
+    },
+    caplet: {
+      value: harden({
+        install: async (manifest: CapletManifest, bundle?: unknown) =>
+          E(capletController).install(manifest, bundle),
+        uninstall: async (capletId: string) =>
+          E(capletController).uninstall(capletId),
+        list: async () => E(capletController).list(),
+        get: async (capletId: string) => E(capletController).get(capletId),
+        getByService: async (serviceName: string) =>
+          E(capletController).getByService(serviceName),
+      }),
     },
   });
   harden(globalThis.omnium);
