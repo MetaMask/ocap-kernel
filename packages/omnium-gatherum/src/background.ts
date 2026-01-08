@@ -17,10 +17,14 @@ import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import {
   makeChromeStorageAdapter,
-  makeNamespacedStorage,
+  makeControllerStorage,
   makeCapletController,
 } from './controllers/index.ts';
-import type { CapletManifest, LaunchResult } from './controllers/index.ts';
+import type {
+  CapletControllerState,
+  CapletManifest,
+  LaunchResult,
+} from './controllers/index.ts';
 
 defineGlobals();
 
@@ -120,9 +124,16 @@ async function main(): Promise<void> {
     return kernelP;
   };
 
-  // Create storage adapter and namespaced storage for caplets
+  // Create storage adapter and state storage for caplets
   const storageAdapter = makeChromeStorageAdapter();
-  const capletStorage = makeNamespacedStorage('caplet', storageAdapter);
+  const defaultCapletState: CapletControllerState = {
+    caplets: {},
+  };
+  const capletStorage = await makeControllerStorage({
+    namespace: 'caplet',
+    adapter: storageAdapter,
+    defaultState: defaultCapletState,
+  });
 
   // Create CapletController with attenuated kernel access
   const capletController = makeCapletController(

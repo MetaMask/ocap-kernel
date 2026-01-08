@@ -9,49 +9,18 @@ import type {
   LaunchResult,
 } from './types.ts';
 import { isCapletManifest } from './types.ts';
-import type { NamespacedStorage } from '../storage/types.ts';
+import type { ControllerStorage } from '../storage/controller-storage.ts';
 import type { ControllerConfig } from '../types.ts';
 
 /**
- * Storage keys used by the CapletController within its namespace.
+ * Caplet controller persistent state.
+ * This is the shape of the state managed by the CapletController
+ * through the ControllerStorage abstraction.
  */
-const STORAGE_KEYS = {
-  /** List of installed caplet IDs */
-  INSTALLED_LIST: 'installed',
-  /** Suffix for manifest storage: `${capletId}.manifest` */
-  MANIFEST_SUFFIX: '.manifest',
-  /** Suffix for subclusterId storage: `${capletId}.subclusterId` */
-  SUBCLUSTER_SUFFIX: '.subclusterId',
-  /** Suffix for installedAt storage: `${capletId}.installedAt` */
-  INSTALLED_AT_SUFFIX: '.installedAt',
-} as const;
-
-/**
- * Generate storage key for a caplet's manifest.
- *
- * @param capletId - The caplet ID.
- * @returns The storage key.
- */
-const manifestKey = (capletId: CapletId): string =>
-  `${capletId}${STORAGE_KEYS.MANIFEST_SUFFIX}`;
-
-/**
- * Generate storage key for a caplet's subclusterId.
- *
- * @param capletId - The caplet ID.
- * @returns The storage key.
- */
-const subclusterKey = (capletId: CapletId): string =>
-  `${capletId}${STORAGE_KEYS.SUBCLUSTER_SUFFIX}`;
-
-/**
- * Generate storage key for a caplet's installedAt timestamp.
- *
- * @param capletId - The caplet ID.
- * @returns The storage key.
- */
-const installedAtKey = (capletId: CapletId): string =>
-  `${capletId}${STORAGE_KEYS.INSTALLED_AT_SUFFIX}`;
+export type CapletControllerState = {
+  /** Installed caplets keyed by caplet ID */
+  caplets: Record<CapletId, InstalledCaplet>;
+};
 
 /**
  * Methods exposed by the CapletController.
@@ -105,8 +74,8 @@ export type CapletControllerMethods = {
  * These are attenuated - only the methods needed are provided.
  */
 export type CapletControllerDeps = {
-  /** Namespaced storage for caplet data */
-  storage: NamespacedStorage;
+  /** State storage for caplet data */
+  storage: ControllerStorage<CapletControllerState>;
   /** Launch a subcluster for a caplet */
   launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
   /** Terminate a caplet's subcluster */
@@ -133,73 +102,22 @@ export function makeCapletController(
   const { storage, launchSubcluster, terminateSubcluster } = deps;
 
   /**
-   * Get the list of installed caplet IDs.
-   *
-   * @returns Array of installed caplet IDs.
-   */
-  const getInstalledIds = async (): Promise<CapletId[]> => {
-    const ids = await storage.get<CapletId[]>(STORAGE_KEYS.INSTALLED_LIST);
-    return ids ?? [];
-  };
-
-  /**
-   * Update the list of installed caplet IDs.
-   *
-   * @param ids - The list of caplet IDs to store.
-   */
-  const setInstalledIds = async (ids: CapletId[]): Promise<void> => {
-    await storage.set(STORAGE_KEYS.INSTALLED_LIST, ids);
-  };
-
-  /**
-   * Internal get implementation (to avoid `this` binding issues in exo).
+   * Get an installed caplet by ID (synchronous - reads from in-memory state).
    *
    * @param capletId - The caplet ID to retrieve.
    * @returns The installed caplet or undefined if not found.
    */
-  const getCaplet = async (
-    capletId: CapletId,
-  ): Promise<InstalledCaplet | undefined> => {
-    const manifest = await storage.get<CapletManifest>(manifestKey(capletId));
-    if (manifest === undefined) {
-      return undefined;
-    }
-
-    const [subclusterId, installedAt] = await Promise.all([
-      storage.get<string>(subclusterKey(capletId)),
-      storage.get<number>(installedAtKey(capletId)),
-    ]);
-
-    if (subclusterId === undefined || installedAt === undefined) {
-      // Corrupted data - manifest exists but other fields don't
-      logger.warn(`Caplet ${capletId} has corrupted storage data`);
-      return undefined;
-    }
-
-    return {
-      manifest,
-      subclusterId,
-      installedAt,
-    };
+  const getCaplet = (capletId: CapletId): InstalledCaplet | undefined => {
+    return storage.state.caplets[capletId];
   };
 
   /**
-   * Internal list implementation (to avoid `this` binding issues in exo).
+   * Get all installed caplets (synchronous - reads from in-memory state).
    *
    * @returns Array of all installed caplets.
    */
-  const listCaplets = async (): Promise<InstalledCaplet[]> => {
-    const installedIds = await getInstalledIds();
-    const caplets: InstalledCaplet[] = [];
-
-    for (const id of installedIds) {
-      const caplet = await getCaplet(id);
-      if (caplet !== undefined) {
-        caplets.push(caplet);
-      }
-    }
-
-    return caplets;
+  const listCaplets = (): InstalledCaplet[] => {
+    return Object.values(storage.state.caplets);
   };
 
   return makeDefaultExo('CapletController', {
@@ -216,8 +134,7 @@ export function makeCapletController(
       }
 
       // Check if already installed
-      const existing = await storage.get(manifestKey(id));
-      if (existing !== undefined) {
+      if (storage.state.caplets[id] !== undefined) {
         throw new Error(`Caplet ${id} is already installed`);
       }
 
@@ -235,18 +152,13 @@ export function makeCapletController(
       const { subclusterId } = await launchSubcluster(clusterConfig);
 
       // Store caplet data
-      const now = Date.now();
-      await Promise.all([
-        storage.set(manifestKey(id), manifest),
-        storage.set(subclusterKey(id), subclusterId),
-        storage.set(installedAtKey(id), now),
-      ]);
-
-      // Update installed list
-      const installedIds = await getInstalledIds();
-      if (!installedIds.includes(id)) {
-        await setInstalledIds([...installedIds, id]);
-      }
+      await storage.update((draft) => {
+        draft.caplets[id] = {
+          manifest,
+          subclusterId,
+          installedAt: Date.now(),
+        };
+      });
 
       logger.info(`Caplet ${id} installed with subcluster ${subclusterId}`);
       return { capletId: id, subclusterId };
@@ -255,24 +167,18 @@ export function makeCapletController(
     async uninstall(capletId: CapletId): Promise<void> {
       logger.info(`Uninstalling caplet: ${capletId}`);
 
-      const subclusterId = await storage.get<string>(subclusterKey(capletId));
-      if (subclusterId === undefined) {
+      const caplet = storage.state.caplets[capletId];
+      if (caplet === undefined) {
         throw new Error(`Caplet ${capletId} not found`);
       }
 
       // Terminate the subcluster
-      await terminateSubcluster(subclusterId);
+      await terminateSubcluster(caplet.subclusterId);
 
       // Remove from storage
-      await Promise.all([
-        storage.delete(manifestKey(capletId)),
-        storage.delete(subclusterKey(capletId)),
-        storage.delete(installedAtKey(capletId)),
-      ]);
-
-      // Update installed list
-      const installedIds = await getInstalledIds();
-      await setInstalledIds(installedIds.filter((id) => id !== capletId));
+      await storage.update((draft) => {
+        delete draft.caplets[capletId];
+      });
 
       logger.info(`Caplet ${capletId} uninstalled`);
     },
@@ -288,7 +194,7 @@ export function makeCapletController(
     async getByService(
       serviceName: string,
     ): Promise<InstalledCaplet | undefined> {
-      const caplets = await listCaplets();
+      const caplets = listCaplets();
       return caplets.find((caplet: InstalledCaplet) =>
         caplet.manifest.providedServices.includes(serviceName),
       );

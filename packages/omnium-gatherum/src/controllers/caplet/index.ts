@@ -18,5 +18,6 @@ export {
 export type {
   CapletControllerMethods,
   CapletControllerDeps,
+  CapletControllerState,
 } from './caplet-controller.ts';
 export { makeCapletController } from './caplet-controller.ts';
