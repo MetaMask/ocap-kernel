@@ -231,8 +231,7 @@ describe('PlatformServicesServer', () => {
       await stream.receiveInput(makeMessageEvent('m0', { method: 'foo' }));
       await delay(10);
 
-      expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy).toHaveBeenCalledWith(
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
         'Error handling "foo" request:',
         rpcErrors.methodNotFound(),
       );
@@ -275,8 +274,9 @@ describe('PlatformServicesServer', () => {
         await delay(10);
 
         expect(workers).toHaveLength(1);
-        expect(workers[0]?.launch).toHaveBeenCalledOnce();
-        expect(workers[0]?.launch).toHaveBeenCalledWith(makeVatConfig());
+        expect(workers[0]?.launch).toHaveBeenCalledExactlyOnceWith(
+          makeVatConfig(),
+        );
       });
 
       it('logs error if a vat with the same id already exists', async () => {
@@ -285,8 +285,7 @@ describe('PlatformServicesServer', () => {
         await stream.receiveInput(makeLaunchMessageEvent('m1', 'v0'));
         await delay(10);
 
-        expect(errorSpy).toHaveBeenCalledOnce();
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
           'Error handling "launch" request:',
           new VatAlreadyExistsError('v0'),
         );
@@ -306,8 +305,7 @@ describe('PlatformServicesServer', () => {
         await delay(10);
 
         expect(workers).toHaveLength(1);
-        expect(workers[0]?.terminate).toHaveBeenCalledOnce();
-        expect(workers[0]?.terminate).toHaveBeenCalledWith();
+        expect(workers[0]?.terminate).toHaveBeenCalledExactlyOnceWith();
       });
 
       it('logs error if a vat with the specified id does not exist', async () => {
@@ -315,8 +313,7 @@ describe('PlatformServicesServer', () => {
         await stream.receiveInput(makeTerminateMessageEvent('m0', 'v0'));
         await delay(10);
 
-        expect(errorSpy).toHaveBeenCalledOnce();
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
           'Error handling "terminate" request:',
           new VatNotFoundError('v0'),
         );
@@ -336,8 +333,7 @@ describe('PlatformServicesServer', () => {
         await stream.receiveInput(makeTerminateMessageEvent('m1', vatId));
         await delay(10);
 
-        expect(errorSpy).toHaveBeenCalledOnce();
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
           'Error handling "terminate" request:',
           vatNotFoundError,
         );
@@ -380,8 +376,7 @@ describe('PlatformServicesServer', () => {
         await stream.receiveInput(makeTerminateAllMessageEvent('m1'));
         await delay(10);
 
-        expect(errorSpy).toHaveBeenCalledOnce();
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
           'Error handling "terminateAll" request:',
           vatNotFoundError,
         );
