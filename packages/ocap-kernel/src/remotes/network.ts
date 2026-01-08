@@ -93,6 +93,7 @@ export async function initNetwork(
     maxRetryAttempts,
   );
   const locationHints = new Map<string, string[]>();
+  const messageEncoder = new TextEncoder(); // Reused for message size validation
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
 
   /**
@@ -122,6 +123,11 @@ export async function initNetwork(
     if (!queue) {
       queue = new MessageQueue(maxQueue);
       messageQueues.set(peerId, queue);
+      // Initialize lastConnectionTime if not set to enable stale peer cleanup
+      // even for peers that never successfully connect
+      if (!lastConnectionTime.has(peerId)) {
+        lastConnectionTime.set(peerId, Date.now());
+      }
     }
     return queue;
   }
@@ -487,7 +493,7 @@ export async function initNetwork(
    * @throws ResourceLimitError if message exceeds size limit.
    */
   function validateMessageSize(message: string): void {
-    const messageSizeBytes = new TextEncoder().encode(message).length;
+    const messageSizeBytes = messageEncoder.encode(message).length;
     if (messageSizeBytes > maxMessageSizeBytes) {
       throw new ResourceLimitError(
         `Message size ${messageSizeBytes} bytes exceeds limit of ${maxMessageSizeBytes} bytes`,
@@ -621,26 +627,27 @@ export async function initNetwork(
   }
 
   /**
-   * Clean up stale peer data for peers disconnected for more than 1 hour.
+   * Clean up stale peer data for peers inactive for more than stalePeerTimeoutMs.
+   * This includes peers that never successfully connected (e.g., dial failures).
    */
   function cleanupStalePeers(): void {
     const now = Date.now();
     const stalePeers: string[] = [];
 
-    // Check all tracked peers
+    // Check all tracked peers (includes peers that never connected successfully)
     for (const [peerId, lastTime] of lastConnectionTime.entries()) {
-      const timeSinceLastConnection = now - lastTime;
+      const timeSinceLastActivity = now - lastTime;
       const hasActiveChannel = channels.has(peerId);
       const isReconnecting = reconnectionManager.isReconnecting(peerId);
 
       // Consider peer stale if:
       // - No active channel
       // - Not currently reconnecting
-      // - Disconnected for more than stalePeerTimeoutMs
+      // - Inactive for more than stalePeerTimeoutMs
       if (
         !hasActiveChannel &&
         !isReconnecting &&
-        timeSinceLastConnection > stalePeerTimeoutMs
+        timeSinceLastActivity > stalePeerTimeoutMs
       ) {
         stalePeers.push(peerId);
       }
@@ -650,9 +657,9 @@ export async function initNetwork(
     for (const peerId of stalePeers) {
       const lastTime = lastConnectionTime.get(peerId);
       if (lastTime !== undefined) {
-        const minutesSinceDisconnect = Math.round((now - lastTime) / 1000 / 60);
+        const minutesSinceActivity = Math.round((now - lastTime) / 1000 / 60);
         logger.log(
-          `${peerId}:: cleaning up stale peer data (disconnected for ${minutesSinceDisconnect} minutes)`,
+          `${peerId}:: cleaning up stale peer data (inactive for ${minutesSinceActivity} minutes)`,
         );
       }
 
@@ -759,17 +766,15 @@ export async function initNetwork(
           // Multiple concurrent dials could all pass the initial check, then all add channels
           try {
             checkConnectionLimit();
-          } catch {
-            // Connection limit reached - close the dialed channel and queue the message
+          } catch (limitError) {
+            // Connection limit reached - close the dialed channel and propagate error to caller
             logger.log(
-              `${targetPeerId}:: connection limit reached after dial, queueing message`,
+              `${targetPeerId}:: connection limit reached after dial, rejecting send`,
             );
             // Explicitly close the channel to release network resources
             await connectionFactory.closeChannel(channel, targetPeerId);
-            currentQueue.enqueue(message);
-            // Start reconnection to retry later when limit might free up
-            handleConnectionLoss(targetPeerId, channel);
-            return;
+            // Re-throw to let caller know the send failed
+            throw limitError;
           }
 
           // Check if peer was intentionally closed during dial
@@ -785,6 +790,17 @@ export async function initNetwork(
           registerChannel(targetPeerId, channel);
         }
       } catch (problem) {
+        // Re-throw ResourceLimitError to propagate to caller
+        if (problem instanceof ResourceLimitError) {
+          throw problem;
+        }
+        // Re-throw intentional close errors to propagate to caller
+        if (
+          problem instanceof Error &&
+          problem.message === 'Message delivery failed after intentional close'
+        ) {
+          throw problem;
+        }
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
         // Re-fetch queue in case cleanupStalePeers deleted it during the dial await
