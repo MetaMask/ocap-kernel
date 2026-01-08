@@ -2331,6 +2331,109 @@ describe('network.initNetwork', () => {
       setIntervalSpy.mockRestore();
     });
 
+    it('cleanup does not interfere with active reconnection and reconnection completes', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0);
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      // Gate the reconnection dial so we can run cleanup while reconnection is in progress
+      let releaseReconnectionDial: (() => void) | undefined;
+      (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        async () => {
+          await new Promise<void>((resolve) => {
+            releaseReconnectionDial = resolve;
+          });
+        },
+      );
+
+      // Use FIFO queue to verify messages are preserved through cleanup
+      setupFifoMessageQueue();
+
+      const initialChannel = createMockChannel('peer-1');
+      const reconnectChannel = createMockChannel('peer-1');
+
+      // Initial connection succeeds, then write fails to trigger reconnection
+      initialChannel.msgStream.write
+        .mockResolvedValueOnce(undefined) // initial message succeeds
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ); // triggers reconnection
+
+      reconnectChannel.msgStream.write.mockResolvedValue(undefined);
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(initialChannel) // initial connection
+        .mockResolvedValueOnce(reconnectChannel); // reconnection
+
+      const stalePeerTimeoutMs = 1; // Very short timeout
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+
+      // Establish connection
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via write failure
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      // Wait for reconnection to start
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Wait beyond the stale timeout while reconnection is blocked
+      await delay(stalePeerTimeoutMs + 10);
+
+      // Run cleanup while reconnection is active
+      intervalFn?.();
+
+      // Verify peer was NOT cleaned up (because isReconnecting is true)
+      expect(mockReconnectionManager.clearPeer).not.toHaveBeenCalled();
+      expect(mockLogger.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+
+      // Release the reconnection dial
+      releaseReconnectionDial?.();
+
+      // Wait for reconnection to complete
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Verify reconnection completed successfully - queued messages were flushed
+      expect(reconnectChannel.msgStream.write).toHaveBeenCalled();
+
+      setIntervalSpy.mockRestore();
+    }, 10000);
+
     it('cleans up stale peers and calls clearPeer', async () => {
       let intervalFn: (() => void) | undefined;
       const setIntervalSpy = vi
@@ -2610,23 +2713,33 @@ describe('network.initNetwork', () => {
         vi.fn(),
       );
       // Start multiple concurrent dials that all pass the initial limit check
-      const sendPromises = Promise.all([
+      // The third send should throw ResourceLimitError
+      const results = await Promise.allSettled([
         sendRemoteMessage('peer-0', 'msg0'),
         sendRemoteMessage('peer-1', 'msg1'),
-        sendRemoteMessage('peer-2', 'msg2'), // This should be blocked after dial
+        sendRemoteMessage('peer-2', 'msg2'), // This should be rejected after dial
       ]);
-      await sendPromises;
       // Verify that only 2 channels were added (the limit)
       // The third one should have been rejected after dial completed
       expect(mockLogger.log).toHaveBeenCalledWith(
         expect.stringContaining('peer-2:: connection limit reached after dial'),
       );
-      // Verify that peer-2's message was queued
-      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg2');
-      // Verify that reconnection was started for peer-2 (to retry later)
-      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
-        'peer-2',
+      // Verify that the third send threw ResourceLimitError
+      const rejectedResult = results.find(
+        (result) => result.status === 'rejected',
       );
+      expect(rejectedResult).toBeDefined();
+      expect((rejectedResult as PromiseRejectedResult).reason).toBeInstanceOf(
+        ResourceLimitError,
+      );
+      // Verify that the channel was closed
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalled();
+      // Verify that the message was NOT queued (error propagated to caller)
+      expect(mockMessageQueue.enqueue).not.toHaveBeenCalledWith('msg2');
+      // Verify that reconnection was NOT started (error propagated to caller)
+      expect(
+        mockReconnectionManager.startReconnection,
+      ).not.toHaveBeenCalledWith('peer-2');
     }, 10000);
   });
 
