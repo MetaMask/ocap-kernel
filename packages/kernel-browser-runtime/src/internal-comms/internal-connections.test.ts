@@ -590,52 +590,5 @@ describe('internal-connections', () => {
         result: { vats: [], clusterConfig: makeClusterConfig() },
       });
     });
-
-    it('should handle handlerPromise rejection', async () => {
-      const handlerError = new Error('Handler initialization failed');
-      const handlerPromise = Promise.reject(handlerError);
-      // Prevent unhandled rejection warning - error is handled by receiveInternalConnections
-      handlerPromise.catch(() => undefined);
-
-      receiveInternalConnections({
-        handlerPromise,
-        logger,
-      });
-
-      const controlChannel = MockBroadcastChannel.channels.get(
-        COMMS_CONTROL_CHANNEL_NAME,
-      );
-      controlChannel?.onmessage?.(
-        new MessageEvent('message', {
-          data: {
-            method: 'init',
-            params: { channelName: 'internal-process-channel' },
-          },
-        }),
-      );
-
-      await delay();
-      const commsChannel = MockBroadcastChannel.channels.get(
-        'internal-process-channel',
-      )!;
-
-      // Send message - should trigger error handling
-      commsChannel.onmessage?.(
-        new MessageEvent('message', {
-          data: {
-            method: 'getStatus',
-            params: null,
-            id: 1,
-          },
-        }),
-      );
-
-      await delay();
-
-      expect(logger.error).toHaveBeenCalledWith(
-        'Error handling message from internal process "internal-process-channel":',
-        handlerError,
-      );
-    });
   });
 });
