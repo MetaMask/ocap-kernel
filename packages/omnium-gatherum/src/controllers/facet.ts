@@ -1,13 +1,14 @@
-import type { Methods, MethodGuard } from '@endo/exo';
+import type { Methods } from '@endo/exo';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
-// RemotableMethodName from @endo/pass-style is string | symbol
-type MethodKeys<Source> = Extract<
-  {
-    [Key in keyof Source]: Source[Key] extends CallableFunction ? Key : never;
-  }[keyof Source],
-  keyof MethodGuard
->;
+/**
+ * Extract keys from Source that are callable functions.
+ * Filters to string | symbol to match RemotableMethodName from @endo/pass-style.
+ */
+type MethodKeys<Source> = {
+  [Key in keyof Source]: Source[Key] extends CallableFunction ? Key : never;
+}[keyof Source] &
+  (string | symbol);
 
 type BoundMethod<Func> = Func extends CallableFunction
   ? OmitThisParameter<Func>

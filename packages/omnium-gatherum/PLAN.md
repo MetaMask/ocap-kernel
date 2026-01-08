@@ -106,7 +106,11 @@ capabilities.
     - `NamespacedStorage`: Scoped storage interface with automatic key prefixing
   - `controllers/storage/chrome-storage.ts`: `makeChromeStorageAdapter()` for Chrome Storage API
   - `controllers/storage/namespaced-storage.ts`: `makeNamespacedStorage()` factory
-  - Storage keys automatically prefixed: `${namespace}.${key}` (e.g., `caplet.com.example.test.manifest`)
+  - `controllers/storage/controller-storage.ts`: `makeControllerStorage()` for controller state management
+    - Controllers work with a typed `state` object instead of managing storage keys directly
+    - Uses Immer for immutable updates with change tracking
+    - Only persists modified top-level keys (via Immer patches)
+    - Storage keys automatically prefixed: `${namespace}.${key}` (e.g., `caplet.caplets`)
 
 - [x] **Caplet Manifest Schema**
 
@@ -126,11 +130,11 @@ capabilities.
     - `list()`: Get all installed caplets
     - `get(capletId)`: Get specific caplet
     - `getByService(serviceName)`: Find caplet providing a service
-  - Storage keys (within `caplet` namespace):
-    - `installed`: Array of installed caplet IDs
-    - `${capletId}.manifest`: CapletManifest JSON
-    - `${capletId}.subclusterId`: Associated subcluster ID
-    - `${capletId}.installedAt`: Installation timestamp
+  - State structure (`CapletControllerState`):
+    - `caplets`: `Record<CapletId, InstalledCaplet>` - all caplet data in a single record
+  - Uses `ControllerStorage<CapletControllerState>` for state management
+    - Synchronous reads via `storage.state.caplets[id]`
+    - Async updates via `storage.update(draft => { ... })`
 
 - [x] **Dev Console Integration**
 
