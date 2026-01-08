@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     synchronize,
-    NodeWorkerDuplexStream: vi.fn(() => ({ synchronize })),
+    NodeWorkerDuplexStream: vi.fn(function () {
+      return { synchronize };
+    }),
     split: vi.fn((a) => [a, a]),
     parentPort: {},
   };
@@ -44,7 +46,7 @@ describe('vat/streams', () => {
 
       const { getPort } = await import('./streams.ts');
 
-      expect(getPort).toThrow(/parentPort/u);
+      expect(getPort).toThrowError(/parentPort/u);
     }, 10_000);
   });
 

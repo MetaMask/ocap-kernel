@@ -1,6 +1,6 @@
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { useStream } from './useStream.ts';
 import { setupStream } from '../services/stream.ts';
@@ -11,6 +11,10 @@ vi.mock('../services/stream.ts', () => ({
 
 describe('useStream', () => {
   const mockSendMessage = vi.fn();
+
+  beforeEach(() => {
+    vi.mocked(setupStream).mockClear();
+  });
 
   it('should set callKernelMethod function when stream setup succeeds', async () => {
     vi.mocked(setupStream).mockResolvedValueOnce({

@@ -399,9 +399,9 @@ describe('BaseWriter', () => {
         },
       });
 
-      await expect(
-        async () => await writer.throw(new Error('thrownError')),
-      ).rejects.toThrow('onEndError');
+      await expect(writer.throw(new Error('thrownError'))).rejects.toThrow(
+        'onEndError',
+      );
     });
   });
 

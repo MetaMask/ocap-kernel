@@ -386,11 +386,6 @@ describe('PlatformServicesServer', () => {
     describe('remote communications', () => {
       beforeEach(() => {
         // Reset mocks before each test
-        mockSendRemoteMessage.mockClear();
-        mockStop.mockClear();
-        mockCloseConnection.mockClear();
-        mockRegisterLocationHints.mockClear();
-        mockReconnectPeer.mockClear();
         capturedRemoteMessageHandler = undefined;
         capturedRemoteGiveUpHandler = undefined;
       });

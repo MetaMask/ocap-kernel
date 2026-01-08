@@ -33,7 +33,9 @@ const mockDb = {
 };
 
 vi.mock('better-sqlite3', () => ({
-  default: vi.fn(() => mockDb),
+  default: vi.fn(function () {
+    return mockDb;
+  }),
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -71,7 +73,7 @@ describe('makeSQLKernelDatabase', () => {
     mockStatement.get.mockReturnValue(undefined);
     const db = await makeSQLKernelDatabase({});
     const store = db.kernelKVStore;
-    expect(() => store.getRequired('missing-key')).toThrow(
+    expect(() => store.getRequired('missing-key')).toThrowError(
       "no record matching key 'missing-key'",
     );
   });
@@ -179,7 +181,7 @@ describe('makeSQLKernelDatabase', () => {
       mockStatement.run.mockImplementationOnce(() => {
         throw new Error('Database error during delete');
       });
-      expect(() => db.deleteVatStore('test-vat')).toThrow(
+      expect(() => db.deleteVatStore('test-vat')).toThrowError(
         'Database error during delete',
       );
     });
@@ -216,16 +218,16 @@ describe('makeSQLKernelDatabase', () => {
 
     it('rejects invalid savepoint names', async () => {
       const db = await makeSQLKernelDatabase({});
-      expect(() => db.createSavepoint('invalid-name')).toThrow(
+      expect(() => db.createSavepoint('invalid-name')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint('123numeric')).toThrow(
+      expect(() => db.createSavepoint('123numeric')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint('spaces not allowed')).toThrow(
+      expect(() => db.createSavepoint('spaces not allowed')).toThrowError(
         'Invalid identifier',
       );
-      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrow(
+      expect(() => db.createSavepoint("point'; DROP TABLE kv--")).toThrowError(
         'Invalid identifier',
       );
       expect(mockDb.exec).not.toHaveBeenCalledWith(
@@ -260,7 +262,7 @@ describe('makeSQLKernelDatabase', () => {
       const db = await makeSQLKernelDatabase({});
       mockDb.inTransaction = true;
       mockDb._spStack = ['existing_point'];
-      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrow(
+      expect(() => db.rollbackSavepoint('nonexistent_point')).toThrowError(
         'No such savepoint: nonexistent_point',
       );
     });
@@ -286,7 +288,7 @@ describe('makeSQLKernelDatabase', () => {
       const db = await makeSQLKernelDatabase({});
       mockDb.inTransaction = true;
       mockDb._spStack = ['existing_point'];
-      expect(() => db.releaseSavepoint('nonexistent_point')).toThrow(
+      expect(() => db.releaseSavepoint('nonexistent_point')).toThrowError(
         'No such savepoint: nonexistent_point',
       );
     });
