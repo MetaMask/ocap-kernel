@@ -23,4 +23,4 @@ function cleanup() {
 # Ensure we always close the ocap cli
 trap cleanup EXIT
 
-yarn build:watch
+yarn build:browser

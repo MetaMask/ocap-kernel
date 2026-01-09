@@ -219,7 +219,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:dependencies',
-          'depcheck',
+          'depcheck --quiet',
         );
         expectWorkspaceField(
           workspace,
@@ -234,7 +234,7 @@ module.exports = defineConfig({
         expectWorkspaceField(
           workspace,
           'scripts.lint:misc',
-          "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore",
+          "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
         );
 
         // All non-root packages must have the same "test" script.
@@ -252,7 +252,7 @@ module.exports = defineConfig({
           expectWorkspaceField(
             workspace,
             'scripts.test:dev',
-            'yarn test --mode development',
+            'yarn test --mode development --reporter dot',
           );
           expectWorkspaceField(
             workspace,

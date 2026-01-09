@@ -62,6 +62,7 @@ export function extensionDev({
       args: [
         `--disable-extensions-except=${extensionPath}`,
         `--load-extension=${extensionPath}`,
+        '--start-maximized',
       ],
     });
 
@@ -89,7 +90,6 @@ export function extensionDev({
 
     // Open the extensions page for our extension
     const extensionsPage = await browserContext.newPage();
-    await extensionsPage.setViewportSize({ width: 1300, height: 700 });
     await extensionsPage.goto(`chrome://extensions/?id=${extensionId}`);
 
     // Update state after all checks

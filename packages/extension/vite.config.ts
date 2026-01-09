@@ -44,6 +44,7 @@ const staticCopyTargets: readonly (string | Target)[] = [
 export default defineConfig(({ mode }) => {
   const isDev = mode === 'development';
   const isWatching = process.argv.includes('--watch');
+  const shouldOpenBrowser = process.env.OPEN_BROWSER === 'true';
   if (isWatching && !isDev) {
     throw new Error('Cannot watch in non-development mode');
   }
@@ -111,8 +112,8 @@ export default defineConfig(({ mode }) => {
       }),
       moveHtmlFilesToRoot(),
       watchInternalPackages({ rootDir, packages: ['kernel-ui'] }),
-      // Open the extension in the browser when watching
-      isWatching && extensionDev({ extensionPath: outDir }),
+      // Open the extension in the browser when --browser flag is passed
+      shouldOpenBrowser && extensionDev({ extensionPath: outDir }),
     ],
   };
 });
