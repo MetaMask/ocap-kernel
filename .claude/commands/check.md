@@ -10,7 +10,7 @@ allowed-tools:
 model: claude-haiku-4-5
 ---
 
-Run the following commands to check the code.
+Run the following commands to check the current state of the code:
 
 If `$ARGUMENTS` is provided (e.g. `@metamask/ocap-kernel`), run the commands in
 that workspace using `yarn workspace $ARGUMENTS`:
