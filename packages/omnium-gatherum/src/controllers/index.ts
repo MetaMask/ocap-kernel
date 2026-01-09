@@ -1,5 +1,6 @@
-// Base types
-export type { ControllerConfig, FacetOf } from './types.ts';
+// Base controller
+export { Controller } from './base-controller.ts';
+export type { ControllerConfig, ControllerMethods, FacetOf } from './types.ts';
 export { makeFacet } from './facet.ts';
 
 // Storage
@@ -24,7 +25,7 @@ export type {
   InstallResult,
   LaunchResult,
   CapletControllerState,
-  CapletControllerMethods,
+  CapletControllerFacet,
   CapletControllerDeps,
 } from './caplet/index.ts';
 export {
@@ -35,5 +36,5 @@ export {
   CapletIdStruct,
   SemVerStruct,
   CapletManifestStruct,
-  makeCapletController,
+  CapletController,
 } from './caplet/index.ts';

@@ -1,4 +1,5 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Logger } from '@metamask/logger';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 
 import type {
@@ -9,8 +10,9 @@ import type {
   LaunchResult,
 } from './types.ts';
 import { isCapletManifest } from './types.ts';
+import { Controller } from '../base-controller.ts';
+import type { ControllerConfig } from '../base-controller.ts';
 import type { ControllerStorage } from '../storage/controller-storage.ts';
-import type { ControllerConfig } from '../types.ts';
 
 /**
  * Caplet controller persistent state.
@@ -25,7 +27,7 @@ export type CapletControllerState = {
 /**
  * Methods exposed by the CapletController.
  */
-export type CapletControllerMethods = {
+export type CapletControllerFacet = {
   /**
    * Install a caplet.
    *
@@ -83,122 +85,197 @@ export type CapletControllerDeps = {
 };
 
 /**
- * Create the CapletController.
+ * Controller for managing caplet lifecycle.
  *
- * The CapletController manages the lifecycle of installed caplets:
+ * The CapletController manages:
  * - Installing caplets (validating manifest, launching subcluster, storing metadata)
  * - Uninstalling caplets (terminating subcluster, removing metadata)
  * - Querying installed caplets
- *
- * @param config - Controller configuration.
- * @param deps - Controller dependencies (attenuated for POLA).
- * @returns A hardened CapletController exo.
  */
-export function makeCapletController(
-  config: ControllerConfig,
-  deps: CapletControllerDeps,
-): CapletControllerMethods {
-  const { logger } = config;
-  const { storage, launchSubcluster, terminateSubcluster } = deps;
+export class CapletController extends Controller<
+  'CapletController',
+  CapletControllerState,
+  CapletControllerFacet
+> {
+  readonly #launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
+
+  readonly #terminateSubcluster: (subclusterId: string) => Promise<void>;
 
   /**
-   * Get an installed caplet by ID (synchronous - reads from in-memory state).
+   * Private constructor - use static create() method.
+   *
+   * @param storage - ControllerStorage for caplet state.
+   * @param logger - Logger instance.
+   * @param launchSubcluster - Function to launch a subcluster.
+   * @param terminateSubcluster - Function to terminate a subcluster.
+   */
+  // eslint-disable-next-line no-restricted-syntax -- TypeScript doesn't support # for constructors
+  private constructor(
+    storage: ControllerStorage<CapletControllerState>,
+    logger: Logger,
+    launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>,
+    terminateSubcluster: (subclusterId: string) => Promise<void>,
+  ) {
+    super('CapletController', storage, logger);
+    this.#launchSubcluster = launchSubcluster;
+    this.#terminateSubcluster = terminateSubcluster;
+    harden(this);
+  }
+
+  /**
+   * Create a CapletController and return its public methods.
+   *
+   * @param config - Controller configuration.
+   * @param deps - Controller dependencies (attenuated for POLA).
+   * @returns A hardened CapletController exo.
+   */
+  static make(
+    config: ControllerConfig,
+    deps: CapletControllerDeps,
+  ): CapletControllerFacet {
+    const controller = new CapletController(
+      deps.storage,
+      config.logger,
+      deps.launchSubcluster,
+      deps.terminateSubcluster,
+    );
+    return controller.makeFacet();
+  }
+
+  /**
+   * Returns the hardened exo with public methods.
+   *
+   * @returns A hardened exo object with the controller's public methods.
+   */
+  makeFacet(): CapletControllerFacet {
+    return makeDefaultExo('CapletController', {
+      install: async (
+        manifest: CapletManifest,
+        _bundle?: unknown,
+      ): Promise<InstallResult> => {
+        return this.#install(manifest, _bundle);
+      },
+      uninstall: async (capletId: CapletId): Promise<void> => {
+        return this.#uninstall(capletId);
+      },
+      list: async (): Promise<InstalledCaplet[]> => {
+        return this.#list();
+      },
+      get: async (capletId: CapletId): Promise<InstalledCaplet | undefined> => {
+        return this.#get(capletId);
+      },
+      getByService: async (
+        serviceName: string,
+      ): Promise<InstalledCaplet | undefined> => {
+        return this.#getByService(serviceName);
+      },
+    });
+  }
+
+  /**
+   * Install a caplet.
+   *
+   * @param manifest - The caplet manifest.
+   * @param _bundle - The caplet bundle (currently unused).
+   * @returns The installation result.
+   */
+  async #install(
+    manifest: CapletManifest,
+    _bundle?: unknown,
+  ): Promise<InstallResult> {
+    const { id } = manifest;
+    this.logger.info(`Installing caplet: ${id}`);
+
+    // Validate manifest
+    if (!isCapletManifest(manifest)) {
+      throw new Error(`Invalid caplet manifest for ${id}`);
+    }
+
+    // Check if already installed
+    if (this.state.caplets[id] !== undefined) {
+      throw new Error(`Caplet ${id} is already installed`);
+    }
+
+    // Create cluster config for this caplet
+    const clusterConfig: ClusterConfig = {
+      bootstrap: id,
+      vats: {
+        [id]: {
+          bundleSpec: manifest.bundleSpec,
+        },
+      },
+    };
+
+    // Launch subcluster
+    const { subclusterId } = await this.#launchSubcluster(clusterConfig);
+
+    // Store caplet data
+    await this.update((draft) => {
+      draft.caplets[id] = {
+        manifest,
+        subclusterId,
+        installedAt: Date.now(),
+      };
+    });
+
+    this.logger.info(`Caplet ${id} installed with subcluster ${subclusterId}`);
+    return { capletId: id, subclusterId };
+  }
+
+  /**
+   * Uninstall a caplet.
+   *
+   * @param capletId - The ID of the caplet to uninstall.
+   */
+  async #uninstall(capletId: CapletId): Promise<void> {
+    this.logger.info(`Uninstalling caplet: ${capletId}`);
+
+    const caplet = this.state.caplets[capletId];
+    if (caplet === undefined) {
+      throw new Error(`Caplet ${capletId} not found`);
+    }
+
+    // Terminate the subcluster
+    await this.#terminateSubcluster(caplet.subclusterId);
+
+    // Remove from storage
+    await this.update((draft) => {
+      delete draft.caplets[capletId];
+    });
+
+    this.logger.info(`Caplet ${capletId} uninstalled`);
+  }
+
+  /**
+   * Get all installed caplets.
+   *
+   * @returns Array of all installed caplets.
+   */
+  #list(): InstalledCaplet[] {
+    return Object.values(this.state.caplets);
+  }
+
+  /**
+   * Get an installed caplet by ID.
    *
    * @param capletId - The caplet ID to retrieve.
    * @returns The installed caplet or undefined if not found.
    */
-  const getCaplet = (capletId: CapletId): InstalledCaplet | undefined => {
-    return storage.state.caplets[capletId];
-  };
+  #get(capletId: CapletId): InstalledCaplet | undefined {
+    return this.state.caplets[capletId];
+  }
 
   /**
-   * Get all installed caplets (synchronous - reads from in-memory state).
+   * Find a caplet that provides a specific service.
    *
-   * @returns Array of all installed caplets.
+   * @param serviceName - The service name to search for.
+   * @returns The installed caplet or undefined if not found.
    */
-  const listCaplets = (): InstalledCaplet[] => {
-    return Object.values(storage.state.caplets);
-  };
-
-  return makeDefaultExo('CapletController', {
-    async install(
-      manifest: CapletManifest,
-      _bundle?: unknown,
-    ): Promise<InstallResult> {
-      const { id } = manifest;
-      logger.info(`Installing caplet: ${id}`);
-
-      // Validate manifest
-      if (!isCapletManifest(manifest)) {
-        throw new Error(`Invalid caplet manifest for ${id}`);
-      }
-
-      // Check if already installed
-      if (storage.state.caplets[id] !== undefined) {
-        throw new Error(`Caplet ${id} is already installed`);
-      }
-
-      // Create cluster config for this caplet
-      const clusterConfig: ClusterConfig = {
-        bootstrap: id,
-        vats: {
-          [id]: {
-            bundleSpec: manifest.bundleSpec,
-          },
-        },
-      };
-
-      // Launch subcluster
-      const { subclusterId } = await launchSubcluster(clusterConfig);
-
-      // Store caplet data
-      await storage.update((draft) => {
-        draft.caplets[id] = {
-          manifest,
-          subclusterId,
-          installedAt: Date.now(),
-        };
-      });
-
-      logger.info(`Caplet ${id} installed with subcluster ${subclusterId}`);
-      return { capletId: id, subclusterId };
-    },
-
-    async uninstall(capletId: CapletId): Promise<void> {
-      logger.info(`Uninstalling caplet: ${capletId}`);
-
-      const caplet = storage.state.caplets[capletId];
-      if (caplet === undefined) {
-        throw new Error(`Caplet ${capletId} not found`);
-      }
-
-      // Terminate the subcluster
-      await terminateSubcluster(caplet.subclusterId);
-
-      // Remove from storage
-      await storage.update((draft) => {
-        delete draft.caplets[capletId];
-      });
-
-      logger.info(`Caplet ${capletId} uninstalled`);
-    },
-
-    async list(): Promise<InstalledCaplet[]> {
-      return listCaplets();
-    },
-
-    async get(capletId: CapletId): Promise<InstalledCaplet | undefined> {
-      return getCaplet(capletId);
-    },
-
-    async getByService(
-      serviceName: string,
-    ): Promise<InstalledCaplet | undefined> {
-      const caplets = listCaplets();
-      return caplets.find((caplet: InstalledCaplet) =>
-        caplet.manifest.providedServices.includes(serviceName),
-      );
-    },
-  });
+  #getByService(serviceName: string): InstalledCaplet | undefined {
+    const caplets = this.#list();
+    return caplets.find((caplet: InstalledCaplet) =>
+      caplet.manifest.providedServices.includes(serviceName),
+    );
+  }
 }
-harden(makeCapletController);
+harden(CapletController);
