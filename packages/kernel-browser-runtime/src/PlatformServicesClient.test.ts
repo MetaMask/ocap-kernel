@@ -419,8 +419,7 @@ describe('PlatformServicesClient', () => {
           );
           await delay(50);
 
-          expect(remoteHandler).toHaveBeenCalledOnce();
-          expect(remoteHandler).toHaveBeenCalledWith(
+          expect(remoteHandler).toHaveBeenCalledExactlyOnceWith(
             'peer-123',
             'test-message',
           );
@@ -471,8 +470,7 @@ describe('PlatformServicesClient', () => {
           );
           await delay(50);
 
-          expect(giveUpHandler).toHaveBeenCalledOnce();
-          expect(giveUpHandler).toHaveBeenCalledWith('peer-456');
+          expect(giveUpHandler).toHaveBeenCalledExactlyOnceWith('peer-456');
 
           const successResponse = outputs.find(
             (message) =>
