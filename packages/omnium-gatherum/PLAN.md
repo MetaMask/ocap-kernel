@@ -2,12 +2,61 @@
 
 ## TODO
 
+### Immediate Next Steps
+
+To complete Phase 1 and achieve a working PoC:
+
+1. **Define Caplet Vat Contract** (Section 1.2)
+
+   - Document `buildRootObject()` signature and expected interface
+   - Decide on service initialization approach (bootstrap params vs explicit initialize method)
+   - Create `docs/caplet-contract.md`
+
+2. **Create Example Caplet Vats** (Section 1.6, 1.7)
+
+   - `test/fixtures/echo-caplet/`: Simple service provider
+   - `test/fixtures/consumer-caplet/`: Service consumer
+   - Use for both dev console examples and integration tests
+
+3. **Bundle Loading** (Section 1.3)
+
+   - Implement bundle-loader utility for inline/URL/file sources
+   - Integrate into CapletController.install()
+
+4. **Integration & E2E Testing** (Section 1.7)
+
+   - Write `test/caplet-integration.test.ts` with real vat bundles
+   - Validate full install → communicate → uninstall lifecycle
+   - Test error cases and edge conditions
+   - Write `test/e2e/caplet.spec.ts` with real vat bundles, testing the full flow
+
+5. **Documentation** (Section 1.8)
+   - Architecture doc with CapTP and controller patterns
+   - Caplet development guide
+   - Dev console usage examples
+
 ### Phase 1: Caplet Installation and Service Discovery
 
 This phase focuses on establishing the foundational architecture for Caplets:
 defining their structure, implementing installation mechanics, and creating a
 service discovery mechanism that allows Caplets to communicate using object
-capabilities.
+capabilities. This phase will be complete when we have a working PoC that:
+
+1. Install two caplets, a service producer and a service consumer
+2. The service producer can be discovered by the service consumer
+   - Hard-coding "discovery" is acceptable for Phase 1.
+3. The service consumer calls methods on the service producer
+   - e.g. `E(serviceProducer).echo(message) => 'Hello, world!'`
+4. The caplets can be uninstalled, and the process repeated
+
+**Current Status (as of 2026-01-09)**:
+
+- ✅ **Sections 1.0-1.2 Complete**: Dev console, CapTP infrastructure, controller architecture fully implemented and tested
+- 🚧 **Section 1.3 Partially Complete**: Basic caplet install/uninstall works; bundle loading and service resolution deferred
+- ⏸️ **Section 1.4 Deferred**: Service registry vat deferred to Phase 2 (using direct reference passing in Phase 1)
+- 🚧 **Section 1.6 Mostly Complete**: Dev console API implemented; examples and docs needed
+- 🚧 **Section 1.7 Partially Complete**: Comprehensive unit tests; integration tests with actual caplet vats needed
+- 📝 **Section 1.8 TODO**: Architecture and developer documentation needed
 
 #### 1.0 Omnium dev console
 
@@ -41,6 +90,7 @@ capabilities.
   - `getKernel()` exposed on `globalThis.omnium` (omnium) or `globalThis.kernel` (extension)
   - Kernel's internal commandStream and RPC removed - CapTP is now the only communication path
   - Usage example:
+
     ```typescript
     const kernel = await omnium.getKernel();
     const status = await E(kernel).getStatus();
@@ -93,24 +143,34 @@ capabilities.
 - [x] **Controller Architecture**
 
   - Established modular controller pattern in `packages/omnium-gatherum/src/controllers/`:
+    - **Abstract `Controller` base class** (`base-controller.ts`):
+      - Generic base class parameterized by controller name, state shape, and methods
+      - Provides protected `state`, `update()`, and `logger` accessors
+      - Subclasses must implement `makeFacet()` to return hardened exo
+      - Enforces hardening pattern (`harden(this)` in constructor)
     - Controllers manage state and business logic
     - Controllers communicate via `E()` for capability attenuation (POLA)
     - Each controller receives namespaced storage (isolated key space)
-  - `controllers/types.ts`: Base controller types (`ControllerConfig`, `FacetOf`)
+  - `controllers/types.ts`: Base controller types (`ControllerConfig`, `ControllerMethods`)
   - `controllers/facet.ts`: `makeFacet()` utility for POLA attenuation between controllers
 
 - [x] **Storage Abstraction Layer**
 
   - `controllers/storage/types.ts`: Storage interfaces
     - `StorageAdapter`: Low-level wrapper for platform storage APIs
-    - `NamespacedStorage`: Scoped storage interface with automatic key prefixing
   - `controllers/storage/chrome-storage.ts`: `makeChromeStorageAdapter()` for Chrome Storage API
-  - `controllers/storage/namespaced-storage.ts`: `makeNamespacedStorage()` factory
-  - `controllers/storage/controller-storage.ts`: `makeControllerStorage()` for controller state management
+  - `controllers/storage/controller-storage.ts`: **`ControllerStorage` class** for controller state management
+    - **Refactored to class-based design** with static `make()` factory method
     - Controllers work with a typed `state` object instead of managing storage keys directly
     - Uses Immer for immutable updates with change tracking
+    - **Synchronous `update()` with debounced fire-and-forget persistence**:
+      - Updates are synchronous in memory for immediate consistency
+      - Persistence is debounced (default 100ms) with accumulated key tracking
+      - Implements bounded latency (timer not reset across updates)
+      - Immediate writes when idle > debounceMs for better responsiveness
     - Only persists modified top-level keys (via Immer patches)
     - Storage keys automatically prefixed: `${namespace}.${key}` (e.g., `caplet.caplets`)
+    - `clear()` and `clearState()` methods to reset to defaults
 
 - [x] **Caplet Manifest Schema**
 
@@ -123,8 +183,13 @@ capabilities.
 
 - [x] **CapletController**
 
-  - `controllers/caplet/caplet-controller.ts`: `makeCapletController()` manages installed caplets
-  - Methods:
+  - `controllers/caplet/caplet-controller.ts`: **`CapletController` class extends `Controller` base**
+  - **Refactored to use Controller base class**:
+    - Static `make()` factory creates storage internally
+    - Private constructor ensures proper initialization flow
+    - `makeFacet()` returns hardened exo with public methods
+    - Uses protected `state`, `update()`, and `logger` from base class
+  - Methods exposed via `CapletControllerFacet`:
     - `install(manifest, bundle?)`: Validate manifest, launch subcluster, store metadata
     - `uninstall(capletId)`: Terminate subcluster, remove metadata
     - `list()`: Get all installed caplets
@@ -132,9 +197,13 @@ capabilities.
     - `getByService(serviceName)`: Find caplet providing a service
   - State structure (`CapletControllerState`):
     - `caplets`: `Record<CapletId, InstalledCaplet>` - all caplet data in a single record
-  - Uses `ControllerStorage<CapletControllerState>` for state management
-    - Synchronous reads via `storage.state.caplets[id]`
-    - Async updates via `storage.update(draft => { ... })`
+  - Dependencies injected via `CapletControllerDeps` (attenuated for POLA):
+    - `adapter`: Storage adapter
+    - `launchSubcluster`: Function to launch subclusters
+    - `terminateSubcluster`: Function to terminate subclusters
+  - State management via `ControllerStorage<CapletControllerState>`:
+    - Synchronous reads via `this.state.caplets[id]`
+    - Synchronous updates via `this.update(draft => { ... })`
 
 - [x] **Dev Console Integration**
 
@@ -142,56 +211,91 @@ capabilities.
   - Exposed on `globalThis.omnium.caplet`:
     - `install(manifest, bundle?)`, `uninstall(capletId)`, `list()`, `get(capletId)`, `getByService(serviceName)`
 
-- [ ] **Caplet Vat Bundle Format** (Deferred)
+**Recent Refactorings (commits cd5adbd, 9b8c4c9, e400c93)**:
+
+1. **Controller Base Class** (9b8c4c9):
+
+   - Extracted common patterns into abstract `Controller<Name, State, Methods>` base class
+   - Enforces consistent initialization flow (static `make()`, private constructor, `makeFacet()`)
+   - Provides protected accessors for `state`, `update()`, `logger`
+   - CapletController now extends Controller instead of standalone implementation
+
+2. **ControllerStorage Refactoring** (cd5adbd):
+
+   - Converted from factory function to class-based design with static `make()`
+   - Implemented synchronous `update()` for immediate in-memory consistency
+   - Added debounced fire-and-forget persistence with:
+     - Accumulated key tracking across debounce window (critical bug fix)
+     - Bounded latency (timer not reset on subsequent updates)
+     - Immediate writes after idle period for better responsiveness
+   - Added `clear()` and `clearState()` methods
+   - Removed old `namespaced-storage` implementation (no longer needed)
+
+3. **State Structure Simplification** (e400c93):
+   - Consolidated CapletController state into single `caplets: Record<CapletId, InstalledCaplet>`
+   - Eliminated separate per-caplet storage keys in favor of single consolidated state object
+   - Simplified queries (list, get, getByService) to work directly on in-memory state
+
+**Architecture Evolution Notes**:
+
+- Storage layer now provides strong consistency guarantees (synchronous updates)
+- Controllers can safely call `this.state` immediately after `this.update()`
+- Persistence failures are logged but don't block operations (fire-and-forget)
+- Future controllers can extend the base class with minimal boilerplate
+
+- [ ] **Caplet Vat Bundle Format** (Deferred - High Priority)
 
   - A Caplet's code is a standard vat bundle (JSON output from `@endo/bundle-source`)
   - The vat must export `buildRootObject(vatPowers, parameters, baggage)` as per kernel conventions
-  - The root object should implement a standard Caplet interface:
-    - `initialize(services)`: Receives requested services, returns own service interface(s)
-    - `shutdown()`: Cleanup hook
+  - The root object should implement a standard Caplet interface (TBD):
+    - Option A: `initialize(services)` receives requested services, returns own service interface(s)
+    - Option B: Root object IS the service interface, services injected via bootstrap parameters
+    - `shutdown()` cleanup hook (if needed)
+  - **Blocker for integration testing**: Need to define and document this contract before writing actual caplet vats
   - Document the Caplet vat contract in `packages/omnium-gatherum/docs/caplet-contract.md`
+  - Create minimal example caplet in `test/fixtures/echo-caplet/` to validate the contract
 
 #### 1.3 Implement Caplet Installation
 
 **Goal**: Enable loading a Caplet into omnium, creating its subcluster, and registering it.
 
-- [ ] **Caplet Installation Service (Non-Vat Code)**
+- [x] **Basic Caplet Installation (Implemented in CapletController)**
 
-  - Create `packages/omnium-gatherum/src/caplet/installer.ts`
-  - Implement `CapletInstaller` class that:
-    - Validates Caplet manifest
-    - Loads vat bundle (from URL or inline)
-    - Resolves requested services from Chrome storage (canonical source of truth)
-    - Creates a ClusterConfig for the Caplet:
-      - Single vat named after the Caplet ID
-      - Bootstrap vat is the Caplet itself
-      - **Phase 1**: Pass resolved service krefs directly via bootstrap arguments
-    - Calls `E(kernel).launchSubcluster(config)` (using userspace E() infrastructure)
-    - Captures returned Caplet root kref
-    - Stores Caplet manifest, subcluster ID, and root kref in Chrome storage
-    - Returns installation result (success/failure + subcluster ID + kref)
+  - **Current implementation in `CapletController.install()`**:
+    - ✓ Validates Caplet manifest using `isCapletManifest()`
+    - ✓ Checks for duplicate installations
+    - ✓ Creates `ClusterConfig` with single vat named after Caplet ID
+    - ✓ Calls `E(kernel).launchSubcluster(config)` via injected dependency
+    - ✓ Determines subclusterId by diffing kernel status before/after launch
+    - ✓ Stores Caplet metadata (manifest, subclusterId, installedAt) in storage
+    - ✓ Returns `InstallResult` with capletId and subclusterId
+  - **Current limitations**:
+    - Bundle parameter currently unused (uses `bundleSpec` from manifest directly)
+    - No service resolution yet (Phase 1 deferred - see 1.4)
+    - No kref capture from launch result
+    - Basic error handling (throws on validation/launch failures)
 
-- [ ] **Bundle Loading Utilities**
+- [ ] **Bundle Loading Utilities** (TODO)
 
-  - Support multiple bundle sources:
+  - Currently: `bundleSpec` passed through directly to kernel's ClusterConfig
+  - Need to support multiple bundle sources over time:
     - Inline bundle (passed as JSON)
     - Local file path (for development)
     - HTTP(S) URL (fetch bundle remotely)
   - Use existing `@endo/bundle-source` for creating bundles
-  - Location: `packages/omnium-gatherum/src/caplet/bundle-loader.ts`
+  - Proposed location: `packages/omnium-gatherum/src/controllers/caplet/bundle-loader.ts`
 
-- [ ] **Installation Lifecycle**
-  - On install:
-    1. Validate manifest
-    2. Load bundle
-    3. Resolve requested services (lookup krefs from Chrome storage)
-    4. Create subcluster, passing resolved service krefs in bootstrap
-    5. Capture Caplet's root kref from launch result
-    6. Store Caplet metadata (manifest, subcluster ID, root kref) in Chrome storage
-    7. **Phase 1**: Direct reference passing - Caplet receives services immediately
-  - Handle installation errors (rollback if possible)
+- [~] **Installation Lifecycle** (Partially implemented)
+  - ✓ 1. Validate manifest
+  - [ ] 2. Load bundle (currently bypassed - uses bundleSpec directly)
+  - [ ] 3. Resolve requested services (Phase 1 deferred)
+  - ✓ 4. Create subcluster via `launchSubcluster()`
+  - [ ] 5. Capture Caplet's root kref from launch result (TODO)
+  - ✓ 6. Store Caplet metadata in storage
+  - [ ] 7. Pass resolved service krefs in bootstrap (Phase 1 deferred)
+  - [~] 8. Handle installation errors (basic error handling, no rollback)
 
-**Phase 1 Approach**: Services are resolved at install time and passed directly to Caplets. No dynamic service discovery in Phase 1 - this enables us to reach PoC faster without building the full registry vat architecture.
+**Phase 1 Status**: Basic installation flow works for simple caplets. Service resolution and advanced bundle loading deferred until PoC validation with actual caplet vats.
 
 #### 1.4 Create Omnium Service Registry (DEFERRED to Phase 2)
 
@@ -247,7 +351,9 @@ capabilities.
 
 **Goal**: Define how Caplets use capabilities from other Caplets.
 
-- [ ] **Phase 1: Direct Reference Pattern**
+**Status**: Deferred until we have actual caplet vats to test with.
+
+- [ ] **Phase 1: Direct Reference Pattern** (Design complete, implementation deferred)
 
   - Document the flow in `packages/omnium-gatherum/docs/service-discovery.md`:
     1. Caplet A's manifest declares `requestedServices: ["bitcoin"]`
@@ -277,24 +383,29 @@ capabilities.
 
 **Goal**: Make Caplet installation usable from the Chrome DevTools console.
 
-- [ ] **Expose Caplet Operations on globalThis.omnium**
+- [x] **Expose Caplet Operations on globalThis.omnium**
 
-  - In omnium's background script (`packages/omnium-gatherum/src/background.ts`), add:
-    - `kernel.caplet.install(manifest, bundle)`: Install a Caplet
-      - `manifest`: Caplet manifest object
-      - `bundle`: Inline bundle JSON, file path, or URL
-      - Returns: `Promise<{ capletId, subclusterId }>`
-    - `kernel.caplet.list()`: List installed Caplets
-      - Returns: `Promise<Array<{ id, name, version, subclusterId }>>`
-    - `kernel.caplet.uninstall(capletId)`: Uninstall a Caplet
+  - **Implemented in `packages/omnium-gatherum/src/background.ts`**:
+    - ✓ `globalThis.omnium` object defined and hardened
+    - ✓ `globalThis.E` exposed for manual E() calls
+    - ✓ `omnium.ping()`: Test kernel connectivity
+    - ✓ `omnium.getKernel()`: Get kernel remote presence for E() calls
+    - ✓ `omnium.caplet.install(manifest, bundle?)`: Install a Caplet
+      - Delegates to `E(capletController).install(manifest, bundle)`
+      - Returns: `Promise<InstallResult>` with `{ capletId, subclusterId }`
+    - ✓ `omnium.caplet.uninstall(capletId)`: Uninstall a Caplet
       - Terminates its subcluster and removes from storage
-    - `kernel.service.list()`: List all registered services
-      - Returns: `Promise<Array<{ capletId, serviceName }>>`
-    - `kernel.service.get(serviceName)`: Get a service by name
-      - Returns: `Promise<kref | undefined>`
-  - Harden `kernel.caplet` and `kernel.service` objects
+    - ✓ `omnium.caplet.list()`: List installed Caplets
+      - Returns: `Promise<InstalledCaplet[]>`
+    - ✓ `omnium.caplet.get(capletId)`: Get specific caplet
+      - Returns: `Promise<InstalledCaplet | undefined>`
+    - ✓ `omnium.caplet.getByService(serviceName)`: Find caplet providing a service
+      - Returns: `Promise<InstalledCaplet | undefined>`
+    - ✓ All `omnium.caplet` methods are hardened
+  - **Not yet implemented**:
+    - `omnium.service` namespace (deferred - Phase 2 registry vat)
 
-- [ ] **Example Usage in Console**
+- [ ] **Example Usage in Console** (TODO)
 
   - Create test Caplets in `packages/omnium-gatherum/test/fixtures/`:
     - `echo-caplet`: Simple Caplet that registers an "echo" service
@@ -303,68 +414,90 @@ capabilities.
 
     ```javascript
     // Install echo Caplet
-    await kernel.caplet.install(
-      {
-        id: 'com.example.echo',
-        name: 'Echo Service',
-        version: '1.0.0',
-        bundleSpec: '/path/to/echo.bundle',
-        providedServices: ['echo'],
-      },
-      echoBundle,
-    );
+    await omnium.caplet.install({
+      id: 'com.example.echo',
+      name: 'Echo Service',
+      version: '1.0.0',
+      bundleSpec: '/path/to/echo.bundle',
+      providedServices: ['echo'],
+      requestedServices: [],
+    });
 
     // List installed Caplets
-    await kernel.caplet.list();
+    await omnium.caplet.list();
 
-    // List services
-    await kernel.service.list();
+    // Get specific caplet
+    await omnium.caplet.get('com.example.echo');
 
-    // Install consumer Caplet that uses echo
-    await kernel.caplet.install(consumerManifest, consumerBundle);
+    // Find caplet by service
+    await omnium.caplet.getByService('echo');
+
+    // Uninstall
+    await omnium.caplet.uninstall('com.example.echo');
     ```
+
+**Status**: Core dev console integration complete. Documentation and example fixtures needed.
 
 #### 1.7 Testing
 
 **Goal**: Validate that Caplets can be installed and communicate with each other.
 
-- [ ] **Unit Tests**
+- [x] **Unit Tests** (Implemented)
 
-  - `packages/omnium-gatherum/src/caplet/types.test.ts`: Validate manifest schema
-  - `packages/omnium-gatherum/src/caplet/installer.test.ts`: Test installation logic
-  - `packages/omnium-gatherum/src/services/service-registry.test.ts`: Test service registration/discovery
+  - ✓ `controllers/caplet/types.test.ts`: Validates manifest schema, CapletId, SemVer formats
+  - ✓ `controllers/caplet/caplet-controller.test.ts`: Tests CapletController methods (install, uninstall, list, get, getByService)
+  - ✓ `controllers/base-controller.test.ts`: Tests abstract Controller base class (12 tests)
+  - ✓ `controllers/storage/controller-storage.test.ts`: Tests ControllerStorage with debouncing, accumulation, bounded latency
+  - ✓ `controllers/storage/chrome-storage.test.ts`: Tests ChromeStorageAdapter
+  - ✓ `controllers/facet.test.ts`: Tests makeFacet utility
+  - ✓ `kernel-browser-runtime`: CapTP infrastructure tests (background-captp, kernel-facade, kernel-captp, integration)
 
-- [ ] **Integration Tests**
+- [ ] **Integration Tests** (TODO)
 
+  - Need: End-to-end caplet tests with actual vat bundles
   - `packages/omnium-gatherum/test/caplet-integration.test.ts`:
-    - Install two Caplets
+    - Install two Caplets with real vat code
     - Verify one can discover and call the other's service
-    - Verify message passing works correctly
-    - Test uninstallation
+    - Verify message passing works correctly through kernel
+    - Test uninstallation and cleanup
+    - Test error handling (invalid manifests, launch failures, etc.)
 
-- [ ] **E2E Tests (Playwright)**
-  - `packages/omnium-gatherum/test/e2e/caplet.spec.ts`:
+- [~] **E2E Tests (Playwright)** (Smoke test only)
+  - ✓ `test/e2e/smoke.test.ts`: Basic extension loading
+  - [ ] `test/e2e/caplet.spec.ts`: Full caplet workflow
     - Load omnium extension in browser
     - Use console to install Caplets
     - Verify they can communicate
     - Check DevTools console output
+    - Test UI interactions (if applicable)
 
 #### 1.8 Documentation
 
-- [ ] **Architecture Documentation**
+- [ ] **Architecture Documentation** (TODO)
 
   - Create `packages/omnium-gatherum/docs/architecture.md`:
     - Explain how Caplets relate to subclusters and vats
     - Diagram showing omnium → kernel → Caplet subclusters
-    - Userspace E() infrastructure
+    - Userspace E() infrastructure (CapTP-based)
+    - Controller architecture and storage layer
     - Phase 1: Direct reference passing vs Phase 2: Dynamic service discovery
 
-- [ ] **Developer Guide**
+- [ ] **Developer Guide** (TODO)
+
   - Create `packages/omnium-gatherum/docs/caplet-development.md`:
     - How to write a Caplet vat
+    - Caplet vat contract (buildRootObject, initialization, etc.)
     - Service registration examples
     - Requesting services from other Caplets
     - Testing Caplets locally
+    - Bundle creation with @endo/bundle-source
+
+- [ ] **Dev Console Usage Guide** (TODO)
+  - Create `packages/omnium-gatherum/docs/dev-console-usage.md`:
+    - Using `globalThis.omnium` in Chrome DevTools
+    - Installing/uninstalling caplets
+    - Querying installed caplets and services
+    - Example console workflows
 
 ---
 
