@@ -12,6 +12,8 @@ General conventions:
   - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`)
   - Factory methods: `X.make()`
   - Factory functions: `makeX()`
+- If a function has more than two arguments or could be expected to grow thereto,
+  give it an options bag (i.e. named parameters)
 
 Object capability (ocap) patterns:
 
