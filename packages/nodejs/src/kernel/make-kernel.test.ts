@@ -1,11 +1,7 @@
 import '../env/endoify.ts';
 
 import { Kernel } from '@metamask/ocap-kernel';
-import {
-  MessagePort as NodeMessagePort,
-  MessageChannel as NodeMessageChannel,
-} from 'node:worker_threads';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { makeKernel } from './make-kernel.ts';
 
@@ -19,16 +15,8 @@ vi.mock('@metamask/kernel-store/sqlite/nodejs', async () => {
 });
 
 describe('makeKernel', () => {
-  let kernelPort: NodeMessagePort;
-
-  beforeEach(() => {
-    kernelPort = new NodeMessageChannel().port1;
-  });
-
   it('should return a Kernel', async () => {
-    const kernel = await makeKernel({
-      port: kernelPort,
-    });
+    const kernel = await makeKernel({});
 
     expect(kernel).toBeInstanceOf(Kernel);
   });

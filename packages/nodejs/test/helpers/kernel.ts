@@ -3,9 +3,6 @@ import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
-import { NodeWorkerDuplexStream } from '@metamask/streams';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
-import { MessageChannel as NodeMessageChannel } from 'node:worker_threads';
 
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
@@ -21,24 +18,14 @@ export async function makeTestKernel(
   kernelDatabase: KernelDatabase,
   resetStorage: boolean,
 ): Promise<Kernel> {
-  const port = new NodeMessageChannel().port1;
-  const nodeStream = new NodeWorkerDuplexStream<
-    JsonRpcRequest,
-    JsonRpcResponse
-  >(port);
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
     logger: logger.subLogger({ tags: ['platform-services'] }),
   });
-  const kernel = await Kernel.make(
-    nodeStream,
-    platformServices,
-    kernelDatabase,
-    {
-      resetStorage,
-      logger: logger.subLogger({ tags: ['kernel'] }),
-    },
-  );
+  const kernel = await Kernel.make(platformServices, kernelDatabase, {
+    resetStorage,
+    logger: logger.subLogger({ tags: ['kernel'] }),
+  });
 
   return kernel;
 }

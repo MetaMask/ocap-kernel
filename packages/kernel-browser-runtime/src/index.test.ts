@@ -1,3 +1,5 @@
+import '@ocap/repo-tools/test-utils/mock-endoify';
+
 import { describe, expect, it } from 'vitest';
 
 import * as indexModule from './index.ts';
@@ -9,7 +11,11 @@ describe('index', () => {
       'PlatformServicesServer',
       'connectToKernel',
       'createRelayQueryString',
+      'getCapTPMessage',
       'getRelaysFromCurrentLocation',
+      'isCapTPNotification',
+      'makeBackgroundCapTP',
+      'makeCapTPNotification',
       'makeIframeVatWorker',
       'parseRelayQueryString',
       'receiveInternalConnections',

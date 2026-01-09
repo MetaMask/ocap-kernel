@@ -41,12 +41,12 @@ const staticCopyTargets: readonly (string | Target)[] = [
 ];
 
 const endoifyImportStatement = `import './endoify.js';`;
-const trustedPreludes: PreludeRecord = {
+const trustedPreludes = {
   background: {
     content: endoifyImportStatement,
   },
   'kernel-worker': { content: endoifyImportStatement },
-};
+} satisfies PreludeRecord;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {

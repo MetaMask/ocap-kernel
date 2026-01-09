@@ -1,11 +1,27 @@
-import { RpcClient } from '@metamask/kernel-rpc-methods';
-import { delay } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { E } from '@endo/eventual-send';
+import {
+  makeBackgroundCapTP,
+  makeCapTPNotification,
+  isCapTPNotification,
+  getCapTPMessage,
+} from '@metamask/kernel-browser-runtime';
+import type {
+  KernelFacade,
+  CapTPMessage,
+} from '@metamask/kernel-browser-runtime';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
-import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
+
+import {
+  CapletController,
+  makeChromeStorageAdapter,
+} from './controllers/index.ts';
+import type { CapletManifest, LaunchResult } from './controllers/index.ts';
+
+defineGlobals();
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -74,23 +90,96 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
+  // Create stream for CapTP messages
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  const rpcClient = new RpcClient(
-    kernelMethodSpecs,
-    async (request) => {
-      await offscreenStream.write(request);
+  // Set up CapTP for E() based communication with the kernel
+  const backgroundCapTP = makeBackgroundCapTP({
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      offscreenStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
     },
-    'background:',
-  );
+  });
+
+  // Get the kernel remote presence
+  const kernelP = backgroundCapTP.getKernel();
 
   const ping = async (): Promise<void> => {
-    const result = await rpcClient.call('ping', []);
+    const result = await E(kernelP).ping();
     logger.info(result);
   };
+
+  // Helper to get the kernel remote presence (for use with E())
+  const getKernel = async (): Promise<KernelFacade> => {
+    return kernelP;
+  };
+
+  // Create storage adapter
+  const storageAdapter = makeChromeStorageAdapter();
+
+  // Create CapletController with attenuated kernel access
+  // Controller creates its own storage internally
+  const capletController = await CapletController.make(
+    { logger: logger.subLogger({ tags: ['caplet'] }) },
+    {
+      adapter: storageAdapter,
+      // Wrap launchSubcluster to return subclusterId
+      launchSubcluster: async (
+        config: ClusterConfig,
+      ): Promise<LaunchResult> => {
+        // Get current subcluster count
+        const statusBefore = await E(kernelP).getStatus();
+        const beforeIds = new Set(
+          statusBefore.subclusters.map((subcluster) => subcluster.id),
+        );
+
+        // Launch the subcluster
+        await E(kernelP).launchSubcluster(config);
+
+        // Get status after and find the new subcluster
+        const statusAfter = await E(kernelP).getStatus();
+        const newSubcluster = statusAfter.subclusters.find(
+          (subcluster) => !beforeIds.has(subcluster.id),
+        );
+
+        if (!newSubcluster) {
+          throw new Error('Failed to determine subclusterId after launch');
+        }
+
+        return { subclusterId: newSubcluster.id };
+      },
+      terminateSubcluster: async (subclusterId: string): Promise<void> => {
+        await E(kernelP).terminateSubcluster(subclusterId);
+      },
+    },
+  );
+
+  Object.defineProperties(globalThis.omnium, {
+    ping: {
+      value: ping,
+    },
+    getKernel: {
+      value: getKernel,
+    },
+    caplet: {
+      value: harden({
+        install: async (manifest: CapletManifest, bundle?: unknown) =>
+          E(capletController).install(manifest, bundle),
+        uninstall: async (capletId: string) =>
+          E(capletController).uninstall(capletId),
+        list: async () => E(capletController).list(),
+        get: async (capletId: string) => E(capletController).get(capletId),
+        getByService: async (serviceName: string) =>
+          E(capletController).getByService(serviceName),
+      }),
+    },
+  });
+  harden(globalThis.omnium);
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
@@ -98,13 +187,35 @@ async function main(): Promise<void> {
   });
 
   try {
-    // Pipe responses back to the RpcClient
-    await offscreenStream.drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    );
+    // Handle incoming CapTP messages from the kernel
+    await offscreenStream.drain((message) => {
+      if (isCapTPNotification(message)) {
+        const captpMessage = getCapTPMessage(message);
+        backgroundCapTP.dispatch(captpMessage);
+      }
+    });
   } catch (error) {
     throw new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
   }
+}
+
+/**
+ * Define globals accessible via the background console.
+ */
+function defineGlobals(): void {
+  Object.defineProperty(globalThis, 'omnium', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
+  });
+
+  Object.defineProperty(globalThis, 'E', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: E,
+  });
 }
