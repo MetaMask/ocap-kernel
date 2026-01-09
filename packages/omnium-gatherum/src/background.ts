@@ -18,13 +18,8 @@ import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 import {
   CapletController,
   makeChromeStorageAdapter,
-  makeControllerStorage,
 } from './controllers/index.ts';
-import type {
-  CapletControllerState,
-  CapletManifest,
-  LaunchResult,
-} from './controllers/index.ts';
+import type { CapletManifest, LaunchResult } from './controllers/index.ts';
 
 defineGlobals();
 
@@ -124,22 +119,15 @@ async function main(): Promise<void> {
     return kernelP;
   };
 
-  // Create storage adapter and state storage for caplets
+  // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
-  const defaultCapletState: CapletControllerState = {
-    caplets: {},
-  };
-  const capletStorage = await makeControllerStorage({
-    namespace: 'caplet',
-    adapter: storageAdapter,
-    defaultState: defaultCapletState,
-  });
 
   // Create CapletController with attenuated kernel access
-  const capletController = CapletController.make(
+  // Controller creates its own storage internally
+  const capletController = await CapletController.make(
     { logger: logger.subLogger({ tags: ['caplet'] }) },
     {
-      storage: capletStorage,
+      adapter: storageAdapter,
       // Wrap launchSubcluster to return subclusterId
       launchSubcluster: async (
         config: ClusterConfig,

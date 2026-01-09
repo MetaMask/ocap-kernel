@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Controller } from './base-controller.ts';
 import type { ControllerConfig } from './base-controller.ts';
-import type { ControllerStorage } from './storage/controller-storage.ts';
+import { ControllerStorage } from './storage/controller-storage.ts';
+import type { StorageAdapter } from './storage/types.ts';
+import { makeMockStorageAdapter } from '../../test/utils.ts';
 
 /**
  * Test state for the concrete test controller.
@@ -22,6 +24,8 @@ type TestMethods = {
   removeItem: (id: string) => Promise<void>;
   getItem: (id: string) => Promise<{ name: string; value: number } | undefined>;
   getCount: () => Promise<number>;
+  clearState: () => void;
+  getState: () => Readonly<TestState>;
 };
 
 /**
@@ -38,10 +42,21 @@ class TestController extends Controller<
     harden(this);
   }
 
-  static create(
+  static async make(
     config: ControllerConfig,
-    storage: ControllerStorage<TestState>,
-  ): TestMethods {
+    adapter: StorageAdapter,
+  ): Promise<TestMethods> {
+    const storage = await ControllerStorage.make({
+      namespace: 'test',
+      adapter,
+      defaultState: {
+        items: {},
+        count: 0,
+      },
+      logger: config.logger,
+      debounceMs: 0,
+    });
+
     const controller = new TestController(storage, config.logger);
     return controller.makeFacet();
   }
@@ -54,14 +69,14 @@ class TestController extends Controller<
         value: number,
       ): Promise<void> => {
         this.logger.info(`Adding item: ${id}`);
-        await this.update((draft) => {
+        this.update((draft) => {
           draft.items[id] = { name, value };
           draft.count += 1;
         });
       },
       removeItem: async (id: string): Promise<void> => {
         this.logger.info(`Removing item: ${id}`);
-        await this.update((draft) => {
+        this.update((draft) => {
           delete draft.items[id];
           draft.count -= 1;
         });
@@ -74,48 +89,16 @@ class TestController extends Controller<
       getCount: async (): Promise<number> => {
         return this.state.count;
       },
+      clearState: (): void => {
+        this.clearState();
+      },
+      getState: (): Readonly<TestState> => {
+        return this.state;
+      },
     });
   }
 }
 harden(TestController);
-
-/**
- * Create a mock ControllerStorage for testing.
- *
- * @param initialState - The initial state for the mock storage.
- * @returns A mock ControllerStorage instance with update tracking.
- */
-function createMockStorage(
-  initialState: TestState,
-): ControllerStorage<TestState> & { updateCalls: (() => void)[] } {
-  let currentState = { ...initialState };
-  const updateCalls: (() => void)[] = [];
-
-  return {
-    get state(): Readonly<TestState> {
-      return harden({ ...currentState });
-    },
-
-    async update(producer: (draft: TestState) => void): Promise<void> {
-      // Create a mutable draft
-      const draft = JSON.parse(JSON.stringify(currentState)) as TestState;
-      producer(draft);
-      currentState = draft;
-      updateCalls.push(() => producer(draft));
-    },
-
-    async reload(): Promise<void> {
-      // No-op for tests
-    },
-
-    updateCalls,
-  };
-}
-
-const emptyState: TestState = {
-  items: {},
-  count: 0,
-};
 
 describe('Controller', () => {
   const mockLogger = {
@@ -136,12 +119,11 @@ describe('Controller', () => {
 
   describe('state access', () => {
     it('provides read-only access to state', async () => {
-      const initialState: TestState = {
-        items: { foo: { name: 'Foo', value: 42 } },
-        count: 1,
-      };
-      const mockStorage = createMockStorage(initialState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      await mockAdapter.set('test.items', { foo: { name: 'Foo', value: 42 } });
+      await mockAdapter.set('test.count', 1);
+
+      const controller = await TestController.make(config, mockAdapter);
 
       const item = await controller.getItem('foo');
 
@@ -149,8 +131,8 @@ describe('Controller', () => {
     });
 
     it('returns undefined for non-existent items', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
 
       const item = await controller.getItem('nonexistent');
 
@@ -158,15 +140,14 @@ describe('Controller', () => {
     });
 
     it('reflects initial state count', async () => {
-      const initialState: TestState = {
-        items: {
-          a: { name: 'A', value: 1 },
-          b: { name: 'B', value: 2 },
-        },
-        count: 2,
-      };
-      const mockStorage = createMockStorage(initialState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      await mockAdapter.set('test.items', {
+        a: { name: 'A', value: 1 },
+        b: { name: 'B', value: 2 },
+      });
+      await mockAdapter.set('test.count', 2);
+
+      const controller = await TestController.make(config, mockAdapter);
 
       const count = await controller.getCount();
 
@@ -176,8 +157,8 @@ describe('Controller', () => {
 
   describe('state updates', () => {
     it('updates state through update method', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.addItem('test', 'Test Item', 100);
 
@@ -186,8 +167,8 @@ describe('Controller', () => {
     });
 
     it('increments count when adding items', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.addItem('a', 'Item A', 1);
       await controller.addItem('b', 'Item B', 2);
@@ -197,15 +178,14 @@ describe('Controller', () => {
     });
 
     it('decrements count when removing items', async () => {
-      const initialState: TestState = {
-        items: {
-          a: { name: 'A', value: 1 },
-          b: { name: 'B', value: 2 },
-        },
-        count: 2,
-      };
-      const mockStorage = createMockStorage(initialState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      await mockAdapter.set('test.items', {
+        a: { name: 'A', value: 1 },
+        b: { name: 'B', value: 2 },
+      });
+      await mockAdapter.set('test.count', 2);
+
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.removeItem('a');
 
@@ -214,12 +194,11 @@ describe('Controller', () => {
     });
 
     it('removes item from state', async () => {
-      const initialState: TestState = {
-        items: { foo: { name: 'Foo', value: 42 } },
-        count: 1,
-      };
-      const mockStorage = createMockStorage(initialState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      await mockAdapter.set('test.items', { foo: { name: 'Foo', value: 42 } });
+      await mockAdapter.set('test.count', 1);
+
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.removeItem('foo');
 
@@ -227,22 +206,29 @@ describe('Controller', () => {
       expect(item).toBeUndefined();
     });
 
-    it('calls storage.update for each state modification', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = TestController.create(config, mockStorage);
+    it('persists state modifications to storage', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.addItem('a', 'A', 1);
       await controller.addItem('b', 'B', 2);
       await controller.removeItem('a');
 
-      expect(mockStorage.updateCalls).toHaveLength(3);
+      // Wait for debounced persistence
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Check that state was persisted
+      const items = await mockAdapter.get('test.items');
+      const count = await mockAdapter.get('test.count');
+      expect(items).toStrictEqual({ b: { name: 'B', value: 2 } });
+      expect(count).toBe(1);
     });
   });
 
   describe('logging', () => {
     it('logs through provided logger', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.addItem('test', 'Test', 1);
 
@@ -250,12 +236,11 @@ describe('Controller', () => {
     });
 
     it('logs remove operations', async () => {
-      const initialState: TestState = {
-        items: { foo: { name: 'Foo', value: 42 } },
-        count: 1,
-      };
-      const mockStorage = createMockStorage(initialState);
-      const controller = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      await mockAdapter.set('test.items', { foo: { name: 'Foo', value: 42 } });
+      await mockAdapter.set('test.count', 1);
+
+      const controller = await TestController.make(config, mockAdapter);
 
       await controller.removeItem('foo');
 
@@ -263,24 +248,63 @@ describe('Controller', () => {
     });
   });
 
-  describe('getMethods', () => {
-    it('returns hardened exo with all methods', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const methods = TestController.create(config, mockStorage);
+  describe('clearState', () => {
+    it('clears state through clearState method', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
+      await controller.addItem('a', 'A', 1);
 
-      expect(typeof methods.addItem).toBe('function');
-      expect(typeof methods.removeItem).toBe('function');
-      expect(typeof methods.getItem).toBe('function');
-      expect(typeof methods.getCount).toBe('function');
+      const stateBefore = controller.getState();
+      expect(stateBefore.items).toStrictEqual({ a: { name: 'A', value: 1 } });
+      expect(stateBefore.count).toBe(1);
+
+      controller.clearState();
+
+      const stateAfter = controller.getState();
+      expect(stateAfter.items).toStrictEqual({});
+      expect(stateAfter.count).toBe(0);
+    });
+
+    it('persists cleared state', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await TestController.make(config, mockAdapter);
+      await controller.addItem('a', 'A', 1);
+
+      // Wait for persistence
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      controller.clearState();
+
+      // Wait for persistence
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const items = await mockAdapter.get('test.items');
+      const count = await mockAdapter.get('test.count');
+      expect(items).toStrictEqual({});
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('makeFacet', () => {
+    it('returns hardened exo with all methods', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const facet = await TestController.make(config, mockAdapter);
+
+      expect(typeof facet.addItem).toBe('function');
+      expect(typeof facet.removeItem).toBe('function');
+      expect(typeof facet.getItem).toBe('function');
+      expect(typeof facet.getCount).toBe('function');
+      expect(typeof facet.clearState).toBe('function');
+      expect(typeof facet.getState).toBe('function');
     });
 
     it('methods work correctly through exo', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const methods = TestController.create(config, mockStorage);
+      const mockAdapter = makeMockStorageAdapter();
+      const facet = await TestController.make(config, mockAdapter);
 
-      await methods.addItem('x', 'X', 10);
-      const item = await methods.getItem('x');
-      const count = await methods.getCount();
+      await facet.addItem('x', 'X', 10);
+      const item = await facet.getItem('x');
+      const count = await facet.getCount();
 
       expect(item).toStrictEqual({ name: 'X', value: 10 });
       expect(count).toBe(1);
