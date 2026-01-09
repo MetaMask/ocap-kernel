@@ -44,6 +44,7 @@ TypeScript:
 - Prefer `type`; do not use `interface` declarations
 - Prefer `#` private fields over `private` class fields
 - Never use the `any` type
+- Never use `enum`:s; always use string literal unions instead
 
 File and directory structure:
 
