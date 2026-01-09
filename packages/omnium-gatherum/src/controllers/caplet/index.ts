@@ -16,8 +16,8 @@ export {
   CapletManifestStruct,
 } from './types.ts';
 export type {
-  CapletControllerMethods,
+  CapletControllerFacet,
   CapletControllerDeps,
   CapletControllerState,
 } from './caplet-controller.ts';
-export { makeCapletController } from './caplet-controller.ts';
+export { CapletController } from './caplet-controller.ts';
