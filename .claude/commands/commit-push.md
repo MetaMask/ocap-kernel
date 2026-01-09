@@ -14,10 +14,6 @@ Arguments: $ARGUMENTS
 
 1. Run `/commit $ARGUMENTS` to commit the changes.
 
-   - `git status` to see all untracked files
-   - `git diff HEAD` to see both staged and unstaged changes
-   - `git log --oneline -10` to see recent commit messages for style consistency
-
 2. Push to the remote repository:
 
    - Run `git push` to push the commit
