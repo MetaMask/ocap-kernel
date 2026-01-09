@@ -1,12 +1,21 @@
 import { makeCapTP } from '@endo/captp';
-import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 import type { JsonRpcMessage, JsonRpcCall } from '@metamask/kernel-utils';
-import { hasProperty } from '@metamask/utils';
+import type { Json, JsonRpcNotification } from '@metamask/utils';
+
+import type { KernelFacade } from './types.ts';
 
 /**
  * A CapTP message that can be sent over the wire.
  */
-export type CapTPMessage = Record<string, unknown>;
+export type CapTPMessage = Record<string, Json>;
+
+/**
+ * A CapTP JSON-RPC notification.
+ */
+export type CapTPNotification = JsonRpcNotification & {
+  method: 'captp';
+  params: [CapTPMessage];
+};
 
 /**
  * Check if a message is a CapTP JSON-RPC notification.
@@ -14,14 +23,11 @@ export type CapTPMessage = Record<string, unknown>;
  * @param message - The message to check.
  * @returns True if the message is a CapTP notification.
  */
-export function isCapTPNotification(message: JsonRpcMessage): boolean {
-  return (
-    hasProperty(message, 'method') &&
-    message.method === 'captp' &&
-    hasProperty(message, 'params') &&
-    Array.isArray(message.params) &&
-    message.params.length === 1
-  );
+export function isCapTPNotification(
+  message: JsonRpcMessage,
+): message is CapTPNotification {
+  const { method, params } = message as JsonRpcCall;
+  return method === 'captp' && Array.isArray(params) && params.length === 1;
 }
 
 /**

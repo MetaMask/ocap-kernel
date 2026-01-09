@@ -10,13 +10,17 @@ import {
   receiveMessagePort,
 } from '@metamask/streams/browser';
 
-import { makeKernelCapTP } from './captp/index.ts';
-import { makeMessageRouter } from './captp/message-router.ts';
+import {
+  isCapTPNotification,
+  makeCapTPNotification,
+} from '../background-captp.ts';
+import type { CapTPMessage } from '../background-captp.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
+import { makeKernelCapTP } from './captp/index.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
+import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -32,13 +36,13 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  // Initialize other kernel dependencies
-  const [messageRouter, platformServicesClient, kernelDatabase] =
+  // Initialize kernel dependencies
+  const [messageStream, platformServicesClient, kernelDatabase] =
     await Promise.all([
       MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
         port,
         isJsonRpcMessage,
-      ).then((stream) => makeMessageRouter(stream)),
+      ),
       PlatformServicesClient.make(globalThis as PostMessageTarget),
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
@@ -47,23 +51,19 @@ async function main(): Promise<void> {
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
-  // Create kernel with the filtered stream (only sees non-CapTP messages)
-  const kernelP = Kernel.make(
-    messageRouter.kernelStream,
-    platformServicesClient,
-    kernelDatabase,
-    {
-      resetStorage,
-    },
-  );
+  const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
+    resetStorage,
+  });
+
+  // Set up internal RPC server for UI panel connections (uses separate MessagePorts)
   const handlerP = kernelP.then((kernel) => {
     const server = new JsonRpcServer({
       middleware: [
-        makeLoggingMiddleware(logger.subLogger('kernel-command')),
+        makeLoggingMiddleware(logger.subLogger('internal-rpc')),
         makePanelMessageMiddleware(kernel, kernelDatabase),
       ],
     });
-    return async (request: JsonRpcCall) => server.handle(request);
+    return async (request: JsonRpcMessage) => server.handle(request);
   });
 
   receiveInternalConnections({
@@ -76,14 +76,25 @@ async function main(): Promise<void> {
   // Set up CapTP for background ↔ kernel communication
   const kernelCapTP = makeKernelCapTP({
     kernel,
-    send: messageRouter.sendCapTP,
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      messageStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
+    },
   });
-  messageRouter.setCapTPDispatch(kernelCapTP.dispatch);
 
-  // Start the message router (routes incoming messages to kernel or CapTP)
-  messageRouter.start().catch((error) => {
-    logger.error('Message router error:', error);
-  });
+  // Handle incoming CapTP messages from the background
+  messageStream
+    .drain((message) => {
+      if (isCapTPNotification(message)) {
+        const captpMessage = message.params[0];
+        kernelCapTP.dispatch(captpMessage);
+      }
+    })
+    .catch((error) => {
+      logger.error('Message stream error:', error);
+    });
 
   // Initialize remote communications with the relay server passed in the query string
   const relays = getRelaysFromCurrentLocation();

@@ -1,6 +1,6 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 
-// Type declarations for omnium dev console API.
+// Type declarations for kernel dev console API.
 declare global {
   /**
    * The E() function from @endo/eventual-send for making eventual sends.
@@ -8,7 +8,7 @@ declare global {
    *
    * @example
    * ```typescript
-   * const kernel = await omnium.getKernel();
+   * const kernel = await kernel.getKernel();
    * const status = await E(kernel).getStatus();
    * ```
    */
@@ -16,7 +16,7 @@ declare global {
   var E: typeof import('@endo/eventual-send').E;
 
   // eslint-disable-next-line no-var
-  var omnium: {
+  var kernel: {
     /**
      * Ping the kernel to verify connectivity.
      */
@@ -28,7 +28,7 @@ declare global {
      * @returns A promise for the kernel facade remote presence.
      * @example
      * ```typescript
-     * const kernel = await omnium.getKernel();
+     * const kernel = await kernel.getKernel();
      * const status = await E(kernel).getStatus();
      * ```
      */

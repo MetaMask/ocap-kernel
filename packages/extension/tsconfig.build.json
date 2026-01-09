@@ -21,10 +21,5 @@
     { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" }
   ],
-  "include": [
-    "./src/**/*.ts",
-    "./src/**/*.tsx",
-    "./src/**/*-trusted-prelude.js",
-    "./src/env/dev-console.js"
-  ]
+  "include": ["./src/**/*.ts", "./src/**/*.tsx"]
 }
