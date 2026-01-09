@@ -1,5 +1,5 @@
 {
-  "permissiosn": {
+  "permissions": {
     "allow": ["Skill(code-review)", "Skill(glossary)"],
     "deny": ["Read(**/.env)", "Read(**/.env.*)"]
   }
