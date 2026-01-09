@@ -1,6 +1,7 @@
 ---
 name: check
 description: Lints, builds, and tests the code.
+argument-hint: [package-name]
 allowed-tools:
   - Bash(yarn lint*)
   - Bash(yarn build*)
