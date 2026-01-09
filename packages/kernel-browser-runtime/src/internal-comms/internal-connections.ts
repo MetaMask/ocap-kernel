@@ -102,9 +102,17 @@ const connectToInternalProcess = async (
   return stream;
 };
 
-type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
-  handleInternalMessage: HandleInternalMessage;
-};
+type ReceiveConnectionsOptions = Omit<Options, 'label'> &
+  (
+    | {
+        handler: HandleInternalMessage;
+        handlerPromise?: never;
+      }
+    | {
+        handler?: never;
+        handlerPromise: Promise<HandleInternalMessage>;
+      }
+  );
 
 /**
  * Listens for connections between the kernel and an internal process, e.g. a UI instance.
@@ -112,16 +120,33 @@ type ReceiveConnectionsOptions = Omit<Options, 'label'> & {
  * processes have attempted to connect.
  *
  * @param options - The options for the connection.
- * @param options.handleInternalMessage - The function to handle the internal message.
+ * @param options.handler - The function to handle internal messages. Mutually exclusive
+ * with `handlerPromise`.
+ * @param options.handlerPromise - A promise that resolves to the handler function.
+ * Mutually exclusive with `handler`.
  * @param options.logger - The logger instance.
  * @param options.controlChannelName - The name of the control channel. Must match
  * the name used by {@link connectToKernel} on the other end.
  */
 export const receiveInternalConnections = ({
-  handleInternalMessage,
+  handler: directHandler,
+  handlerPromise,
   logger,
   controlChannelName = COMMS_CONTROL_CHANNEL_NAME,
 }: ReceiveConnectionsOptions): void => {
+  let handler: HandleInternalMessage | null = null;
+  let handlerReady: Promise<HandleInternalMessage>;
+
+  if (handlerPromise === undefined) {
+    handler = directHandler;
+    handlerReady = Promise.resolve(directHandler);
+  } else {
+    handlerReady = handlerPromise.then((resolvedHandler) => {
+      handler = resolvedHandler;
+      return resolvedHandler;
+    });
+  }
+
   const seenChannels = new Set<string>();
   new BroadcastChannel(controlChannelName).onmessage = (event) => {
     if (!isCommsControlMessage(event.data)) {
@@ -148,7 +173,8 @@ export const receiveInternalConnections = ({
             `Received message from internal process "${channelName}": ${JSON.stringify(message)}`,
           );
 
-          const reply = await handleInternalMessage(message);
+          const messageHandler = handler ?? (await handlerReady);
+          const reply = await messageHandler(message);
           if (reply !== undefined) {
             await kernelRpcStream.write(reply);
           }

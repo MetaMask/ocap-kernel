@@ -54,18 +54,18 @@ async function main(): Promise<void> {
       resetStorage,
     },
   );
-  const serverP = kernelP.then((kernel) => {
-    return new JsonRpcServer({
+  const handlerP = kernelP.then((kernel) => {
+    const server = new JsonRpcServer({
       middleware: [
         makeLoggingMiddleware(logger.subLogger('kernel-command')),
         makePanelMessageMiddleware(kernel, kernelDatabase),
       ],
     });
+    return async (request: JsonRpcCall) => server.handle(request);
   });
 
   receiveInternalConnections({
-    handleInternalMessage: async (request) =>
-      serverP.then(async (rpcServer) => rpcServer.handle(request)),
+    handlerPromise: handlerP,
     logger,
   });
 
