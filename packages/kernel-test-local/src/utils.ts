@@ -1,10 +1,6 @@
 import type { LogEntry } from '@metamask/logger';
 
-// extract ignored logger tags from environment variable
-
-const ignoreTags =
-  // eslint-disable-next-line n/no-process-env
-  process?.env?.LOGGER_IGNORE?.split(',')?.map((tag) => tag.trim()) ?? [];
+import { IGNORE_TAGS } from './constants.ts';
 
 /**
  * Filter a logger transport to ignore command line specified ignore tags.
@@ -15,10 +11,10 @@ const ignoreTags =
 export const filterTransports = (
   ...transports: ((entry: LogEntry) => void)[]
 ): ((entry: LogEntry) => void) =>
-  ignoreTags.includes('all')
+  IGNORE_TAGS.includes('all')
     ? () => undefined
     : (entry) => {
-        if (ignoreTags.some((tag) => entry.tags.includes(tag))) {
+        if (IGNORE_TAGS.some((tag) => entry.tags.includes(tag))) {
           return;
         }
         transports.forEach((transport) => transport(entry));

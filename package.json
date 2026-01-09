@@ -34,6 +34,7 @@
     "test:dev": "yarn test --mode development --reporter dot",
     "test:e2e": "yarn workspaces foreach --all run test:e2e",
     "test:e2e:ci": "yarn workspaces foreach --all run test:e2e:ci",
+    "test:e2e:local": "yarn workspaces foreach --all run test:e2e:local",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest",
     "why:batch": "./scripts/why-batch.sh"
