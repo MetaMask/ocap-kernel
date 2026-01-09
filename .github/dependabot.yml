@@ -9,61 +9,18 @@ updates:
       interval: 'weekly'
       day: 'monday'
       time: '06:00' # UTC
-    target-branch: 'main'
     versioning-strategy: 'increase-if-necessary'
     open-pull-requests-limit: 10
-    groups:
-      vite:
-        # Group all Vite-related dependencies
-        patterns:
-          - 'vite'
-          - 'vite-*'
-          - 'vitest'
-          - '@vitest/*'
-          - '@vitejs/*'
-          - 'jsdom'
-      metamask:
-        # Group MetaMask packages excluding ESLint configs
-        patterns:
-          - '@metamask/*'
-        exclude-patterns:
-          - '@metamask/eslint-*'
-      metamask-eslint:
-        # Separate group for MetaMask ESLint configs
-        patterns:
-          - '@metamask/eslint-*'
-      agoric:
-        # Group Agoric and Endo packages
-        patterns:
-          - '@agoric/*'
-          - '@endo/*'
-          - 'ses'
-      react:
-        # Group React and its type definitions
-        patterns:
-          - 'react'
-          - 'react-dom'
-          - '@types/react'
-          - '@types/react-dom'
-      linting-and-typing:
-        # Group ESLint, TypeScript, and related packages
-        patterns:
-          - 'eslint'
-          - 'eslint-*'
-          - '@typescript-eslint/*'
-          - 'typescript'
-          - 'typescript-*'
-      prettier:
-        # Group Prettier and its plugins
-        patterns:
-          - 'prettier'
-          - 'prettier-*'
-      testing-library:
-        # Group Testing Library packages
-        patterns:
-          - '@testing-library/*'
-      playwright:
-        # Group Playwright packages
-        patterns:
-          - '@playwright/*'
-          - 'playwright'
+    # Allow specific high-value dependency groups
+    allow:
+      - dependency-name: '@metamask/*'
+      - dependency-name: '@agoric/*'
+      - dependency-name: '@endo/*'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '06:00' # UTC
+    open-pull-requests-limit: 10
