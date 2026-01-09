@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { makeCapletController } from './caplet-controller.ts';
+import { CapletController } from './caplet-controller.ts';
 import type { CapletControllerState } from './caplet-controller.ts';
 import type { CapletManifest } from './types.ts';
 import type { ControllerStorage } from '../storage/controller-storage.ts';
@@ -48,7 +48,7 @@ const emptyState: CapletControllerState = {
   caplets: {},
 };
 
-describe('makeCapletController', () => {
+describe('CapletController.make', () => {
   const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
@@ -83,7 +83,7 @@ describe('makeCapletController', () => {
   describe('install', () => {
     it('installs a caplet successfully', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -99,7 +99,7 @@ describe('makeCapletController', () => {
 
     it('validates the manifest', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -123,7 +123,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -136,7 +136,7 @@ describe('makeCapletController', () => {
 
     it('launches subcluster with correct config', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -159,7 +159,7 @@ describe('makeCapletController', () => {
       vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
 
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -187,7 +187,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithOtherCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -203,7 +203,7 @@ describe('makeCapletController', () => {
 
     it('logs installation progress', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -232,7 +232,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -245,7 +245,7 @@ describe('makeCapletController', () => {
 
     it('throws if caplet not found', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -267,7 +267,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -294,7 +294,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -318,7 +318,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -338,7 +338,7 @@ describe('makeCapletController', () => {
   describe('list', () => {
     it('returns empty array when no caplets installed', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -370,7 +370,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -404,7 +404,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -421,7 +421,7 @@ describe('makeCapletController', () => {
 
     it('returns undefined if caplet not found', async () => {
       const mockStorage = createMockStorage(emptyState);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -445,7 +445,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -468,7 +468,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
@@ -501,7 +501,7 @@ describe('makeCapletController', () => {
         },
       };
       const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = makeCapletController(config, {
+      const controller = CapletController.make(config, {
         storage: mockStorage,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,

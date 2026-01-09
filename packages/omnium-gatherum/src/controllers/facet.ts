@@ -35,7 +35,7 @@ type FacetMethods<Source, MethodNames extends MethodKeys<Source>> = Methods & {
  *
  * // CapletController only needs get/set, not clear/getAll
  * const storageFacet = makeFacet('CapletStorage', storageController, ['get', 'set']);
- * const capletController = makeCapletController({ storage: storageFacet });
+ * const capletController = CapletController.make({ storage: storageFacet });
  * ```
  */
 export function makeFacet<
