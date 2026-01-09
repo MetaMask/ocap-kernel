@@ -29,9 +29,15 @@ Object capability (ocap) patterns:
 
 Testing:
 
+- Use `vitest` for testing
 - Always use `toStrictEqual()` for deep object comparisons
+- Use `it.each()` for parameterized tests
+- Use logically nested `describe()` blocks
 - Test titles should use concise verb forms without "should" (e.g., `it('creates and starts libp2p node', ...)` not `it('should create and start libp2p node', ...)`)
 - Avoid negative cases, but if you must, use "does not" instead of "should not" (e.g., `it('does not duplicate relays', ...)`)
+- Mock functions with `vi.fn()` and explicit return types
+- Mock external dependencies using vitest's `vi.mock()`
+- Aim for complete unit test coverage when writing tests
 
 TypeScript:
 

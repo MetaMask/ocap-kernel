@@ -3,7 +3,7 @@ name: glossary
 description: How to add entries to the glossary
 ---
 
-The [glossary](../../docs/glossary.md) explain terms with specific meanings in this
+The [glossary](../../docs/glossary.md) explains terms with specific meanings in this
 project. When a new term is introduced—or an old term without a glossary entry discovered—
 consider adding the term to the glossary.
 
