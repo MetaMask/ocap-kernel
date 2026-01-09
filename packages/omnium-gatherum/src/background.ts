@@ -16,9 +16,9 @@ import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import {
+  CapletController,
   makeChromeStorageAdapter,
   makeControllerStorage,
-  makeCapletController,
 } from './controllers/index.ts';
 import type {
   CapletControllerState,
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
   });
 
   // Create CapletController with attenuated kernel access
-  const capletController = makeCapletController(
+  const capletController = CapletController.make(
     { logger: logger.subLogger({ tags: ['caplet'] }) },
     {
       storage: capletStorage,

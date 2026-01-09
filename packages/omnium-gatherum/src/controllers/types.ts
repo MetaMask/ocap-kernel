@@ -1,12 +1,7 @@
 import type { Methods } from '@endo/exo';
-import type { Logger } from '@metamask/logger';
 
-/**
- * Configuration passed to all controllers during initialization.
- */
-export type ControllerConfig = {
-  logger: Logger;
-};
+// Re-export from base-controller for backward compatibility
+export type { ControllerConfig, ControllerMethods } from './base-controller.ts';
 
 /**
  * Type helper for defining facet interfaces.
