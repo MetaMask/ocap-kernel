@@ -1,52 +1,25 @@
+import type { Json } from '@metamask/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { CapletController } from './caplet-controller.ts';
-import type { CapletControllerState } from './caplet-controller.ts';
 import type { CapletManifest } from './types.ts';
-import type { ControllerStorage } from '../storage/controller-storage.ts';
+import { makeMockStorageAdapter } from '../../../test/utils.ts';
+import type { StorageAdapter } from '../storage/types.ts';
 import type { ControllerConfig } from '../types.ts';
 
 /**
- * Create a mock ControllerStorage for testing.
- * Maintains in-memory state and tracks update calls.
+ * Seed a mock adapter with caplet controller state.
  *
- * @param initialState - The initial state for the mock storage.
- * @returns A mock ControllerStorage instance with update tracking.
+ * @param adapter - The adapter to seed.
+ * @param caplets - The caplets to pre-populate.
+ * @returns A promise that resolves when seeding is complete.
  */
-function createMockStorage(
-  initialState: CapletControllerState,
-): ControllerStorage<CapletControllerState> & { updateCalls: (() => void)[] } {
-  let currentState = { ...initialState };
-  const updateCalls: (() => void)[] = [];
-
-  return {
-    get state(): Readonly<CapletControllerState> {
-      return harden({ ...currentState });
-    },
-
-    async update(
-      producer: (draft: CapletControllerState) => void,
-    ): Promise<void> {
-      // Create a mutable draft
-      const draft = JSON.parse(
-        JSON.stringify(currentState),
-      ) as CapletControllerState;
-      producer(draft);
-      currentState = draft;
-      updateCalls.push(() => producer(draft));
-    },
-
-    async reload(): Promise<void> {
-      // No-op for tests
-    },
-
-    updateCalls,
-  };
+async function seedAdapter(
+  adapter: StorageAdapter,
+  caplets: Record<string, unknown>,
+): Promise<void> {
+  await adapter.set('caplet.caplets', caplets as Json);
 }
-
-const emptyState: CapletControllerState = {
-  caplets: {},
-};
 
 describe('CapletController.make', () => {
   const mockLogger = {
@@ -82,9 +55,9 @@ describe('CapletController.make', () => {
 
   describe('install', () => {
     it('installs a caplet successfully', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -98,9 +71,9 @@ describe('CapletController.make', () => {
     });
 
     it('validates the manifest', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -113,18 +86,16 @@ describe('CapletController.make', () => {
     });
 
     it('throws if caplet already installed', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -135,9 +106,9 @@ describe('CapletController.make', () => {
     });
 
     it('launches subcluster with correct config', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -158,16 +129,16 @@ describe('CapletController.make', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
 
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
 
       await controller.install(validManifest);
 
-      const caplet = mockStorage.state.caplets['com.example.test'];
+      const caplet = await controller.get('com.example.test');
       expect(caplet).toBeDefined();
       expect(caplet?.manifest).toStrictEqual(validManifest);
       expect(caplet?.subclusterId).toBe('subcluster-123');
@@ -177,34 +148,31 @@ describe('CapletController.make', () => {
     });
 
     it('preserves existing caplets when installing', async () => {
-      const stateWithOtherCaplet: CapletControllerState = {
-        caplets: {
-          'com.other.caplet': {
-            manifest: { ...validManifest, id: 'com.other.caplet' },
-            subclusterId: 'subcluster-other',
-            installedAt: 500,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.other.caplet': {
+          manifest: { ...validManifest, id: 'com.other.caplet' },
+          subclusterId: 'subcluster-other',
+          installedAt: 500,
         },
-      };
-      const mockStorage = createMockStorage(stateWithOtherCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
 
       await controller.install(validManifest);
 
-      expect(Object.keys(mockStorage.state.caplets)).toStrictEqual([
-        'com.other.caplet',
-        'com.example.test',
-      ]);
+      const caplets = await controller.list();
+      const capletIds = caplets.map((caplet) => caplet.manifest.id).sort();
+      expect(capletIds).toStrictEqual(['com.example.test', 'com.other.caplet']);
     });
 
     it('logs installation progress', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -222,18 +190,16 @@ describe('CapletController.make', () => {
 
   describe('uninstall', () => {
     it('uninstalls a caplet successfully', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -244,9 +210,9 @@ describe('CapletController.make', () => {
     });
 
     it('throws if caplet not found', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -257,69 +223,64 @@ describe('CapletController.make', () => {
     });
 
     it('removes caplet from state', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
 
       await controller.uninstall('com.example.test');
 
-      expect(mockStorage.state.caplets['com.example.test']).toBeUndefined();
+      const caplet = await controller.get('com.example.test');
+      expect(caplet).toBeUndefined();
     });
 
     it('preserves other caplets when uninstalling', async () => {
-      const stateWithCaplets: CapletControllerState = {
-        caplets: {
-          'com.other.caplet': {
-            manifest: { ...validManifest, id: 'com.other.caplet' },
-            subclusterId: 'subcluster-other',
-            installedAt: 500,
-          },
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.other.caplet': {
+          manifest: { ...validManifest, id: 'com.other.caplet' },
+          subclusterId: 'subcluster-other',
+          installedAt: 500,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
+        },
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
 
       await controller.uninstall('com.example.test');
 
-      expect(Object.keys(mockStorage.state.caplets)).toStrictEqual([
-        'com.other.caplet',
-      ]);
+      const caplets = await controller.list();
+      const capletIds = caplets.map((caplet) => caplet.manifest.id);
+      expect(capletIds).toStrictEqual(['com.other.caplet']);
     });
 
     it('logs uninstallation progress', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -337,9 +298,9 @@ describe('CapletController.make', () => {
 
   describe('list', () => {
     it('returns empty array when no caplets installed', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -355,23 +316,21 @@ describe('CapletController.make', () => {
         id: 'com.example.test2',
         name: 'Test Caplet 2',
       };
-      const stateWithCaplets: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-1',
-            installedAt: 1000,
-          },
-          'com.example.test2': {
-            manifest: manifest2,
-            subclusterId: 'subcluster-2',
-            installedAt: 2000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-1',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+        'com.example.test2': {
+          manifest: manifest2,
+          subclusterId: 'subcluster-2',
+          installedAt: 2000,
+        },
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -394,18 +353,16 @@ describe('CapletController.make', () => {
 
   describe('get', () => {
     it('returns caplet if exists', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1705320000000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1705320000000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -420,9 +377,9 @@ describe('CapletController.make', () => {
     });
 
     it('returns undefined if caplet not found', async () => {
-      const mockStorage = createMockStorage(emptyState);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -435,18 +392,16 @@ describe('CapletController.make', () => {
 
   describe('getByService', () => {
     it('returns caplet providing the service', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -458,18 +413,16 @@ describe('CapletController.make', () => {
     });
 
     it('returns undefined if no caplet provides the service', async () => {
-      const stateWithCaplet: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-123',
-            installedAt: 1000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplet);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });
@@ -486,23 +439,21 @@ describe('CapletController.make', () => {
         name: 'Test Caplet 2',
         providedServices: ['signer', 'verifier'],
       };
-      const stateWithCaplets: CapletControllerState = {
-        caplets: {
-          'com.example.test': {
-            manifest: validManifest,
-            subclusterId: 'subcluster-1',
-            installedAt: 1000,
-          },
-          'com.example.test2': {
-            manifest: manifest2,
-            subclusterId: 'subcluster-2',
-            installedAt: 2000,
-          },
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-1',
+          installedAt: 1000,
         },
-      };
-      const mockStorage = createMockStorage(stateWithCaplets);
-      const controller = CapletController.make(config, {
-        storage: mockStorage,
+        'com.example.test2': {
+          manifest: manifest2,
+          subclusterId: 'subcluster-2',
+          installedAt: 2000,
+        },
+      });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
       });

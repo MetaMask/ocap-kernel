@@ -27,7 +27,7 @@ export type ControllerConfig = {
  * Subclasses must:
  * - Call `super()` in constructor with name, storage, and logger
  * - Call `harden(this)` at the end of their constructor
- * - Implement `getMethods()` to return a hardened exo with public API
+ * - Implement `makeFacet()` to return a hardened exo with public API
  *
  * @template ControllerName - Literal string type for the controller name
  * @template State - The state object shape (must be JSON-serializable)
@@ -43,10 +43,10 @@ export type ControllerConfig = {
  *
  *   static create(config: ControllerConfig, deps: MyDeps): MyMethods {
  *     const controller = new MyController(deps.storage, config.logger);
- *     return controller.getMethods();
+ *     return controller.makeFacet();
  *   }
  *
- *   getMethods(): MyMethods {
+ *   makeFacet(): MyMethods {
  *     return makeDefaultExo('MyController', { ... });
  *   }
  * }
@@ -111,13 +111,20 @@ export abstract class Controller<
 
   /**
    * Update state using an immer producer function.
-   * Persistence is handled automatically by the storage layer.
+   * State is updated synchronously in memory.
+   * Persistence is handled automatically by the storage layer (debounced).
    *
    * @param producer - Function that mutates a draft of the state.
-   * @returns Promise that resolves when changes are persisted.
    */
-  protected async update(producer: (draft: State) => void): Promise<void> {
-    await this.#storage.update(producer);
+  protected update(producer: (draft: State) => void): void {
+    this.#storage.update(producer);
+  }
+
+  /**
+   * Clear storage and reset to default state.
+   */
+  clearState(): void {
+    this.#storage.clear();
   }
 
   /**

@@ -12,7 +12,8 @@ import type {
 import { isCapletManifest } from './types.ts';
 import { Controller } from '../base-controller.ts';
 import type { ControllerConfig } from '../base-controller.ts';
-import type { ControllerStorage } from '../storage/controller-storage.ts';
+import { ControllerStorage } from '../storage/controller-storage.ts';
+import type { StorageAdapter } from '../storage/types.ts';
 
 /**
  * Caplet controller persistent state.
@@ -76,8 +77,8 @@ export type CapletControllerFacet = {
  * These are attenuated - only the methods needed are provided.
  */
 export type CapletControllerDeps = {
-  /** State storage for caplet data */
-  storage: ControllerStorage<CapletControllerState>;
+  /** Storage adapter for creating controller storage */
+  adapter: StorageAdapter;
   /** Launch a subcluster for a caplet */
   launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
   /** Terminate a caplet's subcluster */
@@ -129,12 +130,20 @@ export class CapletController extends Controller<
    * @param deps - Controller dependencies (attenuated for POLA).
    * @returns A hardened CapletController exo.
    */
-  static make(
+  static async make(
     config: ControllerConfig,
     deps: CapletControllerDeps,
-  ): CapletControllerFacet {
+  ): Promise<CapletControllerFacet> {
+    // Create storage internally
+    const storage = await ControllerStorage.make({
+      namespace: 'caplet',
+      adapter: deps.adapter,
+      defaultState: { caplets: {} },
+      logger: config.logger.subLogger({ tags: ['storage'] }),
+    });
+
     const controller = new CapletController(
-      deps.storage,
+      storage,
       config.logger,
       deps.launchSubcluster,
       deps.terminateSubcluster,
@@ -209,8 +218,7 @@ export class CapletController extends Controller<
     // Launch subcluster
     const { subclusterId } = await this.#launchSubcluster(clusterConfig);
 
-    // Store caplet data
-    await this.update((draft) => {
+    this.update((draft) => {
       draft.caplets[id] = {
         manifest,
         subclusterId,
@@ -238,8 +246,7 @@ export class CapletController extends Controller<
     // Terminate the subcluster
     await this.#terminateSubcluster(caplet.subclusterId);
 
-    // Remove from storage
-    await this.update((draft) => {
+    this.update((draft) => {
       delete draft.caplets[capletId];
     });
 
