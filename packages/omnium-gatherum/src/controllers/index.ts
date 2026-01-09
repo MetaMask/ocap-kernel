@@ -7,13 +7,11 @@ export { makeFacet } from './facet.ts';
 export type {
   NamespacedStorage,
   StorageAdapter,
-  ControllerStorage,
   ControllerStorageConfig,
 } from './storage/index.ts';
 export {
   makeChromeStorageAdapter,
-  makeNamespacedStorage,
-  makeControllerStorage,
+  ControllerStorage,
 } from './storage/index.ts';
 
 // Caplet

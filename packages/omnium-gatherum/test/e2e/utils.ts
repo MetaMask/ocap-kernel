@@ -6,7 +6,7 @@ export { sessionPath } from '@ocap/repo-tools/test-utils/extension';
 
 const extensionPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../dist',
+  '../../dist',
 );
 
 export const loadExtension = async (contextId?: string) => {

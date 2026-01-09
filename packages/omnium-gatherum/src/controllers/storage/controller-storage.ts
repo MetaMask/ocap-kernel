@@ -1,3 +1,4 @@
+import type { Logger } from '@metamask/logger';
 import type { Json } from '@metamask/utils';
 import { enablePatches, produce } from 'immer';
 import type { Patch } from 'immer';
@@ -21,7 +22,20 @@ export type ControllerStorageConfig<State extends Record<string, Json>> = {
   adapter: StorageAdapter;
   /** Default state values - used for initialization and type inference */
   defaultState: State;
+  /** Logger for storage operations */
+  logger: Logger;
+  /** Debounce delay in milliseconds (default: 100, set to 0 for tests) */
+  debounceMs?: number;
 };
+
+/**
+ * Internal options passed to constructor after async initialization.
+ */
+type ControllerStorageOptions<State extends Record<string, Json>> =
+  ControllerStorageConfig<State> & {
+    /** Initial state loaded from storage */
+    initialState: State;
+  };
 
 /**
  * ControllerStorage provides a simplified state management interface for controllers.
@@ -29,100 +43,100 @@ export type ControllerStorageConfig<State extends Record<string, Json>> = {
  * Features:
  * - Flat top-level key mapping: `state.foo` maps to `{namespace}.foo` in storage
  * - Immer-based updates with automatic change detection
+ * - Synchronous state updates with debounced persistence
  * - Only modified top-level keys are persisted
+ * - Fire-and-forget persistence (errors logged but don't rollback state)
  * - Eager loading on initialization
  *
  * @template State - The state object type (must have Json-serializable values)
  */
-export type ControllerStorage<State extends Record<string, Json>> = {
-  /**
-   * Current state (readonly, hardened).
-   * Access individual properties: `storage.state.installed`
-   */
-  readonly state: Readonly<State>;
+export class ControllerStorage<State extends Record<string, Json>> {
+  readonly #adapter: StorageAdapter;
+
+  readonly #prefix: string;
+
+  readonly #defaultState: State;
+
+  readonly #logger: Logger;
+
+  readonly #debounceMs: number;
+
+  #state: State;
+
+  #pendingPersist: ReturnType<typeof setTimeout> | null = null;
+
+  readonly #pendingKeys: Set<string> = new Set();
+
+  #lastWriteTime: number = 0;
 
   /**
-   * Update state using an immer producer function.
-   * Only modified top-level keys will be persisted to storage.
+   * Private constructor - use static make() factory method.
    *
-   * @param producer - Function that mutates a draft of the state
-   * @returns Promise that resolves when changes are persisted
-   * @throws If storage persistence fails (state remains unchanged)
+   * @param options - Configuration including initial loaded state.
+   */
+  // eslint-disable-next-line no-restricted-syntax -- TypeScript doesn't support # for constructors
+  private constructor(options: ControllerStorageOptions<State>) {
+    this.#adapter = options.adapter;
+    this.#prefix = `${options.namespace}.`;
+    this.#defaultState = options.defaultState;
+    this.#logger = options.logger;
+    this.#debounceMs = options.debounceMs ?? 100;
+    this.#state = options.initialState;
+  }
+
+  /**
+   * Create a ControllerStorage instance for a controller.
+   *
+   * This factory function:
+   * 1. Loads existing state from storage for the namespace
+   * 2. Merges with defaults (storage values take precedence)
+   * 3. Returns a hardened ControllerStorage instance
+   *
+   * @param config - Configuration including namespace, adapter, and default state.
+   * @returns Promise resolving to a hardened ControllerStorage instance.
    *
    * @example
    * ```typescript
-   * await storage.update(draft => {
+   * const capletState = await ControllerStorage.make({
+   *   namespace: 'caplet',
+   *   adapter: storageAdapter,
+   *   defaultState: { installed: [], manifests: {} },
+   *   logger: logger.subLogger({ tags: ['storage'] }),
+   * });
+   *
+   * // Read state
+   * console.log(capletState.state.installed);
+   *
+   * // Update state (synchronous)
+   * capletState.update(draft => {
    *   draft.installed.push('com.example.app');
-   *   draft.manifests['com.example.app'] = manifest;
    * });
    * ```
    */
-  update: (producer: (draft: State) => void) => Promise<void>;
-
-  /**
-   * Force reload state from storage.
-   * Useful for syncing after external storage changes.
-   */
-  reload: () => Promise<void>;
-};
-
-/**
- * Create a ControllerStorage instance for a controller.
- *
- * This factory function:
- * 1. Loads existing state from storage for the namespace
- * 2. Merges with defaults (storage values take precedence)
- * 3. Returns a hardened ControllerStorage interface
- *
- * @param config - Configuration including namespace, adapter, and default state.
- * @returns Promise resolving to a hardened ControllerStorage instance.
- *
- * @example
- * ```typescript
- * const capletState = await makeControllerStorage({
- *   namespace: 'caplet',
- *   adapter: storageAdapter,
- *   defaultState: { installed: [], manifests: {} }
- * });
- *
- * // Read state
- * console.log(capletState.state.installed);
- *
- * // Update state
- * await capletState.update(draft => {
- *   draft.installed.push('com.example.app');
- * });
- * ```
- */
-export async function makeControllerStorage<State extends Record<string, Json>>(
-  config: ControllerStorageConfig<State>,
-): Promise<ControllerStorage<State>> {
-  const { namespace, adapter, defaultState } = config;
-  const prefix = `${namespace}.`;
-
-  /**
-   * Build a storage key from a state property name.
-   *
-   * @param stateKey - The state property name.
-   * @returns The namespaced storage key.
-   */
-  const buildKey = (stateKey: string): string => `${prefix}${stateKey}`;
-
-  /**
-   * Strip namespace prefix from a storage key.
-   *
-   * @param fullKey - The full namespaced storage key.
-   * @returns The state property name without prefix.
-   */
-  const stripPrefix = (fullKey: string): string => fullKey.slice(prefix.length);
+  static async make<State extends Record<string, Json>>(
+    config: ControllerStorageConfig<State>,
+  ): Promise<ControllerStorage<State>> {
+    const initialState = await this.#loadState(config);
+    return harden(
+      new ControllerStorage({
+        ...config,
+        initialState,
+      }),
+    );
+  }
 
   /**
    * Load all state from storage, merging with defaults.
    * Storage values take precedence over defaults.
    *
+   * @param config - Configuration with adapter, namespace, and defaults.
    * @returns The merged state object.
    */
-  const loadState = async (): Promise<State> => {
+  static async #loadState<State extends Record<string, Json>>(
+    config: ControllerStorageConfig<State>,
+  ): Promise<State> {
+    const { namespace, adapter, defaultState } = config;
+    const prefix = `${namespace}.`;
     const allKeys = await adapter.keys(prefix);
 
     // Start with a copy of defaults
@@ -131,7 +145,7 @@ export async function makeControllerStorage<State extends Record<string, Json>>(
     // Load and merge values from storage
     await Promise.all(
       allKeys.map(async (fullKey) => {
-        const key = stripPrefix(fullKey) as keyof State;
+        const key = fullKey.slice(prefix.length) as keyof State;
         const value = await adapter.get<Json>(fullKey);
         if (value !== undefined) {
           state[key] = value as State[keyof State];
@@ -142,26 +156,136 @@ export async function makeControllerStorage<State extends Record<string, Json>>(
     return produce({}, (draft) => {
       Object.assign(draft, state);
     }) as State;
-  };
+  }
 
   /**
-   * Persist specific keys to storage.
+   * Current state (readonly, deeply frozen by immer).
+   * Access individual properties: `storage.state.installed`
    *
-   * @param stateToSave - The state object containing values to persist.
+   * @returns The current readonly state.
+   */
+  get state(): Readonly<State> {
+    return this.#state;
+  }
+
+  /**
+   * Update state using an immer producer function.
+   * State is updated synchronously in memory.
+   * Persistence is queued and debounced (fire-and-forget).
+   *
+   * @param producer - Function that mutates a draft of the state or returns new state
+   *
+   * @example
+   * ```typescript
+   * // Mutate draft
+   * storage.update(draft => {
+   *   draft.installed.push('com.example.app');
+   *   draft.manifests['com.example.app'] = manifest;
+   * });
+   */
+  update(producer: (draft: State) => void | State): void {
+    // Capture state before operations to avoid race conditions
+    const stateSnapshot = this.#state;
+
+    // Use immer's produce with patches callback to track changes
+    let patches: Patch[] = [];
+    const nextState = produce(stateSnapshot, producer, (patchList) => {
+      patches = patchList;
+    });
+
+    // No changes - nothing to do
+    if (patches.length === 0) {
+      return;
+    }
+
+    // Update in-memory state immediately
+    this.#state = nextState;
+
+    // Queue debounced persistence (fire-and-forget)
+    this.#schedulePersist(patches);
+  }
+
+  /**
+   * Clear all state and reset to default values.
+   * Updates state synchronously, persistence is debounced.
+   */
+  clear(): void {
+    this.update((draft) => {
+      Object.assign(draft, this.#defaultState);
+    });
+  }
+
+  /**
+   * Schedule debounced persistence with key accumulation.
+   * Implements bounded latency (timer not reset) and immediate writes after idle.
+   *
+   * @param patches - Immer patches describing changes.
+   */
+  #schedulePersist(patches: Patch[]): void {
+    const now = Date.now();
+    const timeSinceLastWrite = now - this.#lastWriteTime;
+    this.#lastWriteTime = now;
+
+    const modifiedKeys = this.#getModifiedKeys(patches);
+    for (const key of modifiedKeys) {
+      this.#pendingKeys.add(key);
+    }
+
+    if (
+      timeSinceLastWrite > this.#debounceMs &&
+      this.#pendingPersist === null
+    ) {
+      this.#flushPendingWrites();
+      return;
+    }
+
+    if (this.#pendingPersist === null) {
+      this.#pendingPersist = setTimeout(() => {
+        this.#flushPendingWrites();
+      }, this.#debounceMs);
+    }
+    // else: timer already running, just accumulate keys, don't reset
+  }
+
+  /**
+   * Flush pending writes to storage.
+   * Captures accumulated keys and persists current state values.
+   */
+  #flushPendingWrites(): void {
+    if (this.#pendingKeys.size === 0) {
+      this.#pendingPersist = null;
+      return;
+    }
+
+    const keysToWrite = new Set(this.#pendingKeys);
+    this.#pendingKeys.clear();
+    this.#pendingPersist = null;
+
+    // Persist current state values for accumulated keys
+    this.#persistAccumulatedKeys(this.#state, keysToWrite).catch((error) => {
+      this.#logger.error('Failed to persist state changes:', error);
+    });
+  }
+
+  /**
+   * Persist accumulated keys to storage.
+   * Always persists current state values (last-write-wins).
+   *
+   * @param state - The current state to persist from.
    * @param keys - Set of top-level keys to persist.
    */
-  const persistKeys = async (
-    stateToSave: State,
+  async #persistAccumulatedKeys(
+    state: State,
     keys: Set<string>,
-  ): Promise<void> => {
+  ): Promise<void> {
     await Promise.all(
       Array.from(keys).map(async (key) => {
-        const storageKey = buildKey(key);
-        const value = stateToSave[key as keyof State];
-        await adapter.set(storageKey, value as Json);
+        const storageKey = this.#buildKey(key);
+        const value = state[key as keyof State];
+        await this.#adapter.set(storageKey, value as Json);
       }),
     );
-  };
+  }
 
   /**
    * Extract top-level keys that were modified from immer patches.
@@ -169,7 +293,7 @@ export async function makeControllerStorage<State extends Record<string, Json>>(
    * @param patches - Array of immer patches describing changes.
    * @returns Set of modified top-level keys.
    */
-  const getModifiedKeys = (patches: Patch[]): Set<string> => {
+  #getModifiedKeys(patches: Patch[]): Set<string> {
     const keys = new Set<string>();
     for (const patch of patches) {
       // The first element of path is always the top-level key
@@ -178,47 +302,16 @@ export async function makeControllerStorage<State extends Record<string, Json>>(
       }
     }
     return keys;
-  };
+  }
 
-  // Load initial state
-  let currentState = await loadState();
-
-  const storage: ControllerStorage<State> = {
-    get state(): Readonly<State> {
-      return currentState;
-    },
-
-    async update(producer: (draft: State) => void): Promise<void> {
-      // Capture state before async operations to avoid race conditions
-      const stateSnapshot = currentState;
-
-      // Use immer's produce with patches callback to track changes
-      let patches: Patch[] = [];
-      const nextState = produce(stateSnapshot, producer, (patchList) => {
-        patches = patchList;
-      });
-
-      // No changes - nothing to do
-      if (patches.length === 0) {
-        return;
-      }
-
-      // Determine which top-level keys changed
-      const modifiedKeys = getModifiedKeys(patches);
-
-      // Persist only the modified keys
-      await persistKeys(nextState, modifiedKeys);
-
-      // Update in-memory state only after successful persistence
-      // eslint-disable-next-line require-atomic-updates -- Last-write-wins is intentional
-      currentState = nextState;
-    },
-
-    async reload(): Promise<void> {
-      currentState = await loadState();
-    },
-  };
-
-  return harden(storage);
+  /**
+   * Build a storage key from a state property name.
+   *
+   * @param stateKey - The state property name.
+   * @returns The namespaced storage key.
+   */
+  #buildKey(stateKey: string): string {
+    return `${this.#prefix}${stateKey}`;
+  }
 }
-harden(makeControllerStorage);
+harden(ControllerStorage);
