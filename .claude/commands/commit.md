@@ -1,5 +1,5 @@
 ---
-name: commit-push
+name: commit
 description: Optionally checks, then commits code to the current or a new feature branch.
 argument-hint: check | force
 allowed-tools:
