@@ -2,6 +2,14 @@ Documentation:
 
 - Check the [glossary](./docs/glossary.md) for definitions of unclear terms.
 
+Development workflows:
+
+- Use `yarn` and `yarn workspace` to run package scripts:
+  - `lint:fix` for linting
+  - `test:dev` for unit tests, `test` to include coverage
+  - e2e tests invoked separately via `test:e2e`, if available
+  - `build` from root is cached using Turborepo
+
 General conventions:
 
 - Use `@metamask/superstruct` for runtime type checking and to define object types
