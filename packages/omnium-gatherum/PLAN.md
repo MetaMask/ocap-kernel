@@ -31,14 +31,15 @@ capabilities.
     - Location: `packages/kernel-browser-runtime/src/kernel-worker/captp/`
     - `kernel-facade.ts` - Creates a kernel facade exo using `makeDefaultExo`
     - `kernel-captp.ts` - Sets up CapTP endpoint with kernel facade as bootstrap
-    - `message-router.ts` - Routes messages between kernel RPC and CapTP
   - Background-side CapTP setup:
-    - Location: `packages/omnium-gatherum/src/captp/`
-    - `background-captp.ts` - Sets up CapTP endpoint to connect to kernel
-    - `types.ts` - TypeScript types for the kernel facade
+    - Location: `packages/kernel-browser-runtime/src/background-captp.ts`
+    - Shared by both omnium-gatherum and extension packages
+    - Exports: `makeBackgroundCapTP`, `isCapTPNotification`, `getCapTPMessage`, `makeCapTPNotification`
+    - TypeScript types: `KernelFacade`, `CapTPMessage`, `BackgroundCapTP`
   - CapTP messages are wrapped in JSON-RPC notifications: `{ method: 'captp', params: [captpMsg] }`
   - `E` is globally available (set in trusted prelude before lockdown)
-  - `getKernel()` exposed on `globalThis.omnium`
+  - `getKernel()` exposed on `globalThis.omnium` (omnium) or `globalThis.kernel` (extension)
+  - Kernel's internal commandStream and RPC removed - CapTP is now the only communication path
   - Usage example:
     ```typescript
     const kernel = await omnium.getKernel();
@@ -58,8 +59,8 @@ capabilities.
 
   - Messages flow: background → offscreen → kernel-worker
   - All streams use `JsonRpcMessage` type for bidirectional messaging
-  - Message router in kernel-worker intercepts 'captp' notifications
-  - Non-captp messages passed to kernel's RPC handler as before
+  - Kernel-worker receives CapTP notifications and dispatches to kernel's CapTP endpoint
+  - No message router needed - all background ↔ kernel communication uses CapTP exclusively
 
 - [ ] **Argument Serialization** (Partial - Phase 2)
 

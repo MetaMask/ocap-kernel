@@ -18,7 +18,7 @@ export const kernelBrowserRuntimeSrcDir = path.resolve(
  */
 export const trustedPreludes = {
   background: {
-    path: path.resolve(sourceDir, 'env/background-trusted-prelude.js'),
+    content: "import './endoify.js';",
   },
   'kernel-worker': { content: "import './endoify.js';" },
 };

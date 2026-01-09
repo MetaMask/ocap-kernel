@@ -13,6 +13,8 @@ export type { KernelFacade } from '../../types.ts';
  */
 export function makeKernelFacade(kernel: Kernel): KernelFacade {
   return makeDefaultExo('KernelFacade', {
+    ping: async () => 'pong' as const,
+
     launchSubcluster: async (config: ClusterConfig) => {
       return kernel.launchSubcluster(config);
     },
