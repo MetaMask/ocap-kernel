@@ -1,148 +1,59 @@
-Code style and structure:
-
-- Write concise, accurate JavaScript/TypeScript with modern ES Module syntax.
-- Always use TypeScript unless otherwise specified.
-- Use a class-based structure where applicable.
-- Use `harden()` from `@endo/ses` for object security.
-- Use object capability (ocap) design patterns.
-- Use `@metamask/superstruct` for validation.
-- Use TypeDoc for documentation.
-- Use the following naming conventions:
-  - camelCase for functions and variables.
-  - PascalCase for classes, types, interfaces, and enums.
-  - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`).
-  - Nouns for variable names (e.g. `isKernelActive`, `hasVatAccess`, `unresolvedMessages`)
-  - Verbs for function names (e.g. `startVat`, `stopKernel`)
-- Use explicit return types for all functions.
-
-Testing and debugging:
-
-- Use `vitest` for testing.
-- Prefer `toStrictEqual()` for deep object comparisons in tests.
-- Use `it.each()` for parameterized tests.
-- Use descriptive test blocks with proper nesting.
-- Test titles should use concise verb forms without "should" (e.g., `it('creates and starts libp2p node', ...)` not `it('should create and start libp2p node', ...)`).
-- For negative cases, use "does not" instead of "should not" (e.g., `it('does not duplicate relays', ...)`).
-- Mock functions with `vi.fn()` and explicit return types.
-- Aim for high test coverage, including unit and integration tests.
-- Mock external dependencies using vitest's `vi.mock()`.
-
-TypeScript usage:
-
-- Use types for defining message structures and data contracts. Do not use `interface` declarations.
-- Leverage union types and type guards for robust runtime checks.
-- Use `Readonly<T>` for immutable data structures.
-- Follow strict mode settings for TypeScript.
-- Never use the `any` type.
-- Prefer `#` private fields over `private` class fields.
-
-File and directory structure:
-
-- Maintain a monorepo structure using Yarn workspaces.
-- Place package source files under `<package-root>/src/`.
-- Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `ocap-kernel/src/kernel-worker.ts` should be tested in `ocap-kernel/src/kernel-worker.test.ts`).
-- Test utilities used by a single package should be separated into that package's `<package-root>/test/` directory.
-  - If the utility is small, it can be in-lined in the test file.
-- Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package.
-
-Kernel architecture:
-
-- Ensure clear separation of concerns between Kernel, Vat, and Supervisor components.
-- Use streams from the `streams` package for message passing / IPC.
-
-Web extensions:
-
-- Use the latest manifest version (v3) for Chrome.
-- Minimize permissions in `manifest.json`, using optional permissions where feasible.
-- Apply Content Security Policies (CSP) in `manifest.json`.
-
-UI and styling:
-
-- Create responsive designs for UI components like popups or settings.
-- Use Flexbox or CSS Grid for layout consistency.
-- Use plain CSS, HTML, and JavaScript for UI components. Do not use React or other frameworks.
-- For React UI components, prefer CSS classes (e.g., `className="bg-section p-4 rounded mb-4"`) over inline styles.
-- Use inline styles only for dynamic values or when CSS classes are not available.
-- Structure layouts with semantic containers and proper spacing.
-- Use design system components (BadgeStatus, TextComponent, etc.) consistently.
-- Group related UI elements in logical sections with descriptive comments.
-- Maintain consistent spacing patterns (e.g., `gap-12`, `mb-4`, `mt-2`).
-- Use responsive classes and proper flex layouts for different screen sizes.
-
-Cross-environment compatibility:
-
-- Libraries should be platform-agnostic and run in any environment unless otherwise specified.
-- Packages like `extension` (browser) and `cli` (Node.js) are platform-specific.
-- Implement graceful degradation for environment-specific features.
-
-Type safety:
-
-- Prefer `@metamask/superstruct` when defining object types.
-- Use runtime type guards, not type assertions, when type narrowing is required.
-- Define object types for all data structures.
-- Avoid redundant type declarations.
-
-Error handling:
-
-- Use structured error classes with inheritance, error codes, and messages.
-- Implement error marshaling and unmarshaling.
-- Use type guards for error checking.
-
 Documentation:
 
 - Check the [glossary](./docs/glossary.md) for definitions of unclear terms.
-- Use JSDoc and TypeDoc for public APIs.
-- Include examples and document error cases.
-- When adding glossary entries:
-  - Include links to relevant implementation files using `[term](../path/to/file.ts)` syntax
-  - Use cross-references with `[term](#term)` syntax to link related concepts
-  - Consider how new terms relate to existing architectural concepts
 
-PR review:
+General conventions:
 
-- Check if new terms, concepts, or architectural patterns are introduced that should be added to the glossary for AI agent accessibility.
-- Consider adding glossary entries for:
-  - New technical terms or abbreviations
-  - Core architectural components
-  - Important data structures or types
-  - Communication patterns or protocols
-  - System operations or processes
-- Include links to relevant implementation files when adding glossary entries.
+- Use `@metamask/superstruct` for runtime type checking and to define object types
+- Use TypeDoc for documentation
+- Naming conventions:
+  - Nouns for variable names (e.g. `isKernelActive`, `hasVatAccess`, `unresolvedMessages`)
+  - Verbs for function names (e.g. `startVat`, `stopKernel`)
+  - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`)
+  - Factory methods: `X.make()`
+  - Factory functions: `makeX()`
 
-Changelog management:
+Object capability (ocap) patterns:
 
-- Follow Keep a Changelog v1.0.0 format (https://keepachangelog.com/en/1.0.0/) for all CHANGELOG.md files.
-- For release PRs, categorize "### Uncategorized" entries into:
-  - "### Added" for new features and functionality (entries starting with "feat:")
-  - "### Changed" for changes to existing functionality (entries starting with "chore:" or breaking changes)
-  - "### Deprecated" for soon-to-be removed features
-  - "### Removed" for now removed features
-  - "### Fixed" for bug fixes and corrections (entries starting with "fix:" or "refactor:")
-  - "### Security" in case of vulnerabilities
-- Each changelog should describe changes specific to that package
-- Skip dependency updates unless they cause downstream changes; if so, describe the actual changes instead
-- Remove prefixes like "feat:", "chore:", "fix:", "refactor:" from changelog entries
-- Use clean, descriptive language without technical prefixes
-- When running in agent mode, fetch GitHub PR descriptions to better understand:
-  - The actual impact of each change on the specific package
-  - Whether dependency updates introduce breaking changes or new functionality
-  - More context for writing accurate, descriptive changelog entries
-- Use PR descriptions to determine if changes should be:
-  - Skipped entirely (pure dependency bumps with no package impact)
-  - Rewritten to focus on user-facing changes rather than implementation details
-  - Moved to different categories based on actual impact
-- Example transformations:
-  - "feat(ocap-kernel): Add kernel command 'revoke'" → "Add kernel command 'revoke'"
-  - "chore: bump endo dependencies" → Remove (unless it causes package-specific changes)
-  - "fix: make Revoke button refresh object registry" → "Make Revoke button refresh object registry"
+- Production code should run under "lockdown" from `@endo/lockdown`
+  - Lockdown must be the first thing that runs in the given JavaScript realm for it to work
+- Use `harden()` from `@endo/ses` for immutability where feasible
+  - Including object literals, class instances, class prototypes, etc.
+- Use `E()` from `@endo/eventual-send` to:
+  - Communicate with objects between vats or between processes with a CapTP connection
+  - Queue messages on a promise (that resolves to some object with methods)
+- If an object is to be made remotable, turn it into an exo using the internal `makeDefaultExo`
+  which builds on `@endo/exo`
+  - Do not use `Far` from `@endo/far`
+  - It's fine to use `E()` on local objects that aren't exos
 
-Context-aware development:
+Testing:
 
-- Align new code with existing project structure for consistency.
-- Prioritize modular, reusable components.
+- Always use `toStrictEqual()` for deep object comparisons
+- Test titles should use concise verb forms without "should" (e.g., `it('creates and starts libp2p node', ...)` not `it('should create and start libp2p node', ...)`)
+- Avoid negative cases, but if you must, use "does not" instead of "should not" (e.g., `it('does not duplicate relays', ...)`)
 
-Code output:
+TypeScript:
 
-- Provide complete, self-contained examples.
-- Include necessary imports and context for code snippets.
-- Document significant changes, especially for Endo-specific patterns or Chrome APIs.
+- Prefer `type`; do not use `interface` declarations
+- Prefer `#` private fields over `private` class fields
+- Never use the `any` type
+
+File and directory structure:
+
+- Maintain a monorepo structure using Yarn workspaces
+- Place package source files under `<package-root>/src/`
+- Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `ocap-kernel/src/kernel-worker.ts` should be tested in `ocap-kernel/src/kernel-worker.test.ts`)
+- Test utilities used by a single package should be separated into that package's `<package-root>/test/` directory
+- Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package
+
+UI and styling:
+
+- For React UI components, prefer CSS classes (e.g., `className="bg-section p-4 rounded mb-4"`) over inline styles
+- Use design system components (BadgeStatus, TextComponent, etc.) consistently
+- Maintain consistent spacing patterns (e.g., `gap-12`, `mb-4`, `mt-2`)
+
+Cross-environment compatibility:
+
+- Libraries should be platform-agnostic and run in any environment unless otherwise specified
+- Packages like `extension` (browser) and `cli` (Node.js) are platform-specific
