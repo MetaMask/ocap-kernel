@@ -1,3 +1,11 @@
+/**
+ * Pre-test verification suite that checks:
+ *
+ * - Ollama service is running and accessible
+ * - Required models are available
+ *
+ * These tests run sequentially and must pass before the main test suite.
+ */
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
