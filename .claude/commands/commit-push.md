@@ -4,6 +4,7 @@ description: Optionally checks, then commits and pushes code to the remote repos
 argument-hint: check | force
 allowed-tools:
   - Bash(git branch*)
+  - Bash(git checkout*)
   - Bash(git add*)
   - Bash(git status*)
   - Bash(git commit*)
