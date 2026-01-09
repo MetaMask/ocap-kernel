@@ -6,6 +6,7 @@ import type { Kernel } from '@metamask/ocap-kernel';
  * This is the remote presence type that the background receives from the kernel.
  */
 export type KernelFacade = {
+  ping: () => Promise<'pong'>;
   launchSubcluster: Kernel['launchSubcluster'];
   terminateSubcluster: Kernel['terminateSubcluster'];
   queueMessage: Kernel['queueMessage'];

@@ -65,7 +65,6 @@
   "dependencies": {
     "@endo/captp": "^4.4.8",
     "@endo/marshal": "^1.8.0",
-    "@endo/promise-kit": "^1.1.13",
     "@metamask/json-rpc-engine": "^10.2.0",
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",

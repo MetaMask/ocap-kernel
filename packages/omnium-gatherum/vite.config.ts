@@ -37,7 +37,6 @@ const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
-  'packages/omnium-gatherum/src/env/dev-console.js',
   'packages/kernel-shims/dist/endoify.js',
 ];
 

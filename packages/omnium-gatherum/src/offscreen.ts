@@ -25,8 +25,7 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
-  // Create stream for messages from the background script
-  // Uses JsonRpcMessage to support both RPC calls/responses and CapTP notifications
+  // Create stream for CapTP messages from the background script
   const backgroundStream = await ChromeRuntimeDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
