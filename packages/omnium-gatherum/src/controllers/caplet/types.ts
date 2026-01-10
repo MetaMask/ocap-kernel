@@ -89,6 +89,7 @@ export function assertCapletManifest(
 export type InstalledCaplet = {
   manifest: CapletManifest;
   subclusterId: string;
+  rootKref?: string;
   installedAt: number;
 };
 
@@ -106,4 +107,5 @@ export type InstallResult = {
  */
 export type LaunchResult = {
   subclusterId: string;
+  rootKrefString?: string;
 };

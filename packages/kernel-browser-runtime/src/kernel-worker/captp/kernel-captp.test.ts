@@ -97,4 +97,21 @@ describe('makeKernelCapTP', () => {
 
     expect(() => capTP.abort({ reason: 'test shutdown' })).not.toThrow();
   });
+
+  describe('kref marshalling', () => {
+    it('creates kernel CapTP with custom import/export tables', () => {
+      // Verify that makeKernelCapTP with the custom tables doesn't throw
+      const capTP = makeKernelCapTP({
+        kernel: mockKernel,
+        send: sendMock,
+      });
+
+      expect(capTP).toBeDefined();
+      expect(capTP.dispatch).toBeDefined();
+      expect(capTP.abort).toBeDefined();
+
+      // The custom tables are internal to CapTP, so we can't test them directly
+      // Integration tests will verify the end-to-end kref marshalling functionality
+    });
+  });
 });

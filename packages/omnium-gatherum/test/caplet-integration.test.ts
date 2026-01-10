@@ -40,17 +40,27 @@ describe('Caplet Integration - Echo Caplet', () => {
     // Create mock kernel functions
     const mockLaunchSubcluster = vi.fn(async () => {
       mockSubclusterCounter += 1;
-      return { subclusterId: `test-subcluster-${mockSubclusterCounter}` };
+      return {
+        subclusterId: `test-subcluster-${mockSubclusterCounter}`,
+        rootKrefString: `ko${mockSubclusterCounter}`,
+      };
     });
 
     const mockTerminateSubcluster = vi.fn(async () => {
       // No-op for tests
     });
 
+    const mockGetVatRoot = vi.fn(async (krefString: string) => {
+      // In real implementation, this returns a CapTP presence
+      // For tests, we return a mock object
+      return { kref: krefString };
+    });
+
     const deps: CapletControllerDeps = {
       adapter: mockAdapter,
       launchSubcluster: mockLaunchSubcluster,
       terminateSubcluster: mockTerminateSubcluster,
+      getVatRoot: mockGetVatRoot,
     };
 
     // Create the caplet controller using static make() method
@@ -82,6 +92,7 @@ describe('Caplet Integration - Echo Caplet', () => {
         providedServices: ['echo'],
       },
       subclusterId: 'test-subcluster-1',
+      rootKref: 'ko1',
       installedAt: expect.any(Number),
     });
   });
@@ -144,6 +155,22 @@ describe('Caplet Integration - Echo Caplet', () => {
     ).rejects.toThrow('not found');
   });
 
+  it('gets caplet root object as presence', async () => {
+    await capletController.install(echoCapletManifest);
+
+    const rootPresence =
+      await capletController.getCapletRoot('com.example.echo');
+
+    // The presence should be the object returned by getVatRoot mock
+    expect(rootPresence).toStrictEqual({ kref: 'ko1' });
+  });
+
+  it('throws when getting root for non-existent caplet', async () => {
+    await expect(
+      capletController.getCapletRoot('com.example.nonexistent'),
+    ).rejects.toThrow('not found');
+  });
+
   it('persists caplet state across controller restarts', async () => {
     // Install a caplet
     await capletController.install(echoCapletManifest);
@@ -155,8 +182,10 @@ describe('Caplet Integration - Echo Caplet', () => {
       adapter: makeMockStorageAdapter(mockStorage),
       launchSubcluster: vi.fn(async () => ({
         subclusterId: 'test-subcluster',
+        rootKrefString: 'ko1',
       })),
       terminateSubcluster: vi.fn(),
+      getVatRoot: vi.fn(async (krefString: string) => ({ kref: krefString })),
     };
 
     const newController = await CapletController.make(

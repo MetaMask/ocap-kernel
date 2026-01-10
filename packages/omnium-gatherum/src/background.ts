@@ -128,33 +128,23 @@ async function main(): Promise<void> {
     { logger: logger.subLogger({ tags: ['caplet'] }) },
     {
       adapter: storageAdapter,
-      // Wrap launchSubcluster to return subclusterId
       launchSubcluster: async (
         config: ClusterConfig,
       ): Promise<LaunchResult> => {
-        // Get current subcluster count
-        const statusBefore = await E(kernelP).getStatus();
-        const beforeIds = new Set(
-          statusBefore.subclusters.map((subcluster) => subcluster.id),
-        );
-
-        // Launch the subcluster
-        await E(kernelP).launchSubcluster(config);
-
-        // Get status after and find the new subcluster
-        const statusAfter = await E(kernelP).getStatus();
-        const newSubcluster = statusAfter.subclusters.find(
-          (subcluster) => !beforeIds.has(subcluster.id),
-        );
-
-        if (!newSubcluster) {
-          throw new Error('Failed to determine subclusterId after launch');
-        }
-
-        return { subclusterId: newSubcluster.id };
+        // The kernel facade now returns { subclusterId, rootKref, rootKrefString }
+        // After CapTP unmarshalling, rootKref is a presence, rootKrefString is a string
+        const result = await E(kernelP).launchSubcluster(config);
+        return {
+          subclusterId: result.subclusterId,
+          rootKrefString: result.rootKrefString,
+        };
       },
       terminateSubcluster: async (subclusterId: string): Promise<void> => {
         await E(kernelP).terminateSubcluster(subclusterId);
+      },
+      getVatRoot: async (krefString: string): Promise<unknown> => {
+        // Convert kref string to presence via kernel facade
+        return E(kernelP).getVatRoot(krefString);
       },
     },
   );
@@ -176,6 +166,8 @@ async function main(): Promise<void> {
         get: async (capletId: string) => E(capletController).get(capletId),
         getByService: async (serviceName: string) =>
           E(capletController).getByService(serviceName),
+        getCapletRoot: async (capletId: string) =>
+          E(capletController).getCapletRoot(capletId),
       }),
     },
   });
