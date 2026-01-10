@@ -24,13 +24,13 @@ jobs:
           git config user.email "actions@github.com"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
       - name: Install Yarn
         run: corepack enable
       - name: Restore Yarn cache
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: yarn
