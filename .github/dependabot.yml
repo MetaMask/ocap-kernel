@@ -16,6 +16,7 @@ updates:
       - dependency-name: '@metamask/*'
       - dependency-name: '@agoric/*'
       - dependency-name: '@endo/*'
+      - dependency-name: 'ses'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
