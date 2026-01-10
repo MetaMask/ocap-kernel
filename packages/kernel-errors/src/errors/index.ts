@@ -1,6 +1,7 @@
 import { AbortError } from './AbortError.ts';
 import { DuplicateEndowmentError } from './DuplicateEndowmentError.ts';
 import { EvaluatorError } from './EvaluatorError.ts';
+import { ResourceLimitError } from './ResourceLimitError.ts';
 import { SampleGenerationError } from './SampleGenerationError.ts';
 import { StreamReadError } from './StreamReadError.ts';
 import { VatAlreadyExistsError } from './VatAlreadyExistsError.ts';
@@ -19,4 +20,5 @@ export const errorClasses = {
   [ErrorCode.SubclusterNotFound]: SubclusterNotFoundError,
   [ErrorCode.SampleGenerationError]: SampleGenerationError,
   [ErrorCode.InternalError]: EvaluatorError,
+  [ErrorCode.ResourceLimitError]: ResourceLimitError,
 } as const;
