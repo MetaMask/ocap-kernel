@@ -82,6 +82,7 @@
     "@metamask/eslint-config-typescript": "^14.0.0",
     "@ocap/repo-tools": "workspace:^",
     "@solana/addresses": "^2.0.0",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^12.1.5",
     "@testing-library/react-hooks": "^8.0.1",
