@@ -10,25 +10,23 @@ import {
 describe('isCapletId', () => {
   it.each([
     ['com.example.test', true],
-    ['org.metamask.keyring', true],
-    ['io.github.user.package', true],
-    ['a.b', true],
-    ['a1.b2', true],
-    ['test.caplet123', true],
+    ['simple', true],
+    ['bitcoin-signer', true],
+    ['test_caplet', true],
+    ['My-Caplet', true],
+    ['123', true],
+    ['a.b.c.d', true],
   ])('validates "%s" as %s', (value, expected) => {
     expect(isCapletId(value)).toBe(expected);
   });
 
   it.each([
-    ['', false],
-    ['single', false], // Must have at least 2 segments
-    ['com.Example.test', false], // No uppercase
-    ['com.123.test', false], // Segments cannot start with number
-    ['com..test', false], // Empty segment
-    ['com.test-name', false], // No hyphens
-    ['com.test_name', false], // No underscores
-    ['.com.test', false], // Cannot start with dot
-    ['com.test.', false], // Cannot end with dot
+    ['', false], // Empty
+    ['has space', false], // Whitespace
+    ['has\ttab', false], // Tab
+    ['has\nnewline', false], // Newline
+    ['café', false], // Non-ASCII
+    ['🎉', false], // Emoji
     [123, false], // Not a string
     [null, false],
     [undefined, false],
@@ -93,7 +91,7 @@ describe('isCapletManifest', () => {
   });
 
   it('rejects manifest with invalid id', () => {
-    expect(isCapletManifest({ ...validManifest, id: 'invalid' })).toBe(false);
+    expect(isCapletManifest({ ...validManifest, id: 'has space' })).toBe(false);
   });
 
   it('rejects manifest with invalid version', () => {
@@ -129,7 +127,7 @@ describe('assertCapletManifest', () => {
   });
 
   it('throws for invalid manifest', () => {
-    expect(() => assertCapletManifest({ id: 'bad' })).toThrow(
+    expect(() => assertCapletManifest({ id: '' })).toThrow(
       'Invalid CapletManifest',
     );
   });

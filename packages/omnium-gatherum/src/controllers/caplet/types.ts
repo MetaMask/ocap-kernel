@@ -3,14 +3,13 @@ import type { Infer } from '@metamask/superstruct';
 import semverValid from 'semver/functions/valid';
 
 /**
- * Unique identifier for a Caplet.
- * Uses reverse domain notation (e.g., "com.example.bitcoin-signer").
+ * Unique identifier for a Caplet (any non-empty ASCII string without whitespace).
  */
 export type CapletId = string;
 
 /**
  * Validate CapletId format.
- * Requires lowercase alphanumeric segments separated by dots, minimum 2 segments.
+ * Requires non-empty ASCII string with no whitespace.
  *
  * @param value - The value to validate.
  * @returns True if valid CapletId format.
@@ -18,7 +17,9 @@ export type CapletId = string;
 export const isCapletId = (value: unknown): value is CapletId =>
   typeof value === 'string' &&
   value.length > 0 &&
-  /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/u.test(value);
+  // eslint-disable-next-line no-control-regex
+  /^[\x00-\x7F]+$/u.test(value) && // ASCII only
+  !/\s/u.test(value); // No whitespace
 
 export const CapletIdStruct = define<CapletId>('CapletId', isCapletId);
 
