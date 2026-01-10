@@ -66,7 +66,15 @@ export type CapletControllerFacet = {
    * @param capletId - The caplet ID.
    * @returns The installed caplet or undefined if not found.
    */
-  get: (capletId: CapletId) => InstalledCaplet | undefined;
+  get: (capletId: CapletId) => Promise<InstalledCaplet | undefined>;
+
+  /**
+   * Get the root object presence for a caplet.
+   *
+   * @param capletId - The caplet ID.
+   * @returns A promise for the caplet's root object (as a CapTP presence).
+   */
+  getCapletRoot: (capletId: CapletId) => Promise<unknown>;
 };
 
 /**
@@ -80,6 +88,8 @@ export type CapletControllerDeps = {
   launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
   /** Terminate a caplet's subcluster */
   terminateSubcluster: (subclusterId: string) => Promise<void>;
+  /** Get the root object for a vat by kref string */
+  getVatRoot: (krefString: string) => Promise<unknown>;
 };
 
 /**
@@ -101,6 +111,8 @@ export class CapletController extends Controller<
 
   readonly #terminateSubcluster: (subclusterId: string) => Promise<void>;
 
+  readonly #getVatRoot: (krefString: string) => Promise<unknown>;
+
   /**
    * Private constructor - use static create() method.
    *
@@ -108,6 +120,7 @@ export class CapletController extends Controller<
    * @param logger - Logger instance.
    * @param launchSubcluster - Function to launch a subcluster.
    * @param terminateSubcluster - Function to terminate a subcluster.
+   * @param getVatRoot - Function to get a vat's root object as a presence.
    */
   // eslint-disable-next-line no-restricted-syntax -- TypeScript doesn't support # for constructors
   private constructor(
@@ -115,10 +128,12 @@ export class CapletController extends Controller<
     logger: Logger,
     launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>,
     terminateSubcluster: (subclusterId: string) => Promise<void>,
+    getVatRoot: (krefString: string) => Promise<unknown>,
   ) {
     super('CapletController', storage, logger);
     this.#launchSubcluster = launchSubcluster;
     this.#terminateSubcluster = terminateSubcluster;
+    this.#getVatRoot = getVatRoot;
     harden(this);
   }
 
@@ -146,6 +161,7 @@ export class CapletController extends Controller<
       config.logger,
       deps.launchSubcluster,
       deps.terminateSubcluster,
+      deps.getVatRoot,
     );
     return controller.makeFacet();
   }
@@ -168,6 +184,9 @@ export class CapletController extends Controller<
       },
       get: (capletId: CapletId): InstalledCaplet | undefined => {
         return this.#get(capletId);
+      },
+      getCapletRoot: async (capletId: CapletId): Promise<unknown> => {
+        return this.#getCapletRoot(capletId);
       },
     });
   }
@@ -210,12 +229,14 @@ export class CapletController extends Controller<
     };
 
     try {
-      const { subclusterId } = await this.#launchSubcluster(clusterConfig);
+      const { subclusterId, rootKrefString } =
+        await this.#launchSubcluster(clusterConfig);
 
       this.update((draft) => {
         draft.caplets[id] = {
           manifest,
           subclusterId,
+          rootKref: rootKrefString,
           installedAt: Date.now(),
         };
       });
@@ -268,6 +289,26 @@ export class CapletController extends Controller<
    */
   #get(capletId: CapletId): InstalledCaplet | undefined {
     return this.state.caplets[capletId];
+  }
+
+  /**
+   * Get the root object presence for a caplet.
+   *
+   * @param capletId - The caplet ID.
+   * @returns A promise for the caplet's root object (as a CapTP presence).
+   */
+  async #getCapletRoot(capletId: CapletId): Promise<unknown> {
+    const caplet = this.state.caplets[capletId];
+    if (!caplet) {
+      throw new Error(`Caplet ${capletId} not found`);
+    }
+
+    if (!caplet.rootKref) {
+      throw new Error(`Caplet ${capletId} has no root object`);
+    }
+
+    // Convert the stored kref string to a presence using the kernel facade
+    return this.#getVatRoot(caplet.rootKref);
   }
 }
 harden(CapletController);

@@ -60,16 +60,25 @@ describe('makeKernelFacade', () => {
       expect(mockKernel.launchSubcluster).toHaveBeenCalledTimes(1);
     });
 
-    it('returns result from kernel', async () => {
-      const expectedResult = { body: '#{"rootObject":"ko1"}', slots: ['ko1'] };
+    it('returns result from kernel with parsed subclusterId and wrapped kref', async () => {
+      const kernelResult = {
+        body: '#{"subclusterId":"s1"}',
+        slots: ['ko1'],
+      };
       vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
-        expectedResult,
+        kernelResult,
       );
 
       const config: ClusterConfig = makeClusterConfig();
 
       const result = await facade.launchSubcluster(config);
-      expect(result).toStrictEqual(expectedResult);
+
+      // The facade should parse the CapData and return a LaunchResult
+      expect(result).toStrictEqual({
+        subclusterId: 's1',
+        rootKref: { kref: 'ko1' },
+        rootKrefString: 'ko1',
+      });
     });
 
     it('propagates errors from kernel', async () => {
