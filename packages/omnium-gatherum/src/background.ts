@@ -20,6 +20,7 @@ import {
   makeChromeStorageAdapter,
 } from './controllers/index.ts';
 import type { CapletManifest, LaunchResult } from './controllers/index.ts';
+import { manifests } from './manifests.ts';
 
 defineGlobals();
 
@@ -153,6 +154,9 @@ async function main(): Promise<void> {
     },
     getKernel: {
       value: getKernel,
+    },
+    manifests: {
+      value: manifests,
     },
     caplet: {
       value: harden({
