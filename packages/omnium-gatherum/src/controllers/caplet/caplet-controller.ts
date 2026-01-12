@@ -229,14 +229,14 @@ export class CapletController extends Controller<
     };
 
     try {
-      const { subclusterId, rootKrefString } =
+      const { subclusterId, rootKref } =
         await this.#launchSubcluster(clusterConfig);
 
       this.update((draft) => {
         draft.caplets[id] = {
           manifest,
           subclusterId,
-        ...(rootKrefString && { rootKref: rootKrefString }),
+          rootKref,
           installedAt: Date.now(),
         };
       });

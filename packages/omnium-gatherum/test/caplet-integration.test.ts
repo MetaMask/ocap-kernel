@@ -42,7 +42,7 @@ describe('Caplet Integration - Echo Caplet', () => {
       mockSubclusterCounter += 1;
       return {
         subclusterId: `test-subcluster-${mockSubclusterCounter}`,
-        rootKrefString: `ko${mockSubclusterCounter}`,
+        rootKref: `ko${mockSubclusterCounter}`,
       };
     });
 
@@ -182,7 +182,7 @@ describe('Caplet Integration - Echo Caplet', () => {
       adapter: makeMockStorageAdapter(mockStorage),
       launchSubcluster: vi.fn(async () => ({
         subclusterId: 'test-subcluster',
-        rootKrefString: 'ko1',
+        rootKref: 'ko1',
       })),
       terminateSubcluster: vi.fn(),
       getVatRoot: vi.fn(async (krefString: string) => ({ kref: krefString })),
