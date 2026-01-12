@@ -242,7 +242,7 @@ export class CapletController extends Controller<
       draft.caplets[id] = {
         manifest,
         subclusterId,
-        rootKref: rootKrefString,
+        ...(rootKrefString && { rootKref: rootKrefString }),
         installedAt: Date.now(),
       };
     });
