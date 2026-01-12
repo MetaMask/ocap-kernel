@@ -35,9 +35,9 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
-    "@metamask/eslint-config": "^14.0.0",
-    "@metamask/eslint-config-nodejs": "^14.0.0",
-    "@metamask/eslint-config-typescript": "^14.0.0",
+    "@metamask/eslint-config": "^15.0.0",
+    "@metamask/eslint-config-nodejs": "^15.0.0",
+    "@metamask/eslint-config-typescript": "^15.0.0",
     "@types/node": "^22.13.1",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
