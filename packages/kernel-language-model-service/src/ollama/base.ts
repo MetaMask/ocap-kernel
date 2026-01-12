@@ -69,11 +69,9 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     const instance = {
       getInfo: async () => modelInfo,
       load: async () => {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         await ollama.generate({ model, keep_alive: -1, prompt: '' });
       },
       unload: async () => {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         await ollama.generate({ model, keep_alive: 0, prompt: '' });
       },
       sample: async (prompt: string, options?: Partial<OllamaModelOptions>) => {

@@ -4,7 +4,16 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating an attempt to create a vat with an ID that already exists.
+ */
 export class VatAlreadyExistsError extends BaseError {
+  /**
+   * Creates a new VatAlreadyExistsError.
+   *
+   * @param vatId - The identifier of the vat that already exists.
+   * @param options - Additional error options including cause and stack trace.
+   */
   constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatAlreadyExists, 'Vat already exists.', {
       ...options,

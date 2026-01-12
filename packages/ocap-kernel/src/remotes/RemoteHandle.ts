@@ -59,6 +59,9 @@ type RedeemURLReply = {
 
 type RemoteCommand = Delivery | RedeemURLRequest | RedeemURLReply;
 
+/**
+ * Handles communication with a remote kernel endpoint over the network.
+ */
 export class RemoteHandle implements EndpointHandle {
   /** The ID of the remote connection this is the RemoteHandle for. */
   readonly remoteId: RemoteId;

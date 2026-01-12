@@ -27,7 +27,7 @@ const mockDb = {
   transaction: vi.fn((fn) => fn),
   exec: vi.fn(),
   inTransaction: false,
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+
   _spStack: [] as string[],
   close: vi.fn(),
 };

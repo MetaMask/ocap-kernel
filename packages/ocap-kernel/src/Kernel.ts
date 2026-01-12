@@ -35,6 +35,9 @@ import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
+/**
+ *
+ */
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */
   readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
@@ -248,10 +251,7 @@ export class Kernel {
    * Initialize the remote comms object.
    *
    * @param options - Options for remote communications initialization.
-   * @param options.relays - The relays to use for the remote comms object.
-   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
-   * @returns a promise that resolves when initialization is complete.
+   * @returns A promise that resolves when initialization is complete.
    */
   async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
     await this.#remoteManager.initRemoteComms(options);
@@ -262,7 +262,6 @@ export class Kernel {
    *
    * @param to - The peer ID of the remote kernel.
    * @param message - The message to send.
-   * @returns a promise for the result of the message send.
    */
   async sendRemoteMessage(to: string, message: string): Promise<void> {
     await this.#remoteManager.sendRemoteMessage(to, message);
@@ -326,7 +325,7 @@ export class Kernel {
    * @param target - The object to which the message is directed.
    * @param method - The method to be invoked.
    * @param args - Message arguments.
-   * @returns a promise for the (CapData encoded) result of the message invocation.
+   * @returns A promise for the CapData encoded result of the message invocation.
    */
   async queueMessage(
     target: KRef,
@@ -394,7 +393,7 @@ export class Kernel {
   /**
    * Gets all subclusters.
    *
-   * @returns An array of subcluster information records.
+   * @returns An array of all subcluster records.
    */
   getSubclusters(): Subcluster[] {
     return this.#subclusterManager.getSubclusters();
@@ -404,7 +403,7 @@ export class Kernel {
    * Checks if a vat belongs to a specific subcluster.
    *
    * @param vatId - The ID of the vat to check.
-   * @param subclusterId - The ID of the subcluster to check against.
+   * @param subclusterId - The ID of the subcluster to check membership against.
    * @returns True if the vat belongs to the specified subcluster, false otherwise.
    */
   isVatInSubcluster(vatId: VatId, subclusterId: string): boolean {
@@ -414,8 +413,8 @@ export class Kernel {
   /**
    * Gets all vat IDs that belong to a specific subcluster.
    *
-   * @param subclusterId - The ID of the subcluster to get vats for.
-   * @returns An array of vat IDs that belong to the specified subcluster.
+   * @param subclusterId - The ID of the subcluster to retrieve vat IDs from.
+   * @returns An array of vat IDs belonging to the specified subcluster.
    */
   getSubclusterVats(subclusterId: string): VatId[] {
     return this.#subclusterManager.getSubclusterVats(subclusterId);
@@ -424,7 +423,7 @@ export class Kernel {
   /**
    * Restarts a vat.
    *
-   * @param vatId - The ID of the vat.
+   * @param vatId - The ID of the vat to restart.
    * @returns A promise for the restarted vat handle.
    */
   async restartVat(vatId: VatId): Promise<VatHandle> {
@@ -434,9 +433,9 @@ export class Kernel {
   /**
    * Terminate a vat with extreme prejudice.
    *
-   * @param vatId - The ID of the vat.
-   * @param reason - If the vat is being terminated, the reason for the termination.
-   * @returns A promise that resolves when the vat is terminated.
+   * @param vatId - The ID of the vat to terminate.
+   * @param reason - The reason for the termination, if any.
+   * @returns A promise that resolves when the vat has been terminated.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     return this.#vatManager.terminateVat(vatId, reason);
@@ -453,8 +452,9 @@ export class Kernel {
   /**
    * Gets an endpoint by its ID.
    *
-   * @param endpointId - The ID of the endpoint.
-   * @returns The endpoint, or undefined if not found.
+   * @param endpointId - The ID of the endpoint to retrieve.
+   * @returns The endpoint handle for the given ID.
+   * @throws If the endpoint ID is invalid (neither a vat ID nor a remote ID).
    */
   #getEndpoint(endpointId: EndpointId): EndpointHandle {
     if (isVatId(endpointId)) {
@@ -470,7 +470,7 @@ export class Kernel {
   /**
    * Gets a list of the IDs of all running vats.
    *
-   * @returns An array of vat IDs.
+   * @returns An array of all running vat IDs.
    */
   getVatIds(): VatId[] {
     return this.#vatManager.getVatIds();
@@ -479,7 +479,7 @@ export class Kernel {
   /**
    * Gets a list of information about all running vats.
    *
-   * @returns An array of vat information records.
+   * @returns An array of vat information records containing ID, config, and subcluster ID.
    */
   getVats(): {
     id: VatId;
@@ -513,7 +513,7 @@ export class Kernel {
    * Get the current kernel status, defined as the current cluster configuration
    * and a list of all running vats.
    *
-   * @returns The current kernel status containing vats and subclusters information.
+   * @returns A promise for the current kernel status containing vats, subclusters, and remote comms information.
    */
   async getStatus(): Promise<KernelStatus> {
     await this.#kernelQueue.waitForCrank();
@@ -541,8 +541,8 @@ export class Kernel {
   /**
    * Pin a vat root.
    *
-   * @param vatId - The ID of the vat.
-   * @returns The KRef of the vat root.
+   * @param vatId - The ID of the vat whose root to pin.
+   * @returns The KRef of the pinned vat root.
    */
   pinVatRoot(vatId: VatId): KRef {
     return this.#vatManager.pinVatRoot(vatId);
@@ -551,7 +551,7 @@ export class Kernel {
   /**
    * Unpin a vat root.
    *
-   * @param vatId - The ID of the vat.
+   * @param vatId - The ID of the vat whose root to unpin.
    */
   unpinVatRoot(vatId: VatId): void {
     this.#vatManager.unpinVatRoot(vatId);
@@ -560,8 +560,8 @@ export class Kernel {
   /**
    * Ping a vat.
    *
-   * @param vatId - The ID of the vat.
-   * @returns A promise that resolves to the result of the ping.
+   * @param vatId - The ID of the vat to ping.
+   * @returns A promise that resolves to the ping result.
    */
   async pingVat(vatId: VatId): Promise<PingVatResult> {
     return this.#vatManager.pingVat(vatId);

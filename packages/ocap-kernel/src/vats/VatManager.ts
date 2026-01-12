@@ -40,6 +40,15 @@ export class VatManager {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
 
+  /**
+   * Creates a new VatManager instance.
+   *
+   * @param options - Constructor options.
+   * @param options.platformServices - Platform-specific services for launching vat workers.
+   * @param options.kernelStore - The kernel's persistent state store.
+   * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
+   * @param options.logger - Logger instance for debugging and diagnostics.
+   */
   constructor({
     platformServices,
     kernelStore,

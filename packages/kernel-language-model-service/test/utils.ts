@@ -75,7 +75,7 @@ export const mockReadableStream = (chunks: object[]) =>
           JSON.stringify({
             ...chunks[chunks.length - 1],
             done: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
+
             done_reason: 'stop',
           }),
         ),

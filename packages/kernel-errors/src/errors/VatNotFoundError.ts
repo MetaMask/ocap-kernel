@@ -4,7 +4,16 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating that a requested vat does not exist.
+ */
 export class VatNotFoundError extends BaseError {
+  /**
+   * Creates a new VatNotFoundError.
+   *
+   * @param vatId - The identifier of the vat that was not found.
+   * @param options - Additional error options including cause and stack trace.
+   */
   constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatNotFound, 'Vat does not exist.', {
       ...options,

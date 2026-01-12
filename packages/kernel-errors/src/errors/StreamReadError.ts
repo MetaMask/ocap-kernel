@@ -20,7 +20,16 @@ type StreamReadErrorData = { vatId: string } | { kernelId: string };
 type StreamReadErrorOptions = Required<ErrorOptions> &
   Pick<ErrorOptionsWithStack, 'stack'>;
 
+/**
+ * Error indicating an unexpected failure while reading from a stream.
+ */
 export class StreamReadError extends BaseError {
+  /**
+   * Creates a new StreamReadError.
+   *
+   * @param data - Context data identifying the source of the error (vatId or kernelId).
+   * @param options - Error options including the underlying cause and stack trace.
+   */
   constructor(data: StreamReadErrorData, options: StreamReadErrorOptions) {
     super(ErrorCode.StreamReadError, 'Unexpected stream read error.', {
       ...options,

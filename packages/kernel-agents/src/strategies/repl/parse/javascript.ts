@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import Parser from 'tree-sitter';
 import JavaScript from 'tree-sitter-javascript';
-/* eslint-enable @typescript-eslint/naming-convention */
 
 const parser = new Parser();
 parser.setLanguage(JavaScript as Parser.Language);

@@ -4,12 +4,28 @@ import type { DuplexStream } from './BaseDuplexStream.ts';
 import { BaseReader } from './BaseStream.ts';
 import type { BaseReaderArgs, ReceiveInput } from './BaseStream.ts';
 
+/**
+ * A reader for use within {@link split} that reads from a reader and forwards
+ * writes to a parent. The reader should output a subset of the parent stream's values based
+ * on some predicate.
+ */
 class SplitReader<Read> extends BaseReader<Read> {
+  /**
+   * Constructs a new {@link SplitReader}.
+   *
+   * @param args - The arguments to pass to the base reader.
+   */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(args: BaseReaderArgs<Read>) {
     super(args);
   }
 
+  /**
+   * Creates a new {@link SplitReader}.
+   *
+   * @param args - The arguments to pass to the base reader.
+   * @returns A new {@link SplitReader} and the receive input function.
+   */
   static make<Read>(
     args: BaseReaderArgs<Read>,
   ): [SplitReader<Read>, ReceiveInput] {
@@ -31,6 +47,12 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
 
   readonly #reader: SplitReader<Read>;
 
+  /**
+   * Constructs a new {@link SplitStream}.
+   *
+   * @param parent - The parent stream to read from.
+   * @param reader - The reader to use to read from the parent stream.
+   */
   constructor(
     parent: DuplexStream<ParentRead, Write>,
     reader: SplitReader<Read>,
@@ -40,6 +62,12 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
     harden(this);
   }
 
+  /**
+   * Constructs a new {@link SplitStream}.
+   *
+   * @param parent - The parent stream to read from.
+   * @returns A new {@link SplitStream} and the receive input function.
+   */
   static make<ParentRead, Read extends ParentRead, Write>(
     parent: DuplexStream<ParentRead, Write>,
   ): {
@@ -53,41 +81,84 @@ class SplitStream<ParentRead, Read extends ParentRead, Write>
     return { stream, receiveInput };
   }
 
+  /**
+   * Reads the next value from the stream.
+   *
+   * @returns The next value from the stream.
+   */
   async next(): Promise<IteratorResult<Read, undefined>> {
     return this.#reader.next();
   }
 
+  /**
+   * Writes a value to the stream.
+   *
+   * @param value - The value to write to the stream.
+   * @returns The result of writing the value.
+   */
   async write(value: Write): Promise<IteratorResult<undefined, undefined>> {
     return this.#parent.write(value);
   }
 
+  /**
+   * Drains the stream by passing each value to a handler function.
+   *
+   * @param handler - The function that will receive each value from the stream.
+   */
   async drain(handler: (value: Read) => void | Promise<void>): Promise<void> {
     for await (const value of this.#reader) {
       await handler(value);
     }
   }
 
+  /**
+   * Pipes the stream to another duplex stream.
+   *
+   * @param sink - The duplex stream to pipe to.
+   */
   async pipe<Read2>(sink: DuplexStream<Read2, Read>): Promise<void> {
     await this.drain(async (value) => {
       await sink.write(value);
     });
   }
 
+  /**
+   * Closes the stream. Idempotent.
+   *
+   * @returns The final result for this stream.
+   */
   async return(): Promise<IteratorResult<Read, undefined>> {
     await this.#parent.return();
     return this.#reader.return();
   }
 
+  /**
+   * Closes the stream with an error. Idempotent.
+   *
+   * @param error - The error to close the stream with.
+   * @returns The final result for this stream.
+   */
   async throw(error: Error): Promise<IteratorResult<Read, undefined>> {
     await this.#parent.throw(error);
     return this.#reader.throw(error);
   }
 
+  /**
+   * Closes the stream. Syntactic sugar for `throw(error)` or `return()`. Idempotent.
+   *
+   * @param error - The error to close the stream with.
+   * @returns The final result for this stream.
+   */
   async end(error?: Error): Promise<IteratorResult<Read, undefined>> {
     await this.#parent.end(error);
     return this.#reader.end(error);
   }
 
+  /**
+   * Returns the async iterator for this stream.
+   *
+   * @returns This stream as an async iterator.
+   */
   [Symbol.asyncIterator](): typeof this {
     return this;
   }

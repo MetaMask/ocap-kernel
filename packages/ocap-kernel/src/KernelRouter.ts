@@ -264,6 +264,13 @@ export class KernelRouter {
     return crankResults;
   }
 
+  /**
+   * Delivers a message to a kernel service object.
+   *
+   * @param target - The kernel reference of the target service object.
+   * @param message - The message to deliver to the service.
+   * @returns A promise that resolves to the crank results indicating the delivery was to the kernel.
+   */
   async #deliverKernelServiceMessage(
     target: KRef,
     message: Message,

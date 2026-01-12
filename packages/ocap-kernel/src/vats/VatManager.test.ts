@@ -120,7 +120,7 @@ describe('VatManager', () => {
         { vatID: 'v1' as VatId, vatConfig: createMockVatConfig('vat1') },
         { vatID: 'v2' as VatId, vatConfig: createMockVatConfig('vat2') },
       ];
-      // eslint-disable-next-line jsdoc/require-jsdoc
+
       function* mockGenerator() {
         yield* vatRecords;
       }

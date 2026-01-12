@@ -52,6 +52,16 @@ export class RemoteManager {
   /** Handler for incoming remote messages */
   #messageHandler: RemoteMessageHandler | undefined;
 
+  /**
+   * Creates a new RemoteManager instance.
+   *
+   * @param options - Constructor options.
+   * @param options.platformServices - Platform-specific services for network communication.
+   * @param options.kernelStore - The kernel's persistent state store.
+   * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
+   * @param options.logger - Logger instance for debugging and diagnostics.
+   * @param options.keySeed - Seed for generating the kernel's cryptographic key pair.
+   */
   constructor({
     platformServices,
     kernelStore,
@@ -210,6 +220,13 @@ export class RemoteManager {
     return remote;
   }
 
+  /**
+   * Initializes a remote handle for communication with a remote kernel.
+   *
+   * @param remoteId - The unique identifier for the remote kernel.
+   * @param info - Information about the remote including peer ID and connection hints.
+   * @returns A handle for communicating with the remote kernel.
+   */
   #initializeRemote(remoteId: RemoteId, info: RemoteInfo): RemoteHandle {
     const { peerId, hints } = info;
     const remoteComms = this.getRemoteComms();

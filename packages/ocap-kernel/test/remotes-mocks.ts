@@ -29,6 +29,11 @@ export type MockRemotesConfig = {
 export class MockRemotesFactory {
   config: MockRemotesConfig;
 
+  /**
+   * Creates a new MockRemotesFactory instance.
+   *
+   * @param config - Configuration options for the mock factory.
+   */
   constructor(config: MockRemotesConfig = {}) {
     this.config = {
       peerId: 'test-peer-id',

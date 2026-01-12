@@ -29,9 +29,9 @@ const mockStatement = {
 const mockDb = {
   exec: vi.fn(),
   prepare: vi.fn(() => mockStatement),
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+
   _inTx: false,
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+
   _spStack: [] as string[],
   close: vi.fn(),
 };

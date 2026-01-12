@@ -124,6 +124,12 @@ export abstract class BaseDuplexStream<
    */
   write: (value: Write) => Promise<IteratorResult<undefined, undefined>>;
 
+  /**
+   * Constructs a new {@link BaseDuplexStream}.
+   *
+   * @param reader - The underlying reader for the duplex stream.
+   * @param writer - The underlying writer for the duplex stream.
+   */
   constructor(reader: ReadStream, writer: WriteStream) {
     // Set a catch handler to avoid unhandled rejection errors. The promise may
     // reject before reads or writes occur, in which case there are no handlers.
@@ -159,6 +165,9 @@ export abstract class BaseDuplexStream<
     harden(this);
   }
 
+  /**
+   * Resets the synchronization status to idle and creates a new promise kit.
+   */
   #resetSynchronizationStatus(): void {
     this.#synchronizationStatus = SynchronizationStatus.Idle;
     this.#syncKit = makePromiseKit<void>();
@@ -242,6 +251,9 @@ export abstract class BaseDuplexStream<
     }
   }
 
+  /**
+   * Completes the synchronization by resolving the sync promise. Idempotent.
+   */
   #completeSynchronization(): void {
     if (isEnded(this.#synchronizationStatus)) {
       return;
@@ -251,6 +263,11 @@ export abstract class BaseDuplexStream<
     this.#syncKit.resolve();
   }
 
+  /**
+   * Fails the synchronization by rejecting the sync promise with the given error. Idempotent.
+   *
+   * @param error - The error to reject the sync promise with.
+   */
   #failSynchronization(error: Error): void {
     if (isEnded(this.#synchronizationStatus)) {
       return;
@@ -260,6 +277,11 @@ export abstract class BaseDuplexStream<
     this.#syncKit.reject(error);
   }
 
+  /**
+   * Returns the async iterator for this stream.
+   *
+   * @returns This stream as an async iterator.
+   */
   [Symbol.asyncIterator](): typeof this {
     return this;
   }

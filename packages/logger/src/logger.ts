@@ -70,14 +70,44 @@ const harden = globalThis.harden ?? ((value: unknown) => value);
 export class Logger {
   readonly #options: LoggerOptions;
 
+  /**
+   * Logs a message at the 'log' level.
+   *
+   * @param message - The message to log.
+   * @param args - Additional arguments to include in the log entry.
+   */
   log: LogMethod;
 
+  /**
+   * Logs a message at the 'debug' level.
+   *
+   * @param message - The message to log.
+   * @param args - Additional arguments to include in the log entry.
+   */
   debug: LogMethod;
 
+  /**
+   * Logs a message at the 'info' level.
+   *
+   * @param message - The message to log.
+   * @param args - Additional arguments to include in the log entry.
+   */
   info: LogMethod;
 
+  /**
+   * Logs a message at the 'warn' level.
+   *
+   * @param message - The message to log.
+   * @param args - Additional arguments to include in the log entry.
+   */
   warn: LogMethod;
 
+  /**
+   * Logs a message at the 'error' level.
+   *
+   * @param message - The message to log.
+   * @param args - Additional arguments to include in the log entry.
+   */
   error: LogMethod;
 
   /**
@@ -147,6 +177,13 @@ export class Logger {
       .catch((problem) => onError?.(problem));
   }
 
+  /**
+   * Dispatches a log entry to all configured transports.
+   *
+   * @param options - Additional logger options to merge with the instance options.
+   * @param level - The severity level of the log entry.
+   * @param args - The message and additional data to include in the log entry.
+   */
   #dispatch(options: LoggerOptions, level: LogLevel, ...args: LogArgs): void {
     const { transports, tags } = mergeOptions(this.#options, options);
     const [message, ...data] = args;

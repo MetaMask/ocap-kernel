@@ -45,6 +45,16 @@ export class SubclusterManager {
     args: unknown[],
   ) => Promise<CapData<KRef>>;
 
+  /**
+   * Creates a new SubclusterManager instance.
+   *
+   * @param options - Constructor options.
+   * @param options.kernelStore - The kernel's persistent state store.
+   * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
+   * @param options.vatManager - Manager for creating and managing vat instances.
+   * @param options.getKernelService - Function to retrieve a kernel service by its kref.
+   * @param options.queueMessage - Function to queue messages for delivery to targets.
+   */
   constructor({
     kernelStore,
     kernelQueue,

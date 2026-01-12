@@ -10,7 +10,17 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating a duplicate endowment was detected.
+ */
 export class DuplicateEndowmentError extends BaseError {
+  /**
+   * Creates a new DuplicateEndowmentError.
+   *
+   * @param endowmentName - The name of the duplicate endowment.
+   * @param isInternal - Whether the duplicate is an internal endowment.
+   * @param options - Additional error options including cause and stack.
+   */
   constructor(
     endowmentName: string,
     isInternal: boolean,

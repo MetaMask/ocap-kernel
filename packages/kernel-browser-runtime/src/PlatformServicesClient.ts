@@ -35,6 +35,9 @@ export type PlatformServicesClientStream = PostMessageDuplexStream<
   PostMessageEnvelope<JsonRpcMessage>
 >;
 
+/**
+ *
+ */
 export class PlatformServicesClient implements PlatformServices {
   readonly #logger: Logger;
 

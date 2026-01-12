@@ -25,6 +25,14 @@ import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
  * even if the compiler cannot detect this.
  */
 export class EvaluatorError extends BaseError {
+  /**
+   * Creates a new EvaluatorError.
+   *
+   * @param message - A human-readable description of the evaluator error.
+   * @param code - An internal code identifying the specific evaluator failure.
+   * @param cause - The underlying error that caused this evaluator error.
+   * @param options - Additional error options including stack.
+   */
   constructor(
     message: string,
     code: string,

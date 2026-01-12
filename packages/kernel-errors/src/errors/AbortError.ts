@@ -10,7 +10,15 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating an operation was aborted.
+ */
 export class AbortError extends BaseError {
+  /**
+   * Creates a new AbortError.
+   *
+   * @param options - Additional error options including cause and stack.
+   */
   constructor(options?: ErrorOptionsWithStack) {
     super(ErrorCode.AbortError, 'Operation aborted.', {
       ...options,

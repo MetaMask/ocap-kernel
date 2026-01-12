@@ -40,6 +40,9 @@ export type PlatformServicesStream = PostMessageDuplexStream<
   PostMessageEnvelope<JsonRpcMessage> // was JsonRpcResponse
 >;
 
+/**
+ *
+ */
 export class PlatformServicesServer {
   readonly #logger;
 
@@ -150,6 +153,11 @@ export class PlatformServicesServer {
     return new PlatformServicesServer(stream, makeWorker, logger);
   }
 
+  /**
+   * Handles incoming JSON-RPC messages from the shared worker.
+   *
+   * @param event - The message event containing the JSON-RPC message data.
+   */
   async #handleMessage(event: MessageEvent<JsonRpcMessage>): Promise<void> {
     if (isJsonRpcResponse(event.data)) {
       const message = event.data;
