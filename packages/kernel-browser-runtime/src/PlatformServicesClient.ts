@@ -36,7 +36,16 @@ export type PlatformServicesClientStream = PostMessageDuplexStream<
 >;
 
 /**
+ * The client end of the platform services, intended to be constructed in
+ * the kernel worker. Sends launch and terminate worker requests to the
+ * server and wraps the launch response in a DuplexStream for consumption
+ * by the kernel, and provides network connectivity.
  *
+ * @see {@link PlatformServicesServer} for the other end of the service.
+ *
+ * @param stream - The stream to use for communication with the server.
+ * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[platform services client]'.
+ * @returns A new {@link PlatformServicesClient}.
  */
 export class PlatformServicesClient implements PlatformServices {
   readonly #logger: Logger;

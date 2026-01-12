@@ -36,7 +36,17 @@ import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
 /**
+ * The kernel is the main class for the kernel. It is responsible for
+ * managing the lifecycle of the kernel and the vats.
  *
+ * @param commandStream - Command channel from whatever external software is driving the kernel.
+ * @param platformServices - Service to do things the kernel worker can't.
+ * @param kernelDatabase - Database holding the kernel's persistent state.
+ * @param options - Options for the kernel constructor.
+ * @param options.resetStorage - If true, the storage will be cleared.
+ * @param options.logger - Optional logger for error and diagnostic output.
+ * @param options.keySeed - Optional seed for libp2p key generation.
+ * @returns A new {@link Kernel}.
  */
 export class Kernel {
   /** Command channel from the controlling console/browser extension/test driver */

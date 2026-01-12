@@ -41,7 +41,20 @@ export type PlatformServicesStream = PostMessageDuplexStream<
 >;
 
 /**
+ * The server end of the platform services, intended to be constructed in
+ * the offscreen document. Listens for launch and terminate worker requests
+ * from the client and uses the {@link VatWorker} methods to effect those
+ * requests, and provides network connectivity.
  *
+ * Note that {@link PlatformServicesServer.start} must be called to start
+ * the server.
+ *
+ * @see {@link PlatformServicesClient} for the other end of the service.
+ *
+ * @param stream - The stream to use for communication with the client.
+ * @param makeWorker - A method for making a {@link VatWorker}.
+ * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[platform services server]'.
+ * @returns A new {@link PlatformServicesServer}.
  */
 export class PlatformServicesServer {
   readonly #logger;
