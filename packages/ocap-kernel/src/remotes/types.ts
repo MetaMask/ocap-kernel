@@ -41,9 +41,33 @@ export type RemoteCommsOptions = {
   maxRetryAttempts?: number | undefined;
   /**
    * Maximum number of messages to queue per peer while reconnecting.
-   * If not provided, uses the default MAX_QUEUE value.
+   * If not provided, uses the default MAX_QUEUE value (200).
    */
   maxQueue?: number | undefined;
+  /**
+   * Maximum number of concurrent connections (default: 100).
+   * When the limit is reached, new outbound connections are rejected with
+   * ResourceLimitError and inbound connections are closed immediately.
+   */
+  maxConcurrentConnections?: number | undefined;
+  /**
+   * Maximum message size in bytes (default: 1MB).
+   * Messages exceeding this limit are immediately rejected with ResourceLimitError
+   * before any connection or queuing attempt.
+   */
+  maxMessageSizeBytes?: number | undefined;
+  /**
+   * Interval in milliseconds between stale peer cleanup runs (default: 15 minutes).
+   * Controls how often the system checks for and removes stale peer data.
+   */
+  cleanupIntervalMs?: number | undefined;
+  /**
+   * Time in milliseconds before a disconnected peer is considered stale (default: 1 hour).
+   * When a peer has been disconnected for longer than this duration and is not
+   * actively reconnecting, its data is cleaned up including: message queues,
+   * location hints, connection timestamps, and reconnection state.
+   */
+  stalePeerTimeoutMs?: number | undefined;
 };
 
 export type RemoteInfo = {

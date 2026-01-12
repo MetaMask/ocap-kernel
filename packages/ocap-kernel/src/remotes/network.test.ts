@@ -1,5 +1,5 @@
-import { AbortError } from '@metamask/kernel-errors';
-import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
+import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
+import { delay, makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import {
   describe,
   expect,
@@ -60,6 +60,7 @@ const mockReconnectionManager = {
   resetBackoff: vi.fn(),
   resetAllBackoffs: vi.fn(),
   clear: vi.fn(),
+  clearPeer: vi.fn(),
 };
 
 vi.mock('./ReconnectionManager.ts', () => {
@@ -81,6 +82,8 @@ vi.mock('./ReconnectionManager.ts', () => {
     resetAllBackoffs = mockReconnectionManager.resetAllBackoffs;
 
     clear = mockReconnectionManager.clear;
+
+    clearPeer = mockReconnectionManager.clearPeer;
   }
   return {
     ReconnectionManager: MockReconnectionManager,
@@ -100,6 +103,7 @@ const mockConnectionFactory = {
   dialIdempotent: vi.fn(),
   onInboundConnection: vi.fn(),
   stop: vi.fn().mockResolvedValue(undefined),
+  closeChannel: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock('./ConnectionFactory.ts', () => {
@@ -144,6 +148,12 @@ vi.mock('@metamask/kernel-errors', () => ({
       this.name = 'AbortError';
     }
   },
+  ResourceLimitError: class MockResourceLimitError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'ResourceLimitError';
+    }
+  },
   isRetryableNetworkError: vi.fn().mockImplementation((error: unknown) => {
     const errorWithCode = error as { code?: string };
     return (
@@ -177,10 +187,12 @@ describe('network.initNetwork', () => {
     mockReconnectionManager.resetBackoff.mockClear();
     mockReconnectionManager.resetAllBackoffs.mockClear();
     mockReconnectionManager.clear.mockClear();
+    mockReconnectionManager.clearPeer.mockClear();
 
     mockConnectionFactory.dialIdempotent.mockClear();
     mockConnectionFactory.onInboundConnection.mockClear();
     mockConnectionFactory.stop.mockClear();
+    mockConnectionFactory.closeChannel.mockClear();
 
     mockLogger.log.mockClear();
     mockLogger.error.mockClear();
@@ -202,8 +214,10 @@ describe('network.initNetwork', () => {
   });
 
   afterEach(() => {
-    // Clear mocks after each test
-    vi.clearAllMocks();
+    if (vi.isFakeTimers()) {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   const createMockChannel = (peerId: string): MockChannel => ({
@@ -774,6 +788,122 @@ describe('network.initNetwork', () => {
         mockReconnectionManager.resetBackoff.mock.calls.length;
       expect(resetBackoffCallCount).toBeLessThanOrEqual(1);
     }, 10000);
+
+    it('flushes queue on replacement channel when channel replaced during flush', async () => {
+      // This test verifies the fix for: "Queued messages stuck when channel replaced during reconnection flush"
+      // Scenario: During reconnection flush, an inbound connection replaces the channel.
+      // The flush fails on the old channel, but should automatically retry on the new channel.
+
+      // Setup reconnection state management
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay
+
+      // Setup FIFO message queue
+      setupFifoMessageQueue();
+
+      const peerId = 'peer-replaced';
+      const oldChannel = createMockChannel(peerId);
+      const newChannel = createMockChannel(peerId);
+      const connectionLostError = Object.assign(new Error('Connection lost'), {
+        code: 'ECONNRESET',
+      });
+
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // oldChannel: Initial connection succeeds, then write fails to trigger reconnection
+      // During flush, the first write will trigger the inbound connection
+      let flushWriteCount = 0;
+      oldChannel.msgStream.write.mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        async () => {
+          flushWriteCount += 1;
+          if (flushWriteCount === 1) {
+            // Initial message succeeds
+            return undefined;
+          }
+          if (flushWriteCount === 2) {
+            // Second write (queued-1) fails to trigger reconnection
+            throw connectionLostError;
+          }
+          // During flush, first queued message write triggers inbound connection, then fails
+          if (flushWriteCount === 3) {
+            // Simulate inbound connection replacing the channel mid-flush
+            await delay(10);
+            inboundHandler?.(newChannel);
+            await delay(10);
+            throw connectionLostError;
+          }
+          // All other writes on old channel fail
+          throw connectionLostError;
+        },
+      );
+
+      // newChannel: All writes succeed (this is the replacement channel from inbound connection)
+      newChannel.msgStream.write.mockResolvedValue(undefined);
+
+      // Control reconnection dial timing
+      let releaseReconnectionDial: (() => void) | undefined;
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (targetPeerId: string, _hints: string[], retry: boolean) => {
+          if (targetPeerId !== peerId) {
+            return createMockChannel(targetPeerId);
+          }
+
+          // Initial connection (retry=true) returns oldChannel immediately
+          if (retry) {
+            return oldChannel;
+          }
+
+          // Reconnection attempt (retry=false) waits until we allow it
+          await new Promise<void>((resolve) => {
+            releaseReconnectionDial = resolve;
+          });
+          return oldChannel;
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Establish initial channel
+      await sendRemoteMessage(peerId, 'initial-msg');
+
+      // Trigger reconnection via write failure
+      await sendRemoteMessage(peerId, 'queued-1');
+
+      // Queue another message during reconnection
+      await sendRemoteMessage(peerId, 'queued-2');
+
+      // Allow reconnection to dial and start flushing
+      releaseReconnectionDial?.();
+
+      // Wait for the flush to complete on the new channel
+      await vi.waitFor(
+        () => {
+          // Should have written both queued messages on the new channel
+          expect(newChannel.msgStream.write).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 5000 },
+      );
+
+      // Verify messages were sent in correct order
+      expect(mockMessageQueue.messages).toStrictEqual([]);
+    }, 10000);
   });
 
   describe('stop functionality', () => {
@@ -1301,6 +1431,111 @@ describe('network.initNetwork', () => {
           'peer-1',
         );
       });
+    });
+
+    it('reuses existing channel when inbound connection arrives during reconnection dial', async () => {
+      // Capture inbound handler before init
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+      // Create two different channels: one for reconnection dial, one for inbound
+      const reconnectionChannel = createMockChannel('peer-1');
+      const inboundChannel = createMockChannel('peer-1');
+      reconnectionChannel.msgStream.write.mockResolvedValue(undefined);
+      inboundChannel.msgStream.write.mockResolvedValue(undefined);
+      inboundChannel.msgStream.read.mockResolvedValue(
+        new Promise(() => {
+          /* Never resolves - keeps channel active */
+        }),
+      );
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Set up initial connection that will fail on write
+      const initialChannel = createMockChannel('peer-1');
+      initialChannel.msgStream.write
+        .mockResolvedValueOnce(undefined) // First write succeeds
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ); // Second write fails, triggering reconnection
+
+      // Make dialIdempotent delay for reconnection to allow inbound connection to arrive first
+      let dialResolve: ((value: MockChannel) => void) | undefined;
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(initialChannel) // Initial connection
+        .mockImplementation(
+          async () =>
+            new Promise<MockChannel>((resolve) => {
+              dialResolve = resolve;
+            }),
+        ); // Reconnection dial (pending)
+
+      // Establish initial connection
+      await sendRemoteMessage('peer-1', 'msg-1');
+
+      // Trigger connection loss to start reconnection
+      await sendRemoteMessage('peer-1', 'msg-2');
+
+      // Wait for reconnection to start and begin dialing
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // While reconnection dial is pending, inbound connection arrives and registers channel
+      inboundHandler?.(inboundChannel);
+
+      // Wait for inbound channel to be registered
+      await vi.waitFor(() => {
+        expect(inboundChannel.msgStream.read).toHaveBeenCalled();
+      });
+
+      // Now resolve the reconnection dial
+      dialResolve?.(reconnectionChannel);
+
+      // Wait for reconnection to complete
+      await vi.waitFor(() => {
+        // Should detect existing channel and close the dialed one
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          reconnectionChannel,
+          'peer-1',
+        );
+        // Should log that existing channel is being reused
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-1:: reconnection: channel already exists, reusing existing channel',
+        );
+        // Should stop reconnection (successful)
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Verify only one channel is active (the inbound one)
+      // The reconnection channel should have been closed, not registered
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -2005,6 +2240,775 @@ describe('network.initNetwork', () => {
 
       // Verify that writeWithTimeout was called for both messages
       expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('connection limit', () => {
+    it('enforces maximum concurrent connections', async () => {
+      const mockChannels: MockChannel[] = [];
+      // Create 100 mock channels
+      for (let i = 0; i < 100; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+        mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(mockChannel);
+      }
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Establish 100 connections
+      for (let i = 0; i < 100; i += 1) {
+        await sendRemoteMessage(`peer-${i}`, 'msg');
+      }
+      // Attempt to establish 101st connection should fail
+      await expect(sendRemoteMessage('peer-101', 'msg')).rejects.toThrow(
+        ResourceLimitError,
+      );
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(100);
+    });
+
+    it('respects custom maxConcurrentConnections option', async () => {
+      const customLimit = 5;
+      const mockChannels: MockChannel[] = [];
+      // Create mock channels up to custom limit
+      for (let i = 0; i < customLimit; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+        mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(mockChannel);
+      }
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections: customLimit },
+        vi.fn(),
+      );
+      // Establish connections up to custom limit
+      for (let i = 0; i < customLimit; i += 1) {
+        await sendRemoteMessage(`peer-${i}`, 'msg');
+      }
+      // Attempt to establish connection beyond custom limit should fail
+      await expect(sendRemoteMessage('peer-exceed', 'msg')).rejects.toThrow(
+        ResourceLimitError,
+      );
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(
+        customLimit,
+      );
+    });
+
+    it('rejects inbound connections when limit reached', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+      const mockChannels: MockChannel[] = [];
+      // Create 100 mock channels for outbound connections
+      for (let i = 0; i < 100; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+        mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(mockChannel);
+      }
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Establish 100 outbound connections
+      for (let i = 0; i < 100; i += 1) {
+        await sendRemoteMessage(`peer-${i}`, 'msg');
+      }
+      // Attempt inbound connection should be rejected
+      const inboundChannel = createMockChannel('inbound-peer');
+      inboundHandler?.(inboundChannel);
+      // Should not add to channels (connection rejected)
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'inbound-peer:: rejecting inbound connection due to connection limit',
+      );
+    });
+  });
+
+  describe('message size limit', () => {
+    it('rejects messages exceeding 1MB size limit', async () => {
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Create a message larger than 1MB
+      const largeMessage = 'x'.repeat(1024 * 1024 + 1); // 1MB + 1 byte
+      await expect(sendRemoteMessage('peer-1', largeMessage)).rejects.toThrow(
+        ResourceLimitError,
+      );
+      expect(mockConnectionFactory.dialIdempotent).not.toHaveBeenCalled();
+      expect(mockMessageQueue.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('allows messages at exactly 1MB size limit', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Create a message exactly 1MB
+      const exactSizeMessage = 'x'.repeat(1024 * 1024);
+      await sendRemoteMessage('peer-1', exactSizeMessage);
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalled();
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+    });
+
+    it('validates message size before queueing during reconnection', async () => {
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Create a message larger than 1MB
+      const largeMessage = 'x'.repeat(1024 * 1024 + 1);
+      await expect(sendRemoteMessage('peer-1', largeMessage)).rejects.toThrow(
+        ResourceLimitError,
+      );
+      // Should not queue the message
+      expect(mockMessageQueue.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('respects custom maxMessageSizeBytes option', async () => {
+      const customLimit = 500 * 1024; // 500KB
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxMessageSizeBytes: customLimit },
+        vi.fn(),
+      );
+      // Create a message larger than custom limit
+      const largeMessage = 'x'.repeat(customLimit + 1);
+      await expect(sendRemoteMessage('peer-1', largeMessage)).rejects.toThrow(
+        ResourceLimitError,
+      );
+      // Create a message at exactly custom limit
+      const exactSizeMessage = 'x'.repeat(customLimit);
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      await sendRemoteMessage('peer-1', exactSizeMessage);
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalled();
+    });
+  });
+
+  describe('stale peer cleanup', () => {
+    it('sets up periodic cleanup interval', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      await initNetwork('0x1234', {}, vi.fn());
+      expect(setIntervalSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        15 * 60 * 1000,
+      );
+      expect(intervalFn).toBeDefined();
+      setIntervalSpy.mockRestore();
+    });
+
+    it('cleans up interval on stop', async () => {
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((_fn: () => void, _ms?: number) => {
+          return 42 as unknown as NodeJS.Timeout;
+        });
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
+      await stop();
+      expect(clearIntervalSpy).toHaveBeenCalledWith(42);
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    });
+
+    it('does not clean up peers with active connections', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      // Establish connection (sets lastConnectionTime)
+      await sendRemoteMessage('peer-1', 'msg');
+      // Run cleanup immediately; should not remove active peer
+      intervalFn?.();
+      await sendRemoteMessage('peer-1', 'msg2');
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(1);
+      setIntervalSpy.mockRestore();
+    });
+
+    it('does not clean up peers currently reconnecting', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+      await sendRemoteMessage('peer-1', 'msg');
+      // Run cleanup immediately; reconnecting peer should not be cleaned
+      intervalFn?.();
+      expect(mockMessageQueue.enqueue).toHaveBeenCalledWith('msg');
+      setIntervalSpy.mockRestore();
+    });
+
+    it('cleanup does not interfere with active reconnection and reconnection completes', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+
+      // Drive reconnection state deterministically
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0);
+
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      // Gate the reconnection dial so we can run cleanup while reconnection is in progress
+      let releaseReconnectionDial: (() => void) | undefined;
+      (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        async () => {
+          await new Promise<void>((resolve) => {
+            releaseReconnectionDial = resolve;
+          });
+        },
+      );
+
+      // Use FIFO queue to verify messages are preserved through cleanup
+      setupFifoMessageQueue();
+
+      const initialChannel = createMockChannel('peer-1');
+      const reconnectChannel = createMockChannel('peer-1');
+
+      // Initial connection succeeds, then write fails to trigger reconnection
+      initialChannel.msgStream.write
+        .mockResolvedValueOnce(undefined) // initial message succeeds
+        .mockRejectedValueOnce(
+          Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+        ); // triggers reconnection
+
+      reconnectChannel.msgStream.write.mockResolvedValue(undefined);
+
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(initialChannel) // initial connection
+        .mockResolvedValueOnce(reconnectChannel); // reconnection
+
+      const stalePeerTimeoutMs = 1; // Very short timeout
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+
+      // Establish connection
+      await sendRemoteMessage('peer-1', 'msg1');
+
+      // Trigger reconnection via write failure
+      await sendRemoteMessage('peer-1', 'msg2');
+
+      // Wait for reconnection to start
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Wait beyond the stale timeout while reconnection is blocked
+      await delay(stalePeerTimeoutMs + 10);
+
+      // Run cleanup while reconnection is active
+      intervalFn?.();
+
+      // Verify peer was NOT cleaned up (because isReconnecting is true)
+      expect(mockReconnectionManager.clearPeer).not.toHaveBeenCalled();
+      expect(mockLogger.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+
+      // Release the reconnection dial
+      releaseReconnectionDial?.();
+
+      // Wait for reconnection to complete
+      await vi.waitFor(() => {
+        expect(mockReconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
+      });
+
+      // Verify reconnection completed successfully - queued messages were flushed
+      expect(reconnectChannel.msgStream.write).toHaveBeenCalled();
+
+      setIntervalSpy.mockRestore();
+    }, 10000);
+
+    it('cleans up stale peers and calls clearPeer', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      // Stale cleanup only applies when there is no active channel.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const stalePeerTimeoutMs = 1;
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+      // Establish connection (sets lastConnectionTime)
+      await sendRemoteMessage('peer-1', 'msg');
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Ensure enough wall-clock time passes to exceed stalePeerTimeoutMs.
+      await delay(stalePeerTimeoutMs + 5);
+      // Run cleanup; stale peer should be cleaned
+      intervalFn?.();
+      // Verify clearPeer was called
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      // Verify cleanup log message
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+      setIntervalSpy.mockRestore();
+    });
+
+    it('respects custom cleanupIntervalMs option', async () => {
+      const customInterval = 30 * 60 * 1000; // 30 minutes
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((_fn: () => void, _ms?: number) => {
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      await initNetwork(
+        '0x1234',
+        { cleanupIntervalMs: customInterval },
+        vi.fn(),
+      );
+      expect(setIntervalSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        customInterval,
+      );
+      setIntervalSpy.mockRestore();
+    });
+
+    it('respects custom stalePeerTimeoutMs option', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const customTimeout = 50;
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        {
+          stalePeerTimeoutMs: customTimeout,
+        },
+        vi.fn(),
+      );
+      // Establish connection
+      await sendRemoteMessage('peer-1', 'msg');
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Run cleanup quickly; peer should not be stale yet.
+      intervalFn?.();
+      // Peer should not be cleaned (not stale yet)
+      expect(mockReconnectionManager.clearPeer).not.toHaveBeenCalled();
+      // Wait beyond the custom timeout, then run cleanup again.
+      await delay(customTimeout + 10);
+      intervalFn?.();
+      // Now peer should be cleaned
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      setIntervalSpy.mockRestore();
+    });
+
+    it('cleans up intentionallyClosed entries for stale peers', async () => {
+      let intervalFn: (() => void) | undefined;
+      const setIntervalSpy = vi
+        .spyOn(global, 'setInterval')
+        .mockImplementation((fn: () => void, _ms?: number) => {
+          intervalFn = fn;
+          return 1 as unknown as NodeJS.Timeout;
+        });
+      const mockChannel = createMockChannel('peer-1');
+      // End the inbound stream so the channel is removed from the active channels map.
+      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const stalePeerTimeoutMs = 1;
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        { stalePeerTimeoutMs },
+        vi.fn(),
+      );
+      // Establish connection and then intentionally close it
+      await sendRemoteMessage('peer-1', 'msg');
+      await closeConnection('peer-1');
+      // Verify peer is marked as intentionally closed
+      await expect(sendRemoteMessage('peer-1', 'msg2')).rejects.toThrow(
+        'Message delivery failed after intentional close',
+      );
+      // Wait until readChannel processes the stream end and removes the channel.
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+      });
+      // Ensure enough wall-clock time passes to exceed stalePeerTimeoutMs.
+      await delay(stalePeerTimeoutMs + 5);
+      // Run cleanup; stale peer should be cleaned, including intentionallyClosed entry
+      intervalFn?.();
+      // Verify clearPeer was called
+      expect(mockReconnectionManager.clearPeer).toHaveBeenCalledWith('peer-1');
+      // Verify cleanup log message
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-1:: cleaning up stale peer data'),
+      );
+      // After cleanup, peer should no longer be in intentionallyClosed
+      // Verify by attempting to send a message - it should not throw the intentional close error
+      const newChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(newChannel);
+      // Should not throw "Message delivery failed after intentional close"
+      // (it will attempt to dial a new connection instead)
+      await sendRemoteMessage('peer-1', 'msg-after-cleanup');
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+        'peer-1',
+        [],
+        true,
+      );
+      setIntervalSpy.mockRestore();
+    });
+  });
+
+  describe('reconnection respects connection limit', () => {
+    it('blocks reconnection when connection limit is reached', async () => {
+      const customLimit = 2;
+      const mockChannels: MockChannel[] = [];
+      // Create mock channels
+      for (let i = 0; i < customLimit; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+      }
+      // Set up reconnection state
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(100); // Small delay to ensure ordering
+      const { abortableDelay } = await import('@metamask/kernel-utils');
+      (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        async (ms: number) => {
+          // Use real delay to allow other operations to complete
+          await new Promise((resolve) => setTimeout(resolve, ms));
+        },
+      );
+      // Set up dial mocks - initial connections
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannels[0]) // peer-0
+        .mockResolvedValueOnce(mockChannels[1]); // peer-1
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections: customLimit },
+        vi.fn(),
+      );
+      // Establish connections up to limit
+      await sendRemoteMessage('peer-0', 'msg');
+      await sendRemoteMessage('peer-1', 'msg');
+      // Disconnect peer-0 (simulate connection loss)
+      const peer0Channel = mockChannels[0] as MockChannel;
+      peer0Channel.msgStream.write.mockRejectedValueOnce(
+        Object.assign(new Error('Connection lost'), { code: 'ECONNRESET' }),
+      );
+      // Trigger reconnection for peer-0 (this will remove peer-0 from channels)
+      await sendRemoteMessage('peer-0', 'msg2');
+      // Wait for connection loss to be handled (channel removed)
+      await vi.waitFor(
+        () => {
+          expect(
+            mockReconnectionManager.startReconnection,
+          ).toHaveBeenCalledWith('peer-0');
+        },
+        { timeout: 1000 },
+      );
+      // Now fill the connection limit with a new peer (peer-0 is removed, so we have space)
+      // Ensure new-peer is NOT in reconnecting state
+      mockReconnectionManager.isReconnecting.mockImplementation((peerId) => {
+        return peerId === 'peer-0'; // Only peer-0 is reconnecting
+      });
+      const newPeerChannel = createMockChannel('new-peer');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(
+        newPeerChannel,
+      );
+      await sendRemoteMessage('new-peer', 'msg');
+      // Wait a bit to ensure new-peer connection is fully established in channels map
+      await delay(50);
+      // Mock successful dial for reconnection attempt (but limit will block it)
+      const reconnectChannel = createMockChannel('peer-0');
+      mockConnectionFactory.dialIdempotent.mockResolvedValueOnce(
+        reconnectChannel,
+      );
+      // Verify reconnection started
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-0',
+      );
+      // Wait for reconnection attempt to be blocked
+      await vi.waitFor(
+        () => {
+          // Should have logged that reconnection was blocked by limit
+          expect(mockLogger.log).toHaveBeenCalledWith(
+            expect.stringContaining(
+              'peer-0:: reconnection blocked by connection limit',
+            ),
+          );
+          // Verify closeChannel was called to release network resources
+          expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+            reconnectChannel,
+            'peer-0',
+          );
+        },
+        { timeout: 5000 },
+      );
+      // Verify reconnection continues (doesn't stop) - shouldRetry should be called
+      // meaning the loop continues after the limit check fails
+      expect(mockReconnectionManager.shouldRetry).toHaveBeenCalled();
+    }, 10000);
+  });
+
+  describe('connection limit race condition', () => {
+    it('prevents exceeding limit when multiple concurrent dials occur', async () => {
+      const customLimit = 2;
+      const mockChannels: MockChannel[] = [];
+
+      // Create mock channels
+      for (let i = 0; i < customLimit + 1; i += 1) {
+        const mockChannel = createMockChannel(`peer-${i}`);
+        mockChannels.push(mockChannel);
+      }
+
+      // Set up dial mocks - all dials will succeed
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => {
+          // Simulate async dial delay
+          await delay(10);
+          return mockChannels.find((ch) => ch.peerId === peerId) as MockChannel;
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections: customLimit },
+        vi.fn(),
+      );
+      // Start multiple concurrent dials that all pass the initial limit check
+      // The third send should throw ResourceLimitError
+      const results = await Promise.allSettled([
+        sendRemoteMessage('peer-0', 'msg0'),
+        sendRemoteMessage('peer-1', 'msg1'),
+        sendRemoteMessage('peer-2', 'msg2'), // This should be rejected after dial
+      ]);
+      // Verify that only 2 channels were added (the limit)
+      // The third one should have been rejected after dial completed
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('peer-2:: connection limit reached after dial'),
+      );
+      // Verify that the third send threw ResourceLimitError
+      const rejectedResult = results.find(
+        (result) => result.status === 'rejected',
+      );
+      expect(rejectedResult).toBeDefined();
+      expect((rejectedResult as PromiseRejectedResult).reason).toBeInstanceOf(
+        ResourceLimitError,
+      );
+      // Verify that the channel was closed
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalled();
+      // Verify that the message was NOT queued (error propagated to caller)
+      expect(mockMessageQueue.enqueue).not.toHaveBeenCalledWith('msg2');
+      // Verify that reconnection was NOT started (error propagated to caller)
+      expect(
+        mockReconnectionManager.startReconnection,
+      ).not.toHaveBeenCalledWith('peer-2');
+    }, 10000);
+  });
+
+  it('registerLocationHints merges with existing hints', async () => {
+    const { registerLocationHints, sendRemoteMessage } = await initNetwork(
+      '0x1234',
+      {},
+      vi.fn(),
+    );
+
+    const mockChannel = createMockChannel('peer-1');
+    mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+    // Register initial hints
+    registerLocationHints('peer-1', ['hint1', 'hint2']);
+
+    // Register additional hints (should merge)
+    registerLocationHints('peer-1', ['hint2', 'hint3']);
+
+    await sendRemoteMessage('peer-1', 'msg');
+
+    expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+      'peer-1',
+      ['hint1', 'hint2', 'hint3'],
+      true,
+    );
+  });
+
+  it('registerLocationHints creates new set when no existing hints', async () => {
+    const { registerLocationHints, sendRemoteMessage } = await initNetwork(
+      '0x1234',
+      {},
+      vi.fn(),
+    );
+
+    const mockChannel = createMockChannel('peer-1');
+    mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+    registerLocationHints('peer-1', ['hint1', 'hint2']);
+
+    await sendRemoteMessage('peer-1', 'msg');
+
+    expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledWith(
+      'peer-1',
+      ['hint1', 'hint2'],
+      true,
+    );
+  });
+
+  it('registerChannel closes replaced channel', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    await initNetwork('0x1234', {}, vi.fn());
+
+    const channel1 = createMockChannel('peer-1');
+    const channel2 = createMockChannel('peer-1');
+
+    inboundHandler?.(channel1);
+
+    await vi.waitFor(() => {
+      expect(channel1.msgStream.read).toHaveBeenCalled();
+    });
+
+    inboundHandler?.(channel2);
+
+    await vi.waitFor(() => {
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        channel1,
+        'peer-1',
+      );
+    });
+  });
+
+  it('handles closeChannel error when replacing channel', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    mockConnectionFactory.closeChannel.mockRejectedValueOnce(
+      new Error('Close failed'),
+    );
+
+    await initNetwork('0x1234', {}, vi.fn());
+
+    const channel1 = createMockChannel('peer-1');
+    const channel2 = createMockChannel('peer-1');
+
+    inboundHandler?.(channel1);
+
+    await vi.waitFor(() => {
+      expect(channel1.msgStream.read).toHaveBeenCalled();
+    });
+
+    inboundHandler?.(channel2);
+
+    await vi.waitFor(() => {
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('error closing replaced channel'),
+      );
+    });
+  });
+
+  it('closes rejected inbound channel from intentionally closed peer', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
+
+    await closeConnection('peer-1');
+
+    const inboundChannel = createMockChannel('peer-1');
+    inboundHandler?.(inboundChannel);
+
+    await vi.waitFor(() => {
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        inboundChannel,
+        'peer-1',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'peer-1:: rejecting inbound connection from intentionally closed peer',
+      );
+    });
+  });
+
+  it('handles error when closing rejected inbound from intentionally closed peer', async () => {
+    let inboundHandler: ((channel: MockChannel) => void) | undefined;
+    mockConnectionFactory.onInboundConnection.mockImplementation((handler) => {
+      inboundHandler = handler;
+    });
+
+    mockConnectionFactory.closeChannel.mockRejectedValueOnce(
+      new Error('Close failed'),
+    );
+
+    const { closeConnection } = await initNetwork('0x1234', {}, vi.fn());
+
+    await closeConnection('peer-1');
+
+    const inboundChannel = createMockChannel('peer-1');
+    inboundHandler?.(inboundChannel);
+
+    await vi.waitFor(() => {
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'error closing rejected inbound channel from intentionally closed peer',
+        ),
+      );
     });
   });
 });

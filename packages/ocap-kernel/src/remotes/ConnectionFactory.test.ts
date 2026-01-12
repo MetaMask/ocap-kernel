@@ -1111,6 +1111,54 @@ describe('ConnectionFactory', () => {
     });
   });
 
+  describe('closeChannel', () => {
+    it('closes underlying stream when close is available', async () => {
+      factory = await createFactory();
+      const close = vi.fn().mockResolvedValue(undefined);
+      const channel = {
+        peerId: 'peer-close',
+        msgStream: {
+          unwrap: () => ({ close }),
+        },
+      } as unknown as Channel;
+      await factory.closeChannel(channel, channel.peerId);
+      expect(close).toHaveBeenCalled();
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        `${channel.peerId}:: closed channel stream`,
+      );
+    });
+
+    it('aborts underlying stream when abort is available', async () => {
+      factory = await createFactory();
+      const abort = vi.fn();
+      const channel = {
+        peerId: 'peer-abort',
+        msgStream: {
+          unwrap: () => ({ abort }),
+        },
+      } as unknown as Channel;
+      await factory.closeChannel(channel, channel.peerId);
+      expect(abort).toHaveBeenCalledWith(expect.any(AbortError));
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        `${channel.peerId}:: aborted channel stream`,
+      );
+    });
+
+    it('logs when underlying stream lacks close and abort', async () => {
+      factory = await createFactory();
+      const channel = {
+        peerId: 'peer-none',
+        msgStream: {
+          unwrap: () => ({}),
+        },
+      } as unknown as Channel;
+      await factory.closeChannel(channel, channel.peerId);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        `${channel.peerId}:: channel stream lacks close/abort, relying on natural closure`,
+      );
+    });
+  });
+
   describe('integration scenarios', () => {
     it('handles complete connection lifecycle', async () => {
       createLibp2p.mockImplementation(async () => ({

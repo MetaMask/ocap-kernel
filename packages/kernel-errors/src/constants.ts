@@ -33,6 +33,7 @@ export const ErrorCode = {
   SubclusterNotFound: 'SUBCLUSTER_NOT_FOUND',
   SampleGenerationError: 'SAMPLE_GENERATION_ERROR',
   InternalError: 'INTERNAL_ERROR',
+  ResourceLimitError: 'RESOURCE_LIMIT_ERROR',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
