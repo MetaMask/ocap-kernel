@@ -25,7 +25,7 @@ describe('CapTP Integration', () => {
     // Create mock kernel with method implementations
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"rootKref":"ko1"}',
+        body: '#{"subclusterId":"sc1"}',
         slots: ['ko1'],
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
@@ -120,7 +120,7 @@ describe('CapTP Integration', () => {
 
       // The kernel facade now returns LaunchResult instead of CapData
       expect(result).toStrictEqual({
-        subclusterId: '',
+        subclusterId: 'sc1',
         rootKref: 'ko1',
       });
 
