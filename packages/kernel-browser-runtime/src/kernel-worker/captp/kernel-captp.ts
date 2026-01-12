@@ -3,7 +3,6 @@ import type { Kernel, KRef } from '@metamask/ocap-kernel';
 import type { Json } from '@metamask/utils';
 
 import { makeKernelFacade } from './kernel-facade.ts';
-import type { KrefWrapper } from '../../types.ts';
 
 /**
  * A CapTP message that can be sent over the wire.
@@ -46,28 +45,6 @@ export type KernelCapTP = {
    */
   abort: (reason?: Json) => void;
 };
-
-/**
- * Check if an object is a kref wrapper that should be exported by CapTP.
- *
- * @param obj - The object to check.
- * @returns True if the object is a kref wrapper.
- */
-function isKrefWrapper(obj: unknown): obj is KrefWrapper {
-  // Only handle objects that are EXACTLY { kref: string }
-  // Don't interfere with other objects like the kernel facade itself
-  if (typeof obj !== 'object' || obj === null) {
-    return false;
-  }
-
-  const keys = Object.keys(obj);
-  return (
-    keys.length === 1 &&
-    keys[0] === 'kref' &&
-    typeof (obj as KrefWrapper).kref === 'string' &&
-    (obj as KrefWrapper).kref.startsWith('ko')
-  );
-}
 
 /**
  * Create a proxy object that routes method calls to kernel.queueMessage().
@@ -134,8 +111,16 @@ function makeKrefTables(kernel: Kernel): {
      * @returns Slot ID if the object is a kref wrapper, undefined otherwise.
      */
     exportSlot(passable: unknown): string | undefined {
-      if (isKrefWrapper(passable)) {
-        const { kref } = passable;
+      // Check if passable is a kref wrapper: exactly { kref: string } where kref starts with 'ko'
+      if (
+        typeof passable === 'object' &&
+        passable !== null &&
+        Object.keys(passable).length === 1 &&
+        'kref' in passable &&
+        typeof (passable as { kref: unknown }).kref === 'string' &&
+        (passable as { kref: string }).kref.startsWith('ko')
+      ) {
+        const { kref } = passable as { kref: string };
 
         // Get or create slot ID for this kref
         let slotId = krefToSlotId.get(kref);

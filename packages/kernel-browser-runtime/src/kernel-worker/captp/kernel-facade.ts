@@ -18,9 +18,9 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
     launchSubcluster: async (config: ClusterConfig): Promise<LaunchResult> => {
       const capData = await kernel.launchSubcluster(config);
 
-      // If no capData returned (no bootstrap vat), return minimal result
+      // A subcluster always has a bootstrap vat with a root object
       if (!capData) {
-        return { subclusterId: '' };
+        throw new Error('launchSubcluster: expected capData with root kref');
       }
 
       // Parse the CapData body (format: "#..." where # prefix indicates JSON)
@@ -28,14 +28,19 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
         ? capData.body.slice(1)
         : capData.body;
       const body = JSON.parse(bodyJson) as { subclusterId?: string };
+      if (!body.subclusterId) {
+        throw new Error('launchSubcluster: expected subclusterId in body');
+      }
 
       // Extract root kref from slots (first slot is bootstrap vat's root object)
       const rootKref = capData.slots[0];
+      if (!rootKref) {
+        throw new Error('launchSubcluster: expected root kref in slots');
+      }
 
       return {
-        subclusterId: body.subclusterId ?? '',
-        rootKref: rootKref ? { kref: rootKref } : undefined, // Becomes presence via CapTP
-        rootKrefString: rootKref, // Plain string for storage
+        subclusterId: body.subclusterId,
+        rootKref,
       };
     },
 
@@ -56,8 +61,8 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
     },
 
     getVatRoot: async (krefString: string) => {
-      // Convert a kref string to a presence by wrapping it
-      // CapTP's custom marshalling will convert this to a presence on the background side
+      // Return wrapped kref for future CapTP marshalling to presence
+      // TODO: Enable custom CapTP marshalling tables to convert this to a presence
       return { kref: krefString };
     },
   });
