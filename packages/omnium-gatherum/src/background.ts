@@ -107,7 +107,7 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelP = backgroundCapTP.getKernel();
+  const kernelP: Promise<KernelFacade> = backgroundCapTP.getKernel();
 
   const ping = async (): Promise<void> => {
     const result = await E(kernelP).ping();
