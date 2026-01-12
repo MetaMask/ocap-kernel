@@ -66,7 +66,7 @@ export type CapletControllerFacet = {
    * @param capletId - The caplet ID.
    * @returns The installed caplet or undefined if not found.
    */
-  get: (capletId: CapletId) => Promise<InstalledCaplet | undefined>;
+  get: (capletId: CapletId) => InstalledCaplet | undefined;
 
   /**
    * Get the root object presence for a caplet.
@@ -236,7 +236,7 @@ export class CapletController extends Controller<
         draft.caplets[id] = {
           manifest,
           subclusterId,
-          rootKref: rootKrefString,
+        ...(rootKrefString && { rootKref: rootKrefString }),
           installedAt: Date.now(),
         };
       });
