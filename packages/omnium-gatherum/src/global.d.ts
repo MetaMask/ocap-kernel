@@ -1,7 +1,7 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 import type { Promisified } from '@metamask/kernel-utils';
 
-import type { CapletControllerFacet } from './controllers/index.ts';
+import type { CapletControllerFacet, CapletManifest } from './controllers/index.ts';
 
 // Type declarations for omnium dev console API.
 declare global {
@@ -36,6 +36,18 @@ declare global {
      * ```
      */
     getKernel: () => Promise<KernelFacade>;
+
+    /**
+     * Pre-defined caplet manifests for convenience.
+     *
+     * @example
+     * ```typescript
+     * await omnium.caplet.install(omnium.manifests.echo);
+     * ```
+     */
+    manifests: {
+      echo: CapletManifest;
+    };
 
     /**
      * Caplet management API.

@@ -19,6 +19,7 @@ import type {
   CapletControllerFacet,
   CapletManifest,
 } from './controllers/index.ts';
+import { manifests } from './manifests.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -179,6 +180,9 @@ function defineGlobals(): GlobalSetters {
     },
     getKernel: {
       value: async () => kernelP,
+    },
+    manifests: {
+      value: manifests,
     },
     caplet: {
       value: harden({
