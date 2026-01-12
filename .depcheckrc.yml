@@ -62,6 +62,9 @@ ignores:
   - 'webextension-polyfill'
   - '@types/webextension-polyfill'
 
+  # Silencing Yarn peer dependency complaints
+  - '@testing-library/dom'
+
   # Testing
   # This import is used in files which are meant to fail
   - 'does-not-exist'
