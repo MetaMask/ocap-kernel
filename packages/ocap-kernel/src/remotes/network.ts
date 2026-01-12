@@ -424,6 +424,23 @@ export async function initNetwork(
           continue; // Continue the reconnection loop
         }
 
+        // If a new channel is active (stale channel was replaced by inbound connection),
+        // flush the queue on it to prevent messages from being stuck indefinitely
+        const newChannel = channels.get(peerId);
+        if (newChannel && newChannel !== channel) {
+          logger.log(
+            `${peerId}:: stale channel replaced during flush, flushing queue on new channel`,
+          );
+          await flushQueuedMessages(peerId, newChannel, queue);
+          // Check again if the new flush succeeded
+          if (!channels.has(peerId)) {
+            logger.log(
+              `${peerId}:: new channel also failed during flush, continuing loop`,
+            );
+            continue;
+          }
+        }
+
         // Only reset backoff and stop reconnection after successful flush
         reconnectionManager.resetBackoff(peerId);
         reconnectionManager.stopReconnection(peerId);

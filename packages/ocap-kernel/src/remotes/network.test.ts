@@ -788,6 +788,122 @@ describe('network.initNetwork', () => {
         mockReconnectionManager.resetBackoff.mock.calls.length;
       expect(resetBackoffCallCount).toBeLessThanOrEqual(1);
     }, 10000);
+
+    it('flushes queue on replacement channel when channel replaced during flush', async () => {
+      // This test verifies the fix for: "Queued messages stuck when channel replaced during reconnection flush"
+      // Scenario: During reconnection flush, an inbound connection replaces the channel.
+      // The flush fails on the old channel, but should automatically retry on the new channel.
+
+      // Setup reconnection state management
+      let reconnecting = false;
+      mockReconnectionManager.isReconnecting.mockImplementation(
+        () => reconnecting,
+      );
+      mockReconnectionManager.startReconnection.mockImplementation(() => {
+        reconnecting = true;
+      });
+      mockReconnectionManager.stopReconnection.mockImplementation(() => {
+        reconnecting = false;
+      });
+      mockReconnectionManager.shouldRetry.mockReturnValue(true);
+      mockReconnectionManager.incrementAttempt.mockReturnValue(1);
+      mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay
+
+      // Setup FIFO message queue
+      setupFifoMessageQueue();
+
+      const peerId = 'peer-replaced';
+      const oldChannel = createMockChannel(peerId);
+      const newChannel = createMockChannel(peerId);
+      const connectionLostError = Object.assign(new Error('Connection lost'), {
+        code: 'ECONNRESET',
+      });
+
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // oldChannel: Initial connection succeeds, then write fails to trigger reconnection
+      // During flush, the first write will trigger the inbound connection
+      let flushWriteCount = 0;
+      oldChannel.msgStream.write.mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        async () => {
+          flushWriteCount += 1;
+          if (flushWriteCount === 1) {
+            // Initial message succeeds
+            return undefined;
+          }
+          if (flushWriteCount === 2) {
+            // Second write (queued-1) fails to trigger reconnection
+            throw connectionLostError;
+          }
+          // During flush, first queued message write triggers inbound connection, then fails
+          if (flushWriteCount === 3) {
+            // Simulate inbound connection replacing the channel mid-flush
+            await delay(10);
+            inboundHandler?.(newChannel);
+            await delay(10);
+            throw connectionLostError;
+          }
+          // All other writes on old channel fail
+          throw connectionLostError;
+        },
+      );
+
+      // newChannel: All writes succeed (this is the replacement channel from inbound connection)
+      newChannel.msgStream.write.mockResolvedValue(undefined);
+
+      // Control reconnection dial timing
+      let releaseReconnectionDial: (() => void) | undefined;
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (targetPeerId: string, _hints: string[], retry: boolean) => {
+          if (targetPeerId !== peerId) {
+            return createMockChannel(targetPeerId);
+          }
+
+          // Initial connection (retry=true) returns oldChannel immediately
+          if (retry) {
+            return oldChannel;
+          }
+
+          // Reconnection attempt (retry=false) waits until we allow it
+          await new Promise<void>((resolve) => {
+            releaseReconnectionDial = resolve;
+          });
+          return oldChannel;
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Establish initial channel
+      await sendRemoteMessage(peerId, 'initial-msg');
+
+      // Trigger reconnection via write failure
+      await sendRemoteMessage(peerId, 'queued-1');
+
+      // Queue another message during reconnection
+      await sendRemoteMessage(peerId, 'queued-2');
+
+      // Allow reconnection to dial and start flushing
+      releaseReconnectionDial?.();
+
+      // Wait for the flush to complete on the new channel
+      await vi.waitFor(
+        () => {
+          // Should have written both queued messages on the new channel
+          expect(newChannel.msgStream.write).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 5000 },
+      );
+
+      // Verify messages were sent in correct order
+      expect(mockMessageQueue.messages).toStrictEqual([]);
+    }, 10000);
   });
 
   describe('stop functionality', () => {
