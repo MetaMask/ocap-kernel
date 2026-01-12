@@ -1,10 +1,25 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
-import type { ClusterConfig, Kernel, KRef, VatId } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  Kernel,
+  KernelStatus,
+  KRef,
+  VatId,
+} from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelFacade } from './kernel-facade.ts';
 import type { KernelFacade } from './kernel-facade.ts';
+
+const makeClusterConfig = (): ClusterConfig => ({
+  bootstrap: 'v1',
+  vats: {
+    v1: {
+      bundleSpec: 'test-source',
+    },
+  },
+});
 
 describe('makeKernelFacade', () => {
   let mockKernel: Kernel;
@@ -13,8 +28,8 @@ describe('makeKernelFacade', () => {
   beforeEach(() => {
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"status":"ok"}',
-        slots: [],
+        body: '#{"subclusterId":"sc1"}',
+        slots: ['ko1'],
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       queueMessage: vi.fn().mockResolvedValue({
@@ -24,12 +39,9 @@ describe('makeKernelFacade', () => {
       getStatus: vi.fn().mockResolvedValue({
         vats: [],
         subclusters: [],
-        remoteComms: false,
+        remoteComms: { isInitialized: false },
       }),
-      pingVat: vi.fn().mockResolvedValue({
-        pingVatResult: 'pong',
-        roundTripMs: 10,
-      }),
+      pingVat: vi.fn().mockResolvedValue('pong'),
     } as unknown as Kernel;
 
     facade = makeKernelFacade(mockKernel);
@@ -44,15 +56,7 @@ describe('makeKernelFacade', () => {
 
   describe('launchSubcluster', () => {
     it('delegates to kernel with correct arguments', async () => {
-      const config: ClusterConfig = {
-        name: 'test-cluster',
-        vats: [
-          {
-            name: 'test-vat',
-            bundleSpec: { type: 'literal', source: 'test' },
-          },
-        ],
-      };
+      const config = makeClusterConfig();
 
       await facade.launchSubcluster(config);
 
@@ -69,18 +73,14 @@ describe('makeKernelFacade', () => {
         kernelResult,
       );
 
-      const config: ClusterConfig = {
-        name: 'test-cluster',
-        vats: [],
-      };
+      const config = makeClusterConfig();
 
       const result = await facade.launchSubcluster(config);
 
       // The facade should parse the CapData and return a LaunchResult
       expect(result).toStrictEqual({
         subclusterId: 's1',
-        rootKref: { kref: 'ko1' },
-        rootKrefString: 'ko1',
+        rootKref: 'ko1',
       });
     });
 
@@ -88,10 +88,7 @@ describe('makeKernelFacade', () => {
       const error = new Error('Launch failed');
       vi.mocked(mockKernel.launchSubcluster).mockRejectedValueOnce(error);
 
-      const config: ClusterConfig = {
-        name: 'test-cluster',
-        vats: [],
-      };
+      const config = makeClusterConfig();
 
       await expect(facade.launchSubcluster(config)).rejects.toThrow(error);
     });
@@ -158,12 +155,11 @@ describe('makeKernelFacade', () => {
     });
 
     it('returns status from kernel', async () => {
-      const expectedStatus = {
-        vats: [{ id: 'v1', name: 'test-vat' }],
+      const expectedStatus: KernelStatus = {
+        vats: [],
         subclusters: [],
-        remoteComms: true,
+        remoteComms: { isInitialized: false },
       };
-      vi.mocked(mockKernel.getStatus).mockResolvedValueOnce(expectedStatus);
 
       const result = await facade.getStatus();
       expect(result).toStrictEqual(expectedStatus);
@@ -188,11 +184,8 @@ describe('makeKernelFacade', () => {
     });
 
     it('returns result from kernel', async () => {
-      const expectedResult = { pingVatResult: 'pong', roundTripMs: 5 };
-      vi.mocked(mockKernel.pingVat).mockResolvedValueOnce(expectedResult);
-
       const result = await facade.pingVat('v1');
-      expect(result).toStrictEqual(expectedResult);
+      expect(result).toBe('pong');
     });
 
     it('propagates errors from kernel', async () => {

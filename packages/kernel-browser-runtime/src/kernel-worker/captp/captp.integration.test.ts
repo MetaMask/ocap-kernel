@@ -121,8 +121,7 @@ describe('CapTP Integration', () => {
       // The kernel facade now returns LaunchResult instead of CapData
       expect(result).toStrictEqual({
         subclusterId: '',
-        rootKref: { kref: 'ko1' },
-        rootKrefString: 'ko1',
+        rootKref: 'ko1',
       });
 
       expect(mockKernel.launchSubcluster).toHaveBeenCalledWith(config);

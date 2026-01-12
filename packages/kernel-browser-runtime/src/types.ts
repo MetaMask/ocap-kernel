@@ -1,24 +1,13 @@
 import type { Kernel, ClusterConfig } from '@metamask/ocap-kernel';
 
 /**
- * Wrapper for a kernel reference (kref) to enable CapTP marshalling.
- *
- * When kernel returns krefs, they are wrapped in this object so CapTP's
- * custom import/export tables can convert them to presences on the background side.
- */
-export type KrefWrapper = { kref: string };
-
-/**
  * Result of launching a subcluster.
  *
- * The rootKref field contains the bootstrap vat's root object, wrapped
- * as a KrefWrapper that CapTP will marshal to a presence. The rootKrefString
- * contains the plain kref string for storage purposes.
+ * The rootKref contains the kref string for the bootstrap vat's root object.
  */
 export type LaunchResult = {
   subclusterId: string;
-  rootKref?: KrefWrapper;
-  rootKrefString?: string;
+  rootKref: string;
 };
 
 /**
@@ -33,5 +22,5 @@ export type KernelFacade = {
   queueMessage: Kernel['queueMessage'];
   getStatus: Kernel['getStatus'];
   pingVat: Kernel['pingVat'];
-  getVatRoot: (krefString: string) => Promise<KrefWrapper>;
+  getVatRoot: (krefString: string) => Promise<unknown>;
 };

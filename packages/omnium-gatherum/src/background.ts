@@ -131,12 +131,10 @@ async function main(): Promise<void> {
       launchSubcluster: async (
         config: ClusterConfig,
       ): Promise<LaunchResult> => {
-        // The kernel facade now returns { subclusterId, rootKref, rootKrefString }
-        // After CapTP unmarshalling, rootKref is a presence, rootKrefString is a string
         const result = await E(kernelP).launchSubcluster(config);
         return {
           subclusterId: result.subclusterId,
-          rootKrefString: result.rootKrefString,
+          rootKref: result.rootKref,
         };
       },
       terminateSubcluster: async (subclusterId: string): Promise<void> => {
