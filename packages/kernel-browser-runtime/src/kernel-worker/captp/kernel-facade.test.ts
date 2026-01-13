@@ -1,5 +1,3 @@
-import '@ocap/repo-tools/test-utils/mock-endoify';
-
 import type { ClusterConfig, Kernel, KRef, VatId } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

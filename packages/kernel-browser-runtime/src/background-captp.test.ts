@@ -1,5 +1,4 @@
-import '@ocap/repo-tools/test-utils/mock-endoify';
-
+import type { JsonRpcNotification } from '@metamask/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
@@ -8,58 +7,48 @@ import {
   makeCapTPNotification,
   makeBackgroundCapTP,
 } from './background-captp.ts';
-import type { CapTPMessage, CapTPNotification } from './background-captp.ts';
+import type { CapTPMessage } from './background-captp.ts';
+
+const makeNotification = (
+  params: CapTPMessage[],
+  method = 'captp',
+): JsonRpcNotification => ({
+  jsonrpc: '2.0',
+  method,
+  params,
+});
 
 describe('isCapTPNotification', () => {
   it('returns true for valid CapTP notification', () => {
-    const notification = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: [{ type: 'foo' }],
-    };
+    const notification = makeNotification([{ type: 'foo' }]);
     expect(isCapTPNotification(notification)).toBe(true);
   });
 
   it('returns false when method is not "captp"', () => {
-    const message = {
-      jsonrpc: '2.0',
-      method: 'other',
-      params: [{ type: 'foo' }],
-    };
+    const message = makeNotification([{ type: 'foo' }], 'other');
     expect(isCapTPNotification(message)).toBe(false);
   });
 
   it('returns false when params is not an array', () => {
-    const message = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: { type: 'foo' },
-    };
+    // @ts-expect-error - we want to test the error case
+    const message = makeNotification({ type: 'foo' });
     expect(isCapTPNotification(message as never)).toBe(false);
   });
 
   it('returns false when params is empty', () => {
-    const message = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: [],
-    };
+    const message = makeNotification([]);
     expect(isCapTPNotification(message)).toBe(false);
   });
 
   it('returns false when params has more than one element', () => {
-    const message = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: [{ type: 'foo' }, { type: 'bar' }],
-    };
+    const message = makeNotification([{ type: 'foo' }, { type: 'bar' }]);
     expect(isCapTPNotification(message)).toBe(false);
   });
 
   it('returns true for JSON-RPC request with id if it matches captp format', () => {
     // A request with an id is still a valid captp message format-wise
     const request = {
-      jsonrpc: '2.0',
+      jsonrpc: '2.0' as const,
       id: 1,
       method: 'captp',
       params: [{ type: 'foo' }],
@@ -71,11 +60,7 @@ describe('isCapTPNotification', () => {
 describe('getCapTPMessage', () => {
   it('extracts CapTP message from valid notification', () => {
     const captpMessage: CapTPMessage = { type: 'CTP_CALL', methargs: [] };
-    const notification: CapTPNotification = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: [captpMessage],
-    };
+    const notification = makeNotification([captpMessage]);
     expect(getCapTPMessage(notification)).toStrictEqual(captpMessage);
   });
 
@@ -85,15 +70,12 @@ describe('getCapTPMessage', () => {
       method: 'other',
       params: [],
     };
+    // @ts-expect-error - we want to test the error case
     expect(() => getCapTPMessage(message)).toThrow('Not a CapTP notification');
   });
 
   it('throws when params is empty', () => {
-    const message = {
-      jsonrpc: '2.0',
-      method: 'captp',
-      params: [],
-    };
+    const message = makeNotification([]);
     expect(() => getCapTPMessage(message)).toThrow('Not a CapTP notification');
   });
 });
@@ -119,7 +101,7 @@ describe('makeCapTPNotification', () => {
 });
 
 describe('makeBackgroundCapTP', () => {
-  let sendMock: ReturnType<typeof vi.fn>;
+  let sendMock: (message: CapTPMessage) => void;
 
   beforeEach(() => {
     sendMock = vi.fn();
@@ -151,7 +133,7 @@ describe('makeBackgroundCapTP', () => {
 
     // CapTP should have sent a message to request bootstrap
     expect(sendMock).toHaveBeenCalled();
-    const sentMessage = sendMock.mock.calls[0][0] as CapTPMessage;
+    const sentMessage = vi.mocked(sendMock).mock.calls[0]?.[0] as CapTPMessage;
     expect(sentMessage).toBeDefined();
   });
 

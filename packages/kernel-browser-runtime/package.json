@@ -59,6 +59,7 @@
     "test:build": "tsx ./test/build-tests.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development --reporter dot",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },
