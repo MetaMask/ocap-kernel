@@ -1,5 +1,3 @@
-import '../env/endoify.ts';
-
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
 import { Worker as NodeWorker } from 'node:worker_threads';

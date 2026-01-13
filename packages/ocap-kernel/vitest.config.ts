@@ -12,9 +12,9 @@ export default defineConfig((args) => {
       test: {
         name: 'kernel',
         setupFiles: [
-          // This is actually a circular dependency relationship, but it's fine because we're
-          // targeting the TypeScript source file and not listing @ocap/nodejs in package.json.
-          fileURLToPath(import.meta.resolve('@ocap/nodejs/endoify-ts')),
+          fileURLToPath(
+            import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+          ),
         ],
       },
     }),
