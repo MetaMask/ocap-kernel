@@ -11,7 +11,20 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating a resource limit was exceeded.
+ */
 export class ResourceLimitError extends BaseError {
+  /**
+   * Creates a new ResourceLimitError.
+   *
+   * @param message - A human-readable description of the error.
+   * @param options - Additional error options including cause, stack, and data.
+   * @param options.data - Additional data about the error.
+   * @param options.data.limitType - The type of limit that was exceeded.
+   * @param options.data.current - The current value of the limit.
+   * @param options.data.limit - The limit value.
+   */
   constructor(
     message: string,
     options?: ErrorOptionsWithStack & {

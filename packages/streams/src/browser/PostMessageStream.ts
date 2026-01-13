@@ -44,6 +44,15 @@ type PostMessageReaderArgs<Read> = BaseReaderArgs<Read> & {
  * @see {@link PostMessageWriter} for the corresponding writable stream.
  */
 export class PostMessageReader<Read> extends BaseReader<Read> {
+  /**
+   * Constructs a new {@link PostMessageReader}.
+   *
+   * @param options - Options bag for configuring the reader.
+   * @param options.messageTarget - The target to listen for messages on.
+   * @param options.validateInput - A function that validates input from the transport.
+   * @param options.onEnd - A function that is called when the stream ends.
+   * @param options.messageEventMode - Whether to pass the message event or just the data to the stream.
+   */
   constructor({
     validateInput,
     onEnd,
@@ -83,6 +92,12 @@ export type PostMessageEnvelope<Write> = {
   transfer: Transferable[];
 };
 
+/**
+ * Checks if the value is a post message envelope with a payload and transfer array.
+ *
+ * @param value - The value to check.
+ * @returns True if the value is a post message envelope.
+ */
 const isPostMessageEnvelope = <Write>(
   value: unknown,
 ): value is PostMessageEnvelope<Write> =>
@@ -96,6 +111,14 @@ const isPostMessageEnvelope = <Write>(
  * @see {@link PostMessageReader} for the corresponding readable stream.
  */
 export class PostMessageWriter<Write> extends BaseWriter<Write> {
+  /**
+   * Constructs a new {@link PostMessageWriter}.
+   *
+   * @param messageTarget - The target to post messages to.
+   * @param options - Options bag for configuring the writer.
+   * @param options.name - The name of the stream, for logging purposes.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     messageTarget: PostMessageTarget,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -133,6 +156,14 @@ export class PostMessageDuplexStream<
   Write,
   PostMessageWriter<Write>
 > {
+  /**
+   * Constructs a new {@link PostMessageDuplexStream}.
+   *
+   * @param options - Options bag for configuring the duplex stream.
+   * @param options.messageTarget - The target for sending and receiving messages.
+   * @param options.validateInput - A function that validates input from the transport.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor({
     messageTarget,
     validateInput,
@@ -159,6 +190,12 @@ export class PostMessageDuplexStream<
     super(reader, writer);
   }
 
+  /**
+   * Creates and synchronizes a new {@link PostMessageDuplexStream}.
+   *
+   * @param args - The options for configuring the duplex stream.
+   * @returns A synchronized duplex stream.
+   */
   static async make<Read, Write = Read>(
     args: PostMessageDuplexStreamArgs<Read>,
   ): Promise<PostMessageDuplexStream<Read, Write>> {

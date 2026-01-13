@@ -139,11 +139,11 @@ export class BaseReader<Read> implements Reader<Read> {
   /**
    * Constructs a {@link BaseReader}.
    *
-   * @param args - Options bag.
-   * @param args.name - The name of the stream, for logging purposes. Defaults to the class name.
+   * @param options - Options bag for configuring the reader.
+   * @param options.name - The name of the stream, for logging purposes. Defaults to the class name.
+   * @param options.onEnd - A function that is called when the stream ends. For any cleanup that
    * should happen when the stream ends, such as closing a message port.
-   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
-   * @param args.validateInput - A function that validates input from the transport.
+   * @param options.validateInput - A function that validates input from the transport.
    */
   constructor({ name, onEnd, validateInput }: BaseReaderArgs<Read>) {
     this.#name = name ?? this.constructor.name;
@@ -195,6 +195,11 @@ export class BaseReader<Read> implements Reader<Read> {
     this.#buffer.put(makePendingResult(unmarshaled));
   };
 
+  /**
+   * Handles an input error by putting it into the buffer and ending the stream.
+   *
+   * @param error - The error to handle.
+   */
   async #handleInputError(error: Error): Promise<void> {
     if (!this.#buffer.hasPendingReads()) {
       this.#buffer.put(error);
@@ -215,6 +220,11 @@ export class BaseReader<Read> implements Reader<Read> {
     await onEndP;
   }
 
+  /**
+   * Returns the async iterator for this stream.
+   *
+   * @returns This stream as an async iterator.
+   */
   [Symbol.asyncIterator](): typeof this {
     return this;
   }
@@ -287,10 +297,10 @@ export class BaseWriter<Write> implements Writer<Write> {
   /**
    * Constructs a {@link BaseWriter}.
    *
-   * @param args - Options bag.
-   * @param args.onDispatch - A function that dispatches messages over the underlying transport mechanism.
-   * @param args.onEnd - A function that is called when the stream ends. For any cleanup that
-   * @param args.name - The name of the stream, for logging purposes. Defaults to the class name.
+   * @param options - Options bag for configuring the writer.
+   * @param options.onDispatch - A function that dispatches messages over the underlying transport mechanism.
+   * @param options.name - The name of the stream, for logging purposes. Defaults to the class name.
+   * @param options.onEnd - A function that is called when the stream ends. For any cleanup that
    * should happen when the stream ends, such as closing a message port.
    */
   constructor({ name, onDispatch, onEnd }: BaseWriterArgs<Write>) {
@@ -344,6 +354,11 @@ export class BaseWriter<Write> implements Writer<Write> {
     }
   }
 
+  /**
+   * Ends the stream and calls the onEnd callback. Idempotent.
+   *
+   * @param error - The error to end the stream with.
+   */
   async #end(error?: Error): Promise<void> {
     this.#isDone = true;
     const onEndP = this.#onEnd?.(error);
@@ -351,6 +366,11 @@ export class BaseWriter<Write> implements Writer<Write> {
     await onEndP;
   }
 
+  /**
+   * Returns the async iterator for this stream.
+   *
+   * @returns This stream as an async iterator.
+   */
   [Symbol.asyncIterator](): typeof this {
     return this;
   }

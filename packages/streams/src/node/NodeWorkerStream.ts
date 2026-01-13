@@ -29,6 +29,14 @@ export type NodePort = {
  * - The module-level documentation for more details.
  */
 export class NodeWorkerReader<Read> extends BaseReader<Read> {
+  /**
+   * Constructs a new {@link NodeWorkerReader}.
+   *
+   * @param port - The node worker port to read from.
+   * @param options - Options bag for configuring the reader.
+   * @param options.validateInput - A function that validates input from the transport.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     port: NodePort,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
@@ -55,6 +63,14 @@ harden(NodeWorkerReader);
  * - The module-level documentation for more details.
  */
 export class NodeWorkerWriter<Write> extends BaseWriter<Write> {
+  /**
+   * Constructs a new {@link NodeWorkerWriter}.
+   *
+   * @param port - The node worker port to write to.
+   * @param options - Options bag for configuring the writer.
+   * @param options.name - The name of the stream, for logging purposes.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     port: NodePort,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -71,6 +87,9 @@ export class NodeWorkerWriter<Write> extends BaseWriter<Write> {
 }
 harden(NodeWorkerWriter);
 
+/**
+ * A duplex stream over a Node worker port.
+ */
 export class NodeWorkerDuplexStream<
   Read,
   Write = Read,
@@ -80,6 +99,12 @@ export class NodeWorkerDuplexStream<
   Write,
   NodeWorkerWriter<Write>
 > {
+  /**
+   * Constructs a new {@link NodeWorkerDuplexStream}.
+   *
+   * @param port - The node worker port for bidirectional communication.
+   * @param validateInput - A function that validates input from the transport.
+   */
   constructor(port: NodePort, validateInput?: ValidateInput<Read>) {
     let writer: NodeWorkerWriter<Write>; // eslint-disable-line prefer-const
     const reader = new NodeWorkerReader<Read>(port, {
@@ -98,6 +123,13 @@ export class NodeWorkerDuplexStream<
     super(reader, writer);
   }
 
+  /**
+   * Creates and synchronizes a new {@link NodeWorkerDuplexStream}.
+   *
+   * @param port - The node worker port for bidirectional communication.
+   * @param validateInput - A function that validates input from the transport.
+   * @returns A synchronized duplex stream.
+   */
   static async make<Read, Write = Read>(
     port: NodePort,
     validateInput?: ValidateInput<Read>,

@@ -67,6 +67,16 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
 
   readonly #extensionId: string;
 
+  /**
+   * Constructs a new {@link ChromeRuntimeReader}.
+   *
+   * @param runtime - The Chrome runtime API object.
+   * @param target - The target context (e.g., 'background', 'offscreen', 'popup').
+   * @param source - The source context that messages are expected from.
+   * @param options - Options bag for configuring the reader.
+   * @param options.validateInput - A function that validates input from the transport.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeTarget,
@@ -99,6 +109,12 @@ export class ChromeRuntimeReader<Read extends Json> extends BaseReader<Read> {
     harden(this);
   }
 
+  /**
+   * Handles incoming messages from the Chrome runtime.
+   *
+   * @param message - The message received from the Chrome runtime.
+   * @param sender - The sender information for the message.
+   */
   #onMessage(message: unknown, sender: ChromeMessageSender): void {
     if (sender.id !== this.#extensionId) {
       return;
@@ -143,6 +159,16 @@ harden(ChromeRuntimeReader);
  * - The module-level documentation for more details.
  */
 export class ChromeRuntimeWriter<Write extends Json> extends BaseWriter<Write> {
+  /**
+   * Constructs a new {@link ChromeRuntimeWriter}.
+   *
+   * @param runtime - The Chrome runtime API object.
+   * @param target - The target context to send messages to.
+   * @param source - The source context identifying where messages originate.
+   * @param options - Options bag for configuring the writer.
+   * @param options.name - The name of the stream, for logging purposes.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     runtime: ChromeRuntime,
     target: ChromeRuntimeTarget,
@@ -183,6 +209,14 @@ export class ChromeRuntimeDuplexStream<
   Write,
   ChromeRuntimeWriter<Write>
 > {
+  /**
+   * Constructs a new {@link ChromeRuntimeDuplexStream}.
+   *
+   * @param runtime - The Chrome runtime API object.
+   * @param localTarget - The local target context for this stream.
+   * @param remoteTarget - The remote target context to communicate with.
+   * @param validateInput - A function that validates input from the transport.
+   */
   constructor(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeTarget,
@@ -217,6 +251,15 @@ export class ChromeRuntimeDuplexStream<
     harden(this);
   }
 
+  /**
+   * Creates and synchronizes a new {@link ChromeRuntimeDuplexStream}.
+   *
+   * @param runtime - The Chrome runtime API object.
+   * @param localTarget - The local target context for this stream.
+   * @param remoteTarget - The remote target context to communicate with.
+   * @param validateInput - A function that validates input from the transport.
+   * @returns A synchronized duplex stream.
+   */
   static async make<Read extends Json, Write extends Json = Read>(
     runtime: ChromeRuntime,
     localTarget: ChromeRuntimeTarget,

@@ -23,6 +23,10 @@ const DEFAULT_WORKER_FILE = new URL(
   import.meta.url,
 ).pathname;
 
+/**
+ * Node.js implementation of platform services for launching, managing, and
+ * terminating vat workers, as well as handling network communications.
+ */
 export class NodejsPlatformServices implements PlatformServices {
   readonly #logger: Logger;
 

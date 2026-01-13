@@ -83,7 +83,7 @@ describe('OllamaNodejsService', () => {
           expect(chunk).toMatchObject({
             response,
             done: true,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
+
             done_reason: 'stop',
           });
         }

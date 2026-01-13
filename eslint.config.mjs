@@ -49,6 +49,20 @@ const config = createConfig([
     files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'],
     extends: [metamaskTypescriptConfig],
     rules: {
+      // Don't require JSDoc for type declarations.
+      'jsdoc/require-jsdoc': [
+        'error',
+        {
+          require: {
+            FunctionDeclaration: true,
+            MethodDefinition: true,
+            ClassDeclaration: true,
+          },
+          contexts: [],
+        },
+      ],
+
+      // Require explicit function return types.
       '@typescript-eslint/explicit-function-return-type': [
         'error',
         {
@@ -141,6 +155,7 @@ const config = createConfig([
     files: ['**/test/**/*', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
+      'jsdoc/require-jsdoc': 'off',
     },
   },
 
@@ -258,6 +273,20 @@ const config = createConfig([
     ],
     rules: {
       'import-x/no-unresolved': 'off',
+    },
+  },
+
+  {
+    files: [
+      '**/vite.config.*',
+      '**/vite-plugins/**/*',
+      '**/vats/**/*.js',
+      '**/vitest.config.ts',
+      '**/vitest.config.e2e.ts',
+      'yarn.config.cjs',
+    ],
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
     },
   },
 ]);

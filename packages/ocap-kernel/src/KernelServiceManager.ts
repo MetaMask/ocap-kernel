@@ -37,6 +37,14 @@ export class KernelServiceManager {
   /** Objects providing custom or kernel-privileged services to vats, indexed by kref */
   readonly #kernelServicesByObject: Map<string, KernelService> = new Map();
 
+  /**
+   * Creates a new KernelServiceManager instance.
+   *
+   * @param options - Constructor options.
+   * @param options.kernelStore - The kernel's persistent state store.
+   * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
+   * @param options.logger - Logger instance for debugging and diagnostics.
+   */
   constructor({
     kernelStore,
     kernelQueue,

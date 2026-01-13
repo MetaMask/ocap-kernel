@@ -1,6 +1,5 @@
 import { Logger } from '@metamask/logger';
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-// eslint-disable-next-line @typescript-eslint/naming-convention
 import Sqlite from 'better-sqlite3';
 import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

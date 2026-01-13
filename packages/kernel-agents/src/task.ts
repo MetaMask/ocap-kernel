@@ -14,6 +14,9 @@ export const defaultJudgment = <Result>(_result: unknown): _result is Result =>
 const formatTaskId = (count: number): string =>
   `t${count.toString().padStart(3, '0')}`;
 
+/**
+ * Manages the creation and tracking of tasks for agents.
+ */
 export class TaskManager<ResultBase = unknown> {
   readonly #tasks: Task<ResultBase>[] = [];
 

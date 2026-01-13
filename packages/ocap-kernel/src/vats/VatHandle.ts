@@ -44,6 +44,9 @@ type VatConstructorProps = {
   logger?: Logger | undefined;
 };
 
+/**
+ * Handles communication with and lifecycle management of a vat.
+ */
 export class VatHandle implements EndpointHandle {
   /** The ID of the vat this is the VatHandle for */
   readonly vatId: VatId;

@@ -61,6 +61,9 @@ const marshal = makeMarshal(undefined, undefined, {
   serializeBodyFormat: 'smallcaps',
 });
 
+/**
+ * Supervises a vat's execution, managing its lifecycle and communication with the kernel.
+ */
 export class VatSupervisor {
   /** The id of the vat being supervised */
   readonly id: VatId;
@@ -218,6 +221,12 @@ export class VatSupervisor {
     return ['ok', null];
   }
 
+  /**
+   * Delivers a message to the vat and captures the result.
+   *
+   * @param params - The delivery object containing the message to deliver.
+   * @returns A tuple indicating success or failure along with any error information.
+   */
   async #deliver(params: VatDeliveryObject): Promise<VatDeliveryResult> {
     if (!this.#dispatch) {
       throw new Error(`cannot deliver before vat is loaded`);

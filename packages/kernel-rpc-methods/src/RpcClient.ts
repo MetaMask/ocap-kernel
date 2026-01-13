@@ -23,6 +23,9 @@ export type SendMessage = (
   payload: JsonRpcRequest | JsonRpcNotification,
 ) => Promise<void>;
 
+/**
+ * A typed JSON-RPC client that sends requests and notifications over a provided message channel.
+ */
 export class RpcClient<
   // The class picks up its type from the `methods` argument,
   // so using `any` in this constraint is safe.
@@ -41,6 +44,14 @@ export class RpcClient<
 
   readonly #logger: Logger;
 
+  /**
+   * Creates a new RpcClient instance.
+   *
+   * @param methods - The method specifications defining available RPC methods and their types.
+   * @param sendMessage - The function used to send JSON-RPC messages to the remote endpoint.
+   * @param prefix - A string prefix for generating unique message IDs.
+   * @param logger - The logger instance for debugging and error reporting.
+   */
   constructor(
     methods: Methods,
     sendMessage: SendMessage,
@@ -53,6 +64,14 @@ export class RpcClient<
     this.#logger = logger;
   }
 
+  /**
+   * Sends a JSON-RPC request with the specified message ID and awaits the result.
+   *
+   * @param method - The RPC method name to call.
+   * @param params - The parameters to pass to the method.
+   * @param id - The unique message ID for correlating the request with its response.
+   * @returns A promise that resolves to the validated result of the RPC call.
+   */
   async #call<Method extends ExtractRequest<Methods>>(
     method: Method,
     params: ExtractParams<Method, Methods>,
@@ -118,6 +137,12 @@ export class RpcClient<
     return [id, await this.#call(method, params, id)];
   }
 
+  /**
+   * Validates that a result matches the expected type defined in the method specification.
+   *
+   * @param method - The RPC method name used to look up the expected result type.
+   * @param result - The result value to validate against the method's result schema.
+   */
   #assertResult<Method extends ExtractRequest<Methods>>(
     method: Method,
     result: unknown,
@@ -131,6 +156,13 @@ export class RpcClient<
     }
   }
 
+  /**
+   * Creates and sends a JSON-RPC request, returning a promise that resolves when a response is received.
+   *
+   * @param messageId - The unique ID to associate with the request for response correlation.
+   * @param payload - The JSON-RPC request payload to send.
+   * @returns A promise that resolves to the successful JSON-RPC response.
+   */
   async #createMessage(
     messageId: string,
     payload: JsonRpcRequest,
@@ -184,6 +216,11 @@ export class RpcClient<
     }
   }
 
+  /**
+   * Generates the next unique message ID by combining the prefix with an incrementing counter.
+   *
+   * @returns A unique string identifier for the next message.
+   */
   #nextMessageId(): string {
     return `${this.#prefix}${this.#messageCounter()}`;
   }

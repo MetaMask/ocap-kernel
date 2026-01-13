@@ -40,6 +40,12 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
+  /**
+   * Construct a new KernelQueue instance.
+   *
+   * @param kernelStore - The kernel's persistent state store.
+   * @param terminateVat - Function to terminate a vat with an optional reason.
+   */
   constructor(
     kernelStore: KernelStore,
     terminateVat: (vatId: VatId, reason?: CapData<KRef>) => Promise<void>,
@@ -211,7 +217,7 @@ export class KernelQueue {
    * This method can be called by external operations to ensure they don't interfere
    * with ongoing kernel operations.
    *
-   * @returns A promise that resolves when the current crank is finished.
+   * @returns A promise that resolves when the current crank is complete.
    */
   async waitForCrank(): Promise<void> {
     return this.#kernelStore.waitForCrank();

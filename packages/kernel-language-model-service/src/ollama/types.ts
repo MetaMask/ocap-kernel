@@ -39,7 +39,7 @@ export type OllamaNodejsConfig = {
  */
 export const OllamaModelOptionsStruct = object({
   // Ollama is pythonic, using snake_case for its options.
-  /* eslint-disable @typescript-eslint/naming-convention */
+
   temperature: optional(number()),
   top_p: optional(number()),
   top_k: optional(number()),
@@ -47,7 +47,6 @@ export const OllamaModelOptionsStruct = object({
   repeat_last_n: optional(number()),
   seed: optional(number()),
   num_ctx: optional(number()),
-  /* eslint-enable @typescript-eslint/naming-convention */
 });
 
 /**

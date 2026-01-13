@@ -35,6 +35,9 @@ const isJsonObservable = (value: unknown): value is JsonObservable =>
 export const observeJson = (value: JsonObservation): string =>
   isJsonObservable(value) ? value.toJsonString() : stringify(value);
 
+/**
+ * An abstract REPL message with JSON and REPL string serialization capabilities.
+ */
 export abstract class ReplMessage<
     Type extends ReplMessageType,
     Body extends Record<JsonKey, JsonObservation | SyntaxNode>,
@@ -42,6 +45,11 @@ export abstract class ReplMessage<
   extends Message<Type, Body>
   implements ReplObservable, JsonObservable
 {
+  /**
+   * Serializes the message to a JSON-formatted string.
+   *
+   * @returns The JSON string representation of the message.
+   */
   toJsonString(): string {
     const messageType = `"messageType": "${this.messageType}"`;
     const bodyEntries = Object.entries(this.messageBody)
@@ -56,13 +64,27 @@ export abstract class ReplMessage<
 }
 
 // Statements comprise the action space of the REPL agent.
+/**
+ * A message representing a statement in the REPL action space.
+ */
 export class StatementMessage<
   Type extends StatementType = StatementType,
 > extends ReplMessage<Type, { code: string; node: SyntaxNode }> {
+  /**
+   * Serializes the statement to a REPL-formatted string with prompt prefix.
+   *
+   * @returns The REPL string representation of the statement.
+   */
   toReplString(): string {
     return `> ${this.messageBody.code}`;
   }
 
+  /**
+   * Creates a statement message from code by parsing it and determining its type.
+   *
+   * @param code - The code string to parse into a statement message.
+   * @returns A statement message of the appropriate type.
+   */
   static fromCode(code: string): StatementMessage {
     return statementMessageFromCode(code);
   }
@@ -81,26 +103,59 @@ const parseStatement = (
   return statement;
 };
 
+/**
+ * A message representing a comment statement.
+ */
 export class CommentMessage extends StatementMessage<'comment'> {
+  /**
+   * Constructs a new {@link CommentMessage}.
+   *
+   * @param code - The comment code string.
+   * @param statement - Optional pre-parsed syntax node; if not provided, the code will be parsed.
+   */
   constructor(code: string, statement?: SyntaxNode) {
     const node = statement ?? parseStatement(code, 'comment');
     super('comment', { code, node });
   }
 }
 
+/**
+ * A message representing an import statement.
+ */
 export class ImportMessage extends StatementMessage<'import'> {
+  /**
+   * Constructs a new {@link ImportMessage}.
+   *
+   * @param code - The import statement code string.
+   * @param statement - Optional pre-parsed syntax node; if not provided, the code will be parsed.
+   */
   constructor(code: string, statement?: SyntaxNode) {
     const node = statement ?? parseStatement(code, 'import_statement');
     super('import', { code, node });
   }
 
+  /**
+   * Creates an import message from a list of named imports from the abilities module.
+   *
+   * @param names - The names to import from the abilities module.
+   * @returns An import message for the specified names.
+   */
   static fromNames(names: string[]): ImportMessage {
     const code = `import { ${names.join(', ')} } from "@ocap/abilities";`;
     return new ImportMessage(code);
   }
 }
 
+/**
+ * A message representing an evaluation statement to be executed.
+ */
 export class EvaluationMessage extends StatementMessage<'evaluation'> {
+  /**
+   * Constructs a new {@link EvaluationMessage}.
+   *
+   * @param code - The code to evaluate.
+   * @param statement - Optional pre-parsed syntax node; if not provided, the code will be parsed.
+   */
   constructor(code: string, statement?: SyntaxNode) {
     const node = statement ?? parseStatement(code, 'expression_statement');
     super('evaluation', { code, node });
@@ -126,14 +181,27 @@ function statementMessageFromCode(code: string): StatementMessage {
   }
 }
 
+/**
+ * A message representing an interjection in the REPL session.
+ */
 export class InterjectionMessage extends ReplMessage<
   'interjection',
   { interjection: string }
 > {
+  /**
+   * Constructs a new {@link InterjectionMessage}.
+   *
+   * @param interjection - The interjection text to display.
+   */
   constructor(interjection: string) {
     super('interjection', { interjection });
   }
 
+  /**
+   * Serializes the interjection to a REPL-formatted string with exclamation prefix.
+   *
+   * @returns The REPL string representation of the interjection.
+   */
   toReplString(): string {
     return `! ${this.messageBody.interjection}`;
   }
@@ -176,9 +244,19 @@ type ResultArg = {
   [RETURN]?: unknown;
 };
 
+/**
+ * A message representing the result of evaluating a statement.
+ */
 export class ResultMessage extends ReplMessage<'result', ResultMessageBody> {
   readonly #compress: boolean;
 
+  /**
+   * Constructs a new {@link ResultMessage}.
+   *
+   * @param result - The result object containing optional value, error, or return properties.
+   * @param options - Configuration options for the result message.
+   * @param options.compress - Whether to compress long output by truncating lines; defaults to true.
+   */
   constructor(
     result: ResultArg,
     { compress = true }: { compress?: boolean } = {},
@@ -203,6 +281,11 @@ export class ResultMessage extends ReplMessage<'result', ResultMessageBody> {
     this.#compress = compress;
   }
 
+  /**
+   * Serializes the result to a REPL-formatted string, optionally compressing long output.
+   *
+   * @returns The REPL string representation of the result.
+   */
   toReplString(): string {
     const lines = {
       error: this.messageBody.error?.split('\n') ?? [],

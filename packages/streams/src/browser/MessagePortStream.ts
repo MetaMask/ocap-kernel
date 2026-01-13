@@ -44,6 +44,14 @@ import type { Dispatchable } from '../utils.ts';
  * - The module-level documentation for more details.
  */
 export class MessagePortReader<Read> extends BaseReader<Read> {
+  /**
+   * Constructs a new {@link MessagePortReader}.
+   *
+   * @param port - The message port to read from.
+   * @param options - Options bag for configuring the reader.
+   * @param options.validateInput - A function that validates input from the transport.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     port: MessagePort,
     { validateInput, onEnd }: BaseReaderArgs<Read> = {},
@@ -83,6 +91,14 @@ harden(MessagePortReader);
  * - The module-level documentation for more details.
  */
 export class MessagePortWriter<Write> extends BaseWriter<Write> {
+  /**
+   * Constructs a new {@link MessagePortWriter}.
+   *
+   * @param port - The message port to write to.
+   * @param options - Options bag for configuring the writer.
+   * @param options.name - The name of the stream, for logging purposes.
+   * @param options.onEnd - A function that is called when the stream ends.
+   */
   constructor(
     port: MessagePort,
     { name, onEnd }: Omit<BaseWriterArgs<Write>, 'onDispatch'> = {},
@@ -101,6 +117,9 @@ export class MessagePortWriter<Write> extends BaseWriter<Write> {
 }
 harden(MessagePortWriter);
 
+/**
+ * A duplex stream over a {@link MessagePort}.
+ */
 export class MessagePortDuplexStream<
   Read,
   Write = Read,
@@ -110,6 +129,12 @@ export class MessagePortDuplexStream<
   Write,
   MessagePortWriter<Write>
 > {
+  /**
+   * Constructs a new {@link MessagePortDuplexStream}.
+   *
+   * @param port - The message port to use for bidirectional communication.
+   * @param validateInput - A function that validates input from the transport.
+   */
   constructor(port: MessagePort, validateInput?: ValidateInput<Read>) {
     let writer: MessagePortWriter<Write>; // eslint-disable-line prefer-const
     const reader = new MessagePortReader<Read>(port, {
@@ -128,6 +153,13 @@ export class MessagePortDuplexStream<
     super(reader, writer);
   }
 
+  /**
+   * Creates and synchronizes a new {@link MessagePortDuplexStream}.
+   *
+   * @param port - The message port to use for bidirectional communication.
+   * @param validateInput - A function that validates input from the transport.
+   * @returns A synchronized duplex stream.
+   */
   static async make<Read, Write = Read>(
     port: MessagePort,
     validateInput?: ValidateInput<Read>,

@@ -47,6 +47,11 @@ export const asyncIterate = <Item>(
 export const makeIteratorRef = <Item>(iterable: SomehowAsyncIterable<Item>) => {
   const iterator = asyncIterate(iterable);
   return makeExo('AsyncIterator', AsyncIteratorInterface, {
+    /**
+     * Gets the next value from the iterator.
+     *
+     * @returns A promise that resolves to the next iterator result.
+     */
     async next() {
       return iterator.next(undefined);
     },
@@ -74,6 +79,11 @@ export const makeIteratorRef = <Item>(iterable: SomehowAsyncIterable<Item>) => {
       }
       return harden({ done: true, value: undefined });
     },
+    /**
+     * Returns the async iterator for use with for-await-of loops.
+     *
+     * @returns The iterator itself.
+     */
     [Symbol.asyncIterator]() {
       return this;
     },

@@ -4,7 +4,20 @@ import { BaseError } from '../BaseError.ts';
 import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
+/**
+ * Error indicating an operation was attempted on a vat that has been deleted.
+ */
 export class VatDeletedError extends BaseError {
+  /**
+   * Creates a new VatDeletedError.
+   *
+   * @param vatId - The identifier of the deleted vat.
+   * @param options - Additional error options including cause and stack trace.
+   * @param options.data - Additional data about the error.
+   * @param options.data.vatId - The identifier of the deleted vat.
+   * @param options.cause - The underlying error that caused the vat deleted error.
+   * @param options.stack - The stack trace of the error.
+   */
   constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatDeleted, 'Vat was deleted.', {
       ...options,

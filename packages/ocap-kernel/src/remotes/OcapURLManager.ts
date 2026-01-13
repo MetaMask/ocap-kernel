@@ -23,6 +23,12 @@ export class OcapURLManager {
   /** OCAP URL redemption service object */
   readonly #ocapURLRedemptionService: object;
 
+  /**
+   * Creates a new OcapURLManager instance.
+   *
+   * @param options - Constructor options.
+   * @param options.remoteManager - The remote manager for handling cross-kernel communications.
+   */
   constructor({ remoteManager }: OcapURLManagerConstructorProps) {
     this.#remoteManager = remoteManager;
 
