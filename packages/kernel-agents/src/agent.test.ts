@@ -7,11 +7,6 @@ import { makeJsonAgent } from './strategies/json-agent.ts';
 
 const prompt = 'test prompt';
 const prefix = '{"messageType":"assistant","';
-const stop = '</|>';
-
-vi.mock('./strategies/repl/prompter.ts', () => ({
-  makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { stop } })),
-}));
 
 vi.mock('./strategies/json/prompter.ts', () => ({
   makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { prefix } })),
