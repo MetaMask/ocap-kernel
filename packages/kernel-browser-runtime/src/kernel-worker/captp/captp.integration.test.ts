@@ -1,6 +1,5 @@
-// Real endoify needed for CapTP and E() to work properly
-// eslint-disable-next-line import-x/no-extraneous-dependencies
-import '@metamask/kernel-shims/endoify';
+// Note: Lockdown runs via setupFiles in vitest.config.ts (node-endoify.js)
+// which imports @libp2p/webrtc (and thus reflect-metadata) before lockdown
 
 import { E } from '@endo/eventual-send';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';

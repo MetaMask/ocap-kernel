@@ -1,6 +1,7 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makeBackgroundKref,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -107,6 +108,9 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
+  // Create background kref system for E() on vat objects
+  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
+
   // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
 
@@ -191,6 +195,12 @@ async function main(): Promise<void> {
         getCapletRoot: async (capletId: string) =>
           E(capletController).getCapletRoot(capletId),
       }),
+    },
+    resolveKref: {
+      value: bgKref.resolveKref,
+    },
+    krefOf: {
+      value: bgKref.krefOf,
     },
   });
   harden(globalThis.omnium);

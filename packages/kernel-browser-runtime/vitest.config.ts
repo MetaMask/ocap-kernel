@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -45,7 +44,11 @@ export default defineConfig({
             fileURLToPath(
               import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
             ),
-            path.resolve(import.meta.dirname, '../kernel-shims/src/endoify.js'),
+            // Use node-endoify which imports @libp2p/webrtc before lockdown
+            // (webrtc imports reflect-metadata which modifies globalThis.Reflect)
+            fileURLToPath(
+              import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+            ),
           ],
         },
       },

@@ -21,3 +21,8 @@ export {
   type BackgroundCapTPOptions,
   type CapTPMessage,
 } from './background-captp.ts';
+export {
+  makeBackgroundKref,
+  type BackgroundKref,
+  type BackgroundKrefOptions,
+} from './background-kref.ts';

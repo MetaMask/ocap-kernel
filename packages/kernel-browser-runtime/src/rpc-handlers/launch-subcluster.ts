@@ -1,31 +1,38 @@
+import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type {
-  Kernel,
-  ClusterConfig,
-  SubclusterLaunchResult,
-} from '@metamask/ocap-kernel';
+import type { Kernel, ClusterConfig, KRef } from '@metamask/ocap-kernel';
 import { ClusterConfigStruct, CapDataStruct } from '@metamask/ocap-kernel';
 import {
   object,
   string,
-  optional,
+  nullable,
   type as structType,
 } from '@metamask/superstruct';
 
-const SubclusterLaunchResultStruct = structType({
+/**
+ * JSON-compatible version of SubclusterLaunchResult for RPC.
+ * Uses null instead of undefined for JSON serialization.
+ */
+type LaunchSubclusterRpcResult = {
+  subclusterId: string;
+  bootstrapRootKref: string;
+  bootstrapResult: CapData<KRef> | null;
+};
+
+const LaunchSubclusterRpcResultStruct = structType({
   subclusterId: string(),
   bootstrapRootKref: string(),
-  bootstrapResult: optional(CapDataStruct),
+  bootstrapResult: nullable(CapDataStruct),
 });
 
 export const launchSubclusterSpec: MethodSpec<
   'launchSubcluster',
   { config: ClusterConfig },
-  Promise<SubclusterLaunchResult>
+  Promise<LaunchSubclusterRpcResult>
 > = {
   method: 'launchSubcluster',
   params: object({ config: ClusterConfigStruct }),
-  result: SubclusterLaunchResultStruct,
+  result: LaunchSubclusterRpcResultStruct,
 };
 
 export type LaunchSubclusterHooks = {
@@ -35,7 +42,7 @@ export type LaunchSubclusterHooks = {
 export const launchSubclusterHandler: Handler<
   'launchSubcluster',
   { config: ClusterConfig },
-  Promise<SubclusterLaunchResult>,
+  Promise<LaunchSubclusterRpcResult>,
   LaunchSubclusterHooks
 > = {
   ...launchSubclusterSpec,
@@ -43,7 +50,13 @@ export const launchSubclusterHandler: Handler<
   implementation: async (
     { kernel }: LaunchSubclusterHooks,
     params: { config: ClusterConfig },
-  ): Promise<SubclusterLaunchResult> => {
-    return kernel.launchSubcluster(params.config);
+  ): Promise<LaunchSubclusterRpcResult> => {
+    const result = await kernel.launchSubcluster(params.config);
+    // Convert undefined to null for JSON compatibility
+    return {
+      subclusterId: result.subclusterId,
+      bootstrapRootKref: result.bootstrapRootKref,
+      bootstrapResult: result.bootstrapResult ?? null,
+    };
   },
 };
