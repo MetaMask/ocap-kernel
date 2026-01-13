@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { MessageQueue } from './MessageQueue.ts';
+import { MessageQueue } from './message-queue.ts';
 
 describe('MessageQueue', () => {
   let queue: MessageQueue;
