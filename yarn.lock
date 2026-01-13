@@ -3513,7 +3513,6 @@ __metadata:
   resolution: "@ocap/kernel-agents-repl@workspace:packages/kernel-agents-repl"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
-    "@endo/eventual-send": "npm:^1.3.4"
     "@metamask/auto-changelog": "npm:^5.3.0"
     "@metamask/eslint-config": "npm:^15.0.0"
     "@metamask/eslint-config-nodejs": "npm:^15.0.0"
@@ -3522,7 +3521,6 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-agents": "workspace:^"
-    "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
