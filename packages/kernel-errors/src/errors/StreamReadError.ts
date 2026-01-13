@@ -28,7 +28,12 @@ export class StreamReadError extends BaseError {
    * Creates a new StreamReadError.
    *
    * @param data - Context data identifying the source of the error (vatId or kernelId).
-   * @param options - Error options including the underlying cause and stack trace.
+   * @param options - Error options including the underlying cause, stack, and data.
+   * @param options.data - Additional data about the error.
+   * @param options.data.vatId - The ID of the vat that caused the error.
+   * @param options.data.kernelId - The ID of the kernel that caused the error.
+   * @param options.cause - The underlying error that caused the stream read error.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(data: StreamReadErrorData, options: StreamReadErrorOptions) {
     super(ErrorCode.StreamReadError, 'Unexpected stream read error.', {

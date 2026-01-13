@@ -22,6 +22,9 @@ export class BaseError extends Error implements OcapError {
    * @param code - The error code identifying the type of error.
    * @param message - A human-readable description of the error.
    * @param options - Additional error options including cause, stack, and data.
+   * @param options.data - Additional data about the error.
+   * @param options.cause - The underlying error that caused the base error.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(
     code: ErrorCode,

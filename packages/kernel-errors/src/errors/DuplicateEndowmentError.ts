@@ -20,6 +20,11 @@ export class DuplicateEndowmentError extends BaseError {
    * @param endowmentName - The name of the duplicate endowment.
    * @param isInternal - Whether the duplicate is an internal endowment.
    * @param options - Additional error options including cause and stack.
+   * @param options.data - Additional data about the error.
+   * @param options.data.endowmentName - The name of the duplicate endowment.
+   * @param options.data.isInternal - Whether the duplicate is an internal endowment.
+   * @param options.cause - The underlying error that caused the duplicate endowment error.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(
     endowmentName: string,

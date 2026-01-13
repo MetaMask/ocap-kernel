@@ -12,7 +12,11 @@ export class VatNotFoundError extends BaseError {
    * Creates a new VatNotFoundError.
    *
    * @param vatId - The identifier of the vat that was not found.
-   * @param options - Additional error options including cause and stack trace.
+   * @param options - Additional error options including cause, stack, and data.
+   * @param options.data - Additional data about the error.
+   * @param options.data.vatId - The identifier of the vat that was not found.
+   * @param options.cause - The underlying error that caused the vat not found error.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatNotFound, 'Vat does not exist.', {

@@ -12,7 +12,11 @@ export class VatAlreadyExistsError extends BaseError {
    * Creates a new VatAlreadyExistsError.
    *
    * @param vatId - The identifier of the vat that already exists.
-   * @param options - Additional error options including cause and stack trace.
+   * @param options - Additional error options including cause, stack, and data.
+   * @param options.data - Additional data about the error.
+   * @param options.data.vatId - The identifier of the vat that already exists.
+   * @param options.cause - The underlying error that caused the vat already exists error.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(vatId: string, options?: ErrorOptionsWithStack) {
     super(ErrorCode.VatAlreadyExists, 'Vat already exists.', {

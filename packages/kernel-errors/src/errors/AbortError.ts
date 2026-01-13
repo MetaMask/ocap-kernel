@@ -18,6 +18,9 @@ export class AbortError extends BaseError {
    * Creates a new AbortError.
    *
    * @param options - Additional error options including cause and stack.
+   * @param options.data - Additional data about the error.
+   * @param options.cause - The underlying error that caused the operation to abort.
+   * @param options.stack - The stack trace of the error.
    */
   constructor(options?: ErrorOptionsWithStack) {
     super(ErrorCode.AbortError, 'Operation aborted.', {
