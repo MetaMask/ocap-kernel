@@ -36,7 +36,7 @@ import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
 /**
- * The kernel is the main class for the kernel. It is responsible for
+ * The main class for the ocap kernel. It is responsible for
  * managing the lifecycle of the kernel and the vats.
  *
  * @param commandStream - Command channel from whatever external software is driving the kernel.
