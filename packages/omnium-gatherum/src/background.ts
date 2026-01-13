@@ -5,10 +5,7 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  KernelFacade,
-  CapTPMessage,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -107,17 +104,8 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelP: Promise<KernelFacade> = backgroundCapTP.getKernel();
-
-  const ping = async (): Promise<void> => {
-    const result = await E(kernelP).ping();
-    logger.info(result);
-  };
-
-  // Helper to get the kernel remote presence (for use with E())
-  const getKernel = async (): Promise<KernelFacade> => {
-    return kernelP;
-  };
+  const kernelP = backgroundCapTP.getKernel();
+  globalThis.kernel = kernelP;
 
   // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
@@ -187,12 +175,6 @@ async function main(): Promise<void> {
   };
 
   Object.defineProperties(globalThis.omnium, {
-    ping: {
-      value: ping,
-    },
-    getKernel: {
-      value: getKernel,
-    },
     loadCaplet: {
       value: loadCaplet,
     },
@@ -215,7 +197,7 @@ async function main(): Promise<void> {
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
+    E(kernelP).ping().catch(logger.error);
   });
 
   try {

@@ -101,32 +101,12 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelPromise = backgroundCapTP.getKernel();
-
-  const ping = async (): Promise<void> => {
-    const kernel = await kernelPromise;
-    const result = await E(kernel).ping();
-    logger.info(result);
-  };
-
-  // Helper to get the kernel remote presence (for use with E())
-  const getKernel = async (): Promise<KernelFacade> => {
-    return kernelPromise;
-  };
-
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      value: ping,
-    },
-    getKernel: {
-      value: getKernel,
-    },
-  });
-  harden(globalThis.kernel);
+  const kernelP = backgroundCapTP.getKernel();
+  globalThis.kernel = kernelP;
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
+    E(kernelP).ping().catch(logger.error);
   });
 
   // Handle incoming CapTP messages from the kernel
@@ -138,8 +118,8 @@ async function main(): Promise<void> {
   });
   drainPromise.catch(logger.error);
 
-  await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelPromise);
+  await E(kernelP).ping(); // Wait for the kernel to be ready
+  await startDefaultSubcluster(kernelP);
 
   try {
     await drainPromise;
@@ -176,7 +156,7 @@ function defineGlobals(): void {
   Object.defineProperty(globalThis, 'kernel', {
     configurable: false,
     enumerable: true,
-    writable: false,
+    writable: true,
     value: {},
   });
 
