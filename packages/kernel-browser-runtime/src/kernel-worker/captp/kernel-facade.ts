@@ -16,32 +16,9 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
     ping: async () => 'pong' as const,
 
     launchSubcluster: async (config: ClusterConfig): Promise<LaunchResult> => {
-      const capData = await kernel.launchSubcluster(config);
-
-      // A subcluster always has a bootstrap vat with a root object
-      if (!capData) {
-        throw new Error('launchSubcluster: expected capData with root kref');
-      }
-
-      // Parse the CapData body (format: "#..." where # prefix indicates JSON)
-      const bodyJson = capData.body.startsWith('#')
-        ? capData.body.slice(1)
-        : capData.body;
-      const body = JSON.parse(bodyJson) as { subclusterId?: string };
-      if (!body.subclusterId) {
-        throw new Error('launchSubcluster: expected subclusterId in body');
-      }
-
-      // Extract root kref from slots (first slot is bootstrap vat's root object)
-      const rootKref = capData.slots[0];
-      if (!rootKref) {
-        throw new Error('launchSubcluster: expected root kref in slots');
-      }
-
-      return {
-        subclusterId: body.subclusterId,
-        rootKref,
-      };
+      const { subclusterId, bootstrapRootKref } =
+        await kernel.launchSubcluster(config);
+      return { subclusterId, rootKref: bootstrapRootKref };
     },
 
     terminateSubcluster: async (subclusterId: string) => {

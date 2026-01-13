@@ -24,8 +24,12 @@ describe('CapTP Integration', () => {
     // Create mock kernel with method implementations
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"subclusterId":"sc1"}',
-        slots: ['ko1'],
+        subclusterId: 'sc1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: {
+          body: '#{"result":"ok"}',
+          slots: [],
+        },
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       queueMessage: vi.fn().mockResolvedValue({

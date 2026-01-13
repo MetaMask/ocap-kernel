@@ -3,9 +3,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { launchSubclusterHandler } from './launch-subcluster.ts';
 
 describe('launchSubclusterHandler', () => {
-  it('should call kernel.launchSubcluster with the provided config', async () => {
+  it('calls kernel.launchSubcluster with the provided config', async () => {
+    const mockResult = {
+      subclusterId: 's1',
+      bootstrapRootKref: 'ko1',
+      bootstrapResult: { body: '#null', slots: [] },
+    };
     const mockKernel = {
-      launchSubcluster: vi.fn().mockResolvedValue(undefined),
+      launchSubcluster: vi.fn().mockResolvedValue(mockResult),
     };
     const params = {
       config: {
@@ -20,25 +25,12 @@ describe('launchSubclusterHandler', () => {
     expect(mockKernel.launchSubcluster).toHaveBeenCalledWith(params.config);
   });
 
-  it('should return null when kernel.launchSubcluster returns undefined', async () => {
-    const mockKernel = {
-      launchSubcluster: vi.fn().mockResolvedValue(undefined),
+  it('returns the result from kernel.launchSubcluster', async () => {
+    const mockResult = {
+      subclusterId: 's1',
+      bootstrapRootKref: 'ko1',
+      bootstrapResult: { body: '#{"result":"ok"}', slots: [] },
     };
-    const params = {
-      config: {
-        bootstrap: 'test-bootstrap',
-        vats: {},
-      },
-    };
-    const result = await launchSubclusterHandler.implementation(
-      { kernel: mockKernel },
-      params,
-    );
-    expect(result).toBeNull();
-  });
-
-  it('should return the result from kernel.launchSubcluster when not undefined', async () => {
-    const mockResult = { body: 'test', slots: [] };
     const mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue(mockResult),
     };
