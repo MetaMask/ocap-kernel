@@ -1,11 +1,12 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makeBackgroundKref,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
+import type { BackgroundKref, CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -108,6 +109,10 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
+  // Create background kref system for E() on vat objects
+  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
+  globals.setBgKref(bgKref);
+
   try {
     const controllers = await initializeControllers({
       logger,
@@ -138,6 +143,7 @@ async function main(): Promise<void> {
 
 type GlobalSetters = {
   setCapletController: (value: CapletControllerFacet) => void;
+  setBgKref: (value: BackgroundKref) => void;
 };
 
 /**
@@ -147,6 +153,7 @@ type GlobalSetters = {
  */
 function defineGlobals(): GlobalSetters {
   let capletController: CapletControllerFacet;
+  let bgKref: BackgroundKref;
 
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
@@ -220,12 +227,21 @@ function defineGlobals(): GlobalSetters {
           E(capletController).getCapletRoot(capletId),
       }),
     },
+    resolveKref: {
+      get: () => bgKref.resolveKref,
+    },
+    krefOf: {
+      get: () => bgKref.krefOf,
+    },
   });
   harden(globalThis.omnium);
 
   return {
     setCapletController: (value) => {
       capletController = value;
+    },
+    setBgKref: (value) => {
+      bgKref = value;
     },
   };
 }

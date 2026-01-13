@@ -13,6 +13,7 @@ describe('index', () => {
       'getRelaysFromCurrentLocation',
       'isCapTPNotification',
       'makeBackgroundCapTP',
+      'makeBackgroundKref',
       'makeCapTPNotification',
       'makeIframeVatWorker',
       'parseRelayQueryString',
