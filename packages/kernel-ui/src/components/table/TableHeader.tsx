@@ -1,10 +1,10 @@
-import type { PropsWithChildren } from 'react';
 import {
   Text as TextComponent,
   TextVariant,
   TextColor,
   FontWeight,
 } from '@metamask/design-system-react';
+import type { PropsWithChildren } from 'react';
 
 export const TableHeader: React.FC<
   PropsWithChildren<{
