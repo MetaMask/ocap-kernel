@@ -20,12 +20,11 @@ defineGlobals();
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
-let kernelP: Promise<KernelFacade>;
-let ping: () => Promise<void>;
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  ping?.().catch(logger.error);
+  globalThis.kernel !== undefined &&
+    E(globalThis.kernel).ping().catch(logger.error);
 });
 
 // Install/update
@@ -108,12 +107,8 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  kernelP = backgroundCapTP.getKernel();
-
-  ping = async () => {
-    const result = await E(kernelP).ping();
-    logger.info(result);
-  };
+  const kernelP = backgroundCapTP.getKernel();
+  globalThis.kernel = kernelP;
 
   // Handle incoming CapTP messages from the kernel
   const drainPromise = offscreenStream.drain((message) => {
@@ -126,8 +121,8 @@ async function main(): Promise<void> {
   });
   drainPromise.catch(logger.error);
 
-  await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelP);
+  await E(kernelP).ping();
+  await startDefaultSubcluster();
 
   try {
     await drainPromise;
@@ -142,16 +137,14 @@ async function main(): Promise<void> {
 
 /**
  * Idempotently starts the default subcluster.
- *
- * @param kernelPromise - Promise for the kernel facade.
  */
-async function startDefaultSubcluster(
-  kernelPromise: Promise<KernelFacade>,
-): Promise<void> {
-  const status = await E(kernelPromise).getStatus();
+async function startDefaultSubcluster(): Promise<void> {
+  const status = await E(globalThis.kernel).getStatus();
 
   if (status.subclusters.length === 0) {
-    const result = await E(kernelPromise).launchSubcluster(defaultSubcluster);
+    const result = await E(globalThis.kernel).launchSubcluster(
+      defaultSubcluster,
+    );
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
   } else {
     logger.info('Subclusters already exist. Not launching default subcluster.');
@@ -165,19 +158,9 @@ function defineGlobals(): void {
   Object.defineProperty(globalThis, 'kernel', {
     configurable: false,
     enumerable: true,
-    writable: false,
-    value: {},
+    writable: true,
+    value: undefined,
   });
-
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      get: () => ping,
-    },
-    getKernel: {
-      value: async () => kernelP,
-    },
-  });
-  harden(globalThis.kernel);
 
   Object.defineProperty(globalThis, 'E', {
     value: E,
