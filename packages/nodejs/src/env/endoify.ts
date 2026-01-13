@@ -1,7 +1,2 @@
-import '@metamask/kernel-shims/endoify-repair';
-
-// @libp2p/webrtc needs to modify globals in Node.js only, so we need to import
-// it before hardening.
-import '@libp2p/webrtc';
-
-hardenIntrinsics();
+// Re-export the shared Node.js endoify from kernel-shims
+import '@metamask/kernel-shims/node-endoify';
