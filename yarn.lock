@@ -3508,7 +3508,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/kernel-agents-repl@workspace:packages/kernel-agents-repl":
+"@ocap/kernel-agents-repl@workspace:^, @ocap/kernel-agents-repl@workspace:packages/kernel-agents-repl":
   version: 0.0.0-use.local
   resolution: "@ocap/kernel-agents-repl@workspace:packages/kernel-agents-repl"
   dependencies:
@@ -3688,6 +3688,7 @@ __metadata:
     "@metamask/eslint-config-typescript": "npm:^15.0.0"
     "@metamask/logger": "workspace:^"
     "@ocap/kernel-agents": "workspace:^"
+    "@ocap/kernel-agents-repl": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@types/node": "npm:^22.13.1"
