@@ -11,11 +11,28 @@ export default defineConfig((args) => {
     args,
     defaultConfig,
     defineProject({
+      resolve: {
+        alias: {
+          // Handle packages that import react/jsx-runtime.js with .js extension
+          'react/jsx-runtime.js': 'react/jsx-runtime',
+          'react/jsx-dev-runtime.js': 'react/jsx-dev-runtime',
+        },
+      },
       test: {
         name: 'kernel-ui',
         environment: 'jsdom',
         setupFiles: path.resolve(import.meta.dirname, './test/setup.ts'),
         testTimeout: 3000,
+        deps: {
+          optimizer: {
+            web: {
+              include: [
+                '@radix-ui/react-slot',
+                '@metamask/design-system-react',
+              ],
+            },
+          },
+        },
       },
     }),
   );

@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import {
   Text as TextComponent,
   TextVariant,
@@ -5,10 +6,12 @@ import {
   FontWeight,
 } from '@metamask/design-system-react';
 
-export const TableHeader: React.FC<{
-  first?: boolean;
-  variant?: TextVariant;
-}> = ({ first, variant = TextVariant.BodyXs, children }) => {
+export const TableHeader: React.FC<
+  PropsWithChildren<{
+    first?: boolean;
+    variant?: TextVariant;
+  }>
+> = ({ first, variant = TextVariant.BodyXs, children }) => {
   return (
     <th
       className={`text-left py-2 px-3 ${first ? 'border-r border-muted' : ''}`}
