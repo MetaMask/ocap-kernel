@@ -12,7 +12,9 @@ export default defineConfig((args) => {
       test: {
         name: 'kernel-test',
         setupFiles: [
-          fileURLToPath(import.meta.resolve('@ocap/nodejs/endoify-ts')),
+          fileURLToPath(
+            import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+          ),
         ],
         testTimeout: 30_000,
       },

@@ -1,5 +1,3 @@
-import '../env/endoify.ts';
-
 import { Kernel } from '@metamask/ocap-kernel';
 import { describe, expect, it, vi } from 'vitest';
 

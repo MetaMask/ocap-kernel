@@ -1,4 +1,4 @@
-import '../../dist/env/endoify.mjs';
+import '@metamask/kernel-shims/node-endoify';
 import { makeStreams } from '../../dist/vat/streams.mjs';
 
 main().catch(console.error);

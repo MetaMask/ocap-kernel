@@ -1,5 +1,3 @@
-import '../../src/env/endoify.ts';
-
 import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
