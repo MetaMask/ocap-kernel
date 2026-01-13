@@ -155,7 +155,7 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    const bootstrapResult = await kernel1.launchSubcluster(testSubcluster);
+    const { bootstrapResult } = await kernel1.launchSubcluster(testSubcluster);
     expect(kunser(bootstrapResult as CapData<string>)).toBe(
       'Counter initialized with count: 1',
     );

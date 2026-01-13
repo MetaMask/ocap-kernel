@@ -20,7 +20,6 @@ import {
   makeChromeStorageAdapter,
 } from './controllers/index.ts';
 import type { CapletManifest, LaunchResult } from './controllers/index.ts';
-import { manifests } from './manifests.ts';
 
 defineGlobals();
 
@@ -148,6 +147,45 @@ async function main(): Promise<void> {
     },
   );
 
+  /**
+   * Load a caplet's manifest and bundle by ID.
+   *
+   * @param id - The short caplet ID (e.g., 'echo').
+   * @returns The manifest and bundle for installation.
+   */
+  const loadCaplet = async (
+    id: string,
+  ): Promise<{ manifest: CapletManifest; bundle: unknown }> => {
+    const baseUrl = chrome.runtime.getURL('');
+
+    // Fetch manifest
+    const manifestUrl = `${baseUrl}${id}.manifest.json`;
+    const manifestResponse = await fetch(manifestUrl);
+    if (!manifestResponse.ok) {
+      throw new Error(`Failed to fetch manifest for caplet "${id}"`);
+    }
+    const manifestData = (await manifestResponse.json()) as Omit<
+      CapletManifest,
+      'bundleSpec'
+    >;
+
+    // Construct full manifest with bundleSpec
+    const bundleSpec = `${baseUrl}${id}-caplet.bundle`;
+    const manifest: CapletManifest = {
+      ...manifestData,
+      bundleSpec,
+    };
+
+    // Fetch bundle
+    const bundleResponse = await fetch(bundleSpec);
+    if (!bundleResponse.ok) {
+      throw new Error(`Failed to fetch bundle for caplet "${id}"`);
+    }
+    const bundle: unknown = await bundleResponse.json();
+
+    return { manifest, bundle };
+  };
+
   Object.defineProperties(globalThis.omnium, {
     ping: {
       value: ping,
@@ -155,8 +193,8 @@ async function main(): Promise<void> {
     getKernel: {
       value: getKernel,
     },
-    manifests: {
-      value: manifests,
+    loadCaplet: {
+      value: loadCaplet,
     },
     caplet: {
       value: harden({

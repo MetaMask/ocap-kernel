@@ -28,8 +28,12 @@ describe('makeKernelFacade', () => {
   beforeEach(() => {
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"subclusterId":"sc1"}',
-        slots: ['ko1'],
+        subclusterId: 'sc1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: {
+          body: '#{"result":"ok"}',
+          slots: [],
+        },
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       queueMessage: vi.fn().mockResolvedValue({
@@ -64,10 +68,11 @@ describe('makeKernelFacade', () => {
       expect(mockKernel.launchSubcluster).toHaveBeenCalledTimes(1);
     });
 
-    it('returns result from kernel with parsed subclusterId and wrapped kref', async () => {
+    it('returns result with subclusterId and rootKref from kernel', async () => {
       const kernelResult = {
-        body: '#{"subclusterId":"s1"}',
-        slots: ['ko1'],
+        subclusterId: 's1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: { body: '#null', slots: [] },
       };
       vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
         kernelResult,
@@ -77,7 +82,6 @@ describe('makeKernelFacade', () => {
 
       const result = await facade.launchSubcluster(config);
 
-      // The facade should parse the CapData and return a LaunchResult
       expect(result).toStrictEqual({
         subclusterId: 's1',
         rootKref: 'ko1',
@@ -91,44 +95,6 @@ describe('makeKernelFacade', () => {
       const config = makeClusterConfig();
 
       await expect(facade.launchSubcluster(config)).rejects.toThrow(error);
-    });
-
-    it('throws when kernel returns no capData', async () => {
-      vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
-        undefined as unknown as ReturnType<Kernel['launchSubcluster']>,
-      );
-
-      const config = makeClusterConfig();
-
-      await expect(facade.launchSubcluster(config)).rejects.toThrow(
-        'launchSubcluster: expected capData with root kref',
-      );
-    });
-
-    it('throws when capData body has no subclusterId', async () => {
-      vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce({
-        body: '#{}',
-        slots: ['ko1'],
-      });
-
-      const config = makeClusterConfig();
-
-      await expect(facade.launchSubcluster(config)).rejects.toThrow(
-        'launchSubcluster: expected subclusterId in body',
-      );
-    });
-
-    it('throws when capData slots is empty', async () => {
-      vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce({
-        body: '#{"subclusterId":"sc1"}',
-        slots: [],
-      });
-
-      const config = makeClusterConfig();
-
-      await expect(facade.launchSubcluster(config)).rejects.toThrow(
-        'launchSubcluster: expected root kref in slots',
-      );
     });
   });
 

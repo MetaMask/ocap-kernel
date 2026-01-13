@@ -6,7 +6,13 @@ import type { VatManager } from './VatManager.ts';
 import { kslot, kunser } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { VatId, KRef, ClusterConfig, Subcluster } from '../types.ts';
+import type {
+  VatId,
+  KRef,
+  ClusterConfig,
+  Subcluster,
+  SubclusterLaunchResult,
+} from '../types.ts';
 import { isClusterConfig } from '../types.ts';
 import { Fail } from '../utils/assert.ts';
 
@@ -74,18 +80,21 @@ export class SubclusterManager {
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
-   * @returns a promise for the (CapData encoded) result of the bootstrap message.
+   * @returns A promise for the subcluster ID, bootstrap root kref, and
+   * bootstrap result.
    */
   async launchSubcluster(
     config: ClusterConfig,
-  ): Promise<CapData<KRef> | undefined> {
+  ): Promise<SubclusterLaunchResult> {
     await this.#kernelQueue.waitForCrank();
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
     const subclusterId = this.#kernelStore.addSubcluster(config);
-    return this.#launchVatsForSubcluster(subclusterId, config);
+    const { bootstrapRootKref, bootstrapResult } =
+      await this.#launchVatsForSubcluster(subclusterId, config);
+    return { subclusterId, bootstrapRootKref, bootstrapResult };
   }
 
   /**
@@ -179,12 +188,15 @@ export class SubclusterManager {
    *
    * @param subclusterId - The ID of the subcluster to launch vats for.
    * @param config - The configuration for the subcluster.
-   * @returns A promise for the (CapData encoded) result of the bootstrap message, if any.
+   * @returns A promise for the bootstrap root kref and bootstrap result.
    */
   async #launchVatsForSubcluster(
     subclusterId: string,
     config: ClusterConfig,
-  ): Promise<CapData<KRef> | undefined> {
+  ): Promise<{
+    bootstrapRootKref: KRef;
+    bootstrapResult: CapData<KRef> | undefined;
+  }> {
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
@@ -204,19 +216,22 @@ export class SubclusterManager {
         }
       }
     }
-    const bootstrapRoot = rootIds[config.bootstrap];
-    if (bootstrapRoot) {
-      const result = await this.#queueMessage(bootstrapRoot, 'bootstrap', [
-        roots,
-        services,
-      ]);
-      const unserialized = kunser(result);
-      if (unserialized instanceof Error) {
-        throw unserialized;
-      }
-      return result;
+    const bootstrapRootKref = rootIds[config.bootstrap];
+    if (!bootstrapRootKref) {
+      throw new Error(
+        `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
+      );
     }
-    return undefined;
+    const bootstrapResult = await this.#queueMessage(
+      bootstrapRootKref,
+      'bootstrap',
+      [roots, services],
+    );
+    const unserialized = kunser(bootstrapResult);
+    if (unserialized instanceof Error) {
+      throw unserialized;
+    }
+    return { bootstrapRootKref, bootstrapResult };
   }
 
   /**

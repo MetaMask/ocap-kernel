@@ -21,6 +21,7 @@ import type {
   VatConfig,
   KernelStatus,
   Subcluster,
+  SubclusterLaunchResult,
   EndpointHandle,
 } from './types.ts';
 import { isVatId, isRemoteId } from './types.ts';
@@ -293,11 +294,12 @@ export class Kernel {
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
-   * @returns a promise for the (CapData encoded) result of the bootstrap message.
+   * @returns A promise for the subcluster ID and the (CapData encoded) result
+   * of the bootstrap message.
    */
   async launchSubcluster(
     config: ClusterConfig,
-  ): Promise<CapData<KRef> | undefined> {
+  ): Promise<SubclusterLaunchResult> {
     return this.#subclusterManager.launchSubcluster(config);
   }
 
