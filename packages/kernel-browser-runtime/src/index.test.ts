@@ -1,5 +1,3 @@
-import '@ocap/repo-tools/test-utils/mock-endoify';
-
 import { describe, expect, it } from 'vitest';
 
 import * as indexModule from './index.ts';

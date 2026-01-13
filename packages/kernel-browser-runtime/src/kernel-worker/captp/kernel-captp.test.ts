@@ -1,5 +1,3 @@
-import '@ocap/repo-tools/test-utils/mock-endoify';
-
 import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -8,7 +6,7 @@ import type { CapTPMessage } from './kernel-captp.ts';
 
 describe('makeKernelCapTP', () => {
   let mockKernel: Kernel;
-  let sendMock: ReturnType<typeof vi.fn>;
+  let sendMock: (message: CapTPMessage) => void;
 
   beforeEach(() => {
     mockKernel = {
