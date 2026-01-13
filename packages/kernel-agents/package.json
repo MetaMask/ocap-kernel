@@ -114,16 +114,6 @@
       }
     },
     "./package.json": "./package.json",
-    "./capabilities/examples": {
-      "import": {
-        "types": "./dist/capabilities/examples.d.mts",
-        "default": "./dist/capabilities/examples.mjs"
-      },
-      "require": {
-        "types": "./dist/capabilities/examples.d.cts",
-        "default": "./dist/capabilities/examples.cjs"
-      }
-    },
     "./capabilities/math": {
       "import": {
         "types": "./dist/capabilities/math.d.mts",

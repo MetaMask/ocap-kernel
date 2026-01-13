@@ -1,7 +1,6 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
 import { Logger } from '@metamask/logger';
-import { makeReplAgent } from '@ocap/kernel-agents-repl';
 import { vi, describe, it, expect } from 'vitest';
 
 import { makeJsonAgent } from './strategies/json-agent.ts';
@@ -22,7 +21,6 @@ const logger = new Logger('test');
 
 describe.each([
   ['Json', makeJsonAgent, [`invoke":[{"name":"end","args":{"final":"x"}}]}`]],
-  ['Repl', makeReplAgent, ["await end({ final: 'x' });", stop]],
 ])('make%sAgent', (strategy, makeAgent, endStatement) => {
   const mockLlm = (...chunks: string[]) => ({
     getInfo: vi.fn(),
