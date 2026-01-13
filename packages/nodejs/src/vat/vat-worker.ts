@@ -1,5 +1,3 @@
-import '../env/endoify.ts';
-
 import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 

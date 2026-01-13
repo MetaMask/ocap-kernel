@@ -59,7 +59,7 @@ export async function launchVatAndGetURL(
   config: ClusterConfig,
 ): Promise<string> {
   const result = await kernel.launchSubcluster(config);
-  return kunser(result as CapData<KRef>) as string;
+  return kunser(result.bootstrapResult as CapData<KRef>) as string;
 }
 
 /**
