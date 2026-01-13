@@ -101,7 +101,11 @@ describe('SubclusterManager', () => {
         { testVat: expect.anything() },
         {},
       ]);
-      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+      expect(result).toStrictEqual({
+        subclusterId: 's1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: { body: '{"result":"ok"}', slots: [] },
+      });
     });
 
     it('launches subcluster with multiple vats', async () => {
@@ -204,27 +208,24 @@ describe('SubclusterManager', () => {
       );
     });
 
-    it('throws when bootstrap message returns error', async () => {
+    it('returns bootstrap result when bootstrap does not return error', async () => {
       const config = createMockClusterConfig();
-      const errorResult = {
+      const bootstrapResult = {
         body: '{"error":"Bootstrap failed"}',
         slots: [],
       };
       (mockQueueMessage as ReturnType<typeof vi.fn>).mockResolvedValue(
-        errorResult,
+        bootstrapResult,
       );
 
-      // Mock kunser to return an Error
-      const kunserMock = vi.fn().mockReturnValue(new Error('Bootstrap failed'));
-      vi.doMock('../liveslots/kernel-marshal.ts', () => ({
-        kunser: kunserMock,
-        kslot: vi.fn(),
-      }));
-
-      // We can't easily mock kunser since it's imported at module level
-      // So we'll just test that the result is returned
+      // Note: We can't easily mock kunser since it's imported at module level
+      // kunser doesn't return an Error for this body, so launchSubcluster succeeds
       const result = await subclusterManager.launchSubcluster(config);
-      expect(result).toStrictEqual(errorResult);
+      expect(result).toStrictEqual({
+        subclusterId: 's1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult,
+      });
     });
   });
 

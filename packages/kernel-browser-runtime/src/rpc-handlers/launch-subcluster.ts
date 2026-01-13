@@ -1,17 +1,31 @@
-import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel, ClusterConfig, KRef } from '@metamask/ocap-kernel';
-import { CapDataStruct, ClusterConfigStruct } from '@metamask/ocap-kernel';
-import { object, nullable } from '@metamask/superstruct';
+import type {
+  Kernel,
+  ClusterConfig,
+  SubclusterLaunchResult,
+} from '@metamask/ocap-kernel';
+import { ClusterConfigStruct, CapDataStruct } from '@metamask/ocap-kernel';
+import {
+  object,
+  string,
+  optional,
+  type as structType,
+} from '@metamask/superstruct';
+
+const SubclusterLaunchResultStruct = structType({
+  subclusterId: string(),
+  bootstrapRootKref: string(),
+  bootstrapResult: optional(CapDataStruct),
+});
 
 export const launchSubclusterSpec: MethodSpec<
   'launchSubcluster',
   { config: ClusterConfig },
-  Promise<CapData<KRef> | null>
+  Promise<SubclusterLaunchResult>
 > = {
   method: 'launchSubcluster',
   params: object({ config: ClusterConfigStruct }),
-  result: nullable(CapDataStruct),
+  result: SubclusterLaunchResultStruct,
 };
 
 export type LaunchSubclusterHooks = {
@@ -21,7 +35,7 @@ export type LaunchSubclusterHooks = {
 export const launchSubclusterHandler: Handler<
   'launchSubcluster',
   { config: ClusterConfig },
-  Promise<CapData<KRef> | null>,
+  Promise<SubclusterLaunchResult>,
   LaunchSubclusterHooks
 > = {
   ...launchSubclusterSpec,
@@ -29,8 +43,7 @@ export const launchSubclusterHandler: Handler<
   implementation: async (
     { kernel }: LaunchSubclusterHooks,
     params: { config: ClusterConfig },
-  ): Promise<CapData<KRef> | null> => {
-    const result = await kernel.launchSubcluster(params.config);
-    return result ?? null;
+  ): Promise<SubclusterLaunchResult> => {
+    return kernel.launchSubcluster(params.config);
   },
 };

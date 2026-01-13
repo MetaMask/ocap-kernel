@@ -288,7 +288,11 @@ describe('Kernel', () => {
       );
       const config = makeMockClusterConfig();
       const result = await kernel.launchSubcluster(config);
-      expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+      expect(result).toMatchObject({
+        subclusterId: 's1',
+        bootstrapResult: { body: '{"result":"ok"}', slots: [] },
+      });
+      expect(result.bootstrapRootKref).toMatch(/^ko\d+$/u);
     });
   });
 
