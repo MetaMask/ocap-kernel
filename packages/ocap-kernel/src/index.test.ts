@@ -14,7 +14,7 @@ describe('index', () => {
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
-      'initNetwork',
+      'initTransport',
       'isVatConfig',
       'isVatId',
       'krefOf',

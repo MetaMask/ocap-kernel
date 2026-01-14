@@ -1,7 +1,7 @@
 import * as kernelUtils from '@metamask/kernel-utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ReconnectionManager } from './ReconnectionManager.ts';
+import { ReconnectionManager } from './reconnection.ts';
 
 // Mock the calculateReconnectionBackoff function
 vi.mock('@metamask/kernel-utils', async () => {

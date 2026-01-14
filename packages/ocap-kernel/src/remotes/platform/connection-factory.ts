@@ -17,7 +17,7 @@ import { multiaddr } from '@multiformats/multiaddr';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
-import type { Channel, InboundConnectionHandler } from './types.ts';
+import type { Channel, InboundConnectionHandler } from '../types.ts';
 
 /**
  * Connection factory for libp2p network operations.

@@ -13,7 +13,7 @@ import type {
   StopRemoteComms,
   RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
-import { initNetwork } from '@metamask/ocap-kernel';
+import { initTransport } from '@metamask/ocap-kernel';
 import {
   kernelRemoteMethodSpecs,
   platformServicesHandlers,
@@ -288,7 +288,7 @@ export class PlatformServicesServer {
       closeConnection,
       registerLocationHints,
       reconnectPeer,
-    } = await initNetwork(
+    } = await initTransport(
       keySeed,
       options,
       this.#handleRemoteMessage.bind(this),
