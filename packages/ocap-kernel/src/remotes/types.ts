@@ -24,7 +24,7 @@ export type StopRemoteComms = () => Promise<void>;
 export type RemoteComms = {
   getPeerId: () => string;
   sendRemoteMessage: SendRemoteMessage;
-  handleAck: (peerId: string, ackSeq: number) => Promise<void>;
+  handleAck: (peerId: string, ackSeq: number) => void;
   updateReceivedSeq: (peerId: string, seq: number) => void;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;

@@ -862,7 +862,7 @@ describe('RemoteHandle', () => {
       const updateReceivedSeqMock = vi.fn(() => {
         callOrder.push('updateReceivedSeq');
       });
-      const handleAckMock = vi.fn(async () => {
+      const handleAckMock = vi.fn(() => {
         callOrder.push('handleAck');
       });
 

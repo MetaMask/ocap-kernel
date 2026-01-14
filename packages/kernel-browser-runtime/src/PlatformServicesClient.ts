@@ -273,13 +273,20 @@ export class PlatformServicesClient implements PlatformServices {
 
   /**
    * Handle an acknowledgment from a peer for sent messages.
+   * This is fire-and-forget to avoid deadlock: when the offscreen is awaiting
+   * sendWithAck (waiting for ACK), the kernel worker may receive the ACK via
+   * remoteDeliver and call handleAck back. If handleAck awaited, it would
+   * deadlock because the offscreen can't process new RPC requests while
+   * blocked on sendWithAck.
    *
    * @param peerId - The peer ID.
    * @param ackSeq - The sequence number being acknowledged.
-   * @returns A promise that resolves when the acknowledgment has been processed.
    */
-  async handleAck(peerId: string, ackSeq: number): Promise<void> {
-    await this.#rpcClient.call('handleAck', { peerId, ackSeq });
+  handleAck(peerId: string, ackSeq: number): void {
+    // Fire-and-forget RPC call to avoid deadlock
+    this.#rpcClient.call('handleAck', { peerId, ackSeq }).catch((error) => {
+      this.#logger.error('Error handling ACK:', error);
+    });
   }
 
   /**

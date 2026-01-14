@@ -336,16 +336,19 @@ export class NodejsPlatformServices implements PlatformServices {
 
   /**
    * Handle an acknowledgment from a peer for sent messages.
+   * Fire-and-forget to match browser runtime semantics.
    *
    * @param peerId - The peer ID.
    * @param ackSeq - The sequence number being acknowledged.
-   * @returns A promise that resolves when the acknowledgment has been processed.
    */
-  async handleAck(peerId: string, ackSeq: number): Promise<void> {
+  handleAck(peerId: string, ackSeq: number): void {
     if (!this.#handleAckFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#handleAckFunc(peerId, ackSeq);
+    // Fire-and-forget - don't await
+    this.#handleAckFunc(peerId, ackSeq).catch((error) => {
+      this.#logger.error('Error handling ACK:', error);
+    });
   }
 
   /**

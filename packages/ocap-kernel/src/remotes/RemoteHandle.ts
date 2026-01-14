@@ -447,9 +447,9 @@ export class RemoteHandle implements EndpointHandle {
     // Track received sequence number for piggyback ACK
     this.#remoteComms.updateReceivedSeq(this.#peerId, seq);
 
-    // Handle piggyback ACK if present
+    // Handle piggyback ACK if present (fire-and-forget to avoid deadlock in browser runtime)
     if (ack !== undefined) {
-      await this.#remoteComms.handleAck(this.#peerId, ack);
+      this.#remoteComms.handleAck(this.#peerId, ack);
     }
 
     let result = '';
