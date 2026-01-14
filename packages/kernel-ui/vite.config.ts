@@ -39,12 +39,11 @@ export default defineConfig(({ mode }) => {
         },
       },
       rollupOptions: {
-        external: [
-          'react',
-          'react-dom',
-          'react/jsx-runtime',
-          'react/jsx-dev-runtime',
-        ],
+        external: (id) =>
+          id === 'react' ||
+          id === 'react-dom' ||
+          id.startsWith('react/') ||
+          id.startsWith('react-dom/'),
         output: {
           globals: {
             react: 'React',
