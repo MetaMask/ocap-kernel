@@ -4,10 +4,10 @@ import type { Mock } from 'vitest';
 import { OcapURLManager } from './OcapURLManager.ts';
 import type { RemoteHandle } from './RemoteHandle.ts';
 import type { RemoteManager } from './RemoteManager.ts';
-import type { RemoteComms } from './types.ts';
-import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
-import type { SlotValue } from '../liveslots/kernel-marshal.ts';
-import { kslot } from '../liveslots/kernel-marshal.ts';
+import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
+import { kslot } from '../../liveslots/kernel-marshal.ts';
+import type { RemoteComms } from '../types.ts';
 
 type RedeemService = {
   redeem: (url: string) => Promise<SlotValue>;

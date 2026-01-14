@@ -9,10 +9,10 @@ import {
   parseOcapURL,
   getKnownRelays,
 } from './remote-comms.ts';
-import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
-import type { KernelStore } from '../store/index.ts';
-import type { PlatformServices } from '../types.ts';
-import type { RemoteMessageHandler } from './types.ts';
+import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import type { KernelStore } from '../../store/index.ts';
+import type { PlatformServices } from '../../types.ts';
+import type { RemoteMessageHandler } from '../types.ts';
 
 describe('remote-comms', () => {
   let mockKernelStore: KernelStore;

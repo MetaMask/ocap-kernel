@@ -1,10 +1,10 @@
 import { Far } from '@endo/marshal';
 
-import { kslot, krefOf } from '../liveslots/kernel-marshal.ts';
-import type { SlotValue } from '../liveslots/kernel-marshal.ts';
-import type { KRef } from '../types.ts';
 import { parseOcapURL } from './remote-comms.ts';
 import type { RemoteManager } from './RemoteManager.ts';
+import { kslot, krefOf } from '../../liveslots/kernel-marshal.ts';
+import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
+import type { KRef } from '../../types.ts';
 
 type OcapURLManagerConstructorProps = {
   remoteManager: RemoteManager;
