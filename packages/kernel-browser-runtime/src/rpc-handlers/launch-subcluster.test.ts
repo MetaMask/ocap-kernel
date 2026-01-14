@@ -44,6 +44,32 @@ describe('launchSubclusterHandler', () => {
       { kernel: mockKernel },
       params,
     );
-    expect(result).toBe(mockResult);
+    expect(result).toStrictEqual(mockResult);
+  });
+
+  it('converts undefined bootstrapResult to null for JSON compatibility', async () => {
+    const mockResult = {
+      subclusterId: 's1',
+      bootstrapRootKref: 'ko1',
+      bootstrapResult: undefined,
+    };
+    const mockKernel = {
+      launchSubcluster: vi.fn().mockResolvedValue(mockResult),
+    };
+    const params = {
+      config: {
+        bootstrap: 'test-bootstrap',
+        vats: {},
+      },
+    };
+    const result = await launchSubclusterHandler.implementation(
+      { kernel: mockKernel },
+      params,
+    );
+    expect(result).toStrictEqual({
+      subclusterId: 's1',
+      bootstrapRootKref: 'ko1',
+      bootstrapResult: null,
+    });
   });
 });
