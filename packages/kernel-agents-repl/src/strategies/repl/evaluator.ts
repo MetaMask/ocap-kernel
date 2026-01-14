@@ -1,6 +1,9 @@
 import { EvaluatorError } from '@metamask/kernel-errors';
 import { mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { extractCapabilities } from '@ocap/kernel-agents/capabilities/capability';
+import type { CapabilityRecord } from '@ocap/kernel-agents/types';
+import { ifDefined } from '@ocap/kernel-agents/utils';
 
 import { makeCompartment } from './compartment.ts';
 import { processEvaluationError } from './evaluator-error.ts';
@@ -14,9 +17,6 @@ import type { ReplTranscript, StatementMessage } from './messages.ts';
 import { prepareEvaluation } from './prepare-evaluation.ts';
 import { ERROR, RETURN } from './symbols.ts';
 import type { EvaluatorState } from './types.ts';
-import { extractCapabilities } from '../../capabilities/capability.ts';
-import type { CapabilityRecord } from '../../types.ts';
-import { ifDefined } from '../../utils.ts';
 
 const validateStatement = (
   statement: StatementMessage,

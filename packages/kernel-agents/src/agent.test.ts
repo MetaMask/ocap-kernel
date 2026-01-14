@@ -4,15 +4,9 @@ import { Logger } from '@metamask/logger';
 import { vi, describe, it, expect } from 'vitest';
 
 import { makeJsonAgent } from './strategies/json-agent.ts';
-import { makeReplAgent } from './strategies/repl-agent.ts';
 
 const prompt = 'test prompt';
 const prefix = '{"messageType":"assistant","';
-const stop = '</|>';
-
-vi.mock('./strategies/repl/prompter.ts', () => ({
-  makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { stop } })),
-}));
 
 vi.mock('./strategies/json/prompter.ts', () => ({
   makePrompter: vi.fn(() => () => ({ prompt, readerArgs: { prefix } })),
@@ -22,7 +16,6 @@ const logger = new Logger('test');
 
 describe.each([
   ['Json', makeJsonAgent, [`invoke":[{"name":"end","args":{"final":"x"}}]}`]],
-  ['Repl', makeReplAgent, ["await end({ final: 'x' });", stop]],
 ])('make%sAgent', (strategy, makeAgent, endStatement) => {
   const mockLlm = (...chunks: string[]) => ({
     getInfo: vi.fn(),

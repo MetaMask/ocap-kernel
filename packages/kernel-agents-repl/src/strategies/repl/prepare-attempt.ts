@@ -1,5 +1,16 @@
 import { mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { extractCapabilitySchemas } from '@ocap/kernel-agents/capabilities/capability';
+import { makeEnd } from '@ocap/kernel-agents/capabilities/end';
+import type {
+  PREP,
+  Objective,
+  Context,
+  CapabilityRecord,
+  Progress,
+  PrepareAttempt,
+} from '@ocap/kernel-agents/types';
+import { ifDefined } from '@ocap/kernel-agents/utils';
 
 import { makeEvaluator } from './evaluator.ts';
 import type { State, Observation, Action } from './messages.ts';
@@ -11,17 +22,6 @@ import {
 import { makePrinter } from './printer.ts';
 import { makePrompter } from './prompter.ts';
 import { makeReader } from './reader.ts';
-import { extractCapabilitySchemas } from '../../capabilities/capability.ts';
-import { makeEnd } from '../../capabilities/end.ts';
-import type {
-  PREP,
-  Objective,
-  Context,
-  CapabilityRecord,
-  Progress,
-  PrepareAttempt,
-} from '../../types.ts';
-import { ifDefined } from '../../utils.ts';
 
 export const prepareAttempt: PrepareAttempt<State, Action, Observation> = <
   Result,

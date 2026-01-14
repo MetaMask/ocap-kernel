@@ -1,11 +1,11 @@
 import { stringify } from '@metamask/kernel-utils';
+import { Message } from '@ocap/kernel-agents/types/messages';
+import type { Transcript } from '@ocap/kernel-agents/types/messages';
 import type { SyntaxNode } from 'tree-sitter';
 
 import { makeCompartment } from './compartment.ts';
 import { parse } from './parse/javascript.ts';
 import { ERROR, RETURN } from './symbols.ts';
-import { Message } from '../../types/messages.ts';
-import type { Transcript } from '../../types/messages.ts';
 
 export type StatementType = 'import' | 'evaluation' | 'comment';
 

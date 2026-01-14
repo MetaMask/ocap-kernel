@@ -1,3 +1,9 @@
+import { extractCapabilitySchemas } from '@ocap/kernel-agents/capabilities/capability';
+import { end } from '@ocap/kernel-agents/capabilities/end';
+import { search } from '@ocap/kernel-agents/capabilities/examples';
+import type { CapabilityRecord } from '@ocap/kernel-agents/types';
+
+import type { ReplTranscript } from './messages.ts';
 import {
   CommentMessage,
   EvaluationMessage,
@@ -5,12 +11,7 @@ import {
   InterjectionMessage,
   ResultMessage,
 } from './messages.ts';
-import type { ReplTranscript } from './messages.ts';
 import { RETURN } from './symbols.ts';
-import { extractCapabilitySchemas } from '../../capabilities/capability.ts';
-import { end } from '../../capabilities/end.ts';
-import { search } from '../../capabilities/examples.ts';
-import type { CapabilityRecord } from '../../types.ts';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const transcribeCapabilities = (capabilities: CapabilityRecord) => [

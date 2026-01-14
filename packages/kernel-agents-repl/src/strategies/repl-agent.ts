@@ -1,5 +1,6 @@
-import { makeAgent } from '../agent.ts';
-import type { Agent } from '../types.ts';
+import { makeAgent } from '@ocap/kernel-agents/agent';
+import type { Agent } from '@ocap/kernel-agents/types';
+
 import type { State, Action, Observation } from './repl/messages.ts';
 import { prepareAttempt } from './repl/prepare-attempt.ts';
 

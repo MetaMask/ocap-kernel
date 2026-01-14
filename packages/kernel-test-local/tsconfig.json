@@ -8,6 +8,7 @@
   },
   "references": [
     { "path": "../kernel-agents" },
+    { "path": "../kernel-agents-repl" },
     { "path": "../kernel-language-model-service" },
     { "path": "../logger" },
     { "path": "../repo-tools" }

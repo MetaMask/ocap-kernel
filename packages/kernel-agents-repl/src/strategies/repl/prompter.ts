@@ -1,7 +1,8 @@
+import { ifDefined } from '@ocap/kernel-agents/utils';
+
 import { exampleTranscripts } from './example-transcripts.ts';
 import type { ReplTranscript } from './messages.ts';
 import { makeRandom } from './random.ts';
-import { ifDefined } from '../../utils.ts';
 
 const makePreamble = (
   nTranscripts: number,
