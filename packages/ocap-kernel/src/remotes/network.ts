@@ -1,8 +1,4 @@
-import {
-  AbortError,
-  isRetryableNetworkError,
-  ResourceLimitError,
-} from '@metamask/kernel-errors';
+import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -22,6 +18,7 @@ import type {
   OnRemoteGiveUp,
   RemoteCommsOptions,
 } from './types.ts';
+import { isRetryableNetworkError } from '../utils/isRetryableNetworkError.ts';
 
 /** Default upper bound for queued outbound messages while reconnecting */
 const DEFAULT_MAX_QUEUE = 200;

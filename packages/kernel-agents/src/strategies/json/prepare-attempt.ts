@@ -1,4 +1,4 @@
-import { mergeDisjointRecords } from '@metamask/kernel-utils';
+import { mergeDisjointRecords } from '@metamask/kernel-utils/merge-disjoint-records';
 import type { Logger } from '@metamask/logger';
 
 import { makeEvaluator } from './evaluator.ts';

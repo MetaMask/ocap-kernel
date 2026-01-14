@@ -49,6 +49,36 @@
         "default": "./dist/discoverable.cjs"
       }
     },
+    "./counter": {
+      "import": {
+        "types": "./dist/counter.d.mts",
+        "default": "./dist/counter.mjs"
+      },
+      "require": {
+        "types": "./dist/counter.d.cts",
+        "default": "./dist/counter.cjs"
+      }
+    },
+    "./merge-disjoint-records": {
+      "import": {
+        "types": "./dist/merge-disjoint-records.d.mts",
+        "default": "./dist/merge-disjoint-records.mjs"
+      },
+      "require": {
+        "types": "./dist/merge-disjoint-records.d.cts",
+        "default": "./dist/merge-disjoint-records.cjs"
+      }
+    },
+    "./schema": {
+      "import": {
+        "types": "./dist/schema.d.mts",
+        "default": "./dist/schema.mjs"
+      },
+      "require": {
+        "types": "./dist/schema.d.cts",
+        "default": "./dist/schema.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

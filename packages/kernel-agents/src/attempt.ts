@@ -1,4 +1,4 @@
-import { SampleGenerationError } from '@metamask/kernel-errors';
+import { SampleGenerationError } from '@metamask/kernel-errors/bundleable';
 import type { Logger } from '@metamask/logger';
 import type { LanguageModel } from '@ocap/kernel-language-model-service';
 

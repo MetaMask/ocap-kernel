@@ -10,7 +10,7 @@ import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
-import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
+import { AbortError } from '@metamask/kernel-errors';
 import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { multiaddr } from '@multiformats/multiaddr';
@@ -18,6 +18,7 @@ import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
 import type { Channel, InboundConnectionHandler } from './types.ts';
+import { isRetryableNetworkError } from '../utils/isRetryableNetworkError.ts';
 
 /**
  * Connection factory for libp2p network operations.
