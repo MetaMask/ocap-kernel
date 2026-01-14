@@ -482,13 +482,11 @@ export async function initNetwork(
    * Send a message with ACK tracking.
    *
    * @param peerId - The peer ID.
-   * @param seq - The sequence number.
    * @param messageBase - The message base object.
    * @returns Promise that resolves when ACK is received.
    */
   async function sendWithAck(
     peerId: string,
-    seq: number,
     messageBase: RemoteMessageBase,
   ): Promise<void> {
     // Create pending message entry with messageBase (seq/ack added at transmission time)
@@ -497,11 +495,11 @@ export async function initNetwork(
 
     const state = getPeerState(peerId);
     const queueWasEmpty = state.getPendingCount() === 0;
-    const added = state.addPendingMessage(pending, seq);
+    const seq = state.addPendingMessage(pending);
 
     // If queue was at capacity, promise is already rejected - don't send
-    if (!added) {
-      logger.log(`${peerId}:: message ${seq} rejected (queue at capacity)`);
+    if (seq === null) {
+      logger.log(`${peerId}:: message rejected (queue at capacity)`);
       return promise;
     }
 
@@ -922,23 +920,25 @@ export async function initNetwork(
     }
 
     const state = getPeerState(targetPeerId);
-    const seq = state.getNextSeq();
 
     // If reconnecting, create pending entry and return promise
     // Message will be transmitted during reconnection flush
     if (reconnectionManager.isReconnecting(targetPeerId)) {
+      // Create pending entry for ACK tracking
+      const pending = createPendingMessage(messageBase);
+      const seq = state.addPendingMessage(pending);
+      if (seq === null) {
+        logger.log(`${targetPeerId}:: message rejected (queue at capacity)`);
+        return pending.promise;
+      }
       logger.log(
         `${targetPeerId}:: adding pending message ${seq} during reconnection`,
       );
-
-      // Create pending entry for ACK tracking
-      const pending = createPendingMessage(messageBase);
-      state.addPendingMessage(pending, seq);
       return pending.promise;
     }
 
     // Send with ACK tracking
-    return sendWithAck(targetPeerId, seq, messageBase);
+    return sendWithAck(targetPeerId, messageBase);
   }
 
   /**

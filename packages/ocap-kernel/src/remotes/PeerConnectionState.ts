@@ -78,13 +78,13 @@ export class PeerConnectionState {
   }
 
   /**
-   * Get next sequence number and increment counter.
+   * Peek at what the next sequence number would be without incrementing.
+   * Used for logging during reconnection.
    *
-   * @returns The next sequence number to use.
+   * @returns The next sequence number that would be assigned.
    */
-  getNextSeq(): number {
-    this.#nextSendSeq += 1;
-    return this.#nextSendSeq;
+  peekNextSeq(): number {
+    return this.#nextSendSeq + 1;
   }
 
   /**
@@ -146,20 +146,26 @@ export class PeerConnectionState {
   }
 
   /**
-   * Add pending message to queue.
+   * Add pending message to queue and assign sequence number.
+   * Only increments the sequence counter if the message is successfully added.
    * If this is the first message in an empty queue, also updates startSeq.
    *
    * @param pending - The pending message.
-   * @param seq - The sequence number of this message.
-   * @returns True if the message was added, false if rejected due to capacity.
+   * @returns The assigned sequence number, or null if rejected due to capacity.
    */
-  addPendingMessage(pending: PendingMessage, seq: number): boolean {
+  addPendingMessage(pending: PendingMessage): number | null {
     const wasEmpty = this.#pendingMessages.length === 0;
     const added = this.#pendingMessages.enqueue(pending);
-    if (added && wasEmpty) {
+    if (!added) {
+      return null;
+    }
+    // Only increment sequence number after successful add
+    this.#nextSendSeq += 1;
+    const seq = this.#nextSendSeq;
+    if (wasEmpty) {
       this.#startSeq = seq;
     }
-    return added;
+    return seq;
   }
 
   /**
