@@ -1,4 +1,4 @@
-// Note: Lockdown runs via setupFiles in vitest.config.ts (node-endoify.js)
+// Note: Lockdown runs via setupFiles in vitest.config.ts (endoify-node.js)
 // which imports @libp2p/webrtc (and thus reflect-metadata) before lockdown
 
 import { E } from '@endo/eventual-send';

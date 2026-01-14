@@ -18,10 +18,10 @@ export default defineConfig((args) => {
           fileURLToPath(
             import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
           ),
-          // Use node-endoify which imports @libp2p/webrtc before lockdown
+          // Use endoify-node which imports @libp2p/webrtc before lockdown
           // (webrtc imports reflect-metadata which modifies globalThis.Reflect)
           fileURLToPath(
-            import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+            import.meta.resolve('@metamask/kernel-shims/endoify-node'),
           ),
         ],
       },
