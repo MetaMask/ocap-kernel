@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./bundleable": {
+      "import": {
+        "types": "./dist/bundleable/index.d.mts",
+        "default": "./dist/bundleable/index.mjs"
+      },
+      "require": {
+        "types": "./dist/bundleable/index.d.cts",
+        "default": "./dist/bundleable/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -57,7 +67,6 @@
     "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "dependencies": {
-    "@libp2p/interface": "2.11.0",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0"
   },

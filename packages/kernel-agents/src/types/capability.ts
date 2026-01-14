@@ -1,4 +1,4 @@
-import type { JsonSchema } from '@metamask/kernel-utils';
+import type { JsonSchema } from '@metamask/kernel-utils/schema';
 
 export type Capability<Args extends Record<string, unknown>, Return = null> = (
   args: Args,

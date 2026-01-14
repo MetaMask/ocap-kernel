@@ -1,5 +1,6 @@
 import { E } from '@endo/eventual-send';
-import type { DiscoverableExo, MethodSchema } from '@metamask/kernel-utils';
+import type { DiscoverableExo } from '@metamask/kernel-utils/discoverable';
+import type { MethodSchema } from '@metamask/kernel-utils/schema';
 
 import type { CapabilityRecord, CapabilitySpec } from '../types.ts';
 

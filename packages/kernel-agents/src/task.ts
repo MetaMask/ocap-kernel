@@ -1,4 +1,4 @@
-import { makeCounter } from '@metamask/kernel-utils';
+import { makeCounter } from '@metamask/kernel-utils/counter';
 
 import type { Task, CapabilityRecord } from './types.ts';
 

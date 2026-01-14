@@ -1,8 +1,4 @@
-import {
-  AbortError,
-  isRetryableNetworkError,
-  ResourceLimitError,
-} from '@metamask/kernel-errors';
+import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -21,6 +17,7 @@ import type {
   OnRemoteGiveUp,
   RemoteCommsOptions,
 } from './types.ts';
+import { isRetryableNetworkError } from '../utils/isRetryableNetworkError.ts';
 
 /** Default maximum number of concurrent connections */
 const DEFAULT_MAX_CONCURRENT_CONNECTIONS = 100;
