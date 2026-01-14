@@ -50,6 +50,8 @@ vi.mock('@metamask/ocap-kernel', () => ({
         closeConnection: mockCloseConnection,
         registerLocationHints: mockRegisterLocationHints,
         reconnectPeer: mockReconnectPeer,
+        handleAck: vi.fn(),
+        updateReceivedSeq: vi.fn(),
       };
     },
   ),
@@ -105,11 +107,11 @@ const makeInitializeRemoteCommsMessageEvent = (
 const makeSendRemoteMessageMessageEvent = (
   messageId: `m${number}`,
   to: string,
-  message: string,
+  messageBase: unknown,
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'sendRemoteMessage',
-    params: { to, message },
+    params: { to, messageBase },
   });
 
 const makeStopRemoteCommsMessageEvent = (
@@ -593,14 +595,15 @@ describe('PlatformServicesServer', () => {
           await delay(10);
 
           // Now send a message
+          const messageBase = { method: 'deliver', params: ['hello'] };
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello'),
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', messageBase),
           );
           await delay(10);
 
           expect(mockSendRemoteMessage).toHaveBeenCalledWith(
             'peer-123',
-            'hello',
+            messageBase,
           );
         });
 
@@ -608,7 +611,10 @@ describe('PlatformServicesServer', () => {
           const errorSpy = vi.spyOn(logger, 'error');
 
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test'),
+            makeSendRemoteMessageMessageEvent('m0', 'peer-456', {
+              method: 'deliver',
+              params: ['test'],
+            }),
           );
           await delay(10);
 

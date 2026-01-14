@@ -151,13 +151,15 @@ export class PeerConnectionState {
    *
    * @param pending - The pending message.
    * @param seq - The sequence number of this message.
+   * @returns True if the message was added, false if rejected due to capacity.
    */
-  addPendingMessage(pending: PendingMessage, seq: number): void {
+  addPendingMessage(pending: PendingMessage, seq: number): boolean {
     const wasEmpty = this.#pendingMessages.length === 0;
-    this.#pendingMessages.enqueue(pending);
-    if (wasEmpty) {
+    const added = this.#pendingMessages.enqueue(pending);
+    if (added && wasEmpty) {
       this.#startSeq = seq;
     }
+    return added;
   }
 
   /**

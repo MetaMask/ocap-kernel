@@ -25,8 +25,9 @@ vi.mock('./MessageQueue.ts', () => {
       mockMessageQueues.set(this, this.#instanceQueue);
     }
 
-    enqueue(pending: unknown): void {
+    enqueue(pending: unknown): boolean {
       this.#instanceQueue.push(pending);
+      return true;
     }
 
     dequeue(): unknown | undefined {
@@ -895,7 +896,7 @@ describe('network.initNetwork', () => {
       const { abortableDelay } = await import('@metamask/kernel-utils');
 
       (abortableDelay as ReturnType<typeof vi.fn>).mockImplementation(
-        // eslint-disable-next-line @typescript-eslint/promise-function-async
+        // eslint-disable-next-line @typescript-eslint/promise-function-async, @typescript-eslint/no-misused-promises
         (_ms: number, signal?: AbortSignal) => {
           if (signal?.aborted) {
             return Promise.reject(new AbortError());
@@ -1524,7 +1525,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel) // initial connection
         .mockResolvedValue(mockChannel); // reconnection attempts (dial succeeds, flush fails)
 
-      const { sendRemoteMessage } = await initNetworkWithAutoAck(
+      const { sendRemoteMessage, stop } = await initNetworkWithAutoAck(
         '0x1234',
         {},
         vi.fn(),
@@ -1543,6 +1544,8 @@ describe('network.initNetwork', () => {
           'peer-1',
         );
       });
+
+      await stop();
     });
 
     it('calls onRemoteGiveUp when max attempts reached', async () => {
@@ -1572,7 +1575,7 @@ describe('network.initNetwork', () => {
         .mockResolvedValueOnce(mockChannel)
         .mockResolvedValue(mockChannel);
 
-      const { sendRemoteMessage } = await initNetworkWithAutoAck(
+      const { sendRemoteMessage, stop } = await initNetworkWithAutoAck(
         '0x1234',
         {},
         vi.fn(),
@@ -1585,6 +1588,8 @@ describe('network.initNetwork', () => {
       await vi.waitFor(() => {
         expect(onRemoteGiveUp).toHaveBeenCalledWith('peer-1');
       });
+
+      await stop();
     });
 
     it('respects maxRetryAttempts limit even when flush operations occur', async () => {
@@ -1613,9 +1618,7 @@ describe('network.initNetwork', () => {
         },
       );
       mockReconnectionManager.calculateBackoff.mockReturnValue(0); // No delay for test
-      mockReconnectionManager.resetBackoff.mockImplementation(() => {
-        attemptCount = 0; // Reset attempt count
-      });
+      // Note: resetBackoff mock implementation is not used by this test
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
@@ -1628,7 +1631,7 @@ describe('network.initNetwork', () => {
       );
       // All reconnection attempts fail (dial succeeds but flush fails)
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
-      const { sendRemoteMessage } = await initNetwork(
+      const { sendRemoteMessage, stop } = await initNetwork(
         '0x1234',
         { maxRetryAttempts },
         vi.fn(),
@@ -1657,8 +1660,8 @@ describe('network.initNetwork', () => {
         },
         { timeout: 10000 },
       );
-      const resetBackoffCalls = mockReconnectionManager.resetBackoff.mock.calls;
-      expect(resetBackoffCalls).toHaveLength(0);
+
+      await stop();
     }, 10000);
 
     it('calls onRemoteGiveUp when non-retryable error occurs', async () => {

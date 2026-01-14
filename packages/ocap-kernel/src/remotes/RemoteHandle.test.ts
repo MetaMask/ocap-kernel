@@ -873,13 +873,10 @@ describe('RemoteHandle', () => {
       ];
 
       // Track when resolvePromises is called (indicating message was processed)
-      const originalResolvePromises = mockKernelQueue.resolvePromises;
-      vi.spyOn(mockKernelQueue, 'resolvePromises').mockImplementation(
-        (...args) => {
-          callOrder.push('resolvePromises');
-          return originalResolvePromises(...args);
-        },
-      );
+      // mockKernelQueue.resolvePromises is already a vi.fn(), so we can use mockImplementation directly
+      vi.mocked(mockKernelQueue.resolvePromises).mockImplementation(() => {
+        callOrder.push('resolvePromises');
+      });
 
       // Use existing mock remoteComms and add new methods
       mockRemoteComms.updateReceivedSeq = updateReceivedSeqMock;

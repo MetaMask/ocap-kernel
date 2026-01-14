@@ -2,6 +2,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import {
   AbortError,
   isRetryableNetworkError,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ResourceLimitError,
 } from '@metamask/kernel-errors';
 import {
@@ -47,6 +48,9 @@ const ACK_TIMEOUT_MS = 10_000; // 10 seconds
 /** Maximum number of retries for unacknowledged messages */
 const MAX_RETRIES = 3;
 
+/** Delay before sending standalone ACK when no outgoing message to piggyback on */
+const DELAYED_ACK_MS = 50; // 50ms - similar to TCP delayed ACK
+
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
@@ -78,6 +82,8 @@ export async function initNetwork(
   handleAck: (peerId: string, ackSeq: number) => Promise<void>;
   updateReceivedSeq: (peerId: string, seq: number) => void;
 }> {
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  // TODO: Implement resource limits (these are unused for now)
   const {
     relays = [],
     maxRetryAttempts,
@@ -87,14 +93,18 @@ export async function initNetwork(
     cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS,
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
   } = options;
+  /* eslint-enable @typescript-eslint/no-unused-vars */
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
   const { signal } = stopController;
   const logger = new Logger();
   const reconnectionManager = new ReconnectionManager();
   const intentionallyClosed = new Set<string>(); // Peers that intentionally closed connections
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const lastConnectionTime = new Map<string, number>(); // Track last connection time for cleanup
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const messageEncoder = new TextEncoder(); // Reused for message size validation
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
@@ -109,6 +119,9 @@ export async function initNetwork(
 
   // Per-peer ACK timeout handle (single timeout for queue)
   const ackTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+  // Per-peer delayed ACK timeout (for sending standalone ACKs)
+  const delayedAckTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   /**
    * Get or create peer connection state.
@@ -181,6 +194,82 @@ export async function initNetwork(
   }
 
   /**
+   * Clear delayed ACK timeout for a peer.
+   *
+   * @param peerId - The peer ID.
+   */
+  function clearDelayedAck(peerId: string): void {
+    const timeout = delayedAckTimeouts.get(peerId);
+    if (timeout) {
+      clearTimeout(timeout);
+      delayedAckTimeouts.delete(peerId);
+    }
+  }
+
+  /**
+   * Start delayed ACK timer for a peer.
+   * If no outgoing message is sent before the timer fires, sends a standalone ACK.
+   * This implements Nagle-like delayed ACK to ensure ACKs are sent even without
+   * outgoing traffic to piggyback on.
+   *
+   * @param peerId - The peer ID.
+   */
+  function startDelayedAck(peerId: string): void {
+    // Clear any existing delayed ACK timer
+    clearDelayedAck(peerId);
+
+    const state = getPeerState(peerId);
+    const ackSeq = state.getHighestReceivedSeq();
+    if (ackSeq === undefined) {
+      // Nothing to ACK
+      return;
+    }
+
+    const timeoutHandle = setTimeout(() => {
+      delayedAckTimeouts.delete(peerId);
+      sendStandaloneAck(peerId).catch((error) => {
+        outputError(peerId, 'sending standalone ACK', error);
+      });
+    }, DELAYED_ACK_MS);
+
+    delayedAckTimeouts.set(peerId, timeoutHandle);
+  }
+
+  /**
+   * Send a standalone ACK message (no payload, just ACK).
+   * Used when we need to acknowledge received messages but have no outgoing
+   * message to piggyback the ACK on.
+   *
+   * @param peerId - The peer ID to send the ACK to.
+   */
+  async function sendStandaloneAck(peerId: string): Promise<void> {
+    const state = getPeerState(peerId);
+    const ackSeq = state.getHighestReceivedSeq();
+    if (ackSeq === undefined) {
+      // Nothing to ACK
+      return;
+    }
+
+    const channel = state.getChannel();
+    if (!channel) {
+      // No channel - can't send ACK
+      // The ACK will be piggybacked on the next outgoing message
+      return;
+    }
+
+    // Send ACK-only message (no seq, no method, just ack)
+    const ackMessage = JSON.stringify({ ack: ackSeq });
+    logger.log(`${peerId}:: sending standalone ACK ${ackSeq}`);
+
+    try {
+      await writeWithTimeout(channel, fromString(ackMessage), 10_000);
+    } catch (error) {
+      // ACK send failed - not critical, peer will retransmit
+      outputError(peerId, `sending standalone ACK ${ackSeq}`, error);
+    }
+  }
+
+  /**
    * Handle ACK timeout for pending messages - retry all pending or reject all.
    *
    * TODO: Potential retransmission storm issue. In-order transmission means
@@ -250,6 +339,11 @@ export async function initNetwork(
     let seq = state.getSeqForPosition(0); // Start seq
     const ack = state.getHighestReceivedSeq();
 
+    // Clear delayed ACK timer - we're piggybacking the ACK on retransmitted messages
+    if (ack !== undefined) {
+      clearDelayedAck(peerId);
+    }
+
     for (const pending of state.getPendingMessages()) {
       const remoteCommand = {
         seq,
@@ -304,7 +398,13 @@ export async function initNetwork(
 
     const state = getPeerState(peerId);
     const queueWasEmpty = state.getPendingCount() === 0;
-    state.addPendingMessage(pending, seq);
+    const added = state.addPendingMessage(pending, seq);
+
+    // If queue was at capacity, promise is already rejected - don't send
+    if (!added) {
+      logger.log(`${peerId}:: message ${seq} rejected (queue at capacity)`);
+      return promise;
+    }
 
     // Get or establish channel
     let channel = state.getChannel();
@@ -342,6 +442,11 @@ export async function initNetwork(
       ...messageBase,
     };
     const message = JSON.stringify(remoteCommand);
+
+    // Clear delayed ACK timer - we're piggybacking the ACK on this message
+    if (ack !== undefined) {
+      clearDelayedAck(peerId);
+    }
 
     try {
       await writeWithTimeout(channel, fromString(message), 10_000);
@@ -403,11 +508,45 @@ export async function initNetwork(
    * @param message - The message to receive.
    */
   async function receiveMessage(from: string, message: string): Promise<void> {
-    logger.log(`${from}:: recv ${message}`);
+    logger.log(`${from}:: recv ${message.substring(0, 200)}`);
+
+    // Try to parse as JSON to check for standalone ACK
+    let isStandaloneAck = false;
     try {
-      await remoteMessageHandler(from, message);
-    } catch (error) {
-      outputError(from, 'processing received message', error);
+      const parsed = JSON.parse(message) as {
+        ack?: number;
+        method?: string;
+      };
+
+      // Handle ACK-only messages at the network layer
+      if (parsed.ack !== undefined && parsed.method === undefined) {
+        logger.log(`${from}:: received standalone ACK ${parsed.ack}`);
+        await handleAck(from, parsed.ack);
+        isStandaloneAck = true;
+      }
+    } catch {
+      // Not valid JSON - will pass to handler below
+    }
+
+    // Pass non-ACK messages to handler
+    if (!isStandaloneAck) {
+      try {
+        const reply = await remoteMessageHandler(from, message);
+        // Send reply if non-empty
+        if (reply) {
+          const replyBase = JSON.parse(reply) as RemoteMessageBase;
+          // Send the reply as a new message (with its own seq/ack tracking)
+          // IMPORTANT: Don't await here! Awaiting would block the read loop and
+          // prevent us from receiving the ACK for this reply (deadlock).
+          // The reply is sent asynchronously; ACK handling happens when the
+          // next message with a piggyback ACK (or standalone ACK) is received.
+          sendRemoteMessage(from, replyBase).catch((replyError) => {
+            outputError(from, 'sending reply', replyError);
+          });
+        }
+      } catch (handlerError) {
+        outputError(from, 'processing received message', handlerError);
+      }
     }
   }
 
@@ -619,11 +758,14 @@ export async function initNetwork(
 
       // Pending messages are ordered by sequence number
       let seq = state.getSeqForPosition(0);
+      // Get ack once and clear delayed ACK timer (piggybacking on flushed messages)
+      const ack = state.getHighestReceivedSeq();
+      if (ack !== undefined) {
+        clearDelayedAck(peerId);
+      }
       for (const pending of peerPending) {
         try {
           logger.log(`${peerId}:: transmit message ${seq}`);
-          // Build message with current ack
-          const ack = state.getHighestReceivedSeq();
           const remoteCommand = {
             seq,
             ...(ack !== undefined && { ack }),
@@ -794,6 +936,8 @@ export async function initNetwork(
    */
   function updateReceivedSeq(peerId: string, seq: number): void {
     getPeerState(peerId).updateReceivedSeq(seq);
+    // Start delayed ACK timer - will send standalone ACK if no outgoing message
+    startDelayedAck(peerId);
   }
 
   /**
@@ -816,6 +960,25 @@ export async function initNetwork(
       clearTimeout(timeout);
     }
     ackTimeouts.clear();
+    // Clear all delayed ACK timeouts
+    for (const timeout of delayedAckTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+    delayedAckTimeouts.clear();
+    // Close all active channel streams to unblock pending reads
+    for (const state of peerStates.values()) {
+      const channel = state.getChannel();
+      if (channel) {
+        try {
+          // Close the stream to unblock any pending read operations
+          const stream = channel.msgStream.unwrap() as { close?: () => void };
+          stream.close?.();
+        } catch {
+          // Ignore errors during cleanup
+        }
+        state.clearChannel();
+      }
+    }
     await connectionFactory.stop();
     peerStates.clear();
     reconnectionManager.clear();

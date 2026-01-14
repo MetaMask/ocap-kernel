@@ -8,6 +8,7 @@ import type {
   VatId,
   VatConfig,
   RemoteCommsOptions,
+  RemoteMessageBase,
 } from '@metamask/ocap-kernel';
 import {
   platformServicesMethodSpecs,
@@ -227,11 +228,14 @@ export class PlatformServicesClient implements PlatformServices {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param message - The message to send.
+   * @param messageBase - The message base to send.
    * @returns A promise that resolves when the message has been sent.
    */
-  async sendRemoteMessage(to: string, message: string): Promise<void> {
-    await this.#rpcClient.call('sendRemoteMessage', { to, message });
+  async sendRemoteMessage(
+    to: string,
+    messageBase: RemoteMessageBase,
+  ): Promise<void> {
+    await this.#rpcClient.call('sendRemoteMessage', { to, messageBase });
   }
 
   /**
@@ -265,6 +269,32 @@ export class PlatformServicesClient implements PlatformServices {
    */
   async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
     await this.#rpcClient.call('reconnectPeer', { peerId, hints });
+  }
+
+  /**
+   * Handle an acknowledgment from a peer for sent messages.
+   *
+   * @param peerId - The peer ID.
+   * @param ackSeq - The sequence number being acknowledged.
+   * @returns A promise that resolves when the acknowledgment has been processed.
+   */
+  async handleAck(peerId: string, ackSeq: number): Promise<void> {
+    await this.#rpcClient.call('handleAck', { peerId, ackSeq });
+  }
+
+  /**
+   * Update the highest received sequence number for a peer.
+   *
+   * @param peerId - The peer ID.
+   * @param seq - The sequence number received.
+   */
+  updateReceivedSeq(peerId: string, seq: number): void {
+    // Fire-and-forget RPC call for sync method
+    this.#rpcClient
+      .call('updateReceivedSeq', { peerId, seq })
+      .catch((error: unknown) => {
+        this.#logger.error('Error updating received seq:', error);
+      });
   }
 
   /**

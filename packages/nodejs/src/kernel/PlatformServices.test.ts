@@ -75,6 +75,9 @@ vi.mock('node:worker_threads', () => ({
   }),
 }));
 
+const mockHandleAck = vi.fn(async () => undefined);
+const mockUpdateReceivedSeq = vi.fn(() => undefined);
+
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@metamask/ocap-kernel')>();
   return {
@@ -85,6 +88,8 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
       closeConnection: mockCloseConnection,
       registerLocationHints: mockRegisterLocationHints,
       reconnectPeer: mockReconnectPeer,
+      handleAck: mockHandleAck,
+      updateReceivedSeq: mockUpdateReceivedSeq,
     })),
   };
 });
@@ -325,67 +330,6 @@ describe('NodejsPlatformServices', () => {
         // This is tested through integration tests
         expect(service).toBeInstanceOf(NodejsPlatformServices);
       });
-
-      it('sends reply message when handler returns non-empty string', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const remoteHandler = vi.fn(async () => 'reply-message');
-
-        await service.initializeRemoteComms('0xtest', {}, remoteHandler);
-
-        // Simulate handleRemoteMessage being called (via initNetwork callback)
-        // The handler should call sendRemoteMessage if reply is non-empty
-        mockSendRemoteMessage.mockClear();
-
-        // Call the handler that was passed to initNetwork
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        const initNetworkMock = initNetwork as unknown as ReturnType<
-          typeof vi.fn
-        >;
-        const lastCall =
-          initNetworkMock.mock.calls[initNetworkMock.mock.calls.length - 1];
-        const handleRemoteMessage = lastCall?.[2] as (
-          from: string,
-          message: string,
-        ) => Promise<string>;
-        expect(handleRemoteMessage).toBeDefined();
-        expect(typeof handleRemoteMessage).toBe('function');
-        await handleRemoteMessage('peer-123', 'test-message');
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-123',
-          'reply-message',
-        );
-      });
-
-      it('does not send reply when handler returns empty string', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const remoteHandler = vi.fn(async () => '');
-
-        await service.initializeRemoteComms('0xtest', {}, remoteHandler);
-
-        mockSendRemoteMessage.mockClear();
-
-        // Call the handler that was passed to initNetwork
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        const initNetworkMock = initNetwork as unknown as ReturnType<
-          typeof vi.fn
-        >;
-        const lastCall =
-          initNetworkMock.mock.calls[initNetworkMock.mock.calls.length - 1];
-        const handleRemoteMessage = lastCall?.[2] as (
-          from: string,
-          message: string,
-        ) => Promise<string>;
-
-        expect(handleRemoteMessage).toBeDefined();
-        expect(typeof handleRemoteMessage).toBe('function');
-
-        await handleRemoteMessage('peer-456', 'test-message');
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
-        // Should not have sent reply
-        expect(mockSendRemoteMessage).not.toHaveBeenCalled();
-      });
     });
 
     describe('sendRemoteMessage', () => {
@@ -397,16 +341,21 @@ describe('NodejsPlatformServices', () => {
 
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        await service.sendRemoteMessage('peer-456', 'hello');
+        const messageBase = { method: 'deliver', params: ['hello'] } as const;
+        await service.sendRemoteMessage('peer-456', messageBase);
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', 'hello');
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
+          'peer-456',
+          messageBase,
+        );
       });
 
       it('throws error if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
+        const messageBase = { method: 'deliver', params: ['test'] } as const;
 
         await expect(
-          service.sendRemoteMessage('peer-999', 'test'),
+          service.sendRemoteMessage('peer-999', messageBase),
         ).rejects.toThrowError('remote comms not initialized');
       });
     });
@@ -465,15 +414,18 @@ describe('NodejsPlatformServices', () => {
           vi.fn(async () => ''),
         );
 
+        const messageBase1 = { method: 'deliver', params: ['msg1'] } as const;
+        const messageBase2 = { method: 'deliver', params: ['msg2'] } as const;
+
         // Should work before stop
-        await service.sendRemoteMessage('peer-1', 'msg1');
+        await service.sendRemoteMessage('peer-1', messageBase1);
         expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
 
         await service.stopRemoteComms();
 
         // Should throw after stop
         await expect(
-          service.sendRemoteMessage('peer-2', 'msg2'),
+          service.sendRemoteMessage('peer-2', messageBase2),
         ).rejects.toThrowError('remote comms not initialized');
       });
 
