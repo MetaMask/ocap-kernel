@@ -1,6 +1,6 @@
 // Real endoify needed for CapTP and E() to work properly
 // eslint-disable-next-line import-x/no-extraneous-dependencies
-import '@metamask/kernel-shims/endoify';
+import '@ocap/nodejs/endoify-ts';
 
 import { E } from '@endo/eventual-send';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
