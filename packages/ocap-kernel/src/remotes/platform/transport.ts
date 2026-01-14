@@ -50,7 +50,7 @@ const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
  *
  * @returns a function to send messages **and** a `stop()` to cancel/release everything.
  */
-export async function initNetwork(
+export async function initTransport(
   keySeed: string,
   options: RemoteCommsOptions,
   remoteMessageHandler: RemoteMessageHandler,
@@ -184,14 +184,10 @@ export async function initNetwork(
     }
   }
 
-  // Late-bound references for circular dependencies
-  // eslint-disable-next-line prefer-const
-  let channelReader: ReturnType<typeof makeChannelReader>;
-  // eslint-disable-next-line prefer-const
-  let reconnectionOrchestrator: ReturnType<typeof makeReconnectionOrchestrator>;
-
   /**
    * Register a channel and start reading from it.
+   * Note: This function references channelReader via closure. It's defined before
+   * channelReader is created, but only called at runtime after initialization.
    *
    * @param peerId - The peer ID for the channel.
    * @param channel - The channel to register.
@@ -203,6 +199,7 @@ export async function initNetwork(
     errorContext = 'reading channel to',
   ): void {
     const previousChannel = peerRegistry.setChannel(peerId, channel);
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- channelReader is assigned before this function is called
     channelReader.readChannel(channel).catch((problem) => {
       outputError(peerId, errorContext, problem);
     });
@@ -220,20 +217,8 @@ export async function initNetwork(
     }
   }
 
-  // Create channel reader
-  channelReader = makeChannelReader({
-    peerRegistry,
-    remoteMessageHandler,
-    signal,
-    logger,
-    onConnectionLoss: (peerId, channel) =>
-      reconnectionOrchestrator.handleConnectionLoss(peerId, channel),
-    onMessageReceived: (peerId) => reconnectionManager.resetBackoff(peerId),
-    outputError,
-  });
-
-  // Create reconnection orchestrator
-  reconnectionOrchestrator = makeReconnectionOrchestrator({
+  // Create reconnection orchestrator first - it uses registerChannel which is hoisted
+  const reconnectionOrchestrator = makeReconnectionOrchestrator({
     peerRegistry,
     connectionFactory,
     reconnectionManager,
@@ -244,6 +229,17 @@ export async function initNetwork(
     registerChannel,
     checkConnectionLimit,
     writeWithTimeout,
+    outputError,
+  });
+
+  // Create channel reader - can now reference reconnectionOrchestrator directly
+  const channelReader = makeChannelReader({
+    peerRegistry,
+    remoteMessageHandler,
+    signal,
+    logger,
+    onConnectionLoss: reconnectionOrchestrator.handleConnectionLoss,
+    onMessageReceived: (peerId) => reconnectionManager.resetBackoff(peerId),
     outputError,
   });
 
