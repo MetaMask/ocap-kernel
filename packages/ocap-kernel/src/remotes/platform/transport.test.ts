@@ -11,7 +11,7 @@ import {
 } from 'vitest';
 
 // Import the module we're testing - must be after mocks are set up
-let initNetwork: typeof import('./network.ts').initNetwork;
+let initNetwork: typeof import('./transport.ts').initNetwork;
 
 // Mock MessageQueue
 const mockMessageQueue = {
@@ -24,7 +24,7 @@ const mockMessageQueue = {
   messages: [] as string[],
 };
 
-vi.mock('./MessageQueue.ts', () => {
+vi.mock('./message-queue.ts', () => {
   class MockMessageQueue {
     enqueue = mockMessageQueue.enqueue;
 
@@ -63,7 +63,7 @@ const mockReconnectionManager = {
   clearPeer: vi.fn(),
 };
 
-vi.mock('./ReconnectionManager.ts', () => {
+vi.mock('./reconnection.ts', () => {
   class MockReconnectionManager {
     isReconnecting = mockReconnectionManager.isReconnecting;
 
@@ -106,7 +106,7 @@ const mockConnectionFactory = {
   closeChannel: vi.fn().mockResolvedValue(undefined),
 };
 
-vi.mock('./ConnectionFactory.ts', () => {
+vi.mock('./connection-factory.ts', () => {
   return {
     ConnectionFactory: {
       make: vi.fn(async () => Promise.resolve(mockConnectionFactory)),
@@ -172,7 +172,7 @@ vi.mock('uint8arrays', () => ({
 describe('network.initNetwork', () => {
   // Import after all mocks are set up
   beforeAll(async () => {
-    const networkModule = await import('./network.ts');
+    const networkModule = await import('./transport.ts');
     initNetwork = networkModule.initNetwork;
   });
 
@@ -273,7 +273,7 @@ describe('network.initNetwork', () => {
 
   describe('initialization', () => {
     it('passes correct parameters to ConnectionFactory.make', async () => {
-      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { ConnectionFactory } = await import('./connection-factory.ts');
       const keySeed = '0xabcd';
       const knownRelays = [
         '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
@@ -292,7 +292,7 @@ describe('network.initNetwork', () => {
     });
 
     it('passes maxRetryAttempts to ConnectionFactory.make', async () => {
-      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { ConnectionFactory } = await import('./connection-factory.ts');
       const keySeed = '0xabcd';
       const maxRetryAttempts = 5;
 

@@ -11,9 +11,9 @@ import {
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import { ConnectionFactory } from './ConnectionFactory.ts';
-import { MessageQueue } from './MessageQueue.ts';
-import { ReconnectionManager } from './ReconnectionManager.ts';
+import { ConnectionFactory } from './connection-factory.ts';
+import { MessageQueue } from './message-queue.ts';
+import { ReconnectionManager } from './reconnection.ts';
 import type {
   RemoteMessageHandler,
   SendRemoteMessage,
@@ -21,7 +21,7 @@ import type {
   Channel,
   OnRemoteGiveUp,
   RemoteCommsOptions,
-} from './types.ts';
+} from '../types.ts';
 
 /** Default upper bound for queued outbound messages while reconnecting */
 const DEFAULT_MAX_QUEUE = 200;
