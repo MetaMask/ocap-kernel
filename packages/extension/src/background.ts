@@ -1,7 +1,7 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
-  makeBackgroundKref,
+  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -105,9 +105,9 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
-  // Create background kref system for E() calls on vat objects
-  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
-  Object.assign(globalThis.captp, bgKref);
+  // Create presence manager for E() calls on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  Object.assign(globalThis.captp, presenceManager);
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {

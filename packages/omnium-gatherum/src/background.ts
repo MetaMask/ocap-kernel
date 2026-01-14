@@ -1,7 +1,7 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
-  makeBackgroundKref,
+  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -108,8 +108,8 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
-  // Create background kref system for E() on vat objects
-  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
+  // Create presence manager for E() on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
 
   // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
@@ -197,10 +197,10 @@ async function main(): Promise<void> {
       }),
     },
     resolveKref: {
-      value: bgKref.resolveKref,
+      value: presenceManager.resolveKref,
     },
     krefOf: {
-      value: bgKref.krefOf,
+      value: presenceManager.krefOf,
     },
   });
   harden(globalThis.omnium);
