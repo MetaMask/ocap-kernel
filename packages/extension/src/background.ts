@@ -1,6 +1,7 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makeBackgroundKref,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -107,6 +108,10 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
+  // Create background kref system for E() calls on vat objects
+  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
+  Object.assign(globalThis.captp, bgKref);
+
   // Handle incoming CapTP messages from the kernel
   const drainPromise = offscreenStream.drain((message) => {
     if (isCapTPNotification(message)) {
@@ -120,7 +125,10 @@ async function main(): Promise<void> {
 
   try {
     await E(kernelP).ping();
-    await startDefaultSubcluster();
+    const rootKref = await startDefaultSubcluster();
+    if (rootKref) {
+      await greetBootstrapVat(rootKref);
+    }
   } catch (error) {
     offscreenStream.throw(error as Error).catch(logger.error);
   }
@@ -138,8 +146,10 @@ async function main(): Promise<void> {
 
 /**
  * Idempotently starts the default subcluster.
+ *
+ * @returns The rootKref of the bootstrap vat if launched, undefined if subcluster already exists.
  */
-async function startDefaultSubcluster(): Promise<void> {
+async function startDefaultSubcluster(): Promise<string | undefined> {
   const status = await E(globalThis.kernel).getStatus();
 
   if (status.subclusters.length === 0) {
@@ -147,9 +157,23 @@ async function startDefaultSubcluster(): Promise<void> {
       defaultSubcluster,
     );
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
-  } else {
-    logger.info('Subclusters already exist. Not launching default subcluster.');
+    return result.rootKref;
   }
+  logger.info('Subclusters already exist. Not launching default subcluster.');
+  return undefined;
+}
+
+/**
+ * Greets the bootstrap vat by calling its hello() method.
+ *
+ * @param rootKref - The kref of the bootstrap vat's root object.
+ */
+async function greetBootstrapVat(rootKref: string): Promise<void> {
+  const rootPresence = captp.resolveKref(rootKref) as {
+    hello: (from: string) => string;
+  };
+  const greeting = await E(rootPresence).hello('background');
+  logger.info(`Got greeting from bootstrap vat: ${greeting}`);
 }
 
 /**
@@ -161,6 +185,13 @@ function defineGlobals(): void {
     enumerable: true,
     writable: true,
     value: undefined,
+  });
+
+  Object.defineProperty(globalThis, 'captp', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
   });
 
   Object.defineProperty(globalThis, 'E', {
