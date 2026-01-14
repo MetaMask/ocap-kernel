@@ -1,6 +1,7 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makeBackgroundKref,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -104,6 +105,10 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
+  // Create background kref system for E() calls on vat objects
+  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
+  Object.assign(globalThis.captp, bgKref);
+
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
     E(kernelP).ping().catch(logger.error);
@@ -119,7 +124,10 @@ async function main(): Promise<void> {
   drainPromise.catch(logger.error);
 
   await E(kernelP).ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelP);
+  const rootKref = await startDefaultSubcluster(kernelP);
+  if (rootKref) {
+    await greetBootstrapVat(rootKref);
+  }
 
   try {
     await drainPromise;
@@ -134,19 +142,34 @@ async function main(): Promise<void> {
  * Idempotently starts the default subcluster.
  *
  * @param kernelPromise - Promise for the kernel facade.
+ * @returns The rootKref of the bootstrap vat if launched, undefined if subcluster already exists.
  */
 async function startDefaultSubcluster(
   kernelPromise: Promise<KernelFacade>,
-): Promise<void> {
+): Promise<string | undefined> {
   const kernel = await kernelPromise;
   const status = await E(kernel).getStatus();
 
   if (status.subclusters.length === 0) {
     const result = await E(kernel).launchSubcluster(defaultSubcluster);
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
-  } else {
-    logger.info('Subclusters already exist. Not launching default subcluster.');
+    return result.rootKref;
   }
+  logger.info('Subclusters already exist. Not launching default subcluster.');
+  return undefined;
+}
+
+/**
+ * Greets the bootstrap vat by calling its hello() method.
+ *
+ * @param rootKref - The kref of the bootstrap vat's root object.
+ */
+async function greetBootstrapVat(rootKref: string): Promise<void> {
+  const rootPresence = captp.resolveKref(rootKref) as {
+    hello: (from: string) => string;
+  };
+  const greeting = await E(rootPresence).hello('background');
+  logger.info(`Got greeting from bootstrap vat: ${greeting}`);
 }
 
 /**
@@ -157,6 +180,13 @@ function defineGlobals(): void {
     configurable: false,
     enumerable: true,
     writable: true,
+    value: {},
+  });
+
+  Object.defineProperty(globalThis, 'captp', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
     value: {},
   });
 
