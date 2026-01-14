@@ -4,6 +4,7 @@ import { Logger } from '@metamask/logger';
 import { fromString } from 'uint8arrays';
 
 import { makeChannelReader } from './channel-reader.ts';
+import { reuseOrReturnChannel } from './channel-utils.ts';
 import { ConnectionFactory } from './connection-factory.ts';
 import { PeerRegistry } from './peer-registry.ts';
 import { makeReconnectionOrchestrator } from './reconnection-orchestrator.ts';
@@ -247,42 +248,6 @@ export async function initNetwork(
   });
 
   /**
-   * Check if an existing channel exists for a peer, and if so, reuse it.
-   *
-   * @param peerId - The peer ID for the channel.
-   * @param dialedChannel - The newly dialed channel.
-   * @returns The channel to use, or null if existing channel died and dialed was closed.
-   */
-  async function reuseOrReturnChannel(
-    peerId: string,
-    dialedChannel: Channel,
-  ): Promise<Channel | null> {
-    const existingChannel = peerRegistry.getChannel(peerId);
-    if (existingChannel) {
-      if (dialedChannel !== existingChannel) {
-        await connectionFactory.closeChannel(dialedChannel, peerId);
-        const currentChannel = peerRegistry.getChannel(peerId);
-        if (currentChannel === existingChannel) {
-          return existingChannel;
-        }
-        if (currentChannel) {
-          return currentChannel;
-        }
-        return null;
-      }
-      const currentChannel = peerRegistry.getChannel(peerId);
-      if (currentChannel === existingChannel) {
-        return existingChannel;
-      }
-      if (currentChannel) {
-        return currentChannel;
-      }
-      return null;
-    }
-    return dialedChannel;
-  }
-
-  /**
    * Clean up stale peer data for peers inactive for more than stalePeerTimeoutMs.
    */
   function cleanupStalePeers(): void {
@@ -361,7 +326,12 @@ export async function initNetwork(
           return;
         }
 
-        channel = await reuseOrReturnChannel(targetPeerId, channel);
+        channel = await reuseOrReturnChannel(
+          targetPeerId,
+          channel,
+          peerRegistry,
+          connectionFactory,
+        );
         if (channel === null) {
           logger.log(
             `${targetPeerId}:: existing channel died during reuse check, triggering reconnection`,
