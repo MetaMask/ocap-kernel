@@ -434,11 +434,10 @@ export class PlatformServicesServer {
    * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
    */
   async #handleRemoteMessage(from: string, message: string): Promise<string> {
-    await this.#rpcClient.call('remoteDeliver', {
+    return this.#rpcClient.call('remoteDeliver', {
       from,
       message,
     });
-    return '';
   }
 
   /**
