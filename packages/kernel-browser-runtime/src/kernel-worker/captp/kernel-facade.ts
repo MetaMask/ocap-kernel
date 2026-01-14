@@ -1,40 +1,10 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Kernel, ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
-import { kslot } from '@metamask/ocap-kernel';
 
+import { convertKrefsToStandins } from '../../kref-presence.ts';
 import type { KernelFacade, LaunchResult } from '../../types.ts';
 
 export type { KernelFacade } from '../../types.ts';
-
-/**
- * Recursively convert kref strings in a value to kernel standins.
- *
- * When the background sends kref strings as arguments, we need to convert
- * them to standin objects that kernel-marshal can serialize properly.
- *
- * @param value - The value to convert.
- * @returns The value with kref strings converted to standins.
- */
-function convertKrefsToStandins(value: unknown): unknown {
-  // Check if it's a kref string (ko* or kp*)
-  if (typeof value === 'string' && /^k[op]\d+$/u.test(value)) {
-    return kslot(value);
-  }
-  // Recursively process arrays
-  if (Array.isArray(value)) {
-    return value.map(convertKrefsToStandins);
-  }
-  // Recursively process plain objects
-  if (typeof value === 'object' && value !== null) {
-    const result: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(value)) {
-      result[key] = convertKrefsToStandins(val);
-    }
-    return result;
-  }
-  // Return primitives as-is
-  return value;
-}
 
 /**
  * Create the kernel facade exo that exposes kernel methods via CapTP.

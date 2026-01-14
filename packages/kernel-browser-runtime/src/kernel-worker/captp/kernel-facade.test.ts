@@ -123,6 +123,37 @@ describe('makeKernelFacade', () => {
       expect(mockKernel.queueMessage).toHaveBeenCalledTimes(1);
     });
 
+    it('converts kref strings in args to standins', async () => {
+      const target: KRef = 'ko1';
+      const method = 'sendTo';
+      // Use ko refs only - kp refs become promise standins with different structure
+      const args = ['ko42', { target: 'ko99', data: 'hello' }];
+
+      await facade.queueMessage(target, method, args);
+
+      // Verify the call was made
+      expect(mockKernel.queueMessage).toHaveBeenCalledTimes(1);
+
+      // Get the actual args passed to kernel
+      const [, , processedArgs] = vi.mocked(mockKernel.queueMessage).mock
+        .calls[0]!;
+
+      // First arg should be a standin with getKref method
+      expect(processedArgs[0]).toHaveProperty('getKref');
+      expect((processedArgs[0] as { getKref: () => string }).getKref()).toBe(
+        'ko42',
+      );
+
+      // Second arg should be an object with converted kref
+      const secondArg = processedArgs[1] as {
+        target: { getKref: () => string };
+        data: string;
+      };
+      expect(secondArg.target).toHaveProperty('getKref');
+      expect(secondArg.target.getKref()).toBe('ko99');
+      expect(secondArg.data).toBe('hello');
+    });
+
     it('returns result from kernel', async () => {
       const expectedResult = { body: '#{"answer":42}', slots: [] };
       vi.mocked(mockKernel.queueMessage).mockResolvedValueOnce(expectedResult);
