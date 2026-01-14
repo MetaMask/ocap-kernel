@@ -1,4 +1,7 @@
-import type { KernelFacade } from '@metamask/kernel-browser-runtime';
+import type {
+  BackgroundKref,
+  KernelFacade,
+} from '@metamask/kernel-browser-runtime';
 
 // Type declarations for kernel dev console API.
 declare global {
@@ -17,6 +20,18 @@ declare global {
 
   // eslint-disable-next-line no-var
   var kernel: KernelFacade | Promise<KernelFacade>;
+
+  /**
+   * CapTP utilities for resolving krefs to E()-callable presences.
+   *
+   * @example
+   * ```typescript
+   * const alice = captp.resolveKref('ko1');
+   * await E(alice).hello('console');
+   * ```
+   */
+  // eslint-disable-next-line no-var
+  var captp: BackgroundKref;
 }
 
 export {};
