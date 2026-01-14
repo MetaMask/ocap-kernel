@@ -1,5 +1,5 @@
 /**
- * Background kref system for creating E()-usable presences from kernel krefs.
+ * Presence manager for creating E()-usable presences from kernel krefs.
  *
  * This module provides "slot translation" - converting kernel krefs (ko*, kp*)
  * into presences that can receive eventual sends via E(). Method calls on these
@@ -24,9 +24,9 @@ type SendToKernelFn = (
 ) => Promise<unknown>;
 
 /**
- * Options for creating a background kref system.
+ * Options for creating a presence manager.
  */
-export type BackgroundKrefOptions = {
+export type PresenceManagerOptions = {
   /**
    * The kernel facade remote presence from CapTP.
    * Can be a promise since E() works with promises.
@@ -35,9 +35,9 @@ export type BackgroundKrefOptions = {
 };
 
 /**
- * The background kref system interface.
+ * The presence manager interface.
  */
-export type BackgroundKref = {
+export type PresenceManager = {
   /**
    * Resolve a kref string to an E()-usable presence.
    *
@@ -137,26 +137,26 @@ function makeKrefPresence(
 }
 
 /**
- * Create a background kref system for E() on vat objects.
+ * Create a presence manager for E() on vat objects.
  *
  * This creates presences from kernel krefs that forward method calls
  * to kernel.queueMessage() via the existing CapTP connection.
  *
  * @param options - Options including the kernel facade.
- * @returns The background kref system.
+ * @returns The presence manager.
  */
-export function makeBackgroundKref(
-  options: BackgroundKrefOptions,
-): BackgroundKref {
+export function makePresenceManager(
+  options: PresenceManagerOptions,
+): PresenceManager {
   const { kernelFacade } = options;
 
   // State for kref↔presence mapping
   const krefToPresence = new Map<KRef, object>();
   const presenceToKref = new WeakMap<object, KRef>();
 
-  // Forward declaration for sendToKernel (needs bgMarshal)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, prefer-const
-  let bgMarshal: any;
+  // Forward declaration for sendToKernel
+  // eslint-disable-next-line prefer-const
+  let marshal: ReturnType<typeof makeMarshal<string>>;
 
   /**
    * Send a message to the kernel and deserialize the result.
@@ -190,7 +190,7 @@ export function makeBackgroundKref(
     );
 
     // Deserialize result (krefs become presences)
-    return bgMarshal.fromCapData(result);
+    return marshal.fromCapData(result);
   };
 
   /**
@@ -232,9 +232,8 @@ export function makeBackgroundKref(
     throw new Error('Cannot serialize unknown remotable object');
   };
 
-  // Create marshal with smallcaps format (same as kernel)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  bgMarshal = makeMarshal(convertValToSlot, convertSlotToVal as any, {
+  // Same options as kernel-marshal.ts
+  marshal = makeMarshal(convertValToSlot, convertSlotToVal, {
     serializeBodyFormat: 'smallcaps',
     errorTagging: 'off',
   });
@@ -249,8 +248,8 @@ export function makeBackgroundKref(
     },
 
     fromCapData: (data: CapData<KRef>): unknown => {
-      return bgMarshal.fromCapData(data);
+      return marshal.fromCapData(data);
     },
   });
 }
-harden(makeBackgroundKref);
+harden(makePresenceManager);

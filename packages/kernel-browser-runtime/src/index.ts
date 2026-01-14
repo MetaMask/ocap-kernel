@@ -22,7 +22,7 @@ export {
   type CapTPMessage,
 } from './background-captp.ts';
 export {
-  makeBackgroundKref,
-  type BackgroundKref,
-  type BackgroundKrefOptions,
-} from './background-kref.ts';
+  makePresenceManager,
+  type PresenceManager,
+  type PresenceManagerOptions,
+} from './kref-presence.ts';

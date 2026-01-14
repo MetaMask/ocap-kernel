@@ -1,12 +1,12 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
-  makeBackgroundKref,
+  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { BackgroundKref, CapTPMessage } from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage, PresenceManager } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -114,9 +114,9 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
-  // Create background kref system for E() on vat objects
-  const bgKref = makeBackgroundKref({ kernelFacade: kernelP });
-  globals.setBgKref(bgKref);
+  // Create presence manager for E() on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  globals.setPresenceManager(presenceManager);
 
   // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
@@ -167,7 +167,7 @@ async function main(): Promise<void> {
 
 type GlobalSetters = {
   setCapletController: (value: CapletControllerFacet) => void;
-  setBgKref: (value: BackgroundKref) => void;
+  setPresenceManager: (value: PresenceManager) => void;
 };
 
 /**
@@ -177,7 +177,7 @@ type GlobalSetters = {
  */
 function defineGlobals(): GlobalSetters {
   let capletController: CapletControllerFacet;
-  let bgKref: BackgroundKref;
+  let presenceManager: PresenceManager;
 
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
@@ -256,10 +256,10 @@ function defineGlobals(): GlobalSetters {
       }),
     },
     resolveKref: {
-      get: () => bgKref.resolveKref,
+      get: () => presenceManager.resolveKref,
     },
     krefOf: {
-      get: () => bgKref.krefOf,
+      get: () => presenceManager.krefOf,
     },
   });
   harden(globalThis.omnium);
@@ -268,8 +268,8 @@ function defineGlobals(): GlobalSetters {
     setCapletController: (value) => {
       capletController = value;
     },
-    setBgKref: (value) => {
-      bgKref = value;
+    setPresenceManager: (value) => {
+      presenceManager = value;
     },
   };
 }

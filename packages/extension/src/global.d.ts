@@ -1,5 +1,5 @@
 import type {
-  BackgroundKref,
+  PresenceManager,
   KernelFacade,
 } from '@metamask/kernel-browser-runtime';
 
@@ -31,7 +31,7 @@ declare global {
    * ```
    */
   // eslint-disable-next-line no-var
-  var captp: BackgroundKref;
+  var captp: PresenceManager;
 }
 
 export {};
