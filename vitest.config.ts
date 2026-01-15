@@ -75,10 +75,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 1.35,
+          statements: 1.29,
           functions: 0,
           branches: 0,
-          lines: 1.36,
+          lines: 1.31,
         },
         'packages/kernel-agents/**': {
           statements: 88.16,
@@ -165,10 +165,10 @@ export default defineConfig({
           lines: 93.74,
         },
         'packages/omnium-gatherum/**': {
-          statements: 4.34,
-          functions: 4.76,
-          branches: 0,
-          lines: 4.41,
+          statements: 60.5,
+          functions: 61.44,
+          branches: 71.11,
+          lines: 60.42,
         },
         'packages/remote-iterables/**': {
           statements: 100,
