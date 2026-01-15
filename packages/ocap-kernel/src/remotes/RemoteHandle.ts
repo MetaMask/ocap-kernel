@@ -1,7 +1,6 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
-import type { PromiseKit } from '@endo/promise-kit';
 import { Logger } from '@metamask/logger';
 
 import {
@@ -36,7 +35,6 @@ type PendingMessage = {
   messageString: string; // Serialized message (with seq/ack)
   sendTimestamp: number; // When first sent (for metrics)
   retryCount: number; // 0 on first send, incremented on retry
-  promiseKit: PromiseKit<void>; // For resolving/rejecting when ACKed or failed
 };
 
 type RemoteHandleConstructorProps = {
@@ -224,7 +222,6 @@ export class RemoteHandle implements EndpointHandle {
     while (this.#startSeq <= ackSeq && this.#pendingMessages.length > 0) {
       const pending = this.#pendingMessages.shift();
       if (pending) {
-        pending.promiseKit.resolve();
         this.#logger.log(
           `${this.#peerId.slice(0, 8)}:: message ${this.#startSeq} acknowledged (${Date.now() - pending.sendTimestamp}ms)`,
         );
@@ -301,17 +298,15 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Reject all pending messages with an error.
+   * Discard all pending messages due to delivery failure.
    *
-   * @param reason - The reason for rejection.
+   * @param reason - The reason for failure.
    */
   #rejectAllPending(reason: string): void {
-    let seq = this.#startSeq;
-    for (const pending of this.#pendingMessages) {
-      pending.promiseKit.reject(
-        Error(`Message ${seq} delivery failed: ${reason}`),
+    for (let i = 0; i < this.#pendingMessages.length; i += 1) {
+      this.#logger.warn(
+        `Message ${this.#startSeq + i} delivery failed: ${reason}`,
       );
-      seq += 1;
     }
     this.#pendingMessages.length = 0;
     this.#startSeq = this.#nextSendSeq;
@@ -402,13 +397,16 @@ export class RemoteHandle implements EndpointHandle {
     this.#clearDelayedAck();
 
     // Track message for ACK
-    const promiseKit = makePromiseKit<void>();
     const pending: PendingMessage = {
       messageString,
       sendTimestamp: Date.now(),
       retryCount: 0,
-      promiseKit,
     };
+
+    // If queue was empty, set startSeq to this message's sequence number
+    if (this.#pendingMessages.length === 0) {
+      this.#startSeq = seq;
+    }
     this.#pendingMessages.push(pending);
 
     // Start ACK timeout if this is the first pending message
@@ -422,9 +420,6 @@ export class RemoteHandle implements EndpointHandle {
       .catch((error) => {
         this.#logger.error('Error sending remote message:', error);
       });
-
-    // Return immediately - caller doesn't block on ACK
-    // The promiseKit will be resolved when ACK arrives (tracked in #pendingMessages)
   }
 
   /**

@@ -878,7 +878,7 @@ describe.sequential('Remote Communications E2E', () => {
         const result = await messagePromise;
         const response = kunser(result);
         expect(response).toBeInstanceOf(Error);
-        expect((response as Error).message).toContain('remote unreachable');
+        expect((response as Error).message).toContain('Remote connection lost');
       },
       NETWORK_TIMEOUT * 2,
     );
