@@ -67,14 +67,14 @@ describe('liveslots promise handling', () => {
     testName: string,
   ): Promise<unknown> {
     const bundleSpec = getBundleSpec(bundleName);
-    const bootstrapResultRaw = await kernel.launchSubcluster(
+    const { bootstrapResult } = await kernel.launchSubcluster(
       makeTestSubcluster(testName, bundleSpec),
     );
     await waitUntilQuiescent(1000);
-    if (bootstrapResultRaw === undefined) {
+    if (bootstrapResult === undefined) {
       throw Error(`this can't happen but eslint is stupid`);
     }
-    return kunser(bootstrapResultRaw);
+    return kunser(bootstrapResult);
   }
 
   it('promiseArg1: send promise parameter, resolve after send', async () => {

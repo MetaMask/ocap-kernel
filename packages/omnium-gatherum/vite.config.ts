@@ -38,15 +38,18 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
   'packages/kernel-shims/dist/endoify.js',
+  // Caplet manifests and bundles
+  'packages/omnium-gatherum/src/caplets/*.manifest.json',
+  'packages/omnium-gatherum/src/vats/*-caplet.bundle',
 ];
 
 const endoifyImportStatement = `import './endoify.js';`;
-const trustedPreludes: PreludeRecord = {
+const trustedPreludes = {
   background: {
     content: endoifyImportStatement,
   },
   'kernel-worker': { content: endoifyImportStatement },
-};
+} satisfies PreludeRecord;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {

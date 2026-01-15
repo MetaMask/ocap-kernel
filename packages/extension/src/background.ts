@@ -1,16 +1,22 @@
+import { E } from '@endo/eventual-send';
 import {
-  connectToKernel,
-  rpcMethodSpecs,
+  makeBackgroundCapTP,
+  makePresenceManager,
+  makeCapTPNotification,
+  isCapTPNotification,
+  getCapTPMessage,
+} from '@metamask/kernel-browser-runtime';
+import type {
+  KernelFacade,
+  CapTPMessage,
 } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
-import { RpcClient } from '@metamask/kernel-rpc-methods';
-import { delay } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
-import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
+
+defineGlobals();
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -79,49 +85,49 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
+  // Create stream for CapTP messages
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  const rpcClient = new RpcClient(
-    kernelMethodSpecs,
-    async (request) => {
-      await offscreenStream.write(request);
-    },
-    'background:',
-  );
-
-  const ping = async (): Promise<void> => {
-    const result = await rpcClient.call('ping', []);
-    logger.info(result);
-  };
-
-  // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      value: ping,
-    },
-    sendMessage: {
-      value: async (message: JsonRpcCall) =>
-        await offscreenStream.write(message),
+  // Set up CapTP for E() based communication with the kernel
+  const backgroundCapTP = makeBackgroundCapTP({
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      offscreenStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
     },
   });
-  harden(globalThis.kernel);
+
+  // Get the kernel remote presence
+  const kernelP = backgroundCapTP.getKernel();
+  globalThis.kernel = kernelP;
+
+  // Create presence manager for E() calls on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  Object.assign(globalThis.captp, presenceManager);
 
   // With this we can click the extension action button to wake up the service worker.
   chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
+    E(kernelP).ping().catch(logger.error);
   });
 
-  // Pipe responses back to the RpcClient
-  const drainPromise = offscreenStream.drain(async (message) =>
-    rpcClient.handleResponse(message.id as string, message),
-  );
+  // Handle incoming CapTP messages from the kernel
+  const drainPromise = offscreenStream.drain((message) => {
+    if (isCapTPNotification(message)) {
+      const captpMessage = getCapTPMessage(message);
+      backgroundCapTP.dispatch(captpMessage);
+    }
+  });
   drainPromise.catch(logger.error);
 
-  await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster();
+  await E(kernelP).ping(); // Wait for the kernel to be ready
+  const rootKref = await startDefaultSubcluster(kernelP);
+  if (rootKref) {
+    await greetBootstrapVat(rootKref);
+  }
 
   try {
     await drainPromise;
@@ -134,30 +140,60 @@ async function main(): Promise<void> {
 
 /**
  * Idempotently starts the default subcluster.
+ *
+ * @param kernelPromise - Promise for the kernel facade.
+ * @returns The rootKref of the bootstrap vat if launched, undefined if subcluster already exists.
  */
-async function startDefaultSubcluster(): Promise<void> {
-  const kernelStream = await connectToKernel({ label: 'background', logger });
-  const rpcClient = new RpcClient(
-    rpcMethodSpecs,
-    async (request) => {
-      await kernelStream.write(request);
-    },
-    'background',
-  );
+async function startDefaultSubcluster(
+  kernelPromise: Promise<KernelFacade>,
+): Promise<string | undefined> {
+  const kernel = await kernelPromise;
+  const status = await E(kernel).getStatus();
 
-  kernelStream
-    .drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    )
-    .catch(logger.error);
-
-  const status = await rpcClient.call('getStatus', []);
   if (status.subclusters.length === 0) {
-    const result = await rpcClient.call('launchSubcluster', {
-      config: defaultSubcluster,
-    });
+    const result = await E(kernel).launchSubcluster(defaultSubcluster);
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
-  } else {
-    logger.info('Subclusters already exist. Not launching default subcluster.');
+    return result.rootKref;
   }
+  logger.info('Subclusters already exist. Not launching default subcluster.');
+  return undefined;
+}
+
+/**
+ * Greets the bootstrap vat by calling its hello() method.
+ *
+ * @param rootKref - The kref of the bootstrap vat's root object.
+ */
+async function greetBootstrapVat(rootKref: string): Promise<void> {
+  const rootPresence = captp.resolveKref(rootKref) as {
+    hello: (from: string) => string;
+  };
+  const greeting = await E(rootPresence).hello('background');
+  logger.info(`Got greeting from bootstrap vat: ${greeting}`);
+}
+
+/**
+ * Define globals accessible via the background console.
+ */
+function defineGlobals(): void {
+  Object.defineProperty(globalThis, 'kernel', {
+    configurable: false,
+    enumerable: true,
+    writable: true,
+    value: {},
+  });
+
+  Object.defineProperty(globalThis, 'captp', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
+  });
+
+  Object.defineProperty(globalThis, 'E', {
+    value: E,
+    configurable: false,
+    enumerable: true,
+    writable: false,
+  });
 }

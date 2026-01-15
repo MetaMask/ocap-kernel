@@ -23,8 +23,6 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./endoify-mjs": "./dist/env/endoify.mjs",
-    "./endoify-ts": "./src/env/endoify.ts",
     "./package.json": "./package.json"
   },
   "files": [
@@ -61,7 +59,6 @@
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
-    "@metamask/utils": "^11.9.0",
     "@ocap/kernel-platforms": "workspace:^",
     "ses": "^1.14.0"
   },

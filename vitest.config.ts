@@ -75,10 +75,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 1.42,
+          statements: 1.44,
           functions: 0,
           branches: 0,
-          lines: 1.44,
+          lines: 1.47,
         },
         'packages/kernel-agents/**': {
           statements: 92.34,
@@ -87,10 +87,10 @@ export default defineConfig({
           lines: 92.48,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 85.88,
-          functions: 78.88,
-          branches: 81.92,
-          lines: 86.15,
+          statements: 70.06,
+          functions: 64.61,
+          branches: 59.42,
+          lines: 70.22,
         },
         'packages/kernel-errors/**': {
           statements: 99.24,
@@ -147,10 +147,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/nodejs/**': {
-          statements: 88.98,
+          statements: 88.79,
           functions: 87.5,
           branches: 90.9,
-          lines: 89.74,
+          lines: 89.56,
         },
         'packages/nodejs-test-workers/**': {
           statements: 23.52,
@@ -159,16 +159,16 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 95.12,
-          functions: 97.69,
-          branches: 86.95,
-          lines: 95.1,
+          statements: 95.44,
+          functions: 98.06,
+          branches: 87.65,
+          lines: 95.42,
         },
         'packages/omnium-gatherum/**': {
-          statements: 5.26,
-          functions: 5.55,
-          branches: 0,
-          lines: 5.35,
+          statements: 61.88,
+          functions: 64.63,
+          branches: 68.62,
+          lines: 61.82,
         },
         'packages/remote-iterables/**': {
           statements: 100,

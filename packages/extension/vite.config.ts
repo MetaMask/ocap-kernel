@@ -35,8 +35,6 @@ const staticCopyTargets: readonly (string | Target)[] = [
   // The extension manifest
   'packages/extension/src/manifest.json',
   // Trusted prelude-related
-  'packages/extension/src/env/dev-console.js',
-  'packages/extension/src/env/background-trusted-prelude.js',
   'packages/kernel-shims/dist/endoify.js',
 ];
 

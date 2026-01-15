@@ -1,12 +1,6 @@
 import type { CapData } from '@endo/marshal';
-import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { serializeError } from '@metamask/rpc-errors';
-import type { DuplexStream } from '@metamask/streams';
-import { hasProperty } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
@@ -15,7 +9,6 @@ import type { KernelService } from './KernelServiceManager.ts';
 import { OcapURLManager } from './remotes/OcapURLManager.ts';
 import { RemoteManager } from './remotes/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
-import { kernelHandlers } from './rpc/index.ts';
 import type { PingVatResult } from './rpc/index.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
@@ -28,6 +21,7 @@ import type {
   VatConfig,
   KernelStatus,
   Subcluster,
+  SubclusterLaunchResult,
   EndpointHandle,
 } from './types.ts';
 import { isVatId, isRemoteId } from './types.ts';
@@ -49,11 +43,6 @@ import { VatManager } from './vats/VatManager.ts';
  * @returns A new {@link Kernel}.
  */
 export class Kernel {
-  /** Command channel from the controlling console/browser extension/test driver */
-  readonly #commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>;
-
-  readonly #rpcService: RpcService<typeof kernelHandlers>;
-
   /** Manages vat lifecycle operations */
   readonly #vatManager: VatManager;
 
@@ -90,7 +79,6 @@ export class Kernel {
   /**
    * Construct a new kernel instance.
    *
-   * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param platformServices - Service to do things the kernel worker can't.
    * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
@@ -100,7 +88,6 @@ export class Kernel {
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
-    commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
     platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,
     options: {
@@ -109,8 +96,6 @@ export class Kernel {
       keySeed?: string | undefined;
     } = {},
   ) {
-    this.#commandStream = commandStream;
-    this.#rpcService = new RpcService(kernelHandlers, {});
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
@@ -188,7 +173,6 @@ export class Kernel {
   /**
    * Create a new kernel instance.
    *
-   * @param commandStream - Command channel from whatever external software is driving the kernel.
    * @param platformServices - Service to do things the kernel worker can't.
    * @param kernelDatabase - Database holding the kernel's persistent state.
    * @param options - Options for the kernel constructor.
@@ -198,7 +182,6 @@ export class Kernel {
    * @returns A promise for the new kernel instance.
    */
   static async make(
-    commandStream: DuplexStream<JsonRpcCall, JsonRpcResponse>,
     platformServices: PlatformServices,
     kernelDatabase: KernelDatabase,
     options: {
@@ -207,19 +190,13 @@ export class Kernel {
       keySeed?: string | undefined;
     } = {},
   ): Promise<Kernel> {
-    const kernel = new Kernel(
-      commandStream,
-      platformServices,
-      kernelDatabase,
-      options,
-    );
+    const kernel = new Kernel(platformServices, kernelDatabase, options);
     await kernel.#init();
     return kernel;
   }
 
   /**
-   * Start the kernel running. Sets it up to actually receive command messages
-   * and then begin processing the run queue.
+   * Start the kernel running.
    */
   async #init(): Promise<void> {
     // Set up the remote message handler
@@ -227,18 +204,6 @@ export class Kernel {
       async (from: string, message: string) =>
         this.#remoteManager.handleRemoteMessage(from, message),
     );
-
-    // Start the command stream handler (non-blocking)
-    // This runs for the entire lifetime of the kernel
-    this.#commandStream
-      .drain(this.#handleCommandMessage.bind(this))
-      .catch((error) => {
-        this.#logger.error(
-          'Stream read error (kernel may be non-functional):',
-          error,
-        );
-        // Don't re-throw to avoid unhandled rejection in this long-running task
-      });
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
@@ -299,37 +264,6 @@ export class Kernel {
   }
 
   /**
-   * Handle messages received over the command channel.
-   *
-   * @param message - The message to handle.
-   */
-  async #handleCommandMessage(message: JsonRpcCall): Promise<void> {
-    try {
-      this.#rpcService.assertHasMethod(message.method);
-      const result = await this.#rpcService.execute(
-        message.method,
-        message.params,
-      );
-      if (hasProperty(message, 'id') && typeof message.id === 'string') {
-        await this.#commandStream.write({
-          id: message.id,
-          jsonrpc: '2.0',
-          result,
-        });
-      }
-    } catch (error) {
-      this.#logger.error('Error executing command', error);
-      if (hasProperty(message, 'id') && typeof message.id === 'string') {
-        await this.#commandStream.write({
-          id: message.id,
-          jsonrpc: '2.0',
-          error: serializeError(error),
-        });
-      }
-    }
-  }
-
-  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -360,11 +294,12 @@ export class Kernel {
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
-   * @returns a promise for the (CapData encoded) result of the bootstrap message.
+   * @returns A promise for the subcluster ID and the (CapData encoded) result
+   * of the bootstrap message.
    */
   async launchSubcluster(
     config: ClusterConfig,
-  ): Promise<CapData<KRef> | undefined> {
+  ): Promise<SubclusterLaunchResult> {
     return this.#subclusterManager.launchSubcluster(config);
   }
 
@@ -623,7 +558,6 @@ export class Kernel {
    */
   async stop(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
-    await this.#commandStream.end();
     await this.#platformServices.stopRemoteComms();
     this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();

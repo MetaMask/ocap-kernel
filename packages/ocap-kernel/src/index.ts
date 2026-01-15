@@ -12,6 +12,7 @@ export type {
   KernelStatus,
   Subcluster,
   SubclusterId,
+  SubclusterLaunchResult,
 } from './types.ts';
 export type {
   RemoteMessageHandler,

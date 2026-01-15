@@ -11,3 +11,18 @@ export * from './makeIframeVatWorker.ts';
 export * from './PlatformServicesClient.ts';
 export * from './PlatformServicesServer.ts';
 export * from './utils/index.ts';
+export type { KernelFacade } from './types.ts';
+export {
+  makeBackgroundCapTP,
+  isCapTPNotification,
+  getCapTPMessage,
+  makeCapTPNotification,
+  type BackgroundCapTP,
+  type BackgroundCapTPOptions,
+  type CapTPMessage,
+} from './background-captp.ts';
+export {
+  makePresenceManager,
+  type PresenceManager,
+  type PresenceManagerOptions,
+} from './kref-presence.ts';

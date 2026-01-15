@@ -1,7 +1,7 @@
 import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { isJsonRpcCall } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { PostMessageTarget } from '@metamask/streams/browser';
@@ -9,13 +9,18 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import type { JsonRpcResponse } from '@metamask/utils';
 
+import {
+  isCapTPNotification,
+  makeCapTPNotification,
+} from '../background-captp.ts';
+import type { CapTPMessage } from '../background-captp.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
+import { makeKernelCapTP } from './captp/index.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
+import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -32,11 +37,11 @@ async function main(): Promise<void> {
   );
 
   // Initialize kernel dependencies
-  const [kernelStream, platformServicesClient, kernelDatabase] =
+  const [messageStream, platformServicesClient, kernelDatabase] =
     await Promise.all([
-      MessagePortDuplexStream.make<JsonRpcCall, JsonRpcResponse>(
+      MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
         port,
-        isJsonRpcCall,
+        isJsonRpcMessage,
       ),
       PlatformServicesClient.make(globalThis as PostMessageTarget),
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
@@ -46,22 +51,19 @@ async function main(): Promise<void> {
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
-  const kernelP = Kernel.make(
-    kernelStream,
-    platformServicesClient,
-    kernelDatabase,
-    {
-      resetStorage,
-    },
-  );
+  const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
+    resetStorage,
+  });
+
+  // Set up internal RPC server for UI panel connections (uses separate MessagePorts)
   const handlerP = kernelP.then((kernel) => {
     const server = new JsonRpcServer({
       middleware: [
-        makeLoggingMiddleware(logger.subLogger('kernel-command')),
+        makeLoggingMiddleware(logger.subLogger('internal-rpc')),
         makePanelMessageMiddleware(kernel, kernelDatabase),
       ],
     });
-    return async (request: JsonRpcCall) => server.handle(request);
+    return async (request: JsonRpcMessage) => server.handle(request);
   });
 
   receiveInternalConnections({
@@ -70,6 +72,29 @@ async function main(): Promise<void> {
   });
 
   const kernel = await kernelP;
+
+  // Set up CapTP for background ↔ kernel communication
+  const kernelCapTP = makeKernelCapTP({
+    kernel,
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      messageStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
+    },
+  });
+
+  // Handle incoming CapTP messages from the background
+  messageStream
+    .drain((message) => {
+      if (isCapTPNotification(message)) {
+        const captpMessage = message.params[0];
+        kernelCapTP.dispatch(captpMessage);
+      }
+    })
+    .catch((error) => {
+      logger.error('Message stream error:', error);
+    });
 
   // Initialize remote communications with the relay server passed in the query string
   const relays = getRelaysFromCurrentLocation();
