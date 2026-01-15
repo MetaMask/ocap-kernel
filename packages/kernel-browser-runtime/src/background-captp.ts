@@ -53,7 +53,7 @@ export function makeCapTPNotification(captpMessage: CapTPMessage): JsonRpcCall {
   return {
     jsonrpc: '2.0',
     method: 'captp',
-    params: [captpMessage as unknown as Record<string, never>],
+    params: [captpMessage],
   };
 }
 

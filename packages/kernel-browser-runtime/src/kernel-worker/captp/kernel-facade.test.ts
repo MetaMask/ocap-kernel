@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeKernelFacade } from './kernel-facade.ts';
 import type { KernelFacade } from './kernel-facade.ts';
 
-const makeClusterconfig = (): ClusterConfig => ({
+const makeClusterConfig = (): ClusterConfig => ({
   bootstrap: 'test-vat',
   vats: {
     'test-vat': { bundleSpec: 'test' },
@@ -52,7 +52,7 @@ describe('makeKernelFacade', () => {
 
   describe('launchSubcluster', () => {
     it('delegates to kernel with correct arguments', async () => {
-      const config: ClusterConfig = makeClusterconfig();
+      const config: ClusterConfig = makeClusterConfig();
 
       await facade.launchSubcluster(config);
 
@@ -66,7 +66,7 @@ describe('makeKernelFacade', () => {
         expectedResult,
       );
 
-      const config: ClusterConfig = makeClusterconfig();
+      const config: ClusterConfig = makeClusterConfig();
 
       const result = await facade.launchSubcluster(config);
       expect(result).toStrictEqual(expectedResult);
@@ -75,7 +75,7 @@ describe('makeKernelFacade', () => {
     it('propagates errors from kernel', async () => {
       const error = new Error('Launch failed');
       vi.mocked(mockKernel.launchSubcluster).mockRejectedValueOnce(error);
-      const config: ClusterConfig = makeClusterconfig();
+      const config: ClusterConfig = makeClusterConfig();
 
       await expect(facade.launchSubcluster(config)).rejects.toThrow(error);
     });
