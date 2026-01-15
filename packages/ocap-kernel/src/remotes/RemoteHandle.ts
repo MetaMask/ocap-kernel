@@ -392,10 +392,14 @@ export class RemoteHandle implements EndpointHandle {
       // even happening if we never talk to a particular peer again. Instead, we
       // wait until we know a given peer needs to be communicated with before
       // bothering to send its hint info.
-      await this.#remoteComms.registerLocationHints(
-        this.#peerId,
-        this.#locationHints,
-      );
+      //
+      // Fire-and-forget: Don't await this call to avoid RPC deadlock when
+      // this method is called inside an RPC handler (e.g., during remoteDeliver).
+      this.#remoteComms
+        .registerLocationHints(this.#peerId, this.#locationHints)
+        .catch((error) => {
+          this.#logger.error('Error registering location hints:', error);
+        });
       this.#needsHinting = false;
     }
 
