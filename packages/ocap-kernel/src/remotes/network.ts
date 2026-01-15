@@ -506,14 +506,14 @@ export async function initNetwork(
 
       try {
         const { locationHints: hints } = state;
-        let channel = await connectionFactory.dialIdempotent(
+        const dialedChannel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
           false, // No retry here, we're already in a retry loop
         );
 
         // Handle race condition - check if an existing channel appeared
-        channel = await reuseOrReturnChannel(peerId, channel);
+        const channel = await reuseOrReturnChannel(peerId, dialedChannel);
         if (!channel) {
           // Channel was closed and existing also died - continue retry loop
           continue;
