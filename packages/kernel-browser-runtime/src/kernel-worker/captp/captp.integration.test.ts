@@ -1,5 +1,5 @@
 // Real endoify needed for CapTP and E() to work properly
-// eslint-disable-next-line import-x/no-extraneous-dependencies
+
 import '@ocap/nodejs/endoify-ts';
 
 import { E } from '@endo/eventual-send';
@@ -38,10 +38,7 @@ describe('CapTP Integration', () => {
         subclusters: ['sc1'],
         remoteComms: false,
       }),
-      pingVat: vi.fn().mockResolvedValue({
-        pingVatResult: 'pong',
-        roundTripMs: 5,
-      }),
+      pingVat: vi.fn().mockResolvedValue('pong'),
     } as unknown as Kernel;
 
     // Wire up CapTP endpoints to dispatch messages synchronously to each other
@@ -168,10 +165,7 @@ describe('CapTP Integration', () => {
 
       // Call pingVat via E()
       const result = await E(kernel).pingVat('v1');
-      expect(result).toStrictEqual({
-        pingVatResult: 'pong',
-        roundTripMs: 5,
-      });
+      expect(result).toBe('pong');
 
       expect(mockKernel.pingVat).toHaveBeenCalledWith('v1');
     });
