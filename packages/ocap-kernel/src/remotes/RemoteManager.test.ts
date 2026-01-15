@@ -216,16 +216,6 @@ describe('RemoteManager', () => {
       expect(mockRemoteComms.getPeerId).toHaveBeenCalled();
     });
 
-    it('sends remote message', async () => {
-      const messageBase = { method: 'deliver' as const, params: ['test'] };
-      await remoteManager.sendRemoteMessage('peer123', messageBase);
-      // RemoteManager serializes the message to JSON before sending
-      expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
-        'peer123',
-        JSON.stringify(messageBase),
-      );
-    });
-
     it('closes connection to peer', async () => {
       await remoteManager.closeConnection('peer123');
       expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
@@ -454,17 +444,6 @@ describe('RemoteManager', () => {
       expect(() => remoteManager.getPeerId()).toThrow(
         'Remote comms not initialized',
       );
-    });
-
-    it('throws when calling sendRemoteMessage after cleanup', async () => {
-      remoteManager.cleanup();
-
-      await expect(
-        remoteManager.sendRemoteMessage(
-          'peer1',
-          JSON.stringify({ method: 'deliver', params: [] }),
-        ),
-      ).rejects.toThrow('Remote comms not initialized');
     });
 
     it('throws when calling closeConnection after cleanup', async () => {

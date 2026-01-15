@@ -2,7 +2,6 @@ import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { object, literal, string } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 
-// Message is already serialized as a string by RemoteHandle
 const sendRemoteMessageParamsStruct = object({
   to: string(),
   message: string(),

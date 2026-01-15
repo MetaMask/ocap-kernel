@@ -13,7 +13,6 @@ import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
 import { OcapURLManager } from './remotes/OcapURLManager.ts';
-import type { RemoteMessageBase } from './remotes/RemoteHandle.ts';
 import { RemoteManager } from './remotes/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
 import { kernelHandlers } from './rpc/index.ts';
@@ -266,20 +265,6 @@ export class Kernel {
    */
   async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
     await this.#remoteManager.initRemoteComms(options);
-  }
-
-  /**
-   * Send a message to a remote kernel.
-   *
-   * @param to - The peer ID of the remote kernel.
-   * @param messageBase - The message to send (without seq/ack).
-   * @returns A promise for the result of the message send.
-   */
-  async sendRemoteMessage(
-    to: string,
-    messageBase: RemoteMessageBase,
-  ): Promise<void> {
-    await this.#remoteManager.sendRemoteMessage(to, messageBase);
   }
 
   /**

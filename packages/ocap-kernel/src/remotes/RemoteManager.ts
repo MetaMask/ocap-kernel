@@ -5,7 +5,6 @@ import { kser } from '../liveslots/kernel-marshal.ts';
 import type { PlatformServices, RemoteId } from '../types.ts';
 import { initRemoteComms } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
-import type { RemoteMessageBase } from './RemoteHandle.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
@@ -192,30 +191,6 @@ export class RemoteManager {
    */
   getPeerId(): string {
     return this.getRemoteComms().getPeerId();
-  }
-
-  /**
-   * Send a message to a remote kernel. This is a low-level API that bypasses
-   * RemoteHandle's seq/ack tracking.
-   * WARNING: Messages sent via this API do not have seq/ack headers and will not
-   * be acknowledged or retransmitted.
-   *
-   * @param to - The peer ID of the remote kernel.
-   * @param messageBase - The message to send (without seq/ack).
-   * @returns a promise for the result of the message send.
-   */
-  async sendRemoteMessage(
-    to: string,
-    messageBase: RemoteMessageBase,
-  ): Promise<void> {
-    this.getRemoteComms(); // Ensure remote comms is initialized
-    // Send through platform services
-    // This bypasses the RemoteComms wrapper which is used by RemoteHandle
-    // Note: This sends without seq/ack - the message won't be tracked or acknowledged
-    await this.#platformServices.sendRemoteMessage(
-      to,
-      JSON.stringify(messageBase),
-    );
   }
 
   /**

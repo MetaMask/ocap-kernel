@@ -82,7 +82,7 @@ class DirectNetworkService {
         // Route message directly to the target peer's handler
         const targetHandler = self.peerRegistry.get(to);
         if (targetHandler) {
-          // Message is already serialized with seq/ack by RemoteHandle
+          // Message is already serialized by RemoteHandle
           const response = await targetHandler(fromPeer, message);
           // If there's a response, send it back
           if (response) {
