@@ -28,6 +28,9 @@ const DELAYED_ACK_MS = 50;
 /** Maximum retransmission attempts before giving up. */
 const MAX_RETRIES = 3;
 
+/** Maximum number of pending messages awaiting ACK. */
+const MAX_PENDING_MESSAGES = 200;
+
 /**
  * Pending message awaiting acknowledgment.
  */
@@ -45,6 +48,7 @@ type RemoteHandleConstructorProps = {
   remoteComms: RemoteComms;
   locationHints?: string[] | undefined;
   logger?: Logger | undefined;
+  onGiveUp?: ((peerId: string) => void) | undefined;
 };
 
 type MessageDelivery = ['message', string, Message];
@@ -142,6 +146,9 @@ export class RemoteHandle implements EndpointHandle {
   /** Timer handle for delayed ACK (standalone ACK when no outgoing traffic). */
   #delayedAckHandle: ReturnType<typeof setTimeout> | undefined;
 
+  /** Callback invoked when we give up on this remote (for promise rejection). */
+  readonly #onGiveUp: ((peerId: string) => void) | undefined;
+
   /**
    * Construct a new RemoteHandle instance.
    *
@@ -153,6 +160,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.locationHints - Possible contact points to reach the other end.
    * @param params.logger - Optional logger for diagnostic output.
+   * @param params.onGiveUp - Optional callback when we give up on this remote.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor({
@@ -163,6 +171,7 @@ export class RemoteHandle implements EndpointHandle {
     remoteComms,
     locationHints,
     logger,
+    onGiveUp,
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
     this.#peerId = peerId;
@@ -172,6 +181,7 @@ export class RemoteHandle implements EndpointHandle {
     this.#locationHints = locationHints ?? [];
     this.#myCrankResult = { didDelivery: remoteId };
     this.#logger = logger ?? new Logger(`RemoteHandle:${peerId.slice(0, 8)}`);
+    this.#onGiveUp = onGiveUp;
   }
 
   /**
@@ -184,6 +194,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.kernelQueue - The kernel's queue.
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.logger - Optional logger for error and diagnostic output.
+   * @param params.onGiveUp - Optional callback invoked when we give up on this remote.
    *
    * @returns the new RemoteHandle instance.
    */
@@ -266,11 +277,12 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     if (head.retryCount >= MAX_RETRIES) {
-      // Give up - reject all pending messages
+      // Give up - reject all pending messages and notify RemoteManager
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#pendingMessages.length} pending messages`,
       );
       this.#rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
+      this.#onGiveUp?.(this.#peerId);
       return;
     }
 
@@ -395,6 +407,13 @@ export class RemoteHandle implements EndpointHandle {
 
     // Clear delayed ACK timer - we're piggybacking the ACK on this message
     this.#clearDelayedAck();
+
+    // Check queue capacity before adding
+    if (this.#pendingMessages.length >= MAX_PENDING_MESSAGES) {
+      throw Error(
+        `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
+      );
+    }
 
     // Track message for ACK
     const pending: PendingMessage = {

@@ -228,6 +228,7 @@ export class RemoteManager {
       remoteComms,
       locationHints: hints,
       logger: this.#logger,
+      onGiveUp: this.#handleRemoteGiveUp.bind(this),
     });
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);
