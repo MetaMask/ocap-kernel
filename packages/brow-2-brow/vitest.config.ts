@@ -19,6 +19,7 @@ export default defineConfig((args) => {
       test: {
         name: 'brow2brow',
         exclude: ['**/test/integration/**'],
+        passWithNoTests: true,
       },
     }),
   );

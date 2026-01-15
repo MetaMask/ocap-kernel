@@ -31,7 +31,7 @@
     "rebuild:native": "./scripts/rebuild-native.sh",
     "test": "yarn pretest && vitest run",
     "test:ci": "vitest run --coverage false",
-    "test:dev": "yarn test --mode development --reporter dot",
+    "test:dev": "turbo run test:dev --output-logs=errors-only",
     "test:e2e": "yarn workspaces foreach --all run test:e2e",
     "test:e2e:ci": "yarn workspaces foreach --all run test:e2e:ci",
     "test:e2e:local": "yarn workspaces foreach --all run test:e2e:local",
