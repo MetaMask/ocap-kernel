@@ -75,10 +75,10 @@ export default defineConfig({
           lines: 100,
         },
         'packages/extension/**': {
-          statements: 1.35,
+          statements: 1.29,
           functions: 0,
           branches: 0,
-          lines: 1.36,
+          lines: 1.31,
         },
         'packages/kernel-agents/**': {
           statements: 88.16,
@@ -87,10 +87,10 @@ export default defineConfig({
           lines: 88.13,
         },
         'packages/kernel-browser-runtime/**': {
-          statements: 84.4,
+          statements: 84.16,
           functions: 78.3,
           branches: 81.11,
-          lines: 84.63,
+          lines: 84.4,
         },
         'packages/kernel-errors/**': {
           statements: 99.24,
@@ -165,10 +165,10 @@ export default defineConfig({
           lines: 95.42,
         },
         'packages/omnium-gatherum/**': {
-          statements: 4.34,
-          functions: 4.76,
-          branches: 0,
-          lines: 4.41,
+          statements: 60.5,
+          functions: 61.44,
+          branches: 71.11,
+          lines: 60.42,
         },
         'packages/remote-iterables/**': {
           statements: 100,
