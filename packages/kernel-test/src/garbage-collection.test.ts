@@ -113,6 +113,7 @@ describe('Garbage Collection', () => {
       'createObject',
       [objectId],
     );
+    await waitUntilQuiescent();
     const createObjectRef = createObjectData.slots[0] as KRef;
 
     // Store initial reference count information
