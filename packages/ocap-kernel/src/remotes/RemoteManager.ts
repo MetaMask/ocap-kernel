@@ -195,7 +195,10 @@ export class RemoteManager {
   }
 
   /**
-   * Send a message to a remote kernel.
+   * Send a message to a remote kernel. This is a low-level API that bypasses
+   * RemoteHandle's seq/ack tracking.
+   * WARNING: Messages sent via this API do not have seq/ack headers and will not
+   * be acknowledged or retransmitted.
    *
    * @param to - The peer ID of the remote kernel.
    * @param messageBase - The message to send (without seq/ack).
@@ -208,7 +211,11 @@ export class RemoteManager {
     this.getRemoteComms(); // Ensure remote comms is initialized
     // Send through platform services
     // This bypasses the RemoteComms wrapper which is used by RemoteHandle
-    await this.#platformServices.sendRemoteMessage(to, messageBase);
+    // Note: This sends without seq/ack - the message won't be tracked or acknowledged
+    await this.#platformServices.sendRemoteMessage(
+      to,
+      JSON.stringify(messageBase),
+    );
   }
 
   /**

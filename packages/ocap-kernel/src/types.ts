@@ -364,23 +364,6 @@ export type PlatformServices = {
    * @returns A promise that resolves when reconnection is initiated.
    */
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
-  /**
-   * Handle acknowledgment of received messages.
-   * Implements cumulative ACK - acknowledges all messages with sequence <= ackSeq.
-   * Fire-and-forget in browser runtime to avoid deadlock.
-   *
-   * @param peerId - The peer ID that sent the acknowledgment.
-   * @param ackSeq - The highest sequence number being acknowledged.
-   */
-  handleAck: (peerId: string, ackSeq: number) => void;
-  /**
-   * Update the highest received sequence number for a peer.
-   * Used for tracking received messages to generate piggyback ACKs.
-   *
-   * @param peerId - The peer ID that sent the message.
-   * @param seq - The sequence number received.
-   */
-  updateReceivedSeq: (peerId: string, seq: number) => void;
 };
 
 // Cluster configuration

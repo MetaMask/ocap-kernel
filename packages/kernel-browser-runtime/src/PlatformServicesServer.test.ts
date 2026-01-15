@@ -50,8 +50,6 @@ vi.mock('@metamask/ocap-kernel', () => ({
         closeConnection: mockCloseConnection,
         registerLocationHints: mockRegisterLocationHints,
         reconnectPeer: mockReconnectPeer,
-        handleAck: vi.fn(),
-        updateReceivedSeq: vi.fn(),
       };
     },
   ),
@@ -107,11 +105,11 @@ const makeInitializeRemoteCommsMessageEvent = (
 const makeSendRemoteMessageMessageEvent = (
   messageId: `m${number}`,
   to: string,
-  messageBase: unknown,
+  message: string,
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'sendRemoteMessage',
-    params: { to, messageBase },
+    params: { to, message },
   });
 
 const makeStopRemoteCommsMessageEvent = (
@@ -594,16 +592,19 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          // Now send a message
-          const messageBase = { method: 'deliver', params: ['hello'] };
+          // Now send a message (message is already serialized as a string)
+          const message = JSON.stringify({
+            method: 'deliver',
+            params: ['hello'],
+          });
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m1', 'peer-123', messageBase),
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', message),
           );
           await delay(10);
 
           expect(mockSendRemoteMessage).toHaveBeenCalledWith(
             'peer-123',
-            messageBase,
+            message,
           );
         });
 
@@ -611,10 +612,11 @@ describe('PlatformServicesServer', () => {
           const errorSpy = vi.spyOn(logger, 'error');
 
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m0', 'peer-456', {
-              method: 'deliver',
-              params: ['test'],
-            }),
+            makeSendRemoteMessageMessageEvent(
+              'm0',
+              'peer-456',
+              JSON.stringify({ method: 'deliver', params: ['test'] }),
+            ),
           );
           await delay(10);
 

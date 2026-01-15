@@ -1,14 +1,11 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { object, literal, string, any } from '@metamask/superstruct';
+import { object, literal, string } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 
-import type { RemoteMessageBase } from '../../remotes/RemoteHandle.ts';
-
-// Use any() for messageBase since RemoteMessageBase is a complex discriminated union
-// that is JSON-serializable but hard to express in superstruct
+// Message is already serialized as a string by RemoteHandle
 const sendRemoteMessageParamsStruct = object({
   to: string(),
-  messageBase: any(),
+  message: string(),
 });
 
 type SendRemoteMessageParams = Infer<typeof sendRemoteMessageParamsStruct>;
@@ -25,10 +22,7 @@ export const sendRemoteMessageSpec: SendRemoteMessageSpec = {
   result: literal(null),
 };
 
-export type SendRemoteMessage = (
-  to: string,
-  messageBase: RemoteMessageBase,
-) => Promise<null>;
+export type SendRemoteMessage = (to: string, message: string) => Promise<null>;
 
 type SendRemoteMessageHooks = {
   sendRemoteMessage: SendRemoteMessage;
@@ -45,9 +39,6 @@ export const sendRemoteMessageHandler: SendRemoteMessageHandler = {
   ...sendRemoteMessageSpec,
   hooks: { sendRemoteMessage: true },
   implementation: async ({ sendRemoteMessage }, params) => {
-    return await sendRemoteMessage(
-      params.to,
-      params.messageBase as RemoteMessageBase,
-    );
+    return await sendRemoteMessage(params.to, params.message);
   },
 };

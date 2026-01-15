@@ -8,7 +8,6 @@ import type {
   VatId,
   VatConfig,
   RemoteCommsOptions,
-  RemoteMessageBase,
 } from '@metamask/ocap-kernel';
 import {
   platformServicesMethodSpecs,
@@ -228,14 +227,11 @@ export class PlatformServicesClient implements PlatformServices {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param messageBase - The message base to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
-  async sendRemoteMessage(
-    to: string,
-    messageBase: RemoteMessageBase,
-  ): Promise<void> {
-    await this.#rpcClient.call('sendRemoteMessage', { to, messageBase });
+  async sendRemoteMessage(to: string, message: string): Promise<void> {
+    await this.#rpcClient.call('sendRemoteMessage', { to, message });
   }
 
   /**
@@ -269,39 +265,6 @@ export class PlatformServicesClient implements PlatformServices {
    */
   async reconnectPeer(peerId: string, hints: string[] = []): Promise<void> {
     await this.#rpcClient.call('reconnectPeer', { peerId, hints });
-  }
-
-  /**
-   * Handle an acknowledgment from a peer for sent messages.
-   * This is fire-and-forget to avoid deadlock: when the offscreen is awaiting
-   * sendWithAck (waiting for ACK), the kernel worker may receive the ACK via
-   * remoteDeliver and call handleAck back. If handleAck awaited, it would
-   * deadlock because the offscreen can't process new RPC requests while
-   * blocked on sendWithAck.
-   *
-   * @param peerId - The peer ID.
-   * @param ackSeq - The sequence number being acknowledged.
-   */
-  handleAck(peerId: string, ackSeq: number): void {
-    // Fire-and-forget RPC call to avoid deadlock
-    this.#rpcClient.call('handleAck', { peerId, ackSeq }).catch((error) => {
-      this.#logger.error('Error handling ACK:', error);
-    });
-  }
-
-  /**
-   * Update the highest received sequence number for a peer.
-   *
-   * @param peerId - The peer ID.
-   * @param seq - The sequence number received.
-   */
-  updateReceivedSeq(peerId: string, seq: number): void {
-    // Fire-and-forget RPC call for sync method
-    this.#rpcClient
-      .call('updateReceivedSeq', { peerId, seq })
-      .catch((error: unknown) => {
-        this.#logger.error('Error updating received seq:', error);
-      });
   }
 
   /**

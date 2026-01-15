@@ -1,7 +1,5 @@
 import type { ByteStream } from 'it-byte-stream';
 
-import type { RemoteMessageBase } from './RemoteHandle.ts';
-
 export type InboundConnectionHandler = (channel: Channel) => void;
 
 export type Channel = {
@@ -14,18 +12,13 @@ export type RemoteMessageHandler = (
   message: string,
 ) => Promise<string>;
 
-export type SendRemoteMessage = (
-  to: string,
-  messageBase: RemoteMessageBase,
-) => Promise<void>;
+export type SendRemoteMessage = (to: string, message: string) => Promise<void>;
 
 export type StopRemoteComms = () => Promise<void>;
 
 export type RemoteComms = {
   getPeerId: () => string;
   sendRemoteMessage: SendRemoteMessage;
-  handleAck: (peerId: string, ackSeq: number) => void;
-  updateReceivedSeq: (peerId: string, seq: number) => void;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
   registerLocationHints: (peerId: string, hints: string[]) => Promise<void>;

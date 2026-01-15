@@ -9,7 +9,6 @@ import type {
   SendRemoteMessage,
   StopRemoteComms,
   RemoteCommsOptions,
-  RemoteMessageBase,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
@@ -44,11 +43,6 @@ export class NodejsPlatformServices implements PlatformServices {
   #reconnectPeerFunc:
     | ((peerId: string, hints?: string[]) => Promise<void>)
     | null = null;
-
-  #handleAckFunc: ((peerId: string, ackSeq: number) => Promise<void>) | null =
-    null;
-
-  #updateReceivedSeqFunc: ((peerId: string, seq: number) => void) | null = null;
 
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
@@ -196,17 +190,14 @@ export class NodejsPlatformServices implements PlatformServices {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param messageBase - The message base to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
-  async sendRemoteMessage(
-    to: string,
-    messageBase: RemoteMessageBase,
-  ): Promise<void> {
+  async sendRemoteMessage(to: string, message: string): Promise<void> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(to, messageBase);
+    await this.#sendRemoteMessageFunc(to, message);
   }
 
   /**
@@ -255,8 +246,6 @@ export class NodejsPlatformServices implements PlatformServices {
       closeConnection,
       registerLocationHints,
       reconnectPeer,
-      handleAck,
-      updateReceivedSeq,
     } = await initNetwork(
       keySeed,
       options,
@@ -268,8 +257,6 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#closeConnectionFunc = closeConnection;
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
-    this.#handleAckFunc = handleAck;
-    this.#updateReceivedSeqFunc = updateReceivedSeq;
   }
 
   /**
@@ -288,8 +275,6 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#closeConnectionFunc = null;
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
-    this.#handleAckFunc = null;
-    this.#updateReceivedSeqFunc = null;
   }
 
   /**
@@ -332,36 +317,6 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms not initialized');
     }
     await this.#reconnectPeerFunc(peerId, hints);
-  }
-
-  /**
-   * Handle an acknowledgment from a peer for sent messages.
-   * Fire-and-forget to match browser runtime semantics.
-   *
-   * @param peerId - The peer ID.
-   * @param ackSeq - The sequence number being acknowledged.
-   */
-  handleAck(peerId: string, ackSeq: number): void {
-    if (!this.#handleAckFunc) {
-      throw Error('remote comms not initialized');
-    }
-    // Fire-and-forget - don't await
-    this.#handleAckFunc(peerId, ackSeq).catch((error) => {
-      this.#logger.error('Error handling ACK:', error);
-    });
-  }
-
-  /**
-   * Update the highest received sequence number for a peer.
-   *
-   * @param peerId - The peer ID.
-   * @param seq - The sequence number received.
-   */
-  updateReceivedSeq(peerId: string, seq: number): void {
-    if (!this.#updateReceivedSeqFunc) {
-      throw Error('remote comms not initialized');
-    }
-    this.#updateReceivedSeqFunc(peerId, seq);
   }
 }
 harden(NodejsPlatformServices);

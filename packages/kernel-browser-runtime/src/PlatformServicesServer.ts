@@ -12,7 +12,6 @@ import type {
   SendRemoteMessage,
   StopRemoteComms,
   RemoteCommsOptions,
-  RemoteMessageBase,
 } from '@metamask/ocap-kernel';
 import { initNetwork } from '@metamask/ocap-kernel';
 import {
@@ -86,11 +85,6 @@ export class PlatformServicesServer {
     | ((peerId: string, hints?: string[]) => Promise<void>)
     | null = null;
 
-  #handleAckFunc: ((peerId: string, ackSeq: number) => Promise<void>) | null =
-    null;
-
-  #updateReceivedSeqFunc: ((peerId: string, seq: number) => void) | null = null;
-
   /**
    * **ATTN:** Prefer {@link PlatformServicesServer.make} over constructing
    * this class directly.
@@ -137,8 +131,6 @@ export class PlatformServicesServer {
       closeConnection: this.#closeConnection.bind(this),
       registerLocationHints: this.#registerLocationHints.bind(this),
       reconnectPeer: this.#reconnectPeer.bind(this),
-      handleAck: this.#handleAck.bind(this),
-      updateReceivedSeq: this.#updateReceivedSeq.bind(this),
     });
 
     // Start draining messages immediately after construction
@@ -296,8 +288,6 @@ export class PlatformServicesServer {
       closeConnection,
       registerLocationHints,
       reconnectPeer,
-      handleAck,
-      updateReceivedSeq,
     } = await initNetwork(
       keySeed,
       options,
@@ -309,8 +299,6 @@ export class PlatformServicesServer {
     this.#closeConnectionFunc = closeConnection;
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
-    this.#handleAckFunc = handleAck;
-    this.#updateReceivedSeqFunc = updateReceivedSeq;
     return null;
   }
 
@@ -329,8 +317,6 @@ export class PlatformServicesServer {
     this.#closeConnectionFunc = null;
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
-    this.#handleAckFunc = null;
-    this.#updateReceivedSeqFunc = null;
     return null;
   }
 
@@ -382,47 +368,14 @@ export class PlatformServicesServer {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param messageBase - The message base to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
-  async #sendRemoteMessage(
-    to: string,
-    messageBase: RemoteMessageBase,
-  ): Promise<null> {
+  async #sendRemoteMessage(to: string, message: string): Promise<null> {
     if (!this.#sendRemoteMessageFunc) {
       throw Error('remote comms not initialized');
     }
-    await this.#sendRemoteMessageFunc(to, messageBase);
-    return null;
-  }
-
-  /**
-   * Handle an acknowledgment from a peer for sent messages.
-   *
-   * @param peerId - The peer ID.
-   * @param ackSeq - The sequence number being acknowledged.
-   * @returns A promise that resolves when the acknowledgment has been processed.
-   */
-  async #handleAck(peerId: string, ackSeq: number): Promise<null> {
-    if (!this.#handleAckFunc) {
-      throw Error('remote comms not initialized');
-    }
-    await this.#handleAckFunc(peerId, ackSeq);
-    return null;
-  }
-
-  /**
-   * Update the highest received sequence number for a peer.
-   *
-   * @param peerId - The peer ID.
-   * @param seq - The sequence number received.
-   * @returns null.
-   */
-  #updateReceivedSeq(peerId: string, seq: number): null {
-    if (!this.#updateReceivedSeqFunc) {
-      throw Error('remote comms not initialized');
-    }
-    this.#updateReceivedSeqFunc(peerId, seq);
+    await this.#sendRemoteMessageFunc(to, message);
     return null;
   }
 

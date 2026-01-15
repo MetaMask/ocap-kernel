@@ -219,9 +219,10 @@ describe('RemoteManager', () => {
     it('sends remote message', async () => {
       const messageBase = { method: 'deliver' as const, params: ['test'] };
       await remoteManager.sendRemoteMessage('peer123', messageBase);
+      // RemoteManager serializes the message to JSON before sending
       expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
         'peer123',
-        messageBase,
+        JSON.stringify(messageBase),
       );
     });
 

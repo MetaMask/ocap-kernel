@@ -6,8 +6,6 @@ import type {
   CloseConnectionSpec,
   CloseConnectionHandler,
 } from './closeConnection.ts';
-import { handleAckSpec, handleAckHandler } from './handleAck.ts';
-import type { HandleAckSpec, HandleAckHandler } from './handleAck.ts';
 import {
   initializeRemoteCommsSpec,
   initializeRemoteCommsHandler,
@@ -51,14 +49,6 @@ import { terminateSpec, terminateHandler } from './terminate.ts';
 import type { TerminateSpec, TerminateHandler } from './terminate.ts';
 import { terminateAllSpec, terminateAllHandler } from './terminateAll.ts';
 import type { TerminateAllSpec, TerminateAllHandler } from './terminateAll.ts';
-import {
-  updateReceivedSeqSpec,
-  updateReceivedSeqHandler,
-} from './updateReceivedSeq.ts';
-import type {
-  UpdateReceivedSeqSpec,
-  UpdateReceivedSeqHandler,
-} from './updateReceivedSeq.ts';
 
 export const platformServicesHandlers = {
   launch: launchHandler,
@@ -70,8 +60,6 @@ export const platformServicesHandlers = {
   closeConnection: closeConnectionHandler,
   registerLocationHints: registerLocationHintsHandler,
   reconnectPeer: reconnectPeerHandler,
-  handleAck: handleAckHandler,
-  updateReceivedSeq: updateReceivedSeqHandler,
 } as {
   launch: LaunchHandler;
   terminate: TerminateHandler;
@@ -82,8 +70,6 @@ export const platformServicesHandlers = {
   closeConnection: CloseConnectionHandler;
   registerLocationHints: RegisterLocationHintsHandler;
   reconnectPeer: ReconnectPeerHandler;
-  handleAck: HandleAckHandler;
-  updateReceivedSeq: UpdateReceivedSeqHandler;
 };
 
 export type PlatformServicesMethodSpecs =
@@ -95,9 +81,7 @@ export type PlatformServicesMethodSpecs =
   | typeof stopRemoteCommsSpec
   | typeof closeConnectionSpec
   | typeof registerLocationHintsSpec
-  | typeof reconnectPeerSpec
-  | typeof handleAckSpec
-  | typeof updateReceivedSeqSpec;
+  | typeof reconnectPeerSpec;
 
 export const platformServicesMethodSpecs = {
   launch: launchSpec,
@@ -109,8 +93,6 @@ export const platformServicesMethodSpecs = {
   closeConnection: closeConnectionSpec,
   registerLocationHints: registerLocationHintsSpec,
   reconnectPeer: reconnectPeerSpec,
-  handleAck: handleAckSpec,
-  updateReceivedSeq: updateReceivedSeqSpec,
 } as {
   launch: LaunchSpec;
   terminate: TerminateSpec;
@@ -121,8 +103,6 @@ export const platformServicesMethodSpecs = {
   closeConnection: CloseConnectionSpec;
   registerLocationHints: RegisterLocationHintsSpec;
   reconnectPeer: ReconnectPeerSpec;
-  handleAck: HandleAckSpec;
-  updateReceivedSeq: UpdateReceivedSeqSpec;
 };
 
 export type PlatformServicesMethod = PlatformServicesMethodSpecs['method'];

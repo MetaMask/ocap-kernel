@@ -75,9 +75,6 @@ vi.mock('node:worker_threads', () => ({
   }),
 }));
 
-const mockHandleAck = vi.fn(async () => undefined);
-const mockUpdateReceivedSeq = vi.fn(() => undefined);
-
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@metamask/ocap-kernel')>();
   return {
@@ -88,8 +85,6 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
       closeConnection: mockCloseConnection,
       registerLocationHints: mockRegisterLocationHints,
       reconnectPeer: mockReconnectPeer,
-      handleAck: mockHandleAck,
-      updateReceivedSeq: mockUpdateReceivedSeq,
     })),
   };
 });
@@ -341,21 +336,21 @@ describe('NodejsPlatformServices', () => {
 
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        const messageBase = { method: 'deliver', params: ['hello'] } as const;
-        await service.sendRemoteMessage('peer-456', messageBase);
+        const message = JSON.stringify({
+          method: 'deliver',
+          params: ['hello'],
+        });
+        await service.sendRemoteMessage('peer-456', message);
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-          'peer-456',
-          messageBase,
-        );
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', message);
       });
 
       it('throws error if remote comms not initialized', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
-        const messageBase = { method: 'deliver', params: ['test'] } as const;
+        const message = JSON.stringify({ method: 'deliver', params: ['test'] });
 
         await expect(
-          service.sendRemoteMessage('peer-999', messageBase),
+          service.sendRemoteMessage('peer-999', message),
         ).rejects.toThrowError('remote comms not initialized');
       });
     });
@@ -414,18 +409,24 @@ describe('NodejsPlatformServices', () => {
           vi.fn(async () => ''),
         );
 
-        const messageBase1 = { method: 'deliver', params: ['msg1'] } as const;
-        const messageBase2 = { method: 'deliver', params: ['msg2'] } as const;
+        const message1 = JSON.stringify({
+          method: 'deliver',
+          params: ['msg1'],
+        });
+        const message2 = JSON.stringify({
+          method: 'deliver',
+          params: ['msg2'],
+        });
 
         // Should work before stop
-        await service.sendRemoteMessage('peer-1', messageBase1);
+        await service.sendRemoteMessage('peer-1', message1);
         expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
 
         await service.stopRemoteComms();
 
         // Should throw after stop
         await expect(
-          service.sendRemoteMessage('peer-2', messageBase2),
+          service.sendRemoteMessage('peer-2', message2),
         ).rejects.toThrowError('remote comms not initialized');
       });
 

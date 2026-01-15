@@ -19,8 +19,6 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
-        'handleAck',
-        'updateReceivedSeq',
       ];
 
       for (const handlerName of expectedHandlers) {
@@ -258,9 +256,9 @@ describe('platform-services index', () => {
       }
     });
 
-    it('should have exactly 11 platform services', () => {
-      expect(Object.keys(platformServicesHandlers)).toHaveLength(11);
-      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(11);
+    it('should have exactly 9 platform services', () => {
+      expect(Object.keys(platformServicesHandlers)).toHaveLength(9);
+      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(9);
     });
 
     it('should maintain handler-spec consistency for all services', () => {
@@ -274,8 +272,6 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
-        'handleAck',
-        'updateReceivedSeq',
       ] as const;
 
       for (const service of services) {

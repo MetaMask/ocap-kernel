@@ -6,13 +6,6 @@ import {
   sendRemoteMessageSpec,
   sendRemoteMessageHandler,
 } from './sendRemoteMessage.ts';
-import type { RemoteMessageBase } from '../../remotes/RemoteHandle.ts';
-
-// Helper to create a valid RemoteMessageBase
-const createDelivery = (params: unknown): RemoteMessageBase => ({
-  method: 'deliver',
-  params: params as [string, string, unknown],
-});
 
 describe('sendRemoteMessage', () => {
   describe('sendRemoteMessageSpec', () => {
@@ -32,7 +25,7 @@ describe('sendRemoteMessage', () => {
       it('should accept valid params', () => {
         const validParams = {
           to: 'peer-123',
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1,"method":"deliver","params":[]}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -40,43 +33,42 @@ describe('sendRemoteMessage', () => {
 
       it('should reject params with missing to field', () => {
         const invalidParams = {
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
         };
 
         expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
       });
 
-      it('should accept params with missing messageBase field (any() is permissive)', () => {
-        // Note: any() accepts undefined, so a missing messageBase is valid
+      it('should reject params with missing message field', () => {
         const paramsWithMissing = {
           to: 'peer-123',
         };
 
-        expect(is(paramsWithMissing, sendRemoteMessageSpec.params)).toBe(true);
+        expect(is(paramsWithMissing, sendRemoteMessageSpec.params)).toBe(false);
       });
 
       it('should reject params with non-string to field', () => {
         const invalidParams = {
           to: 123,
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
         };
 
         expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
       });
 
-      it('should accept object messageBase field', () => {
-        const validParams = {
+      it('should reject params with non-string message field', () => {
+        const invalidParams = {
           to: 'peer-123',
-          messageBase: { method: 'deliver', params: [] },
+          message: { method: 'deliver', params: [] },
         };
 
-        expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
+        expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
       });
 
       it('should reject params with extra fields', () => {
         const invalidParams = {
           to: 'peer-123',
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
           extra: 'field',
         };
 
@@ -100,7 +92,7 @@ describe('sendRemoteMessage', () => {
       it('should accept empty string to field', () => {
         const validParams = {
           to: '',
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -109,7 +101,7 @@ describe('sendRemoteMessage', () => {
       it('should accept unicode strings in to field', () => {
         const validParams = {
           to: '🌟peer-123🌟',
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -119,7 +111,7 @@ describe('sendRemoteMessage', () => {
         const longString = 'a'.repeat(10000);
         const validParams = {
           to: longString,
-          messageBase: createDelivery(['message', 'target', {}]),
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -145,10 +137,11 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase = createDelivery(['message', 'target', {}]);
+      const message =
+        '{"seq":1,"method":"deliver","params":["message","target",{}]}';
       const params = {
         to: 'peer-123',
-        messageBase,
+        message,
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -157,10 +150,7 @@ describe('sendRemoteMessage', () => {
       );
 
       expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'peer-123',
-        messageBase,
-      );
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-123', message);
       expect(result).toBeNull();
     });
 
@@ -173,7 +163,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'test-peer',
-        messageBase: createDelivery(['message', 'target', {}]),
+        message: '{"seq":1}',
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -195,7 +185,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'failing-peer',
-        messageBase: createDelivery(['message', 'target', {}]),
+        message: '{"seq":1}',
       };
 
       await expect(
@@ -210,15 +200,15 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase = createDelivery(['message', 'target', {}]);
+      const message = '{"seq":1}';
       const params = {
         to: '',
-        messageBase,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', messageBase);
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', message);
     });
 
     it('should handle unicode characters in to parameter', async () => {
@@ -228,28 +218,30 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase = createDelivery(['message', 'target', {}]);
+      const message = '{"seq":1}';
       const params = {
         to: '🌟peer-123🌟',
-        messageBase,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         '🌟peer-123🌟',
-        messageBase,
+        message,
       );
     });
 
-    it('should handle complex messageBase content', async () => {
+    it('should handle complex message content', async () => {
       const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
 
       const hooks = {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase: RemoteMessageBase = {
+      const message = JSON.stringify({
+        seq: 5,
+        ack: 3,
         method: 'deliver',
         params: [
           'message',
@@ -259,19 +251,16 @@ describe('sendRemoteMessage', () => {
             result: 'kp456',
           },
         ],
-      };
+      });
 
       const params = {
         to: 'json-peer',
-        messageBase,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'json-peer',
-        messageBase,
-      );
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('json-peer', message);
     });
 
     it('should handle async hook that returns a Promise', async () => {
@@ -287,7 +276,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'async-peer',
-        messageBase: createDelivery(['message', 'target', {}]),
+        message: '{"seq":1}',
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -314,17 +303,17 @@ describe('sendRemoteMessage', () => {
           sendRemoteMessage: mockSendRemoteMessage,
         };
 
-        const messageBase = createDelivery(['message', 'target', {}]);
+        const message = '{"seq":1}';
         const params = {
           to,
-          messageBase,
+          message,
         };
 
         await expect(
           sendRemoteMessageHandler.implementation(hooks, params),
         ).rejects.toThrow(error);
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(to, messageBase);
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith(to, message);
       },
     );
 
@@ -335,20 +324,21 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase: RemoteMessageBase = {
+      const message = JSON.stringify({
+        seq: 1,
         method: 'redeemURL',
         params: ['ocap:abc123@peer', 'kp456'],
-      };
+      });
       const params = {
         to: 'redeem-peer',
-        messageBase,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         'redeem-peer',
-        messageBase,
+        message,
       );
     });
 
@@ -359,21 +349,20 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const messageBase: RemoteMessageBase = {
+      const message = JSON.stringify({
+        seq: 2,
+        ack: 1,
         method: 'redeemURLReply',
         params: [true, 'kp456', 'ko789'],
-      };
+      });
       const params = {
         to: 'reply-peer',
-        messageBase,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'reply-peer',
-        messageBase,
-      );
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('reply-peer', message);
     });
   });
 });

@@ -11,7 +11,6 @@ import type {
   PlatformServices,
   RemoteMessageHandler,
   RemoteCommsOptions,
-  RemoteMessageBase,
 } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -78,13 +77,12 @@ class DirectNetworkService {
         return Promise.resolve();
       },
 
-      async sendRemoteMessage(to: string, messageBase: RemoteMessageBase) {
+      async sendRemoteMessage(to: string, message: string) {
         const fromPeer = actualPeerId ?? tempPeerId;
         // Route message directly to the target peer's handler
         const targetHandler = self.peerRegistry.get(to);
         if (targetHandler) {
-          // Stringify the message object for transmission
-          const message = JSON.stringify(messageBase);
+          // Message is already serialized with seq/ack by RemoteHandle
           const response = await targetHandler(fromPeer, message);
           // If there's a response, send it back
           if (response) {
@@ -96,15 +94,6 @@ class DirectNetworkService {
         } else {
           throw new Error(`No handler registered for peer ${to}`);
         }
-      },
-
-      async handleAck(_peerId: string, _ackSeq: number) {
-        // Mock implementation - direct network doesn't need ACK handling
-        return Promise.resolve();
-      },
-
-      updateReceivedSeq(_peerId: string, _seq: number) {
-        // Mock implementation - direct network doesn't need sequence tracking
       },
 
       async initializeRemoteComms(
