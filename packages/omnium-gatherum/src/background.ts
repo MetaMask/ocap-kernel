@@ -12,19 +12,27 @@ import type {
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-defineGlobals();
+import {
+  CapletController,
+  makeChromeStorageAdapter,
+} from './controllers/index.ts';
+import type {
+  CapletControllerFacet,
+  CapletManifest,
+  LaunchResult,
+} from './controllers/index.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
+const globals = defineGlobals();
 let bootPromise: Promise<void> | null = null;
-let kernelP: Promise<KernelFacade>;
-let ping: () => Promise<void>;
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  ping?.().catch(logger.error);
+  omnium.ping?.().catch(logger.error);
 });
 
 // Install/update
@@ -104,12 +112,54 @@ async function main(): Promise<void> {
     },
   });
 
-  kernelP = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
+  globals.setKernelP(kernelP);
 
-  ping = async (): Promise<void> => {
+  globals.setPing(async (): Promise<void> => {
     const result = await E(kernelP).ping();
     logger.info(result);
-  };
+  });
+
+  // Create storage adapter
+  const storageAdapter = makeChromeStorageAdapter();
+
+  // Create CapletController with attenuated kernel access
+  // Controller creates its own storage internally
+  const capletController = await CapletController.make(
+    { logger: logger.subLogger({ tags: ['caplet'] }) },
+    {
+      adapter: storageAdapter,
+      // Wrap launchSubcluster to return subclusterId
+      launchSubcluster: async (
+        config: ClusterConfig,
+      ): Promise<LaunchResult> => {
+        // Get current subcluster count
+        const statusBefore = await E(kernelP).getStatus();
+        const beforeIds = new Set(
+          statusBefore.subclusters.map((subcluster) => subcluster.id),
+        );
+
+        // Launch the subcluster
+        await E(kernelP).launchSubcluster(config);
+
+        // Get status after and find the new subcluster
+        const statusAfter = await E(kernelP).getStatus();
+        const newSubcluster = statusAfter.subclusters.find(
+          (subcluster) => !beforeIds.has(subcluster.id),
+        );
+
+        if (!newSubcluster) {
+          throw new Error('Failed to determine subclusterId after launch');
+        }
+
+        return { subclusterId: newSubcluster.id };
+      },
+      terminateSubcluster: async (subclusterId: string): Promise<void> => {
+        await E(kernelP).terminateSubcluster(subclusterId);
+      },
+    },
+  );
+  globals.setCapletController(capletController);
 
   try {
     await offscreenStream.drain((message) => {
@@ -129,16 +179,35 @@ async function main(): Promise<void> {
   }
 }
 
+type GlobalSetters = {
+  setKernelP: (value: Promise<KernelFacade>) => void;
+  setPing: (value: () => Promise<void>) => void;
+  setCapletController: (value: CapletControllerFacet) => void;
+};
+
 /**
  * Define globals accessible via the background console.
+ *
+ * @returns A device for setting the global values.
  */
-function defineGlobals(): void {
+function defineGlobals(): GlobalSetters {
+  Object.defineProperty(globalThis, 'E', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: E,
+  });
+
   Object.defineProperty(globalThis, 'omnium', {
     configurable: false,
     enumerable: true,
     writable: false,
     value: {},
   });
+
+  let kernelP: Promise<KernelFacade>;
+  let ping: (() => Promise<void>) | undefined;
+  let capletController: CapletControllerFacet;
 
   Object.defineProperties(globalThis.omnium, {
     ping: {
@@ -147,13 +216,30 @@ function defineGlobals(): void {
     getKernel: {
       value: async () => kernelP,
     },
+    caplet: {
+      value: harden({
+        install: async (manifest: CapletManifest, bundle?: unknown) =>
+          E(capletController).install(manifest, bundle),
+        uninstall: async (capletId: string) =>
+          E(capletController).uninstall(capletId),
+        list: async () => E(capletController).list(),
+        get: async (capletId: string) => E(capletController).get(capletId),
+        getByService: async (serviceName: string) =>
+          E(capletController).getByService(serviceName),
+      }),
+    },
   });
   harden(globalThis.omnium);
 
-  Object.defineProperty(globalThis, 'E', {
-    configurable: false,
-    enumerable: true,
-    writable: false,
-    value: E,
-  });
+  return {
+    setKernelP: (value) => {
+      kernelP = value;
+    },
+    setPing: (value) => {
+      ping = value;
+    },
+    setCapletController: (value) => {
+      capletController = value;
+    },
+  };
 }
