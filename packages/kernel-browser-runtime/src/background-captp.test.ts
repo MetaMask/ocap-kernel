@@ -110,12 +110,11 @@ describe('makeBackgroundCapTP', () => {
   it('returns object with dispatch, getKernel, and abort', () => {
     const capTP = makeBackgroundCapTP({ send: sendMock });
 
-    expect(capTP).toHaveProperty('dispatch');
-    expect(capTP).toHaveProperty('getKernel');
-    expect(capTP).toHaveProperty('abort');
-    expect(typeof capTP.dispatch).toBe('function');
-    expect(typeof capTP.getKernel).toBe('function');
-    expect(typeof capTP.abort).toBe('function');
+    expect(capTP).toStrictEqual({
+      dispatch: expect.any(Function),
+      getKernel: expect.any(Function),
+      abort: expect.any(Function),
+    });
   });
 
   it('getKernel returns a promise', () => {
@@ -131,7 +130,6 @@ describe('makeBackgroundCapTP', () => {
     // Calling getKernel triggers a bootstrap request (ignore unhandled promise)
     capTP.getKernel().catch(() => undefined);
 
-    // CapTP should have sent a message to request bootstrap
     expect(sendMock).toHaveBeenCalled();
     const sentMessage = vi.mocked(sendMock).mock.calls[0]?.[0] as CapTPMessage;
     expect(sentMessage).toBeDefined();
@@ -140,9 +138,8 @@ describe('makeBackgroundCapTP', () => {
   it('dispatch returns boolean', () => {
     const capTP = makeBackgroundCapTP({ send: sendMock });
 
-    // Dispatch a dummy message (will return false since it's not a valid CapTP message)
     const result = capTP.dispatch({ type: 'unknown' });
 
-    expect(typeof result).toBe('boolean');
+    expect(result).toBe(false);
   });
 });

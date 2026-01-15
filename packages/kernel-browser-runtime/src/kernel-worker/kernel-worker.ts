@@ -36,7 +36,6 @@ async function main(): Promise<void> {
     (listener) => globalThis.removeEventListener('message', listener),
   );
 
-  // Initialize kernel dependencies
   const [messageStream, platformServicesClient, kernelDatabase] =
     await Promise.all([
       MessagePortDuplexStream.make<JsonRpcMessage, JsonRpcMessage>(
@@ -55,7 +54,6 @@ async function main(): Promise<void> {
     resetStorage,
   });
 
-  // Set up internal RPC server for UI panel connections (uses separate MessagePorts)
   const handlerP = kernelP.then((kernel) => {
     const server = new JsonRpcServer({
       middleware: [
@@ -73,7 +71,6 @@ async function main(): Promise<void> {
 
   const kernel = await kernelP;
 
-  // Set up CapTP for background ↔ kernel communication
   const kernelCapTP = makeKernelCapTP({
     kernel,
     send: (captpMessage: CapTPMessage) => {
@@ -84,7 +81,6 @@ async function main(): Promise<void> {
     },
   });
 
-  // Handle incoming CapTP messages from the background
   messageStream
     .drain((message) => {
       if (isCapTPNotification(message)) {
@@ -96,7 +92,6 @@ async function main(): Promise<void> {
       logger.error('Message stream error:', error);
     });
 
-  // Initialize remote communications with the relay server passed in the query string
   const relays = getRelaysFromCurrentLocation();
   await kernel.initRemoteComms({ relays });
 }

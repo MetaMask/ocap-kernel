@@ -40,7 +40,7 @@ export function getCapTPMessage(message: JsonRpcMessage): CapTPMessage {
   if (!isCapTPNotification(message)) {
     throw new Error('Not a CapTP notification');
   }
-  return (message as unknown as { params: [CapTPMessage] }).params[0];
+  return message.params[0];
 }
 
 /**
@@ -111,16 +111,15 @@ export function makeBackgroundCapTP(
 ): BackgroundCapTP {
   const { send } = options;
 
-  // Create the CapTP endpoint (no bootstrap - we only want to call the kernel)
   const { dispatch, getBootstrap, abort } = makeCapTP(
     'background',
     send,
-    undefined,
+    undefined, // No bootstrap - we only want to call the kernel
   );
 
   return harden({
     dispatch,
-    getKernel: getBootstrap as () => Promise<KernelFacade>,
+    getKernel: getBootstrap,
     abort,
   });
 }
