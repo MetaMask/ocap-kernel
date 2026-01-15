@@ -503,7 +503,7 @@ describe.sequential('Remote Communications E2E', () => {
 
   describe('Queue Management', () => {
     it(
-      'drops oldest messages when queue reaches MAX_QUEUE limit',
+      'rejects new messages when queue reaches MAX_QUEUE limit',
       async () => {
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
@@ -518,7 +518,7 @@ describe.sequential('Remote Communications E2E', () => {
         await kernel2.stop();
 
         // Send MAX_QUEUE + 1 messages (201 messages) while disconnected
-        // The first message should be dropped when the 201st is enqueued
+        // Messages beyond the queue limit (200) should be rejected
         const messagePromises = [];
         for (let i = 0; i <= 200; i++) {
           const promise = kernel1.queueMessage(aliceRef, 'queueMessage', [
@@ -540,17 +540,25 @@ describe.sequential('Remote Communications E2E', () => {
           )
         ).kernel;
 
-        // Check results - the first message (sequence 0) should have been dropped
-        // and we should receive messages starting from sequence 1
+        // Check results - messages beyond queue capacity should be rejected
         const results = await Promise.allSettled(messagePromises);
         expect(results).toHaveLength(201);
 
-        // Verify that at least some messages were delivered
-        // (exact count may vary due to timing, but we should get most of them)
+        // Verify that messages within queue capacity were delivered
         const successfulResults = results.filter(
           (result) => result.status === 'fulfilled',
         );
-        expect(successfulResults.length).toBeGreaterThan(100);
+        // At least 200 messages should succeed (the queue limit)
+        expect(successfulResults.length).toBeGreaterThanOrEqual(200);
+
+        // Messages beyond queue capacity should be rejected with queue full error
+        const rejectedResults = results.filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === 'rejected',
+        );
+        for (const result of rejectedResults) {
+          expect(String(result.reason)).toContain('queue at capacity');
+        }
 
         const newMessageResult = await kernel1.queueMessage(
           aliceRef,
