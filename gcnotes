@@ -1,0 +1,76 @@
+Imports and exports are caused indirectly by vats as side effects of message
+sends and promise resolutions. When we speak of the kernel reaching or
+recognizing object X in a vat, it is actually other vats associated with the
+kernel that are doing the reaching or recognizing, using the kernel as their
+intermediary. (In other words, if we say "the kernel can reach X", what we
+really mean is that one or more other vats can reach X via the kernel, and
+correspondingly for recognition.)
+
+If I am a vat:
+
+  I export: I have X, which I am making available to the kernel
+
+  I import: Kernel has X, which it is making available to me
+
+  Syscalls (me -> kernel)
+
+    dropImports -- I can no longer reach kernel's X
+
+      ==> kernel decrements X's reach refcount
+      ==> if refcount is (0, 0), kernel reaps X
+
+    retireImports -- I can no longer recognize (nor reach) kernel's X
+
+      ==> kernel decrements X's recognize refcount
+      ==> if refcount is (0, 0), kernel reaps X
+
+    retireExports -- I no longer have my X (which the kernel is known
+      not to (any longer) reference but can still recognize)
+
+      ==> kernel removes X from its recognition set (since it no
+          longer needs to be able to recognize X which it will never
+          see again)
+
+  Deliveries (kernel -> me)
+
+    dropExports -- Kernel can no longer reach my X
+
+    retireExports -- Kernel can no longer recognize (nor reach) my X
+
+    retireImports -- Kernel no longer has its X (which I am known not
+      to (any longer) reference but can still recognize)
+
+If I am a remote:
+
+  In managing object references I am vat-like, but because I am actually part of
+    my kernel, I don't use syscalls to update the kernel's state but instead
+    directly execute the appropriate logic that a vat would request via a
+    syscall
+
+  The arrangement of the parts is:
+  my Kernel::me <<=== network ===>> my counterpart (another remote)::other kernel
+
+  I export: Other kernel has X, which my counterpart has imported and
+    told me about; I make X available to my kernel
+
+  I import: My kernel has X, which it is making available to the other kernel
+    through me; I tell my counterpart about X which it exports
+
+  Unlike a vat, I maintain no internal state with respect to X, but simply
+    manage (in collaboration with my counterpart) the relationship between my
+    kernel and the other kernel with respect to X
+
+  Deliveries (kernel -> me) are simply relayed to my counterpart, who executes
+    using the corresponding syscall logic (though not with an actual syscall,
+    see first comment above).  Because my imports are my counterpart's exports
+    (and vice versa), each kind of delivery is paired with an opposite-facing
+    "syscall"
+
+      <delivery> :: <"syscall">
+      dropExports :: dropImports
+      retireExports :: retireImports
+      retireImports :: retireExports
+
+    Since I have no internal state of my own, executing these relayed deliveries
+      simply involves translating the parameter refs into kernel space and
+      invoking the corresponding syscall logic

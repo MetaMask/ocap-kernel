@@ -1,0 +1,211 @@
+kernel-browser-runtime/src/PlatformServicesClient.ts:
+
+// in class PlatformServicesClient
+  async zot(zotargs): Promise<void> {
+    await this.#rpcClient.call('zot', { zotargs });
+  }
+
+----------------------------------------
+
+kernel-browser-runtime/src/PlatformServicesServer.ts:
+
+// in class PlatformServicesServer (browser implementation)
+  #zotFunc: ((zotargs) => Promise<void>) | null = null;
+
+// in constructor, call to new RpcService(platformServicesHandlers, ...
+  zot: this.#zot.bind(this),
+
+// in #initializeRemoteComms, destructure result of await initNetwork
+  const { ..., zot, ... } =
+// in #initializeRemoteComms, use prevous
+  this.#zotFunc = zot;
+
+// in #stopRemoteComms
+  this.#zotFunc = null;
+
+// implement zot
+  async #zot(zotargs): Promise<null> {
+    if (!this.#zotFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#zotFunc(zotargs);
+    return null;
+  }
+
+----------------------------------------
+
+ocap-kernel/src/rpc/platform-services/index.ts:
+
+// import boilerplate
+import {
+  zotSpec,
+  zotHandler,
+} from './zot.ts';
+import type {
+  ZotSpec,
+  ZotHandler,
+} from './zot.ts';
+
+// export boilerplate
+export const platformServicesHandlers = {
+  ...
+  zot: zotHandler,
+  ...
+} as {
+  ...
+  zot: ZotHandler;
+  ...
+};
+
+export type PlatformServicesMethodSpects =
+  ...
+  | typeof closeConnectionSpec
+  ...;
+ 
+export cost platformServicesMethodSpects = {
+  ...
+  zot: zotSpec,
+  ...
+} as {
+  ...
+  zot: ZotSpec;
+  ...
+}
+
+----------------------------------------
+
+ocap-kernel/src/rpc/platform-services/zot.ts:
+
+// rpc boilerplate
+import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
+import { object, literal, string } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+
+const zotParamsStruct = object({
+  zotargs
+});
+
+type ZotParams = Infer<typeof zotParamsStruct>;
+
+export type ZotSpec = MethodSpec<
+  'zot',
+  ZotParams,
+  null
+>;
+
+export const zotSpec: ZotSpec = {
+  method: 'zot',
+  params: zotParamsStruct,
+  result: literal(null),
+};
+
+export type Zot = (peerId: string) => Promise<null>;
+
+type ZotHooks = {
+  zot: Zot;
+};
+
+export type ZotHandler = Handler<
+  'zot',
+  ZotParams,
+  Promise<null>,
+  ZotHooks
+>;
+
+export const zotHandler: ZotHandler = {
+  ...zotSpec,
+  hooks: { zot: true },
+  implementation: async ({ zot }, params) => {
+    return await zot(zotargs);
+  },
+};
+
+----------------------------------------
+
+ocap-kernel/src/Kernel.ts:
+
+// kernel method if exposed on kernel API
+async zot(zotargs): Promise<void> {
+  await this.#remoteManager.zot(zotargs);
+}
+
+----------------------------------------
+
+ocap-kernel/src/remotes/remote-comms.ts:
+
+// in return value
+  return {
+    ...
+    zot: platformServices.zot.bind(platformServices),
+    ...
+  };
+
+----------------------------------------
+
+ocap-kernel/src/remotes/types.ts:
+
+// in RemoteComms type
+export type RemoteComms = {
+  ...
+  zot: (zotargs) => Promise<void>;
+  ...
+};
+
+----------------------------------------
+ocap-kernel/src/remotes/network.ts:
+
+// in initNetwork return type
+  zot: (zotargs) => Promise<void>;
+
+// network.ts implementation
+  async function zot(zotargs): Promise<void> {
+    ...whatever...
+  }
+  
+// in initNetwork return value:
+  return {
+    ...
+    zot,
+    ...
+  };
+
+----------------------------------------
+
+ocap-kernel/src/remotes/RemoteManager.ts:
+
+// RemoteManager method implementation
+  async zot(zotargs): Promise<void> {
+    await this.getRemoteComms().zot(zotargs);
+  }
+
+----------------------------------------
+
+ocap-kernel/src/types.ts:
+
+// in PlatformServices type
+  /** JSDoc comment */
+  zot: (zotargs) => Promise<void>;
+
+----------------------------------------
+
+nodejs/src/kernel/PlatformServices.ts:
+
+// in class NodejsPlatformServices
+  #zot: ((zotargs) => Promise<void>) | null = null;
+
+// in #initializeRemoteComms, destructure result of await initNetwork
+  const { ..., zot, ... } =
+// in #initializeRemoteComms, use prevous
+   this.#zotFunc = zot;
+
+// in #stopRemoteComms
+  this.#zotFunc = null;
+
+// implement zot
+  async #zot(zotargs): Promise<null> {
+    if (!this.#zotFunc) {
+      throw Error('remote comms not initialized');
+    }
+    await this.#zotFunc(zotargs);
+    return null;
+  }

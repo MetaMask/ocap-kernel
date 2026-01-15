@@ -418,6 +418,18 @@ export class RemoteHandle implements EndpointHandle {
     this.#remoteComms
       .sendRemoteMessage(this.#peerId, messageString)
       .catch((error) => {
+        // Handle intentional close errors specially - reject pending redemptions
+        if (
+          error instanceof Error &&
+          error.message.includes('intentional close')
+        ) {
+          this.#clearAckTimeout();
+          this.#rejectAllPending('intentional close');
+          this.rejectPendingRedemptions(
+            'Message delivery failed after intentional close',
+          );
+          return;
+        }
         this.#logger.error('Error sending remote message:', error);
       });
   }

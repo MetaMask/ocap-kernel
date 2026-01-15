@@ -1,0 +1,29 @@
+git diff b2202997e7dced44682b460e56ea6a6da159d4bd
+
+.       eslint.config.mjs
+.       packages/kernel-browser-runtime/src/PlatformServicesClient.ts
+.       packages/kernel-browser-runtime/src/PlatformServicesServer.test.ts
+.       packages/kernel-browser-runtime/src/PlatformServicesServer.ts
+.       packages/kernel-rpc-methods/src/types.ts
+.       packages/kernel-test/src/remote-comms.test.ts
+.       packages/logger/src/options.ts
+.       packages/nodejs/src/kernel/PlatformServices.test.ts
+.       packages/nodejs/src/kernel/PlatformServices.ts
+.       packages/nodejs/test/e2e/remote-comms.test.ts
+.       packages/nodejs/vitest.config.e2e.ts
+.       packages/ocap-kernel/src/liveslots/types.ts
+.       packages/ocap-kernel/src/remotes/ConnectionFactory.ts
+.       packages/ocap-kernel/src/remotes/PeerConnectionState.ts
+.       packages/ocap-kernel/src/remotes/RemoteHandle.test.ts
+.       packages/ocap-kernel/src/remotes/RemoteHandle.ts
+.       packages/ocap-kernel/src/remotes/RemoteManager.test.ts
+.       packages/ocap-kernel/src/remotes/RemoteManager.ts
+.       packages/ocap-kernel/src/remotes/network.test.ts
+.       packages/ocap-kernel/src/remotes/network.ts
+.       packages/ocap-kernel/src/remotes/remote-comms.ts
+.       packages/ocap-kernel/src/remotes/types.ts
+.       packages/ocap-kernel/src/rpc/platform-services/sendRemoteMessage.test.ts
+.       packages/ocap-kernel/src/rpc/platform-services/sendRemoteMessage.ts
+.       packages/ocap-kernel/src/types.ts
+.       packages/ocap-kernel/test/remotes-mocks.ts
+.       vitest.config.ts
