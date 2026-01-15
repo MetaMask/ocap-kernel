@@ -5,31 +5,10 @@ import { makeKernelCapTP } from './kernel-captp.ts';
 import type { CapTPMessage } from './kernel-captp.ts';
 
 describe('makeKernelCapTP', () => {
-  let mockKernel: Kernel;
+  const mockKernel: Kernel = {} as unknown as Kernel;
   let sendMock: (message: CapTPMessage) => void;
 
   beforeEach(() => {
-    mockKernel = {
-      launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"status":"ok"}',
-        slots: [],
-      }),
-      terminateSubcluster: vi.fn().mockResolvedValue(undefined),
-      queueMessage: vi.fn().mockResolvedValue({
-        body: '#{"result":"success"}',
-        slots: [],
-      }),
-      getStatus: vi.fn().mockResolvedValue({
-        vats: [],
-        subclusters: [],
-        remoteComms: false,
-      }),
-      pingVat: vi.fn().mockResolvedValue({
-        pingVatResult: 'pong',
-        roundTripMs: 10,
-      }),
-    } as unknown as Kernel;
-
     sendMock = vi.fn();
   });
 

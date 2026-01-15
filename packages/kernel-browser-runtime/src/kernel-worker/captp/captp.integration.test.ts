@@ -1,5 +1,4 @@
 // Real endoify needed for CapTP and E() to work properly
-
 import '@ocap/nodejs/endoify-ts';
 
 import { E } from '@endo/eventual-send';
