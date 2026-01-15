@@ -219,9 +219,6 @@ function defineGlobals(): GlobalSetters {
     getKernel: {
       value: async () => kernelP,
     },
-    loadCaplet: {
-      value: loadCaplet,
-    },
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
@@ -229,6 +226,7 @@ function defineGlobals(): GlobalSetters {
         uninstall: async (capletId: string) =>
           E(capletController).uninstall(capletId),
         list: async () => E(capletController).list(),
+        load: loadCaplet,
         get: async (capletId: string) => E(capletController).get(capletId),
         getCapletRoot: async (capletId: string) =>
           E(capletController).getCapletRoot(capletId),
