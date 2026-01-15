@@ -101,17 +101,11 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelPromise = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
 
   const ping = async (): Promise<void> => {
-    const kernel = await kernelPromise;
-    const result = await E(kernel).ping();
+    const result = await E(kernelP).ping();
     logger.info(result);
-  };
-
-  // Helper to get the kernel remote presence (for use with E())
-  const getKernel = async (): Promise<KernelFacade> => {
-    return kernelPromise;
   };
 
   Object.defineProperties(globalThis.kernel, {
@@ -119,7 +113,7 @@ async function main(): Promise<void> {
       value: ping,
     },
     getKernel: {
-      value: getKernel,
+      value: async () => kernelP,
     },
   });
   harden(globalThis.kernel);
@@ -134,12 +128,14 @@ async function main(): Promise<void> {
     if (isCapTPNotification(message)) {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);
+    } else {
+      logger.error('Unexpected message from offscreen:', message);
     }
   });
   drainPromise.catch(logger.error);
 
   await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelPromise);
+  await startDefaultSubcluster(kernelP);
 
   try {
     await drainPromise;
@@ -158,11 +154,10 @@ async function main(): Promise<void> {
 async function startDefaultSubcluster(
   kernelPromise: Promise<KernelFacade>,
 ): Promise<void> {
-  const kernel = await kernelPromise;
-  const status = await E(kernel).getStatus();
+  const status = await E(kernelPromise).getStatus();
 
   if (status.subclusters.length === 0) {
-    const result = await E(kernel).launchSubcluster(defaultSubcluster);
+    const result = await E(kernelPromise).launchSubcluster(defaultSubcluster);
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
   } else {
     logger.info('Subclusters already exist. Not launching default subcluster.');

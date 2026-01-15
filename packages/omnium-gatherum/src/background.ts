@@ -5,10 +5,7 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  KernelFacade,
-  CapTPMessage,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -100,17 +97,11 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelPromise = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
 
   const ping = async (): Promise<void> => {
-    const kernel = await kernelPromise;
-    const result = await E(kernel).ping();
+    const result = await E(kernelP).ping();
     logger.info(result);
-  };
-
-  // Helper to get the kernel remote presence (for use with E())
-  const getKernel = async (): Promise<KernelFacade> => {
-    return kernelPromise;
   };
 
   Object.defineProperties(globalThis.omnium, {
@@ -118,7 +109,7 @@ async function main(): Promise<void> {
       value: ping,
     },
     getKernel: {
-      value: getKernel,
+      value: async () => kernelP,
     },
   });
   harden(globalThis.omnium);
@@ -134,6 +125,8 @@ async function main(): Promise<void> {
       if (isCapTPNotification(message)) {
         const captpMessage = getCapTPMessage(message);
         backgroundCapTP.dispatch(captpMessage);
+      } else {
+        logger.error('Unexpected message from offscreen:', message);
       }
     });
   } catch (error) {
