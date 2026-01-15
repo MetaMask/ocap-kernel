@@ -20,6 +20,13 @@ defineGlobals();
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
+let kernelP: Promise<KernelFacade>;
+let ping: () => Promise<void>;
+
+// With this we can click the extension action button to wake up the service worker.
+chrome.action.onClicked.addListener(() => {
+  ping?.().catch(logger.error);
+});
 
 // Install/update
 chrome.runtime.onInstalled.addListener(() => {
@@ -101,27 +108,12 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  const kernelP = backgroundCapTP.getKernel();
+  kernelP = backgroundCapTP.getKernel();
 
-  const ping = async (): Promise<void> => {
+  ping = async () => {
     const result = await E(kernelP).ping();
     logger.info(result);
   };
-
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      value: ping,
-    },
-    getKernel: {
-      value: async () => kernelP,
-    },
-  });
-  harden(globalThis.kernel);
-
-  // With this we can click the extension action button to wake up the service worker.
-  chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
-  });
 
   // Handle incoming CapTP messages from the kernel
   const drainPromise = offscreenStream.drain((message) => {
@@ -140,9 +132,11 @@ async function main(): Promise<void> {
   try {
     await drainPromise;
   } catch (error) {
-    throw new Error('Offscreen connection closed unexpectedly', {
+    const finalError = new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
+    backgroundCapTP.abort(finalError);
+    throw finalError;
   }
 }
 
@@ -174,6 +168,16 @@ function defineGlobals(): void {
     writable: false,
     value: {},
   });
+
+  Object.defineProperties(globalThis.kernel, {
+    ping: {
+      get: () => ping,
+    },
+    getKernel: {
+      value: async () => kernelP,
+    },
+  });
+  harden(globalThis.kernel);
 
   Object.defineProperty(globalThis, 'E', {
     value: E,

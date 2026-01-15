@@ -5,7 +5,10 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
+import type {
+  CapTPMessage,
+  KernelFacade,
+} from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -16,6 +19,13 @@ defineGlobals();
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
+let kernelP: Promise<KernelFacade>;
+let ping: () => Promise<void>;
+
+// With this we can click the extension action button to wake up the service worker.
+chrome.action.onClicked.addListener(() => {
+  ping?.().catch(logger.error);
+});
 
 // Install/update
 chrome.runtime.onInstalled.addListener(() => {
@@ -80,13 +90,11 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
-  // Create stream for CapTP messages
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
   >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  // Set up CapTP for E() based communication with the kernel
   const backgroundCapTP = makeBackgroundCapTP({
     send: (captpMessage: CapTPMessage) => {
       const notification = makeCapTPNotification(captpMessage);
@@ -96,31 +104,14 @@ async function main(): Promise<void> {
     },
   });
 
-  // Get the kernel remote presence
-  const kernelP = backgroundCapTP.getKernel();
+  kernelP = backgroundCapTP.getKernel();
 
-  const ping = async (): Promise<void> => {
+  ping = async (): Promise<void> => {
     const result = await E(kernelP).ping();
     logger.info(result);
   };
 
-  Object.defineProperties(globalThis.omnium, {
-    ping: {
-      value: ping,
-    },
-    getKernel: {
-      value: async () => kernelP,
-    },
-  });
-  harden(globalThis.omnium);
-
-  // With this we can click the extension action button to wake up the service worker.
-  chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
-  });
-
   try {
-    // Handle incoming CapTP messages from the kernel
     await offscreenStream.drain((message) => {
       if (isCapTPNotification(message)) {
         const captpMessage = getCapTPMessage(message);
@@ -130,9 +121,11 @@ async function main(): Promise<void> {
       }
     });
   } catch (error) {
-    throw new Error('Offscreen connection closed unexpectedly', {
+    const finalError = new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
+    backgroundCapTP.abort(finalError);
+    throw finalError;
   }
 }
 
@@ -146,6 +139,16 @@ function defineGlobals(): void {
     writable: false,
     value: {},
   });
+
+  Object.defineProperties(globalThis.omnium, {
+    ping: {
+      get: () => ping,
+    },
+    getKernel: {
+      value: async () => kernelP,
+    },
+  });
+  harden(globalThis.omnium);
 
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
