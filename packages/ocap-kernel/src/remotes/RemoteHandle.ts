@@ -825,4 +825,14 @@ export class RemoteHandle implements EndpointHandle {
     }
     this.#pendingRedemptions.clear();
   }
+
+  /**
+   * Clean up resources held by this RemoteHandle.
+   * Clears all timers to prevent resource leaks and allow garbage collection.
+   * Called by RemoteManager during cleanup.
+   */
+  cleanup(): void {
+    this.#clearAckTimeout();
+    this.#clearDelayedAck();
+  }
 }

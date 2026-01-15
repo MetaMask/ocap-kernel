@@ -156,6 +156,10 @@ export class RemoteManager {
    * This should be called when remote comms are stopped externally.
    */
   cleanup(): void {
+    // Clean up all RemoteHandle instances to clear their timers
+    for (const remote of this.#remotes.values()) {
+      remote.cleanup();
+    }
     this.#remoteComms = undefined;
     this.#remotes.clear();
     this.#remotesByPeer.clear();
