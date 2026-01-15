@@ -10,7 +10,7 @@ import type {
   CapTPMessage,
 } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
-import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
@@ -129,7 +129,7 @@ async function main(): Promise<void> {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);
     } else {
-      logger.error('Unexpected message from offscreen:', message);
+      throw new Error(`Unexpected message: ${stringify(message)}`);
     }
   });
   drainPromise.catch(logger.error);

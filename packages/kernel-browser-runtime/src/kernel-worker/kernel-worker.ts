@@ -1,6 +1,6 @@
 import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { isJsonRpcMessage } from '@metamask/kernel-utils';
+import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
@@ -86,6 +86,8 @@ async function main(): Promise<void> {
       if (isCapTPNotification(message)) {
         const captpMessage = message.params[0];
         kernelCapTP.dispatch(captpMessage);
+      } else {
+        throw new Error(`Unexpected message: ${stringify(message)}`);
       }
     })
     .catch((error) => {
