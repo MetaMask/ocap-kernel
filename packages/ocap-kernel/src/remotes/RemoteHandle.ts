@@ -403,6 +403,13 @@ export class RemoteHandle implements EndpointHandle {
       this.#needsHinting = false;
     }
 
+    // Check queue capacity before consuming any resources (seq number, ACK timer)
+    if (this.#pendingMessages.length >= MAX_PENDING_MESSAGES) {
+      throw Error(
+        `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
+      );
+    }
+
     // Build full message with seq and optional piggyback ack
     const seq = this.#getNextSeq();
     const ack = this.#getAckValue();
@@ -414,13 +421,6 @@ export class RemoteHandle implements EndpointHandle {
 
     // Clear delayed ACK timer - we're piggybacking the ACK on this message
     this.#clearDelayedAck();
-
-    // Check queue capacity before adding
-    if (this.#pendingMessages.length >= MAX_PENDING_MESSAGES) {
-      throw Error(
-        `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
-      );
-    }
 
     // Track message for ACK
     const pending: PendingMessage = {
