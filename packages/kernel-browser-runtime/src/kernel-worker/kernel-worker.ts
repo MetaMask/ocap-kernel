@@ -91,6 +91,7 @@ async function main(): Promise<void> {
       }
     })
     .catch((error) => {
+      kernelCapTP.abort(error);
       logger.error('Message stream error:', error);
     });
 
