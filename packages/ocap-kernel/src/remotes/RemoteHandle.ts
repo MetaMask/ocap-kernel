@@ -454,6 +454,8 @@ export class RemoteHandle implements EndpointHandle {
           this.rejectPendingRedemptions(
             'Message delivery failed after intentional close',
           );
+          // Notify RemoteManager to reject kernel promises for this remote
+          this.#onGiveUp?.(this.#peerId);
           return;
         }
         this.#logger.error('Error sending remote message:', error);
