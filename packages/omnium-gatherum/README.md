@@ -18,7 +18,7 @@ After loading the extension, open the background console (chrome://extensions â†
 
 ```javascript
 // 1. Load the echo caplet manifest and bundle
-const { manifest, bundle } = await omnium.loadCaplet('echo');
+const { manifest, bundle } = await omnium.caplet.load('echo');
 
 // 2. Install the caplet
 const installResult = await omnium.caplet.install(manifest, bundle);

@@ -6,10 +6,7 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  KernelFacade,
-  CapTPMessage,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';

@@ -6,7 +6,10 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage, PresenceManager } from '@metamask/kernel-browser-runtime';
+import type {
+  CapTPMessage,
+  PresenceManager,
+} from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
