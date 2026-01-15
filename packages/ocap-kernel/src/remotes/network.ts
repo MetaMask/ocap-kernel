@@ -262,6 +262,93 @@ export async function initNetwork(
   }
 
   /**
+   * Register a channel for a peer, closing any previous channel.
+   * This ensures proper cleanup of old channels to prevent leaks.
+   *
+   * @param peerId - The peer ID.
+   * @param channel - The channel to register.
+   * @param errorContext - Context string for error logging.
+   */
+  function registerChannel(
+    peerId: string,
+    channel: Channel,
+    errorContext = 'reading channel to',
+  ): void {
+    const state = getPeerState(peerId);
+    const previousChannel = state.channel;
+    state.channel = channel;
+    lastConnectionTime.set(peerId, Date.now());
+    readChannel(channel).catch((problem) => {
+      outputError(peerId, errorContext, problem);
+    });
+
+    // If we replaced an existing channel, close it to avoid leaks and stale readers.
+    if (previousChannel && previousChannel !== channel) {
+      const closePromise = connectionFactory.closeChannel(
+        previousChannel,
+        peerId,
+      );
+      if (typeof closePromise?.catch === 'function') {
+        closePromise.catch((problem) => {
+          outputError(peerId, 'closing replaced channel', problem);
+        });
+      }
+    }
+  }
+
+  /**
+   * Check if an existing channel exists for a peer, and if so, reuse it.
+   * Otherwise, return the dialed channel for the caller to register.
+   * This handles race conditions when simultaneous inbound + outbound connections occur.
+   *
+   * @param peerId - The peer ID for the channel.
+   * @param dialedChannel - The newly dialed channel.
+   * @returns The channel to use (either existing or the dialed one), or null if
+   * the existing channel died during the await and the dialed channel was already closed.
+   */
+  async function reuseOrReturnChannel(
+    peerId: string,
+    dialedChannel: Channel,
+  ): Promise<Channel | null> {
+    const state = getPeerState(peerId);
+    const existingChannel = state.channel;
+    if (existingChannel) {
+      // Close the dialed channel if it's different from the existing one
+      if (dialedChannel !== existingChannel) {
+        await connectionFactory.closeChannel(dialedChannel, peerId);
+        // Re-check if existing channel is still valid after await
+        // It may have been removed if readChannel exited during the close,
+        // or a new channel may have been registered concurrently
+        const currentChannel = state.channel;
+        if (currentChannel === existingChannel) {
+          // Existing channel is still valid, use it
+          return existingChannel;
+        }
+        if (currentChannel) {
+          // A different channel was registered concurrently, use that instead
+          return currentChannel;
+        }
+        // Existing channel died during await, but we already closed dialed channel
+        // Return null to signal caller needs to handle this (re-dial or fail)
+        return null;
+      }
+      // Same channel, check if it's still valid
+      if (state.channel === existingChannel) {
+        // Still the same channel, use it
+        return existingChannel;
+      }
+      // Channel changed during our check, use the current one
+      if (state.channel) {
+        return state.channel;
+      }
+      // Channel became null, return null to signal re-dial needed
+      return null;
+    }
+    // No existing channel, return the dialed one for registration
+    return dialedChannel;
+  }
+
+  /**
    * Receive a message from a peer.
    *
    * @param from - The peer ID that the message is from.
@@ -419,20 +506,30 @@ export async function initNetwork(
 
       try {
         const { locationHints: hints } = state;
-        const channel = await connectionFactory.dialIdempotent(
+        let channel = await connectionFactory.dialIdempotent(
           peerId,
           hints,
           false, // No retry here, we're already in a retry loop
         );
-        state.channel = channel;
-        lastConnectionTime.set(peerId, Date.now());
+
+        // Handle race condition - check if an existing channel appeared
+        channel = await reuseOrReturnChannel(peerId, channel);
+        if (!channel) {
+          // Channel was closed and existing also died - continue retry loop
+          continue;
+        }
+
+        // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
+        if (state.channel !== channel) {
+          checkConnectionLimit();
+        }
+
+        // Only register if this is a new channel (not reusing existing)
+        if (state.channel !== channel) {
+          registerChannel(peerId, channel, 'reading channel to');
+        }
 
         logger.log(`${peerId}:: reconnection successful`);
-
-        // Start reading from the new channel
-        readChannel(channel).catch((problem) => {
-          outputError(peerId, `reading channel to`, problem);
-        });
 
         // Connection established - RemoteHandle will retransmit unACKed messages
         reconnectionManager.resetBackoff(peerId);
@@ -498,11 +595,23 @@ export async function initNetwork(
           hints,
           true,
         );
-        state.channel = channel;
-        lastConnectionTime.set(targetPeerId, Date.now());
-        readChannel(channel).catch((problem) => {
-          outputError(targetPeerId, `reading channel to`, problem);
-        });
+
+        // Handle race condition - check if an existing channel appeared
+        const resolvedChannel = await reuseOrReturnChannel(
+          targetPeerId,
+          channel,
+        );
+        if (!resolvedChannel) {
+          // Channel was closed and existing also died - throw to trigger retry
+          throw Error('Connection race condition - retry needed');
+        }
+        channel = resolvedChannel;
+
+        // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
+        if (state.channel !== channel) {
+          checkConnectionLimit();
+          registerChannel(targetPeerId, channel, 'reading channel to');
+        }
       } catch (problem) {
         // Re-throw ResourceLimitError to propagate to caller
         if (problem instanceof ResourceLimitError) {
@@ -557,11 +666,7 @@ export async function initNetwork(
       throw error;
     }
 
-    getPeerState(channel.peerId).channel = channel;
-    lastConnectionTime.set(channel.peerId, Date.now());
-    readChannel(channel).catch((error) => {
-      outputError(channel.peerId, 'error in inbound channel read', error);
-    });
+    registerChannel(channel.peerId, channel, 'error in inbound channel read');
   });
 
   // Install wake detector to reset backoff on sleep/wake

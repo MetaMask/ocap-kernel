@@ -277,11 +277,14 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     if (head.retryCount >= MAX_RETRIES) {
-      // Give up - reject all pending messages and notify RemoteManager
+      // Give up - reject all pending messages, URL redemptions, and notify RemoteManager
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#pendingMessages.length} pending messages`,
       );
       this.#rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
+      this.rejectPendingRedemptions(
+        `Remote connection lost after ${MAX_RETRIES} failed retries`,
+      );
       this.#onGiveUp?.(this.#peerId);
       return;
     }
@@ -654,28 +657,25 @@ export class RemoteHandle implements EndpointHandle {
 
   /**
    * Handle an ocap URL redemption request from the remote end.
+   * Sends the reply via #sendRemoteCommand to ensure it gets seq/ack tracking.
    *
    * @param url - The ocap URL attempting to be redeemed.
    * @param replyKey - A sender-provided tag to send with the reply.
-   *
-   * @returns a string containing the 'redeemURLReply' message to send back to the requester.
    */
-  async #handleRedeemURLRequest(
-    url: string,
-    replyKey: string,
-  ): Promise<string> {
+  async #handleRedeemURLRequest(url: string, replyKey: string): Promise<void> {
     assert.typeof(replyKey, 'string');
     let kref: string;
     try {
       kref = await this.#remoteComms.redeemLocalOcapURL(url);
     } catch (error) {
-      return JSON.stringify({
+      await this.#sendRemoteCommand({
         method: 'redeemURLReply',
         params: [false, replyKey, `${(error as Error).message}`],
       });
+      return;
     }
     const eref = this.#kernelStore.translateRefKtoE(this.remoteId, kref, true);
-    return JSON.stringify({
+    await this.#sendRemoteCommand({
       method: 'redeemURLReply',
       params: [true, replyKey, eref],
     });
@@ -739,13 +739,13 @@ export class RemoteHandle implements EndpointHandle {
       this.#handleAck(ack);
     }
 
-    let result = '';
     switch (method) {
       case 'deliver':
         this.#handleRemoteDeliver(params);
         break;
       case 'redeemURL':
-        result = await this.#handleRedeemURLRequest(...params);
+        // Reply is sent via #sendRemoteCommand for proper seq/ack tracking
+        await this.#handleRedeemURLRequest(...params);
         break;
       case 'redeemURLReply':
         await this.#handleRedeemURLReply(...params);
@@ -754,7 +754,7 @@ export class RemoteHandle implements EndpointHandle {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         throw Error(`unknown remote message type ${method}`);
     }
-    return result;
+    return '';
   }
 
   /**

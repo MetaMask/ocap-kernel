@@ -470,12 +470,17 @@ describe('RemoteHandle', () => {
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    expect(reply).toBe(
-      JSON.stringify({
-        method: 'redeemURLReply',
-        params: [true, mockReplyKey, replyRRef],
-      }),
+    // Reply is now sent via sendRemoteCommand, not returned
+    expect(reply).toBe('');
+    // Verify reply was sent with seq/ack via sendRemoteMessage
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
+    const sentMessage = JSON.parse(
+      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
     );
+    expect(sentMessage.method).toBe('redeemURLReply');
+    expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
+    expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
+    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
@@ -504,12 +509,21 @@ describe('RemoteHandle', () => {
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    expect(reply).toBe(
-      JSON.stringify({
-        method: 'redeemURLReply',
-        params: [false, mockReplyKey, errorMessage],
-      }),
+    // Reply is now sent via sendRemoteCommand, not returned
+    expect(reply).toBe('');
+    // Verify error reply was sent with seq/ack via sendRemoteMessage
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
+    const sentMessage = JSON.parse(
+      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
     );
+    expect(sentMessage.method).toBe('redeemURLReply');
+    expect(sentMessage.params).toStrictEqual([
+      false,
+      mockReplyKey,
+      errorMessage,
+    ]);
+    expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
+    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
   });
 
   it('handleRemoteMessage rejects bogus message type', async () => {
