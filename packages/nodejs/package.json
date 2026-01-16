@@ -61,7 +61,6 @@
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
-    "@metamask/utils": "^11.9.0",
     "@ocap/kernel-platforms": "workspace:^",
     "ses": "^1.14.0"
   },

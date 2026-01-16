@@ -1,15 +1,31 @@
-import { RpcClient } from '@metamask/kernel-rpc-methods';
-import { delay } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { E } from '@endo/eventual-send';
+import {
+  makeBackgroundCapTP,
+  makeCapTPNotification,
+  isCapTPNotification,
+  getCapTPMessage,
+} from '@metamask/kernel-browser-runtime';
+import type {
+  CapTPMessage,
+  KernelFacade,
+} from '@metamask/kernel-browser-runtime';
+import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
-import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
+
+defineGlobals();
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
+let kernelP: Promise<KernelFacade>;
+let ping: () => Promise<void>;
+
+// With this we can click the extension action button to wake up the service worker.
+chrome.action.onClicked.addListener(() => {
+  ping?.().catch(logger.error);
+});
 
 // Install/update
 chrome.runtime.onInstalled.addListener(() => {
@@ -75,36 +91,69 @@ async function main(): Promise<void> {
   await delay(50);
 
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  const rpcClient = new RpcClient(
-    kernelMethodSpecs,
-    async (request) => {
-      await offscreenStream.write(request);
+  const backgroundCapTP = makeBackgroundCapTP({
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      offscreenStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
     },
-    'background:',
-  );
+  });
 
-  const ping = async (): Promise<void> => {
-    const result = await rpcClient.call('ping', []);
+  kernelP = backgroundCapTP.getKernel();
+
+  ping = async (): Promise<void> => {
+    const result = await E(kernelP).ping();
     logger.info(result);
   };
 
-  // With this we can click the extension action button to wake up the service worker.
-  chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
-  });
-
   try {
-    // Pipe responses back to the RpcClient
-    await offscreenStream.drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    );
+    await offscreenStream.drain((message) => {
+      if (isCapTPNotification(message)) {
+        const captpMessage = getCapTPMessage(message);
+        backgroundCapTP.dispatch(captpMessage);
+      } else {
+        throw new Error(`Unexpected message: ${stringify(message)}`);
+      }
+    });
   } catch (error) {
-    throw new Error('Offscreen connection closed unexpectedly', {
+    const finalError = new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
+    backgroundCapTP.abort(finalError);
+    throw finalError;
   }
+}
+
+/**
+ * Define globals accessible via the background console.
+ */
+function defineGlobals(): void {
+  Object.defineProperty(globalThis, 'omnium', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
+  });
+
+  Object.defineProperties(globalThis.omnium, {
+    ping: {
+      get: () => ping,
+    },
+    getKernel: {
+      value: async () => kernelP,
+    },
+  });
+  harden(globalThis.omnium);
+
+  Object.defineProperty(globalThis, 'E', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: E,
+  });
 }
