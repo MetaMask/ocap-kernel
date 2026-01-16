@@ -32,6 +32,7 @@
     "test": "yarn pretest && vitest run",
     "test:ci": "vitest run --coverage false",
     "test:dev": "turbo run test:dev",
+    "test:dev:quiet": "turbo run test:dev:quiet --output-logs=errors-only",
     "test:e2e": "yarn workspaces foreach --all run test:e2e",
     "test:e2e:ci": "yarn workspaces foreach --all run test:e2e:ci",
     "test:e2e:local": "yarn workspaces foreach --all run test:e2e:local",

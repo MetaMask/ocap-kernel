@@ -53,7 +53,8 @@
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.ts"
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "dependencies": {
     "@metamask/kernel-utils": "workspace:^",

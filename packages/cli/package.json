@@ -30,7 +30,8 @@
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^16.1.3",

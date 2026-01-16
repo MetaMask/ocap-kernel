@@ -11,6 +11,10 @@
     "test:dev": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "test:dev:quiet": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   },
   "remoteCache": {

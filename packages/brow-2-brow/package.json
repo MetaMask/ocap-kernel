@@ -25,7 +25,8 @@
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
     "start": "npm run build:dev && esbuild src/index.js --serve --sourcemap --bundle --outdir=dist --servedir=dist --external:@types/web",
-    "start:relay": "node dist/src/relay.mjs"
+    "start:relay": "node dist/src/relay.mjs",
+    "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^16.1.3",
