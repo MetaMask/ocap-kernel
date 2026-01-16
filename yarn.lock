@@ -3870,7 +3870,6 @@ __metadata:
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.3.4"
-    "@endo/marshal": "npm:^1.8.0"
     "@endo/promise-kit": "npm:^1.1.13"
     "@libp2p/interface": "npm:2.11.0"
     "@libp2p/webrtc": "npm:5.2.24"
