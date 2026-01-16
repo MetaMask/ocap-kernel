@@ -45,7 +45,7 @@
     "test:e2e": "vitest run --config vitest.config.e2e.ts",
     "test:e2e:ci": "./scripts/test-e2e-ci.sh",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --mode development --reporter dot",
+    "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts"
   },

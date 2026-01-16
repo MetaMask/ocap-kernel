@@ -21,7 +21,7 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --mode development --reporter dot",
+    "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
     "start": "npm run build:dev && esbuild src/index.js --serve --sourcemap --bundle --outdir=dist --servedir=dist --external:@types/web",
