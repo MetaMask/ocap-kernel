@@ -22,7 +22,7 @@
     "build:browser": "OPEN_BROWSER=true yarn build:dev --watch",
     "build:vite": "vite build --configLoader runner --config vite.config.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/omnium-gatherum",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
     "lint:eslint": "eslint . --cache",

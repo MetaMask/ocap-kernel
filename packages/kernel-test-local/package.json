@@ -13,7 +13,7 @@
   },
   "type": "module",
   "scripts": {
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./.turbo",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
     "lint:eslint": "eslint . --cache",
