@@ -1,4 +1,14 @@
-import type { Kernel } from '@metamask/ocap-kernel';
+import type { Kernel, ClusterConfig } from '@metamask/ocap-kernel';
+
+/**
+ * Result of launching a subcluster.
+ *
+ * The rootKref contains the kref string for the bootstrap vat's root object.
+ */
+export type LaunchResult = {
+  subclusterId: string;
+  rootKref: string;
+};
 
 /**
  * The kernel facade interface - methods exposed to userspace via CapTP.
@@ -7,9 +17,10 @@ import type { Kernel } from '@metamask/ocap-kernel';
  */
 export type KernelFacade = {
   ping: () => Promise<'pong'>;
-  launchSubcluster: Kernel['launchSubcluster'];
+  launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
   terminateSubcluster: Kernel['terminateSubcluster'];
   queueMessage: Kernel['queueMessage'];
   getStatus: Kernel['getStatus'];
   pingVat: Kernel['pingVat'];
+  getVatRoot: (krefString: string) => Promise<unknown>;
 };

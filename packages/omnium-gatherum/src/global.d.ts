@@ -41,6 +41,21 @@ declare global {
     getKernel: () => Promise<KernelFacade>;
 
     /**
+     * Load a caplet's manifest and bundle by ID.
+     *
+     * @param id - The short caplet ID (e.g., 'echo').
+     * @returns The manifest and bundle for installation.
+     * @example
+     * ```typescript
+     * const { manifest, bundle } = await omnium.loadCaplet('echo');
+     * await omnium.caplet.install(manifest, bundle);
+     * ```
+     */
+    loadCaplet: (
+      id: string,
+    ) => Promise<{ manifest: CapletManifest; bundle: unknown }>;
+
+    /**
      * Caplet management API.
      */
     caplet: {
@@ -98,6 +113,19 @@ declare global {
       getByService: (
         serviceName: string,
       ) => Promise<InstalledCaplet | undefined>;
+
+      /**
+       * Get the root object presence for a caplet.
+       *
+       * @param capletId - The caplet ID.
+       * @returns A promise for the caplet's root object (as a CapTP presence).
+       * @example
+       * ```typescript
+       * const root = await omnium.caplet.getCapletRoot('com.example.echo');
+       * const result = await E(root).echo('Hello!');
+       * ```
+       */
+      getCapletRoot: (capletId: string) => Promise<unknown>;
     };
   };
 }

@@ -430,6 +430,18 @@ export const SubclusterStruct = object({
 
 export type Subcluster = Infer<typeof SubclusterStruct>;
 
+/**
+ * Result of launching a subcluster.
+ */
+export type SubclusterLaunchResult = {
+  /** The ID of the launched subcluster. */
+  subclusterId: string;
+  /** The kref of the bootstrap vat's root object. */
+  bootstrapRootKref: KRef;
+  /** The CapData result of calling bootstrap() on the root object, if any. */
+  bootstrapResult: CapData<KRef> | undefined;
+};
+
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
   vats: array(

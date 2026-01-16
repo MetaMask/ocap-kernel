@@ -1,7 +1,7 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Kernel, ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
 
-import type { KernelFacade } from '../../types.ts';
+import type { KernelFacade, LaunchResult } from '../../types.ts';
 
 export type { KernelFacade } from '../../types.ts';
 
@@ -15,8 +15,10 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
   return makeDefaultExo('KernelFacade', {
     ping: async () => 'pong' as const,
 
-    launchSubcluster: async (config: ClusterConfig) => {
-      return kernel.launchSubcluster(config);
+    launchSubcluster: async (config: ClusterConfig): Promise<LaunchResult> => {
+      const { subclusterId, bootstrapRootKref } =
+        await kernel.launchSubcluster(config);
+      return { subclusterId, rootKref: bootstrapRootKref };
     },
 
     terminateSubcluster: async (subclusterId: string) => {
@@ -33,6 +35,12 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
 
     pingVat: async (vatId: VatId) => {
       return kernel.pingVat(vatId);
+    },
+
+    getVatRoot: async (krefString: string) => {
+      // Return wrapped kref for future CapTP marshalling to presence
+      // TODO: Enable custom CapTP marshalling tables to convert this to a presence
+      return { kref: krefString };
     },
   });
 }

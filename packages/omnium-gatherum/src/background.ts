@@ -129,33 +129,21 @@ async function main(): Promise<void> {
     { logger: logger.subLogger({ tags: ['caplet'] }) },
     {
       adapter: storageAdapter,
-      // Wrap launchSubcluster to return subclusterId
       launchSubcluster: async (
         config: ClusterConfig,
       ): Promise<LaunchResult> => {
-        // Get current subcluster count
-        const statusBefore = await E(kernelP).getStatus();
-        const beforeIds = new Set(
-          statusBefore.subclusters.map((subcluster) => subcluster.id),
-        );
-
-        // Launch the subcluster
-        await E(kernelP).launchSubcluster(config);
-
-        // Get status after and find the new subcluster
-        const statusAfter = await E(kernelP).getStatus();
-        const newSubcluster = statusAfter.subclusters.find(
-          (subcluster) => !beforeIds.has(subcluster.id),
-        );
-
-        if (!newSubcluster) {
-          throw new Error('Failed to determine subclusterId after launch');
-        }
-
-        return { subclusterId: newSubcluster.id };
+        const result = await E(kernelP).launchSubcluster(config);
+        return {
+          subclusterId: result.subclusterId,
+          rootKref: result.rootKref,
+        };
       },
       terminateSubcluster: async (subclusterId: string): Promise<void> => {
         await E(kernelP).terminateSubcluster(subclusterId);
+      },
+      getVatRoot: async (krefString: string): Promise<unknown> => {
+        // Convert kref string to presence via kernel facade
+        return E(kernelP).getVatRoot(krefString);
       },
     },
   );
@@ -209,6 +197,45 @@ function defineGlobals(): GlobalSetters {
   let ping: (() => Promise<void>) | undefined;
   let capletController: CapletControllerFacet;
 
+  /**
+   * Load a caplet's manifest and bundle by ID.
+   *
+   * @param id - The short caplet ID (e.g., 'echo').
+   * @returns The manifest and bundle for installation.
+   */
+  const loadCaplet = async (
+    id: string,
+  ): Promise<{ manifest: CapletManifest; bundle: unknown }> => {
+    const baseUrl = chrome.runtime.getURL('');
+
+    // Fetch manifest
+    const manifestUrl = `${baseUrl}${id}.manifest.json`;
+    const manifestResponse = await fetch(manifestUrl);
+    if (!manifestResponse.ok) {
+      throw new Error(`Failed to fetch manifest for caplet "${id}"`);
+    }
+    const manifestData = (await manifestResponse.json()) as Omit<
+      CapletManifest,
+      'bundleSpec'
+    >;
+
+    // Construct full manifest with bundleSpec
+    const bundleSpec = `${baseUrl}${id}-caplet.bundle`;
+    const manifest: CapletManifest = {
+      ...manifestData,
+      bundleSpec,
+    };
+
+    // Fetch bundle
+    const bundleResponse = await fetch(bundleSpec);
+    if (!bundleResponse.ok) {
+      throw new Error(`Failed to fetch bundle for caplet "${id}"`);
+    }
+    const bundle: unknown = await bundleResponse.json();
+
+    return { manifest, bundle };
+  };
+
   Object.defineProperties(globalThis.omnium, {
     ping: {
       get: () => ping,
@@ -223,9 +250,12 @@ function defineGlobals(): GlobalSetters {
         uninstall: async (capletId: string) =>
           E(capletController).uninstall(capletId),
         list: async () => E(capletController).list(),
+        load: loadCaplet,
         get: async (capletId: string) => E(capletController).get(capletId),
         getByService: async (serviceName: string) =>
           E(capletController).getByService(serviceName),
+        getCapletRoot: async (capletId: string) =>
+          E(capletController).getCapletRoot(capletId),
       }),
     },
   });
