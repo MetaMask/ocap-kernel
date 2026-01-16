@@ -1,6 +1,6 @@
 import type { Json } from '@metamask/utils';
 
-import { ErrorCode } from './constants.ts';
+import { ErrorCode } from './error-codes.ts';
 import type {
   MarshaledOcapError,
   OcapError,

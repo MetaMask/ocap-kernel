@@ -1,4 +1,4 @@
-import { SampleGenerationError } from '@metamask/kernel-errors';
+import { SampleGenerationError } from '@metamask/kernel-errors/bundleable';
 import type { Logger } from '@metamask/logger';
 
 import type { SampleCollector } from '../../types.ts';

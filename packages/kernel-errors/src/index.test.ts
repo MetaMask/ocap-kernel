@@ -23,7 +23,6 @@ describe('index', () => {
       'isMarshaledError',
       'isMarshaledOcapError',
       'isOcapError',
-      'isRetryableNetworkError',
       'marshalError',
       'toError',
       'unmarshalError',
