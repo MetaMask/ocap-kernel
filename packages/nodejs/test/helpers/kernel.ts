@@ -42,10 +42,7 @@ export async function runTestVats(
   kernel: Kernel,
   config: ClusterConfig,
 ): Promise<unknown> {
-  const bootstrapResultRaw = await kernel.launchSubcluster(config);
+  const { bootstrapResult } = await kernel.launchSubcluster(config);
   await waitUntilQuiescent();
-  if (bootstrapResultRaw === undefined) {
-    throw Error(`this can't happen but eslint is stupid`);
-  }
-  return kunser(bootstrapResultRaw);
+  return bootstrapResult && kunser(bootstrapResult);
 }
