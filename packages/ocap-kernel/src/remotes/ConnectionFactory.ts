@@ -390,7 +390,17 @@ export class ConnectionFactory {
     this.#inflightDials.clear();
     if (this.#libp2p) {
       try {
-        await this.#libp2p.stop();
+        // Add a timeout to prevent hanging if libp2p.stop() doesn't complete
+        const STOP_TIMEOUT_MS = 2000;
+        await Promise.race([
+          this.#libp2p.stop(),
+          new Promise<void>((_resolve, reject) =>
+            setTimeout(
+              () => reject(new Error('libp2p.stop() timed out')),
+              STOP_TIMEOUT_MS,
+            ),
+          ),
+        ]);
       } catch (error) {
         this.#logger.error('libp2p.stop() failed or timed out:', error);
         // Continue anyway - we'll clear the reference

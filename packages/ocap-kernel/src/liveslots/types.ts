@@ -34,9 +34,7 @@ export type Syscall = {
 };
 
 export type GCTools = {
-  // eslint-disable-next-line @typescript-eslint/naming-convention
   WeakRef: WeakRefConstructor;
-  // eslint-disable-next-line @typescript-eslint/naming-convention
   FinalizationRegistry: FinalizationRegistryConstructor;
   waitUntilQuiescent: () => Promise<void>;
   gcAndFinalize: () => Promise<void>;

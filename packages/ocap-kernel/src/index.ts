@@ -19,6 +19,7 @@ export type {
   StopRemoteComms,
   RemoteCommsOptions,
 } from './remotes/types.ts';
+export type { RemoteMessageBase } from './remotes/RemoteHandle.ts';
 export {
   isVatId,
   VatIdStruct,

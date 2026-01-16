@@ -268,16 +268,6 @@ export class Kernel {
   }
 
   /**
-   * Send a message to a remote kernel.
-   *
-   * @param to - The peer ID of the remote kernel.
-   * @param message - The message to send.
-   */
-  async sendRemoteMessage(to: string, message: string): Promise<void> {
-    await this.#remoteManager.sendRemoteMessage(to, message);
-  }
-
-  /**
    * Explicitly close a connection to a peer.
    * Marks the peer as intentionally closed to prevent automatic reconnection.
    *

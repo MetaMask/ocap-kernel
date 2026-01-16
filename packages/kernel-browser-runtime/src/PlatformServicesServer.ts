@@ -368,7 +368,7 @@ export class PlatformServicesServer {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param message - The message to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
   async #sendRemoteMessage(to: string, message: string): Promise<null> {
@@ -387,14 +387,10 @@ export class PlatformServicesServer {
    * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
    */
   async #handleRemoteMessage(from: string, message: string): Promise<string> {
-    const possibleReply = await this.#rpcClient.call('remoteDeliver', {
+    return this.#rpcClient.call('remoteDeliver', {
       from,
       message,
     });
-    if (possibleReply !== '') {
-      await this.#sendRemoteMessage(from, possibleReply);
-    }
-    return '';
   }
 
   /**

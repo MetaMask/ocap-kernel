@@ -244,10 +244,27 @@ export class KernelRouter {
           endpointId,
           message,
         );
-        crankResults = await endpoint.deliverMessage(
-          endpointTarget,
-          endpointMessage,
-        );
+        try {
+          crankResults = await endpoint.deliverMessage(
+            endpointTarget,
+            endpointMessage,
+          );
+        } catch (error) {
+          // Delivery failed (e.g., remote queue full). Reject the kernel promise
+          // so the caller knows the message wasn't delivered.
+          this.#logger?.error(`Delivery to ${endpointId} failed:`, error);
+          if (message.result) {
+            const failure = kser(
+              error instanceof Error
+                ? error
+                : Error(`Delivery failed: ${String(error)}`),
+            );
+            this.#kernelQueue.resolvePromises(endpointId, [
+              [message.result, true, failure],
+            ]);
+          }
+          // Continue processing other messages - don't let one failure crash the queue
+        }
       } else if (isKernelServiceMessage) {
         crankResults = await this.#deliverKernelServiceMessage(target, message);
       } else {

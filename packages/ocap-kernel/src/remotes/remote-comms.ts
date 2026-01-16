@@ -172,9 +172,7 @@ export async function initRemoteComms(
    * Transmit a message to a remote kernel.
    *
    * @param to - The peer ID of the intended destination.
-   * @param message - The message to send; it is the caller's responsibility to
-   *   ensure that the string properly encodes something that the recipient will
-   *   understand.
+   * @param message - The serialized message string (with seq/ack already added by RemoteHandle).
    */
   async function sendRemoteMessage(to: string, message: string): Promise<void> {
     await platformServices.sendRemoteMessage(to, message);

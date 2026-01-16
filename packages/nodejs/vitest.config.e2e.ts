@@ -13,6 +13,7 @@ export default defineConfig((args) => {
         pool: 'forks',
         include: ['./test/e2e/**/*.test.ts'],
         exclude: ['./src/**/*'],
+        hookTimeout: 30_000, // Increase hook timeout for network cleanup
         env: {
           // Prevent SES from calling process.exit on uncaught exceptions.
           // Vitest v4+ intercepts process.exit and throws errors.

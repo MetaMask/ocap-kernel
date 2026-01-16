@@ -40,8 +40,9 @@ export type RemoteCommsOptions = {
    */
   maxRetryAttempts?: number | undefined;
   /**
-   * Maximum number of messages to queue per peer while reconnecting.
-   * If not provided, uses the default MAX_QUEUE value (200).
+   * Maximum number of pending messages awaiting ACK per peer.
+   * New messages are rejected when this limit is reached.
+   * If not provided, uses DEFAULT_MAX_QUEUE (200).
    */
   maxQueue?: number | undefined;
   /**

@@ -216,14 +216,6 @@ describe('RemoteManager', () => {
       expect(mockRemoteComms.getPeerId).toHaveBeenCalled();
     });
 
-    it('sends remote message', async () => {
-      await remoteManager.sendRemoteMessage('peer123', 'test message');
-      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-        'peer123',
-        'test message',
-      );
-    });
-
     it('closes connection to peer', async () => {
       await remoteManager.closeConnection('peer123');
       expect(mockPlatformServices.closeConnection).toHaveBeenCalledWith(
@@ -452,14 +444,6 @@ describe('RemoteManager', () => {
       expect(() => remoteManager.getPeerId()).toThrow(
         'Remote comms not initialized',
       );
-    });
-
-    it('throws when calling sendRemoteMessage after cleanup', async () => {
-      remoteManager.cleanup();
-
-      await expect(
-        remoteManager.sendRemoteMessage('peer1', 'test'),
-      ).rejects.toThrow('Remote comms not initialized');
     });
 
     it('throws when calling closeConnection after cleanup', async () => {

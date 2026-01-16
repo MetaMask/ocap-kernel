@@ -25,7 +25,7 @@ describe('sendRemoteMessage', () => {
       it('should accept valid params', () => {
         const validParams = {
           to: 'peer-123',
-          message: 'hello world',
+          message: '{"seq":1,"method":"deliver","params":[]}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -33,24 +33,24 @@ describe('sendRemoteMessage', () => {
 
       it('should reject params with missing to field', () => {
         const invalidParams = {
-          message: 'hello world',
+          message: '{"seq":1}',
         };
 
         expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
       });
 
       it('should reject params with missing message field', () => {
-        const invalidParams = {
+        const paramsWithMissing = {
           to: 'peer-123',
         };
 
-        expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
+        expect(is(paramsWithMissing, sendRemoteMessageSpec.params)).toBe(false);
       });
 
       it('should reject params with non-string to field', () => {
         const invalidParams = {
           to: 123,
-          message: 'hello world',
+          message: '{"seq":1}',
         };
 
         expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
@@ -59,7 +59,7 @@ describe('sendRemoteMessage', () => {
       it('should reject params with non-string message field', () => {
         const invalidParams = {
           to: 'peer-123',
-          message: 123,
+          message: { method: 'deliver', params: [] },
         };
 
         expect(is(invalidParams, sendRemoteMessageSpec.params)).toBe(false);
@@ -68,7 +68,7 @@ describe('sendRemoteMessage', () => {
       it('should reject params with extra fields', () => {
         const invalidParams = {
           to: 'peer-123',
-          message: 'hello world',
+          message: '{"seq":1}',
           extra: 'field',
         };
 
@@ -89,42 +89,29 @@ describe('sendRemoteMessage', () => {
         expect(is([], sendRemoteMessageSpec.params)).toBe(false);
       });
 
-      it('should accept empty strings', () => {
+      it('should accept empty string to field', () => {
         const validParams = {
           to: '',
-          message: '',
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
       });
 
-      it('should accept unicode strings', () => {
+      it('should accept unicode strings in to field', () => {
         const validParams = {
           to: '🌟peer-123🌟',
-          message: 'hello 世界 🌍',
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
       });
 
-      it('should accept very long strings', () => {
+      it('should accept very long to string', () => {
         const longString = 'a'.repeat(10000);
         const validParams = {
           to: longString,
-          message: longString,
-        };
-
-        expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
-      });
-
-      it('should accept JSON-like message content', () => {
-        const validParams = {
-          to: 'peer-json',
-          message: JSON.stringify({
-            type: 'test',
-            data: { nested: { value: 42 } },
-            array: [1, 2, 3],
-          }),
+          message: '{"seq":1}',
         };
 
         expect(is(validParams, sendRemoteMessageSpec.params)).toBe(true);
@@ -150,9 +137,11 @@ describe('sendRemoteMessage', () => {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
+      const message =
+        '{"seq":1,"method":"deliver","params":["message","target",{}]}';
       const params = {
         to: 'peer-123',
-        message: 'hello world',
+        message,
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -161,10 +150,7 @@ describe('sendRemoteMessage', () => {
       );
 
       expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'peer-123',
-        'hello world',
-      );
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-123', message);
       expect(result).toBeNull();
     });
 
@@ -177,7 +163,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'test-peer',
-        message: 'test-message',
+        message: '{"seq":1}',
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -199,7 +185,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'failing-peer',
-        message: 'failing-message',
+        message: '{"seq":1}',
       };
 
       await expect(
@@ -207,67 +193,74 @@ describe('sendRemoteMessage', () => {
       ).rejects.toThrow('Send message failed');
     });
 
-    it('should handle empty string parameters', async () => {
+    it('should handle empty string to parameter', async () => {
       const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
 
       const hooks = {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
+      const message = '{"seq":1}';
       const params = {
         to: '',
-        message: '',
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', '');
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('', message);
     });
 
-    it('should handle unicode characters in parameters', async () => {
+    it('should handle unicode characters in to parameter', async () => {
       const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
 
       const hooks = {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
+      const message = '{"seq":1}';
       const params = {
         to: '🌟peer-123🌟',
-        message: 'hello 世界 🌍',
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
         '🌟peer-123🌟',
-        'hello 世界 🌍',
+        message,
       );
     });
 
-    it('should handle JSON message content', async () => {
+    it('should handle complex message content', async () => {
       const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
 
       const hooks = {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const jsonMessage = JSON.stringify({
-        type: 'complex-message',
-        payload: { data: 'test', count: 42 },
-        timestamp: Date.now(),
+      const message = JSON.stringify({
+        seq: 5,
+        ack: 3,
+        method: 'deliver',
+        params: [
+          'message',
+          'ko123',
+          {
+            methargs: { body: '{"method":"foo","args":[1,2,3]}', slots: [] },
+            result: 'kp456',
+          },
+        ],
       });
 
       const params = {
         to: 'json-peer',
-        message: jsonMessage,
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
-      expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'json-peer',
-        jsonMessage,
-      );
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('json-peer', message);
     });
 
     it('should handle async hook that returns a Promise', async () => {
@@ -283,7 +276,7 @@ describe('sendRemoteMessage', () => {
 
       const params = {
         to: 'async-peer',
-        message: 'async-message',
+        message: '{"seq":1}',
       };
 
       const result = await sendRemoteMessageHandler.implementation(
@@ -310,38 +303,66 @@ describe('sendRemoteMessage', () => {
           sendRemoteMessage: mockSendRemoteMessage,
         };
 
+        const message = '{"seq":1}';
         const params = {
           to,
-          message: 'test-message',
+          message,
         };
 
         await expect(
           sendRemoteMessageHandler.implementation(hooks, params),
         ).rejects.toThrow(error);
 
-        expect(mockSendRemoteMessage).toHaveBeenCalledWith(to, 'test-message');
+        expect(mockSendRemoteMessage).toHaveBeenCalledWith(to, message);
       },
     );
 
-    it('should handle very large messages', async () => {
+    it('should handle redeemURL request message', async () => {
       const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
 
       const hooks = {
         sendRemoteMessage: mockSendRemoteMessage,
       };
 
-      const largeMessage = 'x'.repeat(100000); // 100KB message
+      const message = JSON.stringify({
+        seq: 1,
+        method: 'redeemURL',
+        params: ['ocap:abc123@peer', 'kp456'],
+      });
       const params = {
-        to: 'large-message-peer',
-        message: largeMessage,
+        to: 'redeem-peer',
+        message,
       };
 
       await sendRemoteMessageHandler.implementation(hooks, params);
 
       expect(mockSendRemoteMessage).toHaveBeenCalledWith(
-        'large-message-peer',
-        largeMessage,
+        'redeem-peer',
+        message,
       );
+    });
+
+    it('should handle redeemURLReply message', async () => {
+      const mockSendRemoteMessage: SendRemoteMessage = vi.fn(async () => null);
+
+      const hooks = {
+        sendRemoteMessage: mockSendRemoteMessage,
+      };
+
+      const message = JSON.stringify({
+        seq: 2,
+        ack: 1,
+        method: 'redeemURLReply',
+        params: [true, 'kp456', 'ko789'],
+      });
+      const params = {
+        to: 'reply-peer',
+        message,
+      };
+
+      await sendRemoteMessageHandler.implementation(hooks, params);
+
+      expect(mockSendRemoteMessage).toHaveBeenCalledWith('reply-peer', message);
     });
   });
 });

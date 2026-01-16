@@ -592,15 +592,19 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          // Now send a message
+          // Now send a message (message is already serialized as a string)
+          const message = JSON.stringify({
+            method: 'deliver',
+            params: ['hello'],
+          });
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m1', 'peer-123', 'hello'),
+            makeSendRemoteMessageMessageEvent('m1', 'peer-123', message),
           );
           await delay(10);
 
           expect(mockSendRemoteMessage).toHaveBeenCalledWith(
             'peer-123',
-            'hello',
+            message,
           );
         });
 
@@ -608,7 +612,11 @@ describe('PlatformServicesServer', () => {
           const errorSpy = vi.spyOn(logger, 'error');
 
           await stream.receiveInput(
-            makeSendRemoteMessageMessageEvent('m0', 'peer-456', 'test'),
+            makeSendRemoteMessageMessageEvent(
+              'm0',
+              'peer-456',
+              JSON.stringify({ method: 'deliver', params: ['test'] }),
+            ),
           );
           await delay(10);
 

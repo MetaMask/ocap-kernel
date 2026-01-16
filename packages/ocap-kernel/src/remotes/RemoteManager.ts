@@ -1,10 +1,10 @@
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { initRemoteComms } from './remote-comms.ts';
-import { RemoteHandle } from './RemoteHandle.ts';
 import { kser } from '../liveslots/kernel-marshal.ts';
 import type { PlatformServices, RemoteId } from '../types.ts';
+import { initRemoteComms } from './remote-comms.ts';
+import { RemoteHandle } from './RemoteHandle.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
@@ -156,6 +156,10 @@ export class RemoteManager {
    * This should be called when remote comms are stopped externally.
    */
   cleanup(): void {
+    // Clean up all RemoteHandle instances to clear their timers
+    for (const remote of this.#remotes.values()) {
+      remote.cleanup();
+    }
     this.#remoteComms = undefined;
     this.#remotes.clear();
     this.#remotesByPeer.clear();
@@ -194,17 +198,6 @@ export class RemoteManager {
   }
 
   /**
-   * Send a message to a remote kernel.
-   *
-   * @param to - The peer ID of the remote kernel.
-   * @param message - The message to send.
-   * @returns a promise for the result of the message send.
-   */
-  async sendRemoteMessage(to: string, message: string): Promise<void> {
-    await this.getRemoteComms().sendRemoteMessage(to, message);
-  }
-
-  /**
    * Set up bookkeeping for a newly established remote connection.
    *
    * @param peerId - Peer ID of the kernel at the other end of the connection.
@@ -239,6 +232,7 @@ export class RemoteManager {
       remoteComms,
       locationHints: hints,
       logger: this.#logger,
+      onGiveUp: this.#handleRemoteGiveUp.bind(this),
     });
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);
