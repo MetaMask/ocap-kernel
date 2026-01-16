@@ -55,6 +55,22 @@ collection, but it does not disable lockdown in all packages. `development` mode
 tests don't have to pass, and are not run in CI; they are for local debugging
 purposes only.
 
+### Running tests
+
+- `yarn test` - Run all tests with coverage (uses root vitest config)
+- `yarn test:dev` - Run tests via Turborepo with caching (faster for repeated runs)
+- `yarn test:dev --filter=@ocap/kernel` - Run tests for a specific package
+
+To reduce output verbosity:
+
+```bash
+# Suppress successful test output entirely (turbo option)
+yarn test:dev --output-logs=errors-only
+
+# Use compact dot reporter instead of full test names (vitest option, passed to each package)
+yarn test:dev -- --reporter=dot
+```
+
 ### Adding new packages
 
 See [`packages/create-package/README.md`](packages/create-package/README.md).
