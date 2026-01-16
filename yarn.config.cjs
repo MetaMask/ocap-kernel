@@ -204,8 +204,12 @@ module.exports = defineConfig({
           expectWorkspaceField(workspace, 'scripts.build:docs', 'typedoc');
         }
 
-        // All packages except the root must have a "clean" script.
-        expectWorkspaceField(workspace, 'scripts.clean');
+        // All packages except the root must have a "clean" script that includes ./logs.
+        expectWorkspaceField(workspace, 'scripts.clean', (currentValue) =>
+          typeof currentValue === 'string' && !currentValue.includes('./logs')
+            ? `${currentValue} ./logs`
+            : currentValue,
+        );
 
         // No non-root packages may have a "prepack" script.
         workspace.unset('scripts.prepack');
