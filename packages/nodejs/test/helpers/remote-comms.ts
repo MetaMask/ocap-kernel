@@ -1,5 +1,5 @@
-import type { CapData } from '@endo/marshal';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { stringify } from '@metamask/kernel-utils';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { ClusterConfig, KRef } from '@metamask/ocap-kernel';
 
@@ -58,8 +58,13 @@ export async function launchVatAndGetURL(
   kernel: Kernel,
   config: ClusterConfig,
 ): Promise<string> {
-  const result = await kernel.launchSubcluster(config);
-  return kunser(result as CapData<KRef>) as string;
+  const { bootstrapResult } = await kernel.launchSubcluster(config);
+  if (!bootstrapResult) {
+    throw new Error(
+      `No bootstrap result for vat "${config.bootstrap}" with config ${stringify(config)}`,
+    );
+  }
+  return kunser(bootstrapResult) as string;
 }
 
 /**
