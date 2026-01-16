@@ -1,14 +1,12 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  KernelFacade,
-  CapTPMessage,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -20,12 +18,11 @@ defineGlobals();
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
-let kernelP: Promise<KernelFacade>;
-let ping: () => Promise<void>;
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  ping?.().catch(logger.error);
+  globalThis.kernel !== undefined &&
+    E(globalThis.kernel).ping().catch(logger.error);
 });
 
 // Install/update
@@ -108,12 +105,12 @@ async function main(): Promise<void> {
   });
 
   // Get the kernel remote presence
-  kernelP = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
+  globalThis.kernel = kernelP;
 
-  ping = async () => {
-    const result = await E(kernelP).ping();
-    logger.info(result);
-  };
+  // Create presence manager for E() calls on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  Object.assign(globalThis.captp, presenceManager);
 
   // Handle incoming CapTP messages from the kernel
   const drainPromise = offscreenStream.drain((message) => {
@@ -126,8 +123,11 @@ async function main(): Promise<void> {
   });
   drainPromise.catch(logger.error);
 
-  await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelP);
+  await E(kernelP).ping();
+  const rootKref = await startDefaultSubcluster();
+  if (rootKref) {
+    await greetBootstrapVat(rootKref);
+  }
 
   try {
     await drainPromise;
@@ -143,19 +143,33 @@ async function main(): Promise<void> {
 /**
  * Idempotently starts the default subcluster.
  *
- * @param kernelPromise - Promise for the kernel facade.
+ * @returns The rootKref of the bootstrap vat if launched, undefined if subcluster already exists.
  */
-async function startDefaultSubcluster(
-  kernelPromise: Promise<KernelFacade>,
-): Promise<void> {
-  const status = await E(kernelPromise).getStatus();
+async function startDefaultSubcluster(): Promise<string | undefined> {
+  const status = await E(globalThis.kernel).getStatus();
 
   if (status.subclusters.length === 0) {
-    const result = await E(kernelPromise).launchSubcluster(defaultSubcluster);
+    const result = await E(globalThis.kernel).launchSubcluster(
+      defaultSubcluster,
+    );
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
-  } else {
-    logger.info('Subclusters already exist. Not launching default subcluster.');
+    return result.rootKref;
   }
+  logger.info('Subclusters already exist. Not launching default subcluster.');
+  return undefined;
+}
+
+/**
+ * Greets the bootstrap vat by calling its hello() method.
+ *
+ * @param rootKref - The kref of the bootstrap vat's root object.
+ */
+async function greetBootstrapVat(rootKref: string): Promise<void> {
+  const rootPresence = captp.resolveKref(rootKref) as {
+    hello: (from: string) => string;
+  };
+  const greeting = await E(rootPresence).hello('background');
+  logger.info(`Got greeting from bootstrap vat: ${greeting}`);
 }
 
 /**
@@ -165,19 +179,16 @@ function defineGlobals(): void {
   Object.defineProperty(globalThis, 'kernel', {
     configurable: false,
     enumerable: true,
+    writable: true,
+    value: undefined,
+  });
+
+  Object.defineProperty(globalThis, 'captp', {
+    configurable: false,
+    enumerable: true,
     writable: false,
     value: {},
   });
-
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      get: () => ping,
-    },
-    getKernel: {
-      value: async () => kernelP,
-    },
-  });
-  harden(globalThis.kernel);
 
   Object.defineProperty(globalThis, 'E', {
     value: E,

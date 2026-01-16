@@ -1,4 +1,4 @@
-import '../env/endoify.ts';
+import '@metamask/kernel-shims/endoify-node';
 
 import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';

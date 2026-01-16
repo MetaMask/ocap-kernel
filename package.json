@@ -27,7 +27,7 @@
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html'  '**/*.yml' '!**/CHANGELOG.old.md' '!.yarnrc.yml' '!CLAUDE.md' '!merged-packages/**' --ignore-path .gitignore  --log-level error",
     "postinstall": "simple-git-hooks && yarn rebuild:native",
     "prepack": "./scripts/prepack.sh",
-    "pretest": "bash scripts/reset-coverage-thresholds.sh",
+    "pretest": "./scripts/reset-coverage-thresholds.sh",
     "rebuild:native": "./scripts/rebuild-native.sh",
     "test": "yarn pretest && vitest run",
     "test:ci": "vitest run --coverage false",
@@ -122,7 +122,8 @@
       "vite>sass>@parcel/watcher": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>edgedriver": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
-      "vitest>@vitest/mocker>msw": false
+      "vitest>@vitest/mocker>msw": false,
+      "@ocap/cli>@metamask/kernel-shims>@libp2p/webrtc>@ipshipyard/node-datachannel": false
     }
   },
   "resolutions": {

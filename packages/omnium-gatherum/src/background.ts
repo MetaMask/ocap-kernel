@@ -1,13 +1,14 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
+  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
 import type {
   CapTPMessage,
-  KernelFacade,
+  PresenceManager,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -32,7 +33,8 @@ let bootPromise: Promise<void> | null = null;
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  omnium.ping?.().catch(logger.error);
+  globalThis.kernel !== undefined &&
+    E(globalThis.kernel).ping().catch(logger.error);
 });
 
 // Install/update
@@ -113,12 +115,11 @@ async function main(): Promise<void> {
   });
 
   const kernelP = backgroundCapTP.getKernel();
-  globals.setKernelP(kernelP);
+  globalThis.kernel = kernelP;
 
-  globals.setPing(async (): Promise<void> => {
-    const result = await E(kernelP).ping();
-    logger.info(result);
-  });
+  // Create presence manager for E() on vat objects
+  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  globals.setPresenceManager(presenceManager);
 
   // Create storage adapter
   const storageAdapter = makeChromeStorageAdapter();
@@ -168,9 +169,8 @@ async function main(): Promise<void> {
 }
 
 type GlobalSetters = {
-  setKernelP: (value: Promise<KernelFacade>) => void;
-  setPing: (value: () => Promise<void>) => void;
   setCapletController: (value: CapletControllerFacet) => void;
+  setPresenceManager: (value: PresenceManager) => void;
 };
 
 /**
@@ -179,11 +179,21 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function defineGlobals(): GlobalSetters {
+  let capletController: CapletControllerFacet;
+  let presenceManager: PresenceManager;
+
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
     enumerable: true,
     writable: false,
     value: E,
+  });
+
+  Object.defineProperty(globalThis, 'kernel', {
+    configurable: false,
+    enumerable: true,
+    writable: true,
+    value: undefined,
   });
 
   Object.defineProperty(globalThis, 'omnium', {
@@ -192,10 +202,6 @@ function defineGlobals(): GlobalSetters {
     writable: false,
     value: {},
   });
-
-  let kernelP: Promise<KernelFacade>;
-  let ping: (() => Promise<void>) | undefined;
-  let capletController: CapletControllerFacet;
 
   /**
    * Load a caplet's manifest and bundle by ID.
@@ -237,12 +243,6 @@ function defineGlobals(): GlobalSetters {
   };
 
   Object.defineProperties(globalThis.omnium, {
-    ping: {
-      get: () => ping,
-    },
-    getKernel: {
-      value: async () => kernelP,
-    },
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest, bundle?: unknown) =>
@@ -258,18 +258,21 @@ function defineGlobals(): GlobalSetters {
           E(capletController).getCapletRoot(capletId),
       }),
     },
+    resolveKref: {
+      get: () => presenceManager.resolveKref,
+    },
+    krefOf: {
+      get: () => presenceManager.krefOf,
+    },
   });
   harden(globalThis.omnium);
 
   return {
-    setKernelP: (value) => {
-      kernelP = value;
-    },
-    setPing: (value) => {
-      ping = value;
-    },
     setCapletController: (value) => {
       capletController = value;
+    },
+    setPresenceManager: (value) => {
+      presenceManager = value;
     },
   };
 }

@@ -1,4 +1,3 @@
-import '@ocap/nodejs/endoify-ts';
 import type { VatStore, VatCheckpoint } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
