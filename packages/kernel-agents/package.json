@@ -141,9 +141,10 @@
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --mode development --reporter dot",
+    "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
-    "test:watch": "vitest --config vitest.config.ts"
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
