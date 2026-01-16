@@ -8,6 +8,13 @@ import path from 'node:path';
 
 export const sessionPath = path.resolve(os.tmpdir(), 'ocap-test');
 
+// Run ID is generated once per Playwright invocation (per worker process)
+// This allows associating all test log files from the same run
+const runId = new Date()
+  .toISOString()
+  .slice(0, -5) // Remove ".123Z"
+  .replace(/[:.]/gu, '-'); // Make filename-safe
+
 type Options = {
   contextId?: string | undefined;
   extensionPath: string;
@@ -45,11 +52,11 @@ export const makeLoadExtension = async ({
   const packageRoot = path.dirname(extensionPath); // extensionPath is <package>/dist
   const logsDir = path.join(packageRoot, 'logs');
   await mkdir(logsDir, { recursive: true });
-  const timestamp = new Date()
-    .toISOString()
-    .slice(0, -5) // Remove ".123Z"
-    .replace(/[:.]/gu, '-'); // Make filename-safe
-  const logFilePath = path.join(logsDir, `e2e-${timestamp}.log`);
+  const testTitle = test
+    .info()
+    .titlePath.join('-')
+    .replace(/[^a-zA-Z0-9-]/gu, '_'); // Make filename-safe
+  const logFilePath = path.join(logsDir, `${runId}-${testTitle}.log`);
 
   // Attach log file path to test results (viewable in Playwright HTML report)
   await test.info().attach('console-logs', {
