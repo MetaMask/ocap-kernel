@@ -1,5 +1,7 @@
-import { chromium } from '@playwright/test';
-import type { BrowserContext, Page } from '@playwright/test';
+import { chromium, test } from '@playwright/test';
+import type { BrowserContext, ConsoleMessage, Page } from '@playwright/test';
+import { appendFileSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,7 +23,7 @@ type Options = {
  * @param options.extensionPath - The path to the extension dist folder.
  * @param options.onPageLoad - Optional callback to run after the extension is loaded. Useful for
  * e.g. waiting for components to be visible before proceeding with a test.
- * @returns The extension context, extension ID, and popup page
+ * @returns The extension context, extension ID, popup page, and log file path
  */
 export const makeLoadExtension = async ({
   contextId,
@@ -31,12 +33,40 @@ export const makeLoadExtension = async ({
   browserContext: BrowserContext;
   extensionId: string;
   popupPage: Page;
+  logFilePath: string;
 }> => {
   const workerIndex = process.env.TEST_WORKER_INDEX ?? '0';
   // Use provided contextId or fall back to workerIndex for separate user data dirs
   const effectiveContextId = contextId ?? workerIndex;
   const userDataDir = path.join(sessionPath, effectiveContextId);
   await rm(userDataDir, { recursive: true, force: true });
+
+  // Set up log file for capturing console output from extension contexts
+  const packageRoot = path.dirname(extensionPath); // extensionPath is <package>/dist
+  const logsDir = path.join(packageRoot, 'logs');
+  await mkdir(logsDir, { recursive: true });
+  const timestamp = new Date()
+    .toISOString()
+    .slice(0, -5) // Remove ".123Z"
+    .replace(/[:.]/gu, '-'); // Make filename-safe
+  const logFilePath = path.join(logsDir, `e2e-${timestamp}.log`);
+
+  // Attach log file path to test results (viewable in Playwright HTML report)
+  await test.info().attach('console-logs', {
+    body: logFilePath,
+    contentType: 'text/plain',
+  });
+
+  const writeLog = (source: string, consoleMessage: ConsoleMessage): void => {
+    const logTimestamp = new Date().toISOString().slice(0, -5);
+    const text = consoleMessage.text();
+    const type = consoleMessage.type();
+    // eslint-disable-next-line n/no-sync
+    appendFileSync(
+      logFilePath,
+      `[${logTimestamp}] [${source}] [${type}] ${text}\n`,
+    );
+  };
 
   const browserArgs = [
     `--disable-features=ExtensionDisableUnsupportedDeveloper`,
@@ -56,6 +86,23 @@ export const makeLoadExtension = async ({
     args: browserArgs,
   });
 
+  // Capture background service worker console logs
+  browserContext.on('serviceworker', (worker) => {
+    worker.on('console', (consoleMessage) =>
+      writeLog('background', consoleMessage),
+    );
+  });
+
+  // Capture console logs from extension pages (offscreen document, etc.)
+  // Note: Pages may start at about:blank, so we attach the listener and check URL in the handler
+  browserContext.on('page', (page) => {
+    page.on('console', (consoleMessage) => {
+      if (page.url().includes('offscreen.html')) {
+        writeLog('offscreen', consoleMessage);
+      }
+    });
+  });
+
   // Wait for the extension to be loaded
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -70,8 +117,11 @@ export const makeLoadExtension = async ({
   }
 
   const popupPage = await browserContext.newPage();
+  popupPage.on('console', (consoleMessage) =>
+    writeLog('popup', consoleMessage),
+  );
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
   await onPageLoad(popupPage);
 
-  return { browserContext, extensionId, popupPage };
+  return { browserContext, extensionId, popupPage, logFilePath };
 };
