@@ -61,14 +61,11 @@ describe('makeKernelFacade', () => {
     });
 
     it('returns result with subclusterId and rootKref from kernel', async () => {
-      const kernelResult = {
+      vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce({
         subclusterId: 's1',
         bootstrapRootKref: 'ko1',
         bootstrapResult: { body: '#null', slots: [] },
-      };
-      vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
-        kernelResult,
-      );
+      });
 
       const config: ClusterConfig = makeClusterConfig();
 
