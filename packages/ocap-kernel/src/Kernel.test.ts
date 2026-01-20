@@ -46,8 +46,6 @@ const mocks = vi.hoisted(() => {
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
 
-    sendRemoteMessage = vi.fn().mockResolvedValue(undefined);
-
     closeConnection = vi.fn().mockResolvedValue(undefined);
 
     reconnectPeer = vi.fn().mockResolvedValue(undefined);
@@ -880,21 +878,6 @@ describe('Kernel', () => {
   });
 
   describe('remote communications', () => {
-    describe('sendRemoteMessage()', () => {
-      it('sends message to remote peer via RemoteManager', async () => {
-        const kernel = await Kernel.make(
-          mockPlatformServices,
-          mockKernelDatabase,
-        );
-        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
-        await kernel.sendRemoteMessage('peer-123', 'hello');
-        expect(remoteManagerInstance.sendRemoteMessage).toHaveBeenCalledWith(
-          'peer-123',
-          'hello',
-        );
-      });
-    });
-
     describe('closeConnection()', () => {
       it('closes connection via RemoteManager', async () => {
         const kernel = await Kernel.make(

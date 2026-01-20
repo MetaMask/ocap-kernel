@@ -33,13 +33,14 @@
     "test": "vitest run --config vitest.config.ts",
     "test:build": "tsx ./test/build/build-tests.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
-    "test:dev": "yarn test --mode development --reporter dot",
+    "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "yarn playwright test",
     "test:e2e:ci": "./scripts/test-e2e-ci.sh",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "test:dev:quiet": "yarn test:dev --reporter dot"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",

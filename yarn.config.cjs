@@ -252,7 +252,12 @@ module.exports = defineConfig({
           expectWorkspaceField(
             workspace,
             'scripts.test:dev',
-            'yarn test --mode development --reporter dot',
+            'yarn test --mode development',
+          );
+          expectWorkspaceField(
+            workspace,
+            'scripts.test:dev:quiet',
+            'yarn test:dev --reporter dot',
           );
           expectWorkspaceField(
             workspace,

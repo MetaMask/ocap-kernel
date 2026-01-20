@@ -100,7 +100,6 @@ export type HandlerRecord<Handlers extends HandlerConstraint> = {
 
 // Utils
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
 
 export type MethodRequest<Method extends SpecConstraint> = {

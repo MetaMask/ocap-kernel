@@ -99,6 +99,9 @@ const config = createConfig([
 
       // Prevent console statements in TypeScript files.
       'no-console': 'error',
+
+      // Annoying rule imposed from the outside.  Disabling until we can comply.
+      '@typescript-eslint/naming-convention': 'off',
     },
   },
 

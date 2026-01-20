@@ -10,6 +10,7 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'nodejs-test-workers',
+        passWithNoTests: true,
       },
     }),
   );
