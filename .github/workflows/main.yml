@@ -58,6 +58,15 @@ jobs:
     needs: check-workflows
     uses: ./.github/workflows/lint-build-test.yml
 
+  coverage-report:
+    name: Coverage report
+    needs: lint-build-test
+    if: github.event_name != 'merge_group'
+    uses: ./.github/workflows/coverage-report.yml
+    permissions:
+      contents: write
+      pull-requests: write
+
   is-release:
     name: Determine whether this is a release merge commit
     needs: lint-build-test
