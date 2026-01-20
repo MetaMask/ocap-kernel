@@ -12,17 +12,12 @@ import type {
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-import {
-  CapletController,
-  makeChromeStorageAdapter,
-} from './controllers/index.ts';
+import { initializeControllers } from './controllers/index.ts';
 import type {
   CapletControllerFacet,
   CapletManifest,
-  LaunchResult,
 } from './controllers/index.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
@@ -120,46 +115,15 @@ async function main(): Promise<void> {
     logger.info(result);
   });
 
-  // Create storage adapter
-  const storageAdapter = makeChromeStorageAdapter();
-
-  // Create CapletController with attenuated kernel access
-  // Controller creates its own storage internally
-  const capletController = await CapletController.make(
-    { logger: logger.subLogger({ tags: ['caplet'] }) },
-    {
-      adapter: storageAdapter,
-      // Wrap launchSubcluster to return subclusterId
-      launchSubcluster: async (
-        config: ClusterConfig,
-      ): Promise<LaunchResult> => {
-        // Get current subcluster count
-        const statusBefore = await E(kernelP).getStatus();
-        const beforeIds = new Set(
-          statusBefore.subclusters.map((subcluster) => subcluster.id),
-        );
-
-        // Launch the subcluster
-        await E(kernelP).launchSubcluster(config);
-
-        // Get status after and find the new subcluster
-        const statusAfter = await E(kernelP).getStatus();
-        const newSubcluster = statusAfter.subclusters.find(
-          (subcluster) => !beforeIds.has(subcluster.id),
-        );
-
-        if (!newSubcluster) {
-          throw new Error('Failed to determine subclusterId after launch');
-        }
-
-        return { subclusterId: newSubcluster.id };
-      },
-      terminateSubcluster: async (subclusterId: string): Promise<void> => {
-        await E(kernelP).terminateSubcluster(subclusterId);
-      },
-    },
-  );
-  globals.setCapletController(capletController);
+  try {
+    const controllers = await initializeControllers({
+      logger,
+      kernel: kernelP,
+    });
+    globals.setCapletController(controllers.caplet);
+  } catch (error) {
+    offscreenStream.throw(error as Error).catch(logger.error);
+  }
 
   try {
     await offscreenStream.drain((message) => {

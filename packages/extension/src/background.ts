@@ -126,8 +126,12 @@ async function main(): Promise<void> {
   });
   drainPromise.catch(logger.error);
 
-  await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster(kernelP);
+  try {
+    await ping(); // Wait for the kernel to be ready
+    await startDefaultSubcluster(kernelP);
+  } catch (error) {
+    offscreenStream.throw(error as Error).catch(logger.error);
+  }
 
   try {
     await drainPromise;
