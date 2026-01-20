@@ -4,11 +4,10 @@ import {
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
+  isConsoleForwardMessage,
+  handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  KernelFacade,
-  CapTPMessage,
-} from '@metamask/kernel-browser-runtime';
+import type { KernelFacade, CapTPMessage } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -115,9 +114,11 @@ async function main(): Promise<void> {
     logger.info(result);
   };
 
-  // Handle incoming CapTP messages from the kernel
+  // Handle incoming messages from offscreen (CapTP and console-forward)
   const drainPromise = offscreenStream.drain((message) => {
-    if (isCapTPNotification(message)) {
+    if (isConsoleForwardMessage(message)) {
+      handleConsoleForwardMessage(message, '[offscreen]');
+    } else if (isCapTPNotification(message)) {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);
     } else {
