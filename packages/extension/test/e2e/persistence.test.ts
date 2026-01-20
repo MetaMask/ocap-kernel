@@ -45,6 +45,8 @@ test.describe('Kernel Persistence', () => {
     await expect(
       newPopupPage.locator('text=Subcluster s2 - 1 Vat'),
     ).toBeVisible();
+    // Wait for database to fully persist before reloading
+    await newPopupPage.waitForTimeout(1000);
     // reload the extension
     await newPopupPage.evaluate(() => chrome.runtime.reload());
     await newPopupPage.close();
