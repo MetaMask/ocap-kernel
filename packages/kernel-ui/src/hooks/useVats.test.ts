@@ -1,7 +1,6 @@
 import type { VatConfig } from '@metamask/ocap-kernel';
 import { setupOcapKernelMock } from '@ocap/repo-tools/test-utils';
-import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { waitFor, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { PanelContextType } from '../context/PanelContext.tsx';

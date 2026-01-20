@@ -50,8 +50,8 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/streams": "workspace:^",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "ses": "^1.14.0"
   },
   "devDependencies": {
@@ -66,8 +66,8 @@
     "@playwright/test": "^1.54.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@types/chrome": "^0.0.313",
-    "@types/react": "^17.0.11",
-    "@types/react-dom": "^17.0.11",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",

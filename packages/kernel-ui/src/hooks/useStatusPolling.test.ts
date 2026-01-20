@@ -1,6 +1,5 @@
 import clusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
-import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { waitFor, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../services/logger.ts', () => ({
