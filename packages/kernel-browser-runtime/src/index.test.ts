@@ -11,7 +11,9 @@ describe('index', () => {
       'createRelayQueryString',
       'getCapTPMessage',
       'getRelaysFromCurrentLocation',
+      'handleConsoleForwardMessage',
       'isCapTPNotification',
+      'isConsoleForwardMessage',
       'makeBackgroundCapTP',
       'makeCapTPNotification',
       'makeIframeVatWorker',
@@ -19,6 +21,7 @@ describe('index', () => {
       'receiveInternalConnections',
       'rpcHandlers',
       'rpcMethodSpecs',
+      'setupConsoleForwarding',
     ]);
   });
 });
