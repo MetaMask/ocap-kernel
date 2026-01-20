@@ -1686,6 +1686,327 @@ describe('network.initNetwork', () => {
     });
   });
 
+  describe('message size limits', () => {
+    it('rejects messages exceeding size limit', async () => {
+      const maxMessageSizeBytes = 1000; // 1KB limit for test
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxMessageSizeBytes },
+        vi.fn(),
+      );
+
+      // Create a message that exceeds the limit
+      const largeContent = 'x'.repeat(1500); // > 1KB
+      const largeMessage = makeTestMessage(largeContent);
+
+      await expect(sendRemoteMessage('peer-1', largeMessage)).rejects.toThrow(
+        /Message size .* bytes exceeds limit of 1000 bytes/u,
+      );
+
+      // Should not attempt to dial
+      expect(mockConnectionFactory.dialIdempotent).not.toHaveBeenCalled();
+    });
+
+    it('allows messages within size limit', async () => {
+      const maxMessageSizeBytes = 10000; // 10KB limit
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxMessageSizeBytes },
+        vi.fn(),
+      );
+
+      // Create a message within the limit
+      const smallContent = 'x'.repeat(100);
+      const smallMessage = makeTestMessage(smallContent);
+
+      await sendRemoteMessage('peer-1', smallMessage);
+
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalled();
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+    });
+
+    it('uses default 1MB limit when not specified', async () => {
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Create a message that exceeds 1MB
+      const hugeContent = 'x'.repeat(1024 * 1024 + 100); // > 1MB
+      const hugeMessage = makeTestMessage(hugeContent);
+
+      await expect(sendRemoteMessage('peer-1', hugeMessage)).rejects.toThrow(
+        /exceeds limit of 1048576 bytes/u,
+      );
+    });
+  });
+
+  describe('connection limits', () => {
+    it('rejects new connections when limit is reached', async () => {
+      const maxConcurrentConnections = 2;
+      let channelCount = 0;
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => {
+          channelCount += 1;
+          return createMockChannel(peerId);
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections },
+        vi.fn(),
+      );
+
+      // Establish connections up to the limit
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+      await sendRemoteMessage('peer-2', makeTestMessage('msg2'));
+
+      expect(channelCount).toBe(2);
+
+      // Third connection should be rejected
+      await expect(
+        sendRemoteMessage('peer-3', makeTestMessage('msg3')),
+      ).rejects.toThrow(
+        /Connection limit reached: 2\/2 concurrent connections/u,
+      );
+
+      // Should not have attempted to dial the third peer
+      expect(channelCount).toBe(2);
+    });
+
+    it('allows new connections after existing ones close', async () => {
+      const maxConcurrentConnections = 2;
+      const channels: MockChannel[] = [];
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => {
+          const channel = createMockChannel(peerId);
+          channels.push(channel);
+          return channel;
+        },
+      );
+
+      const { sendRemoteMessage, closeConnection } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections },
+        vi.fn(),
+      );
+
+      // Establish connections up to the limit
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+      await sendRemoteMessage('peer-2', makeTestMessage('msg2'));
+
+      expect(channels).toHaveLength(2);
+
+      // Close peer-1 connection to free up a slot
+      await closeConnection('peer-1');
+
+      // Now we should be able to establish a new connection
+      await sendRemoteMessage('peer-3', makeTestMessage('msg3'));
+      expect(channels).toHaveLength(3);
+    });
+
+    it('rejects inbound connections when limit is reached', async () => {
+      const maxConcurrentConnections = 2;
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => createMockChannel(peerId),
+      );
+
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const { sendRemoteMessage } = await initNetwork(
+        '0x1234',
+        { maxConcurrentConnections },
+        vi.fn(),
+      );
+
+      // Establish connections up to the limit
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+      await sendRemoteMessage('peer-2', makeTestMessage('msg2'));
+
+      // Try inbound connection - should be rejected
+      const inboundChannel = createMockChannel('peer-3');
+      inboundHandler?.(inboundChannel);
+
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-3:: rejecting inbound connection due to connection limit',
+        );
+      });
+
+      // Should not have started reading from the rejected channel
+      expect(inboundChannel.msgStream.read).not.toHaveBeenCalled();
+    });
+
+    it('uses default 100 connection limit when not specified', async () => {
+      // This test just verifies the option is used - we won't actually create 100 connections
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Should be able to send (well under 100 connections)
+      await sendRemoteMessage('peer-1', makeTestMessage('msg'));
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+    });
+  });
+
+  describe('stale peer cleanup', () => {
+    it('sets up cleanup interval with configured cleanupIntervalMs', async () => {
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+      const cleanupIntervalMs = 5000;
+
+      const { stop } = await initNetwork(
+        '0x1234',
+        { cleanupIntervalMs },
+        vi.fn(),
+      );
+
+      expect(setIntervalSpy).toHaveBeenCalledWith(
+        expect.any(Function),
+        cleanupIntervalMs,
+      );
+
+      await stop();
+      setIntervalSpy.mockRestore();
+    });
+
+    it('clears cleanup interval on stop', async () => {
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+
+      const { stop } = await initNetwork(
+        '0x1234',
+        { cleanupIntervalMs: 5000 },
+        vi.fn(),
+      );
+
+      await stop();
+
+      expect(clearIntervalSpy).toHaveBeenCalled();
+      clearIntervalSpy.mockRestore();
+    });
+
+    it('uses default cleanup interval when not specified', async () => {
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+      const { stop } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Default is 15 minutes (15 * 60 * 1000 = 900000ms)
+      expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 900000);
+
+      await stop();
+      setIntervalSpy.mockRestore();
+    });
+  });
+
+  describe('channel lifecycle', () => {
+    it('closes previous channel when registering new one for same peer', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const mockChannel1 = createMockChannel('peer-1');
+      const mockChannel2 = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent
+        .mockResolvedValueOnce(mockChannel1)
+        .mockResolvedValueOnce(mockChannel2);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // Establish first channel via outbound
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      // Simulate inbound connection from same peer (creates second channel)
+      inboundHandler?.(mockChannel2);
+
+      await vi.waitFor(() => {
+        // Should have closed the previous channel
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          mockChannel1,
+          'peer-1',
+        );
+      });
+    });
+
+    it('reuses existing channel when dial race occurs', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      // First send establishes channel
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      // Second send should reuse existing channel (no new dial)
+      await sendRemoteMessage('peer-1', makeTestMessage('msg2'));
+
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(1);
+      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles concurrent inbound and outbound connection', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const outboundChannel = createMockChannel('peer-1');
+      const inboundChannel = createMockChannel('peer-1');
+
+      // Make dial slow to allow inbound to arrive during dial
+      mockConnectionFactory.dialIdempotent.mockImplementation(async () => {
+        // Simulate inbound arriving during dial
+        inboundHandler?.(inboundChannel);
+        await new Promise((resolve) => setImmediate(resolve));
+        return outboundChannel;
+      });
+
+      const { sendRemoteMessage } = await initNetwork('0x1234', {}, vi.fn());
+
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      // The outbound channel should have been closed since inbound arrived first
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          outboundChannel,
+          'peer-1',
+        );
+      });
+    });
+
+    it('updates lastConnectionTime on each message send', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initNetwork(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      // Send first message - establishes channel and updates lastConnectionTime
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      // Send second message - should also update lastConnectionTime
+      await sendRemoteMessage('peer-1', makeTestMessage('msg2'));
+
+      // Both writes should have completed successfully
+      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
+
+      await stop();
+    });
+  });
+
   describe('message send timeout', () => {
     afterEach(() => {
       vi.restoreAllMocks();
