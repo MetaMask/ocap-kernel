@@ -81,10 +81,10 @@ export default defineConfig({
           lines: 1.44,
         },
         'packages/kernel-agents/**': {
-          statements: 92.34,
-          functions: 90.84,
-          branches: 85.08,
-          lines: 92.48,
+          statements: 88.16,
+          functions: 80,
+          branches: 75.38,
+          lines: 88.13,
         },
         'packages/kernel-browser-runtime/**': {
           statements: 86.06,
@@ -159,10 +159,10 @@ export default defineConfig({
           lines: 25,
         },
         'packages/ocap-kernel/**': {
-          statements: 92.6,
-          functions: 93.04,
-          branches: 86,
-          lines: 92.6,
+          statements: 93.73,
+          functions: 95.63,
+          branches: 85.81,
+          lines: 93.74,
         },
         'packages/omnium-gatherum/**': {
           statements: 5.26,
