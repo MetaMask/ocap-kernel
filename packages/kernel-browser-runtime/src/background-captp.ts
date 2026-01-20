@@ -1,13 +1,10 @@
 import { makeCapTP } from '@endo/captp';
 import type { JsonRpcMessage, JsonRpcCall } from '@metamask/kernel-utils';
-import type { Json, JsonRpcNotification } from '@metamask/utils';
+import type { JsonRpcNotification } from '@metamask/utils';
 
-import type { KernelFacade } from './types.ts';
+import type { CapTPMessage, KernelFacade } from './types.ts';
 
-/**
- * A CapTP message that can be sent over the wire.
- */
-export type CapTPMessage = Record<string, Json>;
+export type { CapTPMessage };
 
 /**
  * A CapTP JSON-RPC notification.

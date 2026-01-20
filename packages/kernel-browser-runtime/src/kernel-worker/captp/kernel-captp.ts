@@ -1,13 +1,8 @@
 import { makeCapTP } from '@endo/captp';
 import type { Kernel } from '@metamask/ocap-kernel';
-import type { Json } from '@metamask/utils';
 
 import { makeKernelFacade } from './kernel-facade.ts';
-
-/**
- * A CapTP message that can be sent over the wire.
- */
-export type CapTPMessage = Record<string, Json>;
+import type { CapTPMessage } from '../../types.ts';
 
 /**
  * Options for creating a kernel CapTP endpoint.
@@ -43,7 +38,7 @@ export type KernelCapTP = {
    *
    * @param reason - The reason for aborting.
    */
-  abort: (reason?: Json) => void;
+  abort: (reason?: unknown) => void;
 };
 
 /**

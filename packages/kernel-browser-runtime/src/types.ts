@@ -1,4 +1,10 @@
 import type { Kernel } from '@metamask/ocap-kernel';
+import type { Json } from '@metamask/utils';
+
+/**
+ * A CapTP message that can be sent over the wire.
+ */
+export type CapTPMessage = Record<string, Json>;
 
 /**
  * The kernel facade interface - methods exposed to userspace via CapTP.
