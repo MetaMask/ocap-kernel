@@ -67,11 +67,15 @@ describe('RemoteHandle', () => {
     const crankResult = await remote.deliverMessage(target, message);
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'deliver',
-        params: ['message', target, message],
-      }),
+      expect.any(String),
     );
+    // Verify the string contains the expected message content
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('deliver');
+    expect(parsed.params).toStrictEqual(['message', target, message]);
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
@@ -84,11 +88,14 @@ describe('RemoteHandle', () => {
     const crankResult = await remote.deliverNotify(resolutions);
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'deliver',
-        params: ['notify', resolutions],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('deliver');
+    expect(parsed.params).toStrictEqual(['notify', resolutions]);
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
@@ -99,11 +106,14 @@ describe('RemoteHandle', () => {
     const crankResult = await remote.deliverDropExports(rrefs);
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'deliver',
-        params: ['dropExports', rrefs],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('deliver');
+    expect(parsed.params).toStrictEqual(['dropExports', rrefs]);
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
@@ -114,11 +124,14 @@ describe('RemoteHandle', () => {
     const crankResult = await remote.deliverRetireExports(rrefs);
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'deliver',
-        params: ['retireExports', rrefs],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('deliver');
+    expect(parsed.params).toStrictEqual(['retireExports', rrefs]);
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
@@ -129,11 +142,14 @@ describe('RemoteHandle', () => {
     const crankResult = await remote.deliverRetireImports(rrefs);
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'deliver',
-        params: ['retireImports', rrefs],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('deliver');
+    expect(parsed.params).toStrictEqual(['retireImports', rrefs]);
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
@@ -153,7 +169,9 @@ describe('RemoteHandle', () => {
     const expectedReplyKey = '1';
 
     const urlPromise = remote.redeemOcapURL(mockOcapURL);
+    // Reply includes seq since all incoming messages have seq
     const redeemURLReply = {
+      seq: 1,
       method: 'redeemURLReply',
       params: [true, expectedReplyKey, mockURLResolutionRRef],
     };
@@ -165,11 +183,14 @@ describe('RemoteHandle', () => {
     );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL, expectedReplyKey],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('redeemURL');
+    expect(parsed.params).toStrictEqual([mockOcapURL, expectedReplyKey]);
     expect(kref).toBe(mockURLResolutionKRef);
     expect(
       mockKernelStore.translateRefEtoK(remote.remoteId, mockURLResolutionRRef),
@@ -182,7 +203,9 @@ describe('RemoteHandle', () => {
     const expectedReplyKey = '1';
 
     const urlPromise = remote.redeemOcapURL(mockOcapURL);
+    // Reply includes seq since all incoming messages have seq
     const redeemURLReply = {
+      seq: 1,
       method: 'redeemURLReply',
       params: [false, expectedReplyKey],
     };
@@ -193,11 +216,14 @@ describe('RemoteHandle', () => {
     );
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
       mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL, expectedReplyKey],
-      }),
+      expect.any(String),
     );
+    const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+      .calls[0]![1];
+    const parsed = JSON.parse(sentString);
+    expect(parsed.seq).toBe(1);
+    expect(parsed.method).toBe('redeemURL');
+    expect(parsed.params).toStrictEqual([mockOcapURL, expectedReplyKey]);
     await expect(urlPromise).rejects.toThrow(
       `vitest ignores this string but lint complains if it's not here`,
     );
@@ -207,7 +233,9 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
     const unknownReplyKey = 'unknown-key';
 
+    // Include seq since all incoming messages have seq
     const redeemURLReply = {
+      seq: 1,
       method: 'redeemURLReply',
       params: [true, unknownReplyKey, 'ro+1'],
     };
@@ -227,7 +255,9 @@ describe('RemoteHandle', () => {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
       result: resultRRef,
     };
+    // Include seq since all incoming messages have seq
     const delivery = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['message', targetRRef, message],
     });
@@ -252,7 +282,9 @@ describe('RemoteHandle', () => {
     const resolutions: VatOneResolution[] = [
       [promiseRRef, false, { body: '"resolved value"', slots: [] }],
     ];
+    // Include seq since all incoming messages have seq
     const notify = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['notify', resolutions],
     });
@@ -310,8 +342,9 @@ describe('RemoteHandle', () => {
       }
     }
 
-    // Now have the "other end" drop them.
+    // Now have the "other end" drop them (include seq for incoming message)
     const dropExports = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['dropExports', drops],
     });
@@ -363,8 +396,9 @@ describe('RemoteHandle', () => {
     // Before we can retire, we have to drop, so pretend that happened too
     mockKernelStore.clearReachableFlag(remote.remoteId, kref);
 
-    // Now have the "other end" retire them.
+    // Now have the "other end" retire them (include seq for incoming message)
     const retireExports = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['retireExports', [toRetireRRef]],
     });
@@ -389,8 +423,9 @@ describe('RemoteHandle', () => {
     mockKernelStore.decrementRefCount(koref, 'test');
     mockKernelStore.clearReachableFlag(remote.remoteId, koref);
 
-    // Now have the "other end" retire the import.
+    // Now have the "other end" retire the import (include seq for incoming message)
     const retireImports = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['retireImports', [roref]],
     });
@@ -407,7 +442,9 @@ describe('RemoteHandle', () => {
 
   it('handleRemoteMessage handles bogus deliver', async () => {
     const remote = makeRemote();
+    // Include seq for incoming message
     const delivery = JSON.stringify({
+      seq: 1,
       method: 'deliver',
       params: ['bogus'],
     });
@@ -422,7 +459,9 @@ describe('RemoteHandle', () => {
     const mockReplyKey = 'replyKey';
     const replyKRef = 'ko100';
     const replyRRef = 'ro+1';
+    // Include seq for incoming message
     const request = JSON.stringify({
+      seq: 1,
       method: 'redeemURL',
       params: [mockOcapURL, mockReplyKey],
     });
@@ -431,12 +470,17 @@ describe('RemoteHandle', () => {
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    expect(reply).toBe(
-      JSON.stringify({
-        method: 'redeemURLReply',
-        params: [true, mockReplyKey, replyRRef],
-      }),
+    // Reply is now sent via sendRemoteCommand, not returned
+    expect(reply).toBe('');
+    // Verify reply was sent with seq/ack via sendRemoteMessage
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
+    const sentMessage = JSON.parse(
+      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
     );
+    expect(sentMessage.method).toBe('redeemURLReply');
+    expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
+    expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
+    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
@@ -453,7 +497,9 @@ describe('RemoteHandle', () => {
       new Error(errorMessage),
     );
 
+    // Include seq for incoming message
     const request = JSON.stringify({
+      seq: 1,
       method: 'redeemURL',
       params: [mockOcapURL, mockReplyKey],
     });
@@ -463,17 +509,28 @@ describe('RemoteHandle', () => {
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,
     );
-    expect(reply).toBe(
-      JSON.stringify({
-        method: 'redeemURLReply',
-        params: [false, mockReplyKey, errorMessage],
-      }),
+    // Reply is now sent via sendRemoteCommand, not returned
+    expect(reply).toBe('');
+    // Verify error reply was sent with seq/ack via sendRemoteMessage
+    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
+    const sentMessage = JSON.parse(
+      mockRemoteComms.sendRemoteMessage.mock.calls[0]?.[1] ?? '{}',
     );
+    expect(sentMessage.method).toBe('redeemURLReply');
+    expect(sentMessage.params).toStrictEqual([
+      false,
+      mockReplyKey,
+      errorMessage,
+    ]);
+    expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
+    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
   });
 
   it('handleRemoteMessage rejects bogus message type', async () => {
     const remote = makeRemote();
+    // Include seq for incoming message
     const request = JSON.stringify({
+      seq: 1,
       method: 'bogus',
       params: [],
     });
@@ -510,8 +567,9 @@ describe('RemoteHandle', () => {
     // Reject all pending redemptions
     remote.rejectPendingRedemptions(errorMessage);
 
-    // Try to handle a reply for the rejected redemption - should fail
+    // Try to handle a reply for the rejected redemption - should fail (include seq)
     const redeemURLReply = {
+      seq: 1,
       method: 'redeemURLReply',
       params: [true, '1', 'ro+1'],
     };
@@ -541,21 +599,24 @@ describe('RemoteHandle', () => {
     const promise2 = remote.redeemOcapURL(mockOcapURL2);
     const promise3 = remote.redeemOcapURL(mockOcapURL3);
 
-    // Resolve all redemptions
+    // Resolve all redemptions (include seq for incoming messages)
     await remote.handleRemoteMessage(
       JSON.stringify({
+        seq: 1,
         method: 'redeemURLReply',
         params: [true, '1', 'ro+1'],
       }),
     );
     await remote.handleRemoteMessage(
       JSON.stringify({
+        seq: 2,
         method: 'redeemURLReply',
         params: [true, '2', 'ro+2'],
       }),
     );
     await remote.handleRemoteMessage(
       JSON.stringify({
+        seq: 3,
         method: 'redeemURLReply',
         params: [true, '3', 'ro+3'],
       }),
@@ -565,28 +626,16 @@ describe('RemoteHandle', () => {
     await promise2;
     await promise3;
 
-    // Verify each redemption uses a different reply key
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL1, '1'],
-      }),
-    );
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL2, '2'],
-      }),
-    );
-    expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
-      mockRemotePeerId,
-      JSON.stringify({
-        method: 'redeemURL',
-        params: [mockOcapURL3, '3'],
-      }),
-    );
+    // Verify each redemption uses a different reply key (messages are strings with seq)
+    const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
+    const parsedMessages = calls.map((call) => JSON.parse(call[1]));
+
+    expect(parsedMessages[0].method).toBe('redeemURL');
+    expect(parsedMessages[0].params).toStrictEqual([mockOcapURL1, '1']);
+    expect(parsedMessages[1].method).toBe('redeemURL');
+    expect(parsedMessages[1].params).toStrictEqual([mockOcapURL2, '2']);
+    expect(parsedMessages[2].method).toBe('redeemURL');
+    expect(parsedMessages[2].params).toStrictEqual([mockOcapURL3, '3']);
   });
 
   it('handles multiple concurrent URL redemptions independently', async () => {
@@ -600,15 +649,17 @@ describe('RemoteHandle', () => {
     const promise1 = remote.redeemOcapURL(mockOcapURL1);
     const promise2 = remote.redeemOcapURL(mockOcapURL2);
 
-    // Resolve them in reverse order to verify they're handled independently
+    // Resolve them in reverse order to verify they're handled independently (include seq)
     await remote.handleRemoteMessage(
       JSON.stringify({
+        seq: 1,
         method: 'redeemURLReply',
         params: [true, '2', mockURLResolutionRRef2],
       }),
     );
     await remote.handleRemoteMessage(
       JSON.stringify({
+        seq: 2,
         method: 'redeemURLReply',
         params: [true, '1', mockURLResolutionRRef1],
       }),
@@ -652,7 +703,7 @@ describe('RemoteHandle', () => {
       // Wait for sendRemoteMessage to be called
       await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
 
-      // Resolve the redemption to avoid hanging
+      // Resolve the redemption to avoid hanging (parse string to get reply key)
       const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0];
       const sentMessage = JSON.parse(sendCall![1]);
@@ -660,6 +711,7 @@ describe('RemoteHandle', () => {
 
       await remote.handleRemoteMessage(
         JSON.stringify({
+          seq: 1,
           method: 'redeemURLReply',
           params: [true, replyKey, 'ro+1'],
         }),
@@ -683,8 +735,9 @@ describe('RemoteHandle', () => {
 
       const urlPromise = remote.redeemOcapURL(mockOcapURL);
 
-      // Send reply immediately (before timeout)
+      // Send reply immediately (before timeout) - include seq
       const redeemURLReply = {
+        seq: 1,
         method: 'redeemURLReply',
         params: [true, expectedReplyKey, mockURLResolutionRRef],
       };
@@ -697,8 +750,10 @@ describe('RemoteHandle', () => {
       expect(mockSignal?.aborted).toBe(false);
 
       // Verify cleanup happened - trying to handle another reply with the same key should fail
+      // Use different seq for the duplicate attempt
+      const duplicateReply = { ...redeemURLReply, seq: 2 };
       await expect(
-        remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
+        remote.handleRemoteMessage(JSON.stringify(duplicateReply)),
       ).rejects.toThrow(`unknown URL redemption reply key ${expectedReplyKey}`);
     });
 
@@ -718,7 +773,7 @@ describe('RemoteHandle', () => {
       // Wait for sendRemoteMessage to be called
       await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
 
-      // Get the reply key that was used
+      // Get the reply key that was used (parse string)
       const sendCall = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0];
       const sentMessage = JSON.parse(sendCall![1]);
@@ -739,13 +794,138 @@ describe('RemoteHandle', () => {
       );
 
       // Verify cleanup happened - trying to handle a reply with the same key should fail
+      // Include seq for incoming message
       const redeemURLReply = {
+        seq: 1,
         method: 'redeemURLReply',
         params: [true, replyKey, 'ro+1'],
       };
       await expect(
         remote.handleRemoteMessage(JSON.stringify(redeemURLReply)),
       ).rejects.toThrow(`unknown URL redemption reply key ${replyKey}`);
+    });
+  });
+
+  describe('message acknowledgment protocol', () => {
+    it('tracks highest received sequence number', async () => {
+      const remote = makeRemote();
+
+      // Test data - use notify which is simpler than message delivery
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Receive a message with seq=5
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 5,
+          method: 'deliver',
+          params: ['notify', resolutions],
+        }),
+      );
+
+      // Now send a message - it should include ack=5 (piggyback ACK)
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]![1];
+      const parsed = JSON.parse(sentString);
+      expect(parsed.ack).toBe(5);
+    });
+
+    it('includes ack field on outgoing messages when we have received messages', async () => {
+      const remote = makeRemote();
+
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // First message sent should not have ack (nothing received yet)
+      await remote.deliverNotify(resolutions);
+
+      let sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]![1];
+      let parsed = JSON.parse(sentString);
+      expect(parsed.ack).toBeUndefined();
+      expect(parsed.seq).toBe(1);
+
+      // Receive a message
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['notify', resolutions],
+        }),
+      );
+
+      // Now send another message - it should include piggyback ack
+      await remote.deliverNotify(resolutions);
+
+      sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[1]![1];
+      parsed = JSON.parse(sentString);
+      expect(parsed.ack).toBe(1);
+      expect(parsed.seq).toBe(2);
+    });
+
+    it('processes message after handling seq/ack', async () => {
+      const remote = makeRemote();
+
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Incoming delivery message with seq/ack
+      const deliveryMessage = {
+        seq: 10,
+        ack: 8,
+        method: 'deliver',
+        params: ['notify', resolutions],
+      };
+
+      const result = await remote.handleRemoteMessage(
+        JSON.stringify(deliveryMessage),
+      );
+
+      // Verify message was processed (handleRemoteMessage returns empty string on success)
+      expect(result).toBe('');
+
+      // Verify kernel queue was called
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalled();
+    });
+
+    it('handles standalone ACK messages (ack only, no seq)', async () => {
+      const remote = makeRemote();
+
+      // Receive a standalone ACK - this happens when the remote has nothing to send
+      // but wants to acknowledge our messages
+      const standaloneAck = JSON.stringify({ ack: 5 });
+
+      // This should not throw and should return empty string
+      const result = await remote.handleRemoteMessage(standaloneAck);
+      expect(result).toBe('');
+    });
+
+    it('assigns sequential sequence numbers to outgoing messages', async () => {
+      const remote = makeRemote();
+
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Send three messages
+      await remote.deliverNotify(resolutions);
+      await remote.deliverNotify(resolutions);
+      await remote.deliverNotify(resolutions);
+
+      const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
+      expect(JSON.parse(calls[0]![1]).seq).toBe(1);
+      expect(JSON.parse(calls[1]![1]).seq).toBe(2);
+      expect(JSON.parse(calls[2]![1]).seq).toBe(3);
     });
   });
 });

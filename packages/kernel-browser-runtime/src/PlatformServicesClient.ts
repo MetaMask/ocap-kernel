@@ -227,7 +227,7 @@ export class PlatformServicesClient implements PlatformServices {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param message - The message to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
   async sendRemoteMessage(to: string, message: string): Promise<void> {

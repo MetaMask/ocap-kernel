@@ -19,6 +19,27 @@ import type {
 } from '../types.ts';
 import type { RemoteComms } from './types.ts';
 
+/** How long to wait for ACK before retransmitting (ms). */
+const ACK_TIMEOUT_MS = 10_000;
+
+/** How long to wait before sending a standalone ACK if no outgoing traffic (ms). */
+const DELAYED_ACK_MS = 50;
+
+/** Maximum retransmission attempts before giving up. */
+const MAX_RETRIES = 3;
+
+/** Maximum number of pending messages awaiting ACK. */
+const MAX_PENDING_MESSAGES = 200;
+
+/**
+ * Pending message awaiting acknowledgment.
+ */
+type PendingMessage = {
+  messageString: string; // Serialized message (with seq/ack)
+  sendTimestamp: number; // When first sent (for metrics)
+  retryCount: number; // 0 on first send, incremented on retry
+};
+
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;
   peerId: string;
@@ -27,6 +48,7 @@ type RemoteHandleConstructorProps = {
   remoteComms: RemoteComms;
   locationHints?: string[] | undefined;
   logger?: Logger | undefined;
+  onGiveUp?: ((peerId: string) => void) | undefined;
 };
 
 type MessageDelivery = ['message', string, Message];
@@ -57,7 +79,12 @@ type RedeemURLReply = {
   params: [boolean, string, string];
 };
 
-type RemoteCommand = Delivery | RedeemURLRequest | RedeemURLReply;
+export type RemoteMessageBase = Delivery | RedeemURLRequest | RedeemURLReply;
+
+type RemoteCommand = {
+  seq: number;
+  ack?: number;
+} & RemoteMessageBase;
 
 /**
  * Handles communication with a remote kernel endpoint over the network.
@@ -96,6 +123,32 @@ export class RemoteHandle implements EndpointHandle {
   /** Crank result object to reuse (since it's always the same). */
   readonly #myCrankResult: CrankResults;
 
+  /** Logger for diagnostic output. */
+  readonly #logger: Logger;
+
+  // --- Sequence/ACK tracking state ---
+
+  /** Next sequence number to assign to outgoing messages. */
+  #nextSendSeq: number = 0;
+
+  /** Highest sequence number received from remote (for piggyback ACK). */
+  #highestReceivedSeq: number = 0;
+
+  /** Queue of messages awaiting ACK, in sequence order. */
+  readonly #pendingMessages: PendingMessage[] = [];
+
+  /** Sequence number of first message in pending queue. */
+  #startSeq: number = 0;
+
+  /** Timer handle for ACK timeout (retransmission). */
+  #ackTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  /** Timer handle for delayed ACK (standalone ACK when no outgoing traffic). */
+  #delayedAckHandle: ReturnType<typeof setTimeout> | undefined;
+
+  /** Callback invoked when we give up on this remote (for promise rejection). */
+  readonly #onGiveUp: ((peerId: string) => void) | undefined;
+
   /**
    * Construct a new RemoteHandle instance.
    *
@@ -106,6 +159,8 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.kernelQueue - The kernel's queue.
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.locationHints - Possible contact points to reach the other end.
+   * @param params.logger - Optional logger for diagnostic output.
+   * @param params.onGiveUp - Optional callback when we give up on this remote.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor({
@@ -115,6 +170,8 @@ export class RemoteHandle implements EndpointHandle {
     kernelQueue,
     remoteComms,
     locationHints,
+    logger,
+    onGiveUp,
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
     this.#peerId = peerId;
@@ -123,6 +180,8 @@ export class RemoteHandle implements EndpointHandle {
     this.#remoteComms = remoteComms;
     this.#locationHints = locationHints ?? [];
     this.#myCrankResult = { didDelivery: remoteId };
+    this.#logger = logger ?? new Logger(`RemoteHandle:${peerId.slice(0, 8)}`);
+    this.#onGiveUp = onGiveUp;
   }
 
   /**
@@ -135,6 +194,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.kernelQueue - The kernel's queue.
    * @param params.remoteComms - Remote comms object to access the network.
    * @param params.logger - Optional logger for error and diagnostic output.
+   * @param params.onGiveUp - Optional callback invoked when we give up on this remote.
    *
    * @returns the new RemoteHandle instance.
    */
@@ -143,12 +203,186 @@ export class RemoteHandle implements EndpointHandle {
     return remote;
   }
 
+  // --- Sequence/ACK management methods ---
+
+  /**
+   * Get the next sequence number and increment the counter.
+   *
+   * @returns The sequence number to use for the next outgoing message.
+   */
+  #getNextSeq(): number {
+    this.#nextSendSeq += 1;
+    return this.#nextSendSeq;
+  }
+
+  /**
+   * Get the current ACK value (highest received sequence number).
+   *
+   * @returns The ACK value, or undefined if no messages received yet.
+   */
+  #getAckValue(): number | undefined {
+    return this.#highestReceivedSeq > 0 ? this.#highestReceivedSeq : undefined;
+  }
+
+  /**
+   * Process an incoming ACK (cumulative - acknowledges all messages up to ackSeq).
+   *
+   * @param ackSeq - The highest sequence number being acknowledged.
+   */
+  #handleAck(ackSeq: number): void {
+    while (this.#startSeq <= ackSeq && this.#pendingMessages.length > 0) {
+      const pending = this.#pendingMessages.shift();
+      if (pending) {
+        this.#logger.log(
+          `${this.#peerId.slice(0, 8)}:: message ${this.#startSeq} acknowledged (${Date.now() - pending.sendTimestamp}ms)`,
+        );
+      }
+      this.#startSeq += 1;
+    }
+    // Restart or clear ACK timeout based on remaining pending messages
+    this.#startAckTimeout();
+  }
+
+  /**
+   * Start or restart the ACK timeout. If there are pending messages,
+   * starts a timer. If the queue is empty, clears any existing timer.
+   */
+  #startAckTimeout(): void {
+    this.#clearAckTimeout();
+    if (this.#pendingMessages.length > 0) {
+      this.#ackTimeoutHandle = setTimeout(() => {
+        this.#handleAckTimeout();
+      }, ACK_TIMEOUT_MS);
+    }
+  }
+
+  /**
+   * Clear the ACK timeout timer.
+   */
+  #clearAckTimeout(): void {
+    if (this.#ackTimeoutHandle) {
+      clearTimeout(this.#ackTimeoutHandle);
+      this.#ackTimeoutHandle = undefined;
+    }
+  }
+
+  /**
+   * Handle ACK timeout - either retransmit or give up.
+   */
+  #handleAckTimeout(): void {
+    this.#ackTimeoutHandle = undefined;
+    const head = this.#pendingMessages[0];
+    if (!head) {
+      return;
+    }
+
+    if (head.retryCount >= MAX_RETRIES) {
+      // Give up - reject all pending messages, URL redemptions, and notify RemoteManager
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#pendingMessages.length} pending messages`,
+      );
+      this.#rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
+      this.rejectPendingRedemptions(
+        `Remote connection lost after ${MAX_RETRIES} failed retries`,
+      );
+      this.#onGiveUp?.(this.#peerId);
+      return;
+    }
+
+    // Retransmit
+    head.retryCount += 1;
+    head.sendTimestamp = Date.now();
+    this.#logger.log(
+      `${this.#peerId.slice(0, 8)}:: retransmitting ${this.#pendingMessages.length} pending messages (attempt ${head.retryCount + 1})`,
+    );
+    this.#retransmitPending();
+  }
+
+  /**
+   * Retransmit all pending messages.
+   */
+  #retransmitPending(): void {
+    for (const pending of this.#pendingMessages) {
+      this.#remoteComms
+        .sendRemoteMessage(this.#peerId, pending.messageString)
+        .catch((error) => {
+          this.#logger.error('Error retransmitting message:', error);
+        });
+    }
+    this.#startAckTimeout();
+  }
+
+  /**
+   * Discard all pending messages due to delivery failure.
+   *
+   * @param reason - The reason for failure.
+   */
+  #rejectAllPending(reason: string): void {
+    for (let i = 0; i < this.#pendingMessages.length; i += 1) {
+      this.#logger.warn(
+        `Message ${this.#startSeq + i} delivery failed: ${reason}`,
+      );
+    }
+    this.#pendingMessages.length = 0;
+    this.#startSeq = this.#nextSendSeq;
+  }
+
+  /**
+   * Start the delayed ACK timer. When it fires, a standalone ACK will be sent
+   * if no outgoing message has piggybacked the ACK.
+   */
+  #startDelayedAck(): void {
+    this.#clearDelayedAck();
+    const ackValue = this.#getAckValue();
+    if (ackValue === undefined) {
+      return;
+    }
+    this.#delayedAckHandle = setTimeout(() => {
+      this.#delayedAckHandle = undefined;
+      this.#sendStandaloneAck();
+    }, DELAYED_ACK_MS);
+  }
+
+  /**
+   * Clear the delayed ACK timer.
+   */
+  #clearDelayedAck(): void {
+    if (this.#delayedAckHandle) {
+      clearTimeout(this.#delayedAckHandle);
+      this.#delayedAckHandle = undefined;
+    }
+  }
+
+  /**
+   * Send a standalone ACK message (no payload, just acknowledges received messages).
+   */
+  #sendStandaloneAck(): void {
+    const ackValue = this.#getAckValue();
+    if (ackValue === undefined) {
+      return;
+    }
+    const ackMessage = JSON.stringify({ ack: ackValue });
+    this.#logger.log(
+      `${this.#peerId.slice(0, 8)}:: sending standalone ACK ${ackValue}`,
+    );
+    this.#remoteComms
+      .sendRemoteMessage(this.#peerId, ackMessage)
+      .catch((error) => {
+        this.#logger.error('Error sending standalone ACK:', error);
+      });
+  }
+
+  // --- Message sending ---
+
   /**
    * Transmit a message to the remote end of the connection.
+   * Adds seq and ack fields, queues for ACK tracking, and sends.
    *
-   * @param message - The message to send.
+   * @param messageBase - The base message to send (without seq/ack).
    */
-  async #sendRemoteCommand(message: RemoteCommand): Promise<void> {
+  async #sendRemoteCommand(
+    messageBase: Delivery | RedeemURLRequest | RedeemURLReply,
+  ): Promise<void> {
     if (this.#needsHinting) {
       // Hints are registered lazily because (a) transmitting to the platform
       // services process has to be done asynchronously, which is very painful
@@ -158,16 +392,74 @@ export class RemoteHandle implements EndpointHandle {
       // even happening if we never talk to a particular peer again. Instead, we
       // wait until we know a given peer needs to be communicated with before
       // bothering to send its hint info.
-      await this.#remoteComms.registerLocationHints(
-        this.#peerId,
-        this.#locationHints,
-      );
+      //
+      // Fire-and-forget: Don't await this call to avoid RPC deadlock when
+      // this method is called inside an RPC handler (e.g., during remoteDeliver).
+      this.#remoteComms
+        .registerLocationHints(this.#peerId, this.#locationHints)
+        .catch((error) => {
+          this.#logger.error('Error registering location hints:', error);
+        });
       this.#needsHinting = false;
     }
-    await this.#remoteComms.sendRemoteMessage(
-      this.#peerId,
-      JSON.stringify(message),
-    );
+
+    // Check queue capacity before consuming any resources (seq number, ACK timer)
+    if (this.#pendingMessages.length >= MAX_PENDING_MESSAGES) {
+      throw Error(
+        `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
+      );
+    }
+
+    // Build full message with seq and optional piggyback ack
+    const seq = this.#getNextSeq();
+    const ack = this.#getAckValue();
+    const remoteCommand: RemoteCommand =
+      ack === undefined
+        ? { seq, ...messageBase }
+        : { seq, ack, ...messageBase };
+    const messageString = JSON.stringify(remoteCommand);
+
+    // Clear delayed ACK timer - we're piggybacking the ACK on this message
+    this.#clearDelayedAck();
+
+    // Track message for ACK
+    const pending: PendingMessage = {
+      messageString,
+      sendTimestamp: Date.now(),
+      retryCount: 0,
+    };
+
+    // If queue was empty, set startSeq to this message's sequence number
+    if (this.#pendingMessages.length === 0) {
+      this.#startSeq = seq;
+    }
+    this.#pendingMessages.push(pending);
+
+    // Start ACK timeout if this is the first pending message
+    if (this.#pendingMessages.length === 1) {
+      this.#startAckTimeout();
+    }
+
+    // Send the message (non-blocking - don't wait for ACK)
+    this.#remoteComms
+      .sendRemoteMessage(this.#peerId, messageString)
+      .catch((error) => {
+        // Handle intentional close errors specially - reject pending redemptions
+        if (
+          error instanceof Error &&
+          error.message.includes('intentional close')
+        ) {
+          this.#clearAckTimeout();
+          this.#rejectAllPending('intentional close');
+          this.rejectPendingRedemptions(
+            'Message delivery failed after intentional close',
+          );
+          // Notify RemoteManager to reject kernel promises for this remote
+          this.#onGiveUp?.(this.#peerId);
+          return;
+        }
+        this.#logger.error('Error sending remote message:', error);
+      });
   }
 
   /**
@@ -371,28 +663,25 @@ export class RemoteHandle implements EndpointHandle {
 
   /**
    * Handle an ocap URL redemption request from the remote end.
+   * Sends the reply via #sendRemoteCommand to ensure it gets seq/ack tracking.
    *
    * @param url - The ocap URL attempting to be redeemed.
    * @param replyKey - A sender-provided tag to send with the reply.
-   *
-   * @returns a string containing the 'redeemURLReply' message to send back to the requester.
    */
-  async #handleRedeemURLRequest(
-    url: string,
-    replyKey: string,
-  ): Promise<string> {
+  async #handleRedeemURLRequest(url: string, replyKey: string): Promise<void> {
     assert.typeof(replyKey, 'string');
     let kref: string;
     try {
       kref = await this.#remoteComms.redeemLocalOcapURL(url);
     } catch (error) {
-      return JSON.stringify({
+      await this.#sendRemoteCommand({
         method: 'redeemURLReply',
         params: [false, replyKey, `${(error as Error).message}`],
       });
+      return;
     }
     const eref = this.#kernelStore.translateRefKtoE(this.remoteId, kref, true);
-    return JSON.stringify({
+    await this.#sendRemoteCommand({
       method: 'redeemURLReply',
       params: [true, replyKey, eref],
     });
@@ -432,15 +721,37 @@ export class RemoteHandle implements EndpointHandle {
    *   sender as a response. An empty string means no such message is to be sent.
    */
   async handleRemoteMessage(message: string): Promise<string> {
-    const remoteCommand: RemoteCommand = JSON.parse(message);
-    const { method, params } = remoteCommand;
-    let result = '';
+    const parsed = JSON.parse(message);
+
+    // Handle standalone ACK message (no seq, no method - just ack)
+    if (parsed.ack !== undefined && parsed.seq === undefined) {
+      this.#handleAck(parsed.ack);
+      return '';
+    }
+
+    const remoteCommand = parsed as RemoteCommand;
+    const { seq, ack, method, params } = remoteCommand;
+
+    // Track received sequence number for piggyback ACK
+    if (seq > this.#highestReceivedSeq) {
+      this.#highestReceivedSeq = seq;
+    }
+
+    // Start delayed ACK timer - will send standalone ACK if no outgoing traffic
+    this.#startDelayedAck();
+
+    // Handle piggyback ACK if present
+    if (ack !== undefined) {
+      this.#handleAck(ack);
+    }
+
     switch (method) {
       case 'deliver':
         this.#handleRemoteDeliver(params);
         break;
       case 'redeemURL':
-        result = await this.#handleRedeemURLRequest(...params);
+        // Reply is sent via #sendRemoteCommand for proper seq/ack tracking
+        await this.#handleRedeemURLRequest(...params);
         break;
       case 'redeemURLReply':
         await this.#handleRedeemURLReply(...params);
@@ -449,7 +760,7 @@ export class RemoteHandle implements EndpointHandle {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         throw Error(`unknown remote message type ${method}`);
     }
-    return result;
+    return '';
   }
 
   /**
@@ -513,5 +824,16 @@ export class RemoteHandle implements EndpointHandle {
       reject(error);
     }
     this.#pendingRedemptions.clear();
+  }
+
+  /**
+   * Clean up resources held by this RemoteHandle.
+   * Clears all timers and rejects pending promises to prevent resource leaks
+   * and allow garbage collection. Called by RemoteManager during cleanup.
+   */
+  cleanup(): void {
+    this.#clearAckTimeout();
+    this.#clearDelayedAck();
+    this.rejectPendingRedemptions('Remote connection cleanup');
   }
 }
