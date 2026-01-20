@@ -7,7 +7,10 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'createRelayQueryString',
       'getRelaysFromCurrentLocation',
+      'handleConsoleForwardMessage',
+      'isConsoleForwardMessage',
       'parseRelayQueryString',
+      'setupConsoleForwarding',
     ]);
   });
 });

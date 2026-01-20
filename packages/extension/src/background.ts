@@ -4,6 +4,8 @@ import {
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
+  isConsoleForwardMessage,
+  handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
@@ -107,9 +109,11 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
-  // Handle incoming CapTP messages from the kernel
+  // Handle incoming messages from offscreen (CapTP and console-forward)
   const drainPromise = offscreenStream.drain((message) => {
-    if (isCapTPNotification(message)) {
+    if (isConsoleForwardMessage(message)) {
+      handleConsoleForwardMessage(message, '[offscreen]');
+    } else if (isCapTPNotification(message)) {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);
     } else {
