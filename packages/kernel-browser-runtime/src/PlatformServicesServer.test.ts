@@ -18,7 +18,7 @@ import type {
   PlatformServicesStream,
 } from './PlatformServicesServer.ts';
 
-// Mock initNetwork from ocap-kernel
+// Mock initTransport from ocap-kernel
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 const mockCloseConnection = vi.fn(async () => undefined);
@@ -35,7 +35,7 @@ vi.mock('@metamask/ocap-kernel', () => ({
     terminate: 'terminate',
     terminateAll: 'terminateAll',
   },
-  initNetwork: vi.fn(
+  initTransport: vi.fn(
     async (
       _keySeed: string,
       _options: unknown,
@@ -400,8 +400,8 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          const { initNetwork } = await import('@metamask/ocap-kernel');
-          expect(initNetwork).toHaveBeenCalledWith(
+          const { initTransport } = await import('@metamask/ocap-kernel');
+          expect(initTransport).toHaveBeenCalledWith(
             keySeed,
             { relays },
             expect.any(Function),
@@ -422,8 +422,8 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          const { initNetwork } = await import('@metamask/ocap-kernel');
-          expect(initNetwork).toHaveBeenCalledWith(
+          const { initTransport } = await import('@metamask/ocap-kernel');
+          expect(initTransport).toHaveBeenCalledWith(
             keySeed,
             options,
             expect.any(Function),
@@ -458,7 +458,7 @@ describe('PlatformServicesServer', () => {
       });
 
       describe('handleRemoteMessage', () => {
-        it('captures handler from initNetwork', async () => {
+        it('captures handler from initTransport', async () => {
           const keySeed = '0xabcd';
           const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
@@ -529,7 +529,7 @@ describe('PlatformServicesServer', () => {
       });
 
       describe('handleRemoteGiveUp', () => {
-        it('captures handler from initNetwork', async () => {
+        it('captures handler from initTransport', async () => {
           const keySeed = '0xabcd';
           const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
@@ -666,8 +666,8 @@ describe('PlatformServicesServer', () => {
           await stream.receiveInput(makeStopRemoteCommsMessageEvent('m1'));
           await delay(10);
 
-          const { initNetwork } = await import('@metamask/ocap-kernel');
-          const firstCallCount = (initNetwork as Mock).mock.calls.length;
+          const { initTransport } = await import('@metamask/ocap-kernel');
+          const firstCallCount = (initTransport as Mock).mock.calls.length;
 
           // Re-initialize should work
           await stream.receiveInput(
@@ -675,8 +675,8 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          // Should have called initNetwork again
-          expect((initNetwork as Mock).mock.calls).toHaveLength(
+          // Should have called initTransport again
+          expect((initTransport as Mock).mock.calls).toHaveLength(
             firstCallCount + 1,
           );
         });

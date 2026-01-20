@@ -1,14 +1,14 @@
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { makeMapKernelDatabase } from '../../test/storage.ts';
-import type { KernelQueue } from '../KernelQueue.ts';
 import * as remoteComms from './remote-comms.ts';
-import type { RemoteComms } from './types.ts';
-import { makeKernelStore } from '../store/index.ts';
-import type { PlatformServices } from '../types.ts';
 import { RemoteManager } from './RemoteManager.ts';
-import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
+import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import { makeMapKernelDatabase } from '../../../test/storage.ts';
+import type { KernelQueue } from '../../KernelQueue.ts';
+import { makeKernelStore } from '../../store/index.ts';
+import type { PlatformServices } from '../../types.ts';
+import type { RemoteComms } from '../types.ts';
 
 vi.mock('./remote-comms.ts', async () => {
   const actual = await vi.importActual('./remote-comms.ts');

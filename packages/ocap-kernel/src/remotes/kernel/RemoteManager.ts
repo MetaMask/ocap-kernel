@@ -1,17 +1,17 @@
 import type { Logger } from '@metamask/logger';
 
-import type { KernelQueue } from '../KernelQueue.ts';
-import { kser } from '../liveslots/kernel-marshal.ts';
-import type { PlatformServices, RemoteId } from '../types.ts';
 import { initRemoteComms } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
+import type { KernelQueue } from '../../KernelQueue.ts';
+import { kser } from '../../liveslots/kernel-marshal.ts';
+import type { KernelStore } from '../../store/index.ts';
+import type { PlatformServices, RemoteId } from '../../types.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
   RemoteInfo,
   RemoteCommsOptions,
-} from './types.ts';
-import type { KernelStore } from '../store/index.ts';
+} from '../types.ts';
 
 type RemoteManagerConstructorProps = {
   platformServices: PlatformServices;

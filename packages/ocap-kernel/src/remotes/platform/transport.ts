@@ -11,8 +11,8 @@ import {
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import { ConnectionFactory } from './ConnectionFactory.ts';
-import { ReconnectionManager } from './ReconnectionManager.ts';
+import { ConnectionFactory } from './connection-factory.ts';
+import { ReconnectionManager } from './reconnection.ts';
 import type {
   RemoteMessageHandler,
   SendRemoteMessage,
@@ -20,7 +20,7 @@ import type {
   Channel,
   OnRemoteGiveUp,
   RemoteCommsOptions,
-} from './types.ts';
+} from '../types.ts';
 
 /** Default maximum number of concurrent connections */
 const DEFAULT_MAX_CONCURRENT_CONNECTIONS = 100;
@@ -51,7 +51,7 @@ const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
  *
  * @returns a function to send messages **and** a `stop()` to cancel/release everything.
  */
-export async function initNetwork(
+export async function initTransport(
   keySeed: string,
   options: RemoteCommsOptions,
   remoteMessageHandler: RemoteMessageHandler,

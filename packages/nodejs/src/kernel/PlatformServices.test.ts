@@ -79,7 +79,7 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@metamask/ocap-kernel')>();
   return {
     ...actual,
-    initNetwork: vi.fn(async () => ({
+    initTransport: vi.fn(async () => ({
       sendRemoteMessage: mockSendRemoteMessage,
       stop: mockStop,
       closeConnection: mockCloseConnection,
@@ -245,8 +245,8 @@ describe('NodejsPlatformServices', () => {
 
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        expect(initNetwork).toHaveBeenCalledWith(
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        expect(initTransport).toHaveBeenCalledWith(
           keySeed,
           { relays },
           expect.any(Function),
@@ -266,8 +266,8 @@ describe('NodejsPlatformServices', () => {
 
         await service.initializeRemoteComms(keySeed, options, remoteHandler);
 
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        expect(initNetwork).toHaveBeenCalledWith(
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        expect(initTransport).toHaveBeenCalledWith(
           keySeed,
           options,
           expect.any(Function),
@@ -289,8 +289,8 @@ describe('NodejsPlatformServices', () => {
           giveUpHandler,
         );
 
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        expect(initNetwork).toHaveBeenCalledWith(
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        expect(initTransport).toHaveBeenCalledWith(
           keySeed,
           { relays },
           expect.any(Function),
@@ -384,11 +384,11 @@ describe('NodejsPlatformServices', () => {
         // Initialize
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        const { initNetwork } = await import('@metamask/ocap-kernel');
-        const initNetworkMock = initNetwork as unknown as ReturnType<
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        const initTransportMock = initTransport as unknown as ReturnType<
           typeof vi.fn
         >;
-        const firstCallCount = initNetworkMock.mock.calls.length;
+        const firstCallCount = initTransportMock.mock.calls.length;
 
         // Stop
         await service.stopRemoteComms();
@@ -397,8 +397,8 @@ describe('NodejsPlatformServices', () => {
         // Re-initialize should work
         await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
 
-        // Should have called initNetwork again
-        expect(initNetworkMock.mock.calls).toHaveLength(firstCallCount + 1);
+        // Should have called initTransport again
+        expect(initTransportMock.mock.calls).toHaveLength(firstCallCount + 1);
       });
 
       it('clears internal state after stop', async () => {

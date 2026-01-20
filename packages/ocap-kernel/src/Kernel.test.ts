@@ -62,7 +62,7 @@ vi.mock('./KernelQueue.ts', () => {
   return { KernelQueue: mocks.KernelQueue };
 });
 
-vi.mock('./remotes/RemoteManager.ts', () => {
+vi.mock('./remotes/kernel/RemoteManager.ts', () => {
   return { RemoteManager: mocks.RemoteManager };
 });
 
