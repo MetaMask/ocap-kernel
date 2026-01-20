@@ -2,20 +2,12 @@ import { runTests } from '@ocap/repo-tools/build-utils/test';
 import type { UntransformedFiles } from '@ocap/repo-tools/build-utils/test';
 import path from 'node:path';
 
-import {
-  outDir,
-  sourceDir,
-  trustedPreludes,
-} from '../../scripts/build-constants.mjs';
+import { outDir, trustedPreludes } from '../../scripts/build-constants.mjs';
 
 const untransformedFiles = [
   {
     sourcePath: path.resolve('../kernel-shims/dist/endoify.js'),
     buildPath: path.resolve(outDir, 'endoify.js'),
-  },
-  {
-    sourcePath: path.resolve(sourceDir, 'env/dev-console.js'),
-    buildPath: path.resolve(outDir, 'dev-console.js'),
   },
   ...Object.values(trustedPreludes).map((prelude) => {
     if ('path' in prelude) {

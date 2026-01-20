@@ -1,20 +1,32 @@
+import { E } from '@endo/eventual-send';
 import {
-  connectToKernel,
-  rpcMethodSpecs,
+  makeBackgroundCapTP,
+  makeCapTPNotification,
+  isCapTPNotification,
+  getCapTPMessage,
+} from '@metamask/kernel-browser-runtime';
+import type {
+  KernelFacade,
+  CapTPMessage,
 } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
-import { RpcClient } from '@metamask/kernel-rpc-methods';
-import { delay } from '@metamask/kernel-utils';
-import type { JsonRpcCall } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { kernelMethodSpecs } from '@metamask/ocap-kernel/rpc';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
-import { isJsonRpcResponse } from '@metamask/utils';
-import type { JsonRpcResponse } from '@metamask/utils';
+
+defineGlobals();
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 let bootPromise: Promise<void> | null = null;
+let kernelP: Promise<KernelFacade>;
+let ping: () => Promise<void>;
+
+// With this we can click the extension action button to wake up the service worker.
+chrome.action.onClicked.addListener(() => {
+  ping?.().catch(logger.error);
+});
 
 // Install/update
 chrome.runtime.onInstalled.addListener(() => {
@@ -79,85 +91,98 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
+  // Create stream for CapTP messages
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
-    JsonRpcResponse,
-    JsonRpcCall
-  >(chrome.runtime, 'background', 'offscreen', isJsonRpcResponse);
+    JsonRpcMessage,
+    JsonRpcMessage
+  >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  const rpcClient = new RpcClient(
-    kernelMethodSpecs,
-    async (request) => {
-      await offscreenStream.write(request);
+  // Set up CapTP for E() based communication with the kernel
+  const backgroundCapTP = makeBackgroundCapTP({
+    send: (captpMessage: CapTPMessage) => {
+      const notification = makeCapTPNotification(captpMessage);
+      offscreenStream.write(notification).catch((error) => {
+        logger.error('Failed to send CapTP message:', error);
+      });
     },
-    'background:',
-  );
+  });
 
-  const ping = async (): Promise<void> => {
-    const result = await rpcClient.call('ping', []);
+  // Get the kernel remote presence
+  kernelP = backgroundCapTP.getKernel();
+
+  ping = async () => {
+    const result = await E(kernelP).ping();
     logger.info(result);
   };
 
-  // globalThis.kernel will exist due to dev-console.js in background-trusted-prelude.js
-  Object.defineProperties(globalThis.kernel, {
-    ping: {
-      value: ping,
-    },
-    sendMessage: {
-      value: async (message: JsonRpcCall) =>
-        await offscreenStream.write(message),
-    },
+  // Handle incoming CapTP messages from the kernel
+  const drainPromise = offscreenStream.drain((message) => {
+    if (isCapTPNotification(message)) {
+      const captpMessage = getCapTPMessage(message);
+      backgroundCapTP.dispatch(captpMessage);
+    } else {
+      throw new Error(`Unexpected message: ${stringify(message)}`);
+    }
   });
-  harden(globalThis.kernel);
-
-  // With this we can click the extension action button to wake up the service worker.
-  chrome.action.onClicked.addListener(() => {
-    ping().catch(logger.error);
-  });
-
-  // Pipe responses back to the RpcClient
-  const drainPromise = offscreenStream.drain(async (message) =>
-    rpcClient.handleResponse(message.id as string, message),
-  );
   drainPromise.catch(logger.error);
 
   await ping(); // Wait for the kernel to be ready
-  await startDefaultSubcluster();
+  await startDefaultSubcluster(kernelP);
 
   try {
     await drainPromise;
   } catch (error) {
-    throw new Error('Offscreen connection closed unexpectedly', {
+    const finalError = new Error('Offscreen connection closed unexpectedly', {
       cause: error,
     });
+    backgroundCapTP.abort(finalError);
+    throw finalError;
   }
 }
 
 /**
  * Idempotently starts the default subcluster.
+ *
+ * @param kernelPromise - Promise for the kernel facade.
  */
-async function startDefaultSubcluster(): Promise<void> {
-  const kernelStream = await connectToKernel({ label: 'background', logger });
-  const rpcClient = new RpcClient(
-    rpcMethodSpecs,
-    async (request) => {
-      await kernelStream.write(request);
-    },
-    'background',
-  );
+async function startDefaultSubcluster(
+  kernelPromise: Promise<KernelFacade>,
+): Promise<void> {
+  const status = await E(kernelPromise).getStatus();
 
-  kernelStream
-    .drain(async (message) =>
-      rpcClient.handleResponse(message.id as string, message),
-    )
-    .catch(logger.error);
-
-  const status = await rpcClient.call('getStatus', []);
   if (status.subclusters.length === 0) {
-    const result = await rpcClient.call('launchSubcluster', {
-      config: defaultSubcluster,
-    });
+    const result = await E(kernelPromise).launchSubcluster(defaultSubcluster);
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
   } else {
     logger.info('Subclusters already exist. Not launching default subcluster.');
   }
+}
+
+/**
+ * Define globals accessible via the background console.
+ */
+function defineGlobals(): void {
+  Object.defineProperty(globalThis, 'kernel', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: {},
+  });
+
+  Object.defineProperties(globalThis.kernel, {
+    ping: {
+      get: () => ping,
+    },
+    getKernel: {
+      value: async () => kernelP,
+    },
+  });
+  harden(globalThis.kernel);
+
+  Object.defineProperty(globalThis, 'E', {
+    value: E,
+    configurable: false,
+    enumerable: true,
+    writable: false,
+  });
 }

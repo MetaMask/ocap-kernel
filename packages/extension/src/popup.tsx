@@ -1,6 +1,8 @@
 import '@metamask/kernel-ui/styles.css';
 import { App } from '@metamask/kernel-ui';
 import { createElement } from 'react';
-import { render } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
-render(createElement(App), document.getElementById('root'));
+createRoot(document.getElementById('root') as HTMLElement).render(
+  createElement(App),
+);

@@ -58,8 +58,6 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
-    "@metamask/streams": "workspace:^",
-    "@metamask/utils": "^11.9.0",
     "@ocap/kernel-language-model-service": "workspace:^",
     "@ocap/nodejs": "workspace:^",
     "@ocap/nodejs-test-workers": "workspace:^",

@@ -5,23 +5,25 @@ import { defineConfig, defineProject } from 'vitest/config';
 import defaultConfig from '../../vitest.config.ts';
 
 export default defineConfig((args) => {
-  return mergeConfig(
+  delete defaultConfig.test?.setupFiles;
+
+  const config = mergeConfig(
     args,
     defaultConfig,
     defineProject({
       test: {
-        name: 'kernel-browser-runtime',
-        include: ['src/**/*.test.ts'],
-        exclude: ['**/*.integration.test.ts'],
+        name: 'kernel-browser-runtime:integration',
+        include: ['src/**/*.integration.test.ts'],
         setupFiles: [
           fileURLToPath(
             import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
-          ),
-          fileURLToPath(
-            import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),
           ),
         ],
       },
     }),
   );
+
+  delete config.test?.coverage;
+
+  return config;
 });

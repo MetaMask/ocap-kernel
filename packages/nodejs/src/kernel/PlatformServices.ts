@@ -190,7 +190,7 @@ export class NodejsPlatformServices implements PlatformServices {
    * Send a remote message to a peer.
    *
    * @param to - The peer ID to send the message to.
-   * @param message - The message to send.
+   * @param message - The serialized message string to send.
    * @returns A promise that resolves when the message has been sent.
    */
   async sendRemoteMessage(to: string, message: string): Promise<void> {
@@ -212,11 +212,8 @@ export class NodejsPlatformServices implements PlatformServices {
       // This can't actually happen, but TypeScript can't infer it
       throw Error('remote comms not initialized');
     }
-    const possibleReply = await this.#remoteMessageHandler(from, message);
-    if (possibleReply !== '') {
-      await this.sendRemoteMessage(from, possibleReply);
-    }
-    return '';
+    // Return the reply - network layer handles sending it with proper seq/ack
+    return this.#remoteMessageHandler(from, message);
   }
 
   /**

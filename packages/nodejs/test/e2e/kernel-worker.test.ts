@@ -2,10 +2,6 @@ import '../../src/env/endoify.ts';
 
 import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
-import {
-  MessageChannel as NodeMessageChannel,
-  MessagePort as NodePort,
-} from 'node:worker_threads';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { makeKernel } from '../../src/kernel/make-kernel.ts';
@@ -17,20 +13,13 @@ vi.mock('node:process', () => ({
 }));
 
 describe('Kernel Worker', () => {
-  let kernelPort: NodePort;
   let kernel: Kernel;
 
   // Tests below assume these are sorted for convenience.
   const testVatIds = ['v1', 'v2', 'v3'].sort();
 
   beforeEach(async () => {
-    if (kernelPort) {
-      kernelPort.close();
-    }
-    kernelPort = new NodeMessageChannel().port1;
-    kernel = await makeKernel({
-      port: kernelPort,
-    });
+    kernel = await makeKernel({});
   });
 
   afterEach(async () => {
