@@ -8,4 +8,8 @@
  * import { SampleGenerationError } from '@metamask/kernel-errors/bundleable';
  */
 export { SampleGenerationError } from './SampleGenerationError.ts';
-export { ErrorCode, ErrorSentinel } from '../error-codes.ts';
+export {
+  ErrorCode,
+  ErrorSentinel,
+  isSampleGenerationError,
+} from '../error-codes.ts';

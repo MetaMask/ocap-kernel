@@ -13,6 +13,7 @@ export {
   ErrorCode,
   ErrorSentinel,
   ErrorStruct,
+  isSampleGenerationError,
   MarshaledErrorStruct,
   MarshaledOcapErrorStruct,
 } from './constants.ts';

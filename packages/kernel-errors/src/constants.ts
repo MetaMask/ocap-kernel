@@ -14,7 +14,11 @@ import { ErrorCode, ErrorSentinel } from './error-codes.ts';
 import type { MarshaledError, MarshaledOcapError } from './types.ts';
 
 // Re-export for backward compatibility
-export { ErrorCode, ErrorSentinel } from './error-codes.ts';
+export {
+  ErrorCode,
+  ErrorSentinel,
+  isSampleGenerationError,
+} from './error-codes.ts';
 
 /**
  * Struct to validate plain {@link Error} objects.

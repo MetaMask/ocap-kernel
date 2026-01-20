@@ -23,6 +23,7 @@ describe('index', () => {
       'isMarshaledError',
       'isMarshaledOcapError',
       'isOcapError',
+      'isSampleGenerationError',
       'marshalError',
       'toError',
       'unmarshalError',

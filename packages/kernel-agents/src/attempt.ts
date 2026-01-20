@@ -1,4 +1,4 @@
-import { SampleGenerationError } from '@metamask/kernel-errors/bundleable';
+import { isSampleGenerationError } from '@metamask/kernel-errors/bundleable';
 import type { Logger } from '@metamask/logger';
 import type { LanguageModel } from '@ocap/kernel-language-model-service';
 
@@ -44,7 +44,7 @@ export const doAttempt = async <
         return [action, outcome];
       },
       maxRetries,
-      (error) => error instanceof SampleGenerationError,
+      (error) => isSampleGenerationError(error),
     );
 
     // If done, exit
