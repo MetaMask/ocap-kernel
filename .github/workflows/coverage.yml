@@ -16,7 +16,7 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -38,16 +38,25 @@ jobs:
       # On push to main, upload as the baseline for future PRs
       - name: Upload baseline coverage
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-baseline
           path: coverage/
           retention-days: 90
 
+      # On push to main, deploy HTML coverage report to GitHub Pages
+      - name: Deploy coverage to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./coverage
+          destination_dir: coverage
+
       # On PRs, upload as PR coverage for the report job
       - name: Upload PR coverage
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-pr
           path: coverage/
@@ -67,7 +76,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download PR coverage
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           name: coverage-pr
           path: coverage/
@@ -88,3 +97,14 @@ jobs:
           json-final-path: coverage/coverage-final.json
           json-summary-compare-path: coverage-base/coverage-summary.json
           file-coverage-mode: changes
+
+      - name: Post coverage report link
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '📊 [View full HTML coverage report for `main`](https://metamask.github.io/ocap-kernel/coverage/)'
+            })
