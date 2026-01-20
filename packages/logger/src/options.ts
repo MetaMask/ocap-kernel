@@ -20,7 +20,6 @@ export const parseOptions = (
 ): LoggerOptions => {
   // The default case catches whatever is not explicitly handled below.
 
-  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
   switch (typeof options) {
     case 'object':
       if (!options.transports) {

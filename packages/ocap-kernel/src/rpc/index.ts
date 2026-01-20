@@ -1,5 +1,3 @@
-export * from './kernel/index.ts';
-
 // PlatformServicesServer <-> PlatformServicesClient
 export * from './platform-services/index.ts';
 export * from './kernel-remote/index.ts';

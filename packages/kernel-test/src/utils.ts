@@ -11,13 +11,7 @@ import {
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
-import { NodeWorkerDuplexStream } from '@metamask/streams';
-import type { JsonRpcRequest, JsonRpcResponse } from '@metamask/utils';
 import { NodejsPlatformServices } from '@ocap/nodejs';
-import {
-  MessagePort as NodeMessagePort,
-  MessageChannel as NodeMessageChannel,
-} from 'node:worker_threads';
 import { vi } from 'vitest';
 
 /**
@@ -87,11 +81,6 @@ export async function makeKernel(
   platformServices?: PlatformServices,
   keySeed?: string,
 ): Promise<Kernel> {
-  const kernelPort: NodeMessagePort = new NodeMessageChannel().port1;
-  const nodeStream = new NodeWorkerDuplexStream<
-    JsonRpcRequest,
-    JsonRpcResponse
-  >(kernelPort);
   const platformServicesConfig: { logger: Logger; workerFilePath?: string } = {
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
   };
@@ -100,16 +89,11 @@ export async function makeKernel(
   }
   const platformServicesClient =
     platformServices ?? new NodejsPlatformServices(platformServicesConfig);
-  const kernel = await Kernel.make(
-    nodeStream,
-    platformServicesClient,
-    kernelDatabase,
-    {
-      resetStorage,
-      logger,
-      keySeed,
-    },
-  );
+  const kernel = await Kernel.make(platformServicesClient, kernelDatabase, {
+    resetStorage,
+    logger,
+    keySeed,
+  });
   return kernel;
 }
 
