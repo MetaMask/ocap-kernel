@@ -33,7 +33,7 @@ describe('ipc', () => {
     const logger = new Logger({ transports: [mockTransport] });
     logger.injectStream(stream as unknown as DuplexStream<LogMessage>);
 
-    await waitUntilQuiescent(1000);
+    await waitUntilQuiescent(10);
     expect(mockTransport).toHaveBeenCalledWith({
       level: 'debug',
       message: 'Hello, world!',
@@ -53,7 +53,7 @@ describe('ipc', () => {
     const logger = new Logger({ transports: [mockTransport] });
     logger.injectStream(loggerStream as unknown as DuplexStream<LogMessage>);
 
-    await waitUntilQuiescent(1000);
+    await waitUntilQuiescent(10);
     expect(mockTransport).toHaveBeenCalledWith({
       level: 'debug',
       message: 'Hello, world!',
