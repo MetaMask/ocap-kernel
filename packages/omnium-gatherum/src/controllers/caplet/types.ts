@@ -1,4 +1,4 @@
-import { array, define, is, object, string } from '@metamask/superstruct';
+import { define, is, object, string } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
 import semverValid from 'semver/functions/valid';
 
@@ -50,8 +50,6 @@ export const CapletManifestStruct = object({
   name: string(),
   version: SemVerStruct,
   bundleSpec: string(),
-  requestedServices: array(string()),
-  providedServices: array(string()),
 });
 
 /**

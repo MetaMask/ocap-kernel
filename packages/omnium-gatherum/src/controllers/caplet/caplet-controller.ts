@@ -62,14 +62,6 @@ export type CapletControllerFacet = {
    * @returns The installed caplet or undefined if not found.
    */
   get: (capletId: CapletId) => Promise<InstalledCaplet | undefined>;
-
-  /**
-   * Find a caplet that provides a specific service.
-   *
-   * @param serviceName - The service name to search for.
-   * @returns The installed caplet or undefined if not found.
-   */
-  getByService: (serviceName: string) => Promise<InstalledCaplet | undefined>;
 };
 
 /**
@@ -175,11 +167,6 @@ export class CapletController extends Controller<
       get: async (capletId: CapletId): Promise<InstalledCaplet | undefined> => {
         return this.#get(capletId);
       },
-      getByService: async (
-        serviceName: string,
-      ): Promise<InstalledCaplet | undefined> => {
-        return this.#getByService(serviceName);
-      },
     });
   }
 
@@ -282,19 +269,6 @@ export class CapletController extends Controller<
    */
   #get(capletId: CapletId): InstalledCaplet | undefined {
     return this.state.caplets[capletId];
-  }
-
-  /**
-   * Find a caplet that provides a specific service.
-   *
-   * @param serviceName - The service name to search for.
-   * @returns The installed caplet or undefined if not found.
-   */
-  #getByService(serviceName: string): InstalledCaplet | undefined {
-    const caplets = this.#list();
-    return caplets.find((caplet: InstalledCaplet) =>
-      caplet.manifest.providedServices.includes(serviceName),
-    );
   }
 }
 harden(CapletController);

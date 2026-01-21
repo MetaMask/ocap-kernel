@@ -188,8 +188,6 @@ function defineGlobals(): GlobalSetters {
           E(capletController).uninstall(capletId),
         list: async () => E(capletController).list(),
         get: async (capletId: string) => E(capletController).get(capletId),
-        getByService: async (serviceName: string) =>
-          E(capletController).getByService(serviceName),
       }),
     },
   });

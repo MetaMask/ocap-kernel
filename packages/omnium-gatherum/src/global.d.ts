@@ -57,8 +57,6 @@ declare global {
        *   name: 'Test Caplet',
        *   version: '1.0.0',
        *   bundleSpec: '/path/to/bundle.json',
-       *   requestedServices: [],
-       *   providedServices: ['test'],
        * });
        * ```
        */
@@ -88,16 +86,6 @@ declare global {
        * @returns The installed caplet or undefined if not found.
        */
       get: (capletId: string) => Promise<InstalledCaplet | undefined>;
-
-      /**
-       * Find a caplet that provides a specific service.
-       *
-       * @param serviceName - The service name to search for.
-       * @returns The installed caplet or undefined if not found.
-       */
-      getByService: (
-        serviceName: string,
-      ) => Promise<InstalledCaplet | undefined>;
     };
   };
 }

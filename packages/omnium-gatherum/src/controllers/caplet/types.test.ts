@@ -73,8 +73,6 @@ describe('isCapletManifest', () => {
     name: 'Test Caplet',
     version: '1.0.0',
     bundleSpec: 'https://example.com/bundle.json',
-    requestedServices: ['keyring'],
-    providedServices: ['signer'],
   };
 
   it('validates a complete manifest', () => {
@@ -84,8 +82,6 @@ describe('isCapletManifest', () => {
   it('validates a manifest with empty service arrays', () => {
     const manifest = {
       ...validManifest,
-      requestedServices: [],
-      providedServices: [],
     };
     expect(isCapletManifest(manifest)).toBe(true);
   });
@@ -118,8 +114,6 @@ describe('assertCapletManifest', () => {
     name: 'Test Caplet',
     version: '1.0.0',
     bundleSpec: 'https://example.com/bundle.json',
-    requestedServices: [],
-    providedServices: [],
   };
 
   it('does not throw for valid manifest', () => {

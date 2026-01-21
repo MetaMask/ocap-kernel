@@ -42,8 +42,6 @@ describe('CapletController.make', () => {
     name: 'Test Caplet',
     version: '1.0.0',
     bundleSpec: 'https://example.com/bundle.json',
-    requestedServices: ['keyring'],
-    providedServices: ['signer'],
   };
 
   beforeEach(() => {
@@ -446,81 +444,6 @@ describe('CapletController.make', () => {
       const result = await controller.get('com.example.notfound');
 
       expect(result).toBeUndefined();
-    });
-  });
-
-  describe('getByService', () => {
-    it('returns caplet providing the service', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      await seedAdapter(mockAdapter, {
-        'com.example.test': {
-          manifest: validManifest,
-          subclusterId: 'subcluster-123',
-          installedAt: 1000,
-        },
-      });
-      const controller = await CapletController.make(config, {
-        adapter: mockAdapter,
-        launchSubcluster: mockLaunchSubcluster,
-        terminateSubcluster: mockTerminateSubcluster,
-      });
-
-      const result = await controller.getByService('signer');
-
-      expect(result).toBeDefined();
-      expect(result?.manifest.id).toBe('com.example.test');
-    });
-
-    it('returns undefined if no caplet provides the service', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      await seedAdapter(mockAdapter, {
-        'com.example.test': {
-          manifest: validManifest,
-          subclusterId: 'subcluster-123',
-          installedAt: 1000,
-        },
-      });
-      const controller = await CapletController.make(config, {
-        adapter: mockAdapter,
-        launchSubcluster: mockLaunchSubcluster,
-        terminateSubcluster: mockTerminateSubcluster,
-      });
-
-      const result = await controller.getByService('unknown-service');
-
-      expect(result).toBeUndefined();
-    });
-
-    it('returns a matching caplet when multiple provide the service', async () => {
-      const manifest2: CapletManifest = {
-        ...validManifest,
-        id: 'com.example.test2',
-        name: 'Test Caplet 2',
-        providedServices: ['signer', 'verifier'],
-      };
-      const mockAdapter = makeMockStorageAdapter();
-      await seedAdapter(mockAdapter, {
-        'com.example.test': {
-          manifest: validManifest,
-          subclusterId: 'subcluster-1',
-          installedAt: 1000,
-        },
-        'com.example.test2': {
-          manifest: manifest2,
-          subclusterId: 'subcluster-2',
-          installedAt: 2000,
-        },
-      });
-      const controller = await CapletController.make(config, {
-        adapter: mockAdapter,
-        launchSubcluster: mockLaunchSubcluster,
-        terminateSubcluster: mockTerminateSubcluster,
-      });
-
-      const result = await controller.getByService('signer');
-
-      // Returns a match (object key order is not guaranteed)
-      expect(result?.manifest.providedServices).toContain('signer');
     });
   });
 });
