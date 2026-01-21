@@ -2309,7 +2309,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.9.0"
     "@ocap/kernel-platforms": "workspace:^"
-    "@ocap/nodejs": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
