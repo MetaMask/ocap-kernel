@@ -60,10 +60,7 @@ export function makeFacet<
     // Bind the method to preserve 'this' context if needed
     methods[methodName] = (method as CallableFunction).bind(
       source,
-    ) as BoundMethod<Source[MethodNames]> as FacetMethods<
-      Source,
-      MethodNames
-    >[MethodNames];
+    ) as FacetMethods<Source, MethodNames>[MethodNames];
   }
 
   return makeDefaultExo(name, methods as FacetMethods<Source, MethodNames>);

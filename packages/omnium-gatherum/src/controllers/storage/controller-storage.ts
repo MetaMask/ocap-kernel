@@ -1,6 +1,6 @@
 import type { Logger } from '@metamask/logger';
 import type { Json } from '@metamask/utils';
-import { enablePatches, produce } from 'immer';
+import { enablePatches, produce, produceWithPatches } from 'immer';
 import type { Patch } from 'immer';
 
 import type { StorageAdapter } from './types.ts';
@@ -188,10 +188,7 @@ export class ControllerStorage<State extends Record<string, Json>> {
     const stateSnapshot = this.#state;
 
     // Use immer's produce with patches callback to track changes
-    let patches: Patch[] = [];
-    const nextState = produce(stateSnapshot, producer, (patchList) => {
-      patches = patchList;
-    });
+    const [nextState, patches] = produceWithPatches(stateSnapshot, producer);
 
     // No changes - nothing to do
     if (patches.length === 0) {

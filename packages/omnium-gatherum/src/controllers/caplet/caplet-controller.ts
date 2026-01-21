@@ -242,7 +242,6 @@ export class CapletController extends Controller<
       throw new Error(`Caplet ${capletId} not found`);
     }
 
-    // Terminate the subcluster
     await this.#terminateSubcluster(caplet.subclusterId);
 
     this.update((draft) => {
