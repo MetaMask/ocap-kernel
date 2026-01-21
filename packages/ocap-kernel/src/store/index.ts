@@ -49,6 +49,10 @@
  *
  * Remote bookkeeping
  *   remote.${remoteId} = JSON(INFO)          // remote's connection info
+ *   remoteSeq.${remoteId}.nextSendSeq = NN   // next outgoing sequence number
+ *   remoteSeq.${remoteId}.highestReceivedSeq = NN  // highest received seq (for ACK)
+ *   remoteSeq.${remoteId}.startSeq = NN      // seq of first pending message
+ *   remotePending.${remoteId}.${seq} = ${messageString}  // pending message
  *
  * Kernel bookkeeping
  *   initialized = true                       // if set, indicates the store has been initialized
