@@ -491,16 +491,21 @@ export class RemoteHandle implements EndpointHandle {
     // Clear delayed ACK timer - we're piggybacking the ACK on this message
     this.#clearDelayedAck();
 
-    // Crash-safe enqueue: persist message first, then update nextSendSeq
-    // On crash recovery, we can derive nextSendSeq by scanning pending messages
+    // Crash-safe enqueue order:
+    // 1. Persist message first
+    // 2. If first message, persist startSeq (so recovery knows where queue begins)
+    // 3. Persist nextSendSeq last (recovery can repair this by scanning)
     this.#kernelStore.setPendingMessage(this.remoteId, seq, messageString);
-    this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#nextSendSeq);
 
-    // If queue was empty, set startSeq to this message's sequence number and persist
     if (wasEmpty) {
       this.#startSeq = seq;
       this.#kernelStore.setRemoteStartSeq(this.remoteId, seq);
-      // Start ACK timeout for the first pending message
+    }
+
+    this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#nextSendSeq);
+
+    // Start ACK timeout if this is the first pending message
+    if (wasEmpty) {
       this.#startAckTimeout();
     }
 
