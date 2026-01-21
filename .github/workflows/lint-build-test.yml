@@ -161,7 +161,7 @@ jobs:
         with:
           name: coverage
           path: coverage/
-          retention-days: 90
+          retention-days: 7
       - name: Require clean working directory
         shell: bash
         run: |

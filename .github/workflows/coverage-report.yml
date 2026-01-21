@@ -29,16 +29,13 @@ jobs:
           publish_dir: ./coverage
           destination_dir: coverage
 
-      # On PRs, download baseline and post comparison report
-      - name: Download baseline coverage from main
+      # On PRs, fetch baseline coverage from GitHub Pages
+      - name: Fetch baseline coverage from GitHub Pages
         if: github.event_name == 'pull_request'
-        uses: actions/download-artifact@v7
-        with:
-          branch: main
-          name: coverage
-          path: coverage-base/
-          workflow_conclusion: success
-          if_no_artifact_found: warn
+        run: |
+          mkdir -p coverage-base
+          curl -fsSL https://metamask.github.io/ocap-kernel/coverage/coverage-summary.json \
+            -o coverage-base/coverage-summary.json || echo "No baseline coverage found" && exit 1
 
       - name: Post coverage report
         if: github.event_name == 'pull_request'
