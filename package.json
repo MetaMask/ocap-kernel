@@ -42,7 +42,8 @@
     "why:batch": "./scripts/why-batch.sh"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn lint-staged && yarn dedupe --check"
+    "pre-commit": "yarn lint-staged && yarn dedupe --check",
+    "post-rewrite": "yarn lint:dependencies"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,mts,cts}": [
