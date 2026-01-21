@@ -200,8 +200,22 @@ export class RemoteHandle implements EndpointHandle {
    */
   #restorePersistedState(): void {
     const seqState = this.#kernelStore.getRemoteSeqState(this.remoteId);
+
     if (!seqState) {
-      // No persisted state - this is a fresh remote or pre-persistence remote
+      // No persisted seq state. Check for crash during first message enqueue:
+      // Message may have been written but no seq state persisted yet.
+      // First message always has seq 1 (since #nextSendSeq starts at 0, +1 = 1)
+      if (this.#kernelStore.getPendingMessage(this.remoteId, 1)) {
+        // Found orphan message - recover by setting up state
+        this.#startSeq = 1;
+        this.#nextSendSeq = 1;
+        this.#kernelStore.setRemoteStartSeq(this.remoteId, 1);
+        this.#kernelStore.setRemoteNextSendSeq(this.remoteId, 1);
+        this.#logger.log(
+          `${this.#peerId.slice(0, 8)}:: recovered orphan message at seq 1 from crash during first enqueue`,
+        );
+        this.#startAckTimeout();
+      }
       return;
     }
 

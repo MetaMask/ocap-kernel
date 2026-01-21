@@ -1101,6 +1101,39 @@ describe('RemoteHandle', () => {
       expect(seqState?.nextSendSeq).toBe(2);
     });
 
+    it('recovers orphan message when no seq state exists', async () => {
+      // Simulate crash during first enqueue: message written but NO seq state
+      // persisted at all. This can happen if crash occurs after setPendingMessage
+      // but before setRemoteStartSeq.
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      // No seq state set - getRemoteSeqState will return undefined
+
+      // Create RemoteHandle - should scan and find orphan message at seq 1
+      const remote = makeRemote();
+
+      // Next message should get seq 2 (recovered seq 1, then +1)
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]?.[1];
+      expect(sentString).toBeDefined();
+      const parsed = JSON.parse(sentString as string);
+      expect(parsed.seq).toBe(2);
+
+      // Verify state is correct: seq state recovered and 2 pending messages
+      const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+      expect(seqState?.startSeq).toBe(1);
+      expect(seqState?.nextSendSeq).toBe(2);
+      // Original orphan message still exists
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBe(
+        '{"seq":1}',
+      );
+    });
+
     it('ignores orphan messages (seq < startSeq) on recovery', () => {
       // Simulate crash during ACK: startSeq updated but message not deleted
       mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 3);
