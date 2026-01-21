@@ -31,15 +31,6 @@ const MAX_RETRIES = 3;
 /** Maximum number of pending messages awaiting ACK. */
 const MAX_PENDING_MESSAGES = 200;
 
-/**
- * Pending message awaiting acknowledgment.
- */
-type PendingMessage = {
-  messageString: string; // Serialized message (with seq/ack)
-  sendTimestamp: number; // When first sent (for metrics)
-  retryCount: number; // 0 on first send, incremented on retry
-};
-
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;
   peerId: string;
@@ -134,11 +125,11 @@ export class RemoteHandle implements EndpointHandle {
   /** Highest sequence number received from remote (for piggyback ACK). */
   #highestReceivedSeq: number = 0;
 
-  /** Queue of messages awaiting ACK, in sequence order. */
-  readonly #pendingMessages: PendingMessage[] = [];
-
   /** Sequence number of first message in pending queue. */
   #startSeq: number = 0;
+
+  /** Retry count for pending messages (reset on ACK). */
+  #retryCount: number = 0;
 
   /** Timer handle for ACK timeout (retransmission). */
   #ackTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -200,10 +191,64 @@ export class RemoteHandle implements EndpointHandle {
    */
   static make(params: RemoteHandleConstructorProps): RemoteHandle {
     const remote = new RemoteHandle(params);
+    remote.#restorePersistedState();
     return remote;
   }
 
+  /**
+   * Restore persisted state from storage on startup.
+   */
+  #restorePersistedState(): void {
+    const seqState = this.#kernelStore.getRemoteSeqState(this.remoteId);
+    if (!seqState) {
+      // No persisted state - this is a fresh remote or pre-persistence remote
+      return;
+    }
+
+    // Restore sequence state
+    this.#highestReceivedSeq = seqState.highestReceivedSeq;
+    this.#startSeq = seqState.startSeq;
+    this.#nextSendSeq = seqState.nextSendSeq;
+
+    // Check for crash during enqueue: message written but nextSendSeq not updated
+    if (
+      this.#kernelStore.getPendingMessage(this.remoteId, this.#nextSendSeq + 1)
+    ) {
+      this.#nextSendSeq += 1;
+      this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#nextSendSeq);
+    }
+
+    // If we have pending messages after recovery, start ACK timeout for retransmission
+    if (this.#hasPendingMessages()) {
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: restored ${this.#getPendingCount()} pending messages from persistence`,
+      );
+      this.#startAckTimeout();
+    }
+  }
+
   // --- Sequence/ACK management methods ---
+
+  /**
+   * Check if there are pending messages awaiting ACK.
+   *
+   * @returns True if there are pending messages.
+   */
+  #hasPendingMessages(): boolean {
+    return this.#nextSendSeq > 0 && this.#startSeq <= this.#nextSendSeq;
+  }
+
+  /**
+   * Get the number of pending messages awaiting ACK.
+   *
+   * @returns The count of pending messages.
+   */
+  #getPendingCount(): number {
+    if (!this.#hasPendingMessages()) {
+      return 0;
+    }
+    return this.#nextSendSeq - this.#startSeq + 1;
+  }
 
   /**
    * Get the next sequence number and increment the counter.
@@ -226,19 +271,33 @@ export class RemoteHandle implements EndpointHandle {
 
   /**
    * Process an incoming ACK (cumulative - acknowledges all messages up to ackSeq).
+   * Uses crash-safe ordering: update startSeq first, then delete acked messages.
    *
    * @param ackSeq - The highest sequence number being acknowledged.
    */
   #handleAck(ackSeq: number): void {
-    while (this.#startSeq <= ackSeq && this.#pendingMessages.length > 0) {
-      const pending = this.#pendingMessages.shift();
-      if (pending) {
-        this.#logger.log(
-          `${this.#peerId.slice(0, 8)}:: message ${this.#startSeq} acknowledged (${Date.now() - pending.sendTimestamp}ms)`,
-        );
-      }
+    const seqsToDelete: number[] = [];
+    const originalStartSeq = this.#startSeq;
+
+    while (this.#startSeq <= ackSeq && this.#hasPendingMessages()) {
+      seqsToDelete.push(this.#startSeq);
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: message ${this.#startSeq} acknowledged`,
+      );
       this.#startSeq += 1;
     }
+
+    // Crash-safe dequeue: persist updated startSeq first, then delete messages
+    // On crash recovery, orphan entries (seq < startSeq) will be cleaned lazily
+    if (this.#startSeq !== originalStartSeq) {
+      this.#kernelStore.setRemoteStartSeq(this.remoteId, this.#startSeq);
+      for (const seq of seqsToDelete) {
+        this.#kernelStore.deletePendingMessage(this.remoteId, seq);
+      }
+      // Reset retry count when messages are acknowledged
+      this.#retryCount = 0;
+    }
+
     // Restart or clear ACK timeout based on remaining pending messages
     this.#startAckTimeout();
   }
@@ -249,7 +308,7 @@ export class RemoteHandle implements EndpointHandle {
    */
   #startAckTimeout(): void {
     this.#clearAckTimeout();
-    if (this.#pendingMessages.length > 0) {
+    if (this.#hasPendingMessages()) {
       this.#ackTimeoutHandle = setTimeout(() => {
         this.#handleAckTimeout();
       }, ACK_TIMEOUT_MS);
@@ -271,15 +330,14 @@ export class RemoteHandle implements EndpointHandle {
    */
   #handleAckTimeout(): void {
     this.#ackTimeoutHandle = undefined;
-    const head = this.#pendingMessages[0];
-    if (!head) {
+    if (!this.#hasPendingMessages()) {
       return;
     }
 
-    if (head.retryCount >= MAX_RETRIES) {
+    if (this.#retryCount >= MAX_RETRIES) {
       // Give up - reject all pending messages, URL redemptions, and notify RemoteManager
       this.#logger.log(
-        `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#pendingMessages.length} pending messages`,
+        `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#getPendingCount()} pending messages`,
       );
       this.#rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
       this.rejectPendingRedemptions(
@@ -290,10 +348,9 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     // Retransmit
-    head.retryCount += 1;
-    head.sendTimestamp = Date.now();
+    this.#retryCount += 1;
     this.#logger.log(
-      `${this.#peerId.slice(0, 8)}:: retransmitting ${this.#pendingMessages.length} pending messages (attempt ${head.retryCount + 1})`,
+      `${this.#peerId.slice(0, 8)}:: retransmitting ${this.#getPendingCount()} pending messages (attempt ${this.#retryCount + 1})`,
     );
     this.#retransmitPending();
   }
@@ -302,12 +359,18 @@ export class RemoteHandle implements EndpointHandle {
    * Retransmit all pending messages.
    */
   #retransmitPending(): void {
-    for (const pending of this.#pendingMessages) {
-      this.#remoteComms
-        .sendRemoteMessage(this.#peerId, pending.messageString)
-        .catch((error) => {
-          this.#logger.error('Error retransmitting message:', error);
-        });
+    for (let seq = this.#startSeq; seq <= this.#nextSendSeq; seq += 1) {
+      const messageString = this.#kernelStore.getPendingMessage(
+        this.remoteId,
+        seq,
+      );
+      if (messageString) {
+        this.#remoteComms
+          .sendRemoteMessage(this.#peerId, messageString)
+          .catch((error) => {
+            this.#logger.error('Error retransmitting message:', error);
+          });
+      }
     }
     this.#startAckTimeout();
   }
@@ -318,13 +381,16 @@ export class RemoteHandle implements EndpointHandle {
    * @param reason - The reason for failure.
    */
   #rejectAllPending(reason: string): void {
-    for (let i = 0; i < this.#pendingMessages.length; i += 1) {
+    const pendingCount = this.#getPendingCount();
+    for (let i = 0; i < pendingCount; i += 1) {
       this.#logger.warn(
         `Message ${this.#startSeq + i} delivery failed: ${reason}`,
       );
     }
-    this.#pendingMessages.length = 0;
-    this.#startSeq = this.#nextSendSeq;
+    // Mark all as rejected by advancing startSeq past all pending messages
+    this.#startSeq = this.#nextSendSeq + 1;
+    this.#kernelStore.setRemoteStartSeq(this.remoteId, this.#startSeq);
+    this.#retryCount = 0;
   }
 
   /**
@@ -404,11 +470,14 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     // Check queue capacity before consuming any resources (seq number, ACK timer)
-    if (this.#pendingMessages.length >= MAX_PENDING_MESSAGES) {
+    if (this.#getPendingCount() >= MAX_PENDING_MESSAGES) {
       throw Error(
         `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
       );
     }
+
+    // Track whether this is the first pending message (before incrementing seq)
+    const wasEmpty = !this.#hasPendingMessages();
 
     // Build full message with seq and optional piggyback ack
     const seq = this.#getNextSeq();
@@ -422,21 +491,16 @@ export class RemoteHandle implements EndpointHandle {
     // Clear delayed ACK timer - we're piggybacking the ACK on this message
     this.#clearDelayedAck();
 
-    // Track message for ACK
-    const pending: PendingMessage = {
-      messageString,
-      sendTimestamp: Date.now(),
-      retryCount: 0,
-    };
+    // Crash-safe enqueue: persist message first, then update nextSendSeq
+    // On crash recovery, we can derive nextSendSeq by scanning pending messages
+    this.#kernelStore.setPendingMessage(this.remoteId, seq, messageString);
+    this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#nextSendSeq);
 
-    // If queue was empty, set startSeq to this message's sequence number
-    if (this.#pendingMessages.length === 0) {
+    // If queue was empty, set startSeq to this message's sequence number and persist
+    if (wasEmpty) {
       this.#startSeq = seq;
-    }
-    this.#pendingMessages.push(pending);
-
-    // Start ACK timeout if this is the first pending message
-    if (this.#pendingMessages.length === 1) {
+      this.#kernelStore.setRemoteStartSeq(this.remoteId, seq);
+      // Start ACK timeout for the first pending message
       this.#startAckTimeout();
     }
 
@@ -732,9 +796,10 @@ export class RemoteHandle implements EndpointHandle {
     const remoteCommand = parsed as RemoteCommand;
     const { seq, ack, method, params } = remoteCommand;
 
-    // Track received sequence number for piggyback ACK
+    // Track received sequence number for piggyback ACK and persist
     if (seq > this.#highestReceivedSeq) {
       this.#highestReceivedSeq = seq;
+      this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
     }
 
     // Start delayed ACK timer - will send standalone ACK if no outgoing traffic

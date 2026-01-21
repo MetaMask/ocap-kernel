@@ -102,6 +102,7 @@ describe('remote store methods', () => {
   describe('deleteRemoteInfo', () => {
     it('removes remote info from storage', () => {
       mockKV.set(`remote.${remoteId1}`, JSON.stringify(remoteInfo1));
+      mockGetPrefixedKeys.mockReturnValue([]);
 
       remoteMethods.deleteRemoteInfo(remoteId1);
 
@@ -109,7 +110,32 @@ describe('remote store methods', () => {
     });
 
     it('does nothing if remote info does not exist', () => {
+      mockGetPrefixedKeys.mockReturnValue([]);
       expect(() => remoteMethods.deleteRemoteInfo(remoteId1)).not.toThrow();
+    });
+
+    it('cleans up pending state when deleting remote info', () => {
+      mockKV.set(`remote.${remoteId1}`, JSON.stringify(remoteInfo1));
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '5');
+      mockKV.set(`remoteSeq.${remoteId1}.highestReceivedSeq`, '3');
+      mockKV.set(`remoteSeq.${remoteId1}.startSeq`, '2');
+      mockKV.set(`remotePending.${remoteId1}.2`, '{"seq":2}');
+      mockKV.set(`remotePending.${remoteId1}.3`, '{"seq":3}');
+      mockGetPrefixedKeys.mockReturnValue([
+        `remotePending.${remoteId1}.2`,
+        `remotePending.${remoteId1}.3`,
+      ]);
+
+      remoteMethods.deleteRemoteInfo(remoteId1);
+
+      expect(mockKV.has(`remote.${remoteId1}`)).toBe(false);
+      expect(mockKV.has(`remoteSeq.${remoteId1}.nextSendSeq`)).toBe(false);
+      expect(mockKV.has(`remoteSeq.${remoteId1}.highestReceivedSeq`)).toBe(
+        false,
+      );
+      expect(mockKV.has(`remoteSeq.${remoteId1}.startSeq`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.2`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(false);
     });
   });
 
@@ -138,6 +164,135 @@ describe('remote store methods', () => {
       const records = Array.from(remoteMethods.getAllRemoteRecords());
 
       expect(records).toStrictEqual([]);
+    });
+  });
+
+  describe('getRemoteSeqState', () => {
+    it('returns undefined when no state exists', () => {
+      const result = remoteMethods.getRemoteSeqState(remoteId1);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns sequence state when all values exist', () => {
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '10');
+      mockKV.set(`remoteSeq.${remoteId1}.highestReceivedSeq`, '5');
+      mockKV.set(`remoteSeq.${remoteId1}.startSeq`, '3');
+
+      const result = remoteMethods.getRemoteSeqState(remoteId1);
+
+      expect(result).toStrictEqual({
+        nextSendSeq: 10,
+        highestReceivedSeq: 5,
+        startSeq: 3,
+      });
+    });
+
+    it('returns defaults for missing values when some state exists', () => {
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '10');
+
+      const result = remoteMethods.getRemoteSeqState(remoteId1);
+
+      expect(result).toStrictEqual({
+        nextSendSeq: 10,
+        highestReceivedSeq: 0,
+        startSeq: 0,
+      });
+    });
+  });
+
+  describe('setRemoteNextSendSeq', () => {
+    it('sets nextSendSeq', () => {
+      remoteMethods.setRemoteNextSendSeq(remoteId1, 42);
+      expect(mockKV.get(`remoteSeq.${remoteId1}.nextSendSeq`)).toBe('42');
+    });
+  });
+
+  describe('setRemoteHighestReceivedSeq', () => {
+    it('sets highestReceivedSeq', () => {
+      remoteMethods.setRemoteHighestReceivedSeq(remoteId1, 15);
+      expect(mockKV.get(`remoteSeq.${remoteId1}.highestReceivedSeq`)).toBe(
+        '15',
+      );
+    });
+  });
+
+  describe('setRemoteStartSeq', () => {
+    it('sets startSeq', () => {
+      remoteMethods.setRemoteStartSeq(remoteId1, 7);
+      expect(mockKV.get(`remoteSeq.${remoteId1}.startSeq`)).toBe('7');
+    });
+  });
+
+  describe('getPendingMessage', () => {
+    it('returns undefined for non-existent message', () => {
+      const result = remoteMethods.getPendingMessage(remoteId1, 1);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns stored pending message string', () => {
+      const messageString = '{"seq":1,"method":"deliver"}';
+      mockKV.set(`remotePending.${remoteId1}.1`, messageString);
+
+      const result = remoteMethods.getPendingMessage(remoteId1, 1);
+
+      expect(result).toBe(messageString);
+    });
+  });
+
+  describe('setPendingMessage', () => {
+    it('stores pending message string', () => {
+      const messageString = '{"seq":5,"method":"deliver"}';
+
+      remoteMethods.setPendingMessage(remoteId1, 5, messageString);
+
+      expect(mockKV.get(`remotePending.${remoteId1}.5`)).toBe(messageString);
+    });
+  });
+
+  describe('deletePendingMessage', () => {
+    it('deletes pending message entry', () => {
+      mockKV.set(`remotePending.${remoteId1}.3`, '{"seq":3}');
+
+      remoteMethods.deletePendingMessage(remoteId1, 3);
+
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(false);
+    });
+
+    it('does nothing if message does not exist', () => {
+      expect(() =>
+        remoteMethods.deletePendingMessage(remoteId1, 99),
+      ).not.toThrow();
+    });
+  });
+
+  describe('deleteRemotePendingState', () => {
+    it('deletes all seq state and pending messages', () => {
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '10');
+      mockKV.set(`remoteSeq.${remoteId1}.highestReceivedSeq`, '5');
+      mockKV.set(`remoteSeq.${remoteId1}.startSeq`, '2');
+      mockKV.set(`remotePending.${remoteId1}.2`, '{"seq":2}');
+      mockKV.set(`remotePending.${remoteId1}.3`, '{"seq":3}');
+      mockGetPrefixedKeys.mockReturnValue([
+        `remotePending.${remoteId1}.2`,
+        `remotePending.${remoteId1}.3`,
+      ]);
+
+      remoteMethods.deleteRemotePendingState(remoteId1);
+
+      expect(mockKV.has(`remoteSeq.${remoteId1}.nextSendSeq`)).toBe(false);
+      expect(mockKV.has(`remoteSeq.${remoteId1}.highestReceivedSeq`)).toBe(
+        false,
+      );
+      expect(mockKV.has(`remoteSeq.${remoteId1}.startSeq`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.2`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(false);
+    });
+
+    it('does nothing when no pending state exists', () => {
+      mockGetPrefixedKeys.mockReturnValue([]);
+      expect(() =>
+        remoteMethods.deleteRemotePendingState(remoteId1),
+      ).not.toThrow();
     });
   });
 });

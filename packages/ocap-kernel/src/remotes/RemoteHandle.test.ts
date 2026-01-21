@@ -928,4 +928,185 @@ describe('RemoteHandle', () => {
       expect(JSON.parse(calls[2]![1]).seq).toBe(3);
     });
   });
+
+  describe('message persistence', () => {
+    it('persists pending messages to storage on send', async () => {
+      const remote = makeRemote();
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      await remote.deliverNotify(resolutions);
+
+      // Verify message was persisted (as a plain string)
+      const pendingMsgString = mockKernelStore.getPendingMessage(
+        mockRemoteId,
+        1,
+      );
+      expect(pendingMsgString).toBeDefined();
+      expect(pendingMsgString).toContain('"seq":1');
+
+      // Verify seq state was persisted
+      const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+      expect(seqState).toStrictEqual({
+        nextSendSeq: 1,
+        highestReceivedSeq: 0,
+        startSeq: 1,
+      });
+    });
+
+    it('persists highestReceivedSeq when receiving messages', async () => {
+      const remote = makeRemote();
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Receive a message with seq=5
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 5,
+          method: 'deliver',
+          params: ['notify', resolutions],
+        }),
+      );
+
+      const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+      expect(seqState?.highestReceivedSeq).toBe(5);
+    });
+
+    it('deletes persisted messages when ACKed', async () => {
+      const remote = makeRemote();
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Send two messages
+      await remote.deliverNotify(resolutions);
+      await remote.deliverNotify(resolutions);
+
+      // Verify both are persisted
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 2)).toBeDefined();
+
+      // ACK the first message
+      await remote.handleRemoteMessage(JSON.stringify({ ack: 1 }));
+
+      // First message should be deleted, second should remain
+      expect(
+        mockKernelStore.getPendingMessage(mockRemoteId, 1),
+      ).toBeUndefined();
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 2)).toBeDefined();
+
+      // startSeq should be updated
+      const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+      expect(seqState?.startSeq).toBe(2);
+    });
+
+    it('restores pending messages on startup', async () => {
+      // Pre-populate storage with persisted state (messages stored as plain strings)
+      mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 3);
+      mockKernelStore.setRemoteHighestReceivedSeq(mockRemoteId, 2);
+      mockKernelStore.setRemoteStartSeq(mockRemoteId, 2);
+      mockKernelStore.setPendingMessage(
+        mockRemoteId,
+        2,
+        '{"seq":2,"method":"deliver","params":["notify",[]]}',
+      );
+      mockKernelStore.setPendingMessage(
+        mockRemoteId,
+        3,
+        '{"seq":3,"method":"deliver","params":["notify",[]]}',
+      );
+
+      // Create a new RemoteHandle - should restore state
+      const remote = makeRemote();
+
+      // Send another message - should get seq 4
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // Verify restore happened by checking the next seq number assigned
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]?.[1];
+      expect(sentString).toBeDefined();
+      const parsed = JSON.parse(sentString as string);
+      expect(parsed.seq).toBe(4);
+      expect(parsed.ack).toBe(2); // Should have restored highestReceivedSeq
+    });
+
+    it('repairs nextSendSeq from scanned messages on crash recovery', async () => {
+      // Simulate crash during enqueue: message written but nextSendSeq not updated
+      mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 2);
+      mockKernelStore.setRemoteStartSeq(mockRemoteId, 1);
+      // But messages 1, 2, and 3 exist (3 was written but seq not incremented)
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 2, '{"seq":2}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 3, '{"seq":3}');
+
+      // Create RemoteHandle - should detect and repair
+      const remote = makeRemote();
+
+      // Next message should get seq 4 (repaired from scanning)
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]?.[1];
+      expect(sentString).toBeDefined();
+      const parsed = JSON.parse(sentString as string);
+      expect(parsed.seq).toBe(4);
+
+      // Verify nextSendSeq was repaired in storage
+      const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+      expect(seqState?.nextSendSeq).toBe(4); // Updated after the new send
+    });
+
+    it('ignores orphan messages (seq < startSeq) on recovery', () => {
+      // Simulate crash during ACK: startSeq updated but message not deleted
+      mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 3);
+      mockKernelStore.setRemoteStartSeq(mockRemoteId, 2);
+      // Orphan message at seq 1 (already acked per startSeq=2)
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      // Valid pending at seq 2 and 3
+      mockKernelStore.setPendingMessage(mockRemoteId, 2, '{"seq":2}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 3, '{"seq":3}');
+
+      // Create RemoteHandle - orphan is ignored (lazy cleanup)
+      makeRemote();
+
+      // Orphan still exists in storage (cleaned lazily when remote is deleted)
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
+      // Valid pending messages should remain
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 2)).toBeDefined();
+      expect(mockKernelStore.getPendingMessage(mockRemoteId, 3)).toBeDefined();
+    });
+
+    it('handles fresh remote with no persisted state', async () => {
+      // No pre-populated storage - should start fresh
+      const remote = makeRemote();
+
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]?.[1];
+      expect(sentString).toBeDefined();
+      const parsed = JSON.parse(sentString as string);
+      expect(parsed.seq).toBe(1); // Fresh start
+      expect(parsed.ack).toBeUndefined(); // No highestReceivedSeq
+    });
+  });
 });
