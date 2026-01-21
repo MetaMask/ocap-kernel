@@ -71,7 +71,12 @@ export async function initializeControllers({
     { logger: logger.subLogger({ tags: ['caplet'] }) },
     {
       adapter: storageAdapter,
-      // Wrap launchSubcluster to return subclusterId
+      /**
+       * Launch a subcluster for a caplet. Not concurrency safe.
+       *
+       * @param config - The configuration for the subcluster.
+       * @returns The subcluster ID.
+       */
       launchSubcluster: async (
         config: ClusterConfig,
       ): Promise<LaunchResult> => {

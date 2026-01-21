@@ -98,6 +98,8 @@ export class CapletController extends Controller<
   CapletControllerState,
   CapletControllerFacet
 > {
+  readonly #pendingInstalls: Set<CapletId> = new Set();
+
   readonly #launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
 
   readonly #terminateSubcluster: (subclusterId: string) => Promise<void>;
@@ -205,6 +207,11 @@ export class CapletController extends Controller<
       throw new Error(`Caplet ${id} is already installed`);
     }
 
+    if (this.#pendingInstalls.has(id)) {
+      throw new Error(`Caplet ${id} is already being installed`);
+    }
+    this.#pendingInstalls.add(id);
+
     // Create cluster config for this caplet
     const clusterConfig: ClusterConfig = {
       bootstrap: id,
@@ -215,19 +222,24 @@ export class CapletController extends Controller<
       },
     };
 
-    // Launch subcluster
-    const { subclusterId } = await this.#launchSubcluster(clusterConfig);
+    try {
+      const { subclusterId } = await this.#launchSubcluster(clusterConfig);
 
-    this.update((draft) => {
-      draft.caplets[id] = {
-        manifest,
-        subclusterId,
-        installedAt: Date.now(),
-      };
-    });
+      this.update((draft) => {
+        draft.caplets[id] = {
+          manifest,
+          subclusterId,
+          installedAt: Date.now(),
+        };
+      });
 
-    this.logger.info(`Caplet ${id} installed with subcluster ${subclusterId}`);
-    return { capletId: id, subclusterId };
+      this.logger.info(
+        `Caplet ${id} installed with subcluster ${subclusterId}`,
+      );
+      return { capletId: id, subclusterId };
+    } finally {
+      this.#pendingInstalls.delete(id);
+    }
   }
 
   /**

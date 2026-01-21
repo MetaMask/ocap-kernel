@@ -186,6 +186,65 @@ describe('CapletController.make', () => {
         'Caplet com.example.test installed with subcluster subcluster-123',
       );
     });
+
+    it('prevents concurrent installations of the same caplet', async () => {
+      let resolveFirst: (value: { subclusterId: string }) => void;
+      const firstInstallPromise = new Promise<{ subclusterId: string }>(
+        (resolve) => {
+          resolveFirst = resolve;
+        },
+      );
+
+      const mockAdapter = makeMockStorageAdapter();
+      const slowLaunchSubcluster = vi.fn().mockReturnValue(firstInstallPromise);
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
+        launchSubcluster: slowLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+      });
+
+      const firstInstall = controller.install(validManifest);
+
+      await expect(controller.install(validManifest)).rejects.toThrow(
+        'Caplet com.example.test is already being installed',
+      );
+
+      resolveFirst!({ subclusterId: 'subcluster-123' });
+      expect(await firstInstall).toStrictEqual({
+        capletId: 'com.example.test',
+        subclusterId: 'subcluster-123',
+      });
+    });
+
+    it('allows installation after a failed attempt', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const failingLaunchSubcluster = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Subcluster launch failed'))
+        .mockResolvedValueOnce({ subclusterId: 'subcluster-123' });
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
+        launchSubcluster: failingLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+      });
+
+      await expect(controller.install(validManifest)).rejects.toThrow(
+        'Subcluster launch failed',
+      );
+
+      const capletAfterFailure = await controller.get('com.example.test');
+      expect(capletAfterFailure).toBeUndefined();
+
+      const result = await controller.install(validManifest);
+      expect(result).toStrictEqual({
+        capletId: 'com.example.test',
+        subclusterId: 'subcluster-123',
+      });
+
+      const capletAfterSuccess = await controller.get('com.example.test');
+      expect(capletAfterSuccess).toBeDefined();
+      expect(capletAfterSuccess?.subclusterId).toBe('subcluster-123');
+    });
   });
 
   describe('uninstall', () => {
