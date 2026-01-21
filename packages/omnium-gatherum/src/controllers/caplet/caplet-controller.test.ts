@@ -21,6 +21,8 @@ async function seedAdapter(
   await adapter.set('caplet.caplets', caplets as Json);
 }
 
+vi.useFakeTimers();
+
 describe('CapletController.make', () => {
   const mockLogger = {
     info: vi.fn(),
@@ -124,7 +126,6 @@ describe('CapletController.make', () => {
     });
 
     it('stores caplet with manifest, subclusterId, and installedAt', async () => {
-      vi.useFakeTimers();
       vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
 
       const mockAdapter = makeMockStorageAdapter();
@@ -136,13 +137,11 @@ describe('CapletController.make', () => {
 
       await controller.install(validManifest);
 
-      const caplet = await controller.get('com.example.test');
+      const caplet = controller.get('com.example.test');
       expect(caplet).toBeDefined();
       expect(caplet?.manifest).toStrictEqual(validManifest);
       expect(caplet?.subclusterId).toBe('subcluster-123');
       expect(caplet?.installedAt).toBe(Date.now());
-
-      vi.useRealTimers();
     });
 
     it('preserves existing caplets when installing', async () => {
@@ -162,7 +161,7 @@ describe('CapletController.make', () => {
 
       await controller.install(validManifest);
 
-      const caplets = await controller.list();
+      const caplets = controller.list();
       const capletIds = caplets.map((caplet) => caplet.manifest.id).sort();
       expect(capletIds).toStrictEqual(['com.example.test', 'com.other.caplet']);
     });
@@ -230,7 +229,7 @@ describe('CapletController.make', () => {
         'Subcluster launch failed',
       );
 
-      const capletAfterFailure = await controller.get('com.example.test');
+      const capletAfterFailure = controller.get('com.example.test');
       expect(capletAfterFailure).toBeUndefined();
 
       const result = await controller.install(validManifest);
@@ -239,7 +238,7 @@ describe('CapletController.make', () => {
         subclusterId: 'subcluster-123',
       });
 
-      const capletAfterSuccess = await controller.get('com.example.test');
+      const capletAfterSuccess = controller.get('com.example.test');
       expect(capletAfterSuccess).toBeDefined();
       expect(capletAfterSuccess?.subclusterId).toBe('subcluster-123');
     });
@@ -296,7 +295,7 @@ describe('CapletController.make', () => {
 
       await controller.uninstall('com.example.test');
 
-      const caplet = await controller.get('com.example.test');
+      const caplet = controller.get('com.example.test');
       expect(caplet).toBeUndefined();
     });
 
@@ -322,7 +321,7 @@ describe('CapletController.make', () => {
 
       await controller.uninstall('com.example.test');
 
-      const caplets = await controller.list();
+      const caplets = controller.list();
       const capletIds = caplets.map((caplet) => caplet.manifest.id);
       expect(capletIds).toStrictEqual(['com.other.caplet']);
     });
@@ -351,6 +350,32 @@ describe('CapletController.make', () => {
         'Caplet com.example.test uninstalled',
       );
     });
+
+    it('handles concurrent uninstall attempts', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: validManifest,
+          subclusterId: 'subcluster-123',
+          installedAt: 1000,
+        },
+      });
+      const slowTerminateSubcluster = vi
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('Subcluster not found'));
+      const controller = await CapletController.make(config, {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: slowTerminateSubcluster,
+      });
+
+      const firstUninstall = controller.uninstall('com.example.test');
+      const secondUninstall = controller.uninstall('com.example.test');
+
+      expect(await firstUninstall).toBeUndefined();
+      await expect(secondUninstall).rejects.toThrow('Subcluster not found');
+    });
   });
 
   describe('list', () => {
@@ -362,7 +387,7 @@ describe('CapletController.make', () => {
         terminateSubcluster: mockTerminateSubcluster,
       });
 
-      const result = await controller.list();
+      const result = controller.list();
 
       expect(result).toStrictEqual([]);
     });
@@ -392,7 +417,7 @@ describe('CapletController.make', () => {
         terminateSubcluster: mockTerminateSubcluster,
       });
 
-      const result = await controller.list();
+      const result = controller.list();
 
       expect(result).toHaveLength(2);
       expect(result).toContainEqual({
@@ -424,7 +449,7 @@ describe('CapletController.make', () => {
         terminateSubcluster: mockTerminateSubcluster,
       });
 
-      const result = await controller.get('com.example.test');
+      const result = controller.get('com.example.test');
 
       expect(result).toStrictEqual({
         manifest: validManifest,
@@ -441,7 +466,7 @@ describe('CapletController.make', () => {
         terminateSubcluster: mockTerminateSubcluster,
       });
 
-      const result = await controller.get('com.example.notfound');
+      const result = controller.get('com.example.notfound');
 
       expect(result).toBeUndefined();
     });

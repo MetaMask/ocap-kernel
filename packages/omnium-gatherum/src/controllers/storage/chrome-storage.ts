@@ -25,6 +25,16 @@ export function makeChromeStorageAdapter(
       await storage.remove(key);
     },
 
+    /**
+     * Get all keys, optionally filtered by prefix.
+     *
+     * Note: This loads all storage data into memory to enumerate keys,
+     * as Chrome Storage API doesn't provide a native keys-only method.
+     * May be inefficient for large storage.
+     *
+     * @param prefix - Optional prefix to filter keys by.
+     * @returns Array of matching key names.
+     */
     async keys(prefix?: string): Promise<string[]> {
       const all = await storage.get(null);
       const allKeys = Object.keys(all);

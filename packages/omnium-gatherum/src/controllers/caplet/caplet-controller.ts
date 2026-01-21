@@ -53,7 +53,7 @@ export type CapletControllerFacet = {
    *
    * @returns Array of installed caplets.
    */
-  list: () => Promise<InstalledCaplet[]>;
+  list: () => InstalledCaplet[];
 
   /**
    * Get a specific installed caplet.
@@ -61,7 +61,7 @@ export type CapletControllerFacet = {
    * @param capletId - The caplet ID.
    * @returns The installed caplet or undefined if not found.
    */
-  get: (capletId: CapletId) => Promise<InstalledCaplet | undefined>;
+  get: (capletId: CapletId) => InstalledCaplet | undefined;
 };
 
 /**
@@ -161,10 +161,10 @@ export class CapletController extends Controller<
       uninstall: async (capletId: CapletId): Promise<void> => {
         return this.#uninstall(capletId);
       },
-      list: async (): Promise<InstalledCaplet[]> => {
+      list: (): InstalledCaplet[] => {
         return this.#list();
       },
-      get: async (capletId: CapletId): Promise<InstalledCaplet | undefined> => {
+      get: (capletId: CapletId): InstalledCaplet | undefined => {
         return this.#get(capletId);
       },
     });

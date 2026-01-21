@@ -9,6 +9,8 @@ type TestState = {
   count: number;
 };
 
+vi.useFakeTimers();
+
 describe('ControllerStorage', () => {
   const mockAdapter: StorageAdapter = {
     get: vi.fn(),
@@ -169,8 +171,8 @@ describe('ControllerStorage', () => {
         // manifests and count not modified
       });
 
-      // Wait for persistence (debounced but set to 0ms)
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Wait for persistence
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledTimes(1);
       expect(mockAdapter.set).toHaveBeenCalledWith('test.installed', [
@@ -196,10 +198,6 @@ describe('ControllerStorage', () => {
     });
 
     it('does not persist when no changes made', async () => {
-      // Clear any pending operations from previous tests
-      await new Promise((resolve) => setTimeout(resolve, 15));
-      vi.clearAllMocks();
-
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
@@ -214,7 +212,7 @@ describe('ControllerStorage', () => {
       });
 
       // Wait for potential persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).not.toHaveBeenCalled();
     });
@@ -234,7 +232,7 @@ describe('ControllerStorage', () => {
       });
 
       // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledTimes(2);
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 10);
@@ -260,7 +258,7 @@ describe('ControllerStorage', () => {
       expect(storage.state.count).toBe(100);
 
       // Wait for persistence attempt
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       // Error should be logged
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -283,7 +281,7 @@ describe('ControllerStorage', () => {
       });
 
       // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.manifests', {
         'new-app': { name: 'New App' },
@@ -307,7 +305,7 @@ describe('ControllerStorage', () => {
       });
 
       // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.installed', ['app2']);
     });
@@ -332,7 +330,7 @@ describe('ControllerStorage', () => {
       });
 
       // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.manifests', {
         app2: { name: 'App 2' },
@@ -365,7 +363,6 @@ describe('ControllerStorage', () => {
 
   describe('debouncing with key accumulation', () => {
     it('accumulates modified keys across multiple updates', async () => {
-      vi.useFakeTimers();
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
@@ -393,12 +390,9 @@ describe('ControllerStorage', () => {
       // Both a and b should be persisted (accumulated keys)
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
       expect(mockAdapter.set).toHaveBeenCalledWith('test.b', 1);
-
-      vi.useRealTimers();
     });
 
     it('does not reset timer on subsequent writes', async () => {
-      vi.useFakeTimers();
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
@@ -422,12 +416,9 @@ describe('ControllerStorage', () => {
       await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
-
-      vi.useRealTimers();
     });
 
     it('writes immediately when idle > debounceMs', async () => {
-      vi.useFakeTimers();
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
@@ -452,8 +443,6 @@ describe('ControllerStorage', () => {
       await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
-
-      vi.useRealTimers();
     });
   });
 
@@ -499,12 +488,12 @@ describe('ControllerStorage', () => {
         draft.b = 10;
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
       vi.clearAllMocks();
 
       storage.clear();
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 0);
       expect(mockAdapter.set).toHaveBeenCalledWith('test.b', 0);

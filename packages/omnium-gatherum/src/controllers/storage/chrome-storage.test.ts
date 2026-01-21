@@ -129,4 +129,48 @@ describe('makeChromeStorageAdapter', () => {
       expect(result).toStrictEqual([]);
     });
   });
+
+  describe('error handling', () => {
+    it('propagates errors from get()', async () => {
+      mockStorage.get.mockRejectedValue(new Error('Storage error'));
+
+      const adapter = makeChromeStorageAdapter(
+        mockStorage as unknown as chrome.storage.StorageArea,
+      );
+
+      await expect(adapter.get('key')).rejects.toThrow('Storage error');
+    });
+
+    it('propagates errors from set()', async () => {
+      mockStorage.set.mockRejectedValue(new Error('Storage error'));
+
+      const adapter = makeChromeStorageAdapter(
+        mockStorage as unknown as chrome.storage.StorageArea,
+      );
+
+      await expect(adapter.set('key', 'value')).rejects.toThrow(
+        'Storage error',
+      );
+    });
+
+    it('propagates errors from delete()', async () => {
+      mockStorage.remove.mockRejectedValue(new Error('Storage error'));
+
+      const adapter = makeChromeStorageAdapter(
+        mockStorage as unknown as chrome.storage.StorageArea,
+      );
+
+      await expect(adapter.delete('key')).rejects.toThrow('Storage error');
+    });
+
+    it('propagates errors from keys()', async () => {
+      mockStorage.get.mockRejectedValue(new Error('Storage error'));
+
+      const adapter = makeChromeStorageAdapter(
+        mockStorage as unknown as chrome.storage.StorageArea,
+      );
+
+      await expect(adapter.keys()).rejects.toThrow('Storage error');
+    });
+  });
 });
