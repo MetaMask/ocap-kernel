@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p coverage-base
           curl -fsSL https://metamask.github.io/ocap-kernel/coverage/coverage-summary.json \
-            -o coverage-base/coverage-summary.json || echo "No baseline coverage found" && exit 1
+            -o coverage-base/coverage-summary.json || { echo "No baseline coverage found"; exit 1; }
 
       - name: Post coverage report
         if: github.event_name == 'pull_request'
@@ -51,9 +51,29 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            github.rest.issues.createComment({
+            const marker = '<!-- coverage-report-link -->';
+            const body = `${marker}\n📊 [View full HTML coverage report for \`main\`](https://metamask.github.io/ocap-kernel/coverage/)`;
+
+            const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '📊 [View full HTML coverage report for `main`](https://metamask.github.io/ocap-kernel/coverage/)'
-            })
+            });
+
+            const existing = comments.find(c => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            }
