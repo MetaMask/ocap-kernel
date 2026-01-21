@@ -52,7 +52,7 @@
  *   remoteSeq.${remoteId}.nextSendSeq = NN   // next outgoing sequence number
  *   remoteSeq.${remoteId}.highestReceivedSeq = NN  // highest received seq (for ACK)
  *   remoteSeq.${remoteId}.startSeq = NN      // seq of first pending message
- *   remotePending.${remoteId}.${seq} = JSON({messageString, sendTimestamp})  // pending message
+ *   remotePending.${remoteId}.${seq} = ${messageString}  // pending message
  *
  * Kernel bookkeeping
  *   initialized = true                       // if set, indicates the store has been initialized
