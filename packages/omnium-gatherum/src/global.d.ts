@@ -1,4 +1,7 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
+import type { Promisified } from '@metamask/kernel-utils';
+
+import type { CapletControllerFacet } from './controllers/index.ts';
 
 // Type declarations for omnium dev console API.
 declare global {
@@ -33,6 +36,11 @@ declare global {
      * ```
      */
     getKernel: () => Promise<KernelFacade>;
+
+    /**
+     * Caplet management API.
+     */
+    caplet: Promisified<CapletControllerFacet>;
   };
 }
 

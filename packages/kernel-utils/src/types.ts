@@ -55,6 +55,18 @@ export type PromiseCallbacks<Resolve = unknown> = Omit<
   'promise'
 >;
 
+/**
+ * Utility type that wraps all method return types in Promise.
+ * Methods already returning Promise<T> remain Promise<T>.
+ */
+export type Promisified<T> = {
+  [K in keyof T]: T[K] extends (...args: infer A) => Promise<infer R>
+    ? (...args: A) => Promise<R>
+    : T[K] extends (...args: infer A) => infer R
+      ? (...args: A) => Promise<R>
+      : T[K];
+};
+
 export const EmptyJsonArray = empty(array(UnsafeJsonStruct));
 
 export type EmptyJsonArray = Infer<typeof EmptyJsonArray>;

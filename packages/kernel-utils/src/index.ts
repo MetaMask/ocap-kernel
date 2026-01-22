@@ -12,6 +12,7 @@ export type {
   JsonRpcCall,
   JsonRpcMessage,
   PromiseCallbacks,
+  Promisified,
   TypeGuard,
 } from './types.ts';
 export {

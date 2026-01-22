@@ -14,17 +14,20 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-defineGlobals();
+import { initializeControllers } from './controllers/index.ts';
+import type {
+  CapletControllerFacet,
+  CapletManifest,
+} from './controllers/index.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
+const globals = defineGlobals();
 let bootPromise: Promise<void> | null = null;
-let kernelP: Promise<KernelFacade>;
-let ping: () => Promise<void>;
 
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
-  ping?.().catch(logger.error);
+  omnium.ping?.().catch(logger.error);
 });
 
 // Install/update
@@ -104,12 +107,23 @@ async function main(): Promise<void> {
     },
   });
 
-  kernelP = backgroundCapTP.getKernel();
+  const kernelP = backgroundCapTP.getKernel();
+  globals.setKernelP(kernelP);
 
-  ping = async (): Promise<void> => {
+  globals.setPing(async (): Promise<void> => {
     const result = await E(kernelP).ping();
     logger.info(result);
-  };
+  });
+
+  try {
+    const controllers = await initializeControllers({
+      logger,
+      kernel: kernelP,
+    });
+    globals.setCapletController(controllers.caplet);
+  } catch (error) {
+    offscreenStream.throw(error as Error).catch(logger.error);
+  }
 
   try {
     await offscreenStream.drain((message) => {
@@ -129,16 +143,35 @@ async function main(): Promise<void> {
   }
 }
 
+type GlobalSetters = {
+  setKernelP: (value: Promise<KernelFacade>) => void;
+  setPing: (value: () => Promise<void>) => void;
+  setCapletController: (value: CapletControllerFacet) => void;
+};
+
 /**
  * Define globals accessible via the background console.
+ *
+ * @returns A device for setting the global values.
  */
-function defineGlobals(): void {
+function defineGlobals(): GlobalSetters {
+  Object.defineProperty(globalThis, 'E', {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: E,
+  });
+
   Object.defineProperty(globalThis, 'omnium', {
     configurable: false,
     enumerable: true,
     writable: false,
     value: {},
   });
+
+  let kernelP: Promise<KernelFacade>;
+  let ping: (() => Promise<void>) | undefined;
+  let capletController: CapletControllerFacet;
 
   Object.defineProperties(globalThis.omnium, {
     ping: {
@@ -147,13 +180,28 @@ function defineGlobals(): void {
     getKernel: {
       value: async () => kernelP,
     },
+    caplet: {
+      value: harden({
+        install: async (manifest: CapletManifest) =>
+          E(capletController).install(manifest),
+        uninstall: async (capletId: string) =>
+          E(capletController).uninstall(capletId),
+        list: async () => E(capletController).list(),
+        get: async (capletId: string) => E(capletController).get(capletId),
+      }),
+    },
   });
   harden(globalThis.omnium);
 
-  Object.defineProperty(globalThis, 'E', {
-    configurable: false,
-    enumerable: true,
-    writable: false,
-    value: E,
-  });
+  return {
+    setKernelP: (value) => {
+      kernelP = value;
+    },
+    setPing: (value) => {
+      ping = value;
+    },
+    setCapletController: (value) => {
+      capletController = value;
+    },
+  };
 }

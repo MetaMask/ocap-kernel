@@ -10,7 +10,7 @@
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["offscreen", "unlimitedStorage"],
+  "permissions": ["offscreen", "storage", "unlimitedStorage"],
   "sandbox": {
     "pages": ["iframe.html"]
   },

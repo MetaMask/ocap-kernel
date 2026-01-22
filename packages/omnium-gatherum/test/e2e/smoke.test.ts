@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 
-import { loadExtension } from '../helpers.ts';
+import { loadExtension } from './utils.ts';
 
 test.describe.configure({ mode: 'serial' });
 
