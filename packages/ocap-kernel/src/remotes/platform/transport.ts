@@ -11,7 +11,7 @@ import {
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import { writeWithTimeout } from './channel-utils.ts';
+import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
 import { ConnectionFactory } from './connection-factory.ts';
 import {
   DEFAULT_CLEANUP_INTERVAL_MS,
@@ -77,6 +77,7 @@ export async function initTransport(
   const stopController = new AbortController();
   const { signal } = stopController;
   const logger = new Logger();
+  const outputError = makeErrorLogger(logger);
   const reconnectionManager = new ReconnectionManager();
   const peerStateManager = new PeerStateManager(logger, stalePeerTimeoutMs);
   const validateMessageSize = makeMessageSizeValidator(maxMessageSizeBytes);
@@ -104,22 +105,6 @@ export async function initTransport(
     for (const peerId of stalePeers) {
       peerStateManager.removePeer(peerId);
       reconnectionManager.stopReconnection(peerId);
-    }
-  }
-
-  /**
-   * Output an error message.
-   *
-   * @param peerId - The peer ID that the error is associated with.
-   * @param task - The task that the error is associated with.
-   * @param problem - The error itself.
-   */
-  function outputError(peerId: string, task: string, problem: unknown): void {
-    if (problem) {
-      const realProblem: Error = problem as Error;
-      logger.log(`${peerId}:: error ${task}: ${realProblem}`);
-    } else {
-      logger.log(`${peerId}:: error ${task}`);
     }
   }
 
