@@ -45,35 +45,3 @@ jobs:
           json-final-path: coverage/coverage-final.json
           json-summary-compare-path: coverage-base/coverage-summary.json
           file-coverage-mode: changes
-
-      - name: Post coverage report link
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const marker = '<!-- coverage-report-link -->';
-            const body = `${marker}\n📊 [View full HTML coverage report for \`main\`](https://metamask.github.io/ocap-kernel/coverage/)`;
-
-            const { data: comments } = await github.rest.issues.listComments({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-
-            const existing = comments.find(c => c.body?.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                comment_id: existing.id,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body,
-              });
-            }
