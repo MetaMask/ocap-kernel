@@ -417,4 +417,61 @@ describe('CapletController.make', () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe('getCapletRoot', () => {
+    it('returns caplet root successfully', async () => {
+      const mockRoot = { greeting: vi.fn() };
+      vi.mocked(mockGetVatRoot).mockResolvedValue(mockRoot);
+
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await controller.install(makeManifest());
+      const result = await controller.getCapletRoot('com.example.test');
+
+      expect(mockGetVatRoot).toHaveBeenCalledWith('ko1');
+      expect(result).toBe(mockRoot);
+    });
+
+    it('throws if caplet not found', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await expect(
+        controller.getCapletRoot('com.example.notfound'),
+      ).rejects.toThrow('Caplet com.example.notfound not found');
+    });
+
+    it('throws if caplet has no root object', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: makeManifest(),
+          subclusterId: 'subcluster-123',
+          rootKref: '',
+          installedAt: 1000,
+        },
+      });
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await expect(
+        controller.getCapletRoot('com.example.test'),
+      ).rejects.toThrow('Caplet com.example.test has no root object');
+    });
+  });
 });
