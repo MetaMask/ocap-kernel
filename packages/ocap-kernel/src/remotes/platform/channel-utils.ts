@@ -1,5 +1,33 @@
+import type { Logger } from '@metamask/logger';
+
 import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
 import type { Channel } from '../types.ts';
+
+/**
+ * Type for error logging function.
+ */
+export type ErrorLogger = (
+  peerId: string,
+  task: string,
+  problem: unknown,
+) => void;
+
+/**
+ * Creates an error logging function for transport operations.
+ *
+ * @param logger - The logger instance to use.
+ * @returns A function that logs errors with peer context.
+ */
+export function makeErrorLogger(logger: Logger): ErrorLogger {
+  return (peerId: string, task: string, problem: unknown): void => {
+    if (problem) {
+      const realProblem: Error = problem as Error;
+      logger.log(`${peerId}:: error ${task}: ${realProblem}`);
+    } else {
+      logger.log(`${peerId}:: error ${task}`);
+    }
+  };
+}
 
 /**
  * Write a message to a channel stream with a timeout.
