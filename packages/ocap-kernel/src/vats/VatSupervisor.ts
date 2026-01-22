@@ -333,8 +333,7 @@ export class VatSupervisor {
         // Otherwise, just rethrow the error.
         throw error;
       }
-      const vatNS = await loadBundle(bundleContent, {
-        filePrefix: `vat-${this.id}/...`,
+      const vatNS = loadBundle(bundleContent, {
         endowments,
         inescapableGlobalProperties,
       });
