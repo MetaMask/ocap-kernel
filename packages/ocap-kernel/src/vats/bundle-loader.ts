@@ -1,5 +1,5 @@
-type ViteBundle = {
-  moduleFormat: 'vite-iife';
+type VatBundle = {
+  moduleFormat: 'iife';
   code: string;
   exports: string[];
   modules: Record<

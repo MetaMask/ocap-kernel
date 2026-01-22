@@ -6,7 +6,7 @@ Ocap Kernel cli.
 
 ### `ocap bundle <targets..>`
 
-Bundle the supplied file or directory targets. Expects each target to be a `.js` file or a directory containing `.js` files. Each `<file>.js` file will be bundled using vite and written to an associated `<file>.bundle`.
+Bundle the supplied file or directory targets. Expects each target to be a `.js` file or a directory containing `.js` files. Each `<file>.js` file will be bundled using `vite` and written to an associated `<file>.bundle`.
 
 ### `ocap watch <dir>`
 
