@@ -186,12 +186,11 @@ export class CapletController extends Controller<
     const { id } = manifest;
     this.logger.info(`Installing caplet: ${id}`);
 
-    // Validate manifest
+    // TODO: Move this validation in front of the controller.
     if (!isCapletManifest(manifest)) {
       throw new Error(`Invalid caplet manifest for ${id}`);
     }
 
-    // Check if already installed
     if (this.state.caplets[id] !== undefined) {
       throw new Error(`Caplet ${id} is already installed`);
     }
@@ -201,7 +200,6 @@ export class CapletController extends Controller<
     }
     this.#pendingInstalls.add(id);
 
-    // Create cluster config for this caplet
     const clusterConfig: ClusterConfig = {
       bootstrap: id,
       vats: {
