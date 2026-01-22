@@ -8,8 +8,19 @@ export type RemoteRecord = {
   remoteInfo: RemoteInfo;
 };
 
+/**
+ * Sequence tracking state for a remote.
+ */
+export type RemoteSeqState = {
+  nextSendSeq: number;
+  highestReceivedSeq: number;
+  startSeq: number;
+};
+
 const REMOTE_INFO_BASE = 'remote.';
 const REMOTE_INFO_BASE_LEN = REMOTE_INFO_BASE.length;
+const REMOTE_SEQ_BASE = 'remoteSeq.';
+const REMOTE_PENDING_BASE = 'remotePending.';
 
 /**
  * Get a kernel store object that provides functionality for managing remote records.
@@ -65,6 +76,133 @@ export function getRemoteMethods(ctx: StoreContext) {
    */
   function deleteRemoteInfo(remoteID: RemoteId): void {
     kv.delete(`${REMOTE_INFO_BASE}${remoteID}`);
+    deleteRemotePendingState(remoteID);
+  }
+
+  // --- Sequence/ACK persistence methods ---
+
+  /**
+   * Get the sequence tracking state for a remote.
+   *
+   * @param remoteId - The remote whose seq state is sought.
+   * @returns The seq state, or undefined if not yet persisted.
+   */
+  function getRemoteSeqState(remoteId: RemoteId): RemoteSeqState | undefined {
+    const prefix = `${REMOTE_SEQ_BASE}${remoteId}.`;
+    const nextSendSeqStr = kv.get(`${prefix}nextSendSeq`);
+    const highestReceivedSeqStr = kv.get(`${prefix}highestReceivedSeq`);
+    const startSeqStr = kv.get(`${prefix}startSeq`);
+
+    // If none of the keys exist, there's no persisted state
+    if (
+      nextSendSeqStr === undefined &&
+      highestReceivedSeqStr === undefined &&
+      startSeqStr === undefined
+    ) {
+      return undefined;
+    }
+
+    return {
+      nextSendSeq: nextSendSeqStr === undefined ? 0 : Number(nextSendSeqStr),
+      highestReceivedSeq:
+        highestReceivedSeqStr === undefined ? 0 : Number(highestReceivedSeqStr),
+      startSeq: startSeqStr === undefined ? 0 : Number(startSeqStr),
+    };
+  }
+
+  /**
+   * Set the next outgoing sequence number for a remote.
+   *
+   * @param remoteId - The remote whose state is to be updated.
+   * @param value - The value to set.
+   */
+  function setRemoteNextSendSeq(remoteId: RemoteId, value: number): void {
+    kv.set(`${REMOTE_SEQ_BASE}${remoteId}.nextSendSeq`, String(value));
+  }
+
+  /**
+   * Set the highest received sequence number for a remote.
+   *
+   * @param remoteId - The remote whose state is to be updated.
+   * @param value - The value to set.
+   */
+  function setRemoteHighestReceivedSeq(
+    remoteId: RemoteId,
+    value: number,
+  ): void {
+    kv.set(`${REMOTE_SEQ_BASE}${remoteId}.highestReceivedSeq`, String(value));
+  }
+
+  /**
+   * Set the start sequence number (first pending message) for a remote.
+   *
+   * @param remoteId - The remote whose state is to be updated.
+   * @param value - The value to set.
+   */
+  function setRemoteStartSeq(remoteId: RemoteId, value: number): void {
+    kv.set(`${REMOTE_SEQ_BASE}${remoteId}.startSeq`, String(value));
+  }
+
+  /**
+   * Get a pending message by remote and sequence number.
+   *
+   * @param remoteId - The remote to get the message for.
+   * @param seq - The sequence number of the message.
+   * @returns The pending message string, or undefined if not found.
+   */
+  function getPendingMessage(
+    remoteId: RemoteId,
+    seq: number,
+  ): string | undefined {
+    const key = `${REMOTE_PENDING_BASE}${remoteId}.${seq}`;
+    return kv.get(key);
+  }
+
+  /**
+   * Store a pending message.
+   *
+   * @param remoteId - The remote to store the message for.
+   * @param seq - The sequence number of the message.
+   * @param messageString - The serialized message to store.
+   */
+  function setPendingMessage(
+    remoteId: RemoteId,
+    seq: number,
+    messageString: string,
+  ): void {
+    const key = `${REMOTE_PENDING_BASE}${remoteId}.${seq}`;
+    kv.set(key, messageString);
+  }
+
+  /**
+   * Delete a pending message entry.
+   *
+   * @param remoteId - The remote to delete the message for.
+   * @param seq - The sequence number of the message to delete.
+   */
+  function deletePendingMessage(remoteId: RemoteId, seq: number): void {
+    const key = `${REMOTE_PENDING_BASE}${remoteId}.${seq}`;
+    kv.delete(key);
+  }
+
+  /**
+   * Delete all pending state for a remote (seq state + all pending messages).
+   * Called when a remote relationship is terminated.
+   *
+   * @param remoteId - The remote whose pending state is to be deleted.
+   */
+  function deleteRemotePendingState(remoteId: RemoteId): void {
+    // Delete seq state
+    const seqPrefix = `${REMOTE_SEQ_BASE}${remoteId}.`;
+    kv.delete(`${seqPrefix}nextSendSeq`);
+    kv.delete(`${seqPrefix}highestReceivedSeq`);
+    kv.delete(`${seqPrefix}startSeq`);
+
+    // Delete all pending messages
+    const pendingPrefix = `${REMOTE_PENDING_BASE}${remoteId}.`;
+    for (const key of getPrefixedKeys(pendingPrefix)) {
+      kv.delete(key);
+    }
   }
 
   return {
@@ -72,5 +210,14 @@ export function getRemoteMethods(ctx: StoreContext) {
     getRemoteInfo,
     setRemoteInfo,
     deleteRemoteInfo,
+    // Sequence/ACK persistence
+    getRemoteSeqState,
+    setRemoteNextSendSeq,
+    setRemoteHighestReceivedSeq,
+    setRemoteStartSeq,
+    getPendingMessage,
+    setPendingMessage,
+    deletePendingMessage,
+    deleteRemotePendingState,
   };
 }
