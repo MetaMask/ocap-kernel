@@ -3,13 +3,13 @@ import type { Logger } from '@metamask/logger';
 import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import type { KernelQueue } from '../KernelQueue.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
-import { createMockRemotesFactory } from '../../test/remotes-mocks.ts';
-import type { KernelStore } from '../store/index.ts';
-import { parseRef } from '../store/utils/parse-ref.ts';
-import type { Message, RRef } from '../types.ts';
-import type { RemoteComms } from './types.ts';
+import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import type { KernelQueue } from '../../KernelQueue.ts';
+import type { KernelStore } from '../../store/index.ts';
+import { parseRef } from '../../store/utils/parse-ref.ts';
+import type { Message, RRef } from '../../types.ts';
+import type { RemoteComms } from '../types.ts';
 
 let mockKernelStore: KernelStore;
 let mockRemoteComms: RemoteComms;

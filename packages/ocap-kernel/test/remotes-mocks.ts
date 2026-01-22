@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 
 import { makeMapKernelDatabase } from './storage.ts';
 import type { KernelQueue } from '../src/KernelQueue.ts';
-import { RemoteHandle } from '../src/remotes/RemoteHandle.ts';
+import { RemoteHandle } from '../src/remotes/kernel/RemoteHandle.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,

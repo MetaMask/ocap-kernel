@@ -1,7 +1,7 @@
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
-export { initNetwork } from './remotes/network.ts';
+export { initTransport } from './remotes/platform/transport.ts';
 export type {
   ClusterConfig,
   KRef,
@@ -19,7 +19,7 @@ export type {
   StopRemoteComms,
   RemoteCommsOptions,
 } from './remotes/types.ts';
-export type { RemoteMessageBase } from './remotes/RemoteHandle.ts';
+export type { RemoteMessageBase } from './remotes/kernel/RemoteHandle.ts';
 export {
   isVatId,
   VatIdStruct,

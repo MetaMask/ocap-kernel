@@ -7,17 +7,17 @@ import {
   performDropImports,
   performRetireImports,
   performExportCleanup,
-} from '../garbage-collection/gc-handlers.ts';
-import type { KernelQueue } from '../KernelQueue.ts';
-import type { KernelStore } from '../store/index.ts';
+} from '../../garbage-collection/gc-handlers.ts';
+import type { KernelQueue } from '../../KernelQueue.ts';
+import type { KernelStore } from '../../store/index.ts';
 import type {
   RemoteId,
   ERef,
   EndpointHandle,
   Message,
   CrankResults,
-} from '../types.ts';
-import type { RemoteComms } from './types.ts';
+} from '../../types.ts';
+import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
 const ACK_TIMEOUT_MS = 10_000;

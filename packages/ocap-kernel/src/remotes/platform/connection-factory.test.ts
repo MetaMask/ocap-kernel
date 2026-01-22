@@ -2,7 +2,7 @@ import { MuxerClosedError } from '@libp2p/interface';
 import { AbortError } from '@metamask/kernel-errors';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import type { Channel } from './types.ts';
+import type { Channel } from '../types.ts';
 
 // Mock heavy/libp2p related deps with minimal shims we can assert against.
 
@@ -133,7 +133,7 @@ vi.mock('libp2p', () => ({
 
 describe('ConnectionFactory', () => {
   let factory: Awaited<
-    ReturnType<typeof import('./ConnectionFactory.ts').ConnectionFactory.make>
+    ReturnType<typeof import('./connection-factory.ts').ConnectionFactory.make>
   >;
   const keySeed = '0x1234567890abcdef';
   const knownRelays = [
@@ -203,10 +203,12 @@ describe('ConnectionFactory', () => {
     maxRetryAttempts?: number,
   ): Promise<
     Awaited<
-      ReturnType<typeof import('./ConnectionFactory.ts').ConnectionFactory.make>
+      ReturnType<
+        typeof import('./connection-factory.ts').ConnectionFactory.make
+      >
     >
   > {
-    const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+    const { ConnectionFactory } = await import('./connection-factory.ts');
     const { Logger } = await import('@metamask/logger');
     return ConnectionFactory.make(
       keySeed,
@@ -694,7 +696,7 @@ describe('ConnectionFactory', () => {
 
       // Re-import ConnectionFactory to use the new mock
       vi.resetModules();
-      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
       factory = await ConnectionFactory.make(
         keySeed,
@@ -742,7 +744,7 @@ describe('ConnectionFactory', () => {
 
       // Re-import ConnectionFactory to use the new mock
       vi.resetModules();
-      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
       factory = await ConnectionFactory.make(
         keySeed,
@@ -793,7 +795,7 @@ describe('ConnectionFactory', () => {
 
       // Re-import ConnectionFactory to use the new mock
       vi.resetModules();
-      const { ConnectionFactory } = await import('./ConnectionFactory.ts');
+      const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
       factory = await ConnectionFactory.make(
         keySeed,
