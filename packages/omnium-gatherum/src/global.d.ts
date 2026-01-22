@@ -1,4 +1,5 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
+import type { Promisified } from '@metamask/kernel-utils';
 
 import type { CapletControllerFacet } from './controllers/index.ts';
 
@@ -39,7 +40,7 @@ declare global {
     /**
      * Caplet management API.
      */
-    caplet: CapletControllerFacet;
+    caplet: Promisified<CapletControllerFacet>;
   };
 }
 
