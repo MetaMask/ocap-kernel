@@ -49,7 +49,7 @@ export default defineConfig({
     coverage: {
       enabled: true,
       provider: 'v8',
-      reporter: ['text', 'json', 'json-summary', 'html'],
+      reporter: ['json', 'json-summary', 'html'],
       reportsDirectory: './coverage',
       include: ['**/src/**/*.{ts,tsx}'],
       exclude: [
