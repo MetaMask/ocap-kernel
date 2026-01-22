@@ -1,8 +1,6 @@
 import '@metamask/kernel-shims/endoify';
-import type { BundleSourceResult } from '@endo/bundle-source';
 import { makeCounter, stringify } from '@metamask/kernel-utils';
 import { isObject, hasProperty } from '@metamask/utils';
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -12,16 +10,19 @@ import { defaultConfig } from '../../src/config.ts';
 import { withTimeout } from '../../src/utils.ts';
 import { makeTestBundleStage, validTestBundleNames } from '../bundles.ts';
 
-const isBundleSourceResult = (
-  value: unknown,
-): value is BundleSourceResult<'endoZipBase64'> =>
+type ViteBundle = {
+  moduleFormat: 'vite-iife';
+  code: string;
+  exports: string[];
+  modules: Record<string, unknown>;
+};
+
+const isViteBundle = (value: unknown): value is ViteBundle =>
   isObject(value) &&
   hasProperty(value, 'moduleFormat') &&
-  value.moduleFormat === 'endoZipBase64' &&
-  hasProperty(value, 'endoZipBase64') &&
-  typeof value.endoZipBase64 === 'string' &&
-  hasProperty(value, 'endoZipBase64Sha512') &&
-  typeof value.endoZipBase64Sha512 === 'string';
+  value.moduleFormat === 'vite-iife' &&
+  hasProperty(value, 'code') &&
+  typeof value.code === 'string';
 
 describe('serve', async () => {
   beforeEach(() => {
@@ -86,7 +87,7 @@ describe('serve', async () => {
       try {
         const bundleData = await readFile(bundlePath);
         const expectedBundleContent = JSON.parse(bundleData.toString());
-        if (!isBundleSourceResult(expectedBundleContent)) {
+        if (!isViteBundle(expectedBundleContent)) {
           throw new Error(
             [
               `Could not read expected bundle ${bundlePath}`,
@@ -94,19 +95,16 @@ describe('serve', async () => {
             ].join('\n'),
           );
         }
-        const expectedBundleHash = expectedBundleContent.endoZipBase64Sha512;
+        const expectedCode = expectedBundleContent.code;
 
         const receivedBundleContent = await requestBundle(bundleName);
-        if (!isBundleSourceResult(receivedBundleContent)) {
+        if (!isViteBundle(receivedBundleContent)) {
           throw new Error(
             `Received unexpected response from server: ${stringify(receivedBundleContent)}`,
           );
         }
-        const receivedBundleHash = createHash('sha512')
-          .update(Buffer.from(receivedBundleContent.endoZipBase64))
-          .digest('hex');
 
-        expect(receivedBundleHash).toStrictEqual(expectedBundleHash);
+        expect(receivedBundleContent.code).toStrictEqual(expectedCode);
       } finally {
         await withTimeout(close(), 400).catch(console.error);
       }
