@@ -17,9 +17,10 @@ export type CapletId = string;
 export const isCapletId = (value: unknown): value is CapletId =>
   typeof value === 'string' &&
   value.length > 0 &&
-  // eslint-disable-next-line no-control-regex
-  /^[\x00-\x7F]+$/u.test(value) && // ASCII only
-  !/\s/u.test(value); // No whitespace
+  // All ASCII characters except control characters and whitespace.
+  // 0x20 is the space character.
+
+  /^[\x21-\x7E]+$/u.test(value);
 
 export const CapletIdStruct = define<CapletId>('CapletId', isCapletId);
 

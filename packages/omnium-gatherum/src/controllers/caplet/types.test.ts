@@ -25,6 +25,7 @@ describe('isCapletId', () => {
     ['has space', false], // Whitespace
     ['has\ttab', false], // Tab
     ['has\nnewline', false], // Newline
+    ['\x01', false], // ASCII control character (0x1)
     ['café', false], // Non-ASCII
     ['🎉', false], // Emoji
     [123, false], // Not a string
