@@ -12,6 +12,14 @@ import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { ConnectionFactory } from './connection-factory.ts';
+import {
+  DEFAULT_CLEANUP_INTERVAL_MS,
+  DEFAULT_MAX_CONCURRENT_CONNECTIONS,
+  DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+  DEFAULT_STALE_PEER_TIMEOUT_MS,
+  DEFAULT_WRITE_TIMEOUT_MS,
+  SCTP_USER_INITIATED_ABORT,
+} from './constants.ts';
 import { ReconnectionManager } from './reconnection.ts';
 import type {
   RemoteMessageHandler,
@@ -21,18 +29,6 @@ import type {
   OnRemoteGiveUp,
   RemoteCommsOptions,
 } from '../types.ts';
-
-/** Default maximum number of concurrent connections */
-const DEFAULT_MAX_CONCURRENT_CONNECTIONS = 100;
-
-/** Default maximum message size in bytes (1MB) */
-const DEFAULT_MAX_MESSAGE_SIZE_BYTES = 1024 * 1024;
-
-/** Default stale peer cleanup interval in milliseconds (15 minutes) */
-const DEFAULT_CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
-
-/** Default stale peer timeout in milliseconds (1 hour) */
-const DEFAULT_STALE_PEER_TIMEOUT_MS = 60 * 60 * 1000;
 
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
@@ -236,7 +232,7 @@ export async function initTransport(
   async function writeWithTimeout(
     channel: Channel,
     message: Uint8Array,
-    timeoutMs = 10_000,
+    timeoutMs = DEFAULT_WRITE_TIMEOUT_MS,
   ): Promise<void> {
     const timeoutSignal = AbortSignal.timeout(timeoutMs);
     let abortHandler: (() => void) | undefined;
@@ -379,7 +375,6 @@ export async function initTransport(
    * @param channel - The channel to read from.
    */
   async function readChannel(channel: Channel): Promise<void> {
-    const SCTP_USER_INITIATED_ABORT = 12; // RFC 4960
     try {
       for (;;) {
         if (signal.aborted) {
@@ -624,7 +619,11 @@ export async function initTransport(
     }
 
     try {
-      await writeWithTimeout(channel, fromString(message), 10_000);
+      await writeWithTimeout(
+        channel,
+        fromString(message),
+        DEFAULT_WRITE_TIMEOUT_MS,
+      );
       lastConnectionTime.set(targetPeerId, Date.now());
       reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
