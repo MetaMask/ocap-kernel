@@ -755,19 +755,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endo/import-bundle@npm:^1.5.2":
-  version: 1.5.2
-  resolution: "@endo/import-bundle@npm:1.5.2"
-  dependencies:
-    "@endo/base64": "npm:^1.0.12"
-    "@endo/compartment-mapper": "npm:^1.6.3"
-    "@endo/errors": "npm:^1.2.13"
-    "@endo/where": "npm:^1.0.11"
-    ses: "npm:^1.14.0"
-  checksum: 10/521a4bc3a0e7b75626df996e5f965e9bedc8e463586b8dee57d90958371731617a205b98d825afaeeb920b64a1fc105a1acc1f3716742100097068e114169b43
-  languageName: node
-  linkType: hard
-
 "@endo/init@npm:^1.1.12, @endo/init@npm:^1.1.9":
   version: 1.1.12
   resolution: "@endo/init@npm:1.1.12"
@@ -2700,7 +2687,6 @@ __metadata:
     "@chainsafe/libp2p-noise": "npm:^16.1.3"
     "@chainsafe/libp2p-yamux": "patch:@chainsafe/libp2p-yamux@npm%3A7.0.4#~/.yarn/patches/@chainsafe-libp2p-yamux-npm-7.0.4-284c2f6812.patch"
     "@endo/errors": "npm:^1.2.13"
-    "@endo/import-bundle": "npm:^1.5.2"
     "@endo/marshal": "npm:^1.8.0"
     "@endo/pass-style": "npm:^1.6.3"
     "@endo/promise-kit": "npm:^1.1.13"
@@ -3737,7 +3723,6 @@ __metadata:
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@ocap/cli": "workspace:^"
-    "@ocap/kernel-agents": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/nodejs": "workspace:^"
     "@ocap/nodejs-test-workers": "workspace:^"
