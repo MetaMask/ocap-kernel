@@ -11,6 +11,7 @@ import {
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
+import { writeWithTimeout } from './channel-utils.ts';
 import { ConnectionFactory } from './connection-factory.ts';
 import {
   DEFAULT_CLEANUP_INTERVAL_MS,
@@ -154,43 +155,6 @@ export async function initTransport(
       logger.log(`${peerId}:: error ${task}: ${realProblem}`);
     } else {
       logger.log(`${peerId}:: error ${task}`);
-    }
-  }
-
-  /**
-   * Write a message to a channel stream with a timeout.
-   *
-   * @param channel - The channel to write to.
-   * @param message - The message bytes to write.
-   * @param timeoutMs - Timeout in milliseconds (default: 10 seconds).
-   * @returns Promise that resolves when the write completes or rejects on timeout.
-   * @throws Error if the write times out or fails.
-   */
-  async function writeWithTimeout(
-    channel: Channel,
-    message: Uint8Array,
-    timeoutMs = DEFAULT_WRITE_TIMEOUT_MS,
-  ): Promise<void> {
-    const timeoutSignal = AbortSignal.timeout(timeoutMs);
-    let abortHandler: (() => void) | undefined;
-    const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      abortHandler = () => {
-        reject(Error(`Message send timed out after ${timeoutMs}ms`));
-      };
-      timeoutSignal.addEventListener('abort', abortHandler);
-    });
-
-    try {
-      return await Promise.race([
-        channel.msgStream.write(message),
-        timeoutPromise,
-      ]);
-    } finally {
-      // Clean up event listener to prevent unhandled rejection if operation
-      // completes before timeout
-      if (abortHandler) {
-        timeoutSignal.removeEventListener('abort', abortHandler);
-      }
     }
   }
 
