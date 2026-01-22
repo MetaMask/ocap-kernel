@@ -21,7 +21,7 @@ export type ControllerStorageConfig<State extends Record<string, Json>> = {
   /** The underlying storage adapter */
   adapter: StorageAdapter;
   /** Default state values - used for initialization and type inference */
-  defaultState: State;
+  makeDefaultState: () => State;
   /** Logger for storage operations */
   logger: Logger;
   /** Debounce delay in milliseconds (default: 100, set to 0 for tests) */
@@ -55,7 +55,7 @@ export class ControllerStorage<State extends Record<string, Json>> {
 
   readonly #prefix: string;
 
-  readonly #defaultState: State;
+  readonly #makeDefaultState: () => State;
 
   readonly #logger: Logger;
 
@@ -78,7 +78,7 @@ export class ControllerStorage<State extends Record<string, Json>> {
   private constructor(options: ControllerStorageOptions<State>) {
     this.#adapter = options.adapter;
     this.#prefix = `${options.namespace}.`;
-    this.#defaultState = options.defaultState;
+    this.#makeDefaultState = options.makeDefaultState;
     this.#logger = options.logger;
     this.#debounceMs = options.debounceMs ?? 100;
     this.#state = options.initialState;
@@ -135,12 +135,11 @@ export class ControllerStorage<State extends Record<string, Json>> {
   static async #loadState<State extends Record<string, Json>>(
     config: ControllerStorageConfig<State>,
   ): Promise<State> {
-    const { namespace, adapter, defaultState } = config;
+    const { namespace, adapter, makeDefaultState } = config;
     const prefix = `${namespace}.`;
     const allKeys = await adapter.keys(prefix);
 
-    // Start with a copy of defaults
-    const state = { ...defaultState };
+    const state = makeDefaultState();
 
     // Load and merge values from storage
     await Promise.all(
@@ -183,32 +182,29 @@ export class ControllerStorage<State extends Record<string, Json>> {
    *   draft.manifests['com.example.app'] = manifest;
    * });
    */
-  update(producer: (draft: State) => void | State): void {
-    // Capture state before operations to avoid race conditions
-    const stateSnapshot = this.#state;
+  update(producer: (draft: State) => void): void {
+    const [nextState, patches] = produceWithPatches(this.#state, (draft) => {
+      // @ts-expect-error - ~infinite type recursion (ts2589)
+      const result = producer(draft);
+      if (result !== undefined) {
+        throw new Error('Controller producers must return undefined');
+      }
+    });
 
-    // Use immer's produce with patches callback to track changes
-    const [nextState, patches] = produceWithPatches(stateSnapshot, producer);
-
-    // No changes - nothing to do
     if (patches.length === 0) {
       return;
     }
 
-    // Update in-memory state immediately
     this.#state = nextState;
-
-    // Queue debounced persistence (fire-and-forget)
     this.#schedulePersist(patches);
   }
 
   /**
    * Clear all state and reset to default values.
-   * Updates state synchronously, persistence is debounced.
    */
   clear(): void {
     this.update((draft) => {
-      Object.assign(draft, this.#defaultState);
+      Object.assign(draft, this.#makeDefaultState());
     });
   }
 
@@ -249,11 +245,6 @@ export class ControllerStorage<State extends Record<string, Json>> {
    * Captures accumulated keys and persists current state values.
    */
   #flushPendingWrites(): void {
-    if (this.#pendingKeys.size === 0) {
-      this.#pendingPersist = null;
-      return;
-    }
-
     const keysToWrite = new Set(this.#pendingKeys);
     this.#pendingKeys.clear();
     this.#pendingPersist = null;
@@ -278,8 +269,10 @@ export class ControllerStorage<State extends Record<string, Json>> {
     await Promise.all(
       Array.from(keys).map(async (key) => {
         const storageKey = this.#buildKey(key);
-        const value = state[key as keyof State];
-        await this.#adapter.set(storageKey, value as Json);
+        // Correct use of the controller API guarantees that the key is defined.
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const value = state[key]!;
+        await this.#adapter.set(storageKey, value);
       }),
     );
   }
@@ -297,6 +290,8 @@ export class ControllerStorage<State extends Record<string, Json>> {
       if (patch.path.length > 0) {
         keys.add(String(patch.path[0]));
       }
+      // Because we forbid producers from returning a new state, there will be
+      // no patches with `path: []` (i.e. where the entire state was replaced).
     }
     return keys;
   }

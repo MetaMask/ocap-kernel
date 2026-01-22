@@ -1,10 +1,6 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 
-import type {
-  CapletManifest,
-  InstalledCaplet,
-  InstallResult,
-} from './controllers/index.ts';
+import type { CapletControllerFacet } from './controllers/index.ts';
 
 // Type declarations for omnium dev console API.
 declare global {
@@ -43,50 +39,7 @@ declare global {
     /**
      * Caplet management API.
      */
-    caplet: {
-      /**
-       * Install a caplet.
-       *
-       * @param manifest - The caplet manifest.
-       * @param bundle - Optional bundle (currently unused).
-       * @returns The installation result.
-       * @example
-       * ```typescript
-       * const result = await omnium.caplet.install({
-       *   id: 'com.example.test',
-       *   name: 'Test Caplet',
-       *   version: '1.0.0',
-       *   bundleSpec: '/path/to/bundle.json',
-       * });
-       * ```
-       */
-      install: (
-        manifest: CapletManifest,
-        bundle?: unknown,
-      ) => Promise<InstallResult>;
-
-      /**
-       * Uninstall a caplet.
-       *
-       * @param capletId - The ID of the caplet to uninstall.
-       */
-      uninstall: (capletId: string) => Promise<void>;
-
-      /**
-       * List all installed caplets.
-       *
-       * @returns Array of installed caplets.
-       */
-      list: () => Promise<InstalledCaplet[]>;
-
-      /**
-       * Get a specific installed caplet.
-       *
-       * @param capletId - The caplet ID.
-       * @returns The installed caplet or undefined if not found.
-       */
-      get: (capletId: string) => Promise<InstalledCaplet | undefined>;
-    };
+    caplet: CapletControllerFacet;
   };
 }
 

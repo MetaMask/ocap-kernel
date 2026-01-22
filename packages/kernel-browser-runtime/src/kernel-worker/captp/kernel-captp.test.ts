@@ -2,7 +2,7 @@ import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelCapTP } from './kernel-captp.ts';
-import type { CapTPMessage } from './kernel-captp.ts';
+import type { CapTPMessage } from '../../types.ts';
 
 describe('makeKernelCapTP', () => {
   const mockKernel: Kernel = {} as unknown as Kernel;

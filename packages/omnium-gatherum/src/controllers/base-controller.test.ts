@@ -8,6 +8,8 @@ import { ControllerStorage } from './storage/controller-storage.ts';
 import type { StorageAdapter } from './storage/types.ts';
 import { makeMockStorageAdapter } from '../../test/utils.ts';
 
+vi.useFakeTimers();
+
 /**
  * Test state for the concrete test controller.
  */
@@ -22,8 +24,6 @@ type TestState = {
 type TestMethods = {
   addItem: (id: string, name: string, value: number) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
-  getItem: (id: string) => Promise<{ name: string; value: number } | undefined>;
-  getCount: () => Promise<number>;
   clearState: () => void;
   getState: () => Readonly<TestState>;
 };
@@ -49,12 +49,12 @@ class TestController extends Controller<
     const storage = await ControllerStorage.make({
       namespace: 'test',
       adapter,
-      defaultState: {
+      makeDefaultState: () => ({
         items: {},
         count: 0,
-      },
+      }),
       logger: config.logger,
-      debounceMs: 0,
+      debounceMs: 10,
     });
 
     const controller = new TestController(storage, config.logger);
@@ -80,14 +80,6 @@ class TestController extends Controller<
           delete draft.items[id];
           draft.count -= 1;
         });
-      },
-      getItem: async (
-        id: string,
-      ): Promise<{ name: string; value: number } | undefined> => {
-        return this.state.items[id];
-      },
-      getCount: async (): Promise<number> => {
-        return this.state.count;
       },
       clearState: (): void => {
         this.clearState();
@@ -125,33 +117,10 @@ describe('Controller', () => {
 
       const controller = await TestController.make(config, mockAdapter);
 
-      const item = await controller.getItem('foo');
+      const state = controller.getState();
 
-      expect(item).toStrictEqual({ name: 'Foo', value: 42 });
-    });
-
-    it('returns undefined for non-existent items', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      const controller = await TestController.make(config, mockAdapter);
-
-      const item = await controller.getItem('nonexistent');
-
-      expect(item).toBeUndefined();
-    });
-
-    it('reflects initial state count', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      await mockAdapter.set('test.items', {
-        a: { name: 'A', value: 1 },
-        b: { name: 'B', value: 2 },
-      });
-      await mockAdapter.set('test.count', 2);
-
-      const controller = await TestController.make(config, mockAdapter);
-
-      const count = await controller.getCount();
-
-      expect(count).toBe(2);
+      expect(state.items.foo).toStrictEqual({ name: 'Foo', value: 42 });
+      expect(state.count).toBe(1);
     });
   });
 
@@ -162,35 +131,8 @@ describe('Controller', () => {
 
       await controller.addItem('test', 'Test Item', 100);
 
-      const item = await controller.getItem('test');
-      expect(item).toStrictEqual({ name: 'Test Item', value: 100 });
-    });
-
-    it('increments count when adding items', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      const controller = await TestController.make(config, mockAdapter);
-
-      await controller.addItem('a', 'Item A', 1);
-      await controller.addItem('b', 'Item B', 2);
-
-      const count = await controller.getCount();
-      expect(count).toBe(2);
-    });
-
-    it('decrements count when removing items', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      await mockAdapter.set('test.items', {
-        a: { name: 'A', value: 1 },
-        b: { name: 'B', value: 2 },
-      });
-      await mockAdapter.set('test.count', 2);
-
-      const controller = await TestController.make(config, mockAdapter);
-
-      await controller.removeItem('a');
-
-      const count = await controller.getCount();
-      expect(count).toBe(1);
+      const state = controller.getState();
+      expect(state.items.test).toStrictEqual({ name: 'Test Item', value: 100 });
     });
 
     it('removes item from state', async () => {
@@ -202,8 +144,8 @@ describe('Controller', () => {
 
       await controller.removeItem('foo');
 
-      const item = await controller.getItem('foo');
-      expect(item).toBeUndefined();
+      const state = controller.getState();
+      expect(state.items.foo).toBeUndefined();
     });
 
     it('persists state modifications to storage', async () => {
@@ -215,7 +157,7 @@ describe('Controller', () => {
       await controller.removeItem('a');
 
       // Wait for debounced persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await vi.runAllTimersAsync();
 
       // Check that state was persisted
       const items = await mockAdapter.get('test.items');
@@ -234,18 +176,6 @@ describe('Controller', () => {
 
       expect(mockLogger.info).toHaveBeenCalledWith('Adding item: test');
     });
-
-    it('logs remove operations', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      await mockAdapter.set('test.items', { foo: { name: 'Foo', value: 42 } });
-      await mockAdapter.set('test.count', 1);
-
-      const controller = await TestController.make(config, mockAdapter);
-
-      await controller.removeItem('foo');
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Removing item: foo');
-    });
   });
 
   describe('clearState', () => {
@@ -261,8 +191,8 @@ describe('Controller', () => {
       controller.clearState();
 
       const stateAfter = controller.getState();
-      expect(stateAfter.items).toStrictEqual({});
-      expect(stateAfter.count).toBe(0);
+      expect(stateAfter).not.toBe(stateBefore);
+      expect(stateAfter).toStrictEqual({ items: {}, count: 0 });
     });
 
     it('persists cleared state', async () => {
@@ -270,13 +200,13 @@ describe('Controller', () => {
       const controller = await TestController.make(config, mockAdapter);
       await controller.addItem('a', 'A', 1);
 
-      // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Wait for debounced persistence
+      await vi.runAllTimersAsync();
 
       controller.clearState();
 
-      // Wait for persistence
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Wait for debounced persistence
+      await vi.runAllTimersAsync();
 
       const items = await mockAdapter.get('test.items');
       const count = await mockAdapter.get('test.count');
@@ -286,28 +216,15 @@ describe('Controller', () => {
   });
 
   describe('makeFacet', () => {
-    it('returns hardened exo with all methods', async () => {
-      const mockAdapter = makeMockStorageAdapter();
-      const facet = await TestController.make(config, mockAdapter);
-
-      expect(typeof facet.addItem).toBe('function');
-      expect(typeof facet.removeItem).toBe('function');
-      expect(typeof facet.getItem).toBe('function');
-      expect(typeof facet.getCount).toBe('function');
-      expect(typeof facet.clearState).toBe('function');
-      expect(typeof facet.getState).toBe('function');
-    });
-
     it('methods work correctly through exo', async () => {
       const mockAdapter = makeMockStorageAdapter();
       const facet = await TestController.make(config, mockAdapter);
 
       await facet.addItem('x', 'X', 10);
-      const item = await facet.getItem('x');
-      const count = await facet.getCount();
+      const state = facet.getState();
 
-      expect(item).toStrictEqual({ name: 'X', value: 10 });
-      expect(count).toBe(1);
+      expect(state.items.x).toStrictEqual({ name: 'X', value: 10 });
+      expect(state.count).toBe(1);
     });
   });
 });

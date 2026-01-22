@@ -182,8 +182,8 @@ function defineGlobals(): GlobalSetters {
     },
     caplet: {
       value: harden({
-        install: async (manifest: CapletManifest, bundle?: unknown) =>
-          E(capletController).install(manifest, bundle),
+        install: async (manifest: CapletManifest) =>
+          E(capletController).install(manifest),
         uninstall: async (capletId: string) =>
           E(capletController).uninstall(capletId),
         list: async () => E(capletController).list(),

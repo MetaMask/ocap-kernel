@@ -10,11 +10,9 @@ import { makeChromeStorageAdapter } from './storage/index.ts';
 // Base controller
 export { Controller } from './base-controller.ts';
 export type { ControllerConfig, ControllerMethods, FacetOf } from './types.ts';
-export { makeFacet } from './facet.ts';
 
 // Storage
 export type {
-  NamespacedStorage,
   StorageAdapter,
   ControllerStorageConfig,
 } from './storage/index.ts';

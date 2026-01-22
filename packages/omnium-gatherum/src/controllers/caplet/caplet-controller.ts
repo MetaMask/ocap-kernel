@@ -33,13 +33,18 @@ export type CapletControllerFacet = {
    * Install a caplet.
    *
    * @param manifest - The caplet manifest.
-   * @param _bundle - The caplet bundle (currently unused, bundle loaded from bundleSpec).
    * @returns The installation result.
+   * @example
+   * ```typescript
+   * const result = await omnium.caplet.install({
+   *   id: 'com.example.test',
+   *   name: 'Test Caplet',
+   *   version: '1.0.0',
+   *   bundleSpec: '/path/to/bundle.json',
+   * });
+   * ```
    */
-  install: (
-    manifest: CapletManifest,
-    _bundle?: unknown,
-  ) => Promise<InstallResult>;
+  install: (manifest: CapletManifest) => Promise<InstallResult>;
 
   /**
    * Uninstall a caplet.
@@ -132,7 +137,7 @@ export class CapletController extends Controller<
     const storage = await ControllerStorage.make({
       namespace: 'caplet',
       adapter: deps.adapter,
-      defaultState: { caplets: {} },
+      makeDefaultState: () => ({ caplets: {} }),
       logger: config.logger.subLogger({ tags: ['storage'] }),
     });
 
@@ -152,11 +157,8 @@ export class CapletController extends Controller<
    */
   makeFacet(): CapletControllerFacet {
     return makeDefaultExo('CapletController', {
-      install: async (
-        manifest: CapletManifest,
-        _bundle?: unknown,
-      ): Promise<InstallResult> => {
-        return this.#install(manifest, _bundle);
+      install: async (manifest: CapletManifest): Promise<InstallResult> => {
+        return this.#install(manifest);
       },
       uninstall: async (capletId: CapletId): Promise<void> => {
         return this.#uninstall(capletId);

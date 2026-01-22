@@ -25,9 +25,7 @@ export type ControllerConfig = {
  * - Automatic persistence handled by storage layer
  *
  * Subclasses must:
- * - Call `super()` in constructor with name, storage, and logger
  * - Call `harden(this)` at the end of their constructor
- * - Implement `makeFacet()` to return a hardened exo with public API
  *
  * @template ControllerName - Literal string type for the controller name
  * @template State - The state object shape (must be JSON-serializable)

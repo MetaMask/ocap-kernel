@@ -1,3 +1,4 @@
+import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ControllerStorage } from './controller-storage.ts';
@@ -19,19 +20,20 @@ describe('ControllerStorage', () => {
     keys: vi.fn(),
   };
 
-  const mockLogger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    subLogger: vi.fn().mockReturnThis(),
-  };
+  const makeMockLogger = () =>
+    ({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      subLogger: vi.fn().mockReturnThis(),
+    }) as unknown as Logger;
 
-  const defaultState: TestState = {
+  const makeDefaultState: () => TestState = () => ({
     installed: [],
     manifests: {},
     count: 0,
-  };
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -60,8 +62,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -83,18 +85,20 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: {
+        makeDefaultState: () => ({
           installed: [] as string[],
           manifests: {},
           metadata: { version: 1 },
-        },
-        logger: mockLogger as never,
+        }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
-      expect(storage.state.installed).toStrictEqual(['existing']);
-      expect(storage.state.manifests).toStrictEqual({});
-      expect(storage.state.metadata).toStrictEqual({ version: 1 });
+      expect(storage.state).toStrictEqual({
+        installed: ['existing'],
+        manifests: {},
+        metadata: { version: 1 },
+      });
     });
 
     it('uses all defaults when storage is empty', async () => {
@@ -103,56 +107,43 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
-      expect(storage.state.installed).toStrictEqual([]);
-      expect(storage.state.manifests).toStrictEqual({});
-      expect(storage.state.count).toBe(0);
+      expect(storage.state).toStrictEqual({
+        installed: [],
+        manifests: {},
+        count: 0,
+      });
     });
 
     it('returns hardened state copy', async () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: { items: ['original'] as string[] },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ items: ['original'] as string[] }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
-      // Get a reference to the state
-      const state1 = storage.state;
+      let error: unknown;
 
       // Modifications to the returned state should not affect the internal state
-      // (In SES environment, this would throw; in tests, we verify isolation)
       try {
-        (state1 as { items: string[] }).items.push('modified');
-      } catch {
-        // Expected in SES environment
+        storage.state.items.push('modified');
+      } catch (thrown) {
+        error = thrown;
       }
 
-      // Get a fresh state - it should still have the original value
-      const state2 = storage.state;
-      expect(state2.items).toStrictEqual(['original']);
-    });
-  });
-
-  describe('state access', () => {
-    it('provides readonly access to current state', async () => {
-      vi.mocked(mockAdapter.keys).mockResolvedValue(['ns.count']);
-      vi.mocked(mockAdapter.get).mockResolvedValue(42);
-
-      const storage = await ControllerStorage.make({
-        namespace: 'ns',
-        adapter: mockAdapter,
-        defaultState: { count: 0 },
-        logger: mockLogger as never,
-        debounceMs: 0,
+      expect(error).toBeInstanceOf(TypeError);
+      expect((error as Error).message).toContain(
+        'Cannot add property 1, object is not extensible',
+      );
+      expect(storage.state).toStrictEqual({
+        items: ['original'],
       });
-
-      expect(storage.state.count).toBe(42);
     });
   });
 
@@ -161,8 +152,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -184,8 +175,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -201,8 +192,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -221,8 +212,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: { a: 1, b: 2, c: 3 },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ a: 1, b: 2, c: 3 }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -242,11 +233,12 @@ describe('ControllerStorage', () => {
     it('updates state even if persistence fails (fire-and-forget)', async () => {
       vi.mocked(mockAdapter.set).mockRejectedValue(new Error('Storage error'));
 
+      const logger = makeMockLogger();
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger,
         debounceMs: 0,
       });
 
@@ -261,18 +253,18 @@ describe('ControllerStorage', () => {
       await vi.runAllTimersAsync();
 
       // Error should be logged
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         'Failed to persist state changes:',
         expect.any(Error),
       );
     });
 
-    it('handles nested object modifications', async () => {
+    it('persists top-level key when nested structure is modified', async () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -288,53 +280,20 @@ describe('ControllerStorage', () => {
       });
     });
 
-    it('handles array operations', async () => {
-      vi.mocked(mockAdapter.keys).mockResolvedValue(['test.installed']);
-      vi.mocked(mockAdapter.get).mockResolvedValue(['app1', 'app2']);
-
+    it('throws if producer returns a value', async () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ a: 1 }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
-      storage.update((draft) => {
-        draft.installed = draft.installed.filter((id) => id !== 'app1');
-      });
-
-      // Wait for persistence
-      await vi.runAllTimersAsync();
-
-      expect(mockAdapter.set).toHaveBeenCalledWith('test.installed', ['app2']);
-    });
-
-    it('handles delete operations on nested objects', async () => {
-      vi.mocked(mockAdapter.keys).mockResolvedValue(['test.manifests']);
-      vi.mocked(mockAdapter.get).mockResolvedValue({
-        app1: { name: 'App 1' },
-        app2: { name: 'App 2' },
-      });
-
-      const storage = await ControllerStorage.make({
-        namespace: 'test',
-        adapter: mockAdapter,
-        defaultState,
-        logger: mockLogger as never,
-        debounceMs: 0,
-      });
-
-      storage.update((draft) => {
-        delete draft.manifests.app1;
-      });
-
-      // Wait for persistence
-      await vi.runAllTimersAsync();
-
-      expect(mockAdapter.set).toHaveBeenCalledWith('test.manifests', {
-        app2: { name: 'App 2' },
-      });
+      expect(() => {
+        storage.update(() => {
+          return { a: 2 };
+        });
+      }).toThrow('Controller producers must return undefined');
     });
   });
 
@@ -343,16 +302,16 @@ describe('ControllerStorage', () => {
       await ControllerStorage.make({
         namespace: 'caplet',
         adapter: mockAdapter,
-        defaultState: { value: 1 },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ value: 1 }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
       await ControllerStorage.make({
         namespace: 'service',
         adapter: mockAdapter,
-        defaultState: { value: 2 },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ value: 2 }),
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -366,83 +325,72 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: { a: 0, b: 0, c: 0 },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ a: 0, b: 0, c: 0 }),
+        logger: makeMockLogger(),
         debounceMs: 100,
       });
 
       // First update: modifies a and b
+      // Persists immediately because the time since last write is 0
       storage.update((draft) => {
         draft.a = 1;
         draft.b = 1;
       });
 
-      // Second update at t=50ms: modifies only a
-      vi.advanceTimersByTime(50);
+      // Second update: modifies only a
+      // Enqueues a timer to persist at t=100ms
       storage.update((draft) => {
         draft.a = 2;
       });
 
-      // Timer should fire at t=100ms (from first update)
+      // Second update at t=50ms: modifies only c
       vi.advanceTimersByTime(50);
-      await vi.runAllTimersAsync();
-
-      // Both a and b should be persisted (accumulated keys)
-      expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
-      expect(mockAdapter.set).toHaveBeenCalledWith('test.b', 1);
-    });
-
-    it('does not reset timer on subsequent writes', async () => {
-      const storage = await ControllerStorage.make({
-        namespace: 'test',
-        adapter: mockAdapter,
-        defaultState: { a: 0 },
-        logger: mockLogger as never,
-        debounceMs: 100,
-      });
-
       storage.update((draft) => {
-        draft.a = 1;
+        draft.c = 2;
       });
 
-      // Second write at t=90ms (before first timer fires)
-      vi.advanceTimersByTime(90);
-      storage.update((draft) => {
-        draft.a = 2;
-      });
+      // First persist is immediate
+      expect(mockAdapter.set).toHaveBeenCalledTimes(2);
+      expect(mockAdapter.set).toHaveBeenNthCalledWith(1, 'test.a', 1);
+      expect(mockAdapter.set).toHaveBeenNthCalledWith(2, 'test.b', 1);
 
-      // Timer fires at t=100ms (NOT reset to t=190ms)
-      vi.advanceTimersByTime(10);
-      await vi.runAllTimersAsync();
-
-      expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
+      // Second persist fires at t=100ms with accumulated keys (a and c)
+      vi.advanceTimersByTime(50);
+      expect(mockAdapter.set).toHaveBeenCalledTimes(4);
+      expect(mockAdapter.set).toHaveBeenNthCalledWith(3, 'test.a', 2);
+      expect(mockAdapter.set).toHaveBeenNthCalledWith(4, 'test.c', 2);
     });
 
     it('writes immediately when idle > debounceMs', async () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: { a: 0 },
-        logger: mockLogger as never,
+        makeDefaultState: () => ({ a: 0 }),
+        logger: makeMockLogger(),
         debounceMs: 100,
       });
 
+      // First write: persists immediately
       storage.update((draft) => {
         draft.a = 1;
       });
-      await vi.runAllTimersAsync();
-      vi.clearAllMocks();
+
+      // Second write: starts a timer to persist at t=100ms
+      storage.update((draft) => {
+        draft.a = 2;
+      });
 
       // Wait 150ms (> debounceMs)
       vi.advanceTimersByTime(150);
 
       // Next write should be immediate (no debounce)
       storage.update((draft) => {
-        draft.a = 2;
+        draft.a = 3;
       });
-      await vi.runAllTimersAsync();
 
       expect(mockAdapter.set).toHaveBeenCalledWith('test.a', 2);
+      expect(mockAdapter.set).toHaveBeenLastCalledWith('test.a', 3);
+      expect(storage.state.a).toBe(3);
     });
   });
 
@@ -452,8 +400,8 @@ describe('ControllerStorage', () => {
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: testDefaultState,
-        logger: mockLogger as never,
+        makeDefaultState: () => testDefaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -474,12 +422,12 @@ describe('ControllerStorage', () => {
     });
 
     it('persists cleared state', async () => {
-      const clearDefaultState = { a: 0, b: 0 };
+      const defaultState = { a: 0, b: 0 };
       const storage = await ControllerStorage.make({
         namespace: 'test',
         adapter: mockAdapter,
-        defaultState: clearDefaultState,
-        logger: mockLogger as never,
+        makeDefaultState: () => defaultState,
+        logger: makeMockLogger(),
         debounceMs: 0,
       });
 
@@ -487,9 +435,6 @@ describe('ControllerStorage', () => {
         draft.a = 5;
         draft.b = 10;
       });
-
-      await vi.runAllTimersAsync();
-      vi.clearAllMocks();
 
       storage.clear();
 

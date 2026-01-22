@@ -14,6 +14,6 @@ export type { ControllerConfig, ControllerMethods } from './base-controller.ts';
  * ```
  */
 export type FacetOf<
-  TController extends Methods,
-  TMethodNames extends keyof TController,
-> = Pick<TController, TMethodNames>;
+  Controller extends Methods,
+  MethodNames extends keyof Controller,
+> = Pick<Controller, MethodNames>;
