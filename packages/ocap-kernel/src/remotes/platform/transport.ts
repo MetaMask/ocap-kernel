@@ -1,13 +1,5 @@
-import {
-  AbortError,
-  isRetryableNetworkError,
-  ResourceLimitError,
-} from '@metamask/kernel-errors';
-import {
-  abortableDelay,
-  DEFAULT_MAX_RETRY_ATTEMPTS,
-  installWakeDetector,
-} from '@metamask/kernel-utils';
+import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
+import { installWakeDetector } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
@@ -22,6 +14,7 @@ import {
   SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
+import { makeReconnectionLifecycle } from './reconnection-lifecycle.ts';
 import { ReconnectionManager } from './reconnection.ts';
 import {
   makeConnectionLimitChecker,
@@ -86,6 +79,17 @@ export async function initTransport(
     () => peerStateManager.countActiveConnections(),
   );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
+  // Holder for handleConnectionLoss - initialized later after all dependencies are defined
+  // This breaks the circular dependency between readChannel → handleConnectionLoss → registerChannel
+  const reconnectionHolder: {
+    handleConnectionLoss: ((peerId: string) => void) | undefined;
+  } = { handleConnectionLoss: undefined };
+  const handleConnectionLoss = (peerId: string): void => {
+    if (!reconnectionHolder.handleConnectionLoss) {
+      throw new Error('handleConnectionLoss not initialized');
+    }
+    reconnectionHolder.handleConnectionLoss(peerId);
+  };
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
     relays,
@@ -280,127 +284,23 @@ export async function initTransport(
     }
   }
 
-  /**
-   * Handle connection loss for a given peer ID.
-   * Skips reconnection if the peer was intentionally closed.
-   *
-   * @param peerId - The peer ID to handle the connection loss for.
-   */
-  function handleConnectionLoss(peerId: string): void {
-    // Don't reconnect if this peer intentionally closed the connection
-    if (peerStateManager.isIntentionallyClosed(peerId)) {
-      logger.log(
-        `${peerId}:: connection lost but peer intentionally closed, skipping reconnection`,
-      );
-      return;
-    }
-    logger.log(`${peerId}:: connection lost, initiating reconnection`);
-    const state = peerStateManager.getState(peerId);
-    state.channel = undefined;
-
-    if (!reconnectionManager.isReconnecting(peerId)) {
-      reconnectionManager.startReconnection(peerId);
-      attemptReconnection(peerId).catch((problem) => {
-        outputError(peerId, 'reconnection error', problem);
-        reconnectionManager.stopReconnection(peerId);
-      });
-    }
-  }
-
-  /**
-   * Attempt to reconnect to a peer after connection loss.
-   * Single orchestration loop per peer; abortable.
-   *
-   * @param peerId - The peer ID to reconnect to.
-   * @param maxAttempts - The maximum number of reconnection attempts. 0 = infinite.
-   */
-  async function attemptReconnection(
-    peerId: string,
-    maxAttempts = maxRetryAttempts ?? DEFAULT_MAX_RETRY_ATTEMPTS,
-  ): Promise<void> {
-    const state = peerStateManager.getState(peerId);
-
-    while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
-      if (!reconnectionManager.shouldRetry(peerId, maxAttempts)) {
-        logger.log(
-          `${peerId}:: max reconnection attempts (${maxAttempts}) reached, giving up`,
-        );
-        reconnectionManager.stopReconnection(peerId);
-        onRemoteGiveUp?.(peerId);
-        return;
-      }
-
-      const nextAttempt = reconnectionManager.incrementAttempt(peerId);
-      const delayMs = reconnectionManager.calculateBackoff(peerId);
-      logger.log(
-        `${peerId}:: scheduling reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''} in ${delayMs}ms`,
-      );
-
-      try {
-        await abortableDelay(delayMs, signal);
-      } catch (error) {
-        if (signal.aborted) {
-          reconnectionManager.stopReconnection(peerId);
-          return;
-        }
-        throw error;
-      }
-
-      logger.log(
-        `${peerId}:: reconnection attempt ${nextAttempt}${maxAttempts ? `/${maxAttempts}` : ''}`,
-      );
-
-      try {
-        const { locationHints: hints } = state;
-        const dialedChannel = await connectionFactory.dialIdempotent(
-          peerId,
-          hints,
-          false, // No retry here, we're already in a retry loop
-        );
-
-        // Handle race condition - check if an existing channel appeared
-        const channel = await reuseOrReturnChannel(peerId, dialedChannel);
-        if (!channel) {
-          // Channel was closed and existing also died - continue retry loop
-          continue;
-        }
-
-        // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
-        if (state.channel !== channel) {
-          checkConnectionLimit();
-        }
-
-        // Only register if this is a new channel (not reusing existing)
-        if (state.channel !== channel) {
-          registerChannel(peerId, channel, 'reading channel to');
-        }
-
-        logger.log(`${peerId}:: reconnection successful`);
-
-        // Connection established - RemoteHandle will retransmit unACKed messages
-        reconnectionManager.resetBackoff(peerId);
-        reconnectionManager.stopReconnection(peerId);
-        return; // success
-      } catch (problem) {
-        if (signal.aborted) {
-          reconnectionManager.stopReconnection(peerId);
-          return;
-        }
-        if (!isRetryableNetworkError(problem)) {
-          outputError(peerId, `non-retryable failure`, problem);
-          reconnectionManager.stopReconnection(peerId);
-          onRemoteGiveUp?.(peerId);
-          return;
-        }
-        outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
-        // loop to next attempt
-      }
-    }
-    // Loop exited - clean up reconnection state
-    if (reconnectionManager.isReconnecting(peerId)) {
-      reconnectionManager.stopReconnection(peerId);
-    }
-  }
+  // Initialize reconnection lifecycle and bind to the holder
+  const reconnectionLifecycle = makeReconnectionLifecycle({
+    logger,
+    outputError,
+    signal,
+    peerStateManager,
+    reconnectionManager,
+    maxRetryAttempts,
+    onRemoteGiveUp,
+    dialPeer: async (peerId, hints) =>
+      connectionFactory.dialIdempotent(peerId, hints, false),
+    reuseOrReturnChannel,
+    checkConnectionLimit,
+    registerChannel,
+  });
+  reconnectionHolder.handleConnectionLoss =
+    reconnectionLifecycle.handleConnectionLoss;
 
   /**
    * Send a message string to a peer.
