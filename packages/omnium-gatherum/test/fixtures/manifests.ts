@@ -33,9 +33,7 @@ function getBundleSpec(bundleName: string): string {
  */
 export const echoCapletManifest: CapletManifest = {
   id: 'com.example.echo',
-  name: 'Echo Service',
+  name: 'Echo Caplet',
   version: '1.0.0',
   bundleSpec: getBundleSpec('echo-caplet.bundle'),
-  requestedServices: [],
-  providedServices: ['echo'],
 };

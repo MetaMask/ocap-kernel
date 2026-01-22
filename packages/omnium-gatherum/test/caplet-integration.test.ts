@@ -80,16 +80,14 @@ describe('Caplet Integration - Echo Caplet', () => {
   it('retrieves installed echo-caplet', async () => {
     await capletController.install(echoCapletManifest);
 
-    const caplet = await capletController.get('com.example.echo');
+    const caplet = capletController.get('com.example.echo');
 
     expect(caplet).toStrictEqual({
       manifest: {
         id: 'com.example.echo',
-        name: 'Echo Service',
+        name: 'Echo Caplet',
         version: '1.0.0',
         bundleSpec: expect.anything(),
-        requestedServices: [],
-        providedServices: ['echo'],
       },
       subclusterId: 'test-subcluster-1',
       rootKref: 'ko1',
@@ -98,46 +96,32 @@ describe('Caplet Integration - Echo Caplet', () => {
   });
 
   it('lists all installed caplets', async () => {
-    const emptyList = await capletController.list();
+    const emptyList = capletController.list();
     expect(emptyList).toHaveLength(0);
 
     await capletController.install(echoCapletManifest);
 
-    const list = await capletController.list();
+    const list = capletController.list();
     expect(list).toHaveLength(1);
     expect(list[0]?.manifest.id).toBe('com.example.echo');
-  });
-
-  it('finds caplet by service name', async () => {
-    const notFound = await capletController.getByService('echo');
-    expect(notFound).toBeUndefined();
-
-    await capletController.install(echoCapletManifest);
-
-    const provider = await capletController.getByService('echo');
-    expect(provider).toBeDefined();
-    expect(provider?.manifest.id).toBe('com.example.echo');
   });
 
   it('uninstalls echo-caplet cleanly', async () => {
     // Install
     await capletController.install(echoCapletManifest);
 
-    let list = await capletController.list();
+    let list = capletController.list();
     expect(list).toHaveLength(1);
 
     // Uninstall
     await capletController.uninstall('com.example.echo');
 
-    list = await capletController.list();
+    list = capletController.list();
     expect(list).toHaveLength(0);
 
-    // Verify it's also gone from get() and getByService()
-    const caplet = await capletController.get('com.example.echo');
+    // Verify it's also gone from get()
+    const caplet = capletController.get('com.example.echo');
     expect(caplet).toBeUndefined();
-
-    const provider = await capletController.getByService('echo');
-    expect(provider).toBeUndefined();
   });
 
   it('prevents duplicate installations', async () => {
@@ -194,7 +178,7 @@ describe('Caplet Integration - Echo Caplet', () => {
     );
 
     // The caplet should still be there
-    const list = await newController.list();
+    const list = newController.list();
     expect(list).toHaveLength(1);
     expect(list[0]?.manifest.id).toBe('com.example.echo');
   });

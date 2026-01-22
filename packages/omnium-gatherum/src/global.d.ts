@@ -1,7 +1,10 @@
 import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 import type { Promisified } from '@metamask/kernel-utils';
 
-import type { CapletControllerFacet, CapletManifest } from './controllers/index.ts';
+import type {
+  CapletControllerFacet,
+  CapletManifest,
+} from './controllers/index.ts';
 
 // Type declarations for omnium dev console API.
 declare global {

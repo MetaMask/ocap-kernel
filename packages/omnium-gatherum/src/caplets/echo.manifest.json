@@ -1,7 +1,5 @@
 {
   "id": "com.example.echo",
-  "name": "Echo Service",
-  "version": "1.0.0",
-  "requestedServices": [],
-  "providedServices": ["echo"]
+  "name": "Echo Caplet",
+  "version": "1.0.0"
 }
