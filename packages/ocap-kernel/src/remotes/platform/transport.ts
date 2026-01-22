@@ -23,6 +23,10 @@ import {
 } from './constants.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
 import { ReconnectionManager } from './reconnection.ts';
+import {
+  makeConnectionLimitChecker,
+  makeMessageSizeValidator,
+} from './validators.ts';
 import type {
   RemoteMessageHandler,
   SendRemoteMessage,
@@ -75,7 +79,11 @@ export async function initTransport(
   const logger = new Logger();
   const reconnectionManager = new ReconnectionManager();
   const peerStateManager = new PeerStateManager(logger, stalePeerTimeoutMs);
-  const messageEncoder = new TextEncoder(); // Reused for message size validation
+  const validateMessageSize = makeMessageSizeValidator(maxMessageSizeBytes);
+  const checkConnectionLimit = makeConnectionLimitChecker(
+    maxConcurrentConnections,
+    () => peerStateManager.countActiveConnections(),
+  );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
@@ -84,49 +92,6 @@ export async function initTransport(
     signal,
     maxRetryAttempts,
   );
-
-  /**
-   * Validate that a message does not exceed the size limit.
-   *
-   * @param message - The message to validate.
-   * @throws ResourceLimitError if message exceeds size limit.
-   */
-  function validateMessageSize(message: string): void {
-    const messageSizeBytes = messageEncoder.encode(message).length;
-    if (messageSizeBytes > maxMessageSizeBytes) {
-      throw new ResourceLimitError(
-        `Message size ${messageSizeBytes} bytes exceeds limit of ${maxMessageSizeBytes} bytes`,
-        {
-          data: {
-            limitType: 'messageSize',
-            current: messageSizeBytes,
-            limit: maxMessageSizeBytes,
-          },
-        },
-      );
-    }
-  }
-
-  /**
-   * Check if we can establish a new connection (within connection limit).
-   *
-   * @throws ResourceLimitError if connection limit is reached.
-   */
-  function checkConnectionLimit(): void {
-    const currentConnections = peerStateManager.countActiveConnections();
-    if (currentConnections >= maxConcurrentConnections) {
-      throw new ResourceLimitError(
-        `Connection limit reached: ${currentConnections}/${maxConcurrentConnections} concurrent connections`,
-        {
-          data: {
-            limitType: 'connection',
-            current: currentConnections,
-            limit: maxConcurrentConnections,
-          },
-        },
-      );
-    }
-  }
 
   /**
    * Clean up stale peer data for peers inactive for more than stalePeerTimeoutMs.
