@@ -4,7 +4,6 @@ import type {
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
-import { importBundle } from '@endo/import-bundle';
 import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import {
@@ -24,6 +23,7 @@ import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
 import type { PlatformFactory } from '@ocap/kernel-platforms';
 
+import { loadBundle } from './bundle-loader.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
 import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
 import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
@@ -308,7 +308,7 @@ export class VatSupervisor {
     if (!fetched.ok) {
       throw Error(`fetch of user code ${bundleSpec} failed: ${fetched.status}`);
     }
-    const bundle = await fetched.json();
+    const bundleContent = await fetched.text();
     const buildVatNamespace = async (
       lsEndowments: Record<PropertyKey, unknown>,
       inescapableGlobalProperties: object,
@@ -333,7 +333,7 @@ export class VatSupervisor {
         // Otherwise, just rethrow the error.
         throw error;
       }
-      const vatNS = await importBundle(bundle, {
+      const vatNS = await loadBundle(bundleContent, {
         filePrefix: `vat-${this.id}/...`,
         endowments,
         inescapableGlobalProperties,

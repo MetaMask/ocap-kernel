@@ -38,7 +38,7 @@ const makeVatSupervisor = async ({
         const bundleContent = await readFile(bundlePath, 'utf-8');
         return {
           ok: true,
-          json: async () => JSON.parse(bundleContent),
+          text: async () => bundleContent,
           // eslint-disable-next-line n/no-unsupported-features/node-builtins
         } as Response;
       },

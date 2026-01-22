@@ -1,15 +1,21 @@
-import '@endo/init';
-import endoBundleSource from '@endo/bundle-source';
-import { Logger } from '@metamask/logger';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
 import { isDirectory } from '../file.ts';
 import { resolveBundlePath } from '../path.ts';
+import { bundleVat } from '../vite/vat-bundler.ts';
+
+/**
+ * Minimal logger interface for bundle operations.
+ */
+type BundleLogger = {
+  info: (message: string, ...args: unknown[]) => void;
+  error?: (message: string, ...args: unknown[]) => void;
+};
 
 type BundleFileOptions = {
-  logger: Logger;
+  logger: BundleLogger;
   targetPath?: string;
 };
 
@@ -30,7 +36,7 @@ export async function bundleFile(
   const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
-  const bundle = await endoBundleSource(sourceFullPath);
+  const bundle = await bundleVat(sourceFullPath);
   const bundleContent = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleContent);
   logger.info(`Wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);
@@ -46,7 +52,7 @@ export async function bundleFile(
  */
 export async function bundleDir(
   sourceDir: string,
-  options: { logger: Logger },
+  options: { logger: BundleLogger },
 ): Promise<void> {
   const { logger } = options;
   logger.info('Bundling directory:', sourceDir);
@@ -67,7 +73,7 @@ export async function bundleDir(
  */
 export async function bundleSource(
   target: string,
-  logger: Logger,
+  logger: BundleLogger,
 ): Promise<void> {
   const targetIsDirectory = await isDirectory(target);
   await (targetIsDirectory ? bundleDir : bundleFile)(target, { logger });
