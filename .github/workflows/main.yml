@@ -77,7 +77,8 @@ jobs:
       artifact_name: coverage
     permissions:
       contents: write
-    secrets: inherit
+    secrets:
+      PUBLISH_DOCS_TOKEN: ${{ secrets.PUBLISH_DOCS_TOKEN }}
 
   is-release:
     name: Determine whether this is a release merge commit
