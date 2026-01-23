@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for ocap-kernel/src/remotes/RemoteManager.ts</title>
+    <title>Code coverage report for ocap-kernel/src/remotes/platform/connection-factory.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">ocap-kernel/src/remotes</a> RemoteManager.ts</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">ocap-kernel/src/remotes/platform</a> connection-factory.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.21% </span>
+                <span class="strong">96.77% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>55/56</span>
+                <span class='fraction'>90/93</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/15</span>
+                <span class='fraction'>28/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">95.45% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>16/16</span>
+                <span class='fraction'>21/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.21% </span>
+                <span class="strong">96.73% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>55/56</span>
+                <span class='fraction'>89/92</span>
             </div>
         
             
@@ -378,7 +378,103 @@
 <a name='L313'></a><a href='#L313'>313</a>
 <a name='L314'></a><a href='#L314'>314</a>
 <a name='L315'></a><a href='#L315'>315</a>
-<a name='L316'></a><a href='#L316'>316</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -406,10 +502,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">112x</span>
+<span class="cline-any cline-yes">44x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">112x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -438,6 +533,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -449,11 +549,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">112x</span>
-<span class="cline-any cline-yes">112x</span>
-<span class="cline-any cline-yes">112x</span>
-<span class="cline-any cline-yes">112x</span>
-<span class="cline-any cline-yes">112x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -462,26 +557,89 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">112x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -494,7 +652,193 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">64x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">66x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-yes">64x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">41x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">37x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -506,56 +850,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">51x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-yes">17x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">37x</span>
+<span class="cline-any cline-yes">37x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -563,449 +863,437 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-yes">29x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">28x</span>
-<span class="cline-any cline-yes">28x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { Logger } from '@metamask/logger';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { noise } from '@chainsafe/libp2p-noise';
+import { yamux } from '@chainsafe/libp2p-yamux';
+import { bootstrap } from '@libp2p/bootstrap';
+import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
+import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
+import { identify } from '@libp2p/identify';
+import { MuxerClosedError } from '@libp2p/interface';
+import type { PrivateKey, Libp2p } from '@libp2p/interface';
+import { ping } from '@libp2p/ping';
+import { webRTC } from '@libp2p/webrtc';
+import { webSockets } from '@libp2p/websockets';
+import { webTransport } from '@libp2p/webtransport';
+import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
+import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
+import { Logger } from '@metamask/logger';
+import { multiaddr } from '@multiformats/multiaddr';
+import { byteStream } from 'it-byte-stream';
+import { createLibp2p } from 'libp2p';
 &nbsp;
-import type { KernelQueue } from '../KernelQueue.ts';
-import { kser } from '../liveslots/kernel-marshal.ts';
-import type { PlatformServices, RemoteId } from '../types.ts';
-import { initRemoteComms } from './remote-comms.ts';
-import { RemoteHandle } from './RemoteHandle.ts';
-import type {
-  RemoteComms,
-  RemoteMessageHandler,
-  RemoteInfo,
-  RemoteCommsOptions,
-} from './types.ts';
-import type { KernelStore } from '../store/index.ts';
-&nbsp;
-type RemoteManagerConstructorProps = {
-  platformServices: PlatformServices;
-  kernelStore: KernelStore;
-  kernelQueue: KernelQueue;
-  logger?: Logger;
-  keySeed?: string | undefined;
-};
+import type { Channel, InboundConnectionHandler } from '../types.ts';
 &nbsp;
 /**
- * Manages remote kernel connections and communications.
+ * Connection factory for libp2p network operations.
+ * Handles libp2p initialization, dialing, and connection management.
  */
-export class RemoteManager {
-  /** Currently active remote kernel connections, by ID */
-  readonly #remotes: Map&lt;RemoteId, RemoteHandle&gt; = new Map();
+export class ConnectionFactory {
+  #libp2p?: Libp2p;
 &nbsp;
-  /** Currently active remote kernel connections, by remote Peer ID */
-  readonly #remotesByPeer: Map&lt;string, RemoteHandle&gt; = new Map();
+  readonly #inflightDials = new Map&lt;string, Promise&lt;Channel&gt;&gt;();
 &nbsp;
-  /** Platform services for network operations */
-  readonly #platformServices: PlatformServices;
+  readonly #logger: Logger;
 &nbsp;
-  /** Storage holding the kernel's persistent state */
-  readonly #kernelStore: KernelStore;
+  readonly #signal: AbortSignal;
 &nbsp;
-  /** The kernel's run queue */
-  readonly #kernelQueue: KernelQueue;
+  readonly #knownRelays: string[];
 &nbsp;
-  /** Logger for outputting messages to the console */
-  readonly #logger: Logger | undefined;
+  readonly #keySeed: string;
 &nbsp;
-  /** Optional seed string for libp2p key generation */
-  readonly #keySeed: string | undefined;
+  readonly #maxRetryAttempts: number;
 &nbsp;
-  /** Remote communications interface */
-  #remoteComms: RemoteComms | undefined;
-&nbsp;
-  /** Handler for incoming remote messages */
-  #messageHandler: RemoteMessageHandler | undefined;
+  #inboundHandler?: InboundConnectionHandler;
 &nbsp;
   /**
-   * Creates a new RemoteManager instance.
+   * Constructor for the ConnectionFactory.
    *
-   * @param options - Constructor options.
-   * @param options.platformServices - Platform-specific services for network communication.
-   * @param options.kernelStore - The kernel's persistent state store.
-   * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
-   * @param options.logger - Logger instance for debugging and diagnostics.
-   * @param options.keySeed - Seed for generating the kernel's cryptographic key pair.
+   * @param keySeed - The key seed to use for the libp2p node.
+   * @param knownRelays - The known relays to use for the libp2p node.
+   * @param logger - The logger to use for the libp2p node.
+   * @param signal - The signal to use for the libp2p node.
+   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    */
-  constructor({
-    platformServices,
-    kernelStore,
-    kernelQueue,
-    logger,
-    keySeed,
-  }: RemoteManagerConstructorProps) {
-    this.#platformServices = platformServices;
-    this.#kernelStore = kernelStore;
-    this.#kernelQueue = kernelQueue;
-    this.#logger = logger;
+  // eslint-disable-next-line no-restricted-syntax
+  private constructor(
+    keySeed: string,
+    knownRelays: string[],
+    logger: Logger,
+    signal: AbortSignal,
+    maxRetryAttempts?: number,
+  ) {
     this.#keySeed = keySeed;
+    this.#knownRelays = knownRelays;
+    this.#logger = logger;
+    this.#signal = signal;
+    this.#maxRetryAttempts = maxRetryAttempts ?? 0;
   }
 &nbsp;
   /**
-   * Set the message handler for incoming remote messages.
-   * This should be called during initialization to properly wire up message handling.
+   * Create a new ConnectionFactory instance.
    *
-   * @param handler - The function to handle incoming remote messages
+   * @param keySeed - The key seed to use for the libp2p node.
+   * @param knownRelays - The known relays to use for the libp2p node.
+   * @param logger - The logger to use for the libp2p node.
+   * @param signal - The signal to use for the libp2p node.
+   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @returns A promise for the new ConnectionFactory instance.
    */
-  setMessageHandler(handler: RemoteMessageHandler): void {
-    this.#messageHandler = handler;
-  }
-&nbsp;
-  /**
-   * Handle when we give up on a remote (after max retries or non-retryable error).
-   * Rejects all promises for which this remote is the decider.
-   *
-   * @param peerId - The peer ID of the remote we're giving up on.
-   */
-  #handleRemoteGiveUp(peerId: string): void {
-    // Find the RemoteId for this peerId
-    const remote = this.#remotesByPeer.get(peerId);
-    if (!remote) {
-      // Remote not found - might have been cleaned up already
-      return;
-    }
-&nbsp;
-    const { remoteId } = remote;
-    const failure = kser(
-      Error(
-        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
-      ),
+  static async make(
+    keySeed: string,
+    knownRelays: string[],
+    logger: Logger,
+    signal: AbortSignal,
+    maxRetryAttempts?: number,
+  ): Promise&lt;ConnectionFactory&gt; {
+    const factory = new ConnectionFactory(
+      keySeed,
+      knownRelays,
+      logger,
+      signal,
+      maxRetryAttempts,
     );
-&nbsp;
-    // Reject pending URL redemptions in the RemoteHandle
-    // These are JavaScript promises that will propagate rejection to kernel promises
-    remote.rejectPendingRedemptions(
-      `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
-    );
-&nbsp;
-    // Reject all promises for which this remote is the decider
-    for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
-<span class="cstat-no" title="statement not covered" >      this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);</span>
-    }
+    await factory.#init();
+    return factory;
   }
 &nbsp;
   /**
-   * Initialize the remote comms object at kernel startup.
-   *
-   * @param options - Options for remote communications initialization.
-   * @returns a promise that resolves when initialization is complete.
+   * Initialize libp2p with the provided configuration.
    */
-  async initRemoteComms(options?: RemoteCommsOptions): Promise&lt;void&gt; {
-    if (!this.#messageHandler) {
-      throw Error(
-        'Message handler must be set before initializing remote comms',
-      );
-    }
+  async #init(): Promise&lt;void&gt; {
+    const privateKey = await this.#generateKeyInfo();
 &nbsp;
-    this.#remoteComms = await initRemoteComms(
-      this.#kernelStore,
-      this.#platformServices,
-      this.#messageHandler,
-      options ?? {},
-      this.#logger,
-      this.#keySeed,
-      this.#handleRemoteGiveUp.bind(this),
-    );
-&nbsp;
-    // Restore all remotes that were previously established
-    for (const {
-      remoteId,
-      remoteInfo,
-    } of this.#kernelStore.getAllRemoteRecords()) {
-      this.#initializeRemote(remoteId, remoteInfo);
-    }
-  }
-&nbsp;
-  /**
-   * Clean up remote manager state.
-   * This should be called when remote comms are stopped externally.
-   */
-  cleanup(): void {
-    // Clean up all RemoteHandle instances to clear their timers
-    for (const remote of this.#remotes.values()) {
-      remote.cleanup();
-    }
-    this.#remoteComms = undefined;
-    this.#remotes.clear();
-    this.#remotesByPeer.clear();
-  }
-&nbsp;
-  /**
-   * Get the remote comms object.
-   *
-   * @returns the remote comms object.
-   * @throws if the remote comms object is not initialized.
-   */
-  getRemoteComms(): RemoteComms {
-    if (this.#remoteComms) {
-      return this.#remoteComms;
-    }
-    throw Error('Remote comms not initialized');
-  }
-&nbsp;
-  /**
-   * Check if remote comms is initialized.
-   *
-   * @returns true if remote comms is initialized, false otherwise.
-   */
-  isRemoteCommsInitialized(): boolean {
-    return this.#remoteComms !== undefined;
-  }
-&nbsp;
-  /**
-   * Get the peer ID of this kernel.
-   *
-   * @returns the peer ID.
-   * @throws if remote comms is not initialized.
-   */
-  getPeerId(): string {
-    return this.getRemoteComms().getPeerId();
-  }
-&nbsp;
-  /**
-   * Set up bookkeeping for a newly established remote connection.
-   *
-   * @param peerId - Peer ID of the kernel at the other end of the connection.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   * @returns the RemoteHandle that was set up.
-   */
-  establishRemote(peerId: string, hints: string[] = []): RemoteHandle {
-    const remoteId = this.#kernelStore.getNextRemoteId();
-    const remoteInfo: RemoteInfo = { peerId, hints };
-    const remote = this.#initializeRemote(remoteId, remoteInfo);
-    this.#kernelStore.setRemoteInfo(remoteId, remoteInfo);
-    this.#kernelStore.initEndpoint(remoteId);
-    return remote;
-  }
-&nbsp;
-  /**
-   * Initializes a remote handle for communication with a remote kernel.
-   *
-   * @param remoteId - The unique identifier for the remote kernel.
-   * @param info - Information about the remote including peer ID and connection hints.
-   * @returns A handle for communicating with the remote kernel.
-   */
-  #initializeRemote(remoteId: RemoteId, info: RemoteInfo): RemoteHandle {
-    const { peerId, hints } = info;
-    const remoteComms = this.getRemoteComms();
-&nbsp;
-    const remote = RemoteHandle.make({
-      remoteId,
-      peerId,
-      kernelStore: this.#kernelStore,
-      kernelQueue: this.#kernelQueue,
-      remoteComms,
-      locationHints: hints,
-      logger: this.#logger,
-      onGiveUp: this.#handleRemoteGiveUp.bind(this),
+    this.#libp2p = await createLibp2p({
+      privateKey,
+      addresses: {
+        listen: ['/webrtc', '/p2p-circuit'],
+        appendAnnounce: ['/webrtc'],
+      },
+      transports: [
+        webSockets(),
+        webTransport(),
+        webRTC({
+          rtcConfiguration: {
+            iceServers: [
+              {
+                urls: [
+                  'stun:stun.l.google.com:19302',
+                  'stun:global.stun.twilio.com:3478',
+                ],
+              },
+            ],
+          },
+        }),
+        circuitRelayTransport(),
+      ],
+      connectionEncrypters: [noise()],
+      streamMuxers: [yamux()],
+      connectionGater: {
+        // Allow private addresses for local testing
+        denyDialMultiaddr: async () =&gt; false,
+      },
+      peerDiscovery: [
+        bootstrap({
+          list: this.#knownRelays,
+        }),
+      ],
+      services: {
+        identify: identify(),
+        ping: ping(),
+      },
     });
-    this.#remotes.set(remoteId, remote);
-    this.#remotesByPeer.set(peerId, remote);
-    return remote;
+&nbsp;
+    // Set up inbound handler
+    await this.#libp2p.handle('whatever', ({ connection, stream }) =&gt; {
+      const msgStream = byteStream(stream);
+      const remotePeerId = connection.remotePeer.toString();
+      this.#logger.log(`inbound connection from peerId:${remotePeerId}`);
+&nbsp;
+      const channel: Channel = {
+        msgStream,
+        peerId: remotePeerId,
+      };
+&nbsp;
+      this.#inboundHandler?.(channel);
+    });
+&nbsp;
+    // Start libp2p
+    this.#logger.log(
+      `Starting libp2p node with peerId: ${this.#libp2p.peerId.toString()}`,
+    );
+    this.#logger.log(`Connecting to relays: ${this.#knownRelays.join(', ')}`);
+&nbsp;
+    this.#libp2p.addEventListener('self:peer:update', (evt) =&gt; {
+      this.#logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
+    });
+&nbsp;
+    await this.#libp2p.start();
   }
 &nbsp;
   /**
-   * Get or create a RemoteHandle for a given peer ID.
+   * Set the handler for inbound connections.
    *
-   * @param peerId - The libp2p peer for which a handle is sought.
-   * @param hints - Optional list of possible relays via which the requested peer might be contacted.
-   *
-   * @returns an existing or new RemoteHandle to communicate with `peerId`.
+   * @param handler - The handler for inbound connections.
    */
-  remoteFor(peerId: string, hints: string[] = []): RemoteHandle {
-    const remote =
-      this.#remotesByPeer.get(peerId) ?? this.establishRemote(peerId, hints);
-    return remote;
+  onInboundConnection(handler: InboundConnectionHandler): void {
+    this.#inboundHandler = handler;
   }
 &nbsp;
   /**
-   * Get a remote by its ID.
+   * Generate key info from the seed.
    *
-   * @param remoteId - The ID of the remote.
-   * @returns the remote's RemoteHandle.
-   * @throws if the remote is not found.
+   * @returns The key info.
    */
-  getRemote(remoteId: RemoteId): RemoteHandle {
-    const remote = this.#remotes.get(remoteId);
-    if (remote === undefined) {
-      throw Error(`Remote not found: ${remoteId}`);
+  async #generateKeyInfo(): Promise&lt;PrivateKey&gt; {
+    const keyPair = await generateKeyPairFromSeed(
+      'Ed25519',
+      fromHex(this.#keySeed),
+    );
+    return keyPair;
+  }
+&nbsp;
+  /**
+   * Get candidate address strings for dialing a peer.
+   *
+   * @param peerId - The peer ID to get candidate address strings for.
+   * @param hints - The hints to get candidate address strings for.
+   * @returns The candidate address strings.
+   */
+  candidateAddressStrings(peerId: string, hints: string[]): string[] {
+    const possibleContacts = hints.concat(
+      ...this.#knownRelays.filter((relay) =&gt; !hints.includes(relay)),
+    );
+    // Try WebRTC via relay first, then WebSocket via relay.
+    return possibleContacts.flatMap((relay) =&gt; [
+      `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
+      `${relay}/p2p-circuit/p2p/${peerId}`,
+    ]);
+  }
+&nbsp;
+  /**
+   * Single-attempt channel open (no backoff here).
+   * Throws if all strategies fail.
+   *
+   * @param peerId - The peer ID to open a channel for.
+   * @param hints - The hints to open a channel for.
+   * @returns The channel.
+   */
+  async openChannelOnce(
+    peerId: string,
+    hints: string[] = [],
+  ): Promise&lt;Channel&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!this.#libp2p) {
+<span class="cstat-no" title="statement not covered" >      throw new Error('libp2p not initialized');</span>
     }
-    return remote;
+&nbsp;
+    const addresses = this.candidateAddressStrings(peerId, hints);
+    // Combine shutdown signal with a per-dial timeout
+    const signalTimeout = AbortSignal.timeout(30_000);
+&nbsp;
+    let lastError: Error | undefined;
+&nbsp;
+    for (const addressString of addresses) {
+      if (this.#signal.aborted) {
+        throw new AbortError();
+      }
+      try {
+        const connectToAddr = multiaddr(addressString);
+        this.#logger.log(`contacting ${peerId} via ${addressString}`);
+        const stream = await this.#libp2p.dialProtocol(
+          connectToAddr,
+          'whatever',
+          {
+            signal: signalTimeout,
+          },
+        );
+        this.#logger.log(
+          `successfully connected to ${peerId} via ${addressString}`,
+        );
+        const msgStream = byteStream(stream);
+        const channel: Channel = { msgStream, peerId };
+        this.#logger.log(`opened channel to ${peerId}`);
+        return channel;
+      } catch (problem) {
+        lastError = problem as Error;
+        if (this.#signal.aborted) {
+          throw new AbortError();
+        }
+        if (problem instanceof MuxerClosedError) {
+          this.#outputError(
+            peerId,
+            `yamux muxer issue contacting via ${addressString}`,
+            problem,
+          );
+        } else if (signalTimeout.aborted) {
+          this.#outputError(peerId, `timed out opening channel`, problem);
+        } else {
+          this.#outputError(peerId, `issue opening channel`, problem);
+        }
+      }
+    }
+&nbsp;
+    throw lastError ?? new Error(`unable to open channel to ${peerId}`);
   }
 &nbsp;
   /**
-   * Handle a message from a remote kernel.
+   * Backoff-capable open (useful for initial connect).
    *
-   * @param from - The peer ID of the sender.
-   * @param message - The message content.
-   * @returns a promise for the response message.
+   * @param peerId - The peer ID to open a channel for.
+   * @param hints - The hints to open a channel for.
+   * @returns The channel.
    */
-  async handleRemoteMessage(from: string, message: string): Promise&lt;string&gt; {
-    const remote = this.remoteFor(from);
-    return await remote.handleRemoteMessage(message);
+  async openChannelWithRetry(
+    peerId: string,
+    hints: string[] = [],
+  ): Promise&lt;Channel&gt; {
+    const retryOptions: Parameters&lt;typeof retryWithBackoff&gt;[1] = {
+      maxAttempts: this.#maxRetryAttempts,
+      jitter: true,
+      shouldRetry: isRetryableNetworkError,
+      onRetry: ({ attempt, maxAttempts, delayMs }) =&gt; {
+        this.#logger.log(
+          `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${maxAttempts || <span class="branch-1 cbranch-no" title="branch not covered" >'∞'}</span>)`,
+        );
+      },
+      signal: this.#signal,
+    };
+    return retryWithBackoff(
+      async () =&gt; this.openChannelOnce(peerId, hints),
+      retryOptions,
+    );
   }
 &nbsp;
   /**
-   * Explicitly close a connection to a peer.
-   * Marks the peer as intentionally closed to prevent automatic reconnection.
+   * Ensure only one dial attempt per peer at a time.
    *
-   * @param peerId - The peer ID to close the connection for.
+   * @param peerId - The peer ID to dial.
+   * @param hints - The hints to dial.
+   * @param withRetry - Whether to retry the dial.
+   * @returns The channel.
    */
-  async closeConnection(peerId: string): Promise&lt;void&gt; {
-    this.getRemoteComms(); // Ensure remote comms is initialized
-    await this.#platformServices.closeConnection(peerId);
+  async dialIdempotent(
+    peerId: string,
+    hints: string[],
+    withRetry: boolean,
+  ): Promise&lt;Channel&gt; {
+    let promise = this.#inflightDials.get(peerId);
+    if (!promise) {
+      promise = (
+        withRetry
+          ? this.openChannelWithRetry(peerId, hints)
+          : this.openChannelOnce(peerId, hints)
+      ).finally(() =&gt; this.#inflightDials.delete(peerId));
+      this.#inflightDials.set(peerId, promise);
+    }
+    return promise;
   }
 &nbsp;
   /**
-   * Take note of where a peer might be.
+   * Close a channel's underlying stream to release network resources.
    *
-   * @param peerId - The peer ID to which this information applies.
-   * @param hints - Location hints for the peer.
+   * @param channel - The channel to close.
+   * @param peerId - The peer ID for logging.
    */
-  async registerLocationHints(peerId: string, hints: string[]): Promise&lt;void&gt; {
-    await this.getRemoteComms().registerLocationHints(peerId, hints);
+  async closeChannel(channel: Channel, peerId: string): Promise&lt;void&gt; {
+    try {
+      // ByteStream.unwrap() returns the underlying libp2p stream.
+      const maybeWrapper = channel.msgStream as unknown as {
+        unwrap?: () =&gt; unknown;
+      };
+      const underlying =
+        typeof maybeWrapper.unwrap === 'function'
+          ? maybeWrapper.unwrap()
+          : <span class="branch-1 cbranch-no" title="branch not covered" >undefined;</span>
+&nbsp;
+      const closable = underlying as
+        | { close?: () =&gt; Promise&lt;void&gt; }
+        | undefined;
+      if (closable?.close) {
+        await closable.close();
+        this.#logger.log(`${peerId}:: closed channel stream`);
+        return;
+      }
+&nbsp;
+      const abortable = underlying as
+        | { abort?: (error?: Error) =&gt; void }
+        | undefined;
+      if (abortable?.abort) {
+        abortable.abort(new AbortError());
+        this.#logger.log(`${peerId}:: aborted channel stream`);
+        return;
+      }
+&nbsp;
+      // If we cannot explicitly close/abort, log and rely on natural closure.
+      this.#logger.log(
+        `${peerId}:: channel stream lacks close/abort, relying on natural closure`,
+      );
+    } catch (problem) {
+<span class="cstat-no" title="statement not covered" >      this.#outputError(peerId, 'closing channel stream', problem);</span>
+    }
   }
 &nbsp;
   /**
-   * Manually reconnect to a peer after intentional close.
-   * Clears the intentional close flag and initiates reconnection.
+   * Output an error message.
    *
-   * @param peerId - The peer ID to reconnect to.
-   * @param hints - Optional hints for reconnection.
+   * @param peerId - The peer ID to output an error message for.
+   * @param task - The task to output an error message for.
+   * @param problem - The problem to output an error message for.
    */
-  async reconnectPeer(peerId: string, hints: string[] = []): Promise&lt;void&gt; {
-    this.getRemoteComms(); // Ensure remote comms is initialized
-    await this.#platformServices.reconnectPeer(peerId, hints);
+  #outputError(peerId: string, task: string, problem: unknown): void {
+    if (problem) {
+      const realProblem: Error = problem as Error;
+      this.#logger.log(`${peerId}:: error ${task}: ${realProblem}`);
+    } else {
+      this.#logger.log(`${peerId}:: error ${task}`);
+    }
+  }
+&nbsp;
+  /**
+   * Stop libp2p and clean up.
+   */
+  async stop(): Promise&lt;void&gt; {
+    this.#inflightDials.clear();
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (this.#libp2p) {
+      try {
+        // Add a timeout to prevent hanging if libp2p.stop() doesn't complete
+        const STOP_TIMEOUT_MS = 2000;
+        await Promise.race([
+          this.#libp2p.stop(),
+          new Promise&lt;void&gt;((_resolve, reject) =&gt;
+            setTimeout(
+<span class="fstat-no" title="function not covered" >              () =&gt; <span class="cstat-no" title="statement not covered" >r</span>eject(new Error('libp2p.stop() timed out')),</span>
+              STOP_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+      } catch (error) {
+        this.#logger.error('libp2p.stop() failed or timed out:', error);
+        // Continue anyway - we'll clear the reference
+      }
+      this.#libp2p = undefined as unknown as Libp2p;
+    }
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -1015,16 +1303,16 @@ export class RemoteManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-22T01:27:01.543Z
+                at 2026-01-23T19:12:38.770Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
     </body>
 </html>
     
