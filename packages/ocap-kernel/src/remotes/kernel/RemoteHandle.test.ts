@@ -1010,16 +1010,8 @@ describe('RemoteHandle', () => {
       mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 3);
       mockKernelStore.setRemoteHighestReceivedSeq(mockRemoteId, 2);
       mockKernelStore.setRemoteStartSeq(mockRemoteId, 2);
-      mockKernelStore.setPendingMessage(
-        mockRemoteId,
-        2,
-        '{"seq":2,"method":"deliver","params":["notify",[]]}',
-      );
-      mockKernelStore.setPendingMessage(
-        mockRemoteId,
-        3,
-        '{"seq":3,"method":"deliver","params":["notify",[]]}',
-      );
+      mockKernelStore.setPendingMessage(mockRemoteId, 2, 'message 2');
+      mockKernelStore.setPendingMessage(mockRemoteId, 3, 'message 3');
 
       // Create a new RemoteHandle - should restore state
       const remote = makeRemote();
@@ -1046,9 +1038,9 @@ describe('RemoteHandle', () => {
       mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 2);
       mockKernelStore.setRemoteStartSeq(mockRemoteId, 1);
       // But messages 1, 2, and 3 exist (3 was written but seq not incremented)
-      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
-      mockKernelStore.setPendingMessage(mockRemoteId, 2, '{"seq":2}');
-      mockKernelStore.setPendingMessage(mockRemoteId, 3, '{"seq":3}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, 'message 1');
+      mockKernelStore.setPendingMessage(mockRemoteId, 2, 'message 2');
+      mockKernelStore.setPendingMessage(mockRemoteId, 3, 'message 3');
 
       // Create RemoteHandle - should detect and repair
       const remote = makeRemote();
@@ -1077,7 +1069,7 @@ describe('RemoteHandle', () => {
       // startSeq is persisted before nextSendSeq.
       mockKernelStore.setRemoteStartSeq(mockRemoteId, 1);
       // nextSendSeq not written (defaults to 0)
-      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, 'message 1');
 
       // Create RemoteHandle - should detect message at nextSendSeq+1 and repair
       const remote = makeRemote();
@@ -1105,7 +1097,7 @@ describe('RemoteHandle', () => {
       // Simulate crash during first enqueue: message written but NO seq state
       // persisted at all. This can happen if crash occurs after setPendingMessage
       // but before setRemoteStartSeq.
-      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, 'message 1');
       // No seq state set - getRemoteSeqState will return undefined
 
       // Create RemoteHandle - should scan and find orphan message at seq 1
@@ -1130,25 +1122,27 @@ describe('RemoteHandle', () => {
       expect(seqState?.nextSendSeq).toBe(2);
       // Original orphan message still exists
       expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBe(
-        '{"seq":1}',
+        'message 1',
       );
     });
 
-    it('ignores orphan messages (seq < startSeq) on recovery', () => {
+    it('cleans up orphan messages (seq < startSeq) on recovery', () => {
       // Simulate crash during ACK: startSeq updated but message not deleted
       mockKernelStore.setRemoteNextSendSeq(mockRemoteId, 3);
       mockKernelStore.setRemoteStartSeq(mockRemoteId, 2);
       // Orphan message at seq 1 (already acked per startSeq=2)
-      mockKernelStore.setPendingMessage(mockRemoteId, 1, '{"seq":1}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 1, 'message 1');
       // Valid pending at seq 2 and 3
-      mockKernelStore.setPendingMessage(mockRemoteId, 2, '{"seq":2}');
-      mockKernelStore.setPendingMessage(mockRemoteId, 3, '{"seq":3}');
+      mockKernelStore.setPendingMessage(mockRemoteId, 2, 'message 2');
+      mockKernelStore.setPendingMessage(mockRemoteId, 3, 'message 3');
 
-      // Create RemoteHandle - orphan is ignored (lazy cleanup)
+      // Create RemoteHandle - should clean up orphan during recovery
       makeRemote();
 
-      // Orphan still exists in storage (cleaned lazily when remote is deleted)
-      expect(mockKernelStore.getPendingMessage(mockRemoteId, 1)).toBeDefined();
+      // Orphan should be deleted
+      expect(
+        mockKernelStore.getPendingMessage(mockRemoteId, 1),
+      ).toBeUndefined();
       // Valid pending messages should remain
       expect(mockKernelStore.getPendingMessage(mockRemoteId, 2)).toBeDefined();
       expect(mockKernelStore.getPendingMessage(mockRemoteId, 3)).toBeDefined();

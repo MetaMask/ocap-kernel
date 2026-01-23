@@ -205,6 +205,31 @@ export function getRemoteMethods(ctx: StoreContext) {
     }
   }
 
+  /**
+   * Delete orphan pending messages (messages with seq < startSeq).
+   * Called during recovery to clean up messages left behind by crashes
+   * during ACK processing.
+   *
+   * @param remoteId - The remote whose orphans are to be cleaned.
+   * @param startSeq - The current start sequence; messages below this are orphans.
+   * @returns The number of orphan messages deleted.
+   */
+  function cleanupOrphanMessages(remoteId: RemoteId, startSeq: number): number {
+    const pendingPrefix = `${REMOTE_PENDING_BASE}${remoteId}.`;
+    const prefixLen = pendingPrefix.length;
+    let deletedCount = 0;
+
+    for (const key of getPrefixedKeys(pendingPrefix)) {
+      const seq = Number(key.slice(prefixLen));
+      if (seq < startSeq) {
+        kv.delete(key);
+        deletedCount += 1;
+      }
+    }
+
+    return deletedCount;
+  }
+
   return {
     getAllRemoteRecords,
     getRemoteInfo,
@@ -219,5 +244,6 @@ export function getRemoteMethods(ctx: StoreContext) {
     setPendingMessage,
     deletePendingMessage,
     deleteRemotePendingState,
+    cleanupOrphanMessages,
   };
 }

@@ -295,4 +295,50 @@ describe('remote store methods', () => {
       ).not.toThrow();
     });
   });
+
+  describe('cleanupOrphanMessages', () => {
+    it('deletes messages with seq < startSeq', () => {
+      mockKV.set(`remotePending.${remoteId1}.1`, 'message 1');
+      mockKV.set(`remotePending.${remoteId1}.2`, 'message 2');
+      mockKV.set(`remotePending.${remoteId1}.3`, 'message 3');
+      mockKV.set(`remotePending.${remoteId1}.4`, 'message 4');
+      mockGetPrefixedKeys.mockReturnValue([
+        `remotePending.${remoteId1}.1`,
+        `remotePending.${remoteId1}.2`,
+        `remotePending.${remoteId1}.3`,
+        `remotePending.${remoteId1}.4`,
+      ]);
+
+      const deleted = remoteMethods.cleanupOrphanMessages(remoteId1, 3);
+
+      expect(deleted).toBe(2);
+      expect(mockKV.has(`remotePending.${remoteId1}.1`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.2`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(true);
+      expect(mockKV.has(`remotePending.${remoteId1}.4`)).toBe(true);
+    });
+
+    it('returns 0 when no orphans exist', () => {
+      mockKV.set(`remotePending.${remoteId1}.3`, 'message 3');
+      mockKV.set(`remotePending.${remoteId1}.4`, 'message 4');
+      mockGetPrefixedKeys.mockReturnValue([
+        `remotePending.${remoteId1}.3`,
+        `remotePending.${remoteId1}.4`,
+      ]);
+
+      const deleted = remoteMethods.cleanupOrphanMessages(remoteId1, 3);
+
+      expect(deleted).toBe(0);
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(true);
+      expect(mockKV.has(`remotePending.${remoteId1}.4`)).toBe(true);
+    });
+
+    it('handles empty pending queue', () => {
+      mockGetPrefixedKeys.mockReturnValue([]);
+
+      const deleted = remoteMethods.cleanupOrphanMessages(remoteId1, 5);
+
+      expect(deleted).toBe(0);
+    });
+  });
 });
