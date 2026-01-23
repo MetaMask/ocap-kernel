@@ -67,7 +67,7 @@ describe('bundle', async () => {
         expect(await fileExists(bundle)).toBe(false);
 
         const testContent = {
-          moduleFormat: 'vite-iife',
+          moduleFormat: 'iife',
           code: 'test-code',
           exports: [],
           modules: {},
@@ -101,7 +101,7 @@ describe('bundle', async () => {
       expect(await globBundles()).toStrictEqual([]);
 
       mocks.bundleVat.mockImplementation(() => ({
-        moduleFormat: 'vite-iife',
+        moduleFormat: 'iife',
         code: 'test content',
         exports: [],
         modules: {},
