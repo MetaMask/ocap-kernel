@@ -28,15 +28,13 @@ async function main(): Promise<void> {
 
   const urlParams = new URLSearchParams(window.location.search);
   const vatId = urlParams.get('vatId') ?? 'unknown';
-  const vatLogger = logger.subLogger(vatId);
 
   // eslint-disable-next-line no-new
   new VatSupervisor({
     id: vatId,
     kernelStream,
-    logger: vatLogger,
+    logger: logger.subLogger(vatId),
     makePlatform,
-    vatPowers: { logger: vatLogger },
   });
 
   logger.info('VatSupervisor initialized with vatId:', vatId);
