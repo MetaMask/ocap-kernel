@@ -64,6 +64,7 @@ describe('makeKernelFacade', () => {
       const kernelResult = {
         subclusterId: 's1',
         bootstrapRootKref: 'ko1',
+        bootstrapResult: { body: '#null', slots: [] },
       };
       vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
         kernelResult,
