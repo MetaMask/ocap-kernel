@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>0/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/0</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>0/7</span>
             </div>
         
             
@@ -163,15 +163,7 @@
 <a name='L98'></a><a href='#L98'>98</a>
 <a name='L99'></a><a href='#L99'>99</a>
 <a name='L100'></a><a href='#L100'>100</a>
-<a name='L101'></a><a href='#L101'>101</a>
-<a name='L102'></a><a href='#L102'>102</a>
-<a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a>
-<a name='L105'></a><a href='#L105'>105</a>
-<a name='L106'></a><a href='#L106'>106</a>
-<a name='L107'></a><a href='#L107'>107</a>
-<a name='L108'></a><a href='#L108'>108</a>
-<a name='L109'></a><a href='#L109'>109</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L101'></a><a href='#L101'>101</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -253,21 +245,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -359,26 +343,18 @@ export async function <span class="fstat-no" title="function not covered" >initi
       launchSubcluster: <span class="fstat-no" title="function not covered" >async (</span>
         config: ClusterConfig,
       ): Promise&lt;LaunchResult&gt; =&gt; {
-        const statusBefore = <span class="cstat-no" title="statement not covered" >await E(kernel).getStatus();</span>
-        const beforeIds = <span class="cstat-no" title="statement not covered" >new Set(</span>
-          statusBefore.subclusters.map(<span class="fstat-no" title="function not covered" >(s</span>ubcluster) =&gt; <span class="cstat-no" title="statement not covered" >subcluster.id)</span>,
-        );
-&nbsp;
-<span class="cstat-no" title="statement not covered" >        await E(kernel).launchSubcluster(config);</span>
-&nbsp;
-        const statusAfter = <span class="cstat-no" title="statement not covered" >await E(kernel).getStatus();</span>
-        const newSubcluster = <span class="cstat-no" title="statement not covered" >statusAfter.subclusters.find(</span>
-<span class="fstat-no" title="function not covered" >          (s</span>ubcluster) =&gt; <span class="cstat-no" title="statement not covered" >!beforeIds.has(subcluster.id),</span>
-        );
-&nbsp;
-<span class="cstat-no" title="statement not covered" >        if (!newSubcluster) {</span>
-<span class="cstat-no" title="statement not covered" >          throw new Error('Failed to determine subclusterId after launch');</span>
-        }
-&nbsp;
-<span class="cstat-no" title="statement not covered" >        return { subclusterId: newSubcluster.id };</span>
+        const result = <span class="cstat-no" title="statement not covered" >await E(kernel).launchSubcluster(config);</span>
+<span class="cstat-no" title="statement not covered" >        return {</span>
+          subclusterId: result.subclusterId,
+          rootKref: result.rootKref,
+        };
       },
       terminateSubcluster: <span class="fstat-no" title="function not covered" >async (s</span>ubclusterId: string): Promise&lt;void&gt; =&gt; {
 <span class="cstat-no" title="statement not covered" >        await E(kernel).terminateSubcluster(subclusterId);</span>
+      },
+      getVatRoot: <span class="fstat-no" title="function not covered" >async (k</span>refString: string): Promise&lt;unknown&gt; =&gt; {
+        // Convert kref string to presence via kernel facade
+<span class="cstat-no" title="statement not covered" >        return E(kernel).getVatRoot(krefString);</span>
       },
     },
   );
@@ -394,7 +370,7 @@ export async function <span class="fstat-no" title="function not covered" >initi
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-23T20:10:19.519Z
+                at 2026-01-23T22:46:26.930Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
