@@ -46,6 +46,7 @@ describe('kernel store', () => {
         'addSubcluster',
         'addSubclusterVat',
         'allocateErefForKref',
+        'cleanupOrphanMessages',
         'cleanupTerminatedVat',
         'clear',
         'clearEmptySubclusters',

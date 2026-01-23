@@ -232,6 +232,17 @@ export class RemoteHandle implements EndpointHandle {
       this.#kernelStore.setRemoteNextSendSeq(this.remoteId, this.#nextSendSeq);
     }
 
+    // Clean up orphan messages (seq < startSeq) left behind by crashes during ACK
+    const orphansDeleted = this.#kernelStore.cleanupOrphanMessages(
+      this.remoteId,
+      this.#startSeq,
+    );
+    if (orphansDeleted > 0) {
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: cleaned up ${orphansDeleted} orphan message(s) during recovery`,
+      );
+    }
+
     // If we have pending messages after recovery, start ACK timeout for retransmission
     if (this.#hasPendingMessages()) {
       this.#logger.log(
