@@ -15,6 +15,9 @@ on:
         description: 'Name of artifact to download'
         required: true
         type: string
+    secrets:
+      PUBLISH_DOCS_TOKEN:
+        required: true
 
 jobs:
   publish:
@@ -33,6 +36,6 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:
-          personal_token: ${{ secrets.PUBLISH_PAGES_TOKEN }}
+          personal_token: ${{ secrets.PUBLISH_DOCS_TOKEN }}
           publish_dir: ${{ inputs.publish_dir }}
           destination_dir: ${{ inputs.destination_dir }}
